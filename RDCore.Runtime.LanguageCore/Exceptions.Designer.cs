@@ -1138,6 +1138,24 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to There is no host application to evaluate the expression.
+        /// </summary>
+        internal static string VBCompileError_NoHostApplicationToEvaluateExpression {
+            get {
+                return ResourceManager.GetString("VBCompileError_NoHostApplicationToEvaluateExpression", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;[{0}]&apos; names nothing that is declared, which makes it an expression for a host application to evaluate..
+        /// </summary>
+        internal static string VBCompileError_NoHostApplicationToEvaluateExpression_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NoHostApplicationToEvaluateExpression_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
         /// </summary>
         internal static string VBCompileError_NameIsAProject_Verbose {

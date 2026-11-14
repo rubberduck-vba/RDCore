@@ -942,6 +942,15 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Frame_Summary", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to ({0} line {1}).
+        /// </summary>
+        public static string Repl_Frame_InModuleLine {
+            get {
+                return ResourceManager.GetString("Repl_Frame_InModuleLine", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Lists the shell commands..
@@ -1158,7 +1167,16 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_RuntimeError_InLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} IN {1} LINE {2}.
+        /// </summary>
+        public static string Repl_RuntimeError_InModuleLine {
+            get {
+                return ResourceManager.GetString("Repl_RuntimeError_InModuleLine", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to SOURCE: {0}.
         /// </summary>

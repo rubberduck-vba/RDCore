@@ -58,6 +58,14 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             return StaticSemanticsEvaluationResult.Success(result.Symbol is ITypedSymbol typed ? typed.ResolvedType : VBUnknownType.TypeInfo);
         }
 
+        // a name in brackets (MS-VBAL §3.3.5.3) that nothing declares is the text of an expression for the host application to evaluate, as [A1] is in
+        // Excel, and never an implicit variable, Option Explicit or not: RD-VBA hosts no application to evaluate it.
+        if (simpleName.IsBracketed)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.NoHostApplicationToEvaluateExpression, expression.Location,
+                string.Format(Exceptions.VBCompileError_NoHostApplicationToEvaluateExpression_Verbose, simpleName.IdentifierName)));
+        }
+
         // unbound: MS-VBAL 5.6.10 leaves this to Option Explicit (RD-VBAL §5.2.1.3). Under Explicit
         // it's a compile error; otherwise it's IVBInferableType's job to narrow the type from use —
         // this rule only ever answers VBUnknownType.

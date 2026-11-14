@@ -34,6 +34,9 @@
   <data name="ExtractMethodName_Shadows" xml:space="preserve">
     <value>'{0}' is also {1}, which the new procedure hides in this module.</value>
   </data>
+  <data name="ExtractMethodName_Implemented" xml:space="preserve">
+    <value>{1} implements this class: it would have to implement a Public '{0}' too. Make the new procedure Private.</value>
+  </data>
   <!-- What is wrong with the user's answers for a parameter of the new procedure (ExtractionParameterProblem): {0} is the parameter, {1} the name or the passing the user gave it (for OptionalBeforeRequired, the parameter that is not Optional), {2} the longest a name can be. -->
   <data name="ExtractMethodParameter_NotAParameter" xml:space="preserve">
     <value>'{0}' is not a parameter of the new procedure, or it is answered twice.</value>
@@ -74,6 +77,24 @@
   <data name="ExtractMethod_DocumentChanged" xml:space="preserve">
     <value>The extraction was not made: the document has changed since it was offered. Select the statements again.</value>
   </data>
+  <data name="ConvertGoSub_DocumentChanged" xml:space="preserve">
+    <value>The routine was not converted: the document has changed since it was offered. Ask for the conversion again.</value>
+  </data>
+  <data name="ConvertGoSub_ConvertAll" xml:space="preserve">
+    <value>Convert every GoSub routine of the procedure</value>
+  </data>
+  <data name="ConvertGoSub_ConvertAllDescription" xml:space="preserve">
+    <value>The routines are converted innermost first, each checked on the code the one before left: all of them, or none. Each one but this one is named after its label.</value>
+  </data>
+  <data name="ConvertGoSub_RunsAnother" xml:space="preserve">
+    <value>The GoSub at {1} runs another routine, which is converted first, with every routine of the procedure.</value>
+  </data>
+  <data name="ConvertGoSub_NotAll" xml:space="preserve">
+    <value>The routines were not converted: {0} cannot be. {1}</value>
+  </data>
+  <data name="ConvertGoSub_NameTaken" xml:space="preserve">
+    <value>The routines were not converted: another one is named {0} already.</value>
+  </data>
   <data name="ExtractMethodChoice_Name" xml:space="preserve">
     <value>Name</value>
   </data>
@@ -112,6 +133,61 @@
   </data>
   <data name="ExtractMethodChoice_RouteExitsDescription" xml:space="preserve">
     <value>The new procedure returns where the selection leaves to, and the call goes there.</value>
+  </data>
+  <data name="ExtractMethodChoice_Accessibility" xml:space="preserve">
+    <value>Accessibility</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityDescription" xml:space="preserve">
+    <value>Where the new procedure can be called from.</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityPrivate" xml:space="preserve">
+    <value>From this module only.</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityPublic" xml:space="preserve">
+    <value>From anywhere in the project; for a class module, through each of its objects.</value>
+  </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicates" xml:space="preserve">
+    <value>Replace the duplicates</value>
+  </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicatesDescription" xml:space="preserve">
+    <value>Each duplicate that is ticked is replaced with a call to the new procedure.</value>
+  </data>
+  <data name="ExtractMethodChoice_Duplicates" xml:space="preserve">
+    <value>Duplicates</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicatesDescription" xml:space="preserve">
+    <value>Code written as the selection is, which a call to the new procedure can replace.</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicateReplace" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublic" xml:space="preserve">
+    <value>In another module: replaced only when the new procedure is Public.</value>
+  </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublicMember" xml:space="preserve">
+    <value>In the class: replaced only when the new member is Public.</value>
+  </data>
+  <!-- Why the duplicates the user chose are not replaced: {0} is the duplicate, where it is and its first line (for NotADuplicate, its id); {1} why its replacement is not verified. -->
+  <data name="ExtractMethodDuplicate_NotADuplicate" xml:space="preserve">
+    <value>'{0}' is not a duplicate of the selection as it is extracted.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublic" xml:space="preserve">
+    <value>The duplicate at {0} is in another module: only a Public procedure can replace it.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublicMember" xml:space="preserve">
+    <value>The duplicate at {0} is in the class: only a Public member can replace it.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Overlaps" xml:space="preserve">
+    <value>The duplicate at {0} overlaps what the extraction already changes: it cannot be replaced as well.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NotVerified" xml:space="preserve">
+    <value>The duplicate at {0} cannot be replaced: it would break the code. {1}</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Replacement" xml:space="preserve">
+    <value>Replace the duplicate at {0} with a call</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityUnknown" xml:space="preserve">
+    <value>'{0}' is not an accessibility the new procedure can have: choose Private or Public.</value>
   </data>
   <data name="ExtractMethodReason_ReadOnly" xml:space="preserve">
     <value>Read by the selection, not written.</value>
@@ -194,9 +270,6 @@
   <data name="ExtractMethodEdit_NotAReturnCandidate" xml:space="preserve">
     <value>'{0}' is not a value the selection gives back.</value>
   </data>
-  <data name="ExtractMethodEdit_ExitByJumpTable" xml:space="preserve">
-    <value>An On…GoTo leaves the selection: no exit code of one statement can stand for its several targets.</value>
-  </data>
   <data name="ExtractMethodEdit_ExitRoutingDeclined" xml:space="preserve">
     <value>The selection leaves the procedure, or a loop or a block around it, and the exits are not routed.</value>
   </data>
@@ -220,5 +293,32 @@
   </data>
   <data name="ExtractMethodVerification_ExitNotReached" xml:space="preserve">
     <value>The call would not leave the procedure for every place the selection left it for.</value>
+  </data>
+  <data name="ConvertGoSub_Title" xml:space="preserve">
+    <value>Convert GoSub routine to procedure…</value>
+  </data>
+  <data name="ConvertGoSub_NoLabel" xml:space="preserve">
+    <value>There is no GoSub routine here: convert a routine from its label, or from a GoSub that names it.</value>
+  </data>
+  <data name="ConvertGoSub_NoGoSub" xml:space="preserve">
+    <value>No GoSub runs '{0}': it starts no routine to convert.</value>
+  </data>
+  <data name="ConvertGoSub_NotContiguous" xml:space="preserve">
+    <value>The routine '{0}' is not one run of statements from its label: a jump in it goes back before the label, or it holds code it never runs.</value>
+  </data>
+  <data name="ExtractMethodRefusal_FallsIntoTheRoutine" xml:space="preserve">
+    <value>The code at {1} goes on into the routine, which then reaches its Return with no GoSub (run-time error 3), where a call would not.</value>
+  </data>
+  <data name="ExtractMethodRefusal_OnGoSubInASingleLineIf" xml:space="preserve">
+    <value>The On…GoSub at {1} runs the routine from a single-line If, where the Select Case it would become cannot be written.</value>
+  </data>
+  <data name="ExtractMethodEdit_RoutineUsesTheResult" xml:space="preserve">
+    <value>The routine reads or writes the procedure's result, which each call would have to copy.</value>
+  </data>
+  <data name="ExtractMethodEdit_RoutineRunsItself" xml:space="preserve">
+    <value>The routine runs itself: a GoSub in it names it.</value>
+  </data>
+  <data name="ExtractMethodEdit_RoutineInAWithBlock" xml:space="preserve">
+    <value>The routine uses the object of a With block it is written in.</value>
   </data>
 </root>

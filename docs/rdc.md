@@ -55,15 +55,16 @@ The shell's language is RDCore BASIC: a variable one line assigns is the one the
 |`EXIT`|Ends the session and exits. `BYE` and `QUIT` do the same.|
 
 `Ctrl+C` stops a running program. At a stop (a `Stop` statement, a failed `Debug.Assert`, a breakpoint or `Ctrl+C`) the shell lists the two lines above
-the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. At a run-time error in the program,
-the shell lists the lines around the statement that raised it the same way, then shows the error. A step lists nothing: it says only `BREAK IN` and the
-line number, and shows a run-time error it raises without the lines around it. `CONFIG CLI.BreakListingLines`
+the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. A run-time error that nothing
+handles stops the program at the statement that raised it, as in the VBIDE: the shell lists the lines around that statement the same way, then shows
+the error. `CONT` runs the statement again, and `END` ends the program. An error that an `On Error` statement handles does not stop it. A step lists
+nothing: it says only `BREAK IN` and the line number, or shows the error it stopped at. `CONFIG CLI.BreakListingLines`
 sets how many lines are listed on each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's
 immediate pane, and edit the program before you go on.
 
-A line typed at the prompt runs under the debugger as `RUN` does: a `Stop` or a breakpoint in the code it calls stops it there, and `STACK` shows the
-line's own procedure under the one that stopped. A stop in a module of a workspace lists the module's lines around it as `LIST` lists the program, then
-says `BREAK IN`, the module and its line.
+A line typed at the prompt runs under the debugger as `RUN` does: a `Stop`, a breakpoint or an error in the code it calls stops it there, and `STACK`
+shows the line's own procedure under the one that stopped. A stop in a module of a workspace lists the module's lines around it as `LIST` lists the
+program, then says `BREAK IN`, the module and its line. A stop at an error in a module of a workspace lists the module's lines the same way, then shows the error with the module and its line.
 
 > [!NOTE]
 > The shell is a way to try the platform. Its current program is a single procedure: a project with more procedures runs in the shell on a workspace.
@@ -91,11 +92,11 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 
 `rdc run` runs the program's entry point:
 
-- the procedure the `.rdproj` names as its entry point, `Module.Procedure` or `Procedure`;
+- the procedure the `.rdproj` names as its entry point in its `build` section, `Module.Procedure` or `Procedure`: `"build": { "entryPoint": "Module1.Main" }`;
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
-A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does one with a module that does not load. `Debug.Print`
-writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
+A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does a library (`"build": { "outputType": "Library" }`),
+nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
 
 |Option|What it does|
 |---|---|

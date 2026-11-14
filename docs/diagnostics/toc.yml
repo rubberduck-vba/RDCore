@@ -204,6 +204,8 @@
   href: vbc09381.md
 - name: "VBC09382: Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions"
   href: vbc09382.md
+- name: "VBC09383: There is no host application to evaluate the expression"
+  href: vbc09383.md
 - name: "VBR-0001: Application-defined or object-defined error"
   href: vbr-0001.md
 - name: "VBR00003: Return without GoSub"
@@ -444,6 +446,8 @@
   href: rdc00211.md
 - name: "RDC00212: Unrestored On Error Resume Next"
   href: rdc00212.md
+- name: "RDC00213: Line continuation between keywords"
+  href: rdc00213.md
 - name: "RDC00214: Procedure can be written as a function"
   href: rdc00214.md
 - name: "RDC00215: Self-assigned declaration"
@@ -552,6 +556,8 @@
   href: rdc11033.md
 - name: "RDC11034: Name that MS-VBA refuses"
   href: rdc11034.md
+- name: "RDC11035: Collection set to Nothing inside its own For Each loop"
+  href: rdc11035.md
 - name: "RDC11036: Negative line number"
   href: rdc11036.md
 - name: "RDC11037: Non-breaking space in a name"

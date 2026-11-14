@@ -86,6 +86,23 @@ internal sealed class ExtractionText
         return index < _text.Length && _text[index] == ':';
     }
 
+    // Where the code after a label written up to the position starts: after its colon, and the spaces and tabs after it, on its line.
+    public SourcePosition AfterLabel(SourcePosition position)
+    {
+        var index = OffsetOf(position);
+        if (index < _text.Length && _text[index] == ':')
+        {
+            index++;
+        }
+
+        while (index < _text.Length && _text[index] is ' ' or '\t')
+        {
+            index++;
+        }
+
+        return PositionOf(index);
+    }
+
     // The start of the line after the position's, or the end of the text when it is the last.
     public SourcePosition StartOfNextLine(SourcePosition position)
         => position.Line + 1 < _lineStarts.Length ? new SourcePosition(position.Line + 1, 0) : new SourcePosition(position.Line, _text.Length - _lineStarts[position.Line]);

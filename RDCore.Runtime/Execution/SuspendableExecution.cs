@@ -40,6 +40,11 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
     private Thread? _thread;
     private SuspensionDecision _decision;
     private bool _suspended;
+    private bool _abandoned;
+
+    // the thread that waits at the stop - the program's, or an event's - and the stop as the session's turn knows it, over once it is decided.
+    private Thread? _waiter;
+    private IDisposable? _stopped;
 
     /// <summary>
     /// Whether the program waits to be resumed.
@@ -118,8 +123,15 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
             _decision = SuspensionDecision.Resume;
         }
 
-        _ = _decided.Release();
+        Decided();
         return next.Task;
+    }
+
+    // the stop is over before the thread that waits goes on: an event of the program that waited for it may run, on that thread too.
+    private void Decided()
+    {
+        Interlocked.Exchange(ref _stopped, null)?.Dispose();
+        _ = _decided.Release();
     }
 
     /// <summary>
@@ -141,10 +153,18 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
             _next = NewStop();
             _suspended = false;
             _decision = SuspensionDecision.Abandon;
+            _abandoned = true;
             thread = _thread;
+
+            // a program that waits in a handler of an event waits in a call underneath, a modal form's Show: it is ended as an End would end it, which lets the call
+            // return, and none of its code runs on the way out (SessionWipe).
+            if (_waiter != _thread)
+            {
+                session.Halt.Request(RuntimeHaltKind.End);
+            }
         }
 
-        _ = _decided.Release();
+        Decided();
         thread?.Join();
         SessionWipe.Abandon(session);
         session.Halt.Clear();
@@ -160,9 +180,12 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
     /// <inheritdoc/>
     SuspensionDecision IExecutionGate.Suspend(RuntimeHaltKind kind, SourceLocation? location)
     {
-        // Only the program waits. Something else that runs in the session while it does - a statement typed at a stop - and reaches a Stop is stopped by it, as
-        // a program that is not under a debugger is: holding its thread would hold whoever is waiting for the answer, and the program is not its to resume.
-        if (Thread.CurrentThread != _thread)
+        // Only the program waits: its own thread, or one that runs the handlers of an event of the program - a click on a modal form, while the program waits in its
+        // Show. Something else that runs in the session while it does - a statement typed at a stop, an event that statement's call raised - and reaches a Stop is
+        // stopped by it, as a program that is not under a debugger is: holding its thread would hold whoever is waiting for the answer, and the program is not its to
+        // resume.
+        var thread = Thread.CurrentThread;
+        if (thread != _thread && !session.Turn.RunsAnEventOfTheProgram)
         {
             return SuspensionDecision.Abandon;
         }
@@ -170,19 +193,47 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
         TaskCompletionSource<ExecutionStop> waiting;
         lock (_gate)
         {
+            // a program that was ended is unwinding, and nothing waits for it to stop again: whatever would hold it on the way out (the error it waited at, met
+            // again by the activation that called the one that raised it) lets it go, or Abandon would wait for a thread that waits for it.
+            if (_abandoned)
+            {
+                return SuspensionDecision.Abandon;
+            }
+
             waiting = _next!;
             _suspended = true;
+            _waiter = thread;
+            _stopped = session.Turn.Stopped();
         }
 
         // whoever started or resumed the program is told, and then the program waits: the lock is not held, since the answer is what lets that someone call us back.
         waiting.SetResult(new ExecutionStop(Result: null, kind, location));
-        _decided.Wait();
+        if (thread == _thread || session.Turn.ServeOfTheCallingThread is not { } serve)
+        {
+            _decided.Wait();
+        }
+        else
+        {
+            // the thread of an event is the one its objects are called on: while it waits, what is asked of it - a debugger reading a control - is done, and the turn
+            // is given up, so that an event of the program that comes meanwhile can be handled on it once the stop is over (it waits for that, ISessionTurn.Stopped).
+            using (session.Turn.Yield())
+            {
+                while (!_decided.Wait(0))
+                {
+                    serve(EventThreadServe);
+                }
+            }
+        }
 
         lock (_gate)
         {
+            _waiter = null;
             return _decision;
         }
     }
+
+    // how long the thread of an event that waits at a stop serves its calls before it looks for the answer again.
+    private static readonly TimeSpan EventThreadServe = TimeSpan.FromMilliseconds(10);
 
     private void Run(Func<RuntimeSemanticsEvaluationResult> program)
     {

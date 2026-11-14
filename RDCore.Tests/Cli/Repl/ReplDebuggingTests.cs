@@ -632,6 +632,31 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
+    public async Task AStack_SaysTheLineOfAModuleOfTheWorkspace_InTheSessionsLanguage()
+    {
+        var culture = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo("fr-CA");
+        try
+        {
+            ExecuteReturns(SuspendedAt(2));
+            await RunAsync();
+            _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
+            {
+                Frames = [new DebugStackFrame(0, "Helper", "Other", 6, 0), new DebugStackFrame(1, "Main", "Program", 2, 0)],
+            }));
+
+            await CommandAsync(new StackReplCommand());
+
+            _console.Received().WriteLine("#0 Helper (Other à la ligne 7)");
+            _console.Received().WriteLine("#1 Main 20");
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = culture;
+        }
+    }
+
+    [TestMethod]
     public async Task AStack_SaysHowAnActivationGotWhereItIs_WhenItIsInsideGoSubs()
     {
         ExecuteReturns(SuspendedAt(3));
@@ -879,6 +904,20 @@ public sealed class ReplDebuggingTests
         await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "END");
 
         Assert.AreEqual(ReplDebugState.Idle, _context.Debugger.State);
+    }
+
+    [TestMethod]
+    public async Task AnEnd_TypedWhileTheProgramWaits_SaysWhatRanPrinted_AndNoError()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _console.ClearReceivedCalls();
+        ExecuteInFrameReturns(new DebugEvaluateResult { Error = "ended", EndedTheProgram = true, Output = ["bye"] });
+
+        await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "END");
+
+        _console.Received(1).WriteLine("bye");
+        _console.DidNotReceiveWithAnyArgs().WriteMessage(default, default!);
     }
 
     [TestMethod]

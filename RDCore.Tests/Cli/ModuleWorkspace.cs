@@ -269,14 +269,17 @@ internal static class ModuleWorkspace
     /// <param name="entryPoint">The procedure of the client's module that is run.</param>
     /// <param name="debug">Whether it runs under the debugger, as the shell runs a line: a <c>Stop</c> then leaves the program waiting.</param>
     /// <param name="afterRun">Given what came of the run and the host's session provider, while the session is up: a program that waits is looked at here.</param>
+    /// <param name="errorBreak">Which run-time errors the program waits at, said to the session before it runs, as the shell says it.</param>
     /// <returns>What came of the run, whatever it was.</returns>
     public static async Task<ExecuteResult> RunSessionModuleAsync(
         IReadOnlyList<(string Name, string Source)> modules, string program, string moduleName, string source, string entryPoint, bool debug = false,
-        Func<ExecuteResult, EnvironmentSessionProvider, Task>? afterRun = null)
+        Func<ExecuteResult, EnvironmentSessionProvider, Task>? afterRun = null, ErrorBreakMode errorBreak = ErrorBreakMode.None)
     {
         ExecuteResult? ran = null;
         await RunCoreAsync([], program, errorsOnly: true, modules: modules, afterLoading: async sessionProvider =>
         {
+            _ = await new HostDebugErrorBreakHandler(sessionProvider).Handle(new HostDebugErrorBreakParams { Mode = errorBreak }, CancellationToken.None);
+
             var workspaceRoot = Wire.FileUri(Root);
             var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
             var parse = new ModuleParser().Parse(moduleUri, source);

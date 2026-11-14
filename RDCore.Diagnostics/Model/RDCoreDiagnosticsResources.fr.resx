@@ -237,18 +237,6 @@
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' masque '{1}': dans cette procédure, le nom désigne '{0}', et '{1}' partout ailleurs. Donnez à '{0}' un nom bien à lui.</value>
   </data>
-  <data name="ProcedureCanBeWrittenAsFunction_Message" xml:space="preserve">
-    <value>La procédure &apos;{0}&apos; rend son résultat par le paramètre ByRef &apos;{1}&apos; : elle peut être une Function qui le retourne.</value>
-  </data>
-  <data name="SelfAssignedDeclaration_Message" xml:space="preserve">
-    <value>La variable &apos;{0}&apos; est déclarée As New : son objet est créé à sa première utilisation, et de nouveau quand elle est utilisée après avoir été mise à Nothing.</value>
-  </data>
-  <data name="EncapsulatePublicField_Message" xml:space="preserve">
-    <value>Le champ &apos;{0}&apos; est Public : tout code qui détient l&apos;objet peut l&apos;affecter. Une propriété peut vérifier la valeur.</value>
-  </data>
-  <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
-    <value>&apos;{0}&apos; désigne l&apos;instance par défaut de la classe, et l&apos;objet qui exécute ce code (Me) n&apos;est pas toujours cette instance.</value>
-  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>Le mot-clé Rem est obsolète: un commentaire commence par une apostrophe (').</value>
   </data>
@@ -390,11 +378,32 @@
   <data name="ForEachControlEmptiedAfterLoop_Nothing_Message" xml:space="preserve">
     <value>&apos;{0}&apos; vaut Nothing ici : MS-VBA met à Nothing la variable de contrôle d&apos;une boucle For Each qui arrive au bout, alors que MS-VBAL §5.4.2.4 dit qu&apos;elle garde le dernier élément.</value>
   </data>
-  <data name="IIfSideEffect_Message" xml:space="preserve">
-    <value>&apos;{0}&apos; est appelée quelle que soit la condition : IIf évalue son TruePart et son FalsePart avant de choisir l&apos;un des deux.</value>
+  <data name="CollectionSetToNothingInItsOwnLoop_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; n&apos;est pas mis à Nothing ici : la boucle For Each qui le parcourt tient l&apos;objet jusqu&apos;à ce qu&apos;elle prenne fin. MS-VBA libère ici une Collection : elle est détruite, avec les membres que la boucle n&apos;a pas atteints, et la boucle prend fin. Quittez la boucle avec Exit For, puis mettez &apos;{0}&apos; à Nothing.</value>
   </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
+  </data>
+  <data name="LineContinuationBetweenKeywords_Message" xml:space="preserve">
+    <value>Une continuation de ligne répartit le mot-clé '{0}' sur plusieurs lignes. Écrivez ses mots sur une seule ligne.</value>
+  </data>
+  <data name="LineContinuationBetweenKeywords_Fix" xml:space="preserve">
+    <value>Écrire '{0}' sur une seule ligne</value>
+  </data>
+  <data name="ProcedureCanBeWrittenAsFunction_Message" xml:space="preserve">
+    <value>La procédure &apos;{0}&apos; rend son résultat par le paramètre ByRef &apos;{1}&apos; : elle peut être une Function qui le retourne.</value>
+  </data>
+  <data name="SelfAssignedDeclaration_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; est déclarée As New : son objet est créé à sa première utilisation, et de nouveau quand elle est utilisée après avoir été mise à Nothing.</value>
+  </data>
+  <data name="EncapsulatePublicField_Message" xml:space="preserve">
+    <value>Le champ &apos;{0}&apos; est Public : tout code qui détient l&apos;objet peut l&apos;affecter. Une propriété peut vérifier la valeur.</value>
+  </data>
+  <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; désigne l&apos;instance par défaut de la classe, et l&apos;objet qui exécute ce code (Me) n&apos;est pas toujours cette instance.</value>
+  </data>
+  <data name="IIfSideEffect_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est appelée quelle que soit la condition : IIf évalue son TruePart et son FalsePart avant de choisir l&apos;un des deux.</value>
   </data>
   <data name="VariableNotUsed_Message" xml:space="preserve">
     <value>La variable &apos;{0}&apos; n&apos;est jamais utilisée.</value>

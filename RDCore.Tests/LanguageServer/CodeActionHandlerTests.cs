@@ -33,6 +33,9 @@ public sealed class CodeActionHandlerTests
 
     private const string Program = "10 Dim strName As String\r\n20 Dim x As Long\r\n30 strName = \"a\"\r\n40 Debug.Print strName, x\r\n";
 
+    // a module the shell has loaded: its statements can be extracted, which the shell's own program's cannot.
+    private const string Module = "Attribute VB_Name = \"Module1\"\r\nPublic Sub Main()\r\n    Dim strName As String\r\n    Dim x As Long\r\n    strName = \"a\"\r\n    Debug.Print strName, x\r\nEnd Sub\r\n";
+
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
 
@@ -40,10 +43,18 @@ public sealed class CodeActionHandlerTests
     {
         _documents.WorkspaceRoot.Returns(Root);
         var program = new WorkspaceDocument("Main.rdc", Root, Program, version: 2);
-        _documents.GetAllDocuments().Returns([program]);
+        var module = new WorkspaceDocument("Module1.bas", Root, Module, version: 1);
+        _documents.GetAllDocuments().Returns([program, module]);
         var uri = program.Id.Uri.ToUri();
         _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = program; return true; });
         _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(program))));
+        var moduleUri = module.Id.Uri.ToUri();
+        _documents.TryGetDocument(moduleUri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = module; return true; });
+        _parsing.ParseDocumentAsync(moduleUri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(moduleUri, ParsingClientService.ModuleSourceOf(module))));
+
+        // an extraction offered with its edit is verified on its text, parsed again.
+        _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
     }
 
     private CodeActionHandler Sut()
@@ -68,7 +79,10 @@ public sealed class CodeActionHandlerTests
         Data = new DiagnosticFixes { Rename = new RenameFix { Suggestions = suggestions } }.ToData(),
     };
 
-    private async Task<List<CodeAction>> ActionsAsync(Range range, CodeActionKind[]? only = null, params Diagnostic[] diagnostics)
+    private Task<List<CodeAction>> ActionsAsync(Range range, CodeActionKind[]? only = null, params Diagnostic[] diagnostics)
+        => ActionsAsync(Document, range, only, diagnostics);
+
+    private async Task<List<CodeAction>> ActionsAsync(DocumentUri document, Range range, CodeActionKind[]? only, params Diagnostic[] diagnostics)
     {
         var culture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
@@ -76,7 +90,7 @@ public sealed class CodeActionHandlerTests
         {
             var answer = await Sut().Handle(new CodeActionParams
             {
-                TextDocument = new TextDocumentIdentifier(Document),
+                TextDocument = new TextDocumentIdentifier(document),
                 Range = range,
                 Context = new CodeActionContext
                 {
@@ -167,4 +181,22 @@ public sealed class CodeActionHandlerTests
     [TestMethod]
     public async Task AClientThatAsksForQuickFixesOnly_IsNotOfferedTheRefactorings()
         => Assert.IsEmpty(await ActionsAsync(new Range(0, 0, 3, 0), [CodeActionKind.QuickFix]));
+
+    [TestMethod]
+    public async Task TheShell_IsOfferedTheFixesAndTheRenamesOfARange_AndNotItsExtraction()
+    {
+        var document = DocumentUri.From(Path.Combine(Root, "Module1.bas"));
+        var diagnostic = Finding(new Range(2, 8, 2, 15), "Name");
+        var range = new Range(2, 0, 6, 0);
+
+        var everything = await ActionsAsync(document, range, null, diagnostic);
+        var shell = await ActionsAsync(document, range, RDCore.CLI.App.Repl.ReplPlatformClient.CodeActionKinds, diagnostic);
+
+        Assert.IsTrue(everything.Any(action => action.Kind == CodeActionHandler.RefactorExtractMethod), "a client that asks for no kind is offered the extraction");
+        CollectionAssert.AreEqual(
+            everything.Where(action => action.Kind == CodeActionKind.QuickFix || action.Kind == CodeActionHandler.RefactorRename).Select(action => action.Title).ToArray(),
+            shell.Select(action => action.Title).ToArray());
+        Assert.IsTrue(shell.Any(action => action.Kind == CodeActionKind.QuickFix), "the fix of the diagnostic");
+        Assert.IsTrue(shell.Any(action => action.Kind == CodeActionHandler.RefactorRename), "the rename of the name the range declares");
+    }
 }

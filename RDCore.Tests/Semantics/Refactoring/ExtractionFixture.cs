@@ -5,6 +5,7 @@ using RDCore.Parsing;
 using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Formatting;
 using RDCore.Tests.Semantics.Flow;
+using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -46,14 +47,14 @@ internal static class ExtractionFixture
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null,
         IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, SourceRange? range = null,
-        IReadOnlyList<ExtractionParameterAnswer>? parameters = null)
+        IReadOnlyList<ExtractionParameterAnswer>? parameters = null, ExtractionAccessibility accessibility = ExtractionAccessibility.Private)
     {
         var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations, classes, classModule);
         var plan = PlanOf(analyzed, range?.Start ?? new SourcePosition(first, 0), range?.End ?? new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         var (chosen, problem) = ExtractionParameters.Choose(parameters ?? [], plan, source, name, analyzed.Context, analyzed.ModuleAddress);
         Assert.IsNull(problem, problem?.ToMessage());
-        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits, Parameters = chosen };
+        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits, Parameters = chosen, Accessibility = accessibility };
         var edit = ExtractMethodEdit.Of(plan, source, choices);
         if (formatting is not null)
         {
@@ -90,14 +91,79 @@ internal static class ExtractionFixture
         };
     }
 
-    // What a name for the procedure extracted from the lines first to last is checked against.
+    // What a name for the procedure extracted from the lines first to last is checked against; the workspace has the class modules in classes and the standard
+    // modules in modules beside the module, which is a class module itself with classModule.
     public static (ExtractionPlan Plan, ExtractionSource Source, RenameContext Context, Uri Module, FlowFixture.Analyzed Analyzed) Naming(
-        string body, int first, int last, string declarations = "", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub")
+        string body, int first, int last, string declarations = "", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
+        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, IReadOnlyList<(string Name, string Source)>? modules = null)
     {
-        var analyzed = FlowFixture.Analyze(body, header, end, declarations: declarations);
+        var analyzed = FlowFixture.Analyze(body, header, end, declarations: declarations, classes: classes, classModule: classModule, modules: modules);
         var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         return (plan, source, analyzed.Context, analyzed.ModuleAddress, analyzed);
+    }
+
+    // The plan of converting the GoSub routine the label starts to a procedure.
+    public static ExtractionPlan RoutinePlan(string body, string label, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", string declarations = "")
+        => RoutinePlanOf(FlowFixture.Analyze(body, header, end, declarations: declarations), label);
+
+    // The module after converting the GoSub routine the label starts to a procedure name, formatted as for a user who set nothing; with the module before it, the
+    // edit and the plan the edit was written from.
+    public static (string Original, string Module, ExtractionEdit Edit, ExtractionPlan Plan) Converted(
+        string body, string label, string name = "Extracted", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", string declarations = "")
+    {
+        var analyzed = FlowFixture.Analyze(body, header, end, declarations: declarations);
+        var plan = RoutinePlanOf(analyzed, label);
+        var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
+        var (chosen, problem) = ExtractionParameters.Choose([], plan, source, name, analyzed.Context, analyzed.ModuleAddress);
+        Assert.IsNull(problem, problem?.ToMessage());
+        var edit = ExtractMethodEdit.Of(plan, source, new ExtractionChoices(name) { Parameters = chosen });
+        if (edit.Refusal is null)
+        {
+            var edited = new ModuleParser().Parse(FlowFixture.FileOf(false), edit.ApplyTo(analyzed.Text));
+            edit = edit.Formatted(analyzed.Text, edited, CodeFormattingOptions.Default);
+        }
+
+        return (analyzed.Text, edit.ApplyTo(analyzed.Text), edit, plan);
+    }
+
+    // The verification of converting the GoSub routine the label starts to the procedure Extracted; tamper, when given, changes the edit before it is verified.
+    public static ExtractionVerificationFailure? RoutineVerified(string body, string label, Func<ExtractionEdit, ExtractionEdit>? tamper = null)
+    {
+        var converted = Converted(body, label);
+        Assert.IsNull(converted.Edit.Refusal, $"refused: {converted.Edit.Refusal}");
+        var edit = tamper?.Invoke(converted.Edit) ?? converted.Edit;
+        var before = FlowFixture.Module(converted.Original);
+        var kind = before.Parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().First(member => member.Name == "Run").MemberKind;
+        return ExtractionVerification.Verify(converted.Plan, edit, "Extracted", "Run", kind, before, text => FlowFixture.Module(text));
+    }
+
+    // Why the label starts no GoSub routine; null when it starts one.
+    public static GoSubRoutineRefusal? RoutineRefusal(string body, string label)
+    {
+        var analyzed = FlowFixture.Analyze(body);
+        return GoSubRoutine.TryFind(analyzed.Procedure, analyzed.Instructions, analyzed.Graph, analyzed.Directives, label, out _, out var refusal) ? null : refusal;
+    }
+
+    private static ExtractionPlan RoutinePlanOf(FlowFixture.Analyzed analyzed, string label)
+    {
+        Assert.IsTrue(GoSubRoutine.TryFind(analyzed.Procedure, analyzed.Instructions, analyzed.Graph, analyzed.Directives, label, out var selection, out var refusal), $"refused: {refusal}");
+        return ExtractionAnalysis.Plan(selection!, analyzed.Graph, analyzed.Accesses, analyzed.Model, analyzed.Scopes);
+    }
+
+    // The duplicates of the lines first to last of the body, extracted as name returning returnValue, searched for in the modules named (Main's alone when none
+    // are); the workspace has the standard modules in modules beside the module. And the plan and the choices they are found for, and the workspace.
+    public static (ImmutableArray<ExtractionDuplicate> Duplicates, ExtractionPlan Plan, ExtractionChoices Choices, FlowFixture.Analyzed Analyzed) Duplicates(
+        string body, int first, int last, string end = "End Sub", string declarations = "", IReadOnlyList<(string Name, string Source)>? modules = null,
+        IReadOnlyList<string>? searched = null, string name = "Extracted", string? returnValue = null)
+    {
+        var analyzed = FlowFixture.Analyze(body, end: end, declarations: declarations, modules: modules);
+        var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
+        var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
+        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue) };
+        var duplicates = ExtractionDuplicates.Find(
+            plan, source, choices, analyzed.Context, analyzed.ModuleAddress, [.. (searched ?? ["Main"]).Select(FlowFixture.Analyzed.AddressOf)], analyzed.AnalysisOf);
+        return (duplicates, plan, choices, analyzed);
     }
 
     private static ExtractionPlan PlanOf(FlowFixture.Analyzed analyzed, SourcePosition start, SourcePosition end)

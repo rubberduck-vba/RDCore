@@ -94,7 +94,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
             return 1;
         }
 
-        if (ProgramRunner.EntryPointOf(built.Provider.Session, built.Modules, ProjectBuildSettings.Of(workspace.Project), out var refusal) is not { } entryPoint)
+        if (ProgramRunner.EntryPointOf(built.Provider.Session, built.Modules, workspace.Project.Build, out var refusal) is not { } entryPoint)
         {
             return Error(refusal!);
         }
