@@ -338,7 +338,7 @@ public sealed class ExtractMethodServiceTests
     // the extraction a client is offered for a range, among the code actions of the document; showsDisabled, when it shows an action it cannot take.
     private async Task<CodeAction?> ExtractMethodActionAsync(Range range, bool showsDisabled = false)
     {
-        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), _capabilities,
+        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), new MoveMemberService(_rename, _parsing), _capabilities,
             new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
         ((OmniSharp.Extensions.LanguageServer.Protocol.IRegistration<CodeActionRegistrationOptions, OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability>)handler)
             .GetRegistrationOptions(new(), new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities

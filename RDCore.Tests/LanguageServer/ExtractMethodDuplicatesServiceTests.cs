@@ -302,7 +302,7 @@ public sealed class ExtractMethodDuplicatesServiceTests
     // the extraction a client with no dialog is offered for the selection, which takes change annotations or not.
     private async Task<CodeAction?> ExtractMethodActionAsync(bool takesAnnotations)
     {
-        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), _capabilities,
+        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), new MoveMemberService(_rename, _parsing), _capabilities,
             new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
         ((OmniSharp.Extensions.LanguageServer.Protocol.IRegistration<CodeActionRegistrationOptions, CodeActionCapability>)handler).GetRegistrationOptions(
             new CodeActionCapability(),

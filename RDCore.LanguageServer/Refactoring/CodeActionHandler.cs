@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.LanguageServer.Services.Refactoring.MoveMember;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Semantics.Refactoring;
@@ -15,7 +16,7 @@ namespace RDCore.LanguageServer.Refactoring;
 /// <see cref="CodeActionService"/> offers, for the client as it initialized.
 /// </summary>
 internal sealed class CodeActionHandler(
-    IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
+    IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
     ILibrarySource? libraries = null) : CodeActionHandlerBase
 {
@@ -35,11 +36,21 @@ internal sealed class CodeActionHandler(
     public static readonly CodeActionKind RefactorConvertGoSub = new(RefactoringKinds.ConvertGoSub);
 
     /// <summary>
+    /// The kind of the action that moves a procedure above the one before it (<see cref="RefactoringKinds.MoveMemberUp"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorMoveMemberUp = new(RefactoringKinds.MoveMemberUp);
+
+    /// <summary>
+    /// The kind of the action that moves a procedure below the one after it (<see cref="RefactoringKinds.MoveMemberDown"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorMoveMemberDown = new(RefactoringKinds.MoveMemberDown);
+
+    /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
     /// </summary>
     public static readonly CodeActionKind SourceImportProject = new(RefactoringKinds.ImportProject);
 
-    private readonly CodeActionService _actions = new(rename, documents, fileSystem, extractMethod, clientCapabilities, serializer, projectFiles, libraries);
+    private readonly CodeActionService _actions = new(rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries);
 
     // what the client said it can do, as it initialized: a rename's edits are sent in the form it applies.
     private ClientCapabilities? _client;
@@ -54,7 +65,7 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceImportProject),
             ResolveProvider = true,
         };
     }

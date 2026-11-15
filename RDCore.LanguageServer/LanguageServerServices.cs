@@ -85,6 +85,7 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.OutlineTool>()
             .AddSingleton(provider => new RDCore.SDK.Server.Assistant.AssistantToolCatalog(provider.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>()))
             .AddSingleton<RDCore.LanguageServer.Refactoring.IExtractMethodService, RDCore.LanguageServer.Refactoring.ExtractMethodService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveMemberService, RDCore.LanguageServer.Refactoring.MoveMemberService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             // the codes disabled for the workspace's documents: the user's, which change while the server runs, and the workspace's.
             .AddSingleton<IDisabledDiagnostics>(provider => new DisabledDiagnostics(
