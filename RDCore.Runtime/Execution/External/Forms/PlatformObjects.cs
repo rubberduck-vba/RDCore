@@ -25,8 +25,9 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// <item>what a member the form's designer declares returns, a control (<c>UserForm1.Label1</c>);</item>
 /// <item>what one of these hands out, a call's result or an event's argument, when the object is of a class of the form's own library: Microsoft Forms for a
 /// UserForm (<c>Controls</c>, <c>Controls.Add "Forms.Label.1"</c>, an event's <c>ReturnBoolean</c>), VB for a Visual Basic 6.0 form. The class comes only from
-/// the live object's server (<see cref="IAutomationServer.ClassNameOf"/>), never from a workspace's description. An object its server describes no class of is
-/// one too: the RDForms <c>Controls</c> collection and menu arrays, which no library declares;</item>
+/// the live object's server (<see cref="IAutomationServer.ClassNameOf"/>), never from a workspace's description. An object of no library's class is one only
+/// when it is the form host's own (<see cref="IAutomationServer.IsFormHostObject"/>): the RDForms <c>Controls</c> collection and menu arrays. A COM object whose
+/// server describes no class is an ordinary one;</item>
 /// <item>an object the session already held keeps what it was: a COM object stored in <c>Form1.Tag</c>, or given to a form's property, stays an ordinary one.</item>
 /// </list>
 /// A control of another library on a form (a <c>WebBrowser</c>, a <c>ListView</c>) is an ordinary object, and so is what it hands out; so is the control a
@@ -130,9 +131,10 @@ internal sealed class PlatformObjects
             return;
         }
 
-        // the class is the live object's, as its server says: "MSForms.Label", "VB.Label"; none for an object of no library's class.
+        // the class is the live object's, as its server says: "MSForms.Label", "VB.Label". An object of no library's class is the platform's only when the form
+        // host made it; a COM object whose server describes no class is an ordinary one.
         var className = server.ClassNameOf(handle);
-        if (className is null || className.StartsWith(library + ".", StringComparison.OrdinalIgnoreCase))
+        if (className is null ? server.IsFormHostObject(handle) : className.StartsWith(library + ".", StringComparison.OrdinalIgnoreCase))
         {
             Adopt(identity, handle, library, className);
         }
