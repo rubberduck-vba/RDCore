@@ -809,7 +809,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Shows the hints of the language server in a listing, each in brackets where it applies - the name of the parameter an argument is given to ([Prompt:]), the type of a declaration that states none ([As Variant]), the variable of a Next that names none ([i]) - or stops showing them (INLAYS ON, INLAYS OFF)..
+        ///   Looks up a localized string similar to Shows the hints of the language server in a listing, or stops showing them (INLAYS ON, INLAYS OFF). Each is in brackets where it applies: the name of the parameter an argument is given to ([Prompt:]), the type of a declaration that states none ([As Variant]), and the variable of a Next that names none ([i])..
         /// </summary>
         public static string Repl_Inlays_Summary {
             get {

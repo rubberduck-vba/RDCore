@@ -438,7 +438,7 @@
     <value>AUCUN POINT D'ARRÊT</value>
   </data>
   <data name="Repl_Inlays_Summary" xml:space="preserve">
-    <value>Affiche les indices du serveur de langage dans un listage, chacun entre crochets là où il s'applique - le nom du paramètre auquel un argument est donné ([Prompt:]), le type d'une déclaration qui n'en indique pas ([As Variant]), la variable d'un Next qui n'en nomme pas ([i]) - ou cesse de les afficher (INLAYS ON, INLAYS OFF).</value>
+    <value>Affiche les indices du serveur de langage dans un listage, ou cesse de les afficher (INLAYS ON, INLAYS OFF). Chacun est entre crochets là où il s'applique : le nom du paramètre auquel un argument est donné ([Prompt:]), le type d'une déclaration qui n'en indique pas ([As Variant]) et la variable d'un Next qui n'en nomme pas ([i]).</value>
   </data>
   <data name="Repl_Inlays_On" xml:space="preserve">
     <value>INDICES AFFICHÉS DANS LES LISTAGES</value>
