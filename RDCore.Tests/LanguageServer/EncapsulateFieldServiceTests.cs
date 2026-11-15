@@ -38,6 +38,7 @@ public sealed class EncapsulateFieldServiceTests
         "Public count As Long\r\n" +
         "Private hidden As Long\r\n" +
         "Public Origin As TPoint\r\n" +
+        "Public total As Currency\r\n" +
         "\r\n" +
         "Public Sub Reset()\r\n" +
         "    count = 0\r\n" +
@@ -85,7 +86,7 @@ public sealed class EncapsulateFieldServiceTests
 
     [TestMethod]
     [DataRow("Fields.bas", 5, 8, DisplayName = "from its declaration")]
-    [DataRow("Fields.bas", 10, 5, DisplayName = "from a reference in its module")]
+    [DataRow("Fields.bas", 11, 5, DisplayName = "from a reference in its module")]
     public async Task AField_IsEncapsulatedInItsModule_AtTheVersionOfItsDocument(string document, int line, int character)
     {
         var position = new SourcePosition(line, character);
@@ -118,7 +119,7 @@ public sealed class EncapsulateFieldServiceTests
         var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(5, 8), CancellationToken.None);
         var declined = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), [], [], CancellationToken.None);
 
-        var change = prepared.Notices.Single();
+        var change = prepared.Notices.Single(notice => notice.Item is null);
         Assert.AreEqual(RefactorNoticeKind.Change, change.Kind);
         Assert.AreEqual(EncapsulateFieldService.PassedByRefCode, change.Code);
         Assert.AreEqual(new SourceLocation(Document("Main.bas"), new SourceRange(6, 9, 6, 14)), change.Location);
@@ -156,23 +157,122 @@ public sealed class EncapsulateFieldServiceTests
     {
         var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(5, 8), CancellationToken.None);
         CollectionAssert.AreEqual(
-            new[] { EncapsulateFieldService.ModeChoice, EncapsulateFieldService.BackingFieldChoice, EncapsulateFieldService.ReadOnlyChoice, EncapsulateFieldService.InsideChoice },
+            new[]
+            {
+                EncapsulateFieldService.ModeChoice, EncapsulateFieldService.BackingFieldChoice, EncapsulateFieldService.ReadOnlyChoice, EncapsulateFieldService.InsideChoice,
+                EncapsulateFieldService.FieldsChoice,
+            },
             prepared.Choices.Select(choice => choice.Id).ToArray());
         Assert.AreEqual("mCount", prepared.Choices.Single(choice => choice.Id == EncapsulateFieldService.BackingFieldChoice).Default);
 
         RefactorAnswer[] answers =
         [
             new() { Id = EncapsulateFieldService.ModeChoice, Value = EncapsulateFieldService.BackingFieldMode },
-            new() { Id = EncapsulateFieldService.BackingFieldChoice, Value = "total" },
+            new() { Id = EncapsulateFieldService.BackingFieldChoice, Value = "tally" },
         ];
         var answer = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), answers, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
         var text = DeclarationEdits.ApplyTo(Fields, answer.Edit!.Documents.Single().Edits);
-        StringAssert.Contains(text, "Private total As Long\r\n");
-        StringAssert.Contains(text, "    total = 0\r\n");
-        StringAssert.Contains(text, "Public Property Let count(ByVal value As Long)\r\n    total = value\r\nEnd Property\r\n");
+        StringAssert.Contains(text, "Private tally As Long\r\n");
+        StringAssert.Contains(text, "    tally = 0\r\n");
+        StringAssert.Contains(text, "Public Property Let count(ByVal value As Long)\r\n    tally = value\r\nEnd Property\r\n");
         Assert.DoesNotContain("Private Type", text);
+    }
+
+    [TestMethod]
+    public async Task TheOtherPublicFields_AreAListOfItems_AndWhatRefusesOneIsOfTheAnswerThatPicksIt()
+    {
+        var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(5, 8), CancellationToken.None);
+
+        var fields = prepared.Choices.Single(choice => choice.Id == EncapsulateFieldService.FieldsChoice);
+        Assert.AreEqual(RefactorChoiceKind.List, fields.Kind);
+        CollectionAssert.AreEqual(new[] { "Origin", "total" }, fields.Items.Select(item => item.Id).ToArray());
+        var total = fields.Items[1];
+        Assert.AreEqual("Public total As Currency", total.Label);
+        CollectionAssert.AreEqual(
+            new[] { EncapsulateFieldService.EncapsulateChoice, EncapsulateFieldService.ReadOnlyChoice, EncapsulateFieldService.BackingFieldChoice },
+            total.Choices.Select(choice => choice.Id).ToArray());
+        Assert.AreEqual("false", total.Choices[0].Default);
+        Assert.AreEqual("mTotal", total.Choices[2].Default);
+        var origin = prepared.Notices.Single(notice => notice.Item == "Origin");
+        Assert.AreEqual(RefactorNoticeKind.Refusal, origin.Kind);
+        Assert.AreEqual("encapsulateField.writesThroughACopy", origin.Code);
+        Assert.AreEqual(EncapsulateFieldService.EncapsulateChoice, origin.Choice);
+        Assert.IsFalse(prepared.Notices.Any(notice => notice.Item == "total"));
+    }
+
+    // the answer that picks other fields of the list, each with its own answers.
+    private static RefactorAnswer Picked(params (string Field, RefactorAnswer[] Answers)[] fields) => new()
+    {
+        Id = EncapsulateFieldService.FieldsChoice,
+        Items =
+        [
+            .. fields.Select(field => new RefactorItemAnswer
+            {
+                Id = field.Field,
+                Answers = [new RefactorAnswer { Id = EncapsulateFieldService.EncapsulateChoice, Value = "true" }, .. field.Answers],
+            }),
+        ],
+    };
+
+    [TestMethod]
+    public async Task TheFieldsPicked_AreEncapsulatedInTheSameEdit_EachWithItsOwnAnswers()
+    {
+        RefactorAnswer[] answers = [Picked(("total", [new RefactorAnswer { Id = EncapsulateFieldService.ReadOnlyChoice, Value = "true" }]))];
+
+        var answer = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), answers, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = DeclarationEdits.ApplyTo(Fields, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Private Type TFields\r\n    count As Long\r\n    total As Currency\r\nEnd Type\r\n");
+        StringAssert.Contains(text, "Public Property Let count(ByVal value As Long)\r\n");
+        StringAssert.Contains(text, "Public Property Get total() As Currency\r\n    total = this.total\r\nEnd Property\r\n");
+        Assert.DoesNotContain("Property Let total", text);
+        Assert.DoesNotContain("Public total As Currency", text);
+    }
+
+    [TestMethod]
+    public async Task AFieldPicked_ThatIsRefused_RefusesTheEdit_AndAFieldThatIsNoneOfTheList_Too()
+    {
+        var origin = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), [Picked(("Origin", []))], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+        var hidden = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), [Picked(("hidden", []))], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        Assert.IsNull(origin.Edit);
+        StringAssert.Contains(origin.Refusal, "'Origin'");
+        Assert.IsNull(hidden.Edit);
+        StringAssert.Contains(hidden.Refusal, "'hidden'");
+    }
+
+    [TestMethod]
+    public async Task TheAnswersThatPickAllTheFields_PickEveryItem_AndAreRefusedWhenOneIs()
+    {
+        var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(5, 8), CancellationToken.None);
+
+        var all = EncapsulateFieldService.AllFields(prepared.Choices);
+        var answer = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), all, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "Origin", "total" }, all.Single().Items.Select(item => item.Id).ToArray());
+        Assert.IsNull(answer.Edit);
+        StringAssert.Contains(answer.Refusal, "'Origin'");
+        Assert.IsEmpty(EncapsulateFieldService.AllFields([]));
+    }
+
+    [TestMethod]
+    public async Task ABackingFieldName_TypedForAFieldPicked_IsCheckedAsItIsTyped()
+    {
+        RefactorAnswer[] answers =
+        [
+            new() { Id = EncapsulateFieldService.ModeChoice, Value = EncapsulateFieldService.BackingFieldMode },
+            Picked(("total", [new RefactorAnswer { Id = EncapsulateFieldService.BackingFieldChoice, Value = "hidden" }])),
+        ];
+
+        var checkedName = await _service.CheckIdentifierAsync(Document("Fields.bas"), new SourcePosition(5, 8), answers, CancellationToken.None);
+
+        var notice = checkedName.Notices.Single();
+        Assert.AreEqual("encapsulateField.nameTaken", notice.Code);
+        Assert.AreEqual(EncapsulateFieldService.BackingFieldChoice, notice.Choice);
+        Assert.AreEqual("total", notice.Item);
     }
 
     [TestMethod]

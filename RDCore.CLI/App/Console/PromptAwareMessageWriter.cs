@@ -142,9 +142,9 @@ internal sealed class PromptAwareMessageWriter(IConsoleMessageWriter inner) : IC
         return this;
     }
 
-    public IConsoleMessageWriter WriteSlogan()
+    public IConsoleMessageWriter WriteSlogan(int indent = 0)
     {
-        Write(() => inner.WriteSlogan());
+        Write(() => inner.WriteSlogan(indent));
         return this;
     }
 
