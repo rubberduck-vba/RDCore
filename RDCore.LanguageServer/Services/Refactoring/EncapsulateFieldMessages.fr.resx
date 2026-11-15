@@ -29,7 +29,7 @@
     <value>'{0}' est déclaré WithEvents : les procédures nommées d'après lui gèrent ses événements, et une propriété ne peut pas être déclarée WithEvents.</value>
   </data>
   <data name="EncapsulateFieldRefusal_NotSupported" xml:space="preserve">
-    <value>'{0}' est un tableau, une chaîne de longueur fixe ou une variable déclarée As New, ou son type n'est pas connu : l'encapsulation ne lui écrit aucune propriété.</value>
+    <value>'{0}' est un tableau de taille fixe ou une variable déclarée As New, ou son type n'est pas connu : l'encapsulation ne lui écrit aucune propriété.</value>
   </data>
   <data name="EncapsulateFieldRefusal_Conditional" xml:space="preserve">
     <value>'{0}' est déclaré dans une branche d'un bloc #If : il n'est compilé que lorsque cette branche est active, et ses propriétés le seraient toujours.</value>
@@ -108,5 +108,29 @@
   </data>
   <data name="EncapsulateFieldChoice_Unknown" xml:space="preserve">
     <value>'{0}' n'est pas une réponse à '{1}'.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WritesAnElement" xml:space="preserve">
+    <value>{1} écrit dans un élément de '{0}', un tableau, ou le redimensionne ou l'efface : par une propriété, l'écriture irait à une copie et serait perdue sans erreur, ou ne compilerait pas.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_SharesItsStatement" xml:space="preserve">
+    <value>'{0}' est déclaré dans une même instruction que '{1}', encapsulé avec lui : déclarez d'abord chacun dans une instruction à part.</value>
+  </data>
+  <data name="EncapsulateFieldChange_ElementPassed" xml:space="preserve">
+    <value>{1} passe un élément de '{0}' à un appel qui peut le prendre ByRef : par une propriété, ce que l'appel y écrit va à une copie et est perdu.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Fields" xml:space="preserve">
+    <value>Autres champs</value>
+  </data>
+  <data name="EncapsulateFieldChoice_FieldsDescription" xml:space="preserve">
+    <value>Les autres champs Public du module : ceux qui sont choisis sont encapsulés dans la même modification, et conservés de la même façon.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Encapsulate" xml:space="preserve">
+    <value>Encapsuler</value>
+  </data>
+  <data name="EncapsulateFieldChoice_UnknownField" xml:space="preserve">
+    <value>Le module n'a aucun autre champ Public nommé '{0}'.</value>
+  </data>
+  <data name="EncapsulateField_AllTitle" xml:space="preserve">
+    <value>Encapsuler tous les champs</value>
   </data>
 </root>
