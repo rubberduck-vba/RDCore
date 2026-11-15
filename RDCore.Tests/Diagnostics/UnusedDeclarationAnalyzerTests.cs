@@ -299,6 +299,39 @@ public sealed class UnusedDeclarationAnalyzerTests
         StringAssert.Contains(findings[0].Message, "'mode'");
     }
 
+    [TestMethod]
+    public async Task ThePropertyThatImplementsAnInterfaceMember_DoesNotChooseItsSignature_FromItsGetOn()
+    {
+        // a property's declaration is its first accessor, a Get here: the Let's value is the interface's, of its property and of its variable.
+        var settings = ModuleWorkspace.ClassModule("ISettings", "Public Label As String",
+            "Public Property Get Tag() As Variant", "End Property", "Public Property Let Tag(ByVal value As Variant)", "End Property");
+        string[] lines =
+        [
+            "Option Explicit",
+            "Implements ISettings",
+            "Private Property Get ISettings_Label() As String",
+            "End Property",
+            "Private Property Let ISettings_Label(ByVal value As String)",
+            "End Property",
+            "Private Property Get ISettings_Tag() As Variant",
+            "End Property",
+            "Private Property Let ISettings_Tag(ByVal value As Variant)",
+            "End Property",
+            "Private Property Get Other() As Long",
+            "End Property",
+            "Private Property Let Other(ByVal value As Long)",
+            "End Property",
+        ];
+        var source = ModuleWorkspace.ClassModule("Settings", lines);
+        var payload = await ModuleWorkspace.SemanticsAsync([("ISettings", settings), ("Settings", source)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub"));
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Settings");
+
+        var findings = Run(new ParameterNotUsedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Settings.cls")));
+
+        Assert.HasCount(1, findings, "only the property that implements nothing: " + string.Join("; ", findings.Select(finding => $"{finding.Range.Start.Line}: {finding.Message}")));
+        Assert.AreEqual(17, findings[0].Range.Start.Line);
+    }
+
     #endregion
 
     #region RDC01014 a ByVal parameter assigned
