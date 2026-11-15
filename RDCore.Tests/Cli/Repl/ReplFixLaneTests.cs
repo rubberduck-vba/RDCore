@@ -13,7 +13,8 @@ namespace RDCore.Tests.Cli.Repl;
 
 /// <summary>
 /// The light bulb in <c>LIST</c>'s diagnostic lane: a line that has a diagnostic with a fix in its <c>data</c> is marked with it, and a line with no fix with its
-/// most severe diagnostic; a breakpoint has a lane of its own; the lane is as wide on every line as its widest mark is; and the findings are asked for once a listing, with the report the shell has, so that a program that did not change costs an <c>unchanged</c> report.
+/// most severe diagnostic; a breakpoint has a lane of its own; the lane is as wide on every line as its widest mark is; and the findings are asked for once a
+/// listing, with the report the shell has, so that a program that did not change costs an <c>unchanged</c> report.
 /// </summary>
 [TestClass]
 public sealed class ReplFixLaneTests
