@@ -94,7 +94,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     public void RequireVariable(ExpressionNode expression, string role, string? section = null)
         => Report(expression, NotAVariable(expression, LibraryFunctions.None), $"{role} must be a variable", section);
 
-    // MS-VBAL §5.6.16.6: a bound variable expression is a variable, even where an assignment to the same expression would call a Property Let. A member of an
+    // MS-VBAL §5.6.16.6: a bound variable expression must be classified as a variable, even where an assignment to the same expression would call a Property Let. A member of an
     // object's class that is a property or a procedure is reported at the member as it is written after the dot (`.Name`, observed in Excel).
     public void RequireBoundVariable(ExpressionNode expression, string role, string section)
     {

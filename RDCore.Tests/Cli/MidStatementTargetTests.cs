@@ -3,8 +3,8 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The target of a Mid statement is a bound variable expression (<strong>MS-VBAL §5.4.3.5</strong>), and a bound variable expression is a variable
-/// (<strong>§5.6.16.6</strong>): a property or a procedure of a class, bound early, is "Variable required", reported at the member as it is written after the
+/// The target of a Mid statement is a bound variable expression (<strong>MS-VBAL §5.4.3.5</strong>), and a bound variable expression must be classified as a
+/// variable (<strong>§5.6.16.6</strong>): a property or a procedure of a class, bound early, is "Variable required", reported at the member as it is written after the
 /// dot, and its Property Let is not what the statement assigns, as MS-VBA has it (recorded in Excel).
 /// </summary>
 [TestClass]
@@ -26,7 +26,7 @@ public sealed class MidStatementTargetTests
         => $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
 
     [TestMethod]
-    [DataRow("Mid(c.Name, 1, 1) = \"x\"", ".Name", "the property Name", DisplayName = "a property, as the oracle's program has it")]
+    [DataRow("Mid(c.Name, 1, 1) = \"x\"", ".Name", "the property Name", DisplayName = "a property, by Mid")]
     [DataRow("Mid$(c.Name, 2) = \"x\"", ".Name", "the property Name", DisplayName = "a property, by Mid$")]
     [DataRow("MidB(c.Name, 1, 2) = \"x\"", ".Name", "the property Name", DisplayName = "a property, by MidB")]
     [DataRow("Mid(c.Label, 1, 1) = \"x\"", ".Label", "the procedure Label", DisplayName = "a function")]

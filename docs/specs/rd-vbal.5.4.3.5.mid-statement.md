@@ -31,6 +31,11 @@ The declared type of the target MUST be `String` or `Variant` (**MS-VBAL §5.4.3
 result, a constant (by its name, or qualified by its project, its module or the library `Enum` that declares it) or a function of the library (`Mid(Left, 1, 1) = "x"`) is
 [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`).
 
+The target is a bound variable expression, which must be classified as a variable even where a `Let` to it would call a `Property Let`
+([**MS-VBAL §5.6.16.6** Bound Variable Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/018d50ba-a3f8-48ff-affc-39bc5ac41888)).
+A property or a procedure of a class, bound early, is `VBC09333` as well, reported at the member after the dot (`.Name` in `Mid(c.Name, 1, 1) = "x"`).
+A member of an object bound late (`Object`, `Variant`) is not judged statically.
+
 The position and the length are used as the runtime semantics uses them - as `Long` - and the value as a `String`, so each has to be Let-coercible to that
 ([**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md)).
 
