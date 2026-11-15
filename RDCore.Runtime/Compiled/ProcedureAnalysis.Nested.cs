@@ -20,9 +20,9 @@ internal sealed partial class ProcedureAnalysis
     // it is in that statement (KnownOperands.IndexOf), for the interpreter to be given when the instruction is handed to it after a call.
     private StatementNode? _nesting;
 
-    // a Let of a scalar variable of the activation or of the function result variable, a call statement, or a condition of an If or a loop, that calls a
-    // function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode); and so is every other instruction, as
-    // it always is.
+    // a Let of a scalar or Variant variable of the activation or of the function result variable, a call statement, or a condition of an If or a loop,
+    // that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode); and so is every other
+    // instruction, as it always is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);
@@ -90,10 +90,12 @@ internal sealed partial class ProcedureAnalysis
         return nests ? instruction.Node : null;
     }
 
+    // a scalar variable of the activation or the scalar result variable, and a Variant variable of the activation, assigned what was evaluated of it once:
+    // its Let made of the payload the evaluation gives (VariantLetStep), never speculated, which would evaluate the value again where the speculation fails.
     private bool IsScalarTarget(BoundNode target) => target switch
     {
         BoundName { Symbol: var function } => ResultKind is not null && IsOwnFunction(function),
-        BoundVariable variable => SlotOf(variable) is not null,
+        BoundVariable variable => SlotOf(variable) is not null || VariantSlotOf(variable) is not null,
         _ => false,
     };
 
@@ -206,6 +208,7 @@ internal sealed partial class ProcedureAnalysis
     {
         SupportCallStep => true,
         LetStep let => Admits(let.Value),
+        VariantLetStep let => Admits(let.Value),
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         SetStep { SourceCall: { } source } => Admits(source),
         BranchStep branch => Admits(branch.Condition),
@@ -323,6 +326,7 @@ internal sealed partial class ProcedureAnalysis
     private static IEnumerable<PayloadNode> PayloadsOf(CompiledStep step) => step switch
     {
         LetStep let => [let.Value],
+        VariantLetStep let => OperandsOf(let.Value),
         CallStep call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
         SetStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
         BranchStep branch => [branch.Condition],

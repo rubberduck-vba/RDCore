@@ -524,12 +524,13 @@ internal sealed partial class ProcedureEmitter
                     _il.MarkLabel(slow);
                 }
 
+                // after a call inside the value, a Let the interpreter runs is given what was evaluated (Fail): the call is not made again.
                 var value = _il.DeclareLocal(typeof(VariantPayload));
                 EmitVariantInto(variantLet.Value, value, failure);
                 _il.Emit(OpCodes.Ldloc, _variants[variantLet.Slot]);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 if (assigned is { } written)
                 {
                     _il.MarkLabel(written);
