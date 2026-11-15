@@ -217,8 +217,8 @@ public sealed class ErrorConstNamingAnalyzerTests
         string.Empty]);
 
     // the form diagnosed as the language server has the Diagnostics extension diagnose it: its parse has what its designer declares, and it reaches the
-    // extension through the wire, with the host's model of its module; and the analyzer run on it directly. Both say the same, the messages of what they
-    // report. The code diagnosed is the form's own, or code given in its place, which the host's model of the form is the model of.
+    // extension through the wire, with the host's model of its module; and the analyzer run on it directly. Both report the same findings, with the same
+    // messages. The code diagnosed is the form's own, or code given in its place; either way, the host's model of the form is the model of that code.
     private static async Task<string[]> VisualBasicFormAsync(string form, string? code = null)
     {
         var designer = FormDesigner.Read(form)!;
