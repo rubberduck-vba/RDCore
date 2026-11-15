@@ -355,7 +355,7 @@ public sealed class CompiledStringArgumentTests
     }
 
     // a String and a Long given by reference to one call: each the caller's variable, which the callee writes. N goes 1, 2, 3, 6, 7, 14, and S is "xxx":
-    // 143. Len(S), a call that takes a String, is the interpreter's: 1.
+    // 143. Compiled code calls Len(S): 0.
     [TestMethod]
     public async Task AStringAndALongGivenByReference_AreBothTheCallersVariables()
     {
@@ -374,7 +374,7 @@ public sealed class CompiledStringArgumentTests
             "Private Sub Append(ByRef S As String, ByRef N As Long)",
             "    S = S & \"x\"",
             "    N = N + 1",
-            "End Sub"), "Counted", recoveries: 1, expected: " 143 ");
+            "End Sub"), "Counted", recoveries: 0, expected: " 143 ");
 
         AssertCalledThroughInvoker(result, 3);
     }

@@ -170,7 +170,8 @@ public sealed class CompiledSteppingTests
             "    Next",
             "End Function"), "Counted", recoveries: 0);
 
-    // a For whose end is not compiled code's: the interpreter opens the loop and steps it, and the body is compiled.
+    // a For whose end is not compiled code's (a String given to a call inside a call): the interpreter opens the loop and steps it, and the body is
+    // compiled.
     [TestMethod]
     public async Task AForTheInterpreterOpens_IsSteppedByItToo_AroundACompiledBody()
         => await AssertAlikeAsync(Program(
@@ -179,7 +180,7 @@ public sealed class CompiledSteppingTests
             "End Sub",
             "Private Function Summed(ByVal S As String) As Long",
             "    Dim I As Long",
-            "    For I = 1 To Len(S)",
+            "    For I = 1 To CLng(Len(S))",
             "        Summed = Summed + I",
             "    Next",
             "End Function"), "Summed", recoveries: 5);
@@ -235,7 +236,7 @@ public sealed class CompiledSteppingTests
             "    For I = 1 To 2",
             "        Failing = Failing + I",
             "    Next",
-            "    Failing = CLng(S)",
+            "    Failing = Failing + CLng(S)",
             "End Function"), "Failing", recoveries: 0);
 
     [TestMethod]
@@ -295,7 +296,7 @@ public sealed class CompiledSteppingTests
             "End Function");
 
         await AssertAlikeAsync(program, "Outer", recoveries: 0);
-        await AssertAlikeAsync(program, "Labelled", recoveries: 3);
+        await AssertAlikeAsync(program, "Labelled", recoveries: 0);
     }
 
     // a variable a statement the interpreter runs gives an address - its VarPtr, an argument passed by reference to a Declare - is read back and written
@@ -347,8 +348,8 @@ public sealed class CompiledSteppingTests
     }
 
     // a compiled variable passed by reference in a call the interpreter makes is its cell in the frame, which the callee writes: read back after the call.
-    // The call is the interpreter's because it also gives a late-bound call's result: a support call at each of 3 passes, which steps nothing. The
-    // interpreter steps the Len after the loop: 1.
+    // The call is the interpreter's because it also gives a late-bound call's result: a support call at each of 3 passes, which steps nothing. Compiled
+    // code calls the Len after the loop: 0.
     [TestMethod]
     public async Task AVariablePassedByReferenceInACallTheInterpreterMakes_IsWhatTheCalleeWrote()
     {
@@ -368,7 +369,7 @@ public sealed class CompiledSteppingTests
             "    N = N + 1",
             "End Sub");
 
-        await AssertAlikeAsync(program, "Counted", recoveries: 1, classes: Pieces);
+        await AssertAlikeAsync(program, "Counted", recoveries: 0, classes: Pieces);
     }
 
     // an object the interpreter makes and calls: the frame's, from one statement to the next. The Add is a support call at each of 3 passes, and compiled

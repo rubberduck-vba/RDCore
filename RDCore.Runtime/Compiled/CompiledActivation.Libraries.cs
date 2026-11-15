@@ -3,11 +3,13 @@ using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -90,6 +92,50 @@ public sealed partial class CompiledActivation
     }
 
     /// <summary>
+    /// Calls the function of the standard library numbered <paramref name="library"/> of the body for the <c>String</c> it returns, given its arguments as
+    /// <see cref="CallLibrary"/> calls one.
+    /// </summary>
+    /// <param name="pc">The offset of the instruction that makes the call.</param>
+    /// <param name="library">The number of the call among the body's libraries.</param>
+    /// <param name="count">How many arguments the call is given.</param>
+    /// <param name="first">The first argument, when it is given one.</param>
+    /// <param name="second">The second argument, when it is given two.</param>
+    /// <param name="third">The third argument, when it is given three.</param>
+    /// <param name="firstValue">
+    /// What is given in place of <paramref name="first"/>: what a Variant variable holds (<see cref="VariantOperations.ValueOf"/>), or a <c>Variant</c>
+    /// holding a String (<see cref="TextArgument"/>); <see langword="null"/> when the argument is <paramref name="first"/>.
+    /// </param>
+    /// <param name="secondValue">The same, for the second argument.</param>
+    /// <param name="thirdValue">The same, for the third argument.</param>
+    /// <param name="text">The text the function returned.</param>
+    /// <returns>
+    /// Whether the function returned a String compiled code holds. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>), with the
+    /// error the function raised, or to make it as it always does.
+    /// </returns>
+    public bool TryCallLibraryVariantText(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
+        IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out string? text)
+    {
+        text = null;
+        if (!TryCallLibraryValue(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var value)
+            || value is not VBStringValue { TrailingByte: null } returned)
+        {
+            return false;
+        }
+
+        text = returned.Value;
+        return true;
+    }
+
+    /// <summary>
+    /// A <c>Variant</c> holding <paramref name="text"/>, as the interpreter gives a <c>String</c> to a <c>Variant</c> parameter passed by value
+    /// (MS-VBAL §5.5.1.2.12): what a call of a function of the standard library is given in place of an argument's payload.
+    /// </summary>
+    /// <param name="text">The text of the argument; <see langword="null"/> for a null String.</param>
+    /// <returns>The <c>Variant</c>'s runtime value.</returns>
+    public static IRuntimeValue TextArgument(string? text)
+        => VariantCell.Holding(VBStringType.TypeInfo, (text is null ? VBStringValue.VBNullString : new VBStringValue(text)).RuntimeValue);
+
+    /// <summary>
     /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
     /// (<see cref="VariantCellOf"/>): a parameter passed a <c>String</c>, an error, an object or no argument by value.
     /// </summary>
@@ -123,6 +169,15 @@ public sealed partial class CompiledActivation
         IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out ScalarPayload payload)
     {
         payload = default;
+        return TryCallLibraryValue(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var value)
+            && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
+    }
+
+    // the call made, and what it returned, a Variant what it holds; none when the call failed, or returned nothing.
+    private bool TryCallLibraryValue(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
+        IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, [NotNullWhen(true)] out VBTypedValue? value)
+    {
+        value = null;
         SetLibraryCall(pc, library);
         (_failed, _suspensionsBeforeCall) = (null, Suspensions);
         var called = _body.Libraries[library];
@@ -175,8 +230,8 @@ public sealed partial class CompiledActivation
             return false;
         }
 
-        var value = result.Result is VBVariantValue { TypedValue: { } inner } ? inner : result.Result;
-        return value is not null && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
+        value = result.Result is VBVariantValue { TypedValue: { } inner } ? inner : result.Result;
+        return value is not null;
     }
 
     // the call of a function of the standard library compiled code makes: straight to the library when nothing needs to see the call

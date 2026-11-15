@@ -196,6 +196,10 @@ internal sealed partial class ProcedureEmitter
             case LibraryTextNode library:
                 EmitLibraryText(library, text, failure);
                 break;
+
+            case LibraryVariantTextNode converting:
+                EmitLibraryVariantText(converting, text, failure);
+                break;
         }
 
         return text;
@@ -284,5 +288,17 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryCallLibraryText),
             [typeof(int), typeof(int), typeof(int), typeof(string), typeof(string), typeof(string), typeof(string).MakeByRefType()])!);
         _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(_knowingAt)));
+    }
+
+    // the arguments evaluated as a call of a function that returns a Variant evaluates them (EmitLibraryArguments); then the call
+    // (CompiledActivation.TryCallLibraryVariantText), of which an error, or what is no String compiled code holds, gives the interpreter the call.
+    private void EmitLibraryVariantText(LibraryVariantTextNode node, LocalBuilder text, Label failure)
+    {
+        var offset = _knowingAt;
+        var (payloads, values) = EmitLibraryArguments(node.Arguments, failure);
+        LoadLibraryArguments(offset, node.Library, payloads, values);
+        _il.Emit(OpCodes.Ldloca, text);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryCallLibraryVariantText))!);
+        _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(offset)));
     }
 }
