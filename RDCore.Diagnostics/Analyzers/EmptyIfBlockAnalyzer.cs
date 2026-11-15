@@ -69,13 +69,13 @@ internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
     {
         var range = block.SourceLocation.Range;
         if (!block.Body.Children.IsDefaultOrEmpty || !block.ElseIfBlocks.IsDefaultOrEmpty || block.ElseBlock is not null
-            || module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => Encloses(member.SourceLocation.Range, range)) is not { } procedure)
+            || module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.SourceLocation.Range.Contains(range)) is not { } procedure)
         {
             return null;
         }
 
         // a comment in the If is the user's, and is not removed with it.
-        if (parse.Trivia.Any(trivia => Encloses(range, trivia.SourceLocation.Range)) || LineEdits.WholeLinesOf(parse, block) is not { } lines)
+        if (parse.Trivia.Any(trivia => range.Contains(trivia.SourceLocation.Range)) ||LineEdits.WholeLinesOf(parse, block) is not { } lines)
         {
             return null;
         }
@@ -84,8 +84,6 @@ internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
             ? SyntaxEdits.Fix(RDCoreDiagnosticsResources.EmptyIfBlock_Fix, SyntaxEdits.Remove(lines))
             : null;
     }
-
-    private static bool Encloses(SourceRange outer, SourceRange inner) => outer.Start <= inner.Start && outer.End >= inner.End;
 
     // what reading a name or an operation gives, when it neither calls nor raises: a Boolean (or Null), another Value (a number, a Date, Empty), or an Object
     // reference.
