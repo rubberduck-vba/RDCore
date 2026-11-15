@@ -56,7 +56,8 @@ internal sealed partial class ProcedureEmitter
     }
 
     // the arguments of a call, in order (MS-VBAL §5.3.1.11), each into a local: a payload, held in a Variant of its own subtype; or, of a Variant variable
-    // (VariantValueNode), what it holds when it is read, which is read once, where it is in the order.
+    // (VariantValueNode), what it holds when it is read, which is read once, where it is in the order; of an expression of Strings (VariantTextNode), a
+    // Variant holding its text.
     private (LocalBuilder[] Payloads, LocalBuilder?[] Values) EmitLibraryArguments(IReadOnlyList<VariantNode> arguments, Label failure)
     {
         var payloads = new LocalBuilder[arguments.Count];
@@ -82,6 +83,17 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Dup);
                 _il.Emit(OpCodes.Stloc, values[i]!);
                 _il.Emit(OpCodes.Brfalse, failure);
+                continue;
+            }
+
+            // an expression of Strings: a Variant holding its text, where it is in the order.
+            if (arguments[i] is VariantTextNode given)
+            {
+                payloads[i] = _il.DeclareLocal(typeof(VariantPayload));
+                values[i] = _il.DeclareLocal(typeof(IRuntimeValue));
+                _il.Emit(OpCodes.Ldloc, EmitTextInto(given.Text, failure));
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TextArgument))!);
+                _il.Emit(OpCodes.Stloc, values[i]!);
                 continue;
             }
 
