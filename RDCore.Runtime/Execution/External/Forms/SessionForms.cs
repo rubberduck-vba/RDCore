@@ -44,8 +44,8 @@ internal sealed class SessionForms
     private FormCallProvider? _creator;
 
     /// <summary>
-    /// Makes <paramref name="provider"/> what says, from now on, whether a <c>New</c> of a form's class can make its form (<see cref="CreationFailure"/>): the
-    /// provider of the pipeline that runs the session's program.
+    /// Sets <paramref name="provider"/> as what says, from then on, whether a <c>New</c> of a form's class can make its form (<see cref="CreationFailure"/>):
+    /// the provider of the pipeline that runs the session's program.
     /// </summary>
     /// <param name="provider">The pipeline's provider of the forms' members.</param>
     public void CreatesWith(FormCallProvider provider)
