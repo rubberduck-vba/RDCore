@@ -46,8 +46,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         => _valueResolutions.GetOrAdd(new ValueResolutionKey(name, scope, handle.AbsoluteUri),
             static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle, null), (Resolver: this, Name: name, Handle: handle));
 
-    // MS-VBAL §5.6.10: what the name of a declaration means from where it is looked up, had that declaration not been made - the other accessors of a property
-    // are the same declaration. It is not kept: it is asked once for each declaration, of a tree that holds the declaration.
+    // MS-VBAL §5.6.10: what the name of a declaration means from where it is looked up, had that declaration not been made (the other accessors of a property
+    // are the same declaration). It is not kept: it is asked once for each declaration, of a tree that holds the declaration.
     public SymbolResolutionResult ResolveValueWithout(Symbol declared, Uri handle)
         => ResolveValueOnce(declared.Name, handle, candidate => candidate.SemanticId == declared.SemanticId || IsAccessorOfTheSameProperty(candidate, declared));
 

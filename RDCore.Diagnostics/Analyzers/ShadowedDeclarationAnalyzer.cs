@@ -14,8 +14,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// A simple name is first matched in its procedure, then in its module, then in the project and the libraries it references: <c>Dim Left As Long</c> makes
-/// <c>Left(s, 1)</c> an index of the variable in that procedure, and a module's <c>Public Function Replace</c> is what <c>Replace</c> calls where
-/// <c>VBA.Strings.Replace</c> was. What the name would mean without the declaration is a fact the host vouches for
+/// <c>Left(s, 1)</c> an index of the variable in that procedure, and a module's <c>Public Function Replace</c> is what <c>Replace</c> calls in place of
+/// <c>VBA.Strings.Replace</c>. What the name would mean without the declaration is a fact the host vouches for
 /// (<see cref="SDK.Semantics.DeclarationFact.Hides"/>): only the host resolves names across modules and libraries.
 /// </remarks>
 internal sealed class ShadowedDeclarationAnalyzer : IModuleAnalyzer
