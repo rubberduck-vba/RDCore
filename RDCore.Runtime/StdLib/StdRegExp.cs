@@ -129,8 +129,8 @@ internal sealed class StdRegExp : IStdRegExpClass, IStdLibReceiverBound
             return RuntimeSemanticsEvaluationResult<VBStringValue>.Error(failure);
         }
 
-        // an object stands for its default member's value. A default member that had no answer (an End or a Stop in it) fails the call as it failed; any
-        // other object is written as text, which one that has no value cannot be.
+        // an object stands for its default member's value. A default member that had no answer (an End or a Stop in it) fails the call as it failed; an
+        // object whose default member gives no value is the replacement itself.
         var read = ObjectDefaultMember.ValueOf(session, replaceVar);
         if (read.IsInternalError)
         {
