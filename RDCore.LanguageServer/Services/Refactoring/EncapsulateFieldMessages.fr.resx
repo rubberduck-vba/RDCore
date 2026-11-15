@@ -64,4 +64,52 @@
   <data name="EncapsulateFieldVerification_Retargeted" xml:space="preserve">
     <value>{1} ferait référence à autre chose.</value>
   </data>
+  <data name="EncapsulateFieldRefusal_NotAName" xml:space="preserve">
+    <value>'{1}' ne peut pas être le nom d'une variable.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WrittenOutside" xml:space="preserve">
+    <value>{1} assigne '{0}', ce qu'une propriété en lecture seule ne peut pas recevoir.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_ReplacedByMid" xml:space="preserve">
+    <value>{1} remplace des caractères de '{0}' par une instruction Mid, qui exige une variable : sur une propriété, le code ne compilerait pas.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Mode" xml:space="preserve">
+    <value>Garder la valeur dans</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ModeDescription" xml:space="preserve">
+    <value>Là où les propriétés lisent et écrivent la valeur du champ.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ModeThis" xml:space="preserve">
+    <value>Un membre du type privé du module (this)</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ModeBackingField" xml:space="preserve">
+    <value>Un champ privé</value>
+  </data>
+  <data name="EncapsulateFieldChoice_BackingField" xml:space="preserve">
+    <value>Champ privé</value>
+  </data>
+  <data name="EncapsulateFieldChoice_BackingFieldDescription" xml:space="preserve">
+    <value>Le nom du champ privé qui garde la valeur, lorsque la valeur est gardée dans un champ privé.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ReadOnly" xml:space="preserve">
+    <value>Lecture seule</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ReadOnlyDescription" xml:space="preserve">
+    <value>N'écrire qu'un Property Get. Le code hors du module ne peut pas assigner le champ.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Inside" xml:space="preserve">
+    <value>Dans le module</value>
+  </data>
+  <data name="EncapsulateFieldChoice_InsideDescription" xml:space="preserve">
+    <value>Ce que les références dans le module lisent et écrivent. Par les propriétés, un champ passé à un paramètre ByRef est passé comme une copie.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_InsideState" xml:space="preserve">
+    <value>La valeur, là où elle est gardée</value>
+  </data>
+  <data name="EncapsulateFieldChoice_InsideProperties" xml:space="preserve">
+    <value>Les propriétés</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Unknown" xml:space="preserve">
+    <value>'{0}' n'est pas une réponse à '{1}'.</value>
+  </data>
 </root>

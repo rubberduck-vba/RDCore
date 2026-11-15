@@ -90,7 +90,7 @@ public sealed class EncapsulateFieldServiceTests
     {
         var position = new SourcePosition(line, character);
 
-        var answer = await _service.ApplyAsync(Document(document), position, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+        var answer = await _service.ApplyAsync(Document(document), position, [], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
         var edit = answer.Edit!.Documents.Single();
@@ -106,7 +106,7 @@ public sealed class EncapsulateFieldServiceTests
     [TestMethod]
     public async Task AField_IsEncapsulatedInItsModule_WhenAskedFromAReferenceInAnotherModule()
     {
-        var answer = await _service.ApplyAsync(Document("Main.bas"), new SourcePosition(6, 10), [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+        var answer = await _service.ApplyAsync(Document("Main.bas"), new SourcePosition(6, 10), [], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
         Assert.AreEqual(Document("Fields.bas"), answer.Edit!.Documents.Single().Uri);
@@ -116,7 +116,7 @@ public sealed class EncapsulateFieldServiceTests
     public async Task ACallThatMayWriteThroughAByRefParameter_IsAChange_ThatIsMadeOnlyWhenAccepted()
     {
         var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(5, 8), CancellationToken.None);
-        var declined = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), [], CancellationToken.None);
+        var declined = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), [], [], CancellationToken.None);
 
         var change = prepared.Notices.Single();
         Assert.AreEqual(RefactorNoticeKind.Change, change.Kind);
@@ -130,7 +130,7 @@ public sealed class EncapsulateFieldServiceTests
     public async Task APrivateField_IsRefused()
     {
         var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(6, 9), CancellationToken.None);
-        var applied = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(6, 9), [], CancellationToken.None);
+        var applied = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(6, 9), [], [], CancellationToken.None);
 
         var refusal = prepared.Notices.Single();
         Assert.AreEqual(RefactorNoticeKind.Refusal, refusal.Kind);
@@ -149,6 +149,60 @@ public sealed class EncapsulateFieldServiceTests
         Assert.AreEqual(Document("Main.bas"), refusal.Location?.Uri);
         StringAssert.StartsWith(refusal.Message, "Main.bas 8:5 ");
         StringAssert.Contains(refusal.Message, "'Origin'");
+    }
+
+    [TestMethod]
+    public async Task TheChoices_AreAskedWithTheirDefaults_AndABackingFieldIsDeclaredWithTheNameAnswered()
+    {
+        var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(5, 8), CancellationToken.None);
+        CollectionAssert.AreEqual(
+            new[] { EncapsulateFieldService.ModeChoice, EncapsulateFieldService.BackingFieldChoice, EncapsulateFieldService.ReadOnlyChoice, EncapsulateFieldService.InsideChoice },
+            prepared.Choices.Select(choice => choice.Id).ToArray());
+        Assert.AreEqual("mCount", prepared.Choices.Single(choice => choice.Id == EncapsulateFieldService.BackingFieldChoice).Default);
+
+        RefactorAnswer[] answers =
+        [
+            new() { Id = EncapsulateFieldService.ModeChoice, Value = EncapsulateFieldService.BackingFieldMode },
+            new() { Id = EncapsulateFieldService.BackingFieldChoice, Value = "total" },
+        ];
+        var answer = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8), answers, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = DeclarationEdits.ApplyTo(Fields, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Private total As Long\r\n");
+        StringAssert.Contains(text, "    total = 0\r\n");
+        StringAssert.Contains(text, "Public Property Let count(ByVal value As Long)\r\n    total = value\r\nEnd Property\r\n");
+        Assert.DoesNotContain("Private Type", text);
+    }
+
+    [TestMethod]
+    [DataRow("hidden", "encapsulateField.nameTaken", DisplayName = "a name of the module")]
+    [DataRow("Dim", "encapsulateField.notAName", DisplayName = "a keyword")]
+    public async Task ABackingFieldName_ThatCannotBeDeclared_IsRefusedAsItIsTyped(string typed, string code)
+    {
+        RefactorAnswer[] answers =
+        [
+            new() { Id = EncapsulateFieldService.ModeChoice, Value = EncapsulateFieldService.BackingFieldMode },
+            new() { Id = EncapsulateFieldService.BackingFieldChoice, Value = typed },
+        ];
+
+        var checkedName = await _service.CheckIdentifierAsync(Document("Fields.bas"), new SourcePosition(5, 8), answers, CancellationToken.None);
+        var thisMode = await _service.CheckIdentifierAsync(Document("Fields.bas"), new SourcePosition(5, 8), [answers[1]], CancellationToken.None);
+
+        var notice = checkedName.Notices.Single();
+        Assert.AreEqual(code, notice.Code);
+        Assert.AreEqual(EncapsulateFieldService.BackingFieldChoice, notice.Choice);
+        Assert.IsEmpty(thisMode.Notices);
+    }
+
+    [TestMethod]
+    public async Task AnAnswerThatIsNoValueOfItsChoice_IsRefused()
+    {
+        var answer = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8),
+            [new RefactorAnswer { Id = EncapsulateFieldService.InsideChoice, Value = "elsewhere" }], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        Assert.IsNull(answer.Edit);
+        StringAssert.Contains(answer.Refusal, "'elsewhere'");
     }
 
     [TestMethod]

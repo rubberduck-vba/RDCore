@@ -91,6 +91,7 @@ internal static class LanguageServerServices
             .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
             .AddSingleton<IWorkspaceFileOperationService, WorkspaceFileOperationService>()
             .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWatchedFileChanges, RDCore.LanguageServer.Server.Handlers.Workspace.WatchedFileChanges>()
+            .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWorkspaceFolderChanges, RDCore.LanguageServer.Server.Handlers.Workspace.WorkspaceFolderChanges>()
             .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWorkspaceFileSystemWatcher, RDCore.LanguageServer.Server.Handlers.Workspace.WorkspaceFileSystemWatcher>()
             .AddSingleton<IProgramDebugService, ProgramDebugService>()
             .AddSingleton<RDCore.LanguageServer.Debugging.IEditStatusMonitor, RDCore.LanguageServer.Debugging.EditStatusMonitor>()

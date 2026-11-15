@@ -66,15 +66,6 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     // and ChrW(AscW(c)) is c for every code unit.
     private const int LowestWideCode = -32768;
 
-    /// <summary>
-    /// The error a member returns for what it has no code for yet: <c>Len</c> and <c>LenB</c> of a record with a field they cannot measure.
-    /// </summary>
-    private static RuntimeSemanticsEvaluationResult<TValue> NotImplemented<TValue>(string member)
-        where TValue : VBTypedValue
-        => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(
-            VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, default,
-            $"'{member}' is declared but not implemented yet."));
-
     // a member's errors say which member, and what about its arguments: "Mid: Start is at least 1, not 0."
     private static VBRuntimeErrorInfo Failure(VBRuntimeErrorId error, string member, string rule)
         => VBRuntimeErrorInfo.For(error, default, $"{member}: {rule}.");

@@ -75,7 +75,7 @@ public sealed class CompiledObjectTests
             "        If I = 2 Then Set O = New Other",
             "    Next",
             "    Sides = CStr(N)",
-            "End Function"), "Sides", recoveries: 1, classes: Things);
+            "End Function"), "Sides", recoveries: 0, classes: Things);
 
     // an Is of an operand declared Object is planned when it is evaluated, but is a Boolean all the same: a selector compiled code compares.
     [TestMethod]

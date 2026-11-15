@@ -70,7 +70,7 @@ internal sealed partial class ProcedureAnalysis
             BoundName { Symbol: var symbol } => IsTextConstant(node, symbol),
             BoundQualifiedName { Member: var member } => IsTextConstant(node, member),
             BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } => true,
-            BoundCall { Procedure: var called } => IsChrString(called) || IsTypeName(called) || IsTextLibrary(called),
+            BoundCall { Procedure: var called } => IsChrString(called) || IsTypeName(called) || IsTextLibrary(called) || IsVariantTextLibrary(called),
             BoundMember member => ErrTextOf(member) is not null || MemberTextOf(member) is not null,
             _ => false,
         };
@@ -89,6 +89,33 @@ internal sealed partial class ProcedureAnalysis
     [
         StdLibSymbolReader.ExternalTargetOf(typeof(IStdStringsModule), typeof(IStdStringsModule).GetMethod(nameof(IStdStringsModule.Replace))!),
     ];
+
+    // the functions of the library that return a String and take Variants or scalars, which compiled code calls with its arguments as it calls a function
+    // that returns a Variant (LibraryArgumentsOf): CStr (MS-VBAL §6.1.2.3.1.12).
+    private static readonly string[] VariantTextLibraryFunctions =
+    [
+        StdLibSymbolReader.ExternalTargetOf(typeof(IStdConversionModule), typeof(IStdConversionModule).GetMethod(nameof(IStdConversionModule.CStr))!),
+    ];
+
+    private static bool IsVariantTextLibrary(Symbol symbol)
+        => StandardLibrary.IsLibraryMember(symbol) && symbol is VBTypeMemberSymbol
+            && Array.IndexOf(VariantTextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
+
+    // a call of a function of VariantTextLibraryFunctions, outside an instruction that calls inside an expression: the call is made once, when the text is
+    // evaluated, and the interpreter makes it again when it is handed the instruction.
+    private TextNode? LibraryVariantTextOf(BoundCall call)
+    {
+        var function = (VBTypeMemberSymbol)call.Procedure;
+        var parameters = RuntimeProcedureInvoker.GetParameters(function);
+        if (_nesting is not null || call.BoundArguments is not { } arguments || LibraryArgumentsOf(parameters, arguments) is not { } values)
+        {
+            _ = Unsupported(call);
+            return null;
+        }
+
+        Libraries.Add(new CompiledLibraryCall(function, parameters, call.Expression.SourceLocation));
+        return new LibraryVariantTextNode(Libraries.Count - 1, values);
+    }
 
     private static bool IsTextLibrary(Symbol symbol)
         => StandardLibrary.IsLibraryMember(symbol) && symbol is VBTypeMemberSymbol
