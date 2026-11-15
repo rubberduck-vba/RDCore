@@ -97,11 +97,12 @@ public static class MemberRoles
         => handled.Parameters.Insert(0, new VBParameterSymbol(
             handled.WorkspaceRoot, handled.Uri, "Index", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBIntegerType.TypeInfo));
 
-    // the accessors of a property are procedures that derive from the subroutine's and the function's symbols.
+    // a property's Let and Set are subroutine symbols, and its Get a returning one, as a function's is: each accessor is marked, the Get that stands for the
+    // property included.
     private static void Mark(VBClassModuleSymbol module, string name, DeclarationRole role, Dictionary<SemanticId, DeclarationRole> roles)
     {
         foreach (var candidate in module.Members.Where(member =>
-            member is VBProcedureMemberSymbol or VBFunctionMemberSymbol && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)))
+            member is VBProcedureMemberSymbol or VBReturningMemberSymbol && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
             roles.TryAdd(candidate.SemanticId, role);
         }

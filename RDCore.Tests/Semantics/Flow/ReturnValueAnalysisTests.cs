@@ -62,6 +62,29 @@ public sealed class ReturnValueAnalysisTests
         => await AssertAsync(body, ReturnValueAssignment.Always);
 
     [TestMethod]
+    [DataRow("Error 5", DisplayName = "an Error statement")]
+    [DataRow("Err.Raise 5", DisplayName = "Err.Raise")]
+    [DataRow("Err.Raise 5, \"F\", \"described\"", DisplayName = "Err.Raise with a source and a description")]
+    [DataRow("Call Err.Raise(5)", DisplayName = "Err.Raise with Call")]
+    [DataRow("VBA.Err.Raise 5", DisplayName = "Err.Raise qualified with the library")]
+    [DataRow("If c Then\nErr.Raise 5\nEnd If\nF = 1", DisplayName = "Err.Raise on the only path that does not assign")]
+    public async Task AnErrorRaisedToTheCaller_ReturnsNoValue_AndIsNoPathThatReturnsWithoutOne(string body)
+        => await AssertAsync(body, ReturnValueAssignment.Always);
+
+    [TestMethod]
+    public async Task ARaiseOfAnotherObject_IsACallThatReturns()
+    {
+        var thrower = ModuleWorkspace.ClassModule("Thrower", "Public Sub Raise(ByVal number As Long)", "End Sub");
+        var program = ModuleWorkspace.StandardModule("Program", "Option Explicit", "Public Function F() As Long", "Dim t As New Thrower", "t.Raise 5", "End Function");
+
+        var payload = await ModuleWorkspace.SemanticsAsync([("Thrower", thrower)], program);
+        var fact = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program")
+            .Procedures.Single(candidate => candidate.Procedure.Fragment.EndsWith(".F", StringComparison.Ordinal)).ReturnValue;
+
+        Assert.AreEqual(ReturnValueAssignment.Never, fact?.Assignment);
+    }
+
+    [TestMethod]
     [DataRow("If c Then F = 1", DisplayName = "only the Then branch assigns")]
     [DataRow("If c Then Exit Function\nF = 1", DisplayName = "a conditional exit before the assignment")]
     [DataRow("If c Then\nExit Function\nEnd If\nF = 1", DisplayName = "an Exit Function before the assignment")]
@@ -87,6 +110,8 @@ public sealed class ReturnValueAnalysisTests
     [DataRow("Dim other As Long\nother = 1", DisplayName = "a variable of another name")]
     [DataRow("For n = 3 To 1\nF = n\nNext", DisplayName = "the only assignment is in a For loop whose bounds say it does not run")]
     [DataRow("If False Then\nF = 1\nEnd If", DisplayName = "the only assignment is where a literal False condition never goes")]
+    // Resume Next goes on after the error Err.Raise raises, to the end.
+    [DataRow("On Error Resume Next\nErr.Raise 5", DisplayName = "Err.Raise under Resume Next")]
     public async Task ReturnValueNoPathAssigns_IsNever(string body)
     {
         var fact = await FactOfAsync(body);

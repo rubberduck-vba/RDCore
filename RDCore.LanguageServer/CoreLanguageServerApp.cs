@@ -196,6 +196,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IExtractMethodService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IMoveMemberService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IEncapsulateFieldService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IImplementInterfaceService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
