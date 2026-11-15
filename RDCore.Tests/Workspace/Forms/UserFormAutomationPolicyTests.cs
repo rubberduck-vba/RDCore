@@ -8,7 +8,7 @@ namespace RDCore.Tests.Workspace.Forms;
 /// <summary>
 /// A UserForm, hosted by Microsoft Forms, in an environment that refuses automation: the form, its designer's controls and what they hand out of Microsoft Forms
 /// are the program's own user interface, and run, although they are COM objects of the machine's; any other object, a control of another library included, is
-/// refused with error 70, as before. Inconclusive on a machine without Microsoft Forms.
+/// refused with error 70. Inconclusive on a machine without Microsoft Forms.
 /// </summary>
 [TestClass]
 [TestCategory("MSForms")]

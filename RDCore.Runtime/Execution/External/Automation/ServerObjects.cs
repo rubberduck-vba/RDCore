@@ -50,7 +50,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// (<see cref="LateBinding"/>). <c>CreateObject</c> gives one, and so does a member of a late-bound object. Its server is asked what its class is only when
     /// something needs it (<see cref="ClassOf(IRuntimeSession, VBRuntimeObjectId, VBClassModuleSymbol)"/>).
     /// </remarks>
-    /// <param name="handedOutBy">The object whose event handed the object over; none for a call's result, which is the call's being made.</param>
+    /// <param name="handedOutBy">The object whose event handed the object over; none for a call's result, which is judged by the call being made.</param>
     public VBTypedValue Wrap(object value, VBType declared, IRuntimeSymbolResolver resolver, VBRuntimeObjectId? handedOutBy = null)
     {
         // an object of the session the server held is the session's object again: `d("key") Is w`.
