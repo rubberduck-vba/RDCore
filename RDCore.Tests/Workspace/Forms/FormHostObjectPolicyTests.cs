@@ -13,7 +13,7 @@ namespace RDCore.Tests.Workspace.Forms;
 /// <summary>
 /// An object a UserForm hands out, in an environment that refuses automation, when the form is a COM object of a server that describes no class of it: an
 /// object of no library's class is the platform's only when the form host made it, which a COM server never says, so it is refused with error 70. A stand-in
-/// server and form host hand it out: these run on any platform.
+/// server and form host hand it out, so the tests run on any platform.
 /// </summary>
 [TestClass]
 public sealed class FormHostObjectPolicyTests

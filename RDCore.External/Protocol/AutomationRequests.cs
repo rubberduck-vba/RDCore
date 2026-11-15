@@ -268,7 +268,7 @@ public sealed record class AutomationClassNameResult : ExternalResult
     public string? Name { get; init; }
 
     /// <summary>
-    /// Whether the object is one of the external host's form host's own (<see cref="Automation.IAutomationServer.IsFormHostObject"/>).
+    /// Whether the object is one that the form host of the external host made (<see cref="Automation.IAutomationServer.IsFormHostObject"/>).
     /// </summary>
     public bool IsFormHostObject { get; init; }
 }
