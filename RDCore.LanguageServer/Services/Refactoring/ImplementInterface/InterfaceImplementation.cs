@@ -225,7 +225,7 @@ internal static partial class InterfaceImplementation
                 var named = type.Members.Where(candidate => string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
                 var isVariable = member.Kind == SymbolKindExt.Field;
 
-                // a name the class has for something no accessor of this member is - a variable, a Sub for a Function - is one its compile error reports: the
+                // a name the class has for something no accessor of this member is (a variable, a Sub for a Function) is one its compile error reports: the
                 // procedure is not written beside it.
                 var accessors = isVariable ? new[] { MemberKind.PropertyGet, MemberKind.PropertyLet, MemberKind.PropertySet } : [ImplementsSemantics.KindOf(member)!.Value];
                 var siblings = ImplementsSemantics.InterfaceMembersOf(implemented)
