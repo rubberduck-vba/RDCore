@@ -12,7 +12,8 @@ public interface IConsoleMessageWriter
 
     IConsoleMessageWriter WriteAssemblyInfo();
 
-    IConsoleMessageWriter WriteSlogan();
+    // the slogan, on a line of its own, this far in.
+    IConsoleMessageWriter WriteSlogan(int indent = 0);
 
     IConsoleMessageWriter WriteLegalNotice();
 

@@ -129,38 +129,8 @@
   <data name="Command_ShowSplash" xml:space="preserve">
     <value>Displays the application's splash screen.</value>
   </data>
-  <data name="CopyrightNotice" xml:space="preserve">
-    <value>Copyright © {$YEAR} {$COMPANY}, all rights reserved.</value>
-  </data>
   <data name="Prompt_READY" xml:space="preserve">
     <value>READY.</value>
-  </data>
-  <data name="RDCoreSplash_Background" xml:space="preserve">
-    <value>                                    -+-+--++--                          
-                                --+----+----------                      
-                              ++-----+-    +--+----+                    
-                             -----             +------                  
-                            -----         ----   -------------          
-                            +---          -----   +-----------+         
-                            ----          +--+   ----++ +-----          
-             +-+            ----                ----- --+----           
-            ------+          ----               -----------             
-            --------++        ---+-              -----+-™               
-           ---+ -+--------     -----             +--                    
-           +--+    ----------+------+            +---+                  
-          ----+         +--+-----+--+             +----+                
-          ----                                      -----               
-          ---+                                       ---+-              
-          ----                                        -----             
-          +---+                                        +---             
-           ----                                        ----             
-           -...                                        .--.             
-</value>
-  </data>
-  <data name="RDCore_Slogan" xml:space="preserve">
-    <value>{$VIVAT}  {$HEART}  {$CUCUMIS}</value>
-    <comment>DO NOT LOCALIZE.
-Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="RDCoreSplash_Foreground" xml:space="preserve">
     <value>&gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 

@@ -14,32 +14,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "
-                                    -+-+--++--
-                                --+----+----------
-                              ++-----+-    +--+----+
-                             -----             +------
-                            -----         ----   -------------
-                            +---          -----   +-----------+
-                            ----          +--+   ----++ +-----
-             +-+            ----                ----- --+----
-            ------+          ----               -----------
-            --------++        ---+-              -----+-™
-           ---+ -+--------     -----             +--
-           +--+    ----------+------+            +---+
-          ----+         +--+-----+--+             +----+
-          ----                                      -----
-          ---+                                       ---+-
-          ----                                        -----
-          +---+                                        +---
-           ----                                        ----
-           -...                                        .--.
-         ====================================================
-                      V I V A T  ❤️  C U C U M I S ™
-         ====================================================
-"
 Write-Host "RDCore Platform Local Publish Script"
-Write-Host "©2026 Copyright 9562-7303 Québec inc."
 Write-Host ""
 
 # GetFullPath also expands 8.3 short names, so paths below compare like with like
@@ -344,8 +319,9 @@ foreach ($extension in $Extensions)
     try
     {
         # --unsafe-dev-mode only lets describe-ext run without a signing setup. the manifest FileHash it
-        # records is base64(SHA-512) of this exact exe, so nothing may modify the exe after this step.
-        & $Dotnet $RdcAssembly describe-ext $extension.Executable --description $extension.Description --overwrite --unsafe-dev-mode
+        # records is base64(SHA-512) of this exact exe, so nothing may modify the exe after this step. Its output goes through a pipe, which is
+        # not a console: rdc shows no splash as it starts, and the one splash the script shows is the one at its end.
+        & $Dotnet $RdcAssembly describe-ext $extension.Executable --description $extension.Description --overwrite --unsafe-dev-mode | Out-Host
         if ($LASTEXITCODE -ne 0)
         {
             throw "describe-ext failed for $($extension.Folder) (exit $LASTEXITCODE)."
@@ -357,6 +333,23 @@ foreach ($extension in $Extensions)
     }
 
     Write-Host "🧩 $(Join-Path $extensionFolder 'extension.manifest.json')"
+}
+
+# the platform's splash, as the platform just published says it (`rdc splash`): the script keeps no copy of it, and the SDK is its only home. It runs
+# from the CLI's folder for the reason describe-ext runs from the extension's, and a splash that cannot be shown is not a publish that failed.
+Write-Host ""
+Push-Location -LiteralPath (Join-Path $PlatformRoot "RDCore.CLI")
+try
+{
+    & $Dotnet "rdc.dll" splash
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Warning "rdc splash failed (exit $LASTEXITCODE)."
+    }
+}
+finally
+{
+    Pop-Location
 }
 
 Write-Host ""

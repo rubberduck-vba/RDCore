@@ -277,15 +277,6 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Copyright © {$YEAR} {$COMPANY}, all rights reserved..
-        /// </summary>
-        public static string CopyrightNotice {
-            get {
-                return ResourceManager.GetString("CopyrightNotice", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to A manifest already exists for the specified extension..
         /// </summary>
         public static string DescribeExtension_AlreadyExists {
@@ -615,30 +606,6 @@ namespace RDCore.CLI {
         public static string RDCore_SeeWebsiteForPlugins {
             get {
                 return ResourceManager.GetString("RDCore_SeeWebsiteForPlugins", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {$VIVAT}  {$HEART}  {$CUCUMIS}.
-        /// </summary>
-        public static string RDCore_Slogan {
-            get {
-                return ResourceManager.GetString("RDCore_Slogan", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to                                     -+-+--++--                          
-        ///                                --+----+----------                      
-        ///                              ++-----+-    +--+----+                    
-        ///                             -----             +------                  
-        ///                            -----         ----   -------------          
-        ///                            +---          -----   +-----------+         
-        ///                            ----          +--+   ----++ +-----       [rest of string was truncated]&quot;;.
-        /// </summary>
-        public static string RDCoreSplash_Background {
-            get {
-                return ResourceManager.GetString("RDCoreSplash_Background", resourceCulture);
             }
         }
         

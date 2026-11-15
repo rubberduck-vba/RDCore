@@ -129,36 +129,8 @@
   <data name="Command_ShowSplash" xml:space="preserve">
     <value>Affiche l'écran de démarrage de l'application.</value>
   </data>
-  <data name="CopyrightNotice" xml:space="preserve">
-    <value>Copyright © {$YEAR} {$COMPANY}, tous droits réservés.</value>
-  </data>
   <data name="Prompt_READY" xml:space="preserve">
     <value>PRÊT.</value>
-  </data>
-  <data name="RDCoreSplash_Background" xml:space="preserve">
-    <value>                                    -+-+--++--                          
-                                --+----+----------                      
-                              ++-----+-    +--+----+                    
-                             -----             +------                  
-                            -----         ----   -------------          
-                            +---          -----   +-----------+         
-                            ----          +--+   ----++ +-----          
-             +-+            ----                ----- --+----           
-            ------+          ----               -----------             
-            --------++        ---+-              -----+-™               
-           ---+ -+--------     -----             +--                    
-           +--+    ----------+------+            +---+                  
-          ----+         +--+-----+--+             +----+                
-          ----                                      -----               
-          ---+                                       ---+-              
-          ----                                        -----             
-          +---+                                        +---             
-           ----                                        ----             
-           -...                                        .--.             
-</value>
-  </data>
-  <data name="RDCore_Slogan" xml:space="preserve">
-    <value>{$VIVAT}  {$HEART}  {$CUCUMIS}</value>
   </data>
   <data name="RDCoreSplash_Foreground" xml:space="preserve">
     <value>&gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 

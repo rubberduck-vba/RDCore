@@ -1,5 +1,6 @@
 using RDCore.CLI.Themes;
 using RDCore.SDK;
+using RDCore.SDK.Platform;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
 using Spectre.Console;
@@ -124,21 +125,22 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
             .WithPlaceholder("COMPANY", company));
     }
 
-    public IConsoleMessageWriter WriteLegalNotice()
-    {
-        var company = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? string.Empty;
-        return WriteMessage(new ConsoleMessageBuilder()
-            .WithKind((MessageKind)(-1))
-            .WithMessageBody(Resources.CopyrightNotice.Replace("{$YEAR}", DateTimeOffset.UtcNow.Year.ToString()))
-            .WithPlaceholder("COMPANY", company)
-            .WithLineBreak());
-    }
-
-    public IConsoleMessageWriter WriteSlogan() => WriteMessage(new ConsoleMessageBuilder()
+    // the platform's notice, in the language of the user interface, the company in it styled as a value is.
+    public IConsoleMessageWriter WriteLegalNotice() => WriteMessage(new ConsoleMessageBuilder()
         .WithKind((MessageKind)(-1))
-        .WithMessageBody($"{new string(' ', 36)}{Resources.RDCore_Slogan} ™")
-        .WithPlaceholder("VIVAT", "V I V A T")
-        .WithPlaceholder("HEART", "♥", HeartRed)
-        .WithPlaceholder("CUCUMIS", "C U C U M I S")
+        .WithMessageBody(PlatformSplash.CopyrightNotice().Replace(PlatformSplash.Company, "{$COMPANY}"))
+        .WithPlaceholder("COMPANY", PlatformSplash.Company)
         .WithLineBreak());
+
+    // the platform's slogan: its two words styled as values are, and its heart in red.
+    public IConsoleMessageWriter WriteSlogan(int indent = 0) => WriteMessage(new ConsoleMessageBuilder()
+        .WithKind((MessageKind)(-1))
+        .WithMessageBody(new string(' ', indent) + PlatformSplash.Slogan
+            .Replace(Vivat, "{$VIVAT}").Replace(PlatformSplash.Heart, "{$HEART}").Replace(Cucumis, "{$CUCUMIS}"))
+        .WithPlaceholder("VIVAT", Vivat)
+        .WithPlaceholder("HEART", PlatformSplash.Heart, HeartRed)
+        .WithPlaceholder("CUCUMIS", Cucumis));
+
+    private const string Vivat = "V I V A T";
+    private const string Cucumis = "C U C U M I S";
 }

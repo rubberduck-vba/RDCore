@@ -23,7 +23,7 @@ public sealed class RDCoreConsoleLoggerTests
         public IConsoleMessageWriter Clear() => this;
         public IConsoleMessageWriter WriteException(Exception exception) => this;
         public IConsoleMessageWriter WriteAssemblyInfo() => this;
-        public IConsoleMessageWriter WriteSlogan() => this;
+        public IConsoleMessageWriter WriteSlogan(int indent = 0) => this;
         public IConsoleMessageWriter WriteLegalNotice() => this;
     }
 
