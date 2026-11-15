@@ -68,15 +68,21 @@ namespace RDCore.LanguageServer.Refactoring;
 /// A document whose procedures are not sorted is offered a source action that sorts them, by kind, then by name (<see cref="RefactoringKinds.SortMembers"/>).
 /// </para>
 /// <para>
-/// An extraction, a conversion, a move and a sort are the actions that are resolved (<c>resolveProvider = true</c>): a client that resolves an action's edit
-/// (<strong>LSP 3.17</strong> §Code Action Resolve Request) is answered them without their edit, which is made and verified when it resolves the action, and
-/// refused when the document has changed since. Any other client is answered every action complete.
+/// An <c>Implements</c> directive of a class module, or a <c>WithEvents</c> variable of one, on a line a range starts on, is offered as a refactoring that writes
+/// the procedures the class does not have for it (<see cref="IImplementInterfaceService"/>): the members of the interface, or the handlers of the variable's
+/// events. The action is preferred, and fixes the diagnostics of the range that say the directive's interface is not implemented. A refused one is offered
+/// disabled, with why, to a client that shows it so.
+/// </para>
+/// <para>
+/// An extraction, a conversion, a move, a sort and an implementation are the actions that are resolved (<c>resolveProvider = true</c>): a client that resolves
+/// an action's edit (<strong>LSP 3.17</strong> §Code Action Resolve Request) is answered them without their edit, which is made and verified when it resolves
+/// the action, and refused when the document has changed since. Any other client is answered every action complete.
 /// </para>
 /// </remarks>
 internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null) : CodeActionHandlerBase
+    ILibrarySource? libraries = null, IImplementInterfaceService? implementInterface = null) : CodeActionHandlerBase
 {
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
@@ -107,6 +113,12 @@ internal sealed class CodeActionHandler(
     /// The kind of the action that sorts the procedures of a document: a source action (<see cref="RefactoringKinds.SortMembers"/>).
     /// </summary>
     public static readonly CodeActionKind SourceSortMembers = new(RefactoringKinds.SortMembers);
+
+    /// <summary>
+    /// The kind of the action that writes the procedures an <c>Implements</c> directive or a <c>WithEvents</c> variable calls for
+    /// (<see cref="RefactoringKinds.ImplementInterface"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorImplementInterface = new(RefactoringKinds.ImplementInterface);
 
     /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
@@ -270,6 +282,12 @@ internal sealed class CodeActionHandler(
         if (IsAsked(SourceSortMembers) && await SortMembersActionAsync(request.TextDocument.Uri, range, cancellationToken) is { } sort)
         {
             actions.Add(sort);
+        }
+
+        if (IsAsked(RefactorImplementInterface)
+            && await ImplementInterfaceActionAsync(request.TextDocument.Uri, range, request.Context.Diagnostics, cancellationToken) is { } implementation)
+        {
+            actions.Add(implementation);
         }
 
         return new CommandOrCodeActionContainer(actions.Where(action => IsAsked(action.Kind)).Select(action => new CommandOrCodeAction(action)));
@@ -473,6 +491,73 @@ internal sealed class CodeActionHandler(
         }
     }
 
+    // the action that writes the procedures the directive or the WithEvents variable on the line a range starts on calls for, preferred, with the diagnostics
+    // of the range that say the directive's interface is not implemented; with its edit, made and verified, or without it for a client that resolves it. A
+    // refused one is offered disabled, with why, to a client that shows it so.
+    private async Task<CodeAction?> ImplementInterfaceActionAsync(DocumentUri lspUri, SourceRange range, IEnumerable<Diagnostic> diagnostics, CancellationToken token)
+    {
+        var documentUri = lspUri.ToUri();
+        if (implementInterface is null || await implementInterface.OfferAsync(documentUri, range, token) is not { } offer)
+        {
+            return null;
+        }
+
+        if (offer.Refusal is { } refusal)
+        {
+            return ShowsDisabled
+                ? new CodeAction { Title = offer.Title, Kind = RefactorImplementInterface, Disabled = new CodeActionDisabled { Reason = refusal } }
+                : null;
+        }
+
+        var notImplemented = RDCoreDiagnosticCode.CompilePrefix + ((int)global::RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.InterfaceMemberNotImplemented).ToString("00000", System.Globalization.CultureInfo.InvariantCulture);
+        var fixes = diagnostics.Where(diagnostic => diagnostic.Code?.String == notImplemented
+            && diagnostic.Range.Start.Line >= offer.Target.Start.Line && diagnostic.Range.Start.Line <= offer.Target.End.Line).ToArray();
+        var action = new CodeAction
+        {
+            Title = offer.Title,
+            Kind = RefactorImplementInterface,
+            Diagnostics = fixes.Length == 0 ? null : new Container<Diagnostic>(fixes),
+            IsPreferred = true,
+        };
+
+        if (ResolvesEdits)
+        {
+            int? version = documents.TryGetDocument(documentUri, out var document) ? document.Version : null;
+            return action with { Data = ResolvedData(RefactoringKinds.ImplementInterface, lspUri, range, version) };
+        }
+
+        return await implementInterface.ImplementAsync(documentUri, range, token) is { Edits: { } edits } answer
+            && ForTheClient(LspEditOf(answer.Document, answer.Version, edits)) is { } applicable
+            ? action with { Edit = applicable }
+            : null;
+    }
+
+    // the implementation a client resolves: its edit, verified, of the version of the document it was offered for; one that is refused, or whose document has
+    // changed since, is answered an error that says why.
+    private async Task<CodeAction> ResolveImplementationAsync(CodeAction action, JObject offered, CancellationToken token)
+    {
+        if (implementInterface is null || !TryOfferedAt(offered, out var uri, out var range, out var version))
+        {
+            return action;
+        }
+
+        var answer = await implementInterface.ImplementAsync(uri, range, token);
+        var refusal = answer.Edits is not null && answer.Version != version ? ImplementInterfaceService.DocumentChanged() : answer.Refusal;
+        if (refusal is not null || answer.Edits is null)
+        {
+            throw new RpcErrorException(RequestFailedCode, error: null!, refusal ?? string.Empty);
+        }
+
+        try
+        {
+            return action with { Kind = RefactorImplementInterface, Edit = LspEditOf(answer.Document, answer.Version, answer.Edits).For(_client) };
+        }
+        catch (WorkspaceEditNotSupportedException unsupported)
+        {
+            throw new RpcErrorException(RequestFailedCode, error: null!, unsupported.Message);
+        }
+    }
+
     // the data of an action a client resolves: a client sends the action back as it holds it, and may drop a kind it does not know, so the data names the
     // refactoring, the range it was offered for, and the version of the document then.
     private JObject ResolvedData(string kind, DocumentUri lspUri, SourceRange range, int? version) => new()
@@ -501,12 +586,15 @@ internal sealed class CodeActionHandler(
     }
 
     // a move's edits as LSP writes them: of its document, of the version they were made from.
-    private static WorkspaceEdit LspEditOf(MemberMoveAnswer answer) => new()
+    private static WorkspaceEdit LspEditOf(MemberMoveAnswer answer) => LspEditOf(answer.Document, answer.Version, answer.Edits!);
+
+    // the edits of one document as LSP writes them, of the version they were made from.
+    private static WorkspaceEdit LspEditOf(Uri document, int? version, IReadOnlyList<RefactorTextEdit> edits) => new()
     {
         DocumentChanges = new Container<WorkspaceEditDocumentChange>(new WorkspaceEditDocumentChange(new TextDocumentEdit
         {
-            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(answer.Document), Version = answer.Version },
-            Edits = new TextEditContainer(answer.Edits!.Select(edit => new TextEdit
+            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(document), Version = version },
+            Edits = new TextEditContainer(edits.Select(edit => new TextEdit
             {
                 Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(edit.Range.Start.Line, edit.Range.Start.Character, edit.Range.End.Line, edit.Range.End.Character),
                 NewText = edit.NewText,
@@ -622,6 +710,7 @@ internal sealed class CodeActionHandler(
             {
                 (RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub) and var kind => await ResolveRefactoringAsync(request, kind, offered, cancellationToken),
                 (RefactoringKinds.MoveMemberUp or RefactoringKinds.MoveMemberDown or RefactoringKinds.SortMembers) and var kind => await ResolveMoveAsync(request, kind, offered, cancellationToken),
+                RefactoringKinds.ImplementInterface => await ResolveImplementationAsync(request, offered, cancellationToken),
                 _ => request,
             }
             : request;
@@ -631,7 +720,7 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, RefactorImplementInterface, SourceImportProject),
             ResolveProvider = true,
         };
     }
