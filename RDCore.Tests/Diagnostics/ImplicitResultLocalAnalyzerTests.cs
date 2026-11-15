@@ -60,7 +60,7 @@ public sealed class ImplicitResultLocalAnalyzerTests
     }
 
     private static async Task<EditFix?> FixOfAsync(params string[] lines)
-        => (await FindingsAsync(lines)).Select(finding => finding.Fixes?.Edit).Distinct().Single();
+        => (await FindingsAsync(lines)).Select(finding => finding.Fixes?.Edits.SingleOrDefault()).Distinct().Single();
 
     [TestMethod]
     public async Task InAStaticProcedure_TheLocalStartsEachCallWithItsDefaultValue_AsTheResultDoes()
