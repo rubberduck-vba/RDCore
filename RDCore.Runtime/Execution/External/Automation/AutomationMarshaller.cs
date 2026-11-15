@@ -222,7 +222,7 @@ internal static class AutomationMarshaller
     };
 
     // what a server returns where it says nothing: a null BSTR is one too - Microsoft Forms' Text of an empty TextBox or ComboBox, which MS-VBA reads as ""
-    // (oracle\s41 X01) - and a String's own default is "", as a Date's is day 0, not the number 0 a numeric type's is.
+    // (observed in Excel) - and a String's own default is "", as a Date's is day 0, not the number 0 a numeric type's is.
     private static bool IsAbsent(object? value) => value is null or DBNull or Missing;
 
     /// <summary>

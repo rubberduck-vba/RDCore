@@ -3,8 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <c>VarPtr</c>: the address of a variable in the session's memory, as <strong>MS-VBA</strong> gives it (recorded in Excel, oracle\s17 V rows and
-/// oracle\s21) - never 0, the same for a variable for as long as it exists, the caller's for a <c>ByRef</c> parameter, and a temporary's for what is no
+/// <c>VarPtr</c>: the address of a variable in the session's memory, as <strong>MS-VBA</strong> gives it (observed in Excel) - never 0, the same for a variable for as long as it exists, the caller's for a <c>ByRef</c> parameter, and a temporary's for what is no
 /// variable, which lives as long as the statement that passes it.
 /// </summary>
 [TestClass]
@@ -127,7 +126,7 @@ public sealed class VarPtrTests
     public async Task AnElementOfAnArrayGivenToAsAny_IsValid()
         => Assert.IsEmpty(await ErrorsOf("Dim a(1) As Long, b As Long ;; RtlMove a(0), b, 0"));
 
-    // the elements of an array are side by side, each as wide as its type: in a block of the array's own (oracle\s17 V02-V12, oracle\s24).
+    // the elements of an array are side by side, each as wide as its type: in a block of the array's own.
     [TestMethod]
     [DataRow("Dim a(3) As Long ;; P VarPtr(a(1)) - VarPtr(a(0)) ;; P VarPtr(a(3)) - VarPtr(a(0))", "4|12|", DisplayName = "V02 Long")]
     [DataRow("Dim a(3) As Byte ;; P VarPtr(a(1)) - VarPtr(a(0))", "1|", DisplayName = "V03 Byte")]
@@ -158,7 +157,7 @@ public sealed class VarPtrTests
     public async Task AnotherArray_IsElsewhere(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 
-    // the fields of a record are at their offsets, in MS-VBA's layout for a 64-bit host (oracle\s17 V13, oracle\s21 R10, R30, oracle\s24).
+    // the fields of a record are at their offsets, in MS-VBA's layout for a 64-bit host.
     [TestMethod]
     [DataRow("Dim r As TPair ;; P (VarPtr(r) = VarPtr(r.X)) ;; P (VarPtr(r.Y) - VarPtr(r)) ;; P (VarPtr(r.X) = VarPtr(r.X))", "True|4|True|", DisplayName = "R10 R30")]
     [DataRow("Dim r As Mixed, b As LongPtr ;; b = VarPtr(r) ;; P VarPtr(r.B) - b ;; P VarPtr(r.L) - b ;; P VarPtr(r.D) - b ;; P VarPtr(r.I) - b ;; P VarPtr(r.S) - b ;; P VarPtr(r.V) - b ;; P VarPtr(r.C) - b ;; P LenB(r) ;; P Len(r)",

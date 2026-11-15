@@ -2,7 +2,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <strong>MS-VBAL §6.1.2.7.1.6</strong> <c>IsMissing</c>, end to end, by the parameter it is given: only a <c>Variant</c> parameter with no default value can be
-/// missing. Each row is what MS-VBA printed in Excel for the same procedures (oracle\ismissing I01-I09).
+/// missing. Each row is what MS-VBA printed in Excel for the same procedures.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.7 Information")]

@@ -200,7 +200,7 @@ public sealed class StdInteraction(
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> CallByName(VBObjectValue objectValue, VBStringValue procName, VBCallType callType, params VBVariantValue[] args)
     {
-        // MS-VBA: Nothing is an invalid argument (5), where a call written in source on Nothing is 91 (recorded in Excel: oracle\s56 G04, s57 C03).
+        // MS-VBA: Nothing is an invalid argument (5), where a call written in source on Nothing is 91 (observed in Excel).
         if (objectValue.IsNothing())
         {
             return Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, $"CallByName(Nothing, \"{procName.Value}\"): there is no object to call.");
@@ -262,8 +262,8 @@ public sealed class StdInteraction(
 
         if (MemberOf(candidates, callType) is not { } target)
         {
-            // a Sub or a Function asked for as a property, to get, to let or to set, is the member, called the wrong way (MS-VBA: 450, Excel-verified,
-            // oracle\s40 B22, B28, s57 C04, C07); a name that is no member to be called so at all is 438.
+            // a Sub or a Function asked for as a property, to get, to let or to set, is the member, called the wrong way (MS-VBA: 450, observed in Excel);
+            // a name that is no member to be called so at all is 438.
             return callType is not VBCallType.VBMethod && candidates.Any(IsMethod)
                 ? Fail<VBVariantValue>(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, $"'{procName.Value}' is a method, and no property to {callType}.")
                 : Fail<VBVariantValue>(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, $"The object has no member '{procName.Value}' that can be called as {callType}.");
@@ -301,15 +301,15 @@ public sealed class StdInteraction(
                 }
 
                 // what a call written in source gives an omitted parameter: its declared default, or Missing for a Variant that declares none (MS-VBAL
-                // §5.3.1.11; MS-VBA, Excel-verified, oracle\s40 B06-B09, B13).
+                // §5.3.1.11; MS-VBA, observed in Excel).
                 bound[index] = (session.Symbols.Defaults?.DefaultValueOf(parameter) ?? parameter.ResolvedType.DefaultValue).RuntimeValue;
                 continue;
             }
 
             // MS-VBA gives the member a variable passed to a ByRef parameter by reference, as IDispatch is given a VT_BYREF argument: the member writes the
-            // caller's variable, or the element of its array (recorded in Excel: oracle\s56 G03, s57 C01, C02, C05). A Variant parameter is given a variable of
-            // any type, which keeps its type (C05: a Long incremented is a Long); a variable of another type than the parameter's, a Variant among them, is a type
-            // mismatch, and the member is not called (C02, C05).
+            // caller's variable, or the element of its array (observed in Excel). A Variant parameter is given a variable of
+            // any type, which keeps its type (a Long incremented is a Long); a variable of another type than the parameter's, a Variant among them, is a type
+            // mismatch, and the member is not called.
             if (!isValue && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) && args[argument].Handle is VariantReferenceBindingHandle variable)
             {
                 if (variable.DeclaredType.Equals(parameter.ResolvedType))
@@ -351,7 +351,7 @@ public sealed class StdInteraction(
     }
 
     // VbLet and VbSet of a public variable of the object assign it, as `obj.Name = value` and `Set obj.Name = value` do: the value is the one argument (MS-VBA,
-    // Excel-verified, oracle\s40 B01-B05, B15, B18, B20, B21, B23-B27, B30-B32). None is error 446 and more than one 451, as MS-VBA has it; a Let of an object
+    // observed in Excel). None is error 446 and more than one 451, as MS-VBA has it; a Let of an object
     // is a Let of its default member's value; a Let into a variable of an object assigns the object's default member, of which Nothing has none (91); a Set
     // into a variable that holds no object is 451, and of what is no object, or an object of another class, 13.
     private RuntimeSemanticsEvaluationResult<VBVariantValue> AssignVariable(
@@ -457,7 +457,7 @@ public sealed class StdInteraction(
         return callType switch
         {
             VBCallType.VBMethod => candidates.FirstOrDefault(IsMethod) ?? candidates.FirstOrDefault(member => member is VBPropertyGetMemberSymbol),
-            // a Function is no property to get: VbGet of one is 450, as MS-VBA has it (Excel-verified, oracle\s40 B22, B28).
+            // a Function is no property to get: VbGet of one is 450, as MS-VBA has it (observed in Excel).
             VBCallType.VBGet => candidates.FirstOrDefault(member => member is VBPropertyGetMemberSymbol),
             VBCallType.VBLet => candidates.FirstOrDefault(member => member is VBPropertyLetMemberSymbol),
             VBCallType.VBSet => candidates.FirstOrDefault(member => member is VBPropertySetMemberSymbol),
@@ -985,7 +985,7 @@ public sealed class StdInteraction(
             return badClass;
         }
 
-        // as MS-VBA answers them (recorded in Excel, oracle\s25 G02, G03): nothing at all is a type mismatch, no file and no class an invalid argument, and
+        // as MS-VBA answers them (observed in Excel): nothing at all is a type mismatch, no file and no class an invalid argument, and
         // no file but a class a new object of it.
         return (path, progId) switch
         {
@@ -1011,7 +1011,7 @@ public sealed class StdInteraction(
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> Partition(VBVariantValue number, VBVariantValue start, VBVariantValue stop, VBVariantValue interval)
     {
-        // "If any of the parts is Null, Partition returns the data value Null": before what is wrong with the others is (oracle\s27 P03).
+        // "If any of the parts is Null, Partition returns the data value Null": before what is wrong with the others is (observed in Excel).
         VBVariantValue[] parts = [number, start, stop, interval];
         if (parts.Any(part => Unwrapped(part) is VBNullValue))
         {
@@ -1038,7 +1038,7 @@ public sealed class StdInteraction(
         }
 
         // each side of the colon is as wide as the widest number either can be - what is before the range or after it - so that the ranges sort as text
-        // (MS-VBA, oracle\s27: the spec's "characters in Stop, plus one" is that for a Start of 0 and a Stop below a power of ten).
+        // (MS-VBA, observed in Excel: the spec's "characters in Stop, plus one" is that for a Start of 0 and a Stop below a power of ten).
         var below = (first - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
         var above = (last + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
         var width = Math.Max(below.Length, above.Length);

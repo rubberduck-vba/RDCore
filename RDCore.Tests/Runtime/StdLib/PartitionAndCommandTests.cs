@@ -7,8 +7,8 @@ using RDCore.Tests.Cli;
 namespace RDCore.Tests.Runtime.StdLib;
 
 /// <summary>
-/// <strong>MS-VBAL §6.1.2.8.1.14</strong> <c>Partition</c> and <strong>§6.1.2.8.1.3</strong> <c>Command</c>, as MS-VBA has them, recorded in Excel
-/// (oracle\s27 grid-p). Each case is the probe as it ran there, and what it printed.
+/// <strong>MS-VBAL §6.1.2.8.1.14</strong> <c>Partition</c> and <strong>§6.1.2.8.1.3</strong> <c>Command</c>, as MS-VBA has them, observed in Excel.
+/// Each case is the probe as it ran there, and what it printed.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.8.1.14 Partition")]

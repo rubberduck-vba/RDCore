@@ -1,5 +1,6 @@
 using RDCore.External.Interaction;
 using RDCore.CLI.ConsoleIO.Model;
+using DiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 
 namespace RDCore.CLI.App.Repl.Commands;
 
@@ -10,9 +11,15 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// The argument is a BASIC line range: <c>LIST</c>, <c>LIST 100</c>, <c>LIST 100-200</c>,
 /// <c>LIST 100-</c> (from there on) or <c>LIST -200</c> (up to there).
 /// <para>
-/// The margin has two lanes. The first, at the edge, marks a breakpoint, or a line that has a fix (💡: <c>DUCKY</c> proposes it) when it has no breakpoint; the
-/// second, next to the line, marks the line a block starts at - an <c>If</c>, a <c>Select Case</c>, a loop, a <c>With</c> - which <c>FOLD</c> folds. A folded block is its first line, faint as ghost text and cut to the console's width, and none of the lines
-/// after it, to its <c>End</c>.
+/// The margin has three lanes, each as wide on every line. The first, at the edge, marks a breakpoint. The second marks a line that has a fix (💡: <c>DUCKY</c>
+/// proposes it), or else the most severe of the diagnostics the language server gives for the line: ❌ an error, 🔶 a warning, 🔹 information, <c>·</c> a hint.
+/// Where the console draws no Unicode, these are <c>*</c>, <c>X</c>, <c>!</c>, <c>i</c> and <c>.</c>, and the lane is one cell wide instead of two. The third,
+/// next to the line, marks the line a block starts at (an <c>If</c>, a <c>Select Case</c>, a loop, a <c>With</c>), which <c>FOLD</c> folds. A folded block is
+/// its first line, faint as ghost text and cut to the console's width, and none of the lines after it, to its <c>End</c>; its first line is marked for a
+/// breakpoint and for the diagnostics of the lines it hides as well as for its own.
+/// </para>
+/// <para>
+/// The diagnostics are asked once for the whole listing, and its fixes with them.
 /// </para>
 /// <para>
 /// With <c>INLAYS ON</c> a listing also shows, faint and in the line, the hints the language server gives (<c>textDocument/inlayHint</c>): the name of the
@@ -33,6 +40,13 @@ internal sealed class ListReplCommand : IReplCommand
     // the mark of a line that has a fix: a light bulb, two cells wide, where the console draws Unicode; one cell, in ASCII, where it does not.
     private const string UnicodeFixGlyph = "💡";
     private const string AsciiFixGlyph = "*";
+
+    // the mark of a line's most severe diagnostic, in the bulb's lane: no wider than the bulb in each set, and a small dot for a hint.
+    private static readonly (string Error, string Warning, string Information, string Hint) unicodeSeverityGlyphs = ("❌", "🔶", "🔹", "·");
+    private static readonly (string Error, string Warning, string Information, string Hint) asciiSeverityGlyphs = ("X", "!", "i", ".");
+
+    // the lane of a breakpoint is the cell of its mark.
+    private const int BreakpointLane = 1;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
@@ -84,13 +98,38 @@ internal sealed class ListReplCommand : IReplCommand
         var glyphs = context.Console.DrawsUnicode ? unicodeFoldGlyphs : asciiFoldGlyphs;
         var foldLane = blocks.Count == 0 ? 0 : ConsoleText.WidthOf(glyphs.Open);
 
-        // the lines a diagnostic with a fix is on, and the lane they are marked in: the cells of the light bulb on every line when any line has one, so that the
-        // lane is as wide on a line with a breakpoint, or with none, as on a line with a bulb.
-        var fixes = lines.Length == 0 ? new HashSet<int>() : await LinesWithAFixAsync(context, token);
+        // the diagnostics of the program, asked once for the listing: the lines that have a fix, and the most severe one on each line.
+        if (lines.Length > 0)
+        {
+            await context.Diagnostics.RefreshAsync(context, token);
+        }
+
+        var fixes = context.Diagnostics.LinesWithAFix();
+        var severities = context.Diagnostics.HighestSeverityByLine();
         var fixGlyph = context.Console.DrawsUnicode ? UnicodeFixGlyph : AsciiFixGlyph;
-        var breakpointLane = lines.Any(line => fixes.Contains(context.Program.IndexOf(line.Number)) && !hidden.Contains(context.Program.IndexOf(line.Number)))
-            ? Math.Max(1, ConsoleText.WidthOf(fixGlyph))
-            : 1;
+        var severityGlyphs = context.Console.DrawsUnicode ? unicodeSeverityGlyphs : asciiSeverityGlyphs;
+
+        // the lane of the diagnostics is as wide as its widest mark, on every line, whether any line has one or not: the code does not move when one comes or goes.
+        var diagnosticLane = new[] { fixGlyph, severityGlyphs.Error, severityGlyphs.Warning, severityGlyphs.Information, severityGlyphs.Hint }.Max(ConsoleText.WidthOf);
+
+        // the mark of a diagnostic on a line, or on a line a folded block hides: a fix's, or else the most severe diagnostic's.
+        string? FindingMark(int index, int number)
+        {
+            int[] marked = blocks.TryGetValue(index, out var block) && IsFolded(number) ? [.. Enumerable.Range(index, block.EndLine - block.StartLine + 1)] : [index];
+            if (marked.Any(fixes.Contains))
+            {
+                return fixGlyph;
+            }
+
+            var found = marked.Where(severities.ContainsKey).Select(line => severities[line]).ToArray();
+            return found.Length == 0 ? null : found.Min() switch
+            {
+                DiagnosticSeverity.Error => severityGlyphs.Error,
+                DiagnosticSeverity.Warning => severityGlyphs.Warning,
+                DiagnosticSeverity.Information => severityGlyphs.Information,
+                _ => severityGlyphs.Hint,
+            };
+        }
 
         foreach (var (number, statement) in lines)
         {
@@ -122,11 +161,9 @@ internal sealed class ListReplCommand : IReplCommand
             var marked = breakpoint != default ? breakpoint : hiddenBreakpoint;
             var glyph = marked == default ? " " : ReplBreakpointMarks.GlyphOf(marked);
 
-            // a breakpoint's mark takes the lane before the mark of a fix, and both are padded to the width of the lane.
-            var hasAFix = fixes.Contains(index) || (folded && Enumerable.Range(blocks[index].StartLine + 1, hiddenLines).Any(fixes.Contains));
-            var breakpointMark = marked != default ? new ReplTextRun(Padded(glyph, breakpointLane), ReplTextStyle.BreakpointGlyph)
-                : hasAFix ? new ReplTextRun(Padded(fixGlyph, breakpointLane), ReplTextStyle.Plain)
-                : new ReplTextRun(new string(' ', breakpointLane), ReplTextStyle.Plain);
+            // each mark is padded to the width of its lane.
+            var breakpointMark = new ReplTextRun(Padded(glyph, BreakpointLane), marked != default ? ReplTextStyle.BreakpointGlyph : ReplTextStyle.Plain);
+            var diagnosticMark = new ReplTextRun(Padded(FindingMark(index, number) ?? "", diagnosticLane), ReplTextStyle.Plain);
 
             var style = waitsBefore ? ReplLineStyle.CurrentStatement
                 : breakpoint != default && breakpoint.Enabled ? ReplLineStyle.Breakpoint
@@ -141,9 +178,10 @@ internal sealed class ListReplCommand : IReplCommand
                 code = ReplInlayRuns.With(code, lineHints);
             }
 
-            ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, foldedText, foldLane + breakpointLane + padding.Text.Length), ReplTextStyle.Ghost)]
+            var margin = BreakpointLane + diagnosticLane + foldLane;
+            ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, foldedText, margin + padding.Text.Length), ReplTextStyle.Ghost)]
                 : [padding, .. code];
-            context.Console.WriteListingLine([breakpointMark, foldMark], runs, style);
+            context.Console.WriteListingLine([breakpointMark, diagnosticMark, foldMark], runs, style);
         }
 
         context.Console.WriteLine();
@@ -205,13 +243,6 @@ internal sealed class ListReplCommand : IReplCommand
     }
 
     private static string Padded(string mark, int lane) => mark + new string(' ', Math.Max(0, lane - ConsoleText.WidthOf(mark)));
-
-    // the lines of the program a diagnostic with a fix is on, by their position in the program; none when the server cannot be asked.
-    private static async Task<IReadOnlySet<int>> LinesWithAFixAsync(ReplCommandContext context, CancellationToken token)
-    {
-        await context.Diagnostics.RefreshAsync(context, token);
-        return context.Diagnostics.LinesWithAFix();
-    }
 
     // the first line of a folded block, cut with an ellipsis to what is left of the console's width after the margin; as it is when the width cannot be told.
     private static string FittedToTheConsole(IReplConsole console, string text, int before)

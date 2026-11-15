@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// Constants read in expressions evaluated on payloads, a <c>Select Case</c> whose selector is one, and a <c>For Each</c> over an array of a scalar type
-/// (IR lowering S1.6): the same values, and the same errors, as the boxed evaluation - which the suite is also run with (<c>RDCORE_UNBOXED=0</c>), for these
+/// have the same values, and the same errors, as the boxed evaluation - which the suite is also run with (<c>RDCORE_UNBOXED=0</c>), for these
 /// to hold both ways.
 /// </summary>
 [TestClass]

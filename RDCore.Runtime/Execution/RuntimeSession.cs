@@ -114,7 +114,7 @@ internal sealed class RuntimeSession(
         // MS-VBAL §5.3.1.10: Terminate runs while the object is still whole, and may give it a reference again; an
         // object that has one is not destroyed, and is a candidate again when it next loses its last. An error the
         // handler leaves unhandled ends the program, whatever handler the code that let go of the object has (MS-VBA,
-        // grid oracle\s44): a release has no result to carry it in, so it is recorded, and the executor stops with it.
+        // observed in Excel): a release has no result to carry it in, so it is recorded, and the executor stops with it.
         if (!_resetting && Lifecycle is { } lifecycle && Objects.TryBeginTerminate(instance))
         {
             _terminating.Add(instance);
@@ -394,8 +394,8 @@ internal sealed class SessionObjects : ISessionObjects
         => _roots.TryGetValue(instance, out var roots) && IndexOfRoot(roots, handle) >= 0;
 
     // a handle is a root by identity: handles are records, and two variables holding the same object compare equal by value while being two references.
-    // Searched without a predicate, which would be made for each reference counted (IR lowering S1.3), from the last: the cell that lets go of an object is
-    // most often the last that took it - a parameter, a local, a temporary (S1.4c).
+    // Searched without a predicate, which would be made for each reference counted, from the last: the cell that lets go of an object is
+    // most often the last that took it - a parameter, a local, a temporary.
     private static int IndexOfRoot(List<IBindingHandle> roots, IBindingHandle handle)
     {
         for (var i = roots.Count - 1; i >= 0; i--)

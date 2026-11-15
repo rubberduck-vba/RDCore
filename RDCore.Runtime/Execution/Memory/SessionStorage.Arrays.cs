@@ -7,8 +7,7 @@ using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.Execution.Memory;
 
-// the dynamic arrays of the session's memory: each a pointer to a SAFEARRAY (ArrayDescriptor), as MS-VBA lays them out (recorded in Excel, oracle\s17 grid-p4,
-// grid-p4b).
+// the dynamic arrays of the session's memory: each a pointer to a SAFEARRAY (ArrayDescriptor), as MS-VBA lays them out (observed in Excel).
 internal sealed partial class SessionStorage
 {
     // the descriptors, by the address each starts at and by what holds an array described by it.

@@ -8,13 +8,13 @@ using RDCore.Diagnostics;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// <c>RDC11012</c>: a <c>Set</c> of a call that raises a run-time error whenever it runs, which MS-VBA compiles (MS-VBAL §5.4.3.9; Excel-measured,
-/// <c>oracle\s28</c>, <c>oracle\s31</c>): reported at Error severity, not left to the run time.
+/// <c>RDC11012</c>: a <c>Set</c> of a call that raises a run-time error whenever it runs, which MS-VBA compiles (MS-VBAL §5.4.3.9; observed in Excel):
+/// reported at Error severity, not left to the run time.
 /// </summary>
 [TestClass]
 public sealed class SetThroughACallAnalyzerTests
 {
-    // a class whose default member has a Property Set: what a Set of a call that returns one sets (s31 D01)
+    // a class whose default member has a Property Set: what a Set of a call that returns one sets
     private static readonly (string, string) Settable = ("Settable", ModuleWorkspace.ClassModule("Settable",
         "Private mInner As Object",
         "Public Property Get Inner() As Object", "Attribute Inner.VB_UserMemId = 0", "    Set Inner = mInner", "End Property",

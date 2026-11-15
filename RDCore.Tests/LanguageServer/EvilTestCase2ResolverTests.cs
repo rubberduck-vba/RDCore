@@ -21,7 +21,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// Legacy-Rubberduck issue #973, "Evil Test Case 2 for Parser/Resolver" — the complete sample: one identifier
+/// The legacy Rubberduck sample "Evil Test Case 2 for Parser/Resolver", complete: one identifier
 /// (<c>MyProject</c> / <c>MyModule</c> / <c>MyProc</c>) reused at once as a module name, a
 /// <c>Const</c>, a <c>Type</c>, a field, a procedure, a local, a parameter and an interface member, with an
 /// <c>Interface</c> class, a <c>Class</c> that implements it, and a <c>With</c>-nested, <c>Set</c>-heavy
@@ -91,7 +91,7 @@ public sealed class EvilTestCase2ResolverTests
         """;
 
     // Interface.cls — the interface, whose members all return the interface itself. Neither class module is
-    // predeclared: the sample is exactly as the issue lists it (imported into a VBE by the author, 2026-09-18).
+    // predeclared: the sample is exactly as the legacy issue lists it.
     private const string InterfaceSource = """
         Attribute VB_Name = "Interface"
         Option Explicit
@@ -447,8 +447,8 @@ public sealed class EvilTestCase2ResolverTests
 
     [TestMethod]
     public void Class_SetInterfaceEqualsNewInterface_IsAnUndefinedVariable()
-        // The one line of the sample that MS-VBA accepts and MS-VBAL does not (the author imported the sample into a
-        // VBE, 2026-09-18: it compiles and runs, yet the VBE cannot go to the definition of the assigned `Interface`,
+        // The one line of the sample that MS-VBA accepts and MS-VBAL does not (in a VBE it
+        // compiles and runs, yet the VBE cannot go to the definition of the assigned `Interface`,
         // and Rubberduck reports an undeclared variable). Neither class module is predeclared, so no default instance
         // variable has the name (5.2.4.1.2), and no default-context tier holds a class module (5.6.10): under
         // Option Explicit the name is undefined. The spec is right and MS-VBA has a bug; RD-VBA follows the spec.

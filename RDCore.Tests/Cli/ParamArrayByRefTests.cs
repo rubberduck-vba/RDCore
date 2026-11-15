@@ -8,7 +8,7 @@ namespace RDCore.Tests.Cli;
 /// declared.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US, oracle\s44 P01-P12).
+/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US).
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.3.1.5 Parameter Lists")]

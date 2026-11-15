@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An Error value (<c>CVErr</c>) as MS-VBA has it: compared with another Error by its code (<strong>MS-VBAL §5.6.9.5</strong>), and a type mismatch to
-/// <c>Len</c>, <c>LenB</c> and <c>Str</c>, where <c>CStr</c> writes it as <c>Error 5</c> (recorded in Excel: oracle\s56 G07, s57 E01-E04).
+/// <c>Len</c>, <c>LenB</c> and <c>Str</c>, where <c>CStr</c> writes it as <c>Error 5</c> (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ErrorValueTests

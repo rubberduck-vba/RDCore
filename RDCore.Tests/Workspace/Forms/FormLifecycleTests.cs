@@ -6,7 +6,7 @@ using RDCore.Tests.Runtime.Libraries;
 namespace RDCore.Tests.Workspace.Forms;
 
 /// <summary>
-/// A UserForm's lifecycle, as MS-VBA has it (Excel-measured, <c>oracle\s41</c>; each test names its case): what loads a form, what <c>Unload</c> does - its
+/// A UserForm's lifecycle, as MS-VBA has it (observed in Excel): what loads a form, what <c>Unload</c> does - its
 /// <c>QueryClose</c>, its <c>Terminate</c>, the object it leaves - and its default instance, made again after it is unloaded. None of it needs the form's window:
 /// these run on a platform that hosts no forms, and so on any.
 /// </summary>
