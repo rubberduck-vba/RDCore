@@ -147,6 +147,7 @@ public sealed class EncapsulateFieldServiceTests
         var refusal = prepared.Notices.Single();
         Assert.AreEqual("encapsulateField.writesThroughACopy", refusal.Code);
         Assert.AreEqual(Document("Main.bas"), refusal.Location?.Uri);
+        StringAssert.StartsWith(refusal.Message, "Main.bas 8:5 ");
         StringAssert.Contains(refusal.Message, "'Origin'");
     }
 
