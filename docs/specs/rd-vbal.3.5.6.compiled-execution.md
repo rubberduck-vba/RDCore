@@ -99,7 +99,8 @@ the call.
 Compiled code writes a `Debug.Print` whose items are all `String`s, as above, separated by `;` or by nothing (MS-VBAL §5.4.5.8.1): each item as it is,
 and the line ended when no separator follows the last one. It evaluates every item before it writes any, so a statement handed to the interpreter writes
 nothing twice. A break asked for while it writes is answered before the next statement, as the interpreter answers it. An item that is a number (written
-with a space on each side) or a `Variant`, a `,`, `Spc` and `Tab` are the interpreter's: it runs the statement on its own.
+with a space on each side) or a `Variant`, a `,`, `Spc` and `Tab` are the interpreter's: it runs the statement on its own. An item can contain a call
+of a whole-number type (`Debug.Print "(" & G.Size & ")"`, see Calls inside an expression, below).
 
 ### Fields of `Me`
 
@@ -292,6 +293,9 @@ The interpreter does the rest on its own:
 Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If F(A) > 0 Then` or `G(F(A))`, when the statement is one of these:
 
 - a `Let` of a scalar variable of the procedure or of the function's result;
+- a `Let` of a `String` variable of the procedure or of the function's `String` result, made of `String`s (see Strings, above), with a call of
+  a whole-number type inside it (`S = "(" & P.X & "," & P.Y & ")"`, `S = Chr$(64 + G.Size)`);
+- a `Debug.Print` of such `String`s (see `Debug.Print`, above);
 - a call statement;
 - the condition of an `If`, an `ElseIf` or a loop;
 - the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
@@ -323,6 +327,11 @@ operands too (`State = this.State(Position.X, Position.Y)`, see Arrays, above), 
 `Err.Number`, `LBound` or `UBound` of an array, a call, `IIf` of these (see Functions of the standard library, below), or an operation of these, the
 operations of the `Variant` `IIf` returns included. The interpreter runs a statement with any other operand on its own, as described below: a
 `Variant` variable, a `String` or an object. Such an operand would be read a second time after a call that may have changed it.
+In a `Let` of a `String` and in a `Debug.Print`, a `String` (a variable of the procedure, a public variable of an object, `Err.Description`) is
+an operand too, when no call comes after it in the statement (`S = "a" & G.Size & S`). A `String` is read when the operation of it is computed
+([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)), after a call right of it that may change it, so the
+interpreter runs a statement that reads one left of a call on its own (`S = T & G.Size`). A whole number joined to a `String` is an operand of an
+operation of the `String` type: one that a call in the statement may change is the interpreter's to read, as below.
 An object given to a call as its argument (`If B.Hit(Target) Then`) is no operand: compiled code reads it when it makes the call, after the calls left of
 it, as the interpreter does.
 
