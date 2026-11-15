@@ -291,7 +291,7 @@ internal sealed partial class ProcedureEmitter
     }
 
     // the arguments evaluated as a call of a function that returns a Variant evaluates them (EmitLibraryArguments); then the call
-    // (CompiledActivation.TryCallLibraryVariantText), of which an error, or what is no String compiled code holds, gives the interpreter the call.
+    // (CompiledActivation.TryCallLibraryVariantText). An error, or a result other than a String compiled code holds, gives the interpreter the call.
     private void EmitLibraryVariantText(LibraryVariantTextNode node, LocalBuilder text, Label failure)
     {
         var offset = _knowingAt;
