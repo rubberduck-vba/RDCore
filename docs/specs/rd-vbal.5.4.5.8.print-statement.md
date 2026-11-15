@@ -9,7 +9,7 @@
 |---|---|---|---|
 |`Print #`|[PrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The file-number form. `Token`: `Print`.|
 |`Print`|[PrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The bare form, with no file number (`FileNumber` is `null`): `Print "x"`. See below.|
-|`Owner.Print`|[ObjectPrintExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|None|The object-qualified form.|
+|`Owner.Print`|[ObjectPrintExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|None|The object-qualified form: a call of the `Print` method of `Owner`, the callee of a call statement. See [Runtime Semantics](#runtime-semantics).|
 |`Debug.Print`|[DebugPrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|`Simple`|The object-qualified form whose owner is `Debug`.|
 
 `Debug` is written only as this statement and `Debug.Assert`: any other use of the name is a syntax error, as it is in
@@ -30,7 +30,7 @@ Whether there is a bare `Print` at all is the language's to say
 |Language|A `Print` with no file number|
 |---|---|
 |RD-VBA|Not a statement. `Print` is a reserved identifier of VBA, illegal as a name and with no semantics, and it is no recognized statement inside a procedure. (Only the Immediate window accepts it, as `Debug.Print`; that is not procedure scope.) It is [`VBC09331`](../diagnostics/vbc09331.md), the same as any other name the language does not declare.|
-|VB6|Undefined, for now: it is the `Print` member of the form or report it is written in, and the platform has no forms yet.|
+|VB6|Undefined: it is the `Print` member of the form or report it is written in, and the platform hosts no forms.|
 |BASIC|A statement. It writes to the session's own output - the one `Debug.Print` writes to - by the same output rules ([5.4.5.8.1](#54581-output-lists)).|
 
 In BASIC it differs from `Debug.Print` in one way: it is not a debug statement, and is lowered in every release build, including one that drops
@@ -65,6 +65,21 @@ written ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2
 An object is printed as what it stands for, its default member's value, as the value it is (` 7 ` for an Excel range that
 holds 7). As in MS-VBA (recorded in Excel), for `Print #` and `Debug.Print` alike, `Nothing` is error 91 and an object
 whose default member takes an argument (a `Collection`) error 450.
+
+### `Owner.Print`
+
+`Owner.Print` calls the `Print` method of the object, once its output list is evaluated in source order: an item that raises an error raises it
+before the object is called. The objects that have one are a Visual Basic 6.0 form or PictureBox and an Access form or report. The platform hosts
+none of them:
+
+|`Owner`|Error|
+|---|---|
+|An object|[`VBR00438`](../diagnostics/vbr00438.md): the object has no `Print` method.|
+|`Nothing`|[`VBR00091`](../diagnostics/vbr00091.md).|
+|A value that is not an object|[`VBR00424`](../diagnostics/vbr00424.md).|
+
+> [!NOTE]
+> **Not implemented.** `.Print` in a `With` block, the `Print` method of the block's object, is a syntax error: the grammar has no `.Print`.
 
 ## Implementation
 
