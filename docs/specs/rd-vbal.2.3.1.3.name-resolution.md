@@ -399,6 +399,3 @@ is typed as the class itself therefore resolves through any number of member-acc
 `CallStackAwareSymbolResolver` (**RDCore.Runtime**) falls through to session-level storage for any `Local`-scoped
 symbol that the current frame does not itself declare
 ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).
-
----
-> ⏮️ [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md) | ⏭️ [**RD-VBAL §2.3.2** Mode / State](rd-vbal.2.3.2.mode-state.md)
