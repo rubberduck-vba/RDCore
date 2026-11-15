@@ -94,7 +94,7 @@ internal sealed partial class ProcedureEmitter
             }
 
             // what the Variant element holds decides what its Let is, as a Variant variable's does (VariantLetStep): one the evaluation on payloads declines
-            // - of a String, over an object - the interpreter runs alone, and compiled code goes on after it. The value is evaluated before the element is
+            // (of a String, over an object) the interpreter runs alone, and compiled code goes on after it. The value is evaluated before the element is
             // found, as for an element of a scalar type.
             case VariantElementLetStep let:
             {
