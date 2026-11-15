@@ -227,8 +227,9 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             : Executor.Sweep(Session, frame, body, context) ? RuntimeExecutionOutcome.ExitProcedure : RuntimeExecutionOutcome.InternalError;
 
         // a program that was stopped does not unwind: the objects its locals held are not let go of, because that is where a Terminate would run, and an End
-        // runs none. What it leaves is the session's to clear (ISessionSymbols.ResetStorage) when it is over, or to keep when it is only broken.
-        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        // runs none. What it leaves is the session's to clear (ISessionSymbols.ResetStorage) when it is over, or to keep when it is only broken. An error that
+        // ends the program is an end too.
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break) && !EndsTheProgram(outcome))
         {
             ReleaseLocals(frame, GetLocals(procedure), parameters, arguments);
 
@@ -657,13 +658,23 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     /// <returns>The activation's outcome, as its caller is to see it.</returns>
     internal RuntimeExecutionOutcome PopMemberActivation(CallStackFrame frame, VBTypeMemberSymbol member, RuntimeExecutionOutcome outcome)
     {
-        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break) && !EndsTheProgram(outcome))
         {
             ReleaseLocals(frame, GetLocals(member), GetParameters(member), arguments: null);
         }
 
         return PopCompiledActivation(outcome);
     }
+
+    // whether an error that leaves an activation ends the program: no activation on the stack handles it, or a Class_Terminate left it unhandled, which
+    // nothing handles. The program ends there as an End ends it: nothing is unwound, and no Terminate runs for what the activations held (MS-VBA, measured
+    // in Excel), and the session is wiped once the program is over. A statement run while the program waits, and a breakpoint's condition, are not the
+    // program, and an event handled between two programs ends none: what they leave is let go of.
+    private bool EndsTheProgram(RuntimeExecutionOutcome outcome)
+        => outcome.Kind is RuntimeExecutionOutcomeKind.Error && Session.Turn.IsRunning && !Executor.EvaluatesACondition
+            && Session.Halt.Gate is not SuspendableExecution { IsSuspended: true }
+            && (Session.Errors.Untrappable is not null
+                || !Session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled));
 
     /// <summary>
     /// The compiled body of <paramref name="procedure"/>, whose body is <paramref name="list"/>, as this invoker would run it (<see cref="Run"/>);

@@ -119,6 +119,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // above zero while a breakpoint's condition is evaluated: a procedure the condition calls runs on this executor, and neither waits at a breakpoint nor ends a step.
     private int _conditionDepth;
 
+    // whether a breakpoint's condition is being evaluated: an error a procedure it calls leaves unhandled is the condition's, and ends no program.
+    internal bool EvaluatesACondition => _conditionDepth > 0;
+
     // Whether the program waits at a breakpoint that was reached: always for one with no condition, and for one with a condition when it is True. A condition that
     // raises an error waits the program as well - a breakpoint that is passed over because its condition is wrong is one the person never learns is wrong - and the
     // failure says what the error was, for the program to be said to wait on it (ISessionHalt.TrySuspendOnCondition).
