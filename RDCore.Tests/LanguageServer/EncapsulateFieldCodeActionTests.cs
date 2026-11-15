@@ -104,10 +104,29 @@ public sealed class EncapsulateFieldCodeActionTests
     {
         Assert.IsEmpty(await ActionsAsync(Handler(), At(2, 8)));
 
-        var action = (await ActionsAsync(Handler(showsDisabled: true), At(2, 8))).Single();
+        var actions = await ActionsAsync(Handler(showsDisabled: true), At(2, 8));
 
+        var action = actions.Single(each => each.Title == EncapsulateFieldService.Title());
         Assert.IsNull(action.Edit);
         StringAssert.Contains(action.Disabled!.Reason, "'count'");
+        var all = actions.Single(each => each.Title == EncapsulateFieldService.AllTitle());
+        StringAssert.Contains(all.Disabled!.Reason, "'count'");
+    }
+
+    [TestMethod]
+    public async Task AllTheFields_AreOfferedTheirEncapsulation_WhichIsDisabledWhenOneOfThemChangesWhatTheCodeDoes_AndRefusedWhenResolved()
+    {
+        var offered = await ActionsAsync(Handler(showsDisabled: true), At(1, 8));
+        var all = offered.Single(each => each.Title == EncapsulateFieldService.AllTitle());
+        Assert.AreEqual(CodeActionHandler.RefactorEncapsulateField, all.Kind);
+        StringAssert.Contains(all.Disabled!.Reason, "'count'");
+
+        var handler = Handler(resolvesEdits: true);
+        var action = (await ActionsAsync(handler, At(1, 8))).Single();
+        var data = (JObject)((JObject)action.Data!).DeepClone();
+        data["allFields"] = true;
+        var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => handler.Handle(new CodeAction { Title = EncapsulateFieldService.AllTitle(), Kind = action.Kind, Data = data }, CancellationToken.None));
+        StringAssert.Contains(refused.Message, "'count'");
     }
 
     [TestMethod]
