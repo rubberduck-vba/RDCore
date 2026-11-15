@@ -237,7 +237,7 @@ internal static class CloserToUsage
             return (null, new(CloserToUsageRefusalKind.SharesItsLine, target.Variable.Name));
         }
 
-        var written = target.IsOfTheModule ? keyword.ToString() : target.Declaration.IsStatic ? "Static" : "Dim";
+        var written = target.IsOfTheModule ? keyword.ToString() : target.Variable is VBLocalVariableSymbol { IsStatic: true } ? "Static" : "Dim";
         var line = target.Before.SourceLocation.Range.Start.Line;
         var declarator = Slice(text, new SourceRange(target.Declaration.NameRange!.Value.Start, target.Declaration.SourceLocation.Range.End));
         var at = new SourcePosition(line, 0);
