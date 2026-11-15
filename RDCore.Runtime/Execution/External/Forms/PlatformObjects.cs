@@ -50,12 +50,18 @@ internal sealed class PlatformObjects
     // the object a call the platform answers is made on, while it is made: what the call hands out is the platform's when that object is (rule 3).
     private VBRuntimeObjectId? _answering;
 
-    /// <summary>The platform's objects of a session.</summary>
+    /// <summary>
+    /// The platform's objects of a session.
+    /// </summary>
+    /// <param name="session">The session.</param>
     public static PlatformObjects Of(IRuntimeSession session) => Sessions.GetValue(session, _ => new PlatformObjects());
 
     /// <summary>
     /// A form the form host made for the instance <paramref name="form"/> of a form's class, bound to <paramref name="handle"/> (rule 1).
     /// </summary>
+    /// <param name="form">The identity of the instance of the form's class.</param>
+    /// <param name="handle">The form object the form host made for it.</param>
+    /// <param name="kind">The form's designer: a Visual Basic 6.0 form's classes are of VB, a UserForm's of Microsoft Forms.</param>
     public void AdoptForm(VBRuntimeObjectId form, object handle, FormDesignerKind kind)
         => Adopt(form, handle, kind == FormDesignerKind.VisualBasic6 ? VisualBasicLibrary : FormDesigner.MSFormsLibrary, className: null);
 
@@ -63,6 +69,8 @@ internal sealed class PlatformObjects
     /// Whether the platform answers <paramref name="request"/>: a member a form's designer declares, or a member of one of the platform's objects. Never a
     /// creation, an obtaining, or a <c>Controls.Add</c> of a class of another library.
     /// </summary>
+    /// <param name="session">The session the call is made in.</param>
+    /// <param name="request">The call.</param>
     public bool Answers(IRuntimeSession session, ExternalCallRequest request)
     {
         if (request.IsCreation || request.Obtains is not null)
@@ -89,6 +97,7 @@ internal sealed class PlatformObjects
     /// Makes the call <paramref name="request"/> the one being made, until the result is disposed of: what it hands out is the platform's when the platform
     /// answers it. A call made inside it (an event's handler, a nested call) is made the one being made in its turn, and this one is again once it returns.
     /// </summary>
+    /// <param name="request">The call, its <see cref="ExternalCallRequest.IsAnsweredByPlatform"/> already said.</param>
     public Scope Answering(ExternalCallRequest request)
     {
         lock (_gate)
@@ -103,6 +112,11 @@ internal sealed class PlatformObjects
     /// An object a server returned, which the session bound to <paramref name="identity"/> now: the platform's when the call that returned it (or the object
     /// <paramref name="handedOutBy"/>, which raised the event that handed it over) is, and its class is of the same library (rules 2 and 3).
     /// </summary>
+    /// <param name="session">The session.</param>
+    /// <param name="server">The server that holds the object, which says its class.</param>
+    /// <param name="identity">The identity the session bound the object to.</param>
+    /// <param name="handle">The server's handle of the object.</param>
+    /// <param name="handedOutBy">The object whose event handed it over; <see langword="null"/> for a call's result.</param>
     public void HandedOut(IRuntimeSession session, IAutomationServer server, VBRuntimeObjectId identity, object handle, VBRuntimeObjectId? handedOutBy = null)
     {
         VBRuntimeObjectId? source;
@@ -128,6 +142,9 @@ internal sealed class PlatformObjects
     /// The enumerator a server returned for a <c>For Each</c>, which the session bound to <paramref name="identity"/> now: the platform's when the collection
     /// it enumerates is (rule 3). It is of no library's class, the standard library's <c>IEnumVARIANT</c>; what it hands out is judged by its own class.
     /// </summary>
+    /// <param name="session">The session.</param>
+    /// <param name="identity">The identity the session bound the enumerator to.</param>
+    /// <param name="handle">The server's handle of the enumerator.</param>
     public void EnumeratorHandedOut(IRuntimeSession session, VBRuntimeObjectId identity, object handle)
     {
         VBRuntimeObjectId? source;
@@ -224,6 +241,8 @@ internal sealed class PlatformObjects
     /// <summary>
     /// The call being made (<see cref="Answering"/>), until it is over.
     /// </summary>
+    /// <param name="objects">The platform's objects of the session.</param>
+    /// <param name="outer">The receiver of the call being made before this one, which is again once this one is over.</param>
     public readonly struct Scope(PlatformObjects objects, VBRuntimeObjectId? outer) : IDisposable
     {
         /// <inheritdoc/>
