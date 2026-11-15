@@ -19,7 +19,7 @@ namespace RDCore.Runtime.Compiled;
 /// <remarks>
 /// A <c>ReDim</c> stores another array in the same cell, and an element is found in the array the variable holds now. Compiled code keeps the array a
 /// variable holds (<see cref="KnownArray"/>) only while nothing it runs can give the variable another array, and gives it to these operations as the
-/// holder; anything else - the interpreter running an instruction, a call, a statement that stores an array - and it finds the array in the cell again.
+/// holder. After anything else (the interpreter running an instruction, a call, a statement that stores an array), it finds the array in the cell again.
 /// </remarks>
 public static class ArrayOperations
 {
