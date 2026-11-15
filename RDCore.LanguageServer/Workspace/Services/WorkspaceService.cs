@@ -56,8 +56,8 @@ internal interface IWorkspaceService
     /// lists; the primary project is never dropped, and its folder stays one of the workspace.
     /// </summary>
     /// <remarks>
-    /// Only the documents the projects gain are loaded, and only those they no longer have are let go of: the others are as they were. What is made of them -
-    /// parsed, defined in the environment host - is the caller's to do (<see cref="IWorkspaceReloadService.BeginChangeFoldersAsync"/>).
+    /// Only the documents the projects gain are loaded, and only those they no longer have are let go of: the others are as they were. What is made of them
+    /// (parsed, defined in the environment host) is the caller's to do (<see cref="IWorkspaceReloadService.BeginChangeFoldersAsync"/>).
     /// </remarks>
     /// <param name="added">The folders the client added.</param>
     /// <param name="removed">The folders the client removed.</param>
@@ -116,10 +116,14 @@ internal sealed record class WorkspaceFoldersChange(
     int Added,
     int Removed)
 {
-    /// <summary>The folders are what they were, or what changed of them changed no file of a project.</summary>
+    /// <summary>
+    /// The folders are what they were, or what changed of them changed no file of a project.
+    /// </summary>
     public static WorkspaceFoldersChange None { get; } = new([], [], 0, 0);
 
-    /// <summary>Whether no project gained a file, nor lost one.</summary>
+    /// <summary>
+    /// Whether no project gained a file, nor lost one.
+    /// </summary>
     public bool IsUnchanged => Added == 0 && Removed == 0;
 }
 

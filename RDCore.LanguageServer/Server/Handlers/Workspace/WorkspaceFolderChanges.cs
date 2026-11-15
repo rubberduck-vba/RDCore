@@ -18,7 +18,7 @@ namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 /// OmniSharp serves the notification itself, with its workspace folder manager, and that is what states <c>workspace.workspaceFolders.changeNotifications</c> in the
 /// server's <c>initialize</c> result: a handler of the platform's own for the method would take the manager's place in OmniSharp's handlers, and the server would no
 /// longer state it. The changes are read from what the manager says of each folder (<see cref="ILanguageServerWorkspaceFolderManager.Changed"/>), which it says as it
-/// reads the notification - the folders added, then those removed - and does not wait for: each is made in the order it was said, one after the other.
+/// reads the notification (the folders added, then those removed) and does not wait for: each is made in the order it was said, one after the other.
 /// </para>
 /// <para>
 /// The manager also says the folders of <c>initialize</c> once the server started: they are folders of the workspace already, and nothing is done.
@@ -26,12 +26,16 @@ namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 /// </remarks>
 internal interface IWorkspaceFolderChanges
 {
-    /// <summary>Reads the folders the client adds and removes from the workspace folder manager, until what is returned is disposed.</summary>
+    /// <summary>
+    /// Reads the folders the client adds and removes from the workspace folder manager, until what is returned is disposed.
+    /// </summary>
     /// <param name="folders">OmniSharp's workspace folder manager, which serves the notification.</param>
     /// <param name="server">The server, which tells its client.</param>
     IDisposable Attach(ILanguageServerWorkspaceFolderManager folders, ILanguageServerFacade server);
 
-    /// <summary>Makes the workspace what its folders are now, and tells the client of each file a project lists that no folder holds now.</summary>
+    /// <summary>
+    /// Makes the workspace what its folders are now, and tells the client of each file a project lists that no folder holds now.
+    /// </summary>
     /// <param name="added">The folders the client added.</param>
     /// <param name="removed">The folders the client removed.</param>
     /// <param name="server">The server, which tells its client.</param>

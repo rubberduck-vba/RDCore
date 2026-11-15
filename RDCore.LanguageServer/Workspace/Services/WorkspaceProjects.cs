@@ -12,10 +12,14 @@ internal sealed class WorkspaceProject(string root, ProjectFile project)
 {
     private IReadOnlySet<string>? _listedFiles;
 
-    /// <summary>The absolute path of the project's folder, as a workspace folder of the client.</summary>
+    /// <summary>
+    /// The absolute path of the project's folder, as a workspace folder of the client.
+    /// </summary>
     public string Root => root;
 
-    /// <summary>The project file: the <c>.rdproj</c> of the folder, or the project the platform made up for it.</summary>
+    /// <summary>
+    /// The project file: the <c>.rdproj</c> of the folder, or the project the platform made up for it.
+    /// </summary>
     public ProjectFile Project => project;
 
     /// <summary>
@@ -44,10 +48,14 @@ internal sealed class WorkspaceProject(string root, ProjectFile project)
 /// </remarks>
 internal interface IWorkspaceProjects
 {
-    /// <summary>The folders the client gave; the bounds of the workspace. Only the primary one before <see cref="Initialize"/>.</summary>
+    /// <summary>
+    /// The folders the client gave; the bounds of the workspace. Only the primary one before <see cref="Initialize"/>.
+    /// </summary>
     WorkspaceFolders Folders { get; }
 
-    /// <summary>The projects, the primary one first.</summary>
+    /// <summary>
+    /// The projects, the primary one first.
+    /// </summary>
     IReadOnlyList<WorkspaceProject> Projects { get; }
 
     /// <summary>
@@ -73,20 +81,28 @@ internal interface IWorkspaceProjects
     /// <param name="folders">The folders removed.</param>
     void RemoveFolders(IEnumerable<string> folders);
 
-    /// <summary>Makes a project of a folder.</summary>
+    /// <summary>
+    /// Makes a project of a folder.
+    /// </summary>
     void Add(WorkspaceProject project);
 
-    /// <summary>Drops a project that is not the primary one: its folder left the workspace.</summary>
+    /// <summary>
+    /// Drops a project that is not the primary one: its folder left the workspace.
+    /// </summary>
     /// <param name="root">The folder of the project.</param>
     /// <returns><see langword="false"/> when the folder is the primary project's, or no project's.</returns>
     bool Remove(string root);
 
-    /// <summary>Replaces the project file of a project that is not the primary one: its file was changed.</summary>
+    /// <summary>
+    /// Replaces the project file of a project that is not the primary one: its file was changed.
+    /// </summary>
     /// <param name="root">The folder of the project.</param>
     /// <param name="project">The project file as it is now.</param>
     void Replace(string root, ProjectFile project);
 
-    /// <summary>The projects that list a file, the one that was loaded first first.</summary>
+    /// <summary>
+    /// The projects that list a file, the one that was loaded first first.
+    /// </summary>
     /// <param name="path">The absolute path of the file.</param>
     IReadOnlyList<WorkspaceProject> Listing(string path);
 
@@ -109,7 +125,9 @@ internal interface IWorkspaceProjects
     /// <param name="relativeUri">The path as the project lists it.</param>
     void Admit(string project, string relativeUri);
 
-    /// <summary>The files that were refused, as <c>(project, path)</c>.</summary>
+    /// <summary>
+    /// The files that were refused, as <c>(project, path)</c>.
+    /// </summary>
     IReadOnlyList<(string Project, string RelativeUri)> Refused { get; }
 }
 
