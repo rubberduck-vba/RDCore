@@ -918,4 +918,32 @@ public sealed class SymbolRenameTests
 
         Assert.AreEqual("Retry", targets.Single(target => target.IsLabel).Name);
     }
+
+    [TestMethod]
+    public void AnArray_IsRenamedWhereAReDimResizesIt()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public items() As Long",
+            "Public Sub Grow()",
+            "    Dim local() As Long",
+            "    ReDim items(1 To 3)",
+            "    ReDim Preserve Main.items(1 To 4)",
+            "    ReDim local(2)",
+            "    items(1) = UBound(local)",
+            "End Sub")));
+
+        var field = Rename(context, "Main", "items(1) = UBound", "items", "values");
+        var local = Rename(context, "Main", "items(1) = UBound", "local", "others");
+
+        Assert.AreEqual(Module("Main",
+            "Public values() As Long",
+            "Public Sub Grow()",
+            "    Dim local() As Long",
+            "    ReDim values(1 To 3)",
+            "    ReDim Preserve Main.values(1 To 4)",
+            "    ReDim local(2)",
+            "    values(1) = UBound(local)",
+            "End Sub"), Renamed(context, field, "Main"));
+        StringAssert.Contains(Renamed(context, local, "Main"), "    ReDim others(2)\r\n    items(1) = UBound(others)\r\n");
+    }
 }
