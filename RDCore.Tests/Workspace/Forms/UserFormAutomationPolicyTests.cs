@@ -6,9 +6,9 @@ using System.Runtime.Versioning;
 namespace RDCore.Tests.Workspace.Forms;
 
 /// <summary>
-/// A UserForm, hosted by Microsoft Forms, in an environment that refuses automation: the form, its designer's controls and what they hand out of Microsoft Forms
-/// are the program's own user interface, and run, although they are COM objects of the machine's; any other object, a control of another library included, is
-/// refused with error 70. Inconclusive on a machine without Microsoft Forms.
+/// A UserForm, hosted by Microsoft Forms, in an environment that refuses automation: the form, its controls of any library and what they hand out of their own
+/// library are the program's own user interface, and run, although they are COM objects of the machine's; any other object is refused with error 70.
+/// Inconclusive on a machine without Microsoft Forms.
 /// </summary>
 [TestClass]
 [TestCategory("MSForms")]
@@ -104,9 +104,9 @@ public sealed class UserFormAutomationPolicyTests
         CollectionAssert.AreEqual(new[] { "70", "70", "ExampleView" }, printed, string.Join(" | ", printed));
     }
 
-    // a control of another library is a creation of another COM class.
+    // a control of another library that the form makes is the form's own, as a control its designer declares is.
     [TestMethod]
-    public async Task AControlOfAnotherLibraryAdded_IsRefused()
+    public async Task AControlOfAnotherLibraryAdded_Runs()
     {
         var printed = await RunAsync(false,
             "On Error Resume Next",
@@ -115,7 +115,7 @@ public sealed class UserFormAutomationPolicyTests
             "Debug.Print ExampleView.Controls.Count",
             "Unload ExampleView");
 
-        CollectionAssert.AreEqual(new[] { "70", "13" }, printed, string.Join(" | ", printed));
+        CollectionAssert.AreEqual(new[] { "0", "14" }, printed, string.Join(" | ", printed));
     }
 
     [TestMethod]

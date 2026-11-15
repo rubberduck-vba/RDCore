@@ -22,17 +22,17 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// An object is one by where the program got it, never by a library description, which a workspace can bring its own of:
 /// <list type="number">
 /// <item>the form the form host made for an instance of a form's class (<see cref="FormCallProvider"/>);</item>
-/// <item>what a member the form's designer declares returns, a control (<c>UserForm1.Label1</c>);</item>
-/// <item>what one of these hands out, a call's result or an event's argument, when the object is of a class of the form's own library: Microsoft Forms for a
-/// UserForm (<c>Controls</c>, <c>Controls.Add "Forms.Label.1"</c>, an event's <c>ReturnBoolean</c>), VB for a Visual Basic 6.0 form. The class comes only from
-/// the live object's server (<see cref="IAutomationServer.ClassNameOf"/>), never from a workspace's description. An object of no library's class is one only
-/// when it is the form host's own (<see cref="IAutomationServer.IsFormHostObject"/>): the RDForms <c>Controls</c> collection and menu arrays. A COM object whose
-/// server describes no class is an ordinary one;</item>
+/// <item>a control on a form, of whichever library: one the form's designer declares (<c>UserForm1.Label1</c>, a <c>WebBrowser</c>), or one a
+/// <c>Controls.Add</c> of the form's makes (<c>Controls.Add "Forms.Label.1"</c>, <c>Controls.Add "Shell.Explorer.2"</c>). A control of another library is of
+/// that library, for what it hands out in its turn;</item>
+/// <item>what one of these hands out, a call's result or an event's argument, when the object is of a class of its own library: Microsoft Forms for a
+/// UserForm (<c>Controls</c>, an event's <c>ReturnBoolean</c>), VB for a Visual Basic 6.0 form, the control's own library for a control of another one. The
+/// class comes only from the live object's server (<see cref="IAutomationServer.ClassNameOf"/>), never from a workspace's description. An object of no
+/// library's class is one only when it is the form host's own (<see cref="IAutomationServer.IsFormHostObject"/>): the RDForms <c>Controls</c> collection and
+/// menu arrays. A COM object whose server describes no class is an ordinary one;</item>
 /// <item>an object the session already held keeps what it was: a COM object stored in <c>Form1.Tag</c>, or given to a form's property, stays an ordinary one.</item>
 /// </list>
-/// A control of another library on a form (a <c>WebBrowser</c>, a <c>ListView</c>) is an ordinary object, and so is what it hands out; so is the control a
-/// <c>Controls.Add</c> of another library's class makes, which is a creation of another COM class and is not answered here. Creating an object (<c>New</c>,
-/// <c>CreateObject</c>, <c>GetObject</c>) never is.
+/// Creating an object (<c>New</c>, <c>CreateObject</c>, <c>GetObject</c>) is never one of them, of a control's class or not: only a form makes a control.
 /// <para>
 /// Each object is kept with the handle it was bound to, and is the platform's only while it is still bound to that handle: an identity used again for another
 /// object is not one. The set goes with the program: an <c>End</c>, and an error nothing handled, wipe it (<see cref="SessionWipe.End"/>).
@@ -46,10 +46,14 @@ internal sealed class PlatformObjects
     private const string VisualBasicLibrary = "VB";
 
     private readonly object _gate = new();
-    private readonly Dictionary<VBRuntimeObjectId, (object Handle, string Library, string? ClassName)> _objects = [];
+    private readonly Dictionary<VBRuntimeObjectId, Kept> _objects = [];
 
-    // the object a call the platform answers is made on, while it is made: what the call hands out is the platform's when that object is (rule 3).
-    private VBRuntimeObjectId? _answering;
+    // the object a call the platform answers is made on, and the member called, while it is made: what the call hands out is the platform's when that object
+    // is (rules 2 and 3).
+    private (VBRuntimeObjectId Receiver, string? Member)? _answering;
+
+    // an object of the platform's: its handle, its library and class, and for a form, the names of the controls its designer declares.
+    private sealed record Kept(object Handle, string Library, string? ClassName, IReadOnlySet<string>? Controls = null);
 
     /// <summary>
     /// The platform's objects of a session.
@@ -62,13 +66,21 @@ internal sealed class PlatformObjects
     /// </summary>
     /// <param name="form">The identity of the instance of the form's class.</param>
     /// <param name="handle">The form object the form host made for it.</param>
-    /// <param name="kind">The form's designer: a Visual Basic 6.0 form's classes are of VB, a UserForm's of Microsoft Forms.</param>
-    public void AdoptForm(VBRuntimeObjectId form, object handle, FormDesignerKind kind)
-        => Adopt(form, handle, kind == FormDesignerKind.VisualBasic6 ? VisualBasicLibrary : FormDesigner.MSFormsLibrary, className: null);
+    /// <param name="designer">What the form's designer declares: its kind (a Visual Basic 6.0 form's classes are of VB, a UserForm's of Microsoft Forms) and
+    /// its controls, which are the platform's whatever their library.</param>
+    public void AdoptForm(VBRuntimeObjectId form, object handle, FormDescriptor designer)
+    {
+        var controls = designer.Controls.SelectMany(control => control.DescendantsAndSelf()).Select(control => control.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        lock (_gate)
+        {
+            _objects[form] = new Kept(handle, designer.Kind == FormDesignerKind.VisualBasic6 ? VisualBasicLibrary : FormDesigner.MSFormsLibrary, null, controls);
+        }
+    }
 
     /// <summary>
-    /// Whether the platform answers <paramref name="request"/>: a member a form's designer declares, or a member of one of the platform's objects. Never a
-    /// creation, an obtaining, or a <c>Controls.Add</c> of a class of another library.
+    /// Whether the platform answers <paramref name="request"/>: a member a form's designer declares, or a member of one of the platform's objects, a
+    /// <c>Controls.Add</c> of a class of any library included. Never a creation or an obtaining.
     /// </summary>
     /// <param name="session">The session the call is made in.</param>
     /// <param name="request">The call.</param>
@@ -84,14 +96,8 @@ internal sealed class PlatformObjects
             return true;
         }
 
-        if (ReceiverOf(request) is not { } receiver || !TryGet(session, receiver, out var library, out var className))
-        {
-            return false;
-        }
-
-        // Controls.Add makes a control of the class its ProgID names: of the form's own library ("Forms.Label.1", "VB.Label"), or of another one, which is
-        // creating an object of that one's.
-        return !IsControlsAdd(request, className) || ProgIdOf(request) is { } progId && progId.StartsWith(ProgIdPrefixOf(library), StringComparison.OrdinalIgnoreCase);
+        // a Controls.Add makes a control on the form, of whichever library its ProgID names: the form makes it, as it makes the controls its designer declares.
+        return ReceiverOf(request) is { } receiver && TryGet(session, receiver, out _);
     }
 
     /// <summary>
@@ -104,7 +110,7 @@ internal sealed class PlatformObjects
         lock (_gate)
         {
             var outer = _answering;
-            _answering = request.IsAnsweredByPlatform ? ReceiverOf(request) : null;
+            _answering = request.IsAnsweredByPlatform && ReceiverOf(request) is { } receiver ? (receiver, request.Member.Name) : null;
             return new Scope(this, outer);
         }
     }
@@ -120,23 +126,33 @@ internal sealed class PlatformObjects
     /// <param name="handedOutBy">The object whose event handed it over; <see langword="null"/> for a call's result.</param>
     public void HandedOut(IRuntimeSession session, IAutomationServer server, VBRuntimeObjectId identity, object handle, VBRuntimeObjectId? handedOutBy = null)
     {
-        VBRuntimeObjectId? source;
+        (VBRuntimeObjectId Receiver, string? Member)? source;
         lock (_gate)
         {
-            source = handedOutBy ?? _answering;
+            source = handedOutBy is { } raiser ? (raiser, null) : _answering;
         }
 
-        if (source is not { } from || !TryGet(session, from, out var library, out _))
+        if (source is not { } from || !TryGet(session, from.Receiver, out var kept))
         {
             return;
         }
 
-        // the class is the live object's, as its server says: "MSForms.Label", "VB.Label". An object of no library's class is the platform's only when the form
-        // host made it; a COM object whose server describes no class is an ordinary one.
+        // the class is the live object's, as its server says: "MSForms.Label", "VB.Label", "SHDocVw.WebBrowser".
         var className = server.ClassNameOf(handle);
-        if (className is null ? server.IsFormHostObject(handle) : className.StartsWith(library + ".", StringComparison.OrdinalIgnoreCase))
+
+        // a control on the form, which its designer declares or a Controls.Add of the form's makes, is the platform's whatever its library: of its own library,
+        // for what it hands out in its turn (rule 2).
+        if (from.Member is { } member && (kept.Controls?.Contains(member) == true || IsControlsAdd(member, kept.ClassName)))
         {
-            Adopt(identity, handle, library, className);
+            Adopt(identity, handle, LibraryOf(className) ?? kept.Library, className);
+            return;
+        }
+
+        // anything else is the platform's when it is of the same library. An object of no library's class is the platform's only when the form host made it;
+        // a COM object whose server describes no class is an ordinary one (rule 3).
+        if (className is null ? server.IsFormHostObject(handle) : className.StartsWith(kept.Library + ".", StringComparison.OrdinalIgnoreCase))
+        {
+            Adopt(identity, handle, kept.Library, className);
         }
     }
 
@@ -149,15 +165,15 @@ internal sealed class PlatformObjects
     /// <param name="handle">The server's handle of the enumerator.</param>
     public void EnumeratorHandedOut(IRuntimeSession session, VBRuntimeObjectId identity, object handle)
     {
-        VBRuntimeObjectId? source;
+        (VBRuntimeObjectId Receiver, string? Member)? source;
         lock (_gate)
         {
             source = _answering;
         }
 
-        if (source is { } from && TryGet(session, from, out var library, out _))
+        if (source is { } from && TryGet(session, from.Receiver, out var kept))
         {
-            Adopt(identity, handle, library, className: null);
+            Adopt(identity, handle, kept.Library, className: null);
         }
     }
 
@@ -177,18 +193,16 @@ internal sealed class PlatformObjects
     {
         lock (_gate)
         {
-            _objects[identity] = (handle, library, className);
+            _objects[identity] = new Kept(handle, library, className);
         }
     }
 
     // whether identity is one of the platform's: kept, and still bound to the handle it was kept with.
-    private bool TryGet(IRuntimeSession session, VBRuntimeObjectId identity, out string library, out string? className)
+    private bool TryGet(IRuntimeSession session, VBRuntimeObjectId identity, out Kept kept)
     {
-        (library, className) = (string.Empty, null);
-        (object Handle, string Library, string? ClassName) kept;
         lock (_gate)
         {
-            if (!_objects.TryGetValue(identity, out kept))
+            if (!_objects.TryGetValue(identity, out kept!))
             {
                 return false;
             }
@@ -204,7 +218,6 @@ internal sealed class PlatformObjects
             return false;
         }
 
-        (library, className) = (kept.Library, kept.ClassName);
         return true;
     }
 
@@ -212,40 +225,20 @@ internal sealed class PlatformObjects
         => request.Arguments is [VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var receiver }, ..] ? receiver : null;
 
     // a Controls collection's Add: Microsoft Forms' (a class of its own), or RDForms' (of no library's class).
-    private static bool IsControlsAdd(ExternalCallRequest request, string? className)
-        => string.Equals(request.Member.Name, "Add", StringComparison.OrdinalIgnoreCase)
+    private static bool IsControlsAdd(string member, string? className)
+        => string.Equals(member, "Add", StringComparison.OrdinalIgnoreCase)
         && (className is null || className.EndsWith(".Controls", StringComparison.OrdinalIgnoreCase));
 
-    // the ProgID Controls.Add is given, its first argument: a String parameter's, or the first of the arguments a late-bound Add collects (the RDForms Controls
-    // collection is of no library's class, and its members are reached by name).
-    private static string? ProgIdOf(ExternalCallRequest request)
-    {
-        if (request.Arguments is not [_, var given, ..])
-        {
-            return null;
-        }
-
-        var first = RuntimeProcedureInvoker.GetParameters(request.Member) is [_, ParamArrayParameterSymbol collecting, ..]
-            ? collecting.ResolvedType.CreateValue(new ValueBindingHandle(given)) is VBArrayValue { Length: > 0 } collected ? collected.ElementAt(0) : null
-            : VBStringType.TypeInfo.CreateValue(new ValueBindingHandle(given));
-        return first switch
-        {
-            VBStringValue { Value: var text } => text,
-            VBVariantValue { TypedValue: VBStringValue { Value: var text } } => text,
-            _ => null,
-        };
-    }
-
-    // the ProgIDs of a library's controls: Microsoft Forms' are "Forms.<Class>.1", Visual Basic 6.0's "VB.<Class>".
-    private static string ProgIdPrefixOf(string library)
-        => string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase) ? "VB." : "Forms.";
+    // the library of a class the server names, "SHDocVw" of "SHDocVw.WebBrowser"; none for a class it does not name, or names without one.
+    private static string? LibraryOf(string? className)
+        => className is { } name && name.IndexOf('.') is > 0 and var dot ? name[..dot] : null;
 
     /// <summary>
     /// The call being made (<see cref="Answering"/>), until it is over.
     /// </summary>
     /// <param name="objects">The platform's objects of the session.</param>
-    /// <param name="outer">The receiver of the call being made before this one, which is again once this one is over.</param>
-    public readonly struct Scope(PlatformObjects objects, VBRuntimeObjectId? outer) : IDisposable
+    /// <param name="outer">The receiver and member of the call being made before this one, which is again once this one is over.</param>
+    public readonly struct Scope(PlatformObjects objects, (VBRuntimeObjectId Receiver, string? Member)? outer) : IDisposable
     {
         /// <inheritdoc/>
         public void Dispose()
