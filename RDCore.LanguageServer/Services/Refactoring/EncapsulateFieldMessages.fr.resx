@@ -71,7 +71,7 @@
     <value>{1} assigne '{0}', ce qu'une propriété en lecture seule ne peut pas recevoir.</value>
   </data>
   <data name="EncapsulateFieldRefusal_ReplacedByMid" xml:space="preserve">
-    <value>{1} remplace des caractères de '{0}' par une instruction Mid : par une propriété, les caractères pourraient ne pas être réécrits, et l'écriture serait perdue.</value>
+    <value>{1} remplace des caractères de '{0}' par une instruction Mid, qui exige une variable : sur une propriété, le code ne compilerait pas.</value>
   </data>
   <data name="EncapsulateFieldChoice_Mode" xml:space="preserve">
     <value>Garder la valeur dans</value>
