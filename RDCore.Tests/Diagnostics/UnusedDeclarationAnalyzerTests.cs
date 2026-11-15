@@ -302,7 +302,8 @@ public sealed class UnusedDeclarationAnalyzerTests
     [TestMethod]
     public async Task ThePropertyThatImplementsAnInterfaceMember_DoesNotChooseItsSignature_FromItsGetOn()
     {
-        // a property's declaration is its first accessor, a Get here: the Let's value is the interface's, of its property and of its variable.
+        // a property's declaration is its first accessor, a Get here. Its Let still implements the interface, so its value is the interface member's and is
+        // not reported, whether that member is a property (Tag) or a variable (Label): only Other's value is.
         var settings = ModuleWorkspace.ClassModule("ISettings", "Public Label As String",
             "Public Property Get Tag() As Variant", "End Property", "Public Property Let Tag(ByVal value As Variant)", "End Property");
         string[] lines =
