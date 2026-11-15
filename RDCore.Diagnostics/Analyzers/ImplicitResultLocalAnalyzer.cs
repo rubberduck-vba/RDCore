@@ -1,15 +1,15 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -40,8 +40,6 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
 {
     public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitResultLocal.ToCode()];
 
-    private const string NewLine = "\r\n";
-
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.ParseResult.SyntaxTree is not { } module || context.Semantics is not { } semantics)
@@ -67,7 +65,7 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
                 continue;
             }
 
-            var fixes = FixOf(procedure, body, names, semantics) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null;
+            var fixes = FixOf(context.ParseResult, procedure, body, names, semantics) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null;
             foreach (var (name, _) in reads)
             {
                 yield return new AnalyzerFinding(
@@ -83,7 +81,7 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
     }
 
     private static EditFix? FixOf(
-        MemberDeclarationNode procedure, SyntaxNode[] body, (SimpleNameExpressionNode Name, ExpressionFactDto? Fact)[] names, ModuleSemanticsDto semantics)
+        ModuleParseResult parse, MemberDeclarationNode procedure, SyntaxNode[] body, (SimpleNameExpressionNode Name, ExpressionFactDto? Fact)[] names, ModuleSemanticsDto semantics)
     {
         // the first node of the body, past the declaration's parameters and return type, which the Dim goes before at its indentation.
         var first = procedure.Children
@@ -106,9 +104,12 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
         var exits = body.OfType<KeywordStatementNode>().Where(statement => statement.Token is Tokens.ExitFunction or Tokens.ExitProperty).ToArray();
 
         // what is written before End Function on its line (a label, a statement), which the last return goes after so that a GoTo to the label returns it too.
-        var end = procedure.SourceLocation.Range.End;
-        var endToken = procedure.MemberKind is MemberKind.Function ? "End Function" : "End Property";
-        var endIsAlone = !body.Any(node => node.SourceLocation.Range.Start.Line == end.Line);
+        if (procedure.EndRange is not { } end)
+        {
+            return null;
+        }
+
+        var endIsAlone = !body.Any(node => node.SourceLocation.Range.Start.Line == end.Start.Line);
 
         // a result that is Set and also Let-assigned (a Variant that holds an object or a value) is returned as what it holds; the If that says which cannot share
         // a line with an Exit or with End Function, of which it would make a branch.
@@ -124,7 +125,7 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
 
         // every local of a Static procedure keeps its value from one call to the next, and the result variable does not: each call starts with its default value
         // (MS-VBAL §5.3.1.6), which the local is then given first.
-        var declaration = $"{indent}{Declaration(local, type)}{NewLine}";
+        List<string> declaration = [$"{indent}{Declaration(local, type)}"];
         if (procedure.IsStatic)
         {
             if (ResetOf(local, type) is not { } reset)
@@ -132,24 +133,17 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
                 return null;
             }
 
-            declaration += $"{indent}{reset}{NewLine}";
+            declaration.Add($"{indent}{reset}");
         }
 
-        var edits = new List<TextEdit>
-        {
-            Insert(first.SourceLocation.Range.Start.Line, 0, declaration),
-        };
-        edits.AddRange(names.Select(occurrence => new TextEdit { Range = RangeOf(occurrence.Name.Location.Range), NewText = local }));
-        edits.AddRange(exits.Select(exit => Insert(exit.SourceLocation.Range.Start.Line, exit.SourceLocation.Range.Start.Character, $"{returns}: ")));
-        edits.Add(endIsAlone
-            ? Insert(end.Line, 0, $"{indent}{returns}{NewLine}")
-            : Insert(end.Line, end.Character - endToken.Length, $"{returns}: "));
-
-        return new EditFix
-        {
-            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitResultLocal_Fix, procedure.Name),
-            Edits = edits,
-        };
+        return SyntaxEdits.Fix(
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitResultLocal_Fix, procedure.Name),
+            [
+                LineEdits.InsertLinesBefore(parse, first, [.. declaration]),
+                .. names.Select(occurrence => SyntaxEdits.Replace(occurrence.Name.Location.Range, local)),
+                .. exits.Select(exit => SyntaxEdits.Insert(exit.SourceLocation.Range.Start, $"{returns}: ")),
+                endIsAlone ? LineEdits.InsertLinesBefore(parse, end, $"{indent}{returns}") : SyntaxEdits.Insert(end.Start, $"{returns}: "),
+            ]);
     }
 
     // the procedure's return type as it is written - an As clause, or a type character - and otherwise the type the host says the result has.
@@ -160,7 +154,8 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
             return (asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName, asType.IsArrayDef);
         }
 
-        var declared = TypeOfHint(procedure.TypeHint) ?? names.Select(occurrence => occurrence.Fact?.DeclaredType).FirstOrDefault(type => type is { Length: > 0 }) ?? "Variant";
+        var hinted = procedure.TypeHint is { } hint && IntrinsicVBTypes.TryResolveTypeHint(hint, out var hintType) ? hintType.Name : null;
+        var declared = hinted ?? names.Select(occurrence => occurrence.Fact?.DeclaredType).FirstOrDefault(type => type is { Length: > 0 }) ?? VBTypeNames.VBVariant;
         return declared.EndsWith("()", StringComparison.Ordinal) ? (declared[..^2], true) : (declared, false);
     }
 
@@ -172,27 +167,9 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
     private static string? ResetOf(string local, (string Name, bool IsArray) type)
         => type.IsArray
             ? $"Erase {local}"
-            : type.Name.ToUpperInvariant() switch
-            {
-                "BYTE" or "INTEGER" or "LONG" or "LONGLONG" or "LONGPTR" or "SINGLE" or "DOUBLE" or "CURRENCY" or "DECIMAL" or "DATE" => $"{local} = 0",
-                "STRING" => $"{local} = vbNullString",
-                "BOOLEAN" => $"{local} = False",
-                "VARIANT" => $"{local} = Empty",
-                "OBJECT" => $"Set {local} = Nothing",
-                _ => null,
-            };
-
-    private static string? TypeOfHint(string? hint) => hint switch
-    {
-        "%" => "Integer",
-        "&" => "Long",
-        "^" => "LongLong",
-        "!" => "Single",
-        "#" => "Double",
-        "@" => "Currency",
-        "$" => "String",
-        _ => null,
-    };
+            : IntrinsicVBTypes.TryResolve(type.Name, out var intrinsic) && IntrinsicVBTypes.DefaultLiteralOf(intrinsic) is { } value
+                ? intrinsic is VBObjectType ? $"Set {local} = {value}" : $"{local} = {value}"
+                : null;
 
     // "result", or the first of "result2", "result3"... that names nothing the module declares or the body refers to.
     private static string LocalName(SyntaxNode[] body, ModuleSemanticsDto semantics)
@@ -208,10 +185,4 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
 
         return candidate;
     }
-
-    private static TextEdit Insert(int line, int character, string text)
-        => new() { Range = new Range(line, character, line, character), NewText = text };
-
-    private static Range RangeOf(SourceRange range)
-        => new(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
 }
