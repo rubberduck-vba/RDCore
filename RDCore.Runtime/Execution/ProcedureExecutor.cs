@@ -742,40 +742,65 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             : new ErrorHandlerState(mode, target, null, null);
 
     /// <summary>
-    /// What the <c>On Error</c> statement <paramref name="instruction"/> does (MS-VBAL §5.4.4): the activation's error handling policy set, and the Err
-    /// object cleared (§6.1.3.2.1). Compiled code does it too.
+    /// What the <c>On Error</c> statement <paramref name="instruction"/> does (MS-VBAL §5.4.4.1): the activation's error handling policy set, and the Err
+    /// object cleared (§6.1.3.2.1.1). Compiled code does it too.
     /// </summary>
+    /// <param name="session">The session whose Err object is cleared.</param>
+    /// <param name="activation">The frame whose error handling policy the statement sets.</param>
+    /// <param name="instruction">The <c>On Error</c> statement.</param>
     /// <returns><see langword="false"/> for an <c>On Error GoTo</c> whose label was not resolved, which reported its own compile error.</returns>
     internal static bool TryApplyOnError(IRuntimeSession session, CallStackFrame activation, Instruction instruction)
+    {
+        if (!TryApplyOnError(session, activation.ErrorHandler, instruction, out var policy))
+        {
+            return false;
+        }
+
+        activation.ErrorHandler = policy;
+        return true;
+    }
+
+    /// <summary>
+    /// What the <c>On Error</c> statement <paramref name="instruction"/> does to the error handling policy <paramref name="current"/> of an activation that
+    /// holds it without a frame (MS-VBAL §5.4.4.1), the Err object cleared as for one with a frame (§6.1.3.2.1.1).
+    /// </summary>
+    /// <param name="session">The session whose Err object is cleared.</param>
+    /// <param name="current">The activation's error handling policy before the statement.</param>
+    /// <param name="instruction">The <c>On Error</c> statement.</param>
+    /// <param name="policy">The policy the statement sets, or <paramref name="current"/> when it returns <see langword="false"/>.</param>
+    /// <returns><see langword="false"/> for an <c>On Error GoTo</c> whose label was not resolved, which reported its own compile error.</returns>
+    internal static bool TryApplyOnError(IRuntimeSession session, ErrorHandlerState current, Instruction instruction, out ErrorHandlerState policy)
     {
         switch (instruction.Kind)
         {
             case InstructionKind.OnErrorGoTo:
                 if (instruction.Target is not { } handlerTarget)
                 {
+                    policy = current;
                     return false;
                 }
-                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.GoTo, handlerTarget);
+                policy = PolicyOf(current, ErrorHandlingMode.GoTo, handlerTarget);
                 break;
 
             case InstructionKind.OnErrorDisable:
                 // On Error GoTo 0 is an On Error statement too, and §6.1.3.2.1 makes no exception for it.
-                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.Disabled, null);
+                policy = PolicyOf(current, ErrorHandlingMode.Disabled, null);
                 break;
 
             case InstructionKind.OnErrorReset:
                 // On Error GoTo -1 ends the error being handled, and keeps the policy: in a handler, the one it is to have after it - the On Error GoTo
                 // label it caught the error with, unless it said otherwise - and Resume has nothing to resume (MS-VBA, observed in Excel).
-                activation.ErrorHandler = activation.ErrorHandler.IsHandling
-                    ? activation.ErrorHandler.HandlingOver()
-                    : activation.ErrorHandler with { ActiveError = null, FaultStatementOffset = null };
+                policy = current.IsHandling
+                    ? current.HandlingOver()
+                    : current with { ActiveError = null, FaultStatementOffset = null };
                 break;
 
             case InstructionKind.OnErrorResumeNext:
-                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.ResumeNext, null);
+                policy = PolicyOf(current, ErrorHandlingMode.ResumeNext, null);
                 break;
 
             default:
+                policy = current;
                 return false;
         }
 

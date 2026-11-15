@@ -546,10 +546,23 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 
     /// <summary>
+    /// The class of the object the call was last made on, and the member an object of that class invokes for it (<see cref="CompiledActivation.CanCallMember"/>):
+    /// found once for the class, and again only for an object of another one.
+    /// </summary>
+    public InvokedMember? Invoked { get; set; }
+
+    /// <summary>
     /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
     /// </summary>
     public MemberEntry? Entered { get; set; }
 }
+
+/// <summary>
+/// The member an object of <paramref name="Class"/> invokes for a call of a member of an object (<see cref="CompiledCallee.Invoked"/>).
+/// </summary>
+/// <param name="Class">The class of the object.</param>
+/// <param name="Member">The member it invokes.</param>
+internal sealed record class InvokedMember(SDK.Model.Symbols.VBClassModuleSymbol Class, SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member);
 
 /// <summary>
 /// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
