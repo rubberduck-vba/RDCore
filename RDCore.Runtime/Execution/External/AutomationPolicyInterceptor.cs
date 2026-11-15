@@ -15,6 +15,8 @@ namespace RDCore.Runtime.Execution.External;
 /// <para>
 /// A library the platform implements itself is exempt, as the standard library is: a call that one of the platform's own providers answers (stdole's pictures)
 /// reaches no server. The exemption is decided by who answers the call, never by what a library's description says, which a workspace can bring.
+/// A call the platform answers (<see cref="ExternalCallRequest.IsAnsweredByPlatform"/>) is let through: a member of a program's form, or of a control the form
+/// handed out (<see cref="Forms.PlatformObjects"/>), is its own user interface, a Visual Basic 6.0 form's and a UserForm's alike.
 /// </para>
 /// </remarks>
 /// <param name="implementations">The platform's own providers of a library's objects and procedures, whose calls are exempt.</param>
@@ -24,7 +26,8 @@ public sealed class AutomationPolicyInterceptor(IEnumerable<IExternalCallProvide
 
     /// <inheritdoc/>
     public ExternalCallDecision Intercept(ExternalCallRequest request, IRuntimeSession session)
-        => request.IsAutomation && !session.Environment.AllowAutomation && !_implementations.Any(provider => provider.CanDispatch(request))
+        => request.IsAutomation && !request.IsAnsweredByPlatform && !session.Environment.AllowAutomation
+            && !_implementations.Any(provider => provider.CanDispatch(request))
             ? ExternalCallDecision.Block("automation is disabled for this environment")
             : ExternalCallDecision.Allow;
 }

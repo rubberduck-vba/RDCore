@@ -50,7 +50,8 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// (<see cref="LateBinding"/>). <c>CreateObject</c> gives one, and so does a member of a late-bound object. Its server is asked what its class is only when
     /// something needs it (<see cref="ClassOf(IRuntimeSession, VBRuntimeObjectId, VBClassModuleSymbol)"/>).
     /// </remarks>
-    public VBTypedValue Wrap(object value, VBType declared, IRuntimeSymbolResolver resolver)
+    /// <param name="handedOutBy">The object whose event handed the object over; none for a call's result, which is the call's being made.</param>
+    public VBTypedValue Wrap(object value, VBType declared, IRuntimeSymbolResolver resolver, VBRuntimeObjectId? handedOutBy = null)
     {
         // an object of the session the server held is the session's object again: `d("key") Is w`.
         if (value is ISessionObjectStandIn standIn && SessionObjectHost.Of(session).TryFind(standIn, out var own))
@@ -68,6 +69,9 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         var identity = session.Objects.CreateObject();
         session.Symbols.CreateInstance(identity, classModule);
         session.ExternalObjects.Bind(identity, server, value);
+
+        // an object new to the session that a form, or a control of its, handed over is the platform's too; one the session already held is what it was.
+        Forms.PlatformObjects.Of(session).HandedOut(session, server, identity, value, handedOutBy);
         return new VBObjectValue(identity);
     }
 
@@ -82,6 +86,9 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         var identity = session.Objects.CreateObject();
         session.Symbols.CreateInstance(identity, classModule);
         session.ExternalObjects.Bind(identity, server, enumerator);
+
+        // the enumerator of a collection of a form's (Controls) is the platform's too, and so are the controls it hands out of the form's library.
+        Forms.PlatformObjects.Of(session).EnumeratorHandedOut(session, identity, enumerator);
         return new VBObjectValue(identity);
     }
 
