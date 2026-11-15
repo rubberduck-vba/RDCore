@@ -1,5 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Assistant;
@@ -11,9 +12,29 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 namespace RDCore.LanguageServer.Assistant;
 
 // the documents of the workspace as the tools name them: a path from the workspace root, and 1-based positions.
-internal sealed class AssistantDocuments(IWorkspaceDocumentService documents)
+internal sealed class AssistantDocuments(IWorkspaceDocumentService documents, ISymbolSyncService symbols)
 {
+    // how long a tool waits for the workspace's first load before it says the workspace is still loading: an assistant asks again, where an answer read from
+    // a half-loaded workspace would be wrong.
+    public static readonly TimeSpan DefaultLoadBound = TimeSpan.FromSeconds(30);
+
+    public TimeSpan LoadBound { get; init; } = DefaultLoadBound;
+
     public string Root => documents.WorkspaceRoot;
+
+    // waits for the workspace as the server brings it up (every document parsed and its modules defined in the host, however the bring-up ends); past
+    // LoadBound, the tool is refused with WorkspaceLoading.
+    public async Task LoadedAsync(CancellationToken token)
+    {
+        try
+        {
+            await symbols.WorkspaceDefinedAsync(token).WaitAsync(LoadBound, token);
+        }
+        catch (TimeoutException)
+        {
+            throw new AssistantToolRefusedException(AssistantToolTexts.WorkspaceLoading);
+        }
+    }
 
     public IEnumerable<WorkspaceDocument> All => documents.GetAllDocuments().OrderBy(document => PathOf(document.Id.Uri), StringComparer.OrdinalIgnoreCase);
 
