@@ -198,7 +198,7 @@ internal sealed class DocumentDiagnosticsService(
         // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not. A document
         // that is no file is no module the host has - one of the workspace may have its name - and is analyzed for its syntax alone.
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
-        // the host runs the primary project, and analyzes each other project in a session of its own: a module is asked for by its address, under the root of
+        // the host runs the primary project, and analyzes every other project in a session of its own: a module is asked for by its address, under the root of
         // the project that loaded it first, which is the primary project for a file the primary project lists. A document that is not a file is the client's
         // alone, and none of the host's.
         var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;

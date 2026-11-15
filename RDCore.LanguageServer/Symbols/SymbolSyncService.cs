@@ -572,8 +572,8 @@ internal sealed class SymbolSyncService(
         var moduleName = parseResult.SyntaxTree.GetDeclaredName() ?? document.Name;
         if (workspaceRoot is not null && modules.FirstOrDefault(module => module.Name == moduleName) is { Parse: not null } changed)
         {
-            // the module is defined again with the newest definition winning, in the workspace as it is now - what the other modules declare is what its names
-            // are bound against - and then its code is loaded, which is checked against the same.
+            // the module is defined again with the newest definition winning, in the workspace as it is now (what the other modules declare is what its names
+            // are bound against), and then its code is loaded, which is checked against the same.
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
                 implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot), documentHosts: hosts);
@@ -581,7 +581,7 @@ internal sealed class SymbolSyncService(
             await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, token);
         }
 
-        // and so it is in the analysis session of each other project that lists it: a file two projects list is a module of each.
+        // and so it is in the analysis session of every other project that lists it: a file two projects list is a module of each.
         if (!ReferenceEquals(host, _analysisHost))
         {
             return;
