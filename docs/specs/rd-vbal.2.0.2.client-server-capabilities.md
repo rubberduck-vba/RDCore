@@ -562,7 +562,7 @@ A parameter is removed from its declaration, and its argument from every call th
 |Refused|Because|
 |---|---|
 |The procedure, or a procedure that changes with it, uses the parameter|Its uses would refer to nothing.|
-|An argument passed for it does more than read a value: a call, a property, an operation|It would no longer be evaluated, and what it does would not be done.|
+|An argument passed for it does more than read a value: a call, a property, an operation|What its evaluation does (a call, an error) would not happen.|
 |A call to the procedure is late-bound, by its name in a string, or not known|The argument passed there would not be removed.|
 |The parameter is a `ParamArray`, or the value of a `Property Let` or `Set`|A `ParamArray` takes every argument after it; a `Let` or a `Set` always takes the value.|
 |The procedure is an event, a handler of an event, or a `Declare`|The event, or the library, decides the parameters.|

@@ -302,7 +302,7 @@ public static class ParameterRemoval
                     return new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: source.Module, Position: occurrence.Range.Start);
                 }
 
-                // a call left with no argument loses its parentheses (F (a), Call F(a), x = F(a)): F () is no statement.
+                // a call left with no argument loses its parentheses (F (a), Call F(a), x = F(a)): F () is not a statement.
                 var leftEmpty = !ListEdits.ItemsOf(source.Source, list).Where((item, at) => at != removed && item.End != item.Start).Any();
                 edits.Add(leftEmpty && call.Parentheses is { } parentheses
                     ? new RenameEdit(source.Module, parentheses, string.Empty)
