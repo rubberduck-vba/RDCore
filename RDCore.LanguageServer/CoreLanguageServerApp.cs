@@ -234,7 +234,8 @@ internal sealed class CoreLanguageServerApp(
         // what the client sends once it is answered - a program it runs, a document it opens - is given the host once the workspace's modules are.
         _workspaceExpected = symbolSync.ExpectWorkspace();
         await LoadWorkspaceAsync(server, request, cancellationToken);
-        // and the folders the client adds and removes once it is answered are loaded and dropped as those it gave now were.
+        // and the folders the client adds and removes once it is answered are loaded and dropped as those it gave now were. They are read from OmniSharp's own
+        // folder manager, which keeps serving workspace/didChangeWorkspaceFolders and stating changeNotifications: a handler of ours would take its place.
         _workspaceFolderChanges = ExternalServices.GetRequiredService<IWorkspaceFolderChanges>().Attach(server.WorkspaceFolderManager, server);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }

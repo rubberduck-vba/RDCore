@@ -57,6 +57,8 @@ internal sealed class WorkspaceFolderChanges(
     {
         ArgumentNullException.ThrowIfNull(folders);
         ArgumentNullException.ThrowIfNull(server);
+
+        // a subscriber, not a handler: the manager stays the one that serves the notification, so the server keeps stating changeNotifications.
         return folders.Changed.Subscribe(new FolderObserver(change => InOrder(change, server)));
     }
 
