@@ -6,7 +6,7 @@ namespace RDCore.Tests.Workspace.Forms;
 
 /// <summary>
 /// A Visual Basic 6.0 form, hosted by RDForms headless, in an environment that refuses automation: the form, its designer's controls and what they hand out of
-/// the VB library are the program's own user interface, and run; creating or obtaining any other object is refused with error 70, as before.
+/// the VB library are the program's own user interface, and run; creating or obtaining any other object is refused with error 70.
 /// </summary>
 [TestClass]
 public sealed class VisualBasicFormAutomationPolicyTests
