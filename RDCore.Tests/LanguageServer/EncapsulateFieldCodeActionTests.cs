@@ -141,6 +141,27 @@ public sealed class EncapsulateFieldCodeActionTests
     }
 
     [TestMethod]
+    public async Task TheDialogsAnswers_AreTakenByApply_AndTheBackingFieldNameIsChecked()
+    {
+        _capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(true);
+        var range = new RDCore.SDK.Model.Source.SourceRange(1, 8, 1, 8);
+        RefactorAnswer[] answers =
+        [
+            new() { Id = EncapsulateFieldService.ModeChoice, Value = EncapsulateFieldService.BackingFieldMode },
+            new() { Id = EncapsulateFieldService.BackingFieldChoice, Value = "hidden" },
+        ];
+
+        var checkedName = await new RefactorIdentifierCheckHandler(Substitute.For<IExtractMethodService>(), _capabilities, Sut()).Handle(
+            new RefactorCheckIdentifierRequest { Kind = RefactoringKinds.EncapsulateField, Uri = Document.ToUri(), Range = range, Answers = answers }, CancellationToken.None);
+        Assert.AreEqual("encapsulateField.nameTaken", checkedName.Notices.Single().Code);
+
+        answers[1] = new() { Id = EncapsulateFieldService.BackingFieldChoice, Value = "mTotal" };
+        var applied = await new RefactorApplyHandler(Substitute.For<IExtractMethodService>(), _capabilities, Sut()).Handle(
+            new RefactorApplyRequest { Kind = RefactoringKinds.EncapsulateField, Uri = Document.ToUri(), Range = range, Answers = answers }, CancellationToken.None);
+        Assert.IsTrue(applied.Documents.Single().Edits.Any(each => each.NewText.Contains("Private mTotal As Long")));
+    }
+
+    [TestMethod]
     public async Task AClientWithADialog_IsOfferedTheRefactorCommand_AndTheRefactorRequestsServeItByItsKind()
     {
         _capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(true);

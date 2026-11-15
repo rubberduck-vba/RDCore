@@ -41,7 +41,7 @@ internal sealed class RefactorApplyHandler(
         RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri, encapsulateField);
         if (request.Kind == RefactoringKinds.EncapsulateField)
         {
-            var encapsulated = await encapsulateField!.ApplyAsync(request.Uri!, request.Range.Start, request.Accepted, token);
+            var encapsulated = await encapsulateField!.ApplyAsync(request.Uri!, request.Range.Start, request.Answers, request.Accepted, token);
             return encapsulated.Edit ?? throw new RpcErrorException(RefactorRequests.RequestFailedCode, error: null!, encapsulated.Refusal ?? string.Empty);
         }
 
@@ -54,13 +54,16 @@ internal sealed class RefactorApplyHandler(
 /// Serves <c>rdcore/refactor/checkIdentifier</c>: whether an identifier the user is typing for a refactoring of a range can be declared where the refactoring
 /// declares it, and what it would hide, before the refactoring is applied. A client's dialog asks it as its user types.
 /// </summary>
-internal sealed class RefactorIdentifierCheckHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
+internal sealed class RefactorIdentifierCheckHandler(
+    IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities, IEncapsulateFieldService? encapsulateField = null)
     : RDCoreRequestHandler<RefactorCheckIdentifierRequest, RefactorIdentifierCheckResult>
 {
     protected override async Task<RefactorIdentifierCheckResult> HandleAsync(RefactorCheckIdentifierRequest request, CancellationToken token)
     {
-        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
-        return await extractMethod.CheckIdentifierAsync(request.Kind, request.Uri!, request.Range, request.Answers, token);
+        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri, encapsulateField);
+        return request.Kind == RefactoringKinds.EncapsulateField
+            ? await encapsulateField!.CheckIdentifierAsync(request.Uri!, request.Range.Start, request.Answers, token)
+            : await extractMethod.CheckIdentifierAsync(request.Kind, request.Uri!, request.Range, request.Answers, token);
     }
 }
 
@@ -76,7 +79,7 @@ file static class RefactorRequests
     // JSON-RPC 2.0 "Invalid Request".
     private const int InvalidRequestCode = -32600;
 
-    // Encapsulate Field is served when its service is, by prepare and apply.
+    // Encapsulate Field is served when its service is, by prepare, checkIdentifier and apply.
     public static void Check(IPlatformClientCapabilitiesService clientCapabilities, string kind, Uri? document, IEncapsulateFieldService? encapsulateField = null)
     {
         if (!clientCapabilities.Expects(capabilities => capabilities.Refactoring))
