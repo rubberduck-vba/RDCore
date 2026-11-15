@@ -47,18 +47,9 @@ public sealed class StdInteraction(
     private readonly ExternalWorld _outside = outside ?? ExternalWorld.None;
     private readonly ProcessEnvironment _environment = environment ?? ProcessEnvironment.Current;
 
-    /// <summary>
-    /// The error every member that is declared but not written yet returns.
-    /// </summary>
-    /// <remarks>
-    /// Deliberately an error rather than a plausible value: a <c>Command</c> that answered <c>""</c> would be worse than one that says it cannot answer.
-    /// </remarks>
-    private static VBRuntimeErrorInfo NotImplementedError(string member, string because = "it is declared but not implemented yet")
+    // the error a member RD-VBA has no code for returns, rather than a plausible value it could not stand behind.
+    private static VBRuntimeErrorInfo NotImplementedError(string member, string because)
         => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, default, $"'{member}' is not implemented: {because}.");
-
-    private static RuntimeSemanticsEvaluationResult<TValue> NotImplemented<TValue>(string member)
-        where TValue : VBTypedValue
-        => RuntimeSemanticsEvaluationResult<TValue>.Error(NotImplementedError(member));
 
     private static RuntimeSemanticsEvaluationResult<TValue> Fail<TValue>(VBRuntimeErrorId error, string detail)
         where TValue : VBTypedValue
