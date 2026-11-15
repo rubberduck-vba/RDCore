@@ -23,6 +23,7 @@ public sealed class LoadPictureTests
         ["bmp300dpi.bmp"] = Bitmap(10, 20, pixelsPerMeter: 11811),
         ["pic.gif"] = Gif(7, 5),
         ["pic.jpg"] = Jpeg(9, 11),
+        ["cut.jpg"] = Jpeg(9, 11)[..JpegScanAt],
         ["pic.png"] = Png(6, 4),
         ["three.ico"] = Icon(1, 16, 32, 48),
         ["one32.ico"] = Icon(1, 32),
@@ -147,6 +148,7 @@ public sealed class LoadPictureTests
     [DataRow("D & \"empty.bmp\"", "err 481", DisplayName = "an empty file: 481")]
     [DataRow("D & \"pic.png\"", "err 481", DisplayName = "a PNG: 481")]
     [DataRow("D & \"cut.bmp\"", "err -2147418113", DisplayName = "a bitmap cut short: E_UNEXPECTED")]
+    [DataRow("D & \"cut.jpg\"", "err -2147418113", DisplayName = "a JPEG that ends before its scan: E_UNEXPECTED")]
     [DataRow("D & \"plain.wmf\"", "err -2147467259", DisplayName = "a metafile that is not placeable: E_FAIL")]
     [DataRow("D & \"folder.bmp\"", "err 75", DisplayName = "a folder: 75")]
     [DataRow("D", "err 76", DisplayName = "a path ending in a separator: 76")]

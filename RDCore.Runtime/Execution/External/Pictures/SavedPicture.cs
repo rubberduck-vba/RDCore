@@ -1,3 +1,4 @@
+using RDCore.SDK.Runtime.Stdole;
 using RDCore.SDK.Workspace.Pictures;
 using System.Buffers.Binary;
 
@@ -21,8 +22,8 @@ internal static class SavedPicture
     public static byte[]? BytesOf(StdPictureObject picture) => picture.Format switch
     {
         null => picture.IsNew ? [] : null,
-        PictureFormat.Metafile or PictureFormat.EnhancedMetafile => picture.Bytes,
-        PictureFormat.Bitmap => Bitmap(picture.Bytes),
+        PictureFormat.Metafile or PictureFormat.EnhancedMetafile => PictureBytes.ArrayOf(picture.Bytes),
+        PictureFormat.Bitmap => Bitmap(picture.Bytes.Span),
         _ => null,
     };
 
@@ -30,14 +31,14 @@ internal static class SavedPicture
 
     // a bitmap file of uncompressed pixels, whatever its header: a BITMAPINFOHEADER of its size and depth (24 bits for 32), its colours, and its rows from
     // the bottom up, with the bits past a row's last pixel cleared. Null for compressed pixels, or a file shorter than its header says.
-    private static byte[]? Bitmap(byte[] file)
+    private static byte[]? Bitmap(ReadOnlySpan<byte> file)
     {
         if (file.Length < FileHeader + CoreHeader)
         {
             return null;
         }
 
-        var dib = file.AsSpan(FileHeader);
+        var dib = file[FileHeader..];
         var size = BinaryPrimitives.ReadInt32LittleEndian(dib);
         var core = size == CoreHeader;
         if (!core && (size < InfoHeader || file.Length < FileHeader + InfoHeader || BinaryPrimitives.ReadInt32LittleEndian(dib[16..]) != 0))
@@ -58,7 +59,7 @@ internal static class SavedPicture
         var colours = bits <= 8 ? (used > 0 && used < 1 << bits ? used : 1 << bits) : 0;
         var entry = core ? 3 : 4;
         var stride = Stride(width, bits);
-        var pixels = (long)BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(10));
+        var pixels = (long)BinaryPrimitives.ReadUInt32LittleEndian(file[10..]);
         var table = FileHeader + size;
         if (table + (long)colours * entry > file.Length || pixels + (long)stride * height > file.Length)
         {
@@ -84,7 +85,7 @@ internal static class SavedPicture
 
         for (var i = 0; i < colours; i++)
         {
-            file.AsSpan(table + i * entry, 3).CopyTo(saved.AsSpan(FileHeader + InfoHeader + i * 4));
+            file.Slice(table + i * entry, 3).CopyTo(saved.AsSpan(FileHeader + InfoHeader + i * 4));
         }
 
         var row = (int)(((long)width * savedBits + 7) / 8);
@@ -92,7 +93,7 @@ internal static class SavedPicture
         for (var y = 0; y < height; y++)
         {
             // a top-down bitmap states a negative height: its first row is the top one.
-            var source = file.AsSpan((int)(pixels + (long)(stated < 0 ? height - 1 - y : y) * stride), stride);
+            var source = file.Slice((int)(pixels + (long)(stated < 0 ? height - 1 - y : y) * stride), stride);
             var target = saved.AsSpan(offset + y * savedStride, row);
             if (bits == 32)
             {
