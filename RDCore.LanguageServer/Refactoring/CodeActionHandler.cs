@@ -46,6 +46,11 @@ internal sealed class CodeActionHandler(
     public static readonly CodeActionKind RefactorMoveMemberDown = new(RefactoringKinds.MoveMemberDown);
 
     /// <summary>
+    /// The kind of the action that sorts the procedures of a document: a source action (<see cref="RefactoringKinds.SortMembers"/>).
+    /// </summary>
+    public static readonly CodeActionKind SourceSortMembers = new(RefactoringKinds.SortMembers);
+
+    /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
     /// </summary>
     public static readonly CodeActionKind SourceImportProject = new(RefactoringKinds.ImportProject);
@@ -65,7 +70,7 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, SourceImportProject),
             ResolveProvider = true,
         };
     }

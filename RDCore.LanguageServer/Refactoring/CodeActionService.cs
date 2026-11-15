@@ -105,7 +105,10 @@ internal sealed class CodeActionService(
 /// to a client that shows an action it cannot take.
 /// </para>
 /// <para>
-/// An extraction, a conversion and a move are the actions that are resolved (<c>resolveProvider = true</c>): a client that resolves an action's edit
+/// A document whose procedures are not sorted is offered a source action that sorts them, by kind, then by name (<see cref="RefactoringKinds.SortMembers"/>).
+/// </para>
+/// <para>
+/// An extraction, a conversion, a move and a sort are the actions that are resolved (<c>resolveProvider = true</c>): a client that resolves an action's edit
 /// (<strong>LSP 3.17</strong> §Code Action Resolve Request) is answered them without their edit, which is made and verified when it resolves the action, and
 /// refused when the document has changed since. Any other client is answered every action complete.
 /// </para>
@@ -267,6 +270,11 @@ internal sealed class CodeActions(
             actions.AddRange(await MoveMemberActionsAsync(request.TextDocument.Uri, range, cancellationToken));
         }
 
+        if (IsAsked(CodeActionHandler.SourceSortMembers) && await SortMembersActionAsync(request.TextDocument.Uri, range, cancellationToken) is { } sort)
+        {
+            actions.Add(sort);
+        }
+
         return [.. actions.Where(action => IsAsked(action.Kind))];
     }
 
@@ -419,8 +427,29 @@ internal sealed class CodeActions(
         return actions;
     }
 
-    // the move a client resolves: its edit, verified, of the version of the document it was offered for; one that is refused, or whose document has changed
-    // since, is answered an error that says why.
+    // the action that sorts the procedures of a document, when they are not sorted: with its edit, made and verified, or without it for a client that
+    // resolves it.
+    private async Task<CodeAction?> SortMembersActionAsync(DocumentUri lspUri, SourceRange range, CancellationToken token)
+    {
+        var documentUri = lspUri.ToUri();
+        if (await moveMember.SortOfferAsync(documentUri, token) is not { } title)
+        {
+            return null;
+        }
+
+        if (ResolvesEdits)
+        {
+            int? version = documents.TryGetDocument(documentUri, out var document) ? document.Version : null;
+            return new CodeAction { Title = title, Kind = CodeActionHandler.SourceSortMembers, Data = ResolvedData(RefactoringKinds.SortMembers, lspUri, range, version) };
+        }
+
+        return await moveMember.SortAsync(documentUri, token) is { Edits: not null } answer && ForTheClient(LspEditOf(answer)) is { } applicable
+            ? new CodeAction { Title = title, Kind = CodeActionHandler.SourceSortMembers, Edit = applicable }
+            : null;
+    }
+
+    // the move or the sort a client resolves: its edit, verified, of the version of the document it was offered for; one that is refused, or whose document
+    // has changed since, is answered an error that says why.
     private async Task<CodeAction> ResolveMoveAsync(CodeAction action, string kind, JObject offered, CancellationToken token)
     {
         if (!TryOfferedAt(offered, out var uri, out var range, out var version))
@@ -428,9 +457,10 @@ internal sealed class CodeActions(
             return action;
         }
 
-        var direction = kind == RefactoringKinds.MoveMemberUp ? MemberMoveDirection.Up : MemberMoveDirection.Down;
-        var answer = await moveMember.MoveAsync(uri, range, direction, token);
-        var refusal = answer.Edits is not null && answer.Version != version ? MoveMemberService.DocumentChanged() : answer.Refusal;
+        var answer = kind == RefactoringKinds.SortMembers
+            ? await moveMember.SortAsync(uri, token)
+            : await moveMember.MoveAsync(uri, range, kind == RefactoringKinds.MoveMemberUp ? MemberMoveDirection.Up : MemberMoveDirection.Down, token);
+        var refusal = answer.Edits is not null && answer.Version != version ? MoveMemberService.DocumentChanged(kind) : answer.Refusal;
         if (refusal is not null || answer.Edits is null)
         {
             throw new RpcErrorException(RequestFailedCode, error: null!, refusal ?? string.Empty);
@@ -594,7 +624,7 @@ internal sealed class CodeActions(
             ? offered[ExtractionDataKey]?.ToString() switch
             {
                 (RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub) and var kind => await ResolveRefactoringAsync(request, kind, offered, cancellationToken),
-                (RefactoringKinds.MoveMemberUp or RefactoringKinds.MoveMemberDown) and var kind => await ResolveMoveAsync(request, kind, offered, cancellationToken),
+                (RefactoringKinds.MoveMemberUp or RefactoringKinds.MoveMemberDown or RefactoringKinds.SortMembers) and var kind => await ResolveMoveAsync(request, kind, offered, cancellationToken),
                 _ => request,
             }
             : request;

@@ -16,6 +16,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Workspace;
@@ -69,6 +70,49 @@ public sealed class MoveMemberServiceTests
         "Public Property Let Value(ByVal v As Long)\r\n    count = v\r\nEnd Property\r\n";
     private const string BlockAndLast = "#If VBA7 Then\r\nPublic Sub Second()\r\nEnd Sub\r\n\r\nPublic Sub Third()\r\nEnd Sub\r\n#End If\r\n\r\nPublic Sub Last()\r\nEnd Sub\r\n";
 
+    // the property comes before the function; a comment of its own is between the function and the Subs, which are not in the order of their names.
+    private const string Unsorted =
+        "Option Explicit\r\n" +
+        "\r\n" +
+        "Public Property Get Name() As String\r\n" +
+        "    Name = \"x\"\r\n" +
+        "End Property\r\n" +
+        "Public Property Let Name(ByVal v As String)\r\n" +
+        "End Property\r\n" +
+        "\r\n" +
+        "Public Function Twice(ByVal n As Long) As Long\r\n" +
+        "    Twice = n * 2\r\n" +
+        "End Function\r\n" +
+        "\r\n" +
+        "' a comment of its own\r\n" +
+        "\r\n" +
+        "Public Sub Zeta()\r\n" +
+        "End Sub\r\n" +
+        "\r\n" +
+        "Public Sub Alpha()\r\n" +
+        "End Sub\r\n";
+
+    private const string Sorted =
+        "Option Explicit\r\n" +
+        "\r\n" +
+        "Public Function Twice(ByVal n As Long) As Long\r\n" +
+        "    Twice = n * 2\r\n" +
+        "End Function\r\n" +
+        "\r\n" +
+        "Public Property Get Name() As String\r\n" +
+        "    Name = \"x\"\r\n" +
+        "End Property\r\n" +
+        "Public Property Let Name(ByVal v As String)\r\n" +
+        "End Property\r\n" +
+        "\r\n" +
+        "' a comment of its own\r\n" +
+        "\r\n" +
+        "Public Sub Alpha()\r\n" +
+        "End Sub\r\n" +
+        "\r\n" +
+        "Public Sub Zeta()\r\n" +
+        "End Sub\r\n";
+
     private const int Version = 3;
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
@@ -80,10 +124,14 @@ public sealed class MoveMemberServiceTests
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         _documents.WorkspaceRoot.Returns(Root);
         var module = new WorkspaceDocument("Main.bas", Root, Module, version: Version);
-        _documents.GetAllDocuments().Returns([module]);
+        var unsorted = new WorkspaceDocument("Unsorted.bas", Root, Unsorted, version: Version);
+        _documents.GetAllDocuments().Returns([module, unsorted]);
         var uri = module.Id.Uri.ToUri();
         _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = module; return true; });
         _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, Module)));
+        var unsortedUri = unsorted.Id.Uri.ToUri();
+        _documents.TryGetDocument(unsortedUri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = unsorted; return true; });
+        _parsing.ParseDocumentAsync(unsortedUri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(unsortedUri, Unsorted)));
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
         var libraries = Substitute.For<IReferencedLibraryService>();
@@ -239,7 +287,7 @@ public sealed class MoveMemberServiceTests
 
         var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => handler.Handle(action, CancellationToken.None));
 
-        Assert.AreEqual(MoveMemberService.DocumentChanged(), refused.Message);
+        Assert.AreEqual(MoveMemberService.DocumentChanged(RefactoringKinds.MoveMemberDown), refused.Message);
     }
 
     private CodeActionHandler Handler(bool showsDisabled = false, bool resolvesEdits = false)
@@ -264,15 +312,85 @@ public sealed class MoveMemberServiceTests
 
     private Task<IReadOnlyList<CodeAction>> ActionsAsync(Range range, bool showsDisabled = false) => ActionsAsync(Handler(showsDisabled), range);
 
-    // the moves a client is offered for a range, among the code actions of the document.
-    private static async Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionHandler handler, Range range)
+    // the moves a client is offered for a range, among the code actions of the document; the source actions, when asked for those.
+    private static async Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionHandler handler, Range range, Uri? document = null, string only = "refactor.move")
     {
         var actions = await handler.Handle(new CodeActionParams
         {
-            TextDocument = new TextDocumentIdentifier(DocumentUri.From(Document)),
+            TextDocument = new TextDocumentIdentifier(DocumentUri.From(document ?? Document)),
             Range = range,
-            Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(), Only = new Container<CodeActionKind>(new CodeActionKind("refactor.move")) },
+            Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(), Only = new Container<CodeActionKind>(new CodeActionKind(only)) },
         }, CancellationToken.None);
         return [.. actions!.Select(action => action.CodeAction!)];
+    }
+
+    private static Uri UnsortedDocument => DocumentUri.From(Path.Combine(Root, "Unsorted.bas")).ToUri();
+
+    [TestMethod]
+    public async Task TheProceduresOfAModule_AreSortedByKind_ThenByName_NoneOfThemPastACommentOfItsOwn()
+    {
+        var answer = await Sut().SortAsync(UnsortedDocument, CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        Assert.AreEqual(Version, answer.Version);
+        Assert.AreEqual(Sorted, MemberMoves.Applied(Unsorted, answer.Edits!));
+    }
+
+    [TestMethod]
+    public async Task AModuleWhoseProceduresAreSorted_IsOfferedNoSort()
+    {
+        Assert.IsNull(await Sut().SortOfferAsync(Document, CancellationToken.None));
+        Assert.AreEqual("Sort procedures by kind, then by name", await Sut().SortOfferAsync(UnsortedDocument, CancellationToken.None));
+
+        var refused = await Sut().SortAsync(Document, CancellationToken.None);
+        Assert.IsNull(refused.Edits);
+        Assert.AreEqual("The procedures of this module are sorted already.", refused.Refusal);
+    }
+
+    [TestMethod]
+    public void NoProcedureIsSortedIntoABranch_OrOutOfOne()
+    {
+        const string text = "Option Explicit\r\n#If VBA7 Then\r\nPublic Sub Beta()\r\nEnd Sub\r\n#End If\r\n\r\nPublic Sub Alpha()\r\nEnd Sub\r\n";
+
+        Assert.IsEmpty(MemberMoves.Sort(new ModuleParser().Parse(Document, text), text));
+    }
+
+    [TestMethod]
+    public void TheVerificationOfASort_TakesOnlyTheModuleSorted()
+    {
+        var unsorted = new ModuleParser().Parse(UnsortedDocument, Unsorted);
+
+        Assert.IsTrue(MemberMoves.VerifySort(unsorted, new ModuleParser().Parse(UnsortedDocument, Sorted), Sorted));
+        Assert.IsFalse(MemberMoves.VerifySort(unsorted, unsorted, Unsorted), "not sorted");
+        var lost = Sorted.Replace("Public Sub Alpha()\r\nEnd Sub\r\n\r\n", string.Empty, StringComparison.Ordinal);
+        Assert.IsFalse(MemberMoves.VerifySort(unsorted, new ModuleParser().Parse(UnsortedDocument, lost), lost), "a procedure lost");
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "a client that does not resolve edits")]
+    [DataRow(true, DisplayName = "a client that resolves them")]
+    public async Task AClient_IsOfferedTheSort_AsASourceAction_WithItsEdit(bool resolvesEdits)
+    {
+        var handler = Handler(resolvesEdits: resolvesEdits);
+        var action = (await ActionsAsync(handler, new Range(0, 0, 0, 0), UnsortedDocument, only: "source")).Single();
+        Assert.AreEqual(CodeActionHandler.SourceSortMembers, action.Kind);
+        Assert.AreEqual(resolvesEdits, action.Edit is null);
+
+        var resolved = resolvesEdits ? await handler.Handle(action, CancellationToken.None) : action;
+
+        var edits = resolved.Edit!.DocumentChanges?.Single().TextDocumentEdit!.Edits ?? resolved.Edit.Changes![DocumentUri.From(UnsortedDocument)];
+        Assert.HasCount(2, edits);
+    }
+
+    [TestMethod]
+    public async Task ASortResolvedAfterItsDocumentChanged_IsRefused()
+    {
+        var handler = Handler(resolvesEdits: true);
+        var action = (await ActionsAsync(handler, new Range(0, 0, 0, 0), UnsortedDocument, only: "source")).Single();
+        ((JObject)action.Data!)["version"] = Version - 1;
+
+        var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => handler.Handle(action, CancellationToken.None));
+
+        Assert.AreEqual(MoveMemberService.DocumentChanged(RefactoringKinds.SortMembers), refused.Message);
     }
 }

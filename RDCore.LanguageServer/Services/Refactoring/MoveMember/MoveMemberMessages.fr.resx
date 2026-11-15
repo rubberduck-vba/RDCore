@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- Move Member Up and Move Member Down: {0} is the procedure moved, {1} the one it would go past. -->
+  <!-- Move Member Up and Move Member Down: {0} is the procedure moved, {1} the one it would go past. Sort Members (SortMembers_*): no arguments. -->
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -33,5 +33,17 @@
   </data>
   <data name="MoveMember_DocumentChanged" xml:space="preserve">
     <value>Le document a changé depuis que le déplacement a été offert : demandez-le de nouveau.</value>
+  </data>
+  <data name="SortMembers_Title" xml:space="preserve">
+    <value>Trier les procédures par type, puis par nom</value>
+  </data>
+  <data name="SortMembers_Nothing" xml:space="preserve">
+    <value>Les procédures de ce module sont déjà triées.</value>
+  </data>
+  <data name="SortMembers_VerificationFailed" xml:space="preserve">
+    <value>Les procédures ne sont pas triées : le module qui en résulterait n'a pas passé la vérification.</value>
+  </data>
+  <data name="SortMembers_DocumentChanged" xml:space="preserve">
+    <value>Le document a changé depuis que le tri a été offert : demandez-le de nouveau.</value>
   </data>
 </root>
