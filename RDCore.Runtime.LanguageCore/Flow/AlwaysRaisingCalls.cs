@@ -13,8 +13,8 @@ namespace RDCore.Runtime.LanguageCore.Flow;
 /// error it raises.
 /// </summary>
 /// <remarks>
-/// The call is told by what its callee binds to, so a <c>Raise</c> of another object, or of a variable named <c>Err</c> of the workspace's own class, is a call
-/// like any other.
+/// The call is told by what its callee binds to, so a <c>Raise</c> of another object, or of a variable named <c>Err</c> whose type is a class of the workspace, is
+/// a call like any other.
 /// </remarks>
 internal static class AlwaysRaisingCalls
 {
