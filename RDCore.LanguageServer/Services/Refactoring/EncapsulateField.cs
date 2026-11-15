@@ -98,8 +98,8 @@ internal enum EncapsulationRefusalKind
     WrittenOutside,
 
     /// <summary>
-    /// A <c>Mid</c> statement outside the module replaces characters of the field. Through a property, it is not known whether the characters replaced are
-    /// written back through its <c>Property Let</c>, so the write could be lost.
+    /// A <c>Mid</c> statement outside the module replaces characters of the field, which MS-VBAL §5.4.3.5 says of a variable. Through a property, it is not
+    /// known whether the characters replaced are written back through its <c>Property Let</c>, so the write could be lost.
     /// </summary>
     ReplacedByMid,
 }
