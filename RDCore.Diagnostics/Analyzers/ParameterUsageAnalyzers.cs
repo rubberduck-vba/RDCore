@@ -2,14 +2,15 @@
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Semantics;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -62,7 +63,6 @@ internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
 internal sealed class AssignedByValParameterAnalyzer : IModuleAnalyzer
 {
     public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.AssignedByValParameter.ToCode()];
-    private const string NewLine = "\r\n";
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
@@ -82,13 +82,14 @@ internal sealed class AssignedByValParameterAnalyzer : IModuleAnalyzer
                     DiagnosticSeverity.Information,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.AssignedByValParameter_Message, fact.Name))
                 {
-                    Fixes = LocalCopyOf(module, semantics, parameter, hasDefType) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                    Fixes = LocalCopyOf(context.ParseResult, module, semantics, parameter, hasDefType) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
                 };
             }
         }
     }
 
-    private static EditFix? LocalCopyOf(ModuleNode module, ModuleSemanticsDto semantics, ParameterDeclarationNode parameter, bool hasDefType)
+    private static EditFix? LocalCopyOf(
+        ModuleParseResult parse, ModuleNode module, ModuleSemanticsDto semantics, ParameterDeclarationNode parameter, bool hasDefType)
     {
         var procedure = module.Descendants().OfType<MemberDeclarationNode>().FirstOrDefault(member => member.Children.Any(child => ReferenceEquals(child, parameter)));
         var first = procedure?.Children
@@ -115,19 +116,14 @@ internal sealed class AssignedByValParameterAnalyzer : IModuleAnalyzer
             return null;
         }
 
+        // the local is declared and assigned at the indentation of the body's first line.
         var indent = new string(' ', first.SourceLocation.Range.Start.Character);
-        var at = first.SourceLocation.Range.Start.Line;
-        List<TextEdit> edits =
-        [
-            new() { Range = new Range(at, 0, at, 0), NewText = $"{indent}Dim {local} As {type.Name}{NewLine}{indent}{copy}{NewLine}" },
-            .. names.Select(name => new TextEdit { Range = RangeOf(name.Location.Range), NewText = local }),
-        ];
-
-        return new EditFix
-        {
-            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.AssignedByValParameter_Fix, parameter.Name, local),
-            Edits = edits,
-        };
+        return SyntaxEdits.Fix(
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.AssignedByValParameter_Fix, parameter.Name, local),
+            [
+                LineEdits.InsertLinesBefore(parse, first, $"{indent}Dim {local} As {type.Name}", $"{indent}{copy}"),
+                .. names.Select(name => SyntaxEdits.Replace(name.Location.Range, local)),
+            ]);
     }
 
     // a Let, a Set, whichever a Variant holds, or whichever the procedure's assignments to the parameter use.
@@ -146,27 +142,21 @@ internal sealed class AssignedByValParameterAnalyzer : IModuleAnalyzer
         {
             return parameter.TypeHint switch
             {
-                "%" => ("Integer", Copy.Value),
-                "&" => ("Long", Copy.Value),
-                "^" => ("LongLong", Copy.Value),
-                "!" => ("Single", Copy.Value),
-                "#" => ("Double", Copy.Value),
-                "@" => ("Currency", Copy.Value),
-                "$" => ("String", Copy.Value),
-                null when !hasDefType => ("Variant", Copy.Either),
+                { } hint => IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? (hinted.Name, Copy.Value) : null,
+                null when !hasDefType => (VBTypeNames.VBVariant, Copy.Either),
                 _ => null,
             };
         }
 
-        var name = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-        return name.ToUpperInvariant() switch
+        if (asType.QualifierName is { Length: > 0 } qualifier)
         {
-            "BYTE" or "INTEGER" or "LONG" or "LONGLONG" or "LONGPTR" or "SINGLE" or "DOUBLE" or "CURRENCY" or "DATE" or "BOOLEAN" or "STRING" => (name, Copy.Value),
-            "VARIANT" => (name, Copy.Either),
-            "OBJECT" => (name, Copy.Object),
-            // a class, or an Enum: what the procedure assigns to the parameter says which.
-            _ => (name, Copy.AsAssigned),
-        };
+            return ($"{qualifier}.{asType.TypeName}", Copy.AsAssigned);
+        }
+
+        // a class, or an Enum: what the procedure assigns to the parameter says which.
+        return IntrinsicVBTypes.TryResolve(asType.TypeName, out var intrinsic)
+            ? (asType.TypeName, intrinsic switch { VBVariantType => Copy.Either, VBObjectType => Copy.Object, _ => Copy.Value })
+            : (asType.TypeName, Copy.AsAssigned);
     }
 
     // the statement that copies the parameter into the local: a Set for an object, a Let for a value, and for a Variant whichever it holds.
@@ -206,6 +196,4 @@ internal sealed class AssignedByValParameterAnalyzer : IModuleAnalyzer
 
         return candidate;
     }
-
-    private static Range RangeOf(SDK.Model.Source.SourceRange range) => new(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
 }
