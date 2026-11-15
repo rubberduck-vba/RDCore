@@ -642,7 +642,6 @@
   <data name="RedundantModuleOption_Fix" xml:space="preserve">
     <value>Remove {0}</value>
   </data>
-</root>
   <data name="StrOfAFraction_Message" xml:space="preserve">
     <value>&apos;{0}&apos; of a number between -1 and 1 writes no zero before the decimal point in MS-VBA (&quot; .5&quot;), where MS-VBAL §6.1.2.3.1.20 writes &quot; 0.5&quot;.</value>
   </data>
@@ -652,3 +651,4 @@
   <data name="WriteOfAFraction_Message" xml:space="preserve">
     <value>&apos;{0} #&apos; writes a number between -1 and 1 with no zero before the decimal point in MS-VBA (.5), where MS-VBAL §5.4.5.9 writes 0.5.</value>
   </data>
+</root>
