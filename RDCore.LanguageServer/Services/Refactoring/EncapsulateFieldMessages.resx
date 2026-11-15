@@ -71,7 +71,7 @@
     <value>{1} assigns '{0}', which a read-only property cannot take.</value>
   </data>
   <data name="EncapsulateFieldRefusal_ReplacedByMid" xml:space="preserve">
-    <value>{1} replaces characters of '{0}' with a Mid statement: through a property, the characters might not be written back, and the write would be lost.</value>
+    <value>{1} replaces characters of '{0}' with a Mid statement, which needs a variable: on a property, the code would not compile.</value>
   </data>
   <data name="EncapsulateFieldChoice_Mode" xml:space="preserve">
     <value>Hold the value in</value>
