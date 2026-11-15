@@ -26,7 +26,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// not flag it as what is assigned (<see cref="ValueExpressionSemanticFlags.AssignmentTarget"/>), and the syntax tree says it is not the procedure called.
 /// </para>
 /// <para>
-/// The fix (<see cref="DiagnosticFixes.Edit"/>) is made of the procedure's own syntax tree: a <c>Dim</c> of a local before the first statement, of the
+/// The fix (<see cref="DiagnosticFixes.Edits"/>) is made of the procedure's own syntax tree: a <c>Dim</c> of a local before the first statement, of the
 /// procedure's return type; the local in place of each name of the result variable in the body, read or assigned; and the local assigned to the return value
 /// before each <c>Exit Function</c> (or <c>Exit Property</c>) - on its line, so that it is where the exit is, after a <c>Then</c> too - and before the end of the
 /// procedure, with <c>Set</c> when the body <c>Set</c>s its result. It is not offered for a procedure whose body starts on the line of its declaration.
@@ -34,6 +34,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitResultLocal.ToCode()];
+
     private const string NewLine = "\r\n";
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -61,7 +63,7 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
                 continue;
             }
 
-            var fixes = FixOf(procedure, body, names, semantics) is { } fix ? new DiagnosticFixes { Edit = fix } : null;
+            var fixes = FixOf(procedure, body, names, semantics) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null;
             foreach (var (name, _) in reads)
             {
                 yield return new AnalyzerFinding(

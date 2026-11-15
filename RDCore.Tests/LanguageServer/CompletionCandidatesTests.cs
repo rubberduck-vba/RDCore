@@ -361,4 +361,42 @@ public sealed class CompletionCandidatesTests
         Assert.IsTrue(string.CompareOrdinal(SortOf("Total"), SortOf("MsgBox")) < 0, "a field of the module before the standard library");
         Assert.IsTrue(string.CompareOrdinal(SortOf("MsgBox"), SortOf("Dim")) < 0, "the keywords last");
     }
+
+    // x = Tot|alAmount + 1: inserting writes over "Tot", replacing over "TotalAmount".
+    [TestMethod]
+    public void AClientThatTakesTwoRanges_IsGivenBoth_TheReplacedOneToTheEndOfTheWord()
+    {
+        var items = CompletionCandidates.ListOf("Tot", [], [new("Total", CompletionItemKind.Variable)], new Position(3, 11), after: "alAmount + 1").Items.ToList();
+
+        var edit = items.Single().TextEdit?.InsertReplaceEdit;
+        Assert.IsNotNull(edit);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(3, 8, 3, 11), edit.Insert);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(3, 8, 3, 19), edit.Replace);
+        Assert.AreEqual("Total", edit.NewText);
+    }
+
+    // Send "a", Co|pies:=2: what a named argument replaces after the cursor is inserted over too.
+    [TestMethod]
+    public void WhatACandidateReplacesAfterTheCursor_IsInBothRanges()
+    {
+        var candidate = new CompletionCandidate("Copies:=", CompletionItemKind.Variable) { InsertText = "Copies", ReplacedAfter = 4 };
+
+        var edit = CompletionCandidates.ListOf("Co", [new([candidate])], [], new Position(0, 12), after: "pies:=2").Items.Single().TextEdit?.InsertReplaceEdit;
+
+        Assert.IsNotNull(edit);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 10, 0, 16), edit.Insert);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 10, 0, 16), edit.Replace);
+    }
+
+    [TestMethod]
+    public void AClientThatTakesOneRange_IsGivenNoEditOfAWordItReplacesItself()
+        => Assert.IsNull(CompletionCandidates.ListOf("Tot", [], [new("Total", CompletionItemKind.Variable)], new Position(3, 11)).Items.Single().TextEdit);
+
+    [TestMethod]
+    [DataRow("alAmount + 1", 8, DisplayName = "letters up to a space")]
+    [DataRow("_2(x)", 2, DisplayName = "an underscore and a digit")]
+    [DataRow(" + 1", 0, DisplayName = "the cursor at the end of the word")]
+    [DataRow("", 0, DisplayName = "the end of the line")]
+    public void TheRestOfTheWord_IsItsLettersDigitsAndUnderscores(string after, int expected)
+        => Assert.AreEqual(expected, CompletionCandidates.RestOfWordIn(after));
 }

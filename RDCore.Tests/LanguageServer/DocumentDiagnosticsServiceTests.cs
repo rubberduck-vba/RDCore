@@ -35,8 +35,52 @@ public sealed class DocumentDiagnosticsServiceTests
     private readonly ISymbolSyncService _symbols = Substitute.For<ISymbolSyncService>();
     private readonly WorkspaceRefresh _refresh = new(TimeSpan.Zero);
 
-    private DocumentDiagnosticsService Sut(IEditStatusMonitor? editStatus = null)
-        => new(_documents, _parsing, _orchestration, _symbols, _refresh, NullLogger<DocumentDiagnosticsService>.Instance, editStatus);
+    private DocumentDiagnosticsService Sut(IEditStatusMonitor? editStatus = null, IDisabledDiagnostics? disabled = null)
+        => new(_documents, _parsing, _orchestration, _symbols, _refresh, NullLogger<DocumentDiagnosticsService>.Instance, editStatus, disabled);
+
+    private static IDisabledDiagnostics Disabling(params string[] codes)
+    {
+        var disabled = Substitute.For<IDisabledDiagnostics>();
+        disabled.Codes.Returns(codes.Select(code => RDCoreDiagnosticCode.TryParse(code, out var parsed) ? parsed : throw new ArgumentException(code)).ToHashSet());
+        return disabled;
+    }
+
+    [TestMethod]
+    public async Task TheCodesDisabledForTheWorkspace_AreSentToEachProvider_WithTheDocument()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        var provider = Provider("RDCore.Diagnostics", 1);
+        ProvidersAre(provider);
+
+        await Sut(disabled: Disabling("RDC01001", "XYZ00042")).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "RDC01001", "XYZ00042" }, PayloadSentTo(provider).DisabledCodes.Select(code => code.ToString()).Order().ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnEditTheProgramThatWaitsDoesNotHave_IsNoFinding_WhenItsCodeIsDisabled()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
+        {
+            Suspended = true,
+            Edits = [new DebugEdit { Name = "Mod1", Kind = DebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
+        });
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+        Assert.IsTrue(await editStatus.CheckAsync(CancellationToken.None));
+
+        var told = await Sut(editStatus).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+        var result = await Sut(editStatus, Disabling("RDC20001")).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual(1, told.Diagnostics.Count(diagnostic => diagnostic.Code?.String == "RDC20001"), "the same edit, its code enabled");
+        Assert.IsFalse(result.Diagnostics.Any(diagnostic => diagnostic.Code?.String == "RDC20001"));
+    }
 
     private static WorkspaceDocument Document(int version = 1)
         => new("src/Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub", version);

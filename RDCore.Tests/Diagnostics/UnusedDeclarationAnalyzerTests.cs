@@ -49,6 +49,18 @@ public sealed class UnusedDeclarationAnalyzerTests
     private static void AssertAre(AnalyzerFinding[] findings, RDCoreDiagnosticId id, DiagnosticSeverity severity)
         => Assert.IsTrue(findings.All(finding => finding.Severity == severity && finding.Id == id), string.Join("; ", findings.Select(finding => finding.Message)));
 
+    private static string Fixed(string program, EditFix fix)
+    {
+        var lines = program.Split("\r\n");
+        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
+        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
+        {
+            program = program[..OffsetOf(edit.Range.Start)] + edit.NewText + program[OffsetOf(edit.Range.End)..];
+        }
+
+        return program;
+    }
+
     private static AnalyzerFinding[] WithoutSemantics(IModuleAnalyzer analyzer, params string[] lines)
         => Run(analyzer, ModuleWorkspace.StandardModule("Program", lines), null, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
 
@@ -76,6 +88,35 @@ public sealed class UnusedDeclarationAnalyzerTests
         CollectionAssert.AreEqual(new[] { 2, 5, 6 }, Lines(findings), "a Private variable of the module and two locals; not a Public one, not a loop's counter");
         AssertAre(findings, RDCoreDiagnosticId.VariableNotUsed, DiagnosticSeverity.Information);
         StringAssert.Contains(findings[2].Message, "assigned", "the variable that is only assigned says so");
+    }
+
+    [TestMethod]
+    public async Task AVariableNothingRefersTo_HasItsDeclarationRemoved()
+    {
+        string[] lines =
+        [
+            "Option Explicit",
+            "Private field As Long",
+            "Public Sub Main()",
+            "    Dim unused As Long",
+            "    Dim assigned As Long",
+            "    assigned = 1",
+            "    Dim first As Long, second As Long",
+            "    second = 2",
+            "    Debug.Print second",
+            "    Dim noted As Long ' kept for later",
+            "    Dim sized() As Long",
+            "    ReDim sized(1)",
+            "    Debug.Print 1",
+            "End Sub",
+        ];
+        var findings = await ProgramAsync(new VariableNotUsedAnalyzer(), lines);
+
+        CollectionAssert.AreEqual(new[] { 2, 4 }, Lines([.. findings.Where(finding => finding.Fixes?.Edits.SingleOrDefault()is not null)]),
+            "the field and the local nothing refers to; not one assigned, one declared with another name, one with a comment on its line, nor one a ReDim names");
+        var fix = findings.Single(finding => finding.Range.Start.Line == 4).Fixes!.Edits.Single();
+        Assert.AreEqual("Remove the declaration of 'unused'", fix.Title);
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 3)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
     }
 
     [TestMethod]
@@ -273,6 +314,29 @@ public sealed class UnusedDeclarationAnalyzerTests
             "End Sub");
 
         Assert.IsEmpty(findings, "read by the bounds of an array of the module, by the value of another constant; a Public one may be read by another module");
+    }
+
+    [TestMethod]
+    public async Task AConstantNothingRefersTo_HasItsDeclarationRemoved()
+    {
+        string[] lines =
+        [
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Const Unused As Long = 1",
+            "    Const First As Long = 1, Second As Long = 2",
+            "    Const Noted As Long = 1 ' kept for later",
+            "    Debug.Print 1",
+            "End Sub",
+        ];
+        var findings = await ProgramAsync(new ConstantNotUsedAnalyzer(), lines);
+
+        CollectionAssert.AreEqual(new[] { 3, 4, 4, 5 }, Lines(findings));
+        CollectionAssert.AreEqual(new[] { 3 }, Lines([.. findings.Where(finding => finding.Fixes?.Edits.SingleOrDefault()is not null)]),
+            "not a constant declared with another, nor one with a comment on its line");
+        var fix = findings[0].Fixes!.Edits.Single();
+        Assert.AreEqual("Remove the declaration of 'Unused'", fix.Title);
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 2)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
     }
 
     [TestMethod]

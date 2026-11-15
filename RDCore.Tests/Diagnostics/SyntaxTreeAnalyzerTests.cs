@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Extensibility.Diagnostics;
+using Microsoft.Extensions.Options;
 using RDCore.Diagnostics;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -124,7 +125,7 @@ public sealed class SyntaxTreeAnalyzerTests
     [TestMethod]
     public void AParameterThatStatesNoMechanism_IsPassedByReference_AndSuggestsSayingSo()
     {
-        var findings = Run(new ImplicitByRefModifierAnalyzer(), """
+        var findings = Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), """
             Public Sub Work(a, ByVal b As Long, ByRef c As Long, Optional d, e As Integer, ParamArray rest())
             End Sub
             """);
@@ -135,13 +136,13 @@ public sealed class SyntaxTreeAnalyzerTests
 
     [TestMethod]
     public void TheValueParameterOfAPropertyLetOrSet_IsPassedByValue_AndIsNotReported()
-        => Assert.IsEmpty(Run(new ImplicitByRefModifierAnalyzer(), "Property Let Item(ByVal i As Long, v As Long)\nEnd Property\nProperty Set Obj(v As Object)\nEnd Property\n")
+        => Assert.IsEmpty(Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), "Property Let Item(ByVal i As Long, v As Long)\nEnd Property\nProperty Set Obj(v As Object)\nEnd Property\n")
             .Where(finding => !finding.Message.Contains("'i'")));
 
     [TestMethod]
     public void TheParametersOfAnEventAndOfADeclare_AreReportedLikeAnyOther()
     {
-        var findings = Run(new ImplicitByRefModifierAnalyzer(), "Event Fired(a)\nDeclare Function Beep Lib \"kernel32\" (dwMs As Long) As Long\n");
+        var findings = Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), "Event Fired(a)\nDeclare Function Beep Lib \"kernel32\" (dwMs As Long) As Long\n");
 
         CollectionAssert.AreEqual(new[] { 0, 1 }, Lines(findings));
     }
@@ -477,6 +478,32 @@ public sealed class SyntaxTreeAnalyzerTests
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.MultipleDeclarations, Severity: DiagnosticSeverity.Information }));
         Assert.AreEqual(findings[1].Range.Start.Line, findings[1].Range.End.Line, "the statement, on its one line");
         Assert.AreEqual(new SourcePosition(6, 4), findings[1].Range.Start, "from the keyword that starts it");
+    }
+
+    [TestMethod]
+    public void AModuleLevelDimOfSeveralNames_IsTheModuleLevelDimFinding_UntilItIsPrivate()
+    {
+        const string source = """
+            Dim a, b As Long
+            Private c, d As Long
+            Public Sub Work()
+                Dim e, f As Long
+            End Sub
+            """;
+
+        CollectionAssert.AreEqual(new[] { 0 }, Lines(Run(new ModuleScopeDimAnalyzer(), source)), "RDC00202 has the Dim statement");
+        CollectionAssert.AreEqual(new[] { 1, 3 }, Lines(Run(new MultipleDeclarationsAnalyzer(), source)), "RDC00204 steps aside on it");
+        CollectionAssert.AreEqual(new[] { 0, 1, 3 }, Lines(Run(new MultipleDeclarationsAnalyzer(), source.Replace("Dim a", "Private a"))), "and has it once it is Private");
+    }
+
+    [TestMethod]
+    [DataRow("Dim WithEvents app As Application, n As Long", false, DisplayName = "several names, one WithEvents: no fix, it would not split")]
+    [DataRow("Dim WithEvents app As Application", true, DisplayName = "one WithEvents name: written Private")]
+    public void AModuleLevelDimWithAWithEventsVariable_IsFixedOnlyWhenNothingIsLeftToSplit(string declaration, bool isFixed)
+    {
+        var finding = Run(new ModuleScopeDimAnalyzer(), $"{declaration}\r\n").Single();
+
+        Assert.AreEqual(isFixed, finding.Fixes?.Edits.SingleOrDefault()is not null);
     }
 
     #endregion

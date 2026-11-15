@@ -21,6 +21,13 @@ The shell runs what you type. A line with no line number runs right away: `Debug
 the _current program_: `10 Debug.Print "Hello"`. The current program is the body of an implicit procedure named `Main`, in an implicit module named
 `Program`. It stays in memory until `NEW`, `LOAD` or `EXIT`.
 
+A numbered line in a block the program has no closer for (an `If`, a `Select Case`, a loop, a `With`) starts _block completion_. The next line
+opens on the number plus 10, selected, and the closers the block needs are shown faint under it, with their numbers: after `120 If x > 0 Then`, the
+line is `130` and `140 End If` is under it. Tab takes the number, and a number you type replaces it. Once the block has a statement, the closer is
+offered after the number, and Tab takes it and enters the line. Each line is written into the program as you enter it. Block completion ends at the
+last closer, an empty line, a command, or a line with no number. It never renumbers a line: when the program's next line leaves no number for a
+closer, the shell says so.
+
 On a workspace (`rdc --workspace <path>`), the shell runs each line in the workspace's project: `Main`, `Program.Main` and the other public procedures
 of the project can be called from the prompt. There is no current program. A numbered line, and the commands that work on the program (`LIST`,
 `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, and `CONT` to a line), answer `NO PROGRAM ERROR`.
@@ -79,7 +86,7 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 |---|---|---|
 |`rdc new <path>`|`n`|Makes a workspace of a folder: writes a `.rdproj` that names each module file the folder holds. `--name` sets the project's name (the folder's by default), `--empty` writes a project with no files, and `--force` replaces an existing `.rdproj`.|
 |`rdc import <path>`|`i`|Makes the `.rdproj` of a VB6 project, next to its `.vbp` (see [VB6 projects](vb6-projects.md)). `--force` replaces an existing `.rdproj`.|
-|`rdc run [<path>] [-- <arguments>]`|`r`|Runs the workspace's program (below). What follows `--` is the program's command line, which `Command$` returns.|
+|`rdc run [<options>] [<path>] [<arguments>]`|`r`|Runs the workspace's program (below). What follows the path is the program's command line, which `Command$` returns.|
 |`rdc build [<path>]`|`bd`|Builds the workspace into a program: its executable, and the runtime it runs on (below).|
 |`rdc config`|`configure`|Shows the platform's settings and sets them, as the shell's `CONFIG` does, without starting the platform.|
 |`rdc export-library <library>`|`xl`|Describes a type library of this machine (a file such as `scrrun.dll`, its identifier, or its name) as a file a project can reference by name. `--dependencies` describes the libraries it depends on too.|
@@ -101,7 +108,18 @@ nor a project with a module that does not load. `Debug.Print` writes to the stan
 |Option|What it does|
 |---|---|
 |`-c`, `--configuration`|`Debug` (the default) or `Release`.|
-|`--unattended`|Nobody answers a dialog: a `MsgBox` or an `InputBox` fails the run.|
+|`--unattended`|Nobody answers a dialog: a `MsgBox` or an `InputBox` fails the run. The program knows it: the switch is first in `Command$` and in the arguments of `Main`, as it is for a built program, unless the program's command line already has it.|
+
+The options go before the path. Everything after the path is the program's command line, switches included: `rdc run --unattended .` runs
+unattended, and `rdc run . --unattended` only gives `--unattended` to the program. A `--` right after the path is skipped. With no path, the
+current folder runs, and `--` comes before the program's command line. Without a path or a `--`, nothing goes to the program, and an option
+`rdc` does not know is an error.
+
+```
+rdc run . --seed 42
+rdc run . -- --seed 42
+rdc run -- --seed 42
+```
 
 The exit code says how the run went:
 

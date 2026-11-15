@@ -80,12 +80,12 @@ public sealed record class NewExpressionRuntimeSemantics : RuntimeSemantics<Valu
     private const int ClassNotRegistered = unchecked((int)0x80040154);
 
     /// <summary>
-    /// The error of creating an object of <paramref name="classModule"/>, when its objects are never created (<see cref="SymbolProperties.CreationAlwaysFails"/>):
+    /// The error of creating an object of <paramref name="classModule"/>, when no server is registered for it (<see cref="SymbolProperties.Unregistered"/>):
     /// run-time error -2147221164 <em>Class not registered</em>, as MS-VBA raises it for <c>New ErrObject</c> and for a reference to a variable declared
-    /// <c>As New ErrObject</c> (recorded in Excel: <c>oracle\s62</c> X04, X06-X09). <see langword="null"/> for any other class.
+    /// <c>As New ErrObject</c> (recorded in Excel). <see langword="null"/> for any other class.
     /// </summary>
     internal static RuntimeSemanticsEvaluationResult? CreationFailure(VBClassModuleSymbol classModule, SourceLocation site)
-        => classModule.GetProperty(SymbolProperties.CreationAlwaysFails)
+        => classModule.GetProperty(SymbolProperties.Unregistered)
             ? RuntimeSemanticsEvaluationResult.Error(VBApplicationErrorInfo.Raised(ClassNotRegistered, site,
                 string.Format(Exceptions.VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose, classModule.Name,
                     classModule.GetProperty(SymbolProperties.Library)),

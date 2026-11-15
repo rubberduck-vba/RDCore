@@ -284,16 +284,19 @@ public sealed class UserDefinedTypeRecordTests
     }
 
     [TestMethod]
-    public void Get_PastTheEndOfTheFile_IsInputPastEndOfFile()
+    public void Get_PastTheEndOfTheFile_ReadsZerosForTheFieldsTheFileDoesNotHave()
     {
+        // no error: MS-VBA reads a zero for each byte past the end (recorded in Excel).
         var type = Udt("TPoint", ("X", VBLongType.TypeInfo), ("Y", VBLongType.TypeInfo));
 
-        var (_, outcome, _) = Run([0x01, 0x00, 0x00, 0x00], type,
+        var (_, outcome, record) = Run([0x01, 0x00, 0x00, 0x00], type,
+            "Rec.Y = 7",
             $"Open \"{Path}\" For Binary As #1",
             "Get #1, 1, Rec");
 
-        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        Assert.AreEqual((int)VBRuntimeErrorId.InputPastEndOfFile, outcome.ErrorInfo!.ErrorId);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(1, FieldOf(record, "X"));
+        Assert.AreEqual(0, FieldOf(record, "Y"));
     }
 
     [TestMethod]

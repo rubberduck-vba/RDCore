@@ -20,6 +20,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class OnErrorGoToMinusOneAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.OnErrorGoToMinusOne.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Descendants()
             .OfType<OnErrorGoToStatementNode>()

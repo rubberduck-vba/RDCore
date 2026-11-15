@@ -243,15 +243,11 @@ public sealed class CaseMatchEvaluator(
 
     private static VBTypedValue HeldValueOf(VBTypedValue value) => value is VBVariantValue { TypedValue: var held } ? HeldValueOf(held) : value;
 
-    // a clause is stated when its value is compared in the selector's type where the expression MS-VBAL states would compare the two in another: its table's
-    // type, not the one MS-VBA compares the expression in (an Integer selector and Case Is < "5" are compared as Integers, as MS-VBAL's i < "5" is).
+    // a clause whose value is compared in the selector's type is stated with that type, and the one the expression MS-VBAL states would compare the two in: its
+    // table's type, not the one MS-VBA compares the expression in (an Integer selector and Case Is < "5" are compared as Integers, as MS-VBAL's i < "5" is).
     private static void Observe(AnalysisObservation into, CaseRangeClauseNode clause, VBType destination, VBTypedValue selector, VBTypedValue value)
     {
-        if (OperationPlanner.SpecifiedRelationalEffectiveType(destination, value.TypeInfo) is { } effective && effective.Equals(destination))
-        {
-            return;
-        }
-
+        var effective = OperationPlanner.SpecifiedRelationalEffectiveType(destination, value.TypeInfo);
         var form = clause switch
         {
             CaseComparisonRangeClauseNode => CaseClauseSemanticFlags.ComparisonForm,
@@ -259,7 +255,11 @@ public sealed class CaseMatchEvaluator(
             _ => CaseClauseSemanticFlags.ValueForm,
         };
 
-        into.OnStatement(new CaseClauseStatementFact(clause.Identity, clause.SourceLocation, Tokens.Case, form | CaseClauseSemanticFlags.ComparedInSelectorType,
-            IsValueKnown: !selector.IsIndeterminate && !value.IsIndeterminate));
+        into.OnStatement(new CaseClauseStatementFact(clause.Identity, clause.SourceLocation, Tokens.Case, form,
+            IsValueKnown: !selector.IsIndeterminate && !value.IsIndeterminate)
+        {
+            ComparedIn = destination,
+            SpecifiedEffectiveType = effective,
+        });
     }
 }

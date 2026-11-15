@@ -23,9 +23,11 @@ namespace RDCore.LanguageServer.Completion;
 /// </remarks>
 internal sealed class CompletionHandler(ICompletionService completion) : CompletionHandlerBase
 {
+    // a client that takes an item's edit as two ranges chooses between inserting and replacing the rest of the word, as its user asks.
     public override Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
         => completion.CompleteDocumentAsync(request.TextDocument.Uri.ToUri(), request.Position, cancellationToken,
-            request.Context is { TriggerKind: CompletionTriggerKind.TriggerCharacter } context ? context.TriggerCharacter : null);
+            request.Context is { TriggerKind: CompletionTriggerKind.TriggerCharacter } context ? context.TriggerCharacter : null,
+            Capability?.CompletionItem?.InsertReplaceSupport == true);
 
     public override Task<CompletionItem> Handle(CompletionItem request, CancellationToken cancellationToken) => Task.FromResult(request);
 

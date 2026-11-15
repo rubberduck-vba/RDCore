@@ -7,7 +7,7 @@
 ---
 ## Getting the platform
 
-Download the archive for your system from RDCore's [releases](https://github.com/rubberduck-vba/RDCore/releases): `rdcore-<version>-win-x64.zip` for Windows, or a `.tar.gz` for Linux and macOS. The platform needs the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) for your system's architecture.
+Download the archive for your system from RDCore's [releases](https://github.com/rubberduck-vba/RDCore/releases): `rdcore-<version>-win-x64.zip` for Windows, or a `.tar.gz` for Linux and macOS. The platform needs the [.NET 11 runtime](https://dotnet.microsoft.com/download/dotnet/11.0) for your system's architecture.
 
 1. Extract the archive into a folder of its own. On Linux and macOS, extract it with `tar -xzf`, which keeps the programs' execute bit. On macOS, then clear the folder's quarantine: `xattr -dr com.apple.quarantine <folder>`.
 1. Open a terminal in the extracted folder's `RDCore.CLI` folder and run `.\rdc install` (Windows) or `./rdc install` (Linux and macOS). It installs the platform for your user account and puts `rdc` on your PATH (see [Installing the platform](rdc.md#installing-the-platform)).
@@ -15,7 +15,7 @@ Download the archive for your system from RDCore's [releases](https://github.com
 
 The programs are not code-signed, so on Windows SmartScreen may warn about them.
 
-To build the platform from its source instead, with the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), see [Building the platform from source](building-on-rdcore.md#building-the-platform-from-source). `rdc install` installs a platform you built the same way, from its `RDCore.CLI` folder.
+To build the platform from its source instead, with the [.NET 11 SDK](https://dotnet.microsoft.com/download/dotnet/11.0), see [Building the platform from source](building-on-rdcore.md#building-the-platform-from-source). `rdc install` installs a platform you built the same way, from its `RDCore.CLI` folder.
 
 ---
 ## The RD-VBA shell

@@ -92,7 +92,16 @@ public class Program
             if (args is [{ Length: > 0 } verb, ..] && !verb.StartsWith('-'))
             {
                 using var commandHost = new RDCoreConsoleCommandHost();
-                return await commandHost.RunAsync(args);
+                try
+                {
+                    return await commandHost.RunAsync(args);
+                }
+                finally
+                {
+                    // a command that ran a program started the machine's external host when the program first reached the outside world: it stops with the
+                    // command, as a built program's does, so that it does not hold the console rdc gave it until its next check finds rdc gone.
+                    MachineExternal.Shutdown();
+                }
             }
 
             // rdc.exe with no arguments: the interactive shell. It is an LSP client like any other,
@@ -222,8 +231,11 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
         {
             services
                 .AddSingleton<ReplCompletion>()
+                .AddSingleton(provider => new ReplBlocks(provider.GetRequiredService<ReplProgram>()))
                 .AddSingleton(provider =>
                 {
+                    var blocks = provider.GetRequiredService<ReplBlocks>();
+                    var ghostText = new ReplGhostText(provider.GetRequiredService<ReplProgram>());
                     var editor = new ConsolePromptEditor(
                         provider.GetRequiredService<IConsoleKeys>(),
                         System.Console.Out,
@@ -231,8 +243,12 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                         provider.GetRequiredService<ReplCompletion>().CompleteAsync,
                         ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single)
                     {
-                        // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text.
-                        Ghost = new ReplGhostText(provider.GetRequiredService<ReplProgram>()).For,
+                        // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text; a new one in a block that has a
+                        // body, the block's closer, which Tab takes and enters.
+                        Ghost = typed => ghostText.For(typed) ?? blocks.GhostFor(typed),
+                        EntersWithGhost = blocks.Closes,
+                        // the closers the open blocks need, numbered on from the line, under it.
+                        GhostRows = blocks.RowsFor,
                         // what the call being typed takes is shown under the line, as it is typed.
                         Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
                         // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
@@ -370,6 +386,8 @@ internal class RDCoreConsoleClientApp(
             Unattended = new Unattended(appOptions.Value.Unattended),
             // the shell reads the indenter settings its user had in Rubberduck (on Windows), and takes the ones the language server maps as its own.
             RubberduckIndenterSettings = new RubberduckIndenterSettings(true),
+            // the shell adds an item to a list of its user's settings, or removes one, when the language server asks: a diagnostic disabled with a code action.
+            ListSettingValue = new ListSettingValue(true),
         },
     };
 
@@ -398,7 +416,8 @@ internal class RDCoreConsoleClientApp(
             .WithHandler<ReplShowMessageHandler>()
             .WithHandler<ReplInputBoxHandler>()
             .WithHandler<RubberduckIndenterSettingsHandler>()
-            .WithHandler<RubberduckIndenterSettingsApplyHandler>();
+            .WithHandler<RubberduckIndenterSettingsApplyHandler>()
+            .WithHandler<ListSettingValueHandler>();
 
     // initialize is answered: what the language server asks from now on waits until the shell is up, and has said READY, to be asked at its console.
     protected override async Task OnLanguageClientInitializedAsync(ILanguageClient client, InitializeParams request, InitializeResult response, CancellationToken cancellationToken)

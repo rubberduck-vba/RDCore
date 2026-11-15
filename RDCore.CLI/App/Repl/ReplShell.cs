@@ -33,7 +33,8 @@ internal sealed class ReplShell(
     ReplProgressDisplay? progress = null,
     ReplServerQuestions? questions = null,
     IConsoleKeys? keys = null,
-    IOptions<AppOptions>? options = null)
+    IOptions<AppOptions>? options = null,
+    ReplBlocks? blocks = null)
 {
     // the progress of the language server's work is drawn while the shell runs: its display is the shell's for as long.
     private readonly ReplProgressDisplay? _progress = progress;
@@ -115,6 +116,9 @@ internal sealed class ReplShell(
         {
             await SynchronizeDocumentAsync(token);
         }
+
+        // block completion goes on from a stored line only: an empty line, a command, a statement to run or a deleted line ends it.
+        blocks?.Leave();
         switch (input.Kind)
         {
             case ReplInputKind.Empty:
@@ -126,6 +130,11 @@ internal sealed class ReplShell(
 
             case ReplInputKind.StoreLine:
                 program.Store(input.LineNumber, input.Text);
+                if (blocks?.Stored(input.LineNumber) is { } noRoom)
+                {
+                    console.WriteMessage(MessageKind.Information, noRoom);
+                }
+
                 context.Diagnostics.RefreshWhenIdle(context);
                 return ReplCommandResult.Continue;
 
@@ -274,7 +283,7 @@ internal sealed class ReplShell(
         try
         {
             return editor is not null
-                ? await editor.ReadLineAsync(token).WaitAsync(token)
+                ? await editor.ReadLineAsync(token, blocks?.Start).WaitAsync(token)
                 : await Task.Run(System.Console.ReadLine, CancellationToken.None).WaitAsync(token);
         }
         catch (OperationCanceledException)

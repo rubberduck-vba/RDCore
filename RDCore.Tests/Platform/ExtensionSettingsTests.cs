@@ -35,7 +35,7 @@ public sealed class ExtensionSettingsTests
     [TestMethod]
     public void TheManifest_CarriesTheSettingsOfTheExtension()
         => CollectionAssert.AreEqual(
-            new[] { "Diagnostics.MeaningfulNames.AllowedNames", "Diagnostics.HungarianNotation.AllowedNames" },
+            new[] { "Diagnostics.MeaningfulNames.AllowedNames", "Diagnostics.HungarianNotation.AllowedNames", "Diagnostics.ForStep", "Diagnostics.ByRefModifier" },
             Manifest().Settings.Select(setting => setting.Key).ToArray());
 
     [TestMethod]

@@ -89,7 +89,26 @@ public partial class ModuleParser(
         });
 
         t_directiveLooks = looks;
-        return result;
+        return result with { LineEnding = LineEndingOf(content) };
+    }
+
+    // the parse reads every line ending as a \n (NormalizeSource): the module's own is the one its first line ends with, in the text as it was given.
+    private static string LineEndingOf(string content)
+    {
+        var end = content.AsSpan().IndexOfAny('\r', '\n');
+        return end < 0 ? "\r\n"
+            : content[end] == '\n' ? "\n"
+            : end + 1 < content.Length && content[end + 1] == '\n' ? "\r\n"
+            : "\r";
+    }
+
+    // a module node spans the whole text of the module, from the anchor to the end of its last line, whether or not that line ends: what an edit placed
+    // after the last line writes at.
+    private static SourceRange WholeTextOf(string normalized, SourcePosition anchorOffset)
+    {
+        var lastLine = normalized.LastIndexOf('\n');
+        var end = new SourcePosition(normalized.Count(character => character == '\n'), normalized.Length - (lastLine + 1));
+        return new SourceRange(anchorOffset, end.AnchoredAt(anchorOffset));
     }
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
@@ -110,7 +129,7 @@ public partial class ModuleParser(
             if (string.IsNullOrWhiteSpace(content))
             {
                 // an empty module is valid VBA, not a parse failure.
-                return ModuleParseResult.Success(EmptyModule(uri, anchorOffset));
+                return ModuleParseResult.Success(EmptyModule(uri, WholeTextOf(content, anchorOffset)));
             }
 
             // a module with no directive has nothing for the directive pass to find, which reads the whole module (a third of a parse, measured on a
@@ -129,7 +148,7 @@ public partial class ModuleParser(
                 sanitized = WithoutDirectives(content, directives);
             }
 
-            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, rootLineage), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
+            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, rootLineage), new(uri, WholeTextOf(content, anchorOffset)), precompilerTrivia);
 
             // a procedure header written once in each branch of a #If block is one procedure: the main pass reads one of its headers, and the branches of the
             // others are parsed on their own, as its alternatives (SplitHeaderScanner).
@@ -454,8 +473,8 @@ public partial class ModuleParser(
 
     private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode and not ExternalMemberDeclarationNode;
 
-    private static ModuleNode EmptyModule(Uri uri, SourcePosition anchorOffset)
-        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), []);
+    private static ModuleNode EmptyModule(Uri uri, SourceRange wholeText)
+        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, wholeText), []);
 
     // ANTLR's input stream and the precompiler-line regexes (RegexOptions.Multiline) only treat \n as
     // a line boundary, and a leading BOM would land in column 0 of the first token. Fold every line

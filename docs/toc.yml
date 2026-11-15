@@ -14,6 +14,8 @@
   href: performance.md
 - name: Diagnostics
   href: diagnostics/index.md
+- name: Disabling a Diagnostic
+  href: disabling-diagnostics.md
 - name: Contributors
   items:
   - name: Building on RDCore

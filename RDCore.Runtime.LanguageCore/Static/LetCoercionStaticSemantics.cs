@@ -30,21 +30,20 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         }
 
         // MS-VBAL §3.3.5.2: the Empty and Null literals have a declared type of Variant, which is valid to Let-coerce to an array; the value each holds is
-        // not, and raises 13 when it runs (MS-VBA, Excel-measured, oracle s46 F17a-b, s48 J01-J02). The fact is for an analyzer to report.
+        // not, and raises 13 when it runs (MS-VBA, recorded in Excel).
         if (sourceType is VBEmptyType or VBNullType && destinationType is VBArrayType)
         {
-            if (context.Facts is { } facts && facts.TryGet(expression.Identity, out var fact))
-            {
-                facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.EmptyLetToArray });
-            }
-
             sourceType = VBVariantType.TypeInfo;
+        }
+
+        if (destinationType is VBVariantType)
+        {
+            ObjectValueStaticSemantics.MarkLetCoerced(context.Facts, expression);
         }
 
         // an object of a class that has no default member has no value to give a Variant either: MS-VBA compiles it, and raises 438 when it runs (RD-VBAL 5.5.1.1).
         if (sourceType is VBClassType { DefaultMember: null } && destinationType is VBVariantType)
         {
-            ObjectValueStaticSemantics.MarkNoDefaultMember(context.Facts, expression);
             return StaticSemanticsEvaluationResult.Success(destinationType);
         }
 

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Diagnostics.Handlers;
@@ -15,6 +16,7 @@ using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Extensibility.Diagnostics;
+using Microsoft.Extensions.Options;
 using RDCore.Diagnostics;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -161,6 +163,8 @@ public sealed class DiagnoseDocumentHandlerTests
 
     private sealed class FailingAnalyzer : IModuleAnalyzer
     {
+        public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode()];
+
         public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context) => throw new InvalidOperationException("boom");
     }
 
@@ -173,10 +177,25 @@ public sealed class DiagnoseDocumentHandlerTests
         Assert.AreEqual("RDC00101", result.Diagnostics.Single().Code!.Value.String);
     }
 
+    // the language server sends the codes disabled for the workspace with the document: an analyzer whose every code is disabled is not run.
+    [TestMethod]
+    public async Task AnAnalyzerWhoseCodeIsDisabled_IsNotRun_AndTheOthersAre()
+    {
+        var uri = TestUri.TestModuleUri();
+        var payload = new DiagnoseDocumentPayload(uri, 1, new ModuleParser().Parse(uri, CleanModule), Semantics(optionExplicit: false))
+        {
+            DisabledCodes = [RDCoreDiagnosticId.ImplicitDeclarationsEnabled.ToCode()],
+        };
+
+        var result = await HandleAsync(new DiagnoseDocumentParams { Json = PlatformJson.Serialize(payload) }, new OptionExplicitAnalyzer(), new SaysSomething(AnalysisPhase.Static, 1));
+
+        Assert.AreEqual(RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode().ToString(), result.Diagnostics.Single().Code!.Value.String);
+    }
+
     [TestMethod]
     public async Task WhatTheSyntaxTreeSays_NeedsNoFactsFromTheHost_AndLinksToItsPage()
     {
-        var result = await HandleAsync(RequestFor("Public Sub Work(total As Long)\r\nEnd Sub\r\n", out _), new ImplicitByRefModifierAnalyzer());
+        var result = await HandleAsync(RequestFor("Public Sub Work(total As Long)\r\nEnd Sub\r\n", out _), new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())));
 
         var diagnostic = result.Diagnostics.Single();
         Assert.AreEqual("RDC00104", diagnostic.Code!.Value.String);
@@ -187,6 +206,8 @@ public sealed class DiagnoseDocumentHandlerTests
 
     private sealed class SaysSomething(AnalysisPhase phase, int line) : IModuleAnalyzer
     {
+        public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode()];
+
         public AnalysisPhase Phase => phase;
 
         public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -294,4 +315,22 @@ public sealed class DiagnoseDocumentHandlerTests
     [TestMethod]
     public async Task AnErrorTheCodeRaisesForItself_IsNotReported()
         => Assert.IsFalse((await LanguageDiagnosticsAsync(AnalysisPhase.Runtime)).Any(diagnostic => diagnostic.Range.Start.Line == 5), "Error 5 is what the code is there to do");
+
+    [TestMethod]
+    public async Task TheFixesOfAFinding_AreOfTheVersionOfTheDocumentItWasMadeOf()
+    {
+        var analyzer = Substitute.For<IModuleAnalyzer>();
+        analyzer.Phase.Returns(AnalysisPhase.Static);
+        analyzer.Analyze(Arg.Any<ModuleAnalysisContext>()).Returns(
+        [
+            new AnalyzerFinding(RDCoreDiagnosticId.ImplicitResultLocal.ToCode(), new SourceRange(new SourcePosition(2, 4), new SourcePosition(2, 9)), DiagnosticSeverity.Warning, "finding")
+            {
+                Fixes = new DiagnosticFixes { Edits = [new EditFix { Title = "Fix", Edits = [new TextEdit { Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(2, 4, 2, 9), NewText = "result" }] }] },
+            },
+        ]);
+
+        var result = await HandleAsync(RequestFor(CleanModule, out _, version: 7, phase: AnalysisPhase.Static), analyzer);
+
+        Assert.AreEqual(7, DiagnosticFixes.Of(result.Diagnostics.Single())?.Edits.Single().Version, "an analyzer is not told the version: its fixes are stamped with it");
+    }
 }

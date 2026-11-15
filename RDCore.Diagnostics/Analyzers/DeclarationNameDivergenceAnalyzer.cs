@@ -19,6 +19,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes =>
+        [RDCoreDiagnosticId.NameRefusedByMSVBA.ToCode(), RDCoreDiagnosticId.ReservedNameAcceptedByMSVBA.ToCode()];
+
     private static readonly HashSet<string> EnumMemberNamesTheSpecificationReserves = new(StringComparer.OrdinalIgnoreCase) { "Date", "DoEvents", "CDec" };
 
     // the reserved type identifiers that are no reserved name (Date and String are both), and Local, which is no reserved identifier at all: MS-VBA refuses

@@ -405,7 +405,7 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         ObserveMemberAccess(session, context, bound.Access, Tokens.MemberAccess, bound.Access.Owner, owner, memberName,
-            MemberAccessOperationSemanticFlags.Explicit, assumedBefore, result);
+            MemberAccessOperationSemanticFlags.Explicit | (isCall && bound.Arguments is not null ? MemberAccessOperationSemanticFlags.ArgumentList : 0), assumedBefore, result);
 
         // a public variable of the object, given arguments, is what they index.
         return isCall || bound.Arguments is not { } index ? result : IndexValue(session, context, index, index, result);

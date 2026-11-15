@@ -5,6 +5,7 @@ using RDCore.Runtime.Execution.External.Automation;
 using RDCore.External;
 using RDCore.Runtime.Execution.External.Forms;
 using RDCore.Runtime.Execution.External.Native;
+using RDCore.Runtime.Execution.External.Pictures;
 using RDCore.Runtime.StdLib;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
@@ -252,6 +253,8 @@ public sealed class RuntimeExecutionPipeline
                 [
                     // the image keeps what the designers of its forms declare; bodies that are only bodies have no forms.
                     forms,
+                    // stdole's pictures are the platform's own, which no server holds.
+                    new PictureCallProvider(session),
                     servers,
                     StdLibDispatcher.For(session, outside, cancellation),
                     // the shlwapi function that connects an object of the program's own to a server's events is the session's to run, not the native library's.

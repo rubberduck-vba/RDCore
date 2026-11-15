@@ -19,6 +19,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ProcedureTooLargeAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ProcedureTooLarge.ToCode()];
+
     /// <summary>The most statements a procedure has before it is reported.</summary>
     public const int MaxStatements = 5_000;
 

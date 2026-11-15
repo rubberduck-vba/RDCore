@@ -59,6 +59,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObsoleteCallStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NotAllPathsReturnValueAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IsMissingAlwaysFalseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, IsMissingOfAVariantThatIsNotOptionalAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ShadowedDeclarationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LineContinuationBetweenKeywordsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureCanBeWrittenAsFunctionAnalyzer>();
@@ -98,6 +99,12 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObsoleteTypeHintAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteWhileWendAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteOnLocalErrorStatementAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyStringLiteralAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ForStepAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, RedundantByRefModifierAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, RedundantModuleOptionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, BooleanAssignedInIfElseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, StopStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotAssignedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ParameterNotUsedAnalyzer>();
@@ -117,7 +124,11 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ForEachControlEmptiedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, CollectionSetToNothingInItsOwnLoopAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IIfSideEffectAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ObjectLetToObjectPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, DeclarationNameDivergenceAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, LetToADefaultMemberWithNoPropertyLetAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, LetThroughAVariantGetOrFunctionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ObjectLetToVariantPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NewOfAClassNotCreatableAnalyzer>();
@@ -149,6 +160,12 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ImplementsInDocumentModuleAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UseMeaningfulIdentifierNamesAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, HungarianNotationAnalyzer>();
+
+        // what has nothing in it: a block, a procedure, a module.
+        services.AddSingleton<IModuleAnalyzer, EmptyIfBlockAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyCodeBlockAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyProcedureAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyModuleAnalyzer>();
     }
 
     protected override void Dispose(bool disposing)

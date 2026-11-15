@@ -36,6 +36,7 @@ public enum RDCoreDiagnosticId
     ImplicitWideningConversion = 113,
     ImplicitArrayDeclaration = 114, // a ReDim whose name matches nothing declares the array it re-dimensions: a Dim before it says so
     ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
+    ImplicitForStep = 116, // a For loop with no Step, under the convention that writes Step 1
     ImplicitConstantType = 117, // a Const with no As and no type character: its type is the one the reader works out from its value
     ImplicitDefaultMemberAccess = 119, // an object of a known class used as a value, or assigned one without Set: its default member, not named
     ImplicitUnboundDefaultMemberAccess = 120, // an Object used as a value, or assigned one without Set: its default member is known only at run time
@@ -53,11 +54,14 @@ public enum RDCoreDiagnosticId
     NotAllPathsReturnValue = 206, // [RD2:NonReturningFunctionInspection], but for any path that does not assign the return value, not only when none does
     IsMissingAlwaysFalse = 207, // [RD2:IsMissingOnInappropriateArgumentInspection] IsMissing of a parameter that is no Variant, or an Optional Variant with a default
     ShadowedDeclaration = 208, // [RD2:ShadowedDeclarationInspection] a local or a parameter named like a member of the module, of another module or of a library
+    BooleanAssignedInIfElse = 209, // If c Then x = True Else x = False: x = c says the same
+    StopStatement = 210, // Stop: the program is suspended there, as at a breakpoint
     OnErrorGoToMinusOne = 211, // On Error GoTo -1: ends the error being handled, which MS-VBAL does not document and MS-VBA compiles
     UnrestoredOnErrorResumeNext = 212, // On Error Resume Next that no On Error GoTo follows in its procedure
     LineContinuationBetweenKeywords = 213, // [RD2:LineContinuationBetweenKeywordsInspection] End _ / If: a line continuation between the words of a keyword
     ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
     SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
+    IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
@@ -70,6 +74,10 @@ public enum RDCoreDiagnosticId
     ObsoleteOnLocalErrorStatement = 309,
     RedundantByValArgument = 310, // ByVal written before an argument of a ByVal parameter: MS-VBA compiles it, MS-VBAL refuses it, it changes nothing
     EarlyBindingOpportunity = 311, // CreateObject of a class a referenced library declares: it could be New, and early-bound
+    EmptyStringLiteral = 312, // "", which vbNullString says
+    RedundantStepOne = 313, // Step 1, which a For loop with no Step has
+    RedundantByRefModifier = 314, // ByRef written, under the convention that leaves it unwritten
+    RedundantModuleOption = 315, // Option Base 0, Option Compare Binary: what a module that states no option has
 
     ObsoleteMemberUsage = 401, // members with an @Obsolete annotation
     InvalidAnnotation = 404, // @NotAnAnnotationButParsedLikeOne
@@ -85,12 +93,14 @@ public enum RDCoreDiagnosticId
     UseMeaningfulIdentifierNames = 1001,
     HungarianNotation = 1002,
 
-    EmptyIfBlock,
-    EmptyCodeBlock,
+    EmptyIfBlock = 1003, // an If or ElseIf branch with no statement
+    EmptyCodeBlock = 1004, // an Else, Case, Do, For, For Each or While block with no statement
 
     HostedDocumentCode = 1005, // a document module (.rdproj Super): the code of a host's document, which RD-VBA does not host; and a name of one in another module
     UnsupportedDocumentModule = 1006, // a document module of a host RD-VBA does not know, or a .doccls the project says nothing of
     HostLibraryNotReferenced = 1007, // a document module of a known host whose library the project does not reference
+    EmptyProcedure = 1009, // a procedure with no statement
+    EmptyModule = 1010, // a module that declares nothing
     VariableNotUsed = 1011, // a variable whose value nothing reads
     VariableNotAssigned = 1012, // a variable read and never assigned: it always has the default value of its type
     ParameterNotUsed = 1013, // a parameter nothing in its procedure refers to
@@ -137,7 +147,11 @@ public enum RDCoreDiagnosticId
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
     IIfSideEffect = 11039, // [RD2:IIfSideEffectInspection] IIf(c, Compute(1), 2): a Function or Property Get in the TruePart or FalsePart runs whatever the condition
+    ObjectLetToVariantProperty = 11043, // c.Item = o, Property Let Item(v As Variant): MS-VBA passes the object; MS-VBAL §5.4.3.8 passes its default member's value
     LSetOfARecordWithAString = 11044, // LSet a = b, a or b a record with a variable-length String: MS-VBAL allows it; MS-VBA: Compile error: Type mismatch
+    LetToADefaultMemberWithNoPropertyLet = 11045, // os = 5, os's default member a Property Get or a Function with no Property Let: MS-VBAL compiles it, MS-VBA refuses it
+    LetThroughAVariantGetOrFunction = 11046, // o.Value = 5, Value a Variant Property Get with no Let (or a Variant Function): MS-VBAL 451/450, MS-VBA assigns through what it returns, or 424
+    ObjectLetToObjectProperty = 11047, // h.Pic = p, Property Let Pic(v As Object): MS-VBA passes the object; MS-VBAL §5.5.1.1 makes the Let invalid, §5.5.1.2.13 424
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits

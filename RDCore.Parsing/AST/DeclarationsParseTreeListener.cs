@@ -1975,7 +1975,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             _errors.Report(location, VBCompileErrorId.NumericLiteralOverflow, Exceptions.VBCompileError_NumericLiteralOverflow_Verbose);
         }
-        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
+        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value) { Spelling = token.Length > 0 ? token : null });
     }
     // Operator alternatives of `expression` (a left-recursive rule) have no Enter override, so none of
     // the handlers below use one: each operator's operands are, at Exit time, always exactly the last
@@ -2376,9 +2376,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             if (DateTime.TryParse(dateLiteral.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.None, out var rawValue))
             {
                 OnExpression(new LiteralExpressionNode(
-                    GetCurrentNodeId(), 
-                    location, 
-                    new VBDateValue(rawValue.ToOADate())));
+                    GetCurrentNodeId(),
+                    location,
+                    new VBDateValue(rawValue.ToOADate())) { Spelling = dateLiteral.Symbol.Text });
             }
         }
         else if (context.STRINGLITERAL() is ITerminalNode stringLiteral)
@@ -2389,7 +2389,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             OnExpression(new LiteralExpressionNode(
                 GetCurrentNodeId(),
                 location,
-                VBStringValue.FromLiteralToken(stringLiteral.Symbol.Text)));
+                VBStringValue.FromLiteralToken(stringLiteral.Symbol.Text)) { Spelling = stringLiteral.Symbol.Text });
         }
     }
 
@@ -2451,11 +2451,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         var identifierLabel = context.identifierStatementLabel() ?? context.combinedLabels()?.identifierStatementLabel();
+        SourceRange? nameRange = null;
+        var isBracketed = false;
         if (identifierLabel?.legalLabelIdentifier()?.identifier() is { } labelIdentifier)
         {
-            // `Label:` - the colon is part of the label as written.
+            // `Label:` - the colon is part of the label as written, and not of its name; the name of `[Try Again]:` is the one `GoTo [Try Again]` names.
             labelLocation = identifierLabel.GetSourceLocation(_rootUri);
-            name = labelIdentifier.GetText();
+            name = labelIdentifier.Name();
+            isBracketed = labelIdentifier.IsBracketed();
+            nameRange = labelIdentifier.GetSourceLocation(_rootUri).Range;
         }
 
         var number = numberContext is null ? null : LineNumber(numberContext);
@@ -2468,7 +2472,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (name is not null)
         {
-            CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name));
+            CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name) { NameRange = nameRange, IsBracketed = isBracketed });
         }
 
         // lineNumberLabel is `MINUS? numberLiteral`: VBE can prettify &HFFFFFFFF into -1, which is a legal line number, so a sign and the other radixes are read.

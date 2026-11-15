@@ -177,9 +177,9 @@ The argument list of a `RaiseEvent` takes no `ByVal` at all: there it is a synta
 A parameter declared `ByVal` and an array (`ByVal a() As Long`) is `VBC09371` too, wherever it is declared
 ([**RD-VBAL §5.3.1.5**](rd-vbal.5.3.1.5.parameter-lists.md)).
 
-`ByValArgumentStaticSemantics` checks each `ByVal` argument against its parameter,
-and records the redundant ones as a fact of the argument
-([ValueExpressionSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html)`.RedundantByVal`). Which library parameters the
+`ByValArgumentStaticSemantics` checks each `ByVal` argument against its parameter; how the parameter is declared is a fact of the argument
+([ArgumentFact](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.ArgumentFact.html)), from which RDCore.Diagnostics reports the
+redundant ones ([`RDC00310`](../diagnostics/rdc00310.md)). Which library parameters the
 type library declares by reference is the parameter's `SymbolProperties.TypeLibraryByRef`, read off the declarations (a `Variant` parameter, or
 `StdLibTypeLibraryByRefAttribute`); it says nothing of how the argument is passed. [VBC09327](../diagnostics/vbc09327.md), MS-VBAL's own error, is no
 longer raised.

@@ -183,8 +183,8 @@ internal static class AutomationMarshaller
                 VBLongLongType => new VBLongLongValue(Convert.ToInt64(Present(value), CultureInfo.InvariantCulture)),
                 VBSingleType => new VBSingleValue(Convert.ToSingle(Present(value), CultureInfo.InvariantCulture)),
                 VBDoubleType => new VBDoubleValue(Convert.ToDouble(Present(value), CultureInfo.InvariantCulture)),
-                VBCurrencyType => new VBCurrencyValue(Convert.ToDecimal(Present(value), CultureInfo.InvariantCulture)),
-                VBDecimalType => new VBDecimalValue(Convert.ToDecimal(Present(value), CultureInfo.InvariantCulture)),
+                VBCurrencyType => CurrencyOf(Present(value)),
+                VBDecimalType => new VBDecimalValue(DecimalOf(Present(value))),
                 VBDateType => new VBDateValue(IsAbsent(value) ? 0 : Convert.ToDateTime(value, CultureInfo.InvariantCulture).ToOADate()),
                 VBStringType => new VBStringValue(IsAbsent(value) ? string.Empty : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty),
                 VBClassType or VBObjectType or VBUnknownType => value is null or DBNull ? VBObjectValue.Nothing : wrap(value, declared),
@@ -204,6 +204,22 @@ internal static class AutomationMarshaller
 
     // a number or a string where the server said nothing is the type's own default, as an uninitialized variable is.
     private static object Present(object? value) => IsAbsent(value) ? 0 : value!;
+
+    // a floating-point number converts as a Let does: a Currency of its exact value in ten-thousandths, a Decimal of the 7 or 15 significant digits its type
+    // holds. Anything else converts exactly.
+    private static VBCurrencyValue CurrencyOf(object value) => value switch
+    {
+        float or double when Convert.ToDouble(value, CultureInfo.InvariantCulture) is var number
+            => VBCurrencyType.TypeInfo.Holds(number) ? (VBCurrencyValue)VBCurrencyType.TypeInfo.CreateValue(number) : throw new OverflowException(),
+        _ => new VBCurrencyValue(Convert.ToDecimal(value, CultureInfo.InvariantCulture)),
+    };
+
+    private static decimal DecimalOf(object value) => value switch
+    {
+        float single => VBDecimalType.FromSingle(single),
+        double number => VBDecimalType.FromDouble(number),
+        _ => Convert.ToDecimal(value, CultureInfo.InvariantCulture),
+    };
 
     // what a server returns where it says nothing: a null BSTR is one too - Microsoft Forms' Text of an empty TextBox or ComboBox, which MS-VBA reads as ""
     // (oracle\s41 X01) - and a String's own default is "", as a Date's is day 0, not the number 0 a numeric type's is.

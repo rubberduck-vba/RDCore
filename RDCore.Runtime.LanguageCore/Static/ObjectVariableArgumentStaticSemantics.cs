@@ -6,10 +6,9 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
-using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
@@ -17,58 +16,30 @@ namespace RDCore.Runtime.LanguageCore.Static;
 // MS-VBA implements a public variable of a class as a property: the caller passes what its Get returns, and what the callee assigns is lost.
 public static class ObjectVariableArgumentStaticSemantics
 {
-    public static void MarkPassedAsCopies(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments)
+    // whether an argument is a copy of what it names: a public variable of an object, or an element of one, given to a procedure of the project for a
+    // parameter it does not take ByVal, or to a member called late. What a ParamArray collects is passed by reference, as a ByRef parameter's argument is
+    // (MS-VBA, recorded in Excel).
+    public static bool IsPassedAsACopy(StaticEvaluationContext context, ExpressionNode callee, int position, string? name, ExpressionNode passed)
     {
-        if (context.Facts is null)
+        if (!IsObjectVariableOrElement(context, passed))
         {
-            return;
+            return false;
         }
 
         if (ObjectValueStaticSemantics.MemberOfCallee(context, callee) is { } member)
         {
-            if (member.GetProperty(SymbolProperties.ExternalTarget) is null && ObjectValueStaticSemantics.ParametersOfCallee(context, callee) is { } declared)
-            {
-                MarkPassedAsCopies(context, [.. declared.Where(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef))],
-                    arguments);
-            }
-
-            return;
+            return member.GetProperty(SymbolProperties.ExternalTarget) is null
+                && ObjectValueStaticSemantics.ParametersOfCallee(context, callee) is { } declared
+                && ParameterOf([.. declared.Where(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef))], position, name)
+                    is { ParameterKind: not ParameterKind.ExplicitByVal };
         }
 
-        if (IsCalledLate(context, callee))
-        {
-            foreach (var argument in arguments)
-            {
-                Mark(context, argument is NamedArgumentNode named ? named.Value : argument, ValueExpressionSemanticFlags.ObjectVariablePassedLateAsACopy);
-            }
-        }
+        return IsCalledLate(context, callee);
     }
 
-    // MS-VBAL §5.3.1.11, §5.4.2.20; RD-VBAL §5.3.1.11
-    public static void MarkPassedAsCopies(StaticEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters, IReadOnlyList<ExpressionNode> arguments)
-    {
-        for (var index = 0; index < arguments.Count; index++)
-        {
-            var (name, passed) = arguments[index] is NamedArgumentNode named ? (named.Name, named.Value) : ((string?)null, arguments[index]);
-            // what a ParamArray collects is passed by reference, as a ByRef parameter's argument is (MS-VBA, recorded in Excel: oracle\s58 F01).
-            if (ParameterOf(parameters, index, name) is { } parameter && parameter.ParameterKind is not ParameterKind.ExplicitByVal)
-            {
-                Mark(context, passed, ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy);
-            }
-        }
-    }
-
-    private static void Mark(StaticEvaluationContext context, ExpressionNode passed, ValueExpressionSemanticFlags flag)
-    {
-        if (context.Facts is { } facts && IsObjectVariableOrElement(context, passed) && facts.TryGet(passed.Identity, out var fact))
-        {
-            facts.Record(fact with { Flags = fact.Flags | flag });
-        }
-    }
-
-    // b.Count, or b.V(0): an element of the array a Variant variable holds, whose variable is the copy that is passed (s58 B01); a class has no public array
-    // variable. Of a variable of any other type (b.Items(1), Items a Collection) it is the value of the default member of what the variable holds, which
-    // MS-VBAL passes as a copy too.
+    // b.Count, or b.V(0): an element of the array a Variant variable holds, whose variable is the copy that is passed; a class has no public array variable.
+    // Of a variable of any other type (b.Items(1), Items a Collection) it is the value of the default member of what the variable holds, which MS-VBAL passes
+    // as a copy too.
     private static bool IsObjectVariableOrElement(StaticEvaluationContext context, ExpressionNode passed) => passed switch
     {
         MemberAccessExpressionNode access => ObjectVariableOf(context, access) is not null,

@@ -75,7 +75,7 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", "rdc.resources.dll"), "les ressources de rdc");
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.dll"), "rdc");
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "RDCore.Parsing.dll"), "the parser");
-        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net10.0\" } }");
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net11.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
 
@@ -489,7 +489,7 @@ public sealed class BuildCommandTests
         CompiledExecutionTests.RequirePayloads();
         var fileSystem = Files(("Program.bas", Stops));
 
-        var run = await RunAsync(fileSystem, Root, "-c", "Release");
+        var run = await RunAsync(fileSystem, "-c", "Release", Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "42" }, run.Output);
@@ -842,7 +842,7 @@ public sealed class BuildCommandTests
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
-        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, Root, "--unattended");
+        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, "--unattended", Root);
 
         Assert.AreEqual(ProgramRunner.Failed, run.Exit);
         Assert.Contains("50001", run.Error);
@@ -914,6 +914,52 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "2", "String:one", "String:two words", "String:--unattended", "[one \"two words\" --unattended]" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Run_PassesWhatFollowsThePath_ToTheParamArrayOfMain_AndToCommand()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "-c", "Release", Root, "--seed", "42");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "1", "String:--seed", "String:42", "[--seed 42]" }, run.Output);
+    }
+
+    // a run that is unattended tells the program so, as a built program's command line does: --unattended is first on its command line.
+    [TestMethod]
+    public async Task Run_Unattended_GivesTheProgramTheSwitch_InCommandAndToMain()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "--unattended", Root, "--seed", "42");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "2", "String:--unattended", "String:--seed", "String:42", "[--unattended --seed 42]" }, run.Output);
+    }
+
+    // the switch is on the program's command line once, where the program's own arguments already have it.
+    [TestMethod]
+    public async Task Run_Unattended_GivesTheProgramTheSwitchOnce()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "--unattended", Root, "x", "--unattended");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "1", "String:x", "String:--unattended", "[x --unattended]" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Run_WithNoPathAndNoSeparator_RefusesAnOptionItDoesNotKnow()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "--seed", "42");
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit);
+        Assert.IsEmpty(run.Output);
     }
 
     [TestMethod]

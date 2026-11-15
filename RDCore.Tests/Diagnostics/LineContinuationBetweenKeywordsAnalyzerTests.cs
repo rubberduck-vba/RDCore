@@ -51,7 +51,7 @@ public sealed class LineContinuationBetweenKeywordsAnalyzerTests
     public void TheFix_WritesTheKeywordOnOneLine(string body, string expected, string keyword)
     {
         var source = $"Attribute VB_Name = \"Program\"\r\nPublic Sub Work()\r\n{body}\r\nEnd Sub\r\n";
-        var fix = Assert.ContainsSingle(Run(body)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(Run(body)).Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
         var edit = Assert.ContainsSingle(fix.Edits);
 

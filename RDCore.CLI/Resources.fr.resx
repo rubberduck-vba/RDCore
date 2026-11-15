@@ -305,6 +305,9 @@
   <data name="Repl_UndefinedModule" xml:space="preserve">
     <value>ERREUR : MODULE NON DÉFINI</value>
   </data>
+  <data name="Repl_BlockNoRoom" xml:space="preserve">
+    <value>Aucun numéro de ligne n'est libre pour {0} avant la ligne {1}.</value>
+  </data>
   <data name="Repl_Breakpoint_NoStatement" xml:space="preserve">
     <value>AUCUNE INSTRUCTION À {0}</value>
   </data>
@@ -328,6 +331,9 @@
   </data>
   <data name="Repl_Help_Summary" xml:space="preserve">
     <value>Affiche la liste des commandes.</value>
+  </data>
+  <data name="Repl_Help_Blocks" xml:space="preserve">
+    <value>Une ligne numérotée dans un bloc ouvert (If, Select Case, une boucle, With) ouvre la ligne suivante sur son numéro plus 10, avec les fermetures en dessous. Tab prend le numéro ; une fois que le bloc a une instruction, Tab prend sa fermeture et valide la ligne.</value>
   </data>
   <data name="Repl_List_Summary" xml:space="preserve">
     <value>Affiche le programme, ou une plage de lignes (LIST 100-200).</value>

@@ -21,6 +21,14 @@ Le _shell_ exécute ce que vous tapez. Une ligne sans numéro de ligne s'exécut
 de ligne est écrite dans le _programme courant_ : `10 Debug.Print "Bonjour"`. Le programme courant est le corps d'une procédure implicite nommée `Main`,
 dans un module implicite nommé `Program`. Il reste en mémoire jusqu'à `NEW`, `LOAD` ou `EXIT`.
 
+Une ligne numérotée dans un bloc qui n'a pas de fermeture dans le programme (un `If`, un `Select Case`, une boucle, un `With`) lance la
+_complétion de bloc_. La ligne suivante s'ouvre sur
+le numéro plus 10, sélectionné, et les fermetures dont le bloc a besoin s'affichent en grisé sous elle, avec leurs numéros : après `120 If x > 0 Then`,
+la ligne est `130` et `140 End If` est en dessous. Tab prend le numéro, et un numéro que vous tapez le remplace. Une fois que le bloc a une
+instruction, la fermeture est proposée après le numéro, et Tab la prend et valide la ligne. Chaque ligne est écrite dans le programme dès que vous la
+validez. La complétion de bloc se termine à la dernière fermeture, à une ligne vide, à une commande ou à une ligne sans numéro. Elle ne renumérote
+jamais une ligne : quand la ligne suivante du programme ne laisse aucun numéro pour une fermeture, le _shell_ le dit.
+
 Sur un espace de travail (`rdc --workspace <chemin>`), le _shell_ exécute chaque ligne dans le projet de l'espace de travail : `Main`, `Program.Main` et
 les autres procédures publiques du projet peuvent être appelées depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
 servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, et `CONT` vers une ligne), répondent
@@ -84,7 +92,7 @@ travaille sur le dossier courant.
 |---|---|---|
 |`rdc new <chemin>`|`n`|Fait d'un dossier un espace de travail : écrit un `.rdproj` qui nomme chaque fichier de module du dossier. `--name` fixe le nom du projet (celui du dossier par défaut), `--empty` écrit un projet sans fichiers, et `--force` remplace un `.rdproj` existant.|
 |`rdc import <chemin>`|`i`|Crée le `.rdproj` d'un projet VB6, à côté de son `.vbp` (voir [Projets VB6](vb6-projects.fr.md)). `--force` remplace un `.rdproj` existant.|
-|`rdc run [<chemin>] [-- <arguments>]`|`r`|Exécute le programme de l'espace de travail (ci-dessous). Ce qui suit `--` est la ligne de commande du programme, que retourne `Command$`.|
+|`rdc run [<options>] [<chemin>] [<arguments>]`|`r`|Exécute le programme de l'espace de travail (ci-dessous). Ce qui suit le chemin est la ligne de commande du programme, que retourne `Command$`.|
 |`rdc build [<chemin>]`|`bd`|Construit un programme à partir de l'espace de travail : son exécutable et le _runtime_ sur lequel il s'exécute (ci-dessous).|
 |`rdc config`|`configure`|Affiche les paramètres de la plateforme et les modifie, comme le `CONFIG` du _shell_, sans démarrer la plateforme.|
 |`rdc export-library <bibliothèque>`|`xl`|Décrit une bibliothèque de types de cette machine (un fichier comme `scrrun.dll`, son identifiant ou son nom) dans un fichier qu'un projet peut référencer par son nom. `--dependencies` décrit aussi les bibliothèques dont elle dépend.|
@@ -106,7 +114,18 @@ ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pa
 |Option|Ce qu'elle fait|
 |---|---|
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
-|`--unattended`|Personne ne répond aux boîtes de dialogue : un `MsgBox` ou un `InputBox` fait échouer l'exécution.|
+|`--unattended`|Personne ne répond aux boîtes de dialogue : un `MsgBox` ou un `InputBox` fait échouer l'exécution. Le programme le sait : l'option vient en premier dans `Command$` et dans les arguments de `Main`, comme pour un programme construit, sauf si la ligne de commande du programme l'a déjà.|
+
+Les options viennent avant le chemin. Tout ce qui suit le chemin est la ligne de commande du programme, options comprises :
+`rdc run --unattended .` s'exécute sans surveillance, et `rdc run . --unattended` ne fait que donner `--unattended` au programme. Un `--` juste après le
+chemin est ignoré. Sans chemin, c'est le dossier courant qui s'exécute, et `--` précède la ligne de commande du programme. Sans chemin ni
+`--`, rien ne va au programme, et une option que `rdc` ne connaît pas est une erreur.
+
+```
+rdc run . --seed 42
+rdc run . -- --seed 42
+rdc run -- --seed 42
+```
 
 Le code de sortie indique comment s'est passée l'exécution :
 

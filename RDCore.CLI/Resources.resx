@@ -307,6 +307,10 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_UndefinedModule" xml:space="preserve">
     <value>UNDEF'D MODULE ERROR</value>
   </data>
+  <data name="Repl_BlockNoRoom" xml:space="preserve">
+    <value>No line number is free for {0} before line {1}.</value>
+    <comment>{0} is a block's closer (End If, Next, Loop...), {1} the number of the program's next line.</comment>
+  </data>
   <data name="Repl_Breakpoint_NoStatement" xml:space="preserve">
     <value>NO STATEMENT AT {0}</value>
     <comment>{0} is where the breakpoint is: a module and its line, such as Other 9.</comment>
@@ -332,6 +336,9 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Repl_Help_Summary" xml:space="preserve">
     <value>Lists the shell commands.</value>
+  </data>
+  <data name="Repl_Help_Blocks" xml:space="preserve">
+    <value>A numbered line in an open block (If, Select Case, a loop, With) opens the next line on its number plus 10, with the closers under it. Tab takes the number; once the block has a statement, Tab takes its closer and enters the line.</value>
   </data>
   <data name="Repl_List_Summary" xml:space="preserve">
     <value>Lists the program, or a range of its lines (LIST 100-200).</value>

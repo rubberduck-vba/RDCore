@@ -290,12 +290,13 @@ internal sealed class RenameWorkspace
                 RefactoringTitles.RenameInStringRename(), RefactoringTitles.RenameInStringLeave()));
         }
 
-        // a late-bound access that what is known of the object backs is told apart from one that is only possible.
-        var className = SymbolUri.ModuleNameOf(target.Symbols[0].Uri);
+        // a late-bound access that what is known of the object backs is told apart from one that is only possible. A label, which is no symbol, has none.
         foreach (var (annotation, isBacked) in new[] { (LateBoundBacked, true), (LateBound, false) })
         {
-            if (plan.Edits.Where(edit => edit.IsLateBound && edit.IsBacked == isBacked).ToList() is [var firstAccess, ..] lateBound)
+            if (plan.Edits.Where(edit => edit.IsLateBound && edit.IsBacked == isBacked).ToList() is [var firstAccess, ..] lateBound
+                && target.Symbols is [var renamed, ..])
             {
+                var className = SymbolUri.ModuleNameOf(renamed.Uri);
                 annotations[annotation] = new ChangeAnnotation
                 {
                     Label = RefactoringTitles.RenameLateBoundLabel(className, isBacked),

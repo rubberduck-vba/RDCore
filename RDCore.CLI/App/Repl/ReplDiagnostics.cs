@@ -131,7 +131,7 @@ public sealed class ReplDiagnostics
         var lines = new HashSet<int>();
         foreach (var diagnostic in _items)
         {
-            if (DiagnosticFixes.Of(diagnostic) is { } fixes && (fixes.Rename is not null || fixes.Edit is { Edits.Count: > 0 }))
+            if (DiagnosticFixes.Of(diagnostic) is { } fixes && (fixes.Rename is not null || fixes.Edits.Any(fix => fix.Edits.Count > 0)))
             {
                 lines.Add(diagnostic.Range.Start.Line);
             }
