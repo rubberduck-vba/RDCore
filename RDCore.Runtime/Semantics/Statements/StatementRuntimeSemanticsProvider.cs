@@ -109,6 +109,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             KeywordStatementNode { Token: Tokens.RaiseEvent } raise => ExecuteRaiseEvent(session, context, raise),
             // RD-VBAL: Circle, Line, PSet and Scale are methods of an object that can be drawn on.
             GraphicsMethodStatementNode graphics => ExecuteGraphics(session, context, graphics),
+            // the Print method of an object (Form1.Print): Debug.Print is its own statement.
+            CallStatementNode { Callee: ObjectPrintExpressionNode print } => ExecuteObjectPrint(session, context, print),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };
@@ -143,6 +145,37 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
             VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, graphics.SourceLocation,
             $"The object has no {graphics.Token} method: the platform has no surface to draw on."));
+    }
+
+    // obj.Print calls the Print method of the object, a Visual Basic 6.0 form or PictureBox or an Access form or report, once its output list is evaluated.
+    // The platform has none of them: Nothing raises 91, and any other object has no Print method (438).
+    private RuntimeExecutionOutcome ExecuteObjectPrint(IRuntimeSession session, RuntimeEvaluationContext context, ObjectPrintExpressionNode print)
+    {
+        var owner = _expressionEvaluator.Evaluate(session, print.Owner, context);
+        if (!owner.IsSuccess)
+        {
+            return owner.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(owner.ErrorInfo!);
+        }
+
+        var evaluated = _printOutput.Collect(session, context, print.Items, out _);
+        if (evaluated != RuntimeExecutionOutcome.Next)
+        {
+            return evaluated;
+        }
+
+        var value = owner.Result;
+        while (value is VBVariantValue { TypedValue: var wrapped })
+        {
+            value = wrapped;
+        }
+
+        return RuntimeExecutionOutcome.Error(value switch
+        {
+            VBObjectValue nothing when nothing.IsNothing() => VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, print.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose),
+            VBObjectValue => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, print.Location, "The object has no Print method."),
+            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, print.Owner.Location, "Print is a method of an object."),
+        });
     }
 
     // the parser gives the event's name as the first input, a bare name that is not an expression to evaluate, and the
