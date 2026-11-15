@@ -143,8 +143,10 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
         {
             StdPictureLoadFailure.None => Made(picture!, resolver),
             StdPictureLoadFailure.InvalidPicture => Error(VBRuntimeErrorId.InvalidPicture, request, $"'{text}' is not a picture LoadPicture reads"),
-            StdPictureLoadFailure.BitmapCutShort => throw new AutomationException((int)StdPictureLoadFailure.BitmapCutShort, $"{request.Describe()}: the bitmap is cut short."),
-            var failure => throw new AutomationException((int)failure, $"{request.Describe()}: the metafile states no size."),
+            StdPictureLoadFailure.CutShort => throw new AutomationException(
+                (int)StdPictureLoadFailure.CutShort, string.Format(System.Globalization.CultureInfo.CurrentCulture, Exceptions.VBLoadPicture_CutShort_Verbose, request.Describe())),
+            var failure => throw new AutomationException(
+                (int)failure, string.Format(System.Globalization.CultureInfo.CurrentCulture, Exceptions.VBLoadPicture_MetafileStatesNoSize_Verbose, request.Describe())),
         };
     }
 

@@ -306,4 +306,10 @@
   <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
     <value>An object cannot be passed to or from a function of a native library yet.</value>
   </data>
+  <data name="VBLoadPicture_CutShort_Verbose" xml:space="preserve">
+    <value>{0}: the picture is cut short.</value>
+  </data>
+  <data name="VBLoadPicture_MetafileStatesNoSize_Verbose" xml:space="preserve">
+    <value>{0}: the metafile states no size.</value>
+  </data>
 </root>

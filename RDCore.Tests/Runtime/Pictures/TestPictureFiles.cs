@@ -180,14 +180,19 @@ internal static class TestPictureFiles
         return bytes;
     }
 
-    // a JPEG's start of image, an APP0 segment, and a baseline start of frame of the given size.
+    // a JPEG's start of image, an APP0 segment, a baseline start of frame of the given size, then a start of scan with no data and the end of image. Its first
+    // JpegScanAt bytes end before the scan.
     public static byte[] Jpeg(int width, int height)
     {
-        var bytes = Convert.FromHexString("FFD8FFE000104A46494600010100000100010000" + "FFC0001108000000000301220002110103110100");
+        var bytes = Convert.FromHexString(
+            "FFD8FFE000104A46494600010100000100010000" + "FFC0001108000000000301220002110103110100" + "FFDA000C03010002110311003F00" + "FFD9");
         BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(25), (ushort)height);
         BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(27), (ushort)width);
         return bytes;
     }
+
+    // where the scan of a Jpeg starts: the bytes before it are a JPEG that ends before its scan.
+    public const int JpegScanAt = 40;
 
     // a PNG's signature and IHDR chunk.
     public static byte[] Png(int width, int height)

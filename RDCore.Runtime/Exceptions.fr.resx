@@ -306,4 +306,10 @@
   <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
     <value>Un objet ne peut pas encore être passé à une fonction d'une bibliothèque native, ni en être reçu.</value>
   </data>
+  <data name="VBLoadPicture_CutShort_Verbose" xml:space="preserve">
+    <value>{0} : l'image est tronquée.</value>
+  </data>
+  <data name="VBLoadPicture_MetafileStatesNoSize_Verbose" xml:space="preserve">
+    <value>{0} : le métafichier n'indique pas sa taille.</value>
+  </data>
 </root>
