@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -41,7 +42,11 @@ internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
                 RDCoreDiagnosticId.ParameterNotUsed.ToCode(),
                 parameter.NameRange ?? fact.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.ParameterNotUsed_Message, fact.Name));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.ParameterNotUsed_Message, fact.Name))
+            {
+                // the language server removes the parameter, with its argument from every call.
+                Fixes = new DiagnosticFixes { Refactoring = new RefactoringFix { Kind = RefactoringKinds.RemoveParameter } },
+            };
         }
     }
 }

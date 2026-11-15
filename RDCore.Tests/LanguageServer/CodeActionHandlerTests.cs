@@ -407,6 +407,31 @@ public sealed class CodeActionHandlerTests
     }
 
     [TestMethod]
+    public async Task AParameterThatIsNotUsed_IsOfferedItsRemoval_AsAPreferredFix_AndAParameterThatIsUsed_IsNot()
+    {
+        const string tools = "Attribute VB_Name = \"Tools\"\r\nPublic Sub Go(ByVal a As Long, ByVal b As Long)\r\n    Debug.Print a\r\nEnd Sub\r\nPublic Sub One()\r\n    Go 1, 2\r\nEnd Sub\r\n";
+        Hold(new WorkspaceDocument("Tools.bas", Root, tools, version: 1));
+        var document = DocumentUri.From(Path.Combine(Root, "Tools.bas"));
+        var unused = new Diagnostic
+        {
+            Range = new Range(1, 37, 1, 38),
+            Code = "RDC01013",
+            Source = "RDCore",
+            Message = "Not used",
+            Data = new DiagnosticFixes { Refactoring = new RefactoringFix { Kind = RefactoringKinds.RemoveParameter } }.ToData(),
+        };
+
+        var fixes = await ActionsAsync(document, unused.Range, null, unused);
+        var atTheUsedOne = await ActionsAsync(document, new Range(1, 20, 1, 20), null);
+
+        var fix = Assert.ContainsSingle(fixes.Where(action => action.Title == "Remove parameter 'b'"), "offered once, as the fix");
+        Assert.AreEqual(CodeActionKind.QuickFix, fix.Kind);
+        Assert.IsTrue(fix.IsPreferred);
+        Assert.AreEqual(2, fix.Edit!.Changes!.Single().Value.Count(), "the declaration and the call");
+        Assert.IsFalse(atTheUsedOne.Any(action => action.Kind == CodeActionHandler.RefactorRemoveParameter), "a client that shows no disabled action is offered none");
+    }
+
+    [TestMethod]
     public async Task ARefactoringFixOfAKindThisServerDoesNotMake_IsNotOffered()
     {
         var document = DocumentUri.From(Path.Combine(Root, "Module1.bas"));

@@ -299,7 +299,7 @@ public static class SymbolRename
     // an event of the class itself (Class_Initialize), of its form (UserForm_Click, Form_Load), of a WithEvents variable or a control, or the implementation
     // of a member of an interface. Every procedure of a document module is one, since the events of its host are not known. Any other procedure with an
     // underscore in its name is named as any procedure is.
-    private static bool IsNamedByConvention(RenameContext context, VBClassModuleSymbol owner, Symbol procedure)
+    internal static bool IsNamedByConvention(RenameContext context, VBClassModuleSymbol owner, Symbol procedure)
     {
         if (owner.IsDocument
             || MemberRoles.Of(owner, context.Resolver, designer: null).TryGetValue(procedure.SemanticId, out var role) && role is not DeclarationRole.None)
