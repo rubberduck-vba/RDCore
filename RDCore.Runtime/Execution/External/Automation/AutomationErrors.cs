@@ -45,11 +45,11 @@ internal static class AutomationErrors
         [0x80070002] = VBRuntimeErrorId.FileOrClassNameNotFoundAutomation,   // ERROR_FILE_NOT_FOUND
     };
 
-    // MS-VBA reports a machine that is not there to create an object on by its HRESULT, not as 462 (recorded in Excel, oracle\s25 O03).
+    // MS-VBA reports a machine that is not there to create an object on by its HRESULT, not as 462 (observed in Excel).
     private const uint ServerUnavailable = 0x800706BA;
 
     // what a class that cannot be created is to the call that creates it - CreateObject, GetObject, New - which MS-VBA reports as 429. A member of an object that fails
-    // with one (Controls.Add of a class that is not registered) is reported by its HRESULT, as any other failure of a member is (recorded in Excel, oracle\s41 C08).
+    // with one (Controls.Add of a class that is not registered) is reported by its HRESULT, as any other failure of a member is (observed in Excel).
     private static readonly HashSet<uint> NotCreatable = [0x80040154, 0x800401F3, 0x800401E3, 0x80080005];
 
     /// <summary>

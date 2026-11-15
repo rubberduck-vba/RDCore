@@ -66,8 +66,8 @@ public sealed class DeclaredTypeErrorTests
     public async Task AProceduralModule_IsNotAType_WhereverADeclarationNamesOne(string first, string second, string third, string name)
     {
         // the type binding context binds a procedural module (MS-VBAL §5.6.10), so the name resolved: the declaration loaded, and the variable failed with
-        // error 13 when it was assigned. A procedural module is not a type, so the declaration is not valid. MS-VBA says so in two ways, Excel-verified
-        // (oracle\s29): "A module is not a valid type" of the project's, "Automation type not supported in Visual Basic" of a library's.
+        // error 13 when it was assigned. A procedural module is not a type, so the declaration is not valid. MS-VBA says so in two ways, observed in Excel:
+        // "A module is not a valid type" of the project's, "Automation type not supported in Visual Basic" of a library's.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(first, second, third));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
@@ -83,7 +83,7 @@ public sealed class DeclaredTypeErrorTests
     [DataRow("Private p As VBA", "", "", DisplayName = "A variable of the module")]
     public async Task AProject_IsNotAType(string first, string second, string third)
     {
-        // MS-VBA: "Expected user-defined type, not project" (Excel-verified, oracle\s29 D01, D08).
+        // MS-VBA: "Expected user-defined type, not project" (observed in Excel).
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(first, second, third));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));

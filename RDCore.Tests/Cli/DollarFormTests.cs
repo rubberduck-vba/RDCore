@@ -7,8 +7,7 @@ namespace RDCore.Tests.Cli;
 /// <c>CVar</c>, the <c>$</c> ignored (<strong>MS-VBAL §5.6.10</strong> matches a name by its identifier).
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US, oracle\s46 F18a, F18b, F19), as vb6.exe does (HexIDE findings desk
-/// #18, #19).
+/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US), as vb6.exe does.
 /// </remarks>
 [TestClass]
 [TestCategory("RD-VBAL 6 Standard library")]
@@ -38,7 +37,7 @@ public sealed class DollarFormTests
     public async Task ATypeCharacterOnAReservedFunctionOfTheLibrary_IsIgnored(string expression, string expected)
         => Assert.AreEqual(expected, await PrintedAsync(expression));
 
-    // an ordinary function of the library takes no character it is not declared with (oracle\s44 D14, D15).
+    // an ordinary function of the library takes no character it is not declared with (observed in Excel).
     [TestMethod]
     [DataRow("Asc$(\"A\")")]
     [DataRow("Sqr$(4)")]

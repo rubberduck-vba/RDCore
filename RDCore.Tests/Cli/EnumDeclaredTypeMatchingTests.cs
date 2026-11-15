@@ -159,7 +159,7 @@ public sealed class EnumDeclaredTypeMatchingTests
     [DataRow(SetLong, "Public d As VbDayOfWeek", "SetL o.d\r\nDebug.Print o.d", DisplayName = "An object's variable of an Enum, given to a Long parameter")]
     [DataRow(SetDay, "Public n As Long", "SetD o.n\r\nDebug.Print o.n", DisplayName = "An object's Long variable, given to a parameter of an Enum")]
     public async Task AnObjectsVariable_PassedToAByRefParameterOfTheOtherOfAnEnumAndLong_IsACopy(string procedure, string field, string body)
-        // a public variable of an object named as its member is passed as a copy, whatever its type (MS-VBA, recorded in Excel: oracle\s55 B02; RDC11026).
+        // a public variable of an object named as its member is passed as a copy, whatever its type (MS-VBA, observed in Excel; RDC11026).
         => CollectionAssert.AreEqual(new[] { "0" }, await RunAsync(
             [("Class1", ClassModule("Class1", "Option Explicit", field))], Program(procedure, $"Dim o As New Class1\r\n{body}")));
 

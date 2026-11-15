@@ -17,7 +17,7 @@ public class SessionMemorySegmentTests
     }
 
     [TestMethod]
-    // adversarial review, PRs #208-224, item 5: `_currentAddress.Value + size > _nextSegmentAddress.Value`
+    // `_currentAddress.Value + size > _nextSegmentAddress.Value`
     // does not catch a negative size (an unchecked overflow upstream can produce one, e.g.
     // VBArrayValue.Size's unchecked multiply) - it would rewind the bump pointer backward over live
     // allocations instead, and a byte-backed allocation's later `new byte[size]` throws out of a
@@ -35,7 +35,7 @@ public class SessionMemorySegmentTests
     }
 
     [TestMethod]
-    // adversarial review, PRs #208-224, item 5, author's own resolution: there is no such thing as a
+    // there is no such thing as a
     // 0-byte allocation with a distinct address - `Advance(0)` is a no-op, so two sequential 0-size
     // requests would otherwise collide at the same address. Rejected outright, same as a negative size.
     public void TryAllocate_ZeroSize_ReturnsFalse_AndDoesNotMoveThePointer()

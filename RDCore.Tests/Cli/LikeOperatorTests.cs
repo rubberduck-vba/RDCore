@@ -2,7 +2,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <strong>MS-VBAL §5.6.9.6</strong>, end to end: what <c>Like</c> answers, and when it raises error 93 (<em>Invalid pattern string</em>),
-/// as MS-VBA does - every row was run in Excel (oracle s46 and s47), and the batches keep their names there.
+/// as MS-VBA does - every row was run in Excel.
 /// </summary>
 /// <remarks>
 /// A row is one module: its <c>Option Compare</c>, then <c>Like</c> expressions separated by <c>;;</c>, with <c>'</c> for <c>"</c>. Each
@@ -63,10 +63,10 @@ public sealed class LikeOperatorTests
     // ? and * match a line feed; # matches 0 to 9 only.
     [DataRow("Binary", "'a' & vbLf & 'b' Like 'a?b' ;; 'a' & vbCrLf & 'b' Like 'a*b'", "True|True", DisplayName = "F07 line feed")]
     [DataRow("Binary", "ChrW(&H660) Like '#' ;; ChrW(&H966) Like '#' ;; ChrW(&H6F5) Like '#'", "False|False|False", DisplayName = "F12 # is 0-9")]
-    // # matches the fullwidth digits too, which a [0-9] list does not; no other digit, not a superscript (oracle s56 R15).
+    // # matches the fullwidth digits too, which a [0-9] list does not; no other digit, not a superscript (observed in Excel).
     [DataRow("Binary", "ChrW(&HFF11) Like '#' ;; (ChrW(&HFF10) & '1') Like '##' ;; ChrW(&HFF11) Like '[0-9]' ;; ChrW(&H661) Like '#' ;; ChrW(&HB2) Like '#'",
         "True|True|False|False|False", DisplayName = "R15 # is 0-9 and its fullwidth forms")]
-    // and in Text mode, where a fullwidth digit is no more the digit than in Binary (oracle s56 I01t).
+    // and in Text mode, where a fullwidth digit is no more the digit than in Binary (observed in Excel).
     [DataRow("Text", "ChrW(&HFF11) Like '[0-9]' ;; ChrW(&HFF11) Like '#' ;; ChrW(&HFF11) Like '1' ;; '1' Like ChrW(&HFF11) ;; ChrW(&HFF11) Like '[1]' ;; ChrW(&HFF11) Like '[0-2]'",
         "False|True|False|False|False|False", DisplayName = "I01t the fullwidth digits, Text")]
     // a range is folded like the characters it is tested against: by case alone, and only where the case maps both ways.
@@ -84,7 +84,7 @@ public sealed class LikeOperatorTests
 
     // MS-VBAL 5.6.9.6: in text mode "some number of actual characters in <expression> can match a different number of characters in the
     // pattern", by the regional collation. MS-VBA expands æ, œ, ß and þ (and their capitals) to two letters, in the text and in the pattern, and
-    // nothing else (oracle s47 Q01, like-collation L01-L09, M01-M08): what each element takes of one is in LikePattern.TextUnits. One row MS-VBA
+    // nothing else (observed in Excel): what each element takes of one is in LikePattern.TextUnits. One row MS-VBA
     // answers is left out, because nothing else it answers explains it: ChrW(&HFB03) Like "f*" is True, where every other row of ﬃ is False (L05).
     [TestMethod]
     [DataRow("ChrW(230) Like 'ae' ;; 'ae' Like ChrW(230) ;; ChrW(230) Like 'a?' ;; ChrW(230) Like 'a*' ;; ChrW(230) Like '[' & ChrW(230) & 'a]' ;; 'ss' Like ChrW(223) ;; ChrW(198) Like ChrW(230)",

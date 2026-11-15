@@ -182,7 +182,7 @@ public sealed class NamespaceMemberAccessStaticSemanticsTests
     [TestMethod]
     public void ANamespaceAsTheWholeExpression_IsNoValue()
         // a module a project declares, qualified by the project, is no value as it is not bare (MS-VBA: "Expected variable or procedure, not module",
-        // Excel-verified, oracle\s29 N03).
+        // observed in Excel).
     {
         var result = Evaluate(MemberOf(NameOf("VBA"), "Strings"));
 

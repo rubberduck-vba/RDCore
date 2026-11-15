@@ -163,7 +163,7 @@ public sealed class NewExpressionStaticSemanticsTests
 
     [TestMethod]
     public void QualifiedByTheProjectsName_IgnoresAVariableOfThatName()
-        // the legacy Rubberduck bug (issue #973, comment 3): `New MyProject.Class` bound MyProject to a
+        // a legacy Rubberduck bug: `New MyProject.Class` bound MyProject to a
         // local variable. A variable is never a candidate for the qualifier in the type binding context.
     {
         var project = new VBProjectSymbol(Root, "MyProject");
@@ -183,7 +183,7 @@ public sealed class NewExpressionStaticSemanticsTests
     public void QualifiedByTheProjectsName_WhenTheModuleDeclaresATypeOfThatName_IsStillTheProject()
         // the qualifier of a qualified name is a namespace, and a Type cannot contain a type: the Type declared at
         // module level - which would win the bare name in the type binding context - is not a candidate for it, and
-        // `MyProject` binds the project. This is the shape of `New MyProject.Class` in legacy Rubberduck issue #973.
+        // `MyProject` binds the project. This is the shape of `New MyProject.Class` in that legacy Rubberduck bug.
     {
         var project = new VBProjectSymbol(Root, "MyProject");
         var module = Module("Caller");

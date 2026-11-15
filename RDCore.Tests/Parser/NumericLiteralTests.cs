@@ -154,7 +154,7 @@ public sealed class NumericLiteralTests
     public void Negate_ReturnsNull_ForANonNumericValue()
         => Assert.IsNull(NumericLiteral.Negate(VBUnknownValue.DefaultValue));
 
-    // the least of its type has no negation it can hold: MS-VBA's -&H8000 overflows (recorded in Excel: oracle\s56 G14, s57 N01-N06).
+    // the least of its type has no negation it can hold: MS-VBA's -&H8000 overflows (observed in Excel).
     [TestMethod]
     [DataRow("&H8000", DisplayName = "the least Integer")]
     [DataRow("&O100000", DisplayName = "the least Integer, in octal")]

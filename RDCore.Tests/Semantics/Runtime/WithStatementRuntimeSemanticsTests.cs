@@ -121,7 +121,7 @@ public sealed class WithStatementRuntimeSemanticsTests
     public void UdtTarget_SucceedsThroughRealLetCoercion()
         // MS-VBAL 5.4.2.21: a UDT-valued With target is Let-assigned, not Set-assigned - this needed
         // ILetCoercionRuntimeSemantics's entry point widened from VBOperatorExpression to ExpressionNode
-        // (S5c) before a With statement's own target expression could be passed through it at all.
+        // before a With statement's own target expression could be passed through it at all.
     {
         var udt = new VBUserDefinedTypeMemberSymbol(Root, Root, "TPoint", ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
         var session = ComposeSession();

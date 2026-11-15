@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>RD-VBAL §5.6.13.1</strong>: an argument written <c>ByVal</c> is valid where <strong>MS-VBA</strong> compiles it - before an argument of a <c>ByVal</c>
 /// parameter, where it changes nothing, and of an <c>As Any</c> or a <c>Declare</c>'s parameter - and is the compile error MS-VBA reports anywhere else, not only
-/// valid for an external procedure as <strong>MS-VBAL §5.6.13.1</strong> says. Recorded in Excel (oracle\s22: grid, grid2, grid3).
+/// valid for an external procedure as <strong>MS-VBAL §5.6.13.1</strong> says. Observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class CallSiteByValTests

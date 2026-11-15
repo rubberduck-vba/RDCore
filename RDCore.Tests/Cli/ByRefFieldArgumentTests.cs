@@ -3,7 +3,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>MS-VBAL §5.3.1.11</strong> a public variable of an object, named as a member of it (<c>b.Count</c>, <c>Me.Count</c>), given to a <c>ByRef</c>
 /// parameter: MS-VBA passes a copy, which what the callee assigns to does not write back. Named by itself in its own class, it is the variable, as a module's
-/// variable is however it is named. Each expectation is what MS-VBA prints for the same code, recorded in Excel (oracle\s55 B).
+/// variable is however it is named. Each expectation is what MS-VBA prints for the same code, observed in Excel.
 /// </summary>
 /// <remarks>
 /// MS-VBAL §5.6.12 classifies <c>b.Count</c> as a variable, which §5.3.1.11 would pass by reference: RD-VBA does as MS-VBA does, and warns (RDC11026, RD-VBAL

@@ -115,7 +115,7 @@ public sealed class WorkspaceReloadServiceTests
         _refresh.Received(1).Changed();
     }
 
-    // a resource file the project gained is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
+    // a resource file the project gained is a document of the workspace, and none of its code: it is never parsed.
     [TestMethod]
     public async Task AnOtherFileTheProjectGained_IsLoaded_AndNotParsed()
     {

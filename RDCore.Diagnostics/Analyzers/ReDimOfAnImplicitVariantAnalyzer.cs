@@ -15,8 +15,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// MS-VBAL makes such a variable a <c>Variant</c> (or the type a <c>Def</c><em>Type</em> directive gives the name), which a <c>ReDim</c> re-dimensions, as
 /// vb6.exe does. MS-VBA refuses the <c>ReDim</c> at compile time instead, "Invalid ReDim", whether the earlier use writes the name, reads it, or is on a line
-/// that never runs (recorded in Excel: oracle\findings-labels R01-R10). RD-VBA runs it as the specification and vb6.exe do, and warns, by the author's ruling
-/// (HexIDE's findings desk #9). That the name was declared implicitly is a fact of the declaration the host vouches for
+/// that never runs (observed in Excel). RD-VBA runs it as the specification and vb6.exe do, and warns.
+/// That the name was declared implicitly is a fact of the declaration the host vouches for
 /// (<see cref="SDK.Semantics.DeclarationFact.DeclaredBy"/>); a name used only after its first <c>ReDim</c> is the array that <c>ReDim</c> declares
 /// (<c>RDC00114</c>), and nothing is reported here.
 /// </remarks>

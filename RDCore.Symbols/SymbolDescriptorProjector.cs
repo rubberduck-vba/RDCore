@@ -112,8 +112,7 @@ public static class SymbolDescriptorProjector
     // null for a symbol kind this descriptor tree has no shape for (a procedure-local, for one) —
     // callers must treat that as "skip this symbol", not an error: a local can legitimately reach here
     // if it's ever wrongly parented to the module itself rather than to its owning procedure, and one
-    // stray symbol must not crash the whole module's projection (adversarial review PRs #208-224,
-    // item 7 — the top-level call site here wasn't covered by #209's guard on the child path below).
+    // stray symbol must not crash the whole module's projection.
     private static SymbolDescriptorKind? KindOf(Symbol symbol) => symbol switch
     {
         // most specific first: externals subclass Function/Procedure, and Property Let/Set subclass Procedure.
