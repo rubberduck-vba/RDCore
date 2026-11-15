@@ -16,6 +16,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.Stdole;
 using RDCore.SDK.Workspace.Pictures;
 
 namespace RDCore.Runtime.Execution.External.Pictures;
@@ -50,8 +51,7 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
     private const int SmallIconSide = 16;
     private const int CustomSize = 4;
 
-    // what MS-VBA raises for a bitmap cut short (E_UNEXPECTED) and for a metafile with no placeable header (E_FAIL).
-    private const int Unexpected = unchecked((int)0x8000FFFF);
+    // what MS-VBA raises for hPal on a picture with no palette (E_FAIL).
     private const int Failed = unchecked((int)0x80004005);
 
     private int _handles;
@@ -101,7 +101,7 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        session.ExternalObjects.Bind(identity, this, new StdPictureObject { IsNew = true });
+        session.ExternalObjects.Bind(identity, this, StdPictureObject.CreateNew());
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 
@@ -115,7 +115,7 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
         // no file name is a picture of nothing.
         if (name is null or VBMissingValue or VBEmptyValue)
         {
-            return Made(new StdPictureObject(), resolver);
+            return Made(StdPictureObject.CreateEmpty(), resolver);
         }
 
         if (name is VBNullValue)
@@ -130,7 +130,7 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
 
         if (string.IsNullOrEmpty(text))
         {
-            return Made(new StdPictureObject(), resolver);
+            return Made(StdPictureObject.CreateEmpty(), resolver);
         }
 
         var (width, height) = visualBasic ? VisualBasicSize(arguments) : (Whole(arguments, 1), Whole(arguments, 2));
@@ -139,9 +139,13 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
             return refused;
         }
 
-        return Picture(bytes, width, height, request) is { } picture
-            ? Made(picture, resolver)
-            : Error(VBRuntimeErrorId.InvalidPicture, request, $"'{text}' is not a picture LoadPicture reads");
+        return StdPictureObject.TryLoad(bytes, width, height, NextHandle, out var picture) switch
+        {
+            StdPictureLoadFailure.None => Made(picture!, resolver),
+            StdPictureLoadFailure.InvalidPicture => Error(VBRuntimeErrorId.InvalidPicture, request, $"'{text}' is not a picture LoadPicture reads"),
+            StdPictureLoadFailure.BitmapCutShort => throw new AutomationException((int)StdPictureLoadFailure.BitmapCutShort, $"{request.Describe()}: the bitmap is cut short."),
+            var failure => throw new AutomationException((int)failure, $"{request.Describe()}: the metafile states no size."),
+        };
     }
 
     private RuntimeSemanticsEvaluationResult? ReadFile(string path, ExternalCallRequest request, out byte[] bytes)
@@ -167,53 +171,6 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
         return path.IndexOfAny(['*', '?']) >= 0
             ? Error(VBRuntimeErrorId.PathOrFileAccessError, request, $"'{path}' is a pattern")
             : null;
-    }
-
-    // the picture a file is, at the size asked of an icon; null for a file that is none.
-    private StdPictureObject? Picture(byte[] bytes, int width, int height, ExternalCallRequest request)
-    {
-        if (!PictureHeader.TryRead(bytes, out var info))
-        {
-            // a bitmap file that is cut short is not a failure of the format that MS-VBA can name.
-            if (bytes.AsSpan().StartsWith("BM"u8))
-            {
-                throw new AutomationException(Unexpected, $"{request.Describe()}: the bitmap is cut short.");
-            }
-
-            return null;
-        }
-
-        switch (info.Format)
-        {
-            case PictureFormat.Png:
-                return null;
-            case PictureFormat.Metafile when info.HimetricWidth == 0 && info.HimetricHeight == 0:
-                throw new AutomationException(Failed, $"{request.Describe()}: the metafile states no size.");
-            case PictureFormat.Icon or PictureFormat.Cursor:
-                _ = PictureHeader.TryReadIconImages(bytes, out var images);
-                var image = Chosen(images, width, height);
-                return new StdPictureObject
-                {
-                    Format = info.Format, Bytes = bytes, Image = image, Handle = NextHandle(),
-                    Width = PictureInfo.PixelsToHimetric(image.Width), Height = PictureInfo.PixelsToHimetric(image.Height),
-                };
-            default:
-                return new StdPictureObject { Format = info.Format, Bytes = bytes, Handle = NextHandle(), Width = info.HimetricWidth, Height = info.HimetricHeight };
-        }
-    }
-
-    // the image of the size asked for, of the most bits per pixel when there are several; with none of that size, the first of the file, whatever its size:
-    // no size near the one asked for is preferred to it (observed in Excel). Asking for no size (0 by 0) is asking for the system's icon size.
-    private static IconImage Chosen(System.Collections.Immutable.ImmutableArray<IconImage> images, int width, int height)
-    {
-        if (width == 0 && height == 0)
-        {
-            (width, height) = (IconSide, IconSide);
-        }
-
-        return images.Where(image => image.Width == width && image.Height == height).OrderByDescending(image => image.BitCount).FirstOrDefault() is { Length: > 0 } sized
-            ? sized
-            : images[0];
     }
 
     // Size: the system's small icon or its large one, the shell's (the same sizes here), or X by Y; nothing is the size stdole's LoadPicture takes for none.
@@ -292,8 +249,8 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
             ("TYPE", "get") => Success(new VBIntegerValue(picture.Type)),
             ("WIDTH", "get") => Success(new VBLongValue(picture.Width)),
             ("HEIGHT", "get") => Success(new VBLongValue(picture.Height)),
-            ("HPAL", "get") when picture.Format is PictureFormat.Bitmap or PictureFormat.Gif or PictureFormat.Jpeg => Success(new VBLongValue(picture.Palette)),
-            ("HPAL", "let") when picture.Format is PictureFormat.Bitmap or PictureFormat.Gif or PictureFormat.Jpeg => SetPalette(picture, request, resolver),
+            ("HPAL", "get") when picture.HasPalette => Success(new VBLongValue(picture.Palette)),
+            ("HPAL", "let") when picture.HasPalette => SetPalette(picture, request, resolver),
             // a picture that is not a bitmap has no palette, to read or to assign: the method fails.
             ("HPAL", _) => throw new AutomationException(Failed, "Method 'hPal' of object 'Picture' failed"),
             _ => Error(VBRuntimeErrorId.ObjectDoesntSupportThisAction, request, $"{name} is not implemented for a picture"),
