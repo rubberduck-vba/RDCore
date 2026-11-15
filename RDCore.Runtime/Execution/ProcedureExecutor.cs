@@ -1757,8 +1757,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return outcome;
         }
 
-        // a program that was stopped inside a call is stopped, whatever the statement that made the call failed with: the call had no answer, and what made
-        // an error of that (a conversion of its value, which says why it has none) raised nothing of the program's. No handler runs, and Err is left as it is.
+        // a program stopped inside a call stays stopped, whatever error the statement that made the call failed with: that error comes from the call having
+        // no value (a conversion of the value it did not give), and the program raised nothing. No handler runs, and Err is left as it is.
         if (session.Halt.Pending is { } halt)
         {
             return halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break;

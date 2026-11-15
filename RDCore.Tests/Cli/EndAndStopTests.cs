@@ -166,7 +166,7 @@ public sealed class EndAndStopTests
     }
 
     // the value of an object is its default member's, which a statement reads where it needs a value: an End there ends the program, as an End in a function
-    // the statement calls does. Nothing after it runs, an On Error Resume Next has no error to go on from, and the program run again starts from the start.
+    // the statement calls does. Nothing after it runs, an On Error Resume Next has no error to go on from, and the next run of the program starts afresh.
     [TestMethod]
     [DataRow("Total = e", DisplayName = "assigned")]
     [DataRow("Total = e + 1", DisplayName = "an operand")]
@@ -176,13 +176,13 @@ public sealed class EndAndStopTests
     [DataRow("Total = Abs(e)", DisplayName = "a function's argument")]
     [DataRow("Debug.Print e", DisplayName = "printed")]
     [DataRow("If e Then Total = 9", DisplayName = "a condition")]
-    [DataRow("Select Case e: Case 1: End Select", DisplayName = "a Select Case's")]
+    [DataRow("Select Case e: Case 1: End Select", DisplayName = "a Select Case's test expression")]
     [DataRow("Debug.Print VarType(e)", DisplayName = "VarType's argument")]
     [DataRow("Dim r As Object: Set r = CreateObject(\"VBScript.RegExp\"): r.Pattern = \"a\": Debug.Print r.Replace(\"a\", e)", DisplayName = "a RegExp's replacement")]
     public Task End_InADefaultMemberRead_EndsTheProgramThere(string read) => EndsTheProgramAt(read);
 
     [TestMethod]
-    public async Task End_InADefaultMemberRead_Written_EndsTheProgramThere()
+    public async Task End_InADefaultMemberReadByWriteToAFile_EndsTheProgramThere()
     {
         var path = Path.Combine(Path.GetTempPath(), $"rdcore-end-write-{Guid.NewGuid():N}.txt");
         try
