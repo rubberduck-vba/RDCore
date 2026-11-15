@@ -96,6 +96,12 @@ internal enum EncapsulationRefusalKind
     /// <c>Property Set</c> cannot take.
     /// </summary>
     WrittenOutside,
+
+    /// <summary>
+    /// A <c>Mid</c> statement outside the module replaces characters of the field. Through a property, it is not known whether the characters replaced are
+    /// written back through its <c>Property Let</c>, so the write could be lost.
+    /// </summary>
+    ReplacedByMid,
 }
 
 /// <summary>
@@ -121,8 +127,9 @@ internal sealed record class EncapsulationOptions(string? BackingField = null, b
 /// <param name="Kind">Why.</param>
 /// <param name="Name">The name that is taken, for <see cref="EncapsulationRefusalKind.NameTaken"/>, or that cannot be declared, for
 /// <see cref="EncapsulationRefusalKind.NotAName"/>.</param>
-/// <param name="Module">The module of the reference, for <see cref="EncapsulationRefusalKind.WritesThroughACopy"/> and
-/// <see cref="EncapsulationRefusalKind.WrittenOutside"/>.</param>
+/// <param name="Module">The module of the reference, for <see cref="EncapsulationRefusalKind.WritesThroughACopy"/>,
+/// <see cref="EncapsulationRefusalKind.WritesAnElement"/>, <see cref="EncapsulationRefusalKind.WrittenOutside"/> and
+/// <see cref="EncapsulationRefusalKind.ReplacedByMid"/>.</param>
 /// <param name="Range">Where the reference is.</param>
 /// <param name="Field">The field that is not encapsulated, among the fields planned.</param>
 internal sealed record class EncapsulationRefusal(
@@ -335,15 +342,22 @@ internal static class EncapsulateField
             return (null, new(isRecord ? EncapsulationRefusalKind.WritesThroughACopy : EncapsulationRefusalKind.WrittenOutside, Module: assigned.Module, Range: assigned.Range));
         }
 
+        // a Mid statement replaces characters where the field is stored: through a property, it might replace them in the value Property Get gives.
+        if (MidTargets(context, outside).Select(occurrence => (NameOccurrence?)occurrence).FirstOrDefault() is { } replaced)
+        {
+            return (null, new(EncapsulationRefusalKind.ReplacedByMid, Module: replaced.Module, Range: replaced.Range));
+        }
+
         // the references inside the module: through the state, or through the properties but for those that assign the field where no property takes it,
-        // and those that write an element of it, an array, or resize or erase it.
+        // those a Mid statement writes, and those that write an element of it, an array, or resize or erase it.
         var inside = mine.Where(occurrence => occurrence.Module.AbsoluteUri == module.AbsoluteUri && occurrence.Kind is OccurrenceKind.Name).ToList();
         var writesInside = options.InsideThroughProperties && type is VBArrayType
             ? ElementsOf(context, inside).Where(element => element.Writes).Select(element => element.Occurrence.Range.Start).ToHashSet()
             : [];
+        var replacedInside = MidTargets(context, inside);
         var throughState = options.InsideThroughProperties
             ? inside.Where(occurrence => (!assignable && ReferenceOf(occurrence)?.Use is ReferenceUse.Let or ReferenceUse.Set)
-                || writesInside.Contains(occurrence.Range.Start)).ToList()
+                || replacedInside.Contains(occurrence) || writesInside.Contains(occurrence.Range.Start)).ToList()
             : inside;
         var throughProperties = inside.Except(throughState).ToList();
 
@@ -441,6 +455,35 @@ internal static class EncapsulateField
         return ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia).IsConditional(variable.SourceLocation.Range.Start)
             ? new(EncapsulationRefusalKind.Conditional)
             : null;
+    }
+
+    // the references that are the target of a Mid statement, in any of its forms (Mid, Mid$, MidB, MidB$): `Mid(Field, 1, 1) = "x"`.
+    private static List<NameOccurrence> MidTargets(RenameContext context, IEnumerable<NameOccurrence> occurrences)
+    {
+        var parents = new Dictionary<string, Dictionary<SyntaxNode, SyntaxNode>>(StringComparer.Ordinal);
+        var targets = new List<NameOccurrence>();
+        foreach (var occurrence in occurrences)
+        {
+            if (occurrence.Node is not ExpressionNode expression
+                || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is not { } module)
+            {
+                continue;
+            }
+
+            if (!parents.TryGetValue(module.Module.AbsoluteUri, out var parentOf))
+            {
+                parentOf = NameOccurrences.Walk(module.Syntax).Where(pair => pair.Parent is not null)
+                    .ToDictionary<(SyntaxNode Node, SyntaxNode? Parent), SyntaxNode, SyntaxNode>(pair => pair.Node, pair => pair.Parent!, ReferenceEqualityComparer.Instance);
+                parents[module.Module.AbsoluteUri] = parentOf;
+            }
+
+            if (parentOf.GetValueOrDefault(expression) is MidStatementNode mid && ReferenceEquals(mid.Target, expression))
+            {
+                targets.Add(occurrence);
+            }
+        }
+
+        return targets;
     }
 
     // a reference outside the module that writes the field, or a member of it, of a user-defined type: assigns it, passes it to a parameter that may be ByRef, or
