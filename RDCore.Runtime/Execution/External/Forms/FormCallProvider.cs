@@ -351,6 +351,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         }
 
         session.ExternalObjects.Bind(identity, outside.Automation, created);
+        PlatformObjects.Of(session).AdoptForm(identity, created, designer.Kind);
         FormEvents.Listen(session, outside.Automation, outside.Forms, identity, created, designer);
         return created;
     }

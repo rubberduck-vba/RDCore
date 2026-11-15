@@ -12,12 +12,16 @@ namespace RDCore.Runtime.Execution.External;
 /// <para>
 /// Apart from the policy over <c>Declare</c>d imports on purpose: automating a spreadsheet and calling an arbitrary export are not the same risk.
 /// </para>
+/// <para>
+/// A call the platform answers (<see cref="ExternalCallRequest.IsAnsweredByPlatform"/>) is let through: a member of a program's form, or of a control the form
+/// handed out (<see cref="Forms.PlatformObjects"/>), is its own user interface, a Visual Basic 6.0 form's and a UserForm's alike.
+/// </para>
 /// </remarks>
 public sealed class AutomationPolicyInterceptor : IExternalCallInterceptor
 {
     /// <inheritdoc/>
     public ExternalCallDecision Intercept(ExternalCallRequest request, IRuntimeSession session)
-        => request.IsAutomation && !session.Environment.AllowAutomation
+        => request.IsAutomation && !request.IsAnsweredByPlatform && !session.Environment.AllowAutomation
             ? ExternalCallDecision.Block("automation is disabled for this environment")
             : ExternalCallDecision.Allow;
 }
