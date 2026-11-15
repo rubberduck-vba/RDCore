@@ -528,7 +528,7 @@ public sealed class SyntaxErrorRunRefusalTests
         {
             Assert.AreEqual(ExecutionOutcome.Completed, ran.Outcome, ran.ErrorMessage);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], syntaxErrors: true, ("Program", ModuleType.StdModule, program), BadOther);
-            _ = await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            _ = await new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = Wire.FileUri(ModuleWorkspace.Root),
