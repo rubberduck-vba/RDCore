@@ -207,6 +207,7 @@ public sealed class NewExpressionStaticSemanticsTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, result.ErrorInfo!.VBCompileErrorId);
+        Assert.AreEqual(string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_NewTypeNotResolved_Verbose, "Nope"), result.ErrorInfo!.Verbose);
     }
 
     [TestMethod]
@@ -256,6 +257,8 @@ public sealed class NewExpressionStaticSemanticsTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, result.ErrorInfo!.VBCompileErrorId);
+        Assert.AreEqual(string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_NewTypeQualifierNotResolved_Verbose, "SomeOtherProject.Collection1",
+            "SomeOtherProject"), result.ErrorInfo!.Verbose);
     }
 
     [TestMethod]

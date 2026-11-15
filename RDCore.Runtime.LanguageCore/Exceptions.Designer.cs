@@ -1426,6 +1426,24 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The class '{0}' of the New expression could not be resolved.
+        /// </summary>
+        internal static string VBCompileError_NewTypeNotResolved_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NewTypeNotResolved_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The class '{0}' of the New expression could not be resolved: '{1}' is not a project or a module that this project can see.
+        /// </summary>
+        internal static string VBCompileError_NewTypeQualifierNotResolved_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NewTypeQualifierNotResolved_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to None of the static semantic applicable rules for this operation matched the data type(s) of the provided input(s): {$INPUTS}.
         /// </summary>
         internal static string VBCompileError_TypeMismatch_Verbose {
