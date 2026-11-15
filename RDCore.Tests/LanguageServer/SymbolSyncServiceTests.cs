@@ -14,6 +14,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.Symbols;
 using RDCore.SDK.Platform.Components;
 
@@ -144,6 +145,38 @@ public sealed class SymbolSyncServiceTests
                 !p.Symbols.Any(symbol => symbol.Kind == SymbolDescriptorKind.ModuleField)
                 && p.Symbols.Single(symbol => symbol.Name == "Foo").Locals.Any(local => local.Name == "A")),
             Arg.Any<CancellationToken>());
+    }
+
+    // the parser's JSON of a parse, told apart from what writing the same parse again gives by the space it starts with, which a reader skips.
+    private static PlatformJsonEnvelope Answered(ModuleParseResult parse) => new() { Json = " " + PlatformJson.Serialize(parse) };
+
+    [TestMethod]
+    public async Task AParseTheParserAnswered_GoesToTheHost_AsTheJsonItCameIn()
+    {
+        var envelope = Answered(Parse("Public Sub Foo()\r\nEnd Sub"));
+        var (sut, host) = Build(ParserJson.Unwrap(envelope));
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await host.Received(1).SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p => p.CodeOnly && p.ParseResultJson == envelope.Json), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AParseTheLanguageServerChanged_GoesToTheHost_WrittenAgain()
+    {
+        var changed = ParserJson.Unwrap(Answered(Parse("Public Sub Foo()\r\nEnd Sub"))) with
+        {
+            Designer = new FormDescriptor("UserForm1", FormDesignerKind.MSForms, new FormControlClass("MSForms", "UserForm"),
+                new Dictionary<string, string>(), []),
+        };
+        var (sut, host) = Build(changed);
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await host.Received(1).SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p => p.CodeOnly && p.ParseResultJson == PlatformJson.Serialize(changed)), Arg.Any<CancellationToken>());
+        Assert.IsNotNull(PlatformJson.Deserialize<ModuleParseResult>(PlatformJson.Serialize(changed)).Designer);
     }
 
     [TestMethod]
