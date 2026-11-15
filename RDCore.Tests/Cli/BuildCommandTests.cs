@@ -613,6 +613,22 @@ public sealed class BuildCommandTests
     }
 
     [TestMethod]
+    public async Task TheBuiltProgram_OfAProjectImportedFromAVbp_RunsAsVisualBasic6()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()", "    Dim t As VB.Timer", "    Debug.Print \"ran\"", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { "ran" }, built.Output, built.Error);
+    }
+
+    [TestMethod]
     [DataRow(null, DisplayName = "a project that was not imported")]
     [DataRow("Probe.xlsm", DisplayName = "a project imported from anything but a .vbp")]
     public async Task Run_OfAnyOtherProject_RunsItInTheLanguageOfTheSetting(string? sourceProject)
