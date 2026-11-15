@@ -420,7 +420,7 @@
     <value>NO BREAKPOINTS</value>
   </data>
   <data name="Repl_Inlays_Summary" xml:space="preserve">
-    <value>Shows the hints of the language server in a listing - the name of the parameter each argument is given to, and the type of a declaration that states none - or stops showing them (INLAYS ON, INLAYS OFF).</value>
+    <value>Shows the hints of the language server in a listing, or stops showing them (INLAYS ON, INLAYS OFF). Each is in brackets where it applies: the name of the parameter an argument is given to ([Prompt:]), the type of a declaration that states none ([As Variant]), and the variable of a Next that names none ([i]).</value>
   </data>
   <data name="Repl_Inlays_On" xml:space="preserve">
     <value>HINTS SHOWN IN LISTINGS</value>

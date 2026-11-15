@@ -437,8 +437,9 @@ public sealed class ExpressionPastTheLimitTests
     {
         var context = Workspace(Parse());
 
-        var hints = LargeStackThread.Run(() => ParameterHints.In(context, Program, new SourceRange(new(0, 0), new(Lines.Length, 0))));
+        var arguments = new RDCore.SDK.Server.Configuration.SdkInlayHintOptions { BlockEnds = false, NextVariables = false, ImplicitModifiers = false, ImplicitTypes = false };
+        var hints = LargeStackThread.Run(() => RDCore.LanguageServer.Services.Refactoring.InlayHints.In(context, Program, new SourceRange(new(0, 0), new(Lines.Length, 0)), arguments));
 
-        Assert.AreEqual("amount", Assert.ContainsSingle(hints).Name);
+        Assert.AreEqual("[amount:]", Assert.ContainsSingle(hints).Label);
     }
 }

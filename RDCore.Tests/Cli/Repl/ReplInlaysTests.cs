@@ -30,9 +30,9 @@ public sealed class ReplInlaysTests
         // "10 MsgBox "Hello", vbOKOnly": the arguments begin at characters 10 and 19; "20 Dim x" ends at 8.
         _platform.GetInlayHintsAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<ReplInlayHint>>(
         [
-            new ReplInlayHint(0, 10, "Prompt: "),
-            new ReplInlayHint(0, 19, "Buttons: "),
-            new ReplInlayHint(1, 8, " As Variant"),
+            new ReplInlayHint(0, 10, "[Prompt:]"),
+            new ReplInlayHint(0, 19, "[Buttons:]"),
+            new ReplInlayHint(1, 8, " [As Variant]"),
         ]));
 
         var workspace = await ReplWorkspace.CreateAsync(new MockFileSystem(), Substitute.For<IProjectFileWriter>());
@@ -68,9 +68,9 @@ public sealed class ReplInlaysTests
         _console.Received().WriteLine(Resources.Repl_Inlays_On);
         var listed = await ListAsync();
 
-        CollectionAssert.AreEqual(new[] { "10 MsgBox Prompt: \"Hello\", Buttons: vbOKOnly", "20 Dim x As Variant" }, listed.Select(TextOf).ToArray());
-        Assert.AreEqual(ReplTextStyle.Ghost, listed[0].Single(run => run.Text == "Prompt: ").Style);
-        Assert.AreEqual(ReplTextStyle.Ghost, listed[1].Single(run => run.Text == " As Variant").Style);
+        CollectionAssert.AreEqual(new[] { "10 MsgBox [Prompt:]\"Hello\", [Buttons:]vbOKOnly", "20 Dim x [As Variant]" }, listed.Select(TextOf).ToArray());
+        Assert.AreEqual(ReplTextStyle.Ghost, listed[0].Single(run => run.Text == "[Prompt:]").Style);
+        Assert.AreEqual(ReplTextStyle.Ghost, listed[1].Single(run => run.Text == " [As Variant]").Style);
         await _platform.Received(1).GetInlayHintsAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>());
     }
 
