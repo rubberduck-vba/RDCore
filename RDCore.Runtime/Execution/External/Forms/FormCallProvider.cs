@@ -270,15 +270,15 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
-    // Load and Unload of an element of a control array, given the array and the index: its server loads or unloads the element, and raises what VB6 raises. An
-    // object that is no control array of a form's server has no element to load (361).
+    // Load and Unload of an element of a control array, given the array and the index: its server loads or unloads the element, and raises what VB6 raises.
+    // Any object other than a control array of a form's server has no element to load (361).
     private RuntimeSemanticsEvaluationResult LoadOrUnloadElement(ExternalCallRequest request, IRuntimeSymbolResolver resolver, bool unload)
     {
         if (request.Arguments is not [var array, var index] || ObjectArgument(array, resolver) is not { } identity
             || !session.ExternalObjects.TryGet(identity, out var owner, out var handle) || !ReferenceEquals(owner, outside.Automation))
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.CantLoadOrUnloadThisObject, request.CallSite,
-                $"{request.Describe()}: the object is no control array."));
+                $"{request.Describe()}: the object is not a control array of a form."));
         }
 
         try
