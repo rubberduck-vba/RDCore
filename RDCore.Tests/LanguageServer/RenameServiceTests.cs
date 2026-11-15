@@ -153,4 +153,32 @@ public sealed class RenameServiceTests
         Assert.AreEqual(Document("Tools.bas").AbsoluteUri, changes[^1].RenameFile!.NewUri.ToUri().AbsoluteUri);
         Assert.AreEqual(true, changes[^1].RenameFile!.Options?.IgnoreIfExists, "a file of that name is left as it is");
     }
+
+    [TestMethod]
+    public async Task AForm_IsRenamedWithItsBinaryFile_AndItsDesignerNamesTheRenamedOne()
+    {
+        const string text = "VERSION 5.00\r\nBegin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog\r\n   Caption = \"Dialog\"\r\n   OleObjectBlob = \"Dialog.frx\":0000\r\nEnd\r\n"
+            + "Attribute VB_Name = \"Dialog\"\r\nPublic Sub Go()\r\nEnd Sub\r\n";
+        var dialog = new WorkspaceDocument("Dialog.frm", Root, text, version: 1);
+        var all = _documents.GetAllDocuments().ToList();
+        _documents.GetAllDocuments().Returns([.. all, dialog]);
+        var uri = dialog.Id.Uri.ToUri();
+        _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = dialog; return true; });
+        _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(dialog))));
+
+        var answer = await Sut().RenameAsync(Document("Dialog.frm"), new Position(5, 22), "Prompt", CancellationToken.None);
+
+        Assert.IsNotNull(answer.Value, answer.Refusal);
+        var changes = answer.Value.DocumentChanges!.ToList();
+        var renames = changes.Where(change => change.IsRenameFile).Select(change => change.RenameFile!).ToList();
+        CollectionAssert.AreEqual(
+            new[] { (Document("Dialog.frm").AbsoluteUri, Document("Prompt.frm").AbsoluteUri), (Document("Dialog.frx").AbsoluteUri, Document("Prompt.frx").AbsoluteUri) },
+            renames.Select(rename => (rename.OldUri.ToUri().AbsoluteUri, rename.NewUri.ToUri().AbsoluteUri)).ToArray());
+        Assert.IsTrue(renames.All(rename => rename.Options is { Overwrite: false, IgnoreIfExists: false }), "neither file is renamed over one that exists");
+        var named = changes[^1].TextDocumentEdit!;
+        Assert.AreEqual(Document("Prompt.frm").AbsoluteUri, named.TextDocument.Uri.ToUri().AbsoluteUri, "the renamed designer names the renamed binary file");
+        Assert.AreEqual((new Range(3, 20, 3, 30), "Prompt.frx"), (named.Edits.Single().Range, named.Edits.Single().NewText));
+        var designer = changes.First(change => change.IsTextDocumentEdit).TextDocumentEdit!;
+        Assert.IsTrue(designer.Edits.Any(edit => edit.Range.Start.Line == 1 && edit.NewText == "Prompt"), "the designer's Begin line");
+    }
 }

@@ -322,7 +322,24 @@ internal sealed class RenameWorkspace
         if (plan.Module is { } renamedModule && part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == renamedModule.AbsoluteUri) is { } file
             && FileRenameOf(file, target.Name, newName) is { } renameFile)
         {
-            changes = changes.Append(new WorkspaceEditDocumentChange(renameFile));
+            // a designer's binary file (Dialog.frx), which its text names, is renamed with it, then its text names the new one. Neither file is renamed over one
+            // that exists: the client refuses the edit, and the text does not name a file it was not renamed to.
+            if (CompanionOf(file, newName) is { } companion)
+            {
+                renameFile = renameFile with { Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false } };
+                changes = changes
+                    .Append(new WorkspaceEditDocumentChange(renameFile))
+                    .Append(new WorkspaceEditDocumentChange(companion.Rename))
+                    .Append(new WorkspaceEditDocumentChange(new TextDocumentEdit
+                    {
+                        TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = renameFile.NewUri },
+                        Edits = new TextEditContainer(companion.Names.Select(range => new TextEdit { Range = file.ToTextRange(range), NewText = companion.NewName })),
+                    }));
+            }
+            else
+            {
+                changes = changes.Append(new WorkspaceEditDocumentChange(renameFile));
+            }
         }
 
         var workspaceEdit = new WorkspaceEdit
@@ -354,6 +371,47 @@ internal sealed class RenameWorkspace
             Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
         };
     }
+
+    // the binary file of a designer's file, by the extension of each (a form's .frx, a user control's .ctx), when the designer's text names it as the file of
+    // the same name (OleObjectBlob = "Dialog.frx":0000): its rename, and where the text names it, in the text of the module.
+    private static (RenameFile Rename, IReadOnlyList<SDK.Model.Source.SourceRange> Names, string NewName)? CompanionOf(DocumentModule module, string newName)
+    {
+        var path = module.Document.Id.Uri.GetFileSystemPath();
+        if (!BinaryExtensions.TryGetValue(Path.GetExtension(path), out var extension))
+        {
+            return null;
+        }
+
+        var companion = Path.GetFileNameWithoutExtension(path) + extension;
+        var names = new List<SDK.Model.Source.SourceRange>();
+        var lines = module.Source.Split('\n');
+        for (var line = 0; line < lines.Length && !lines[line].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase); line++)
+        {
+            for (var at = lines[line].IndexOf($"\"{companion}\"", StringComparison.OrdinalIgnoreCase); at >= 0;
+                at = lines[line].IndexOf($"\"{companion}\"", at + companion.Length + 2, StringComparison.OrdinalIgnoreCase))
+            {
+                names.Add(new SDK.Model.Source.SourceRange(line, at + 1, line, at + 1 + companion.Length));
+            }
+        }
+
+        if (names.Count == 0)
+        {
+            return null;
+        }
+
+        return (new RenameFile
+        {
+            OldUri = Sibling(module.Document.Id.Uri, companion),
+            NewUri = Sibling(module.Document.Id.Uri, newName + extension),
+            Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false },
+        }, names, newName + extension);
+    }
+
+    // the binary files of the designers' files of VBA and Visual Basic 6.0: a form, a user control, a designer, a property page, a user document.
+    private static readonly Dictionary<string, string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".frm"] = ".frx", [".ctl"] = ".ctx", [".dsr"] = ".dsx", [".pag"] = ".pgx", [".dob"] = ".dox",
+    };
 
     private static ChangeAnnotationIdentifier? AnnotationOf(RenameEdit edit)
         => edit.IsInString ? InString : edit.IsLateBound ? edit.IsBacked ? LateBoundBacked : LateBound : null;

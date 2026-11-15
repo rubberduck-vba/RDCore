@@ -746,15 +746,32 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
-    public void AForm_IsNotRenamedYet()
+    public void AForm_IsRenamedInItsDesigner_ItsVBName_AndWhereItIsUsed()
     {
-        // the designer's text names the form too (Begin ... Dialog).
-        var form = Lines(
-            "VERSION 5.00", "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog", "   Caption = \"Dialog\"", "End",
-            "Attribute VB_Name = \"Dialog\"", "Attribute VB_PredeclaredId = True", "Public Sub Go()", "End Sub");
-        var context = Compose(("Dialog", form), ("Main", Module("Main", "Public Sub One()", "    Dialog.Go", "End Sub")));
+        // the designer's text names the form too (Begin ... Dialog); its caption is text, and stays as it is.
+        string Form(string name) => Lines(
+            "VERSION 5.00", $"Begin {{C62A69F0-16DC-11CE-9E98-00AA00574A4F}} {name}", "   Caption = \"Dialog\"", "End",
+            $"Attribute VB_Name = \"{name}\"", "Attribute VB_PredeclaredId = True", "Public Sub Go()", "End Sub");
+        var context = Compose(("Dialog", Form("Dialog")), ("Main", Module("Main", "Public Sub One()", "    Dialog.Go", "End Sub")));
 
-        Assert.AreEqual(RenameRefusalKind.Type, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Dialog.Go", "Dialog")).Refusal?.Kind);
+        var plan = Rename(context, "Main", "Dialog.Go", "Dialog", "Prompt");
+
+        Assert.AreEqual(Form("Prompt"), Renamed(context, plan, "Dialog"));
+        Assert.AreEqual(Module("Main", "Public Sub One()", "    Prompt.Go", "End Sub"), Renamed(context, plan, "Main"));
+        Assert.AreEqual(ModuleUri("Dialog").AbsoluteUri, plan.Module?.AbsoluteUri, "the module whose files are renamed with it");
+    }
+
+    [TestMethod]
+    public void AFormWithNoVBName_GainsIt_AfterItsDesignerAndTheBlocksOfItsControls()
+    {
+        string[] designer = ["VERSION 5.00", "Begin VB.Form Picker", "   Caption = \"Pick\"", "   Begin VB.CommandButton Ok", "      Caption = \"OK\"", "   End", "End"];
+        var context = Compose(("Picker", Lines([.. designer, "Public Sub Go()", "End Sub"])), ("Main", Module("Main", "Public Sub One()", "    Picker.Go", "End Sub")));
+
+        var plan = Rename(context, "Main", "Picker.Go", "Picker", "Chooser");
+
+        Assert.AreEqual(
+            Lines([.. designer.Select(line => line.Replace("VB.Form Picker", "VB.Form Chooser", StringComparison.Ordinal)), "Attribute VB_Name = \"Chooser\"", "Public Sub Go()", "End Sub"]),
+            Renamed(context, plan, "Picker"));
     }
 
     [TestMethod]
