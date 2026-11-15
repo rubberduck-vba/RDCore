@@ -1190,6 +1190,15 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Shows the splash screen again..
+        /// </summary>
+        public static string Repl_Splash_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Splash_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Shows the procedures the stopped program is in, innermost first..
         /// </summary>
         public static string Repl_Stack_Summary {
