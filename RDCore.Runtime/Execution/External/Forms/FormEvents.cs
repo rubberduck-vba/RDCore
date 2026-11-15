@@ -119,7 +119,7 @@ internal static class FormEvents
                 var controlName = control.Name;
                 var controlIdentity = wrapped.Value;
 
-                // a control array raises the events of its controls' class, each with the index of the control that raised it first; the form's handler is the
+                // a control array raises the events of its controls' class, each with first the index of the control that raised it; the form's handler is the
                 // array's, and no variable holds the array WithEvents.
                 if (FormControlArray.ElementOf(declared) is VBClassType element)
                 {
