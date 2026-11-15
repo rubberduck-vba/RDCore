@@ -34,7 +34,7 @@ namespace RDCore.Runtime.StdLib;
 /// and the arguments of <see cref="Command"/> are none unless the host gives some. An analysis reaches none of it (<see cref="ExternalWorld.None"/>).
 /// </para>
 /// <para>
-/// <see cref="MacScript"/> is not written, and never will be: it returns an error that says so.
+/// <see cref="MacScript"/> raises run-time error 5 (Invalid procedure call or argument) for every script, as MS-VBA does on Windows: RD-VBA has no AppleScript to run.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose objects <see cref="CallByName"/> calls, and whose turn <see cref="DoEvents"/> gives up.</param>
@@ -882,11 +882,11 @@ public sealed class StdInteraction(
 
     #endregion
 
-    #region not implemented
-
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> MacScript(VBStringValue script)
-        => RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(NotImplementedError(nameof(MacScript), "it runs AppleScript, which RD-VBA has none of"));
+        => Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, "MacScript: there is no AppleScript to run the script.");
+
+    #region not implemented
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBObjectValue> CreateObject(VBStringValue objectClass, VBStringValue? serverName = default)
