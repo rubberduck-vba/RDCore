@@ -59,7 +59,9 @@ internal static class ExtendedIntermediates
         => token is Tokens.CompareEqualOp or Tokens.CompareNotEqualOp or Tokens.CompareLessThanOp or Tokens.CompareLessThanOrEqualOp
             or Tokens.CompareGreaterThanOp or Tokens.CompareGreaterThanOrEqualOp;
 
-    /// <summary>The value of a payload, exactly: a <c>Currency</c> is its ten-thousandths divided by 10,000, rounded once.</summary>
+    /// <summary>
+    /// The value of a payload, exactly: a <c>Currency</c> is its ten-thousandths divided by 10,000, rounded once.
+    /// </summary>
     public static Float80 Of(ScalarPayload payload) => payload.Type switch
     {
         VBCurrencyType => Float80.FromCurrency(payload.Integral),

@@ -39,9 +39,7 @@ namespace RDCore.Runtime.Execution;
 /// rather than derived from <see cref="ISymbolResolver"/> (<c>Invoke</c>'s own parameter), since
 /// <see cref="ISymbolResolver"/> has no path back to <see cref="IRuntimeSession.CallStack"/> or
 /// <see cref="ISessionSymbols.CreateFrame"/>. <paramref name="Bodies"/> is the symbol-to-body bridge
-/// nothing else in the platform builds yet: production workspace loading has no step that lowers every
-/// procedure body and remembers the result keyed by its own symbol, so today this is populated by
-/// whoever composes the session (a test, for now) — a real host's own equivalent step is future work.
+/// that whoever composes the session populates: the bodies it has lowered, each keyed by its own symbol.
 /// </remarks>
 /// <param name="Session">The session this invoker runs every call against.</param>
 /// <param name="Bodies">Every procedure's own lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
