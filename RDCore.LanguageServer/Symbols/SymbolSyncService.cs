@@ -404,7 +404,7 @@ internal sealed class SymbolSyncService(
                 Directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives()),
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
-                ParseResultJson = withCode ? PlatformJson.Serialize(parseResult) : string.Empty,
+                ParseResultJson = withCode ? ParserJson.Of(parseResult) : string.Empty,
                 PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult),
                 Replace = replace,
                 DeclareTypesOnly = declareTypesOnly,
@@ -530,7 +530,7 @@ internal sealed class SymbolSyncService(
                 Directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives()),
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
-                ParseResultJson = PlatformJson.Serialize(parseResult),
+                ParseResultJson = ParserJson.Of(parseResult),
                 CodeOnly = true,
             }, token);
 

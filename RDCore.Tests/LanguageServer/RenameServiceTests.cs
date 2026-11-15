@@ -48,6 +48,9 @@ public sealed class RenameServiceTests
         var helpers = new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 3);
         var program = new WorkspaceDocument("Main.rdc", Root, Program, version: 7);
         _documents.GetAllDocuments().Returns([helpers, program]);
+
+        // the client has every document open, unless a test says otherwise.
+        _documents.IsOpen(Arg.Any<TextDocumentIdentifier>()).Returns(true);
         foreach (var document in new[] { helpers, program })
         {
             var uri = document.Id.Uri.ToUri();
@@ -84,6 +87,27 @@ public sealed class RenameServiceTests
         Assert.AreEqual(3, helpers.TextDocument.Version);
         CollectionAssert.AreEqual(new[] { new Range(1, 7, 1, 15), new Range(4, 16, 4, 24) }, helpers.Edits.Select(edit => edit.Range).ToArray());
         Assert.IsTrue(changes.SelectMany(change => change.Edits).All(edit => edit.NewText == "Title"));
+    }
+
+    // a module the client never opened has no version the client knows: its edits name none, as null on the wire, and are of the file as it is on disk.
+    [TestMethod]
+    public async Task ARename_ThatEditsAModuleTheClientHasNotOpened_NamesNoVersionForIt()
+    {
+        _documents.IsOpen(Arg.Is<TextDocumentIdentifier>(id => id.Uri.ToUri().AbsoluteUri == Document("Helpers.bas").AbsoluteUri)).Returns(false);
+
+        var answer = await Sut().RenameAsync(Document("Main.rdc"), new Position(2, 15), "Title", CancellationToken.None);
+
+        Assert.IsNotNull(answer.Value, answer.Refusal);
+        var changes = answer.Value.DocumentChanges!.Select(change => change.TextDocumentEdit!).ToList();
+        var program = changes.Single(change => change.TextDocument.Uri.ToUri().AbsoluteUri == Document("Main.rdc").AbsoluteUri);
+        var helpers = changes.Single(change => change.TextDocument.Uri.ToUri().AbsoluteUri == Document("Helpers.bas").AbsoluteUri);
+        Assert.AreEqual(7, program.TextDocument.Version, "the module the client has open, at its version");
+        Assert.IsNull(helpers.TextDocument.Version);
+        Assert.HasCount(2, helpers.Edits, "the module is renamed all the same");
+
+        var wire = Newtonsoft.Json.Linq.JObject.Parse(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer().SerializeObject(helpers));
+        Assert.IsTrue(((Newtonsoft.Json.Linq.JObject)wire["textDocument"]!).TryGetValue("version", out var version), wire.ToString());
+        Assert.AreEqual(Newtonsoft.Json.Linq.JTokenType.Null, version!.Type, "null, as LSP 3.17 says, and not left out");
     }
 
     [TestMethod]

@@ -4,20 +4,19 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Runtime.Execution.Memory;
 
 /// <summary>
-/// The <c>BSTR</c> a variable-length <c>String</c> is in the session's memory, as <strong>MS-VBA</strong> lays one out (recorded in Excel, oracle\s17 S05,
-/// S13): its length in bytes as a <c>Long</c>, then its data - two bytes per character, and the odd byte of a <c>String</c> that has one - then a null
+/// The <c>BSTR</c> a variable-length <c>String</c> is in the session's memory, as <strong>MS-VBA</strong> lays one out (observed in Excel): its length in bytes as a <c>Long</c>, then its data - two bytes per character, and the odd byte of a <c>String</c> that has one - then a null
 /// character. <c>StrPtr</c> is the address of the first character, four bytes into the block.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A block is made for a <c>String</c> where it is held - a variable, an element of an array, a field of a record, a <c>Variant</c> - the first time its
-/// address is asked for, and is the same for as long as the holder holds that very <c>String</c>: <c>t = s</c> gives <c>t</c> a block of its own (S03), as
-/// MS-VBA copies the characters, and a <c>String</c> assigned to the holder is in another block (S02).
+/// address is asked for, and is the same for as long as the holder holds that very <c>String</c>: <c>t = s</c> gives <c>t</c> a block of its own, as
+/// MS-VBA copies the characters, and a <c>String</c> assigned to the holder is in another block.
 /// </para>
 /// <para>
 /// The block's bytes are its own: the length is what its first four say, which a <c>POKE</c> can make shorter than the data, and the characters past it stay
-/// where they are (oracle\s17 grid-p3 L01). Another holder can be given the block's address as its pointer, and the two then hold the one <c>String</c>: a
-/// change to the characters through either is the other's too (Q01).
+/// where they are. Another holder can be given the block's address as its pointer, and the two then hold the one <c>String</c>: a
+/// change to the characters through either is the other's too.
 /// </para>
 /// </remarks>
 internal sealed class StringBlock

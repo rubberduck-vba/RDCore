@@ -16,7 +16,7 @@ using RDCore.Runtime.LanguageCore.Binding;
 namespace RDCore.Tests.Runtime.Execution;
 
 /// <summary>
-/// The slots of an activation (IR lowering D2): a variable is read through the address its slot keeps, which is the address of the variable's storage for as
+/// The slots of an activation: a variable is read through the address its slot keeps, which is the address of the variable's storage for as
 /// long as the activation runs - and the binding at that address is read every time, whatever has been bound there since.
 /// </summary>
 [TestClass]

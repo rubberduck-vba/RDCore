@@ -139,7 +139,7 @@ public sealed class CashFlowFunctionTests
 
     // where MS-VBA's forty secant steps find no rate within 1E-07, with a net present value within 1E-09 of the largest flow, it is error 5, though
     // there is a rate: a 30-year mortgage and a five-year car loan, paid monthly, and two investments only partly returned, from the default guess;
-    // and from guesses far from the rate (grid oracle\s43 V21-V24, V26-V30).
+    // and from guesses far from the rate (observed in Excel).
     [TestMethod]
     [DataRow(-100000, 600, 360, 0.1)]
     [DataRow(-25000, 500, 60, 0.1)]

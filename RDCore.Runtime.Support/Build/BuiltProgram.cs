@@ -24,19 +24,22 @@ namespace RDCore.Runtime.Support.Build;
 internal sealed record class BuiltEnvironment(
     bool Is64Bit, int Lcid, int AnsiCodePage, bool SupportsOptionCompareDatabase, OptionCompare DatabaseCompare, VBErlLineNumbering ErlLineNumbering,
     bool AllowDllImports, bool AllowAutomation, bool LegacyRegistrySettings, VBBuildConfiguration Configuration, bool ReleaseDropsDebugStatements,
-    VBErlAfterErrClear ErlAfterErrClear, VBOperatingSystem OperatingSystem)
+    VBErlAfterErrClear ErlAfterErrClear, VBOperatingSystem OperatingSystem, string? Language = null)
 {
+    // Language: the identifier of the language the program was built in, which decides its libraries where it runs as where it was built. A program built
+    // before it was recorded has none, and runs in RD-VBA, as it was built.
     public static BuiltEnvironment Of(IRuntimeEnvironmentProfile environment) => new(
         environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
         environment.ErlLineNumbering, environment.AllowDllImports, environment.AllowAutomation, environment.LegacyRegistrySettings, environment.Configuration,
-        environment.ReleaseDropsDebugStatements, environment.ErlAfterErrClear, environment.OperatingSystem);
+        environment.ReleaseDropsDebugStatements, environment.ErlAfterErrClear, environment.OperatingSystem, environment.Language.Id);
 
     // the procedures of a built program run compiled. Not serialized: the profile's encoding is no JSON.
     [System.Text.Json.Serialization.JsonIgnore]
     public RuntimeEnvironmentProfile Profile => new(
         Is64Bit, Lcid, AnsiCodePage, SupportsOptionCompareDatabase, DatabaseCompare, ErlLineNumbering, AllowDllImports, AllowAutomation: AllowAutomation,
         LegacyRegistrySettings: LegacyRegistrySettings, ExecutionEngine: VBExecutionEngine.Compiled, Configuration: Configuration,
-        ReleaseDropsDebugStatements: ReleaseDropsDebugStatements, ErlAfterErrClear: ErlAfterErrClear, OperatingSystem: OperatingSystem);
+        ReleaseDropsDebugStatements: ReleaseDropsDebugStatements, ErlAfterErrClear: ErlAfterErrClear, OperatingSystem: OperatingSystem,
+        SourceLanguage: SupportedLanguages.TryGet(Language, out var language) ? language : null);
 }
 
 // a module of the project as the build read it: its name and its kind, which its source says and which the program cannot read where it runs.

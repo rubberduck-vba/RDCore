@@ -61,7 +61,7 @@ public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvalua
     /// <remarks>
     /// <strong>MS-VBAL §5.4.2.4</strong> Set-assigns when "the declared type of the array is Object", and Let-assigns otherwise - which would ask an
     /// object an array of <c>Variant</c> holds for its default member, and raise 438 for one that has none. MS-VBA Set-assigns an element that is an
-    /// object whatever the array is declared as, and so does this: the specification's wording is an oversight (author's ruling, 2026-10-16). An
+    /// object whatever the array is declared as, and so does this: the specification's wording is an oversight. An
     /// array of a class is an array of objects as much as one of <c>Object</c> is.
     /// </remarks>
     /// <param name="itemType">The declared type of the elements.</param>

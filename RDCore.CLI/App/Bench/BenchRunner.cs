@@ -241,7 +241,8 @@ internal sealed class BenchRunner(
         CancellationToken token = default)
     {
         var definitions = new List<DefineSymbolsParams>();
-        var built = profile ?? environment;
+        // the program is built in the language it is loaded in, and runs in it (BuiltEnvironment).
+        var built = InTheLanguageOf(workspace, profile ?? environment);
         var load = await LoadAsync(workspace, built, ExternalWorld.None, token, definitions);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
         try
@@ -291,6 +292,13 @@ internal sealed class BenchRunner(
         return (load.Provider, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Problems);
     }
 
+    // the language is the one the project file says, as the language server takes it, over the setting's: a project imported from a .vbp is Visual Basic 6.0
+    // (SupportedLanguages.OfProject). No client names one here.
+    private static IRuntimeEnvironmentProfile InTheLanguageOf(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile)
+        => SupportedLanguages.OfProject(workspace.Project) is { } language && language != profile.Language
+            ? SDK.Runtime.RuntimeEnvironmentProfile.Of(profile) with { SourceLanguage = language }
+            : profile;
+
     private sealed record class LoadedWorkspace(
         EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
         IReadOnlyList<string> Problems, IReadOnlyList<LibraryDescription> Libraries);
@@ -302,6 +310,7 @@ internal sealed class BenchRunner(
         List<DefineSymbolsParams>? definitions = null)
     {
         var root = workspace.RootUri;
+        profile = InTheLanguageOf(workspace, profile);
         var provider = new EnvironmentSessionProvider(
             profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, outside);
         try
@@ -350,10 +359,12 @@ internal sealed class BenchRunner(
 
         // as the language server does: the names of every module bound among all of them and the libraries the project references, then each module's symbols
         // defined in the host, then the code of each.
+        // they are bound in the environment the session was composed for: the profile's language and pointer width, which need not be the runner's.
         stopwatch.Restart();
-        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, environment.Language);
-        IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, environment.Is64Bit).ProvideSymbols()];
-        var scope = environment.Language.ImplicitDeclarationScope;
+        var composed = provider.Session.Environment;
+        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, composed.Language);
+        IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, composed.Is64Bit).ProvideSymbols()];
+        var scope = composed.Language.ImplicitDeclarationScope;
 
         // what host document each document module is the code of, as the language server has it: its code names the members of its host's class, and
         // they are not taken for variables it declares by naming them.
@@ -367,7 +378,7 @@ internal sealed class BenchRunner(
         }
 
         var resolver = WorkspaceSymbolResolver.Compose(
-            root, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(environment.Is64Bit),
+            root, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit),
             workspace.Project.Name, scope, librarySymbols, hosts);
 
         // as the language server does, the types of every module are declared before the declarations of any are bound (DefineSymbolsParams.DeclareTypesOnly).

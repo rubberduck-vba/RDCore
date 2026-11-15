@@ -43,7 +43,7 @@ internal interface IReferencedLibraryService
 /// <remarks>
 /// The libraries are read when they are first asked for, and again when the references of the project are not the ones they were read for: the files that
 /// describe them are the platform's, and do not change while it runs. A library that cannot be loaded is said once, in the log, each time the references
-/// change - the names that use its types are what tell the author, and say that a reference may be missing.
+/// change - the names that use its types are what tell the user, and say that a reference may be missing.
 /// </remarks>
 internal sealed class ReferencedLibraryService(
     IProjectFileService project,

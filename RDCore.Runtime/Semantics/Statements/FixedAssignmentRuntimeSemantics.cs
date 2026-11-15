@@ -75,7 +75,7 @@ public sealed record class FixedAssignmentRuntimeSemantics(
     public RuntimeExecutionOutcome Execute(
         IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment)
     {
-        // a variable is bound once, and read through the slot it is bound to (IR lowering S0.11).
+        // a variable is bound once, and read through the slot it is bound to.
         var bound = Expressions.BoundVariableOf(session, assignment.Target, context);
         var symbol = bound?.Variable;
         VBTypedValue current;

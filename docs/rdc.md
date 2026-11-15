@@ -64,7 +64,8 @@ The shell's language is RDCore BASIC: a variable one line assigns is the one the
 `Ctrl+C` stops a running program. At a stop (a `Stop` statement, a failed `Debug.Assert`, a breakpoint or `Ctrl+C`) the shell lists the two lines above
 the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. A run-time error that nothing
 handles stops the program at the statement that raised it, as in the VBIDE: the shell lists the lines around that statement the same way, then shows
-the error. `CONT` runs the statement again, and `END` ends the program. An error that an `On Error` statement handles does not stop it. A step lists
+the error. `CONT` runs the statement again, and `END` ends the program as an `End` statement does: the variables that earlier lines assigned, the
+`Static` locals, the objects and the open files go with it, and no `Class_Terminate` runs. An error that an `On Error` statement handles does not stop it. A step lists
 nothing: it says only `BREAK IN` and the line number, or shows the error it stopped at. `CONFIG CLI.BreakListingLines`
 sets how many lines are listed on each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's
 immediate pane, and edit the program before you go on.

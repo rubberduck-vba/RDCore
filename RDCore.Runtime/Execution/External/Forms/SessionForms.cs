@@ -18,10 +18,10 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A form is loaded when its instance is created: on <c>New</c>, and on the first reference to its default instance, whatever the reference is (Excel-measured,
-/// <c>oracle\s41</c> L01-L08). It is unloaded by <c>Unload</c>, and then it is an object whose own variables are still there but whose form is gone: a member its
-/// designer declares fails, and nothing loads it again (L15, L51, L52). It is let go of either way, and its <c>Terminate</c> runs once - at <c>Unload</c>, or when
-/// the last reference to a form that was never unloaded goes (L14, L53).
+/// A form is loaded when its instance is created: on <c>New</c>, and on the first reference to its default instance, whatever the reference is (observed in Excel).
+/// It is unloaded by <c>Unload</c>, and then it is an object whose own variables are still there but whose form is gone: a member its
+/// designer declares fails, and nothing loads it again. It is let go of either way, and its <c>Terminate</c> runs once - at <c>Unload</c>, or when
+/// the last reference to a form that was never unloaded goes.
 /// </para>
 /// <para>
 /// The session outlives the pipelines that run its programs, so what it knows of its forms is kept by the session, not by a pipeline.
@@ -112,8 +112,7 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// The <c>Controls</c> collection of a hosted form, and the names of the controls its designer declares: those <c>Controls.Remove</c> cannot remove (444,
-    /// <c>oracle\s41</c> C06).
+    /// The <c>Controls</c> collection of a hosted form, and the names of the controls its designer declares: those <c>Controls.Remove</c> cannot remove (444).
     /// </summary>
     /// <param name="form">The instance of the form's class.</param>
     /// <param name="controls">The handle of its <c>Controls</c> collection.</param>
@@ -156,7 +155,7 @@ internal sealed class SessionForms
 
     /// <summary>
     /// The focus leaves a form that is being unloaded, while it is still listened to: the extender's events of the control that had it - its pending update, its
-    /// <c>Exit</c> - after the form's <c>QueryClose</c> and before its <c>Terminate</c> (<c>oracle\s41</c> E01, E05, E10, E11). A form that is not listened to is left
+    /// <c>Exit</c> - after the form's <c>QueryClose</c> and before its <c>Terminate</c>. A form that is not listened to is left
     /// as it is.
     /// </summary>
     /// <param name="form">The instance of the form's class.</param>
@@ -204,7 +203,7 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// The identity of the session's <c>UserForms</c> collection: one object, the same every time it is asked for (<c>oracle\s41</c> U02). Its instance is made
+    /// The identity of the session's <c>UserForms</c> collection: one object, the same every time it is asked for. Its instance is made
     /// by whatever first asks for it.
     /// </summary>
     public VBRuntimeObjectId? Collection { get; set; }
@@ -313,7 +312,7 @@ internal static class FormHandlers
     public const short FormControlMenu = 0;
 
     /// <summary>
-    /// Unloads a form, as <c>Unload</c> does and as its user closing it does (Excel-measured, <c>oracle\s41</c>): its <c>QueryClose</c> first, which can cancel it;
+    /// Unloads a form, as <c>Unload</c> does and as its user closing it does (observed in Excel): its <c>QueryClose</c> first, which can cancel it;
     /// then the focus leaves it (<see cref="SessionForms.Leave"/>); then its <c>Terminate</c>, its window, its default instance - which the next reference makes
     /// again - and the collection's hold on it, if <c>UserForms.Add</c> loaded it. The object stays, for whatever holds it, and its designer's members fail. A form that was unloaded already is left as it is.
     /// </summary>

@@ -90,7 +90,7 @@ public sealed class InteractionRelayTests
         CollectionAssert.AreEqual(new[] { "before" }, output.Lines.ToArray());
     }
 
-    // overnight #75: a host the language server started is seen by nobody, so the platform's dialog is never shown after a client that shows them - it was, and the
+    // a host the language server started is seen by nobody, so the platform's dialog is never shown after a client that shows them - it was, and the
     // run waited on it forever (HexIDE answering a vbOKOnly box with vbYes).
     [TestMethod]
     public void AnAnswerThatIsNoButtonOfTheDialog_FailsTheRun_AndShowsNoDialogOfThePlatforms()
@@ -286,7 +286,7 @@ public sealed class InteractionRelayTests
         await client.DidNotReceiveWithAnyArgs().MessageBoxAsync(default!, default);
     }
 
-    // overnight #75: what HexIDE's probe did - a vbOKOnly box answered with vbYes - is told to the host as the failure it is, naming the client.
+    // what HexIDE's probe did - a vbOKOnly box answered with vbYes - is told to the host as the failure it is, naming the client.
     [TestMethod]
     public async Task TheLanguageServer_TellsAnAnswerThatIsNoButtonOfTheDialog_NamingTheClient()
     {

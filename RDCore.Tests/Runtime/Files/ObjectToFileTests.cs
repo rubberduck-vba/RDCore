@@ -5,7 +5,7 @@ namespace RDCore.Tests.Runtime.Files;
 
 /// <summary>
 /// An object written to a file, or printed: a <c>Variant</c> that holds one is no record of <c>Put</c>, and <c>Print #</c>, <c>Write #</c> and
-/// <c>Debug.Print</c> write what it stands for - its default member's value - as MS-VBA does (recorded in Excel, oracle\s28 U02-U10, B11-B13, D01-D04).
+/// <c>Debug.Print</c> write what it stands for - its default member's value - as MS-VBA does (observed in Excel).
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.11 Put")]

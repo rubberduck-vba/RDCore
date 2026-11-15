@@ -120,7 +120,7 @@ public sealed class StdFileSystem(IRuntimeSession session) : IStdFileSystemModul
             return Failed<VBLongValue>(VBRuntimeErrorId.BadFileNameOrNumber, $"#{fileNumber.Value} is not open");
         }
 
-        // 2, the handle, is refused by 64-bit MS-VBA as any other is (oracle\s25 A01); RD-VBA has no handle to give.
+        // 2, the handle, is refused by 64-bit MS-VBA as any other is (observed in Excel); RD-VBA has no handle to give.
         if ((returnType?.Value ?? 1) != 1)
         {
             return Failed<VBLongValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, $"FileAttr(#{fileNumber.Value}, {returnType!.Value}): only 1, the mode");
@@ -189,7 +189,7 @@ public sealed class StdFileSystem(IRuntimeSession session) : IStdFileSystemModul
     public RuntimeSemanticsEvaluationResult<VBLongValue> Loc(VBIntegerValue fileNumber)
         => OfChannel(fileNumber, channel => new VBLongValue(unchecked((int)(channel.Mode switch
         {
-            // the last record, or byte, read or written: the one before the next (oracle\s25 O02, O03).
+            // the last record, or byte, read or written: the one before the next (observed in Excel).
             VBFileMode.Random or VBFileMode.Binary => channel.Position - 1,
             // what MS-VBA has read in blocks of 128 bytes, the first one read when the file is opened; written, the blocks written (Q01, Q02).
             VBFileMode.Input => (channel.Position - 1) / SequentialBlock + 1,

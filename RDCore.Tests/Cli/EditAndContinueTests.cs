@@ -1320,7 +1320,7 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(expected, Output(resumed));
     }
 
-    // a program moved while it waits at an error goes on from where it was moved to, the error not given to it; Err keeps it (MS-VBA, oracle\error-break B2).
+    // a program moved while it waits at an error goes on from where it was moved to, the error not given to it; Err keeps it (MS-VBA, observed in Excel).
     [TestMethod]
     [DataRow(false, DisplayName = "and goes on")]
     [DataRow(true, DisplayName = "its module loaded again, and goes on")]
@@ -1342,7 +1342,7 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "two 5" }, Output(resumed));
     }
 
-    // an error nothing catches is not given to the program that waits at it: it runs the statement that raised it again, as it now is (oracle\error-break B1).
+    // an error nothing catches is not given to the program that waits at it: it runs the statement that raised it again, as it now is (observed in Excel).
     [TestMethod]
     public async Task AProgramThatWaitsAtAnErrorNothingCatches_RunsTheStatementThatRaisedItAgain_AndWaitsAgain()
     {
@@ -1359,7 +1359,7 @@ public sealed class EditAndContinueTests
         Assert.AreEqual((ExecutionOutcome.Suspended, 5), (again!.Outcome, again.ErrorLine), again.ErrorMessage);
     }
 
-    // the statement edited runs edited: MS-VBA goes on after it instead (oracle\error-break B3), which runs no line of what the person wrote.
+    // the statement edited runs edited: MS-VBA goes on after it instead (observed in Excel), which runs no line of what the person wrote.
     [TestMethod]
     public async Task TheStatementThatRaisedAnErrorNothingCatches_Edited_RunsEdited_AndErrStillHasTheError()
     {

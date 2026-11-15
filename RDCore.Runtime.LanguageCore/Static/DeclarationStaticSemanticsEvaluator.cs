@@ -136,7 +136,7 @@ public static class DeclarationStaticSemanticsEvaluator
 
         // MS-VBAL §5.3.1.4: `As Long()` - a type written with () - is what a Function, a Property Get or a Declare's Function returns, and nothing else is
         // declared with one: a variable, a constant, a field of a Type, a parameter or the elements of a ReDim are an array by the () after the name (MS-VBA:
-        // a syntax error, recorded in Excel, oracle\s23 T01-T18).
+        // a syntax error, observed in Excel).
         foreach (var declaration in module.Descendants().Where(node => node is not (MemberDeclarationNode { MemberKind: MemberKind.Function or MemberKind.PropertyGet
             or MemberKind.ExternalFunction } or ExternalMemberDeclarationNode)))
         {
@@ -148,7 +148,7 @@ public static class DeclarationStaticSemanticsEvaluator
         }
 
         // an array parameter is passed by reference, and one declared ByVal is refused - of a procedure, a property, an event or a Declare alike (MS-VBA: "Array
-        // argument must be ByRef", recorded in Excel, oracle\s23; RD-VBAL §5.3.1.5). A ParamArray is written with neither ByVal nor ByRef (MS-VBA: "Expected:
+        // argument must be ByRef", observed in Excel; RD-VBAL §5.3.1.5). A ParamArray is written with neither ByVal nor ByRef (MS-VBA: "Expected:
         // identifier", a syntax error).
         foreach (var parameter in module.Descendants().OfType<ParameterDeclarationNode>())
         {
@@ -165,7 +165,7 @@ public static class DeclarationStaticSemanticsEvaluator
         }
 
         // MS-VBAL §5.6.13.1: the last positional argument of a list is required (required-positional-argument), so a list does not end with an omitted one: `F(1, )`
-        // and `S 1,` are syntax errors, for an Optional parameter too, as MS-VBA has them (recorded in Excel: oracle\ismissing Q03, Q05, Q07). `F()` is a list of
+        // and `S 1,` are syntax errors, for an Optional parameter too, as MS-VBA has them (observed in Excel). `F()` is a list of
         // no argument, which the parser reads as one omitted argument alone.
         foreach (var arguments in module.Descendants().Select(node => node switch
         {
@@ -208,7 +208,7 @@ public static class DeclarationStaticSemanticsEvaluator
             {
                 CheckDeclaredType(module, parameter, parameter.SelectionRange, member.ParentUri, resolver, errors,
                     mayBeAny: member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol);
-                // an event's is the one MS-VBA compiles (oracle\s56 E03).
+                // an event's is the one MS-VBA compiles.
                 if (member is not VBEventMemberSymbol)
                 {
                     CheckByValRecord(module, parameter, member.ParentUri, resolver, errors);
@@ -242,7 +242,7 @@ public static class DeclarationStaticSemanticsEvaluator
 
     // MS-VBAL §5.2.3.1.4: "The specified type of an <as-auto-object> element MUST be a named class", of which an object is created - of an array's, each
     // element's. MS-VBA reads the name of a type that is no class at all - a number, a String, a Boolean, a Date, Variant, Object - as a syntax error, and
-    // calls one that is no class - a user-defined type, an enumeration - an invalid use of New (Excel-verified, oracle\s19 N01-N07, N30).
+    // calls one that is no class - a user-defined type, an enumeration - an invalid use of New (observed in Excel).
     private static void CheckAutoInstantiation(Symbol declared, SourceRange range, Uri document, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {
         if (!declared.GetProperty(SymbolProperties.AutoInstantiated) || declared is not ITypedSymbol { ResolvedType: var declaredType })
@@ -265,8 +265,8 @@ public static class DeclarationStaticSemanticsEvaluator
             return;
         }
 
-        // MS-VBAL §5.2.3.1.2: a WithEvents variable is assigned the object whose events it handles; it is not one that makes an object of its own (MS-VBA, Excel-
-        // verified, oracle\s19 N28).
+        // MS-VBAL §5.2.3.1.2: a WithEvents variable is assigned the object whose events it handles; it is not one that makes an object of its own (MS-VBA, observed
+        // in Excel).
         if (declared.GetProperty(SymbolProperties.WithEvents))
         {
             errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, location,
@@ -284,8 +284,8 @@ public static class DeclarationStaticSemanticsEvaluator
 
         // MS-VBAL §5.2.3.1.4: "The instancing mode of the specified type of an <as-auto-object> MUST NOT be Public Not Creatable unless that type is defined in
         // the same project" - a class of a library its type library does not say can be created: an interface (As New Font), a class with no
-        // TYPEFLAG_FCANCREATE (As New Office.CommandBarButton). MS-VBA says so too (recorded in Excel: oracle\s62 X10, s63 Y02, Y08). One the library says can be
-        // created compiles, whether or not anything creates it when the program runs (As New ErrObject, s62 X06-X09).
+        // TYPEFLAG_FCANCREATE (As New Office.CommandBarButton). MS-VBA says so too (observed in Excel). One the library says can be
+        // created compiles, whether or not anything creates it when the program runs (As New ErrObject).
         if (type is VBClassType { Symbol: var classModule } && classModule.GetProperty(SymbolProperties.Library) is { } library
             && !classModule.GetProperty(SymbolProperties.Creatable))
         {
@@ -340,8 +340,8 @@ public static class DeclarationStaticSemanticsEvaluator
         _ => null,
     };
 
-    // a record is passed by reference: MS-VBA refuses a parameter of a user-defined type declared ByVal, "User-defined type may not be passed ByVal" (recorded in
-    // Excel: oracle\s56 I10, C06, C15) - of a property and a Declare too, a Property Let's value parameter among them (D05-D07, E01, E07) - where MS-VBAL
+    // a record is passed by reference: MS-VBA refuses a parameter of a user-defined type declared ByVal, "User-defined type may not be passed ByVal" (observed in
+    // Excel) - of a property and a Declare too, a Property Let's value parameter among them - where MS-VBAL
     // §5.3.1.5 sets no such rule. An array of records is no record, and an array parameter is refused ByVal anyway.
     private static void CheckByValRecord(
         Symbol module, VBParameterSymbol parameter, Uri document, ISymbolResolver resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors)
