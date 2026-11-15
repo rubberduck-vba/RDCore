@@ -306,4 +306,7 @@
   <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
     <value>An object cannot be passed to or from a function of a native library yet.</value>
   </data>
+  <data name="FormHost_VisualBasic6FormUnavailable_Verbose" xml:space="preserve">
+    <value>No form host of this platform hosts a Visual Basic 6.0 form.</value>
+  </data>
 </root>
