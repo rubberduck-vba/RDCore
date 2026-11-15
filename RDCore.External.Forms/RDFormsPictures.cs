@@ -18,7 +18,7 @@ internal sealed class RDFormsPictures
     public static bool IsPicture(PropertyDefinition property) => property.ValueType == typeof(byte[]);
 
     // what a picture property takes for what the program assigns: the bytes of a picture of the program's, and none for Nothing or for an empty picture
-    // (LoadPicture()). Anything else is no picture (13).
+    // (LoadPicture()). Anything else is a type mismatch (13).
     public byte[]? Assign(ComponentInstance component, PropertyDefinition property, object? value)
     {
         var key = (component, property.Name);
