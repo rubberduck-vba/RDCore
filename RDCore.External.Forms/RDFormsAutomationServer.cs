@@ -240,7 +240,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private static AutomationException NotAMenu(RDFormsObject handle)
         => new(VisualBasicError | 5, $"{handle}.{PopupMenuMember}: the argument is not a menu of the form.");
 
-    // a control of the form, by its name: a control that is an element of an array is reached through the array, which a name alone is. A menu array has a handle;
+    // a control of the form, by its name: a control that is an element of an array is reached through the array, which its name alone names. A menu array has a handle;
     // an array of any other control has none, and its name is unknown (438).
     private static object? Control(RDFormsObject handle, string name)
         => !handle.IsForm ? null

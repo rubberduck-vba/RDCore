@@ -2112,7 +2112,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         => StdLibSymbolReader.ExternalTargetOf(typeof(IStdGlobalClass), typeof(IStdGlobalClass).GetMethod(member)!);
 
     // Load and Unload of an element of a Visual Basic 6.0 control array (Load mnuRecent(3)) do not reach the element, which does not exist before Load: they call
-    // the Global's members for an element (IStdGlobalClass.LoadElement), given the array and the index, which bind as their parameters do - the array by value,
+    // the Global's members for an element (IStdGlobalClass.LoadElement), given the array and the index, which bind as their parameters do: the array by value,
     // the index let-coerced to Integer. Null for any other call.
     private (VBTypeMemberSymbol, ImmutableArray<ExpressionNode>, ImmutableArray<BoundArgument>?)? ElementLoadOf(
         IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes)

@@ -54,8 +54,8 @@ Servi en VB6, un projet a deux bibliothèques qu'il ne liste pas parmi ses réf�
 Les contrôles d'un formulaire sont des noms de son module. Un contrôle d'un groupe de contrôles est nommé avec son indice : `Command1(0)`.
 
 Un groupe de menus a `Count`, `LBound` et `UBound`. `Load mnuRecent(3)` ajoute l'élément d'indice 3, et `Unload mnuRecent(3)` retire un élément que le
-programme a chargé. Ils lèvent ce que VB6 lève : 360 pour un élément déjà chargé, 340 pour un indice qu'aucun élément n'a, 362 pour un élément du fichier
-du formulaire, et 361 pour un élément de menu qui n'est dans aucun groupe.
+programme a chargé. Ils lèvent ce que VB6 lève : 360 pour un élément déjà chargé, 341 pour un indice négatif, 6 pour un indice supérieur à 32767, 340 pour un
+indice qu'aucun élément n'a, 362 pour un élément du fichier du formulaire, et 361 pour un élément de menu qui n'est dans aucun groupe.
 
 > [!NOTE]
 > **Non implémenté.** `For Each` sur un groupe de contrôles, et les groupes de contrôles autres que les menus, lèvent 438.
