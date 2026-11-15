@@ -5,9 +5,9 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// The target of a Mid statement is a bound variable expression (<strong>MS-VBAL §5.4.3.5</strong>), and a bound variable expression must be classified as a
 /// variable (<strong>§5.6.16.6</strong>): a property or a procedure of a class, bound early, and a member of an object bound late (an unbound member) are
-/// "Variable required", reported at the member as it is written after the dot, and a Property Let is not what the statement assigns, as MS-VBA has it (recorded in Excel).
-/// So is a public variable of a class reached through an object, <c>Me</c> included: <strong>§5.6.12</strong> classifies it as a variable, and RD-VBA follows MS-VBA,
-/// which refuses it.
+/// "Variable required", reported at the member as it is written after the dot, and a Property Let is not what the statement assigns, as MS-VBA has it
+/// (recorded in Excel). So is a public variable of a class reached through an object, <c>Me</c> included: <strong>§5.6.12</strong> classifies it as a
+/// variable, and RD-VBA follows MS-VBA, which refuses it.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.5 Mid Statement")]
