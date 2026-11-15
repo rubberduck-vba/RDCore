@@ -18,7 +18,7 @@ public sealed record class ReplDiagnosticReport(string? ResultId, bool Unchanged
 /// <para>
 /// The shell asks for the findings of the program while it waits at the prompt: a moment after the program was last edited, and not for every line of a
 /// program that is typed or pasted in a run. It names the report it has, so that a program that did not change since costs an <c>unchanged</c> report and
-/// no findings. A listing asks the same way before it marks the lines that have a fix, and so costs the same.
+/// no findings. A listing asks the same way before it marks the lines that have a fix or a diagnostic, and so costs the same.
 /// </para>
 /// <para>
 /// A line has a fix when a diagnostic on it carries one in its <c>data</c> - an edit, or a rename (<see cref="DiagnosticFixes"/>) - which is what the code
@@ -134,6 +134,28 @@ public sealed class ReplDiagnostics
             if (DiagnosticFixes.Of(diagnostic) is { } fixes && (fixes.Rename is not null || fixes.Edit is { Edits.Count: > 0 }))
             {
                 lines.Add(diagnostic.Range.Start.Line);
+            }
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// The severity of the most severe diagnostic on each line of the program that has one.
+    /// </summary>
+    /// <remarks>A diagnostic that states no severity is taken for an error.</remarks>
+    /// <returns>The severities, by the zero-based position of the line in the program.</returns>
+    public IReadOnlyDictionary<int, DiagnosticSeverity> HighestSeverityByLine()
+    {
+        var lines = new Dictionary<int, DiagnosticSeverity>();
+        foreach (var diagnostic in _items)
+        {
+            // the most severe is the lowest: an error is 1, a hint 4.
+            var severity = diagnostic.Severity ?? DiagnosticSeverity.Error;
+            var line = diagnostic.Range.Start.Line;
+            if (!lines.TryGetValue(line, out var highest) || severity < highest)
+            {
+                lines[line] = severity;
             }
         }
 
