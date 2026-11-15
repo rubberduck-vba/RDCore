@@ -82,7 +82,7 @@ internal sealed class AssignedByValParameterAnalyzer : IModuleAnalyzer
                     DiagnosticSeverity.Information,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.AssignedByValParameter_Message, fact.Name))
                 {
-                    Fixes = LocalCopyOf(context.ParseResult, module, semantics, parameter, hasDefType) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                    Fixes = LocalCopyOf(context.ParseResult, module, semantics, parameter, hasDefType) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
                 };
             }
         }

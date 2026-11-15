@@ -369,7 +369,7 @@ public sealed class UnusedDeclarationAnalyzerTests
     private static async Task AssertLocalCopyAsync(string[] before, string[] after, string title)
     {
         var program = ModuleWorkspace.StandardModule("Program", before);
-        var fix = Assert.ContainsSingle(await ProgramAsync(new AssignedByValParameterAnalyzer(), before)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(await ProgramAsync(new AssignedByValParameterAnalyzer(), before)).Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
         Assert.AreEqual(title, fix.Title);
 
@@ -412,7 +412,7 @@ public sealed class UnusedDeclarationAnalyzerTests
     {
         var finding = Assert.ContainsSingle(await ProgramAsync(new AssignedByValParameterAnalyzer(), "Public Sub Work(ByVal n As Long): n = 1: End Sub"));
 
-        Assert.IsNull(finding.Fixes?.Edit);
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault());
     }
 
     #endregion
