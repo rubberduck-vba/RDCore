@@ -24,6 +24,7 @@ internal sealed class DescribeAtTool(AssistantDocuments documents, ISemanticsDes
 
     protected override async Task<DescribeToolResult> RunAsync(PositionToolArguments arguments, CancellationToken token)
     {
+        await documents.LoadedAsync(token);
         var document = documents.Resolve(arguments.Path);
         var described = await semantics.DescribeAsync(document.Id.Uri.ToUri(), AssistantDocuments.PositionOf(arguments), token);
         return DescribeToolResult.Of(documents.Root, described);
@@ -88,6 +89,7 @@ internal sealed class OutlineTool(AssistantDocuments documents, ISemanticsDescri
 
     protected override async Task<OutlineToolResult> RunAsync(OutlineToolArguments arguments, CancellationToken token)
     {
+        await documents.LoadedAsync(token);
         var document = documents.Resolve(arguments.Path);
         return await semantics.OutlineAsync(document.Id.Uri.ToUri(), token) is { } outline
             ? OutlineToolResult.Of(documents.Root, outline)

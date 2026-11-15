@@ -69,27 +69,55 @@ public sealed class AssistantToolsWireTests
 
     private static readonly Uri Title = SymbolUri.Member(SymbolUri.Module(Root, "Helpers"), "strTitle");
 
-    // the tools, and what answers rdcore/semantics/describe and /outline, over the two documents.
-    private static (AssistantToolCatalog Catalog, ISemanticsDescriptionService Semantics) Serve()
+    // the workspace's first load as the test holds it: the server holds no document until the load is released, and the tools wait on it.
+    private sealed class HeldLoad
+    {
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _waitedOn = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public static HeldLoad Released()
+        {
+            var load = new HeldLoad();
+            load.Release();
+            return load;
+        }
+
+        public bool IsReleased => _released.Task.IsCompleted;
+
+        // a tool is waiting on the load.
+        public Task WaitedOn => _waitedOn.Task;
+
+        public Task WaitAsync(CancellationToken token)
+        {
+            _waitedOn.TrySetResult();
+            return _released.Task.WaitAsync(token);
+        }
+
+        public void Release() => _released.TrySetResult();
+    }
+
+    // the tools, and what answers rdcore/semantics/describe and /outline, over the two documents, once the workspace is loaded.
+    private static (AssistantToolCatalog Catalog, ISemanticsDescriptionService Semantics) Serve(HeldLoad load, TimeSpan loadBound)
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
-        var all = new[] { new WorkspaceDocument("Module1.bas", Root, Module1, version: 1), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 1) };
-        documents.GetAllDocuments().Returns(all);
+        var loaded = new[] { new WorkspaceDocument("Module1.bas", Root, Module1, version: 1), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 1) };
+        WorkspaceDocument[] All() => load.IsReleased ? loaded : [];
+        documents.GetAllDocuments().Returns(_ => All());
         documents.TryGetDocument(Arg.Any<Uri>(), out Arg.Any<WorkspaceDocument>()).Returns(call =>
         {
-            var found = all.FirstOrDefault(document => document.Id.Uri.ToUri() == call.ArgAt<Uri>(0));
+            var found = All().FirstOrDefault(document => document.Id.Uri.ToUri() == call.ArgAt<Uri>(0));
             call[1] = found!;
             return found is not null;
         });
         documents.TryGetModule(Arg.Any<Uri>(), out Arg.Any<WorkspaceDocument>()).Returns(call =>
         {
-            var found = all.FirstOrDefault(document => document.Id.Uri.ToUri() == call.ArgAt<Uri>(0));
+            var found = All().FirstOrDefault(document => document.Id.Uri.ToUri() == call.ArgAt<Uri>(0));
             call[1] = found!;
             return found is not null;
         });
-        foreach (var document in all)
+        foreach (var document in loaded)
         {
             var uri = document.Id.Uri.ToUri();
             parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>())
@@ -126,7 +154,9 @@ public sealed class AssistantToolsWireTests
             []));
 
         var semantics = new SemanticsDescriptionService(workspace, diagnostics, documents, parsing, new IntrinsicSymbolResolver(), options);
-        var assistantDocuments = new AssistantDocuments(documents);
+        var symbols = Substitute.For<ISymbolSyncService>();
+        symbols.WorkspaceDefinedAsync(Arg.Any<CancellationToken>()).Returns(call => load.WaitAsync(call.Arg<CancellationToken>()));
+        var assistantDocuments = new AssistantDocuments(documents, symbols) { LoadBound = loadBound };
         return (new AssistantToolCatalog(
         [
             new GetDiagnosticsTool(assistantDocuments, diagnostics, Substitute.For<IDocumentLifecycleService>()),
@@ -149,14 +179,14 @@ public sealed class AssistantToolsWireTests
         return capabilities;
     }
 
-    // the answer to each request, from a client that does or does not advertise the tools.
-    private static async Task<TResponse> AskAsync<TResponse>(bool advertised, MediatR.IRequest<TResponse> request)
+    // the answer to each request, from a client that does or does not advertise the tools; to a workspace loaded already, unless the load is held.
+    private static async Task<TResponse> AskAsync<TResponse>(bool advertised, MediatR.IRequest<TResponse> request, HeldLoad? load = null, TimeSpan? loadBound = null)
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
         using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
-        var (catalog, semantics) = Serve();
+        var (catalog, semantics) = Serve(load ?? HeldLoad.Released(), loadBound ?? AssistantDocuments.DefaultLoadBound);
         var capabilities = Advertised(advertised);
         var serving = OmniSharpLanguageServer.From(server => server
             .WithInput(toServer.Reader)
@@ -175,8 +205,8 @@ public sealed class AssistantToolsWireTests
         return await languageClient.SendRequest(request, timeout.Token);
     }
 
-    private static Task<ToolCallReply> CallAsync(string tool, JsonObject? arguments)
-        => AskAsync<ToolCallReply>(advertised: true, new ToolCallRequest(new ToolCallParams { Name = tool, Arguments = arguments }));
+    private static Task<ToolCallReply> CallAsync(string tool, JsonObject? arguments, HeldLoad? load = null, TimeSpan? loadBound = null)
+        => AskAsync<ToolCallReply>(advertised: true, new ToolCallRequest(new ToolCallParams { Name = tool, Arguments = arguments }), load, loadBound);
 
     private static JsonObject At(string path, int line, int column) => new() { ["path"] = path, ["line"] = line, ["column"] = column };
 
@@ -249,6 +279,39 @@ public sealed class AssistantToolsWireTests
         Assert.AreEqual("Show", (string?)first["name"]);
         Assert.AreEqual("Helpers.bas", (string?)first["location"]!["path"]);
         Assert.Contains("Helpers.bas:4:", reply.Content.Single().Text);
+    }
+
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task AToolCalledWhileTheWorkspaceLoads_AnswersOnceItIsLoaded_FromWhatItLoaded()
+    {
+        var load = new HeldLoad();
+        var calling = CallAsync(CoreAssistantTools.FindSymbol, new JsonObject { ["query"] = "shw" }, load);
+
+        await load.WaitedOn.WaitAsync(SafetyCap);
+        Assert.IsFalse(calling.IsCompleted, "a workspace that is loading has no answer yet");
+        load.Release();
+        var reply = await calling;
+
+        Assert.IsFalse(reply.IsError, reply.Content.Single().Text);
+        Assert.AreEqual("Show", (string?)reply.StructuredContent!["symbols"]!.AsArray()[0]!["name"]);
+    }
+
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    [DataRow(CoreAssistantTools.GetDiagnostics, """{}""")]
+    [DataRow(CoreAssistantTools.FindSymbol, """{"query":"shw"}""")]
+    [DataRow(CoreAssistantTools.References, """{"path":"Module1.bas","line":3,"column":5}""")]
+    [DataRow(CoreAssistantTools.Definition, """{"path":"Module1.bas","line":3,"column":5}""")]
+    [DataRow(CoreAssistantTools.DescribeAt, """{"path":"Module1.bas","line":3,"column":5}""")]
+    [DataRow(CoreAssistantTools.Outline, """{"path":"Helpers.bas"}""")]
+    public async Task AToolWhoseWaitForTheLoadRunsOut_SaysTheWorkspaceIsStillLoading(string tool, string arguments)
+    {
+        // a bound of nothing runs out on a load that is held.
+        var reply = await CallAsync(tool, JsonNode.Parse(arguments)!.AsObject(), new HeldLoad(), TimeSpan.Zero);
+
+        Assert.IsTrue(reply.IsError, tool);
+        Assert.AreEqual(AssistantToolTexts.WorkspaceLoading, reply.Content.Single().Text, tool);
     }
 
     [TestMethod]

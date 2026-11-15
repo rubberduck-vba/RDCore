@@ -177,6 +177,9 @@
   <data name="PositionNotValid" xml:space="preserve">
     <value>Les lignes et les colonnes comptent à partir de 1.</value>
   </data>
+  <data name="WorkspaceLoading" xml:space="preserve">
+    <value>L'espace de travail est encore en cours de chargement. Appelez l'outil de nouveau dans un instant.</value>
+  </data>
   <data name="NotAdvertised" xml:space="preserve">
     <value>Le client n'a pas annoncé la capacité de plateforme « {0} ».</value>
   </data>
