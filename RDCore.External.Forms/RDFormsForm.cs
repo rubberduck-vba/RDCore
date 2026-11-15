@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using RDCore.External.Automation;
 using RDCore.Forms.Avalonia.Controls;
 using RDCore.Forms.Avalonia.Rendering;
+using RDCore.Forms.Menus;
 using RDCore.Forms.Model;
 using Model = RDCore.Forms.Model;
 
@@ -25,6 +26,7 @@ internal sealed class RDFormsForm : IComponentEventSink
 {
     private readonly Dictionary<ComponentInstance, RDFormsObject> _handles = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ComponentInstance, IAutomationEventSink> _sinks = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<FormMenuArray, RDFormsMenuArray> _menuArrays = new(ReferenceEqualityComparer.Instance);
     private DispatcherFrame? _modal;
 
     public RDFormsForm(Model.FormDefinition model, CodeUnit unit)
@@ -57,6 +59,23 @@ internal sealed class RDFormsForm : IComponentEventSink
         {
             handle = new RDFormsObject(this, component);
             _handles[component] = handle;
+        }
+
+        return handle;
+    }
+
+    // the handle of one of the form's menu arrays, where it has one of that name.
+    public RDFormsMenuArray? MenuArrayOf(string name)
+    {
+        if (FormMenu.Of(Model.Root).ArrayOf(name) is not { } array)
+        {
+            return null;
+        }
+
+        if (!_menuArrays.TryGetValue(array, out var handle))
+        {
+            handle = new RDFormsMenuArray(this, array);
+            _menuArrays[array] = handle;
         }
 
         return handle;

@@ -255,6 +255,27 @@ public static class FormWindowEvents
 }
 
 /// <summary>
+/// The members of a Visual Basic 6.0 control array that the <c>Load</c> and <c>Unload</c> statements call for one of its elements (<c>Load mnuRecent(3)</c>),
+/// given the element's index: the element is not reached first, since it does not exist before <c>Load</c>.
+/// </summary>
+/// <remarks>
+/// A program cannot name them: a name in brackets is the platform's, as <see cref="FormWindowEvents.Close"/> is. The array's server raises what VB6 raises for
+/// them: 360 for an element that is loaded already, 340 for one that is not, 362 for the unloading of one the form's file declares.
+/// </remarks>
+public static class FormControlArrayMembers
+{
+    /// <summary>
+    /// Loads a new element of the array, of the index given.
+    /// </summary>
+    public const string Load = "[Load]";
+
+    /// <summary>
+    /// Unloads the element of the index given.
+    /// </summary>
+    public const string Unload = "[Unload]";
+}
+
+/// <summary>
 /// The form host of a machine that has none: no form can be created.
 /// </summary>
 public sealed class UnavailableFormHost : IFormHost

@@ -50,7 +50,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// Whether an object is one of this server's: a form, or one of its controls.
     /// </summary>
     /// <param name="handle">The handle of the object.</param>
-    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator;
+    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator or RDFormsMenuArray;
 
     /// <inheritdoc/>
     public bool IsAvailable => true;
@@ -67,6 +67,15 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             {
                 Alive(collection.Form.Handle);
                 return RDFormsControlsMembers.Invoke(collection, member, invocation, arguments, culture);
+            });
+        }
+
+        if (target is RDFormsMenuArray menuArray)
+        {
+            return RDFormsUI.Run(() =>
+            {
+                Alive(menuArray.Form.Handle);
+                return RDFormsMenuArrayMembers.Invoke(menuArray, member, invocation, arguments, culture);
             });
         }
 
@@ -140,6 +149,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 && Control(handle, member) is { } control)
             {
                 return control;
+            }
+
+            // a menu array, given arguments, is its default member, as a late-bound call reaches an element (f.mnuRecent(2)) in one call.
+            if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm && handle.Form.MenuArrayOf(member) is { } indexed)
+            {
+                return RDFormsMenuArrayMembers.Invoke(indexed, DefaultMemberDispatchName, invocation, arguments, culture);
             }
 
             if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm
@@ -225,9 +240,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private static AutomationException NotAMenu(RDFormsObject handle)
         => new(VisualBasicError | 5, $"{handle}.{PopupMenuMember}: the argument is not a menu of the form.");
 
-    // a control of the form, by its name: a control that is an element of an array is reached through the array, which a name alone is not.
-    private static RDFormsObject? Control(RDFormsObject handle, string name)
-        => handle.IsForm && handle.Form.Model.Find(name) is { } control && !ReferenceEquals(control, handle.Component) ? handle.Form.HandleOf(control) : null;
+    // a control of the form, by its name: a control that is an element of an array is reached through the array, which a name alone is. A menu array has a handle;
+    // an array of any other control has none, and its name is unknown (438).
+    private static object? Control(RDFormsObject handle, string name)
+        => !handle.IsForm ? null
+            : handle.Form.Model.Find(name) is { } control && !ReferenceEquals(control, handle.Component) ? handle.Form.HandleOf(control)
+            : handle.Form.MenuArrayOf(name);
 
     // the model holds a component's position and size in pixels: the program reads and writes them in its form's unit.
     private static object? Read(ComponentInstance component, PropertyDefinition property, CodeUnit unit)
@@ -266,12 +284,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
     /// <inheritdoc/>
     public string? ClassNameOf(object target)
-        // the Controls collection is not of a library's class: a late-bound Object.
-        => target is RDFormsControls ? null : HandleOf(target).Component.Class.TypeName;
+        // the Controls collection and a menu array are not of a library's class: a late-bound Object.
+        => target is RDFormsControls or RDFormsMenuArray ? null : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
-        => target is RDFormsControls
+        => target is RDFormsControls or RDFormsMenuArray
             ? null
             : string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
                 ? string.Equals(HandleOf(target).Component.Class.ClassName, className, StringComparison.OrdinalIgnoreCase)
@@ -297,14 +315,19 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// <inheritdoc/>
     public void Advise(object source, IAutomationEventSink sink)
     {
-        var handle = source is RDFormsControls ? throw new AutomationException(NotImplemented, "A form's Controls collection raises no events.") : HandleOf(source);
+        var handle = source switch
+        {
+            RDFormsControls => throw new AutomationException(NotImplemented, "A form's Controls collection raises no events."),
+            RDFormsMenuArray => throw new AutomationException(NotImplemented, "A menu array raises no events of its own."),
+            _ => HandleOf(source),
+        };
         RDFormsUI.Run(() => handle.Form.Advise(handle.Component, sink));
     }
 
     /// <inheritdoc/>
     public void Unadvise(object source)
     {
-        if (source is RDFormsControls)
+        if (source is RDFormsControls or RDFormsMenuArray)
         {
             return;
         }
