@@ -319,9 +319,10 @@ public sealed class LoadPictureTests
             "SavePicture p, D & \"saved-vb6.bmp\": Debug.Print Err.Number & \" \" & Head(D & \"saved-vb6.bmp\")"));
 
     [TestMethod]
-    [Ignore("TypeName of a StdPicture is \"Picture\" in MS-VBA; the library states no type name for its objects")]
-    public async Task APicturesTypeName_IsPicture()
-        => Printed(new[] { "Picture" }, await RunAsync("Set p = LoadPicture(D & \"bmp24.bmp\"): Debug.Print TypeName(p)"));
+    [DataRow("LoadPicture(D & \"bmp24.bmp\")", DisplayName = "a loaded picture")]
+    [DataRow("New StdPicture", DisplayName = "a new StdPicture")]
+    public async Task APicturesTypeName_IsPicture(string picture)
+        => Printed(new[] { "Picture" }, await RunAsync($"Set p = {picture}: Debug.Print TypeName(p)"));
 
     [TestMethod]
     [Ignore("SavePicture of a GIF, a JPEG, an icon or a cursor needs the picture decoded: not implemented")]
