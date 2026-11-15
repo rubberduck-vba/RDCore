@@ -98,8 +98,8 @@ internal enum EncapsulationRefusalKind
     WrittenOutside,
 
     /// <summary>
-    /// A <c>Mid</c> statement outside the module replaces characters of the field, which MS-VBAL §5.4.3.5 says of a variable. Through a property, it is not
-    /// known whether the characters replaced are written back through its <c>Property Let</c>, so the write could be lost.
+    /// A <c>Mid</c> statement outside the module replaces characters of the field. Its target is a variable (MS-VBAL §5.4.3.5): a property is not one, so
+    /// the code would not compile ("Variable required").
     /// </summary>
     ReplacedByMid,
 }
@@ -342,7 +342,7 @@ internal static class EncapsulateField
             return (null, new(isRecord ? EncapsulationRefusalKind.WritesThroughACopy : EncapsulationRefusalKind.WrittenOutside, Module: assigned.Module, Range: assigned.Range));
         }
 
-        // a Mid statement replaces characters where the field is stored: through a property, it might replace them in the value Property Get gives.
+        // a Mid statement replaces characters of a variable: on a property, it does not compile.
         if (MidTargets(context, outside).Select(occurrence => (NameOccurrence?)occurrence).FirstOrDefault() is { } replaced)
         {
             return (null, new(EncapsulationRefusalKind.ReplacedByMid, Module: replaced.Module, Range: replaced.Range));
