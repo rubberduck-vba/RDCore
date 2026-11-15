@@ -3241,7 +3241,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             : IsSameDeclaredType(VBEnumType.AsDeclaredType(parameter.ResolvedType), VBEnumType.AsDeclaredType(variableType));
 
     // a class is the declared type of a declaration bound to any symbol of it: its module is defined in phases, each giving it a new symbol of the same
-    // identity, and a declaration keeps the symbol it was bound to - the class as it was when its own module's declarations were bound (DefineSymbolsHandler).
+    // identity, and a declaration keeps the symbol it was bound to: the class as it was when its own module's declarations were bound (DefineSymbolsHandler).
     private static bool IsSameDeclaredType(VBType parameterType, VBType variableType)
         => parameterType is VBClassType parameterClass && variableType is VBClassType variableClass
             ? parameterClass.Symbol.SemanticId == variableClass.Symbol.SemanticId
