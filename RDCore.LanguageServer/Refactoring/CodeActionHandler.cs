@@ -50,6 +50,11 @@ namespace RDCore.LanguageServer.Refactoring;
 /// it or on one of its <c>Return</c>s, and for a selection whose extraction is refused for a <c>GoSub</c> to it or one of its <c>Return</c>s.
 /// </para>
 /// <para>
+/// A variable named at a position, or by a selection on one line, is offered a refactoring that moves its declaration closer to its usage
+/// (<see cref="IMoveCloserToUsageService"/>): as a command to a client that expects <see cref="SDK.Client.Refactoring"/>, and to any other as its edit, with
+/// <c>Static</c> for a variable of a module, when that changes nothing the user would have to accept.
+/// </para>
+/// <para>
 /// The diagnostics of a code that can be disabled are offered, once for the code and after their fixes, a quick fix that disables it in every workspace of the
 /// user (<c>Analysis.DisabledDiagnostics</c>): a command (<see cref="Workspace.ListSettingValueCommand"/>) that asks the client to add it to the user's list. Only a
 /// client that expects <see cref="SDK.Client.ListSettingValue"/> is offered it.
@@ -67,7 +72,7 @@ namespace RDCore.LanguageServer.Refactoring;
 internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null) : CodeActionHandlerBase
+    ILibrarySource? libraries = null, IMoveCloserToUsageService? closerToUsage = null) : CodeActionHandlerBase
 {
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
@@ -83,6 +88,11 @@ internal sealed class CodeActionHandler(
     /// The kind of the action that converts a <c>GoSub</c> routine to a procedure (<see cref="RefactoringKinds.ConvertGoSub"/>).
     /// </summary>
     public static readonly CodeActionKind RefactorConvertGoSub = new(RefactoringKinds.ConvertGoSub);
+
+    /// <summary>
+    /// The kind of the action that moves the declaration of a variable closer to its usage (<see cref="RefactoringKinds.MoveCloserToUsage"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorMoveCloserToUsage = new(RefactoringKinds.MoveCloserToUsage);
 
     /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
@@ -238,6 +248,13 @@ internal sealed class CodeActionHandler(
             actions.Add(conversion);
         }
 
+        // the variable named at a position, or by a selection on one line.
+        if (range.Start.Line == range.End.Line && IsAsked(RefactorMoveCloserToUsage)
+            && await CloserToUsageActionAsync(request.TextDocument.Uri, range.Start, cancellationToken) is { } moved)
+        {
+            actions.Add(moved);
+        }
+
         return new CommandOrCodeActionContainer(actions.Where(action => IsAsked(action.Kind)).Select(action => new CommandOrCodeAction(action)));
     }
 
@@ -336,6 +353,46 @@ internal sealed class CodeActionHandler(
         }
 
         return (new CodeAction { Title = title, Kind = actionKind, Edit = applicable }, []);
+    }
+
+    // the action that moves the declaration of the variable named at a position closer to its usage. A client with a dialog of its own runs it as a command,
+    // which asks the keyword of a variable of a module and the changes to accept; any other is sent the edit, with Static, when that changes nothing. A refused
+    // one is offered disabled, with why, to a client that shows it so.
+    private async Task<CodeAction?> CloserToUsageActionAsync(DocumentUri lspUri, SourcePosition position, CancellationToken token)
+    {
+        var documentUri = lspUri.ToUri();
+        if (closerToUsage is null || await closerToUsage.OfferAsync(documentUri, position, token) is not { } offer)
+        {
+            return null;
+        }
+
+        var (title, refusal, changes) = offer;
+
+        if (refusal is not null)
+        {
+            return ShowsDisabled ? new CodeAction { Title = title, Kind = RefactorMoveCloserToUsage, Disabled = new CodeActionDisabled { Reason = refusal } } : null;
+        }
+
+        if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
+        {
+            var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.MoveCloserToUsage, Uri = documentUri, Range = new SourceRange(position, position) };
+            return new CodeAction
+            {
+                Title = title,
+                Kind = RefactorMoveCloserToUsage,
+                Command = new Command { Name = RefactoringCommands.Refactor, Title = title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+            };
+        }
+
+        if (changes)
+        {
+            return null;
+        }
+
+        var answer = await closerToUsage.ApplyAsync(documentUri, position, [], [], token);
+        return answer.Edit is not null && ForTheClient(LspEditOf(new ExtractMethodAnswer(answer.Edit, null))) is { } applicable
+            ? new CodeAction { Title = title, Kind = RefactorMoveCloserToUsage, Edit = applicable }
+            : null;
     }
 
     // the refactoring a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for. One that is refused,
@@ -481,7 +538,7 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveCloserToUsage, SourceImportProject),
             ResolveProvider = true,
         };
     }

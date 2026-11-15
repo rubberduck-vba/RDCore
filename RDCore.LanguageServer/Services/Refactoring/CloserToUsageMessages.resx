@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Move Closer To Usage: {0} is the variable, {1} the procedure it is moved into, or the procedures that use it. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="MoveCloserToUsage_Title" xml:space="preserve">
+    <value>Move '{0}' closer to its usage</value>
+  </data>
+  <data name="MoveCloserToUsage_Keyword" xml:space="preserve">
+    <value>Declare it with</value>
+  </data>
+  <data name="MoveCloserToUsage_KeywordDescription" xml:space="preserve">
+    <value>The keyword of the declaration in the procedure.</value>
+  </data>
+  <data name="MoveCloserToUsage_Static" xml:space="preserve">
+    <value>Static: it keeps its value from one call to the next</value>
+  </data>
+  <data name="MoveCloserToUsage_Dim" xml:space="preserve">
+    <value>Dim: it is initialized at each call</value>
+  </data>
+  <data name="MoveCloserToUsage_NotAccepted" xml:space="preserve">
+    <value>The declaration was not moved: {0}</value>
+  </data>
+  <data name="MoveCloserToUsage_NotAnAnswer" xml:space="preserve">
+    <value>'{0}' is not an answer to '{1}'.</value>
+  </data>
+  <data name="MoveCloserToUsage_NotAVariable" xml:space="preserve">
+    <value>Nothing here is a variable whose declaration can be moved.</value>
+  </data>
+  <data name="MoveCloserToUsage_NotPrivate" xml:space="preserve">
+    <value>'{0}' can be used by other modules: only a Private variable of a module is moved into a procedure.</value>
+  </data>
+  <data name="MoveCloserToUsage_WithEvents" xml:space="preserve">
+    <value>'{0}' is declared WithEvents, which a procedure cannot declare.</value>
+  </data>
+  <data name="MoveCloserToUsage_NotUsed" xml:space="preserve">
+    <value>Nothing uses '{0}'.</value>
+  </data>
+  <data name="MoveCloserToUsage_SeveralProcedures" xml:space="preserve">
+    <value>'{0}' is used by more than one procedure ({1}), or outside a procedure.</value>
+  </data>
+  <data name="MoveCloserToUsage_Conditional" xml:space="preserve">
+    <value>'{0}' is declared, or first used, in a branch of an #If block.</value>
+  </data>
+  <data name="MoveCloserToUsage_AlreadyClose" xml:space="preserve">
+    <value>'{0}' is already declared before the statement that first uses it.</value>
+  </data>
+  <data name="MoveCloserToUsage_SharesItsLine" xml:space="preserve">
+    <value>'{0}' is declared by a statement that shares its line with another statement.</value>
+  </data>
+  <data name="MoveCloserToUsage_ModuleExtent" xml:space="preserve">
+    <value>'{0}' is a variable of each object of the class: declared Static in '{1}', it is a variable of the module, whose value every object shares.</value>
+  </data>
+  <data name="MoveCloserToUsage_NotKept" xml:space="preserve">
+    <value>'{0}' keeps its value between calls: declared with Dim in '{1}', it is initialized at each call.</value>
+  </data>
+</root>

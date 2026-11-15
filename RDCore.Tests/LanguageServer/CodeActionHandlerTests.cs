@@ -92,7 +92,7 @@ public sealed class CodeActionHandlerTests
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
         return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
-            _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles, _libraries);
+            _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles, _libraries, new MoveCloserToUsageService(rename));
     }
 
     private static DocumentUri Document => DocumentUri.From(Path.Combine(Root, "Main.rdc"));
@@ -331,6 +331,19 @@ public sealed class CodeActionHandlerTests
         var actions = await ActionsAsync(new Range(3, 24, 3, 24));
 
         CollectionAssert.AreEqual(new[] { "Rename 'x'…" }, actions.Select(action => action.Title).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AVariableOfAProcedure_IsOfferedTheMoveOfItsDeclaration_ToItsFirstUse()
+    {
+        var document = DocumentUri.From(Path.Combine(Root, "Module1.bas"));
+
+        var actions = await ActionsAsync(document, new Range(3, 8, 3, 8), [CodeActionHandler.RefactorMoveCloserToUsage]);
+
+        var action = actions.Single();
+        Assert.AreEqual("Move 'x' closer to its usage", action.Title);
+        var edits = action.Edit!.Changes!.Single().Value.Select(edit => (edit.Range, edit.NewText)).ToArray();
+        CollectionAssert.AreEqual(new[] { (new Range(3, 0, 4, 0), string.Empty), (new Range(5, 0, 5, 0), "    Dim x As Long\r\n") }, edits);
     }
 
     [TestMethod]

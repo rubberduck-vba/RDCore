@@ -527,7 +527,7 @@ Names that match alike come by name. An empty query matches every symbol. At mos
 
 ### `textDocument/codeAction`
 
-The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename`, `refactor.extract.method`, `refactor.extract.gosub` and `source.rdcore.importProject`. A client that asks for some kinds only (`context.only`) is answered those and the kinds under them. An extraction and a conversion of a `GoSub` routine are the actions that can be resolved (`resolveProvider = true`, `codeAction/resolve`); every other action is complete as it is answered. A client that shows an action it cannot take (`codeAction.disabledSupport`) is also answered a refused extraction or conversion, with the refusal as its `disabled.reason`; one whose range holds nothing to refactor (no statement to extract, no `GoSub` routine at the position) is not answered.
+The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename`, `refactor.extract.method`, `refactor.extract.gosub`, `refactor.move.closerToUsage` and `source.rdcore.importProject`. A client that asks for some kinds only (`context.only`) is answered those and the kinds under them. An extraction and a conversion of a `GoSub` routine are the actions that can be resolved (`resolveProvider = true`, `codeAction/resolve`); every other action is complete as it is answered. A client that shows an action it cannot take (`codeAction.disabledSupport`) is also answered a refused extraction, conversion or move of a declaration, with the refusal as its `disabled.reason`; one whose range holds nothing to refactor (no statement to extract, no `GoSub` routine or variable at the position) is not answered.
 
 An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
 
@@ -539,6 +539,7 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rub
 |An import of each VB6 project (`.vbp`) of the workspace's folder, when it has no `.rdproj`|`source.rdcore.importProject`|Its `command` is `rdcore.importProject`, with the URI of the `.vbp`. Offered in every document.|
 |An extraction of the statements of a selection as a procedure, when nothing refuses it|`refactor.extract.method`|For a client that expects [`Refactoring`](#rdcorerefactorprepare-and-rdcorerefactorapply), its `command` is `rdcore.refactor`. For any other, offered only when it changes nothing the user would have to accept: its `edit` is made with the defaults and verified. A client that resolves an action's `edit` (`dataSupport`, and `edit` among `resolveSupport.properties`) is offered the action without its `edit`, which is made when the client resolves the action; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to select the statements again.|
 |A conversion of a `GoSub` routine to a procedure, when nothing refuses it (an `On…GoSub` of the routine in a single-line `If` does): at a position on its label, on a `GoSub` that names it or on one of its `Return`s, and for a selection whose extraction is refused for a `GoSub` to the routine or one of its `Return`s|`refactor.extract.gosub`|As an extraction: `rdcore.refactor` for a client that expects `Refactoring`, the `edit` with the defaults for any other, resolved the same way. One resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to ask for the conversion again.|
+|A move of the declaration of the variable at a position, or named by a selection on one line, to its first use ([Moving a declaration closer to its usage](#moving-a-declaration-closer-to-its-usage))|`refactor.move.closerToUsage`|`rdcore.refactor` for a client that expects `Refactoring`. For any other, its `edit`, with `Static` for a variable of a module, offered only when that changes nothing the user would have to accept.|
 
 `rdcore.rename` ([`RefactoringCommands.Rename`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
 
@@ -551,7 +552,7 @@ The interactive shell asks for them with `DUCKY`, for its program as the documen
 
 ### `rdcore/refactor/prepare`, `rdcore/refactor/checkIdentifier` and `rdcore/refactor/apply`
 
-A refactoring is offered to any client as a code action, which completes with its defaults. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html), and asks with the requests below, the same for every refactoring. The language server provides the capability, and serves Extract Method (`refactor.extract.method`) and Convert GoSub to Procedure (`refactor.extract.gosub`) with them.
+A refactoring is offered to any client as a code action, which completes with its defaults. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html), and asks with the requests below, the same for every refactoring. The language server provides the capability, and serves Extract Method (`refactor.extract.method`) and Convert GoSub to Procedure (`refactor.extract.gosub`) with them, and Move Closer To Usage (`refactor.move.closerToUsage`) with `prepare` and `apply`: it asks no name.
 
 **`rdcore/refactor/prepare`** ([`RefactorPrepareParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorPrepareParams.html)) names the refactoring by the kind of its code action, with the document and the range. It is answered what the refactoring asks its user, each choice with the answer it takes by default, and its notices ([`RefactorPrepareResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorPrepareResult.html)):
 
@@ -576,6 +577,31 @@ For Extract Method:
 |A name declared outside the module, which the new procedure hides there|A `Note`, with the declaration it hides (`related`). The refactoring takes the name.|
 
 **`rdcore/refactor/apply`** ([`RefactorApplyParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorApplyParams.html)) sends the same kind, document and range, with the answers and the codes of the changes the user accepts. A choice that is not answered takes its default. It is answered the edit ([`RefactorWorkspaceEdit`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorWorkspaceEdit.html)): the documents it creates, then the text edits of each document, of the version the client has. The client applies it as one change. A refactoring that is refused, or that would make a change the user did not accept, is answered with an error (`RequestFailed`, -32803) whose message says why, in the language of the user interface.
+
+#### Moving a declaration closer to its usage
+
+The range is on the declaration of a variable or on a use of it. The declaration moves to a line of its own before the statement that first uses the variable, indented as that statement is, in the innermost block that holds every use of it. A use in the condition of an `If` or the bounds of a loop keeps it before that statement. A declaration is not executed ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)), so a variable of a procedure is the same wherever it is declared before its first use.
+
+- A variable of a procedure keeps its keyword, `Dim` or `Static`.
+- A `Private` variable of a module that a single procedure uses moves into that procedure. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
+
+|A variable of a module, declared|Changes|Code|
+|---|---|---|
+|`Static`, in a standard module|Nothing: it keeps its value between calls.|None.|
+|`Static`, in a class module|Its extent: a variable of the class has object extent, a `Static` variable module extent (**MS-VBAL §2.3**).|`moveCloserToUsage.moduleExtent`|
+|`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
+
+`rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
+
+|Refused|Code|
+|---|---|
+|A variable of a module that is `Public`, `Global` or `Friend`|`moveCloserToUsage.notPrivate`|
+|A variable declared `WithEvents`|`moveCloserToUsage.withEvents`|
+|A variable that nothing uses|`moveCloserToUsage.notUsed`|
+|A variable of a module used by more than one procedure|`moveCloserToUsage.severalProcedures`|
+|A declaration, or a first use, in a branch of an `#If` block|`moveCloserToUsage.conditional`|
+|A variable of a procedure declared before its first use with nothing but declarations between them|`moveCloserToUsage.alreadyClose`|
+|A declaration that is the only one of a statement sharing its line with another statement|`moveCloserToUsage.sharesItsLine`|
 
 The messages are plain records of `RDCore.SDK.Protocol`, with no OmniSharp type: a client that has only that package writes and reads them.
 
