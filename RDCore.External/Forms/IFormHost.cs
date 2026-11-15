@@ -276,6 +276,44 @@ public static class FormControlArrayMembers
 }
 
 /// <summary>
+/// The member of a Visual Basic 6.0 form or PictureBox that its <c>Print</c> method calls (<c>picBoard.Print "Score:"; score</c>), with the output list
+/// evaluated: the object lays it out on its surface, in its font.
+/// </summary>
+/// <remarks>
+/// A program cannot name it: a name in brackets is the platform's, as <see cref="FormWindowEvents.Close"/> is. Its first argument is a <c>Boolean</c>, whether the
+/// output ends the line. A pair of arguments follows for each part of the output list, in source order: the part's <see cref="FormPrintPartKind"/> as an
+/// <c>Integer</c>, then its <c>String</c> text, its <c>Long</c> count or column, or <c>Empty</c> for a <c>Tab</c> to the next print zone.
+/// </remarks>
+public static class FormPrintMembers
+{
+    /// <summary>
+    /// Prints an output list on the object.
+    /// </summary>
+    public const string Print = "[Print]";
+}
+
+/// <summary>
+/// What a part of an output list is, as <see cref="FormPrintMembers.Print"/> takes it.
+/// </summary>
+public enum FormPrintPartKind : short
+{
+    /// <summary>
+    /// A text: the output string of an expression.
+    /// </summary>
+    Text = 0,
+
+    /// <summary>
+    /// <c>Spc(n)</c>: a number of columns.
+    /// </summary>
+    Spc = 1,
+
+    /// <summary>
+    /// <c>Tab(n)</c>, a column; <c>Tab</c> with no column, or a comma, the next print zone.
+    /// </summary>
+    Tab = 2,
+}
+
+/// <summary>
 /// The form host of a machine that has none: no form can be created.
 /// </summary>
 public sealed class UnavailableFormHost : IFormHost
