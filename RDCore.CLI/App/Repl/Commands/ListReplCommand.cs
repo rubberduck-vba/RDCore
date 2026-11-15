@@ -41,7 +41,7 @@ internal sealed class ListReplCommand : IReplCommand
     private const string UnicodeFixGlyph = "💡";
     private const string AsciiFixGlyph = "*";
 
-    // the mark of a line's most severe diagnostic, in the bulb's lane: no wider than the bulb in each set, and a hint's a small dot.
+    // the mark of a line's most severe diagnostic, in the bulb's lane: no wider than the bulb in each set, and a small dot for a hint.
     private static readonly (string Error, string Warning, string Information, string Hint) unicodeSeverityGlyphs = ("❌", "🔶", "🔹", "·");
     private static readonly (string Error, string Warning, string Information, string Hint) asciiSeverityGlyphs = ("X", "!", "i", ".");
 
@@ -109,7 +109,7 @@ internal sealed class ListReplCommand : IReplCommand
         var fixGlyph = context.Console.DrawsUnicode ? UnicodeFixGlyph : AsciiFixGlyph;
         var severityGlyphs = context.Console.DrawsUnicode ? unicodeSeverityGlyphs : asciiSeverityGlyphs;
 
-        // the lane of the diagnostics is as wide as its widest mark, on every line, whether any line has one or not: the code doesn't move when one comes or goes.
+        // the lane of the diagnostics is as wide as its widest mark, on every line, whether any line has one or not: the code does not move when one comes or goes.
         var diagnosticLane = new[] { fixGlyph, severityGlyphs.Error, severityGlyphs.Warning, severityGlyphs.Information, severityGlyphs.Hint }.Max(ConsoleText.WidthOf);
 
         // the mark of a diagnostic on a line, or on a line a folded block hides: a fix's, or else the most severe diagnostic's.
