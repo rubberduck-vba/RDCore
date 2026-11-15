@@ -51,7 +51,7 @@ internal sealed class WriteOnlyPropertyAnalyzer : IModuleAnalyzer
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.WriteOnlyProperty_Message, member.Name))
             {
-                Fixes = GetterOf(context.ParseResult, module, members, member, context.Semantics) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                Fixes = GetterOf(context.ParseResult, module, members, member, context.Semantics) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
             })
             .ToArray();
     }

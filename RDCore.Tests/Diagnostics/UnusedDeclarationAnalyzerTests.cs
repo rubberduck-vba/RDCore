@@ -531,7 +531,7 @@ public sealed class UnusedDeclarationAnalyzerTests
     {
         string[] before = ["Option Explicit", "Private mWidth As Long", "Public Property Let Size(ByVal value As Long)", "    mWidth = value * 2", "End Property",
             "Public Property Get Width() As Long", "    Width = mWidth", "End Property"];
-        var fix = Assert.ContainsSingle(await ClassAsync(new WriteOnlyPropertyAnalyzer(), "Shape", before)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(await ClassAsync(new WriteOnlyPropertyAnalyzer(), "Shape", before)).Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
         Assert.AreEqual("Add a Property Get 'Size' that returns the value the Let keeps in 'mSize'", fix.Title);
 
@@ -556,8 +556,8 @@ public sealed class UnusedDeclarationAnalyzerTests
             "Public Property Let Item(ByVal value As Variant)", "End Property", "Public Property Set Item(ByVal value As Object)", "End Property"));
         var withoutSemantics = Assert.ContainsSingle(WithoutSemantics(new WriteOnlyPropertyAnalyzer(), "Public Property Let Size(ByVal value As Long)", "End Property"));
 
-        Assert.IsNull(withSet.Fixes?.Edit, "the variable would keep the object alive");
-        Assert.IsNull(withoutSemantics.Fixes?.Edit, "whether another module implements the class is not known");
+        Assert.IsNull(withSet.Fixes?.Edits.SingleOrDefault(), "the variable would keep the object alive");
+        Assert.IsNull(withoutSemantics.Fixes?.Edits.SingleOrDefault(), "whether another module implements the class is not known");
     }
 
     [TestMethod]
@@ -571,7 +571,7 @@ public sealed class UnusedDeclarationAnalyzerTests
 
         var finding = Assert.ContainsSingle(Run(new WriteOnlyPropertyAnalyzer(), shape, model, new Uri(Path.Combine(ModuleWorkspace.Root, "IShape.cls"))));
 
-        Assert.IsNull(finding.Fixes?.Edit, "a Get in the interface is a member that Square does not implement");
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault(), "a Get in the interface is a member that Square does not implement");
     }
 
     #endregion
