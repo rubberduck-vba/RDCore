@@ -296,6 +296,9 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
 - a `Let` of a `String` variable of the procedure or of the function's `String` result, made of `String`s (see Strings, above), with a call of
   a whole-number type inside it (`S = "(" & P.X & "," & P.Y & ")"`, `S = Chr$(64 + G.Size)`);
 - a `Debug.Print` of such `String`s (see `Debug.Print`, above);
+- a `Let` of a `Variant` variable of the procedure (`V = 1 + F(2)`, `V = 1 + G.Size`), which is given what the value evaluates to, of its own type
+  (**MS-VBAL §5.5.1.2.12**): a `Long` when `F` and `Size` return one. The value is evaluated once. When the interpreter runs the `Let` after the call, because an operation raises an error
+  or because the `Variant` holds an object, it is given what was evaluated, and the call is not made again;
 - a call statement;
 - the condition of an `If`, an `ElseIf` or a loop;
 - the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
