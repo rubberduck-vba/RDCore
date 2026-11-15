@@ -119,8 +119,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
                 return invocation switch
                 {
-                    AutomationInvocation.Let or AutomationInvocation.Set => Assign(component, property, arguments, culture, handle.Form.Unit),
-                    _ when arguments.Length == 0 => Read(component, property, handle.Form.Unit),
+                    AutomationInvocation.Let or AutomationInvocation.Set => Assign(handle.Form, component, property, arguments, culture),
+                    _ when arguments.Length == 0 => Read(handle.Form, component, property),
                     _ => throw new AutomationException(BadParameterCount, $"{handle}.{member} takes no argument."),
                 };
             }
@@ -248,12 +248,17 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             : handle.Form.MenuArrayOf(name);
 
     // the model holds a component's position and size in pixels: the program reads and writes them in its form's unit.
-    private static object? Read(ComponentInstance component, PropertyDefinition property, CodeUnit unit)
+    private static object? Read(RDFormsForm form, ComponentInstance component, PropertyDefinition property)
     {
         var stored = component.GetBoxed(property);
+        if (RDFormsPictures.IsPicture(property) && form.Pictures.PictureOf(component, property, stored as byte[]) is { } picture)
+        {
+            return picture;
+        }
+
         if (CodeUnits.IsExtent(property))
         {
-            stored = CodeUnits.ToCode(component, property, (double)stored!, unit);
+            stored = CodeUnits.ToCode(component, property, (double)stored!, form.Unit);
         }
 
         return RDFormsValues.TryToNeutral(stored, out var value)
@@ -261,17 +266,19 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             : throw new AutomationException(NotImplemented, $"{component}.{property.Name}: a value of type {property.ValueType.Name} cannot be given to a program.");
     }
 
-    private static object? Assign(ComponentInstance component, PropertyDefinition property, object?[] arguments, CultureInfo culture, CodeUnit unit)
+    private static object? Assign(RDFormsForm form, ComponentInstance component, PropertyDefinition property, object?[] arguments, CultureInfo culture)
     {
         if (arguments.Length != 1)
         {
             throw new AutomationException(BadParameterCount, $"{component}.{property.Name} takes no argument.");
         }
 
-        var value = RDFormsValues.FromNeutral(arguments[0], property.ValueType, culture);
+        var value = RDFormsPictures.IsPicture(property)
+            ? form.Pictures.Assign(component, property, arguments[0])
+            : RDFormsValues.FromNeutral(arguments[0], property.ValueType, culture);
         if (CodeUnits.IsExtent(property))
         {
-            value = CodeUnits.FromCode(component, property, (double)value!, unit);
+            value = CodeUnits.FromCode(component, property, (double)value!, form.Unit);
         }
 
         if (!component.TrySet(property, value))

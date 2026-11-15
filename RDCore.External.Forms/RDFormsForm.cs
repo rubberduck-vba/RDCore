@@ -53,6 +53,9 @@ internal sealed class RDFormsForm : IComponentEventSink
     // the form's Controls collection.
     public RDFormsControls Controls { get; }
 
+    // the program's pictures that its components' picture properties hold.
+    public RDFormsPictures Pictures { get; } = new();
+
     public bool IsDestroyed { get; private set; }
 
     public RDFormsObject HandleOf(ComponentInstance component)
@@ -152,6 +155,7 @@ internal sealed class RDFormsForm : IComponentEventSink
         IsDestroyed = true;
         EndModal();
         _sinks.Clear();
+        Pictures.ReleaseAll();
         VBControl.SetEventSink(Window, null);
 
         // closed from code, the window raises nothing: the program has unloaded the form already.
