@@ -44,23 +44,43 @@ public sealed class PrintOutputEvaluator(
     /// <param name="session">The session whose output is written to.</param>
     /// <param name="context">The runtime context each output expression is evaluated against.</param>
     /// <param name="items">The output list, in source order; empty writes a blank line.</param>
+    /// <param name="target">The output written to instead of the session's: a file channel's.</param>
     public RuntimeExecutionOutcome Execute(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<PrintOutputItemNode> items,
         IRuntimeOutput? target = null)
-    {
         // MS-VBAL 5.4.5.8's rules are the same wherever the output is aimed - the session's own for
         // Debug.Print, a file channel for Print #. Only the target differs, so only the target is a parameter.
-        var output = target ?? session.Output;
+        => Print(session, context, items, new OutputSink(target ?? session.Output));
+
+    /// <summary>
+    /// Evaluates <paramref name="items"/> into the parts an object's <c>Print</c> method prints, which lays them out itself.
+    /// </summary>
+    /// <param name="session">The session the output expressions are evaluated in.</param>
+    /// <param name="context">The runtime context each output expression is evaluated against.</param>
+    /// <param name="items">The output list, in source order.</param>
+    /// <param name="printed">The parts, and whether the output ends the line; empty when an item raised an error.</param>
+    /// <returns>The outcome of the evaluation: the error of the first item that raised one.</returns>
+    public RuntimeExecutionOutcome Collect(
+        IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<PrintOutputItemNode> items, out PrintedOutput printed)
+    {
+        var parts = new PartsSink();
+        var outcome = Print(session, context, items, parts);
+        printed = outcome == RuntimeExecutionOutcome.Next ? new PrintedOutput([.. parts.Parts], parts.EndsLine) : new PrintedOutput([], EndsLine: false);
+        return outcome;
+    }
+
+    private RuntimeExecutionOutcome Print(IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<PrintOutputItemNode> items, IPrintSink sink)
+    {
         if (items.IsEmpty)
         {
             // "If <output-list> is not present, the line termination sequence ... is written".
-            output.WriteLine();
+            sink.EndLine();
             return RuntimeExecutionOutcome.Next;
         }
 
         foreach (var item in items)
         {
-            if (WriteItem(session, context, output, item) is { } failed)
+            if (WriteItem(session, context, sink, item) is { } failed)
             {
                 return failed;
             }
@@ -71,14 +91,14 @@ public sealed class PrintOutputEvaluator(
         // line open for whatever prints next.
         if (items[^1].Separator is null)
         {
-            output.WriteLine();
+            sink.EndLine();
         }
 
         return RuntimeExecutionOutcome.Next;
     }
 
     // returns null when the item was written, or the outcome that stopped it.
-    private RuntimeExecutionOutcome? WriteItem(IRuntimeSession session, RuntimeEvaluationContext context, IRuntimeOutput output, PrintOutputItemNode item)
+    private RuntimeExecutionOutcome? WriteItem(IRuntimeSession session, RuntimeEvaluationContext context, IPrintSink sink, PrintOutputItemNode item)
     {
         switch (item.Value)
         {
@@ -92,12 +112,12 @@ public sealed class PrintOutputEvaluator(
                 {
                     return spcFailure;
                 }
-                output.Write(new string(' ', Math.Max(0, spaces.Count)));
+                sink.Spaces(Math.Max(0, spaces.Count));
                 break;
 
             case PrintTabClauseNode { Column: null }:
                 // bare Tab: "advanced to the next print zone ... until (current line position modulo 14) equals 1".
-                AdvanceToNextPrintZone(output);
+                sink.NextZone();
                 break;
 
             case PrintTabClauseNode tab:
@@ -106,13 +126,7 @@ public sealed class PrintOutputEvaluator(
                 {
                     return tabFailure;
                 }
-                // "If t less than or equal to the current line position, output the line termination
-                // sequence", then pad out to column t.
-                if (column.Count <= output.LinePosition)
-                {
-                    output.WriteLine();
-                }
-                output.Write(new string(' ', Math.Max(0, column.Count - output.LinePosition)));
+                sink.Tab(column.Count);
                 break;
 
             default:
@@ -131,25 +145,75 @@ public sealed class PrintOutputEvaluator(
                         ? RuntimeExecutionOutcome.InternalError
                         : RuntimeExecutionOutcome.Error(text.ErrorInfo!);
                 }
-                output.Write(((VBStringValue)text.Result!).Value);
+                sink.Text(((VBStringValue)text.Result!).Value);
                 break;
         }
 
         if (item.Separator == ",")
         {
-            AdvanceToNextPrintZone(output);
+            sink.NextZone();
         }
 
         return null;
     }
 
-    // "outputting space characters until (current line position modulo 14) equals 1. ... Note that the
-    // print zone is advanced even if the current file-pointer-position is already at the beginning of
-    // a print zone" — so a zone boundary always moves a whole zone on, never stays put.
-    private static void AdvanceToNextPrintZone(IRuntimeOutput output)
+    // where the items of an output list go: an output the rules lay them out on, or the parts an object lays out itself.
+    private interface IPrintSink
     {
-        var column = output.LinePosition - 1;
-        output.Write(new string(' ', PrintZoneWidth - (column % PrintZoneWidth)));
+        void Text(string text);
+
+        void Spaces(int count);
+
+        void Tab(int column);
+
+        void NextZone();
+
+        void EndLine();
+    }
+
+    private sealed class OutputSink(IRuntimeOutput output) : IPrintSink
+    {
+        public void Text(string text) => output.Write(text);
+
+        public void Spaces(int count) => output.Write(new string(' ', count));
+
+        // "If t less than or equal to the current line position, output the line termination sequence", then pad out to column t.
+        public void Tab(int column)
+        {
+            if (column <= output.LinePosition)
+            {
+                output.WriteLine();
+            }
+            output.Write(new string(' ', Math.Max(0, column - output.LinePosition)));
+        }
+
+        // "outputting space characters until (current line position modulo 14) equals 1. ... Note that the
+        // print zone is advanced even if the current file-pointer-position is already at the beginning of
+        // a print zone": a zone boundary always moves a whole zone on.
+        public void NextZone()
+        {
+            var column = output.LinePosition - 1;
+            output.Write(new string(' ', PrintZoneWidth - (column % PrintZoneWidth)));
+        }
+
+        public void EndLine() => output.WriteLine();
+    }
+
+    private sealed class PartsSink : IPrintSink
+    {
+        public List<PrintedPart> Parts { get; } = [];
+
+        public bool EndsLine { get; private set; }
+
+        public void Text(string text) => Parts.Add(new(PrintedPartKind.Text, text));
+
+        public void Spaces(int count) => Parts.Add(new(PrintedPartKind.Spc, Count: count));
+
+        public void Tab(int column) => Parts.Add(new(PrintedPartKind.Tab, Count: column));
+
+        public void NextZone() => Parts.Add(new(PrintedPartKind.Tab));
+
+        public void EndLine() => EndsLine = true;
     }
 
     /// <summary>
