@@ -115,7 +115,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to No .NET application host for {0} is installed, so no executable was written: run the program with dotnet {1}..
+        ///   Looks up a localized string similar to Neither rdc nor an installed .NET SDK has the .NET application host for {0}, so no executable was written: run the program with dotnet {1}..
         /// </summary>
         public static string Build_NoAppHost {
             get {
