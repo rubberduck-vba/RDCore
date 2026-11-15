@@ -80,12 +80,13 @@ internal sealed partial class ProcedureEmitter
     {
         switch (step)
         {
-            // the element's cell found, then the value evaluated and written into it: neither does anything the interpreter would see, when either fails. A
-            // value that reads a Variant declines what compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
+            // the value evaluated, then the element's cell found and the value written into it, as the interpreter evaluates the value before it finds the
+            // element (AssignValue): after a call inside the value, the subscripts are read as the call left them. A value that reads a Variant declines what
+            // compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
             case ElementLetStep let:
             {
-                var cell = EmitElementCell(let.Element, FailureAt(let.Offset));
                 var value = EmitPayload(let.Value, FailureOf(let.Value, let.Offset));
+                var cell = EmitElementCell(let.Element, FailureAt(let.Offset));
                 _il.Emit(OpCodes.Ldloc, cell);
                 Load(value, let.Element.Kind);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(let.Element.Kind) ? nameof(CompiledActivation.WriteIntegral) : nameof(CompiledActivation.WriteFloating))!);
@@ -93,17 +94,18 @@ internal sealed partial class ProcedureEmitter
             }
 
             // what the Variant element holds decides what its Let is, as a Variant variable's does (VariantLetStep): one the evaluation on payloads declines
-            // - of a String, over an object - the interpreter runs alone, and compiled code goes on after it.
+            // - of a String, over an object - the interpreter runs alone, and compiled code goes on after it. The value is evaluated before the element is
+            // found, as for an element of a scalar type.
             case VariantElementLetStep let:
             {
                 var failure = RecoverAt(let.Offset);
-                var cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
                 var value = _il.DeclareLocal(typeof(VariantPayload));
                 EmitVariantInto(let.Value, value, failure);
+                var cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
                 _il.Emit(OpCodes.Ldloc, cell);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
             }
 
@@ -138,7 +140,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, cell);
                 _il.Emit(OpCodes.Ldloca, read);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(element.Kind) ? nameof(CompiledActivation.ReadIntegral) : nameof(CompiledActivation.ReadFloating))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 return new Operand(read, 0, 0);
             }
 
@@ -243,7 +245,8 @@ internal sealed partial class ProcedureEmitter
     private LocalBuilder EmitElementCell(ElementNode element, Label failure)
         => EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.ScalarElement), element.Kind, failure);
 
-    // the cell ArrayOperations' find gives of the element at the subscripts, each evaluated first; none goes to failure, unless orNone keeps it.
+    // the cell ArrayOperations' find gives of the element at the subscripts, each evaluated first; none goes to failure, unless orNone keeps it. After a call
+    // inside the instruction, the interpreter is given what was evaluated (Fail), and the call is not made again.
     private LocalBuilder EmitElementCellOf(int array, IReadOnlyList<PayloadNode> elementSubscripts, string find, ScalarKind? kind, Label failure, bool orNone = false)
     {
         var subscripts = new Operand[elementSubscripts.Count];
@@ -277,7 +280,7 @@ internal sealed partial class ProcedureEmitter
         if (!orNone)
         {
             _il.Emit(OpCodes.Ldloc, cell);
-            _il.Emit(OpCodes.Brfalse, failure);
+            _il.Emit(OpCodes.Brfalse, Fail(failure));
         }
 
         return cell;

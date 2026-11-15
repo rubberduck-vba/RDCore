@@ -20,8 +20,8 @@ internal sealed partial class ProcedureAnalysis
     // it is in that statement (KnownOperands.IndexOf), for the interpreter to be given when the instruction is handed to it after a call.
     private StatementNode? _nesting;
 
-    // a Let of a scalar or Variant variable of the activation or of the function result variable, a call statement, or a condition of an If or a loop,
-    // that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode). Every other
+    // a Let of a scalar or Variant variable of the activation or of the function result variable, of a field of a record, of a member of an object, or of
+    // an element of an array, a call statement, or a condition of an If or a loop, that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode). Every other
     // instruction is translated as any instruction is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
@@ -71,8 +71,8 @@ internal sealed partial class ProcedureAnalysis
     {
         var nests = instruction switch
         {
-            { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode } assignment }
-                => IsScalarTarget(Bind(assignment.Target)) && CallsInside(Bind(assignment.Value)),
+            { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment }
+                => IsNestedTarget(assignment.Target) && CallsInside(Bind(assignment.Value)),
             // a Set of an object variable, or of the function result variable, to what a call returns.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
                 => Calls(Bind(assignment.Value)),
@@ -88,6 +88,20 @@ internal sealed partial class ProcedureAnalysis
         };
 
         return nests ? instruction.Node : null;
+    }
+
+    // what a Let that calls inside its value assigns: a variable (IsScalarTarget); a field of a record, a member of an object, or an element of an array of a
+    // scalar type or of Variants, each found once the value is evaluated, after its calls, as the interpreter finds it (MS-VBAL §5.4.3.8).
+    private bool IsNestedTarget(ExpressionNode target)
+    {
+        var bound = Bind(target);
+        return target switch
+        {
+            SimpleNameExpressionNode => IsScalarTarget(bound),
+            MemberAccessExpressionNode => IsMemberOfAnObject(bound) || RecordFieldOf(bound) is not null,
+            IndexExpressionNode => (FieldElementOf(bound) ?? bound) is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Scalar or ElementClass.Variant },
+            _ => false,
+        };
     }
 
     // a scalar variable of the activation or the scalar result variable, and a Variant variable of the activation, assigned what was evaluated of it once:
@@ -209,6 +223,12 @@ internal sealed partial class ProcedureAnalysis
         SupportCallStep => true,
         LetStep let => Admits(let.Value),
         VariantLetStep let => Admits(let.Value),
+        FieldLetStep let => Admits(let.Value),
+        VariantFieldLetStep let => Admits(let.Value),
+        MemberFieldLetStep let => Admits(let.Value),
+        MemberLetStep let => Admits(let.Value),
+        ElementLetStep let => Admits(let.Value) && let.Element.Subscripts.All(Admits),
+        VariantElementLetStep let => Admits(let.Value) && let.Element.Subscripts.All(Admits),
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         SetStep { SourceCall: { } source } => Admits(source),
         BranchStep branch => Admits(branch.Condition),
@@ -327,6 +347,13 @@ internal sealed partial class ProcedureAnalysis
     {
         LetStep let => [let.Value],
         VariantLetStep let => OperandsOf(let.Value),
+        FieldLetStep let => [let.Value],
+        VariantFieldLetStep let => OperandsOf(let.Value),
+        MemberFieldLetStep let => [let.Value],
+        MemberLetStep let => OperandsOf(let.Value),
+        // the subscripts of the element assigned too, read after the value's calls, and before their own.
+        ElementLetStep let => [let.Value, .. let.Element.Subscripts],
+        VariantElementLetStep let => [.. OperandsOf(let.Value), .. let.Element.Subscripts],
         CallStep call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
         SetStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
         BranchStep branch => [branch.Condition],
