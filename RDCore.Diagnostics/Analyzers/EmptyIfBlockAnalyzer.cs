@@ -75,7 +75,7 @@ internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
         }
 
         // a comment in the If is the user's, and is not removed with it.
-        if (parse.Trivia.Any(trivia => range.Contains(trivia.SourceLocation.Range)) ||LineEdits.WholeLinesOf(parse, block) is not { } lines)
+        if (parse.Trivia.Any(trivia => range.Contains(trivia.SourceLocation.Range)) || LineEdits.WholeLinesOf(parse, block) is not { } lines)
         {
             return null;
         }
