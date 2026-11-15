@@ -103,7 +103,7 @@ public static class InstructionListLowering
             case DebugStatementNode when !state.IncludeDebugStatements:
                 break;
 
-            // a bare Print is the Print member of a form or a report in VB6, which prints on the form in a Visual Basic 6.0 form's code. In VBA it is a reserved
+            // in VB6 a bare Print is the Print member of the form or report whose code it is, and it prints on the form in a Visual Basic 6.0 form's code. In VBA it is a reserved
             // identifier with no semantics and no statement inside a procedure (only the Immediate window, which is not procedure scope, accepts it as
             // Debug.Print), so anywhere else in a language without one (HasBarePrint) it is as undefined as any other name the language does not declare.
             case PrintStatementNode barePrint when BarePrintStaticSemantics.Evaluate(barePrint, state.Language, state.DrawsOnMe) is not null:
