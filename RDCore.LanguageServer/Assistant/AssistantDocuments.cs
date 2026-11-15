@@ -15,14 +15,15 @@ namespace RDCore.LanguageServer.Assistant;
 internal sealed class AssistantDocuments(IWorkspaceDocumentService documents, ISymbolSyncService symbols)
 {
     // how long a tool waits for the workspace's first load before it says the workspace is still loading: an assistant asks again, where an answer read from
-    // a workspace half loaded would be wrong.
+    // a half-loaded workspace would be wrong.
     public static readonly TimeSpan DefaultLoadBound = TimeSpan.FromSeconds(30);
 
     public TimeSpan LoadBound { get; init; } = DefaultLoadBound;
 
     public string Root => documents.WorkspaceRoot;
 
-    // the workspace as the server brought it up: every document parsed and its modules defined in the host, however the bring-up ended.
+    // waits for the workspace as the server brings it up (every document parsed and its modules defined in the host, however the bring-up ends); past
+    // LoadBound, the tool is refused with WorkspaceLoading.
     public async Task LoadedAsync(CancellationToken token)
     {
         try
