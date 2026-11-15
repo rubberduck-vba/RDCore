@@ -4,7 +4,7 @@ using RDCore.SDK.Runtime.Stdole;
 
 namespace RDCore.Runtime.Execution.External.Pictures;
 
-// A picture's bytes where an array is wanted: the array they are, with no copy, when they are one whole; and what a server's side is given of a picture.
+// a picture's bytes where an array is wanted: the array they are, with no copy, when they are one whole; and what a server's side is given of a picture.
 internal static class PictureBytes
 {
     public static byte[] ArrayOf(ReadOnlyMemory<byte> bytes)
