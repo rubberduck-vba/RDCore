@@ -150,7 +150,7 @@ public static class ExpressionStaticSemanticsEvaluator
             ownerType = ownerResult.Result!;
 
             // a value of an enumeration is a number, which has no members: only the enumeration's name qualifies them. In `Property Get PlayerType() As
-            // PlayerType`, `PlayerType.ComputerControlled` is the Get's result, or the Get, and is an invalid qualifier (Excel-verified, oracle\s64 E02, E04).
+            // PlayerType`, `PlayerType.ComputerControlled` is the Get's result, or the Get, and is an invalid qualifier (observed in Excel).
             if (ownerType is VBEnumType)
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName));
@@ -243,7 +243,7 @@ public static class ExpressionStaticSemanticsEvaluator
             return StaticSemanticsEvaluationResult.Error(reservedNameError);
         }
 
-        // the subscripts of an element of an array - a variable's, a field's: a call of a function that returns one is given arguments (MS-VBA, oracle\s55 A04).
+        // the subscripts of an element of an array - a variable's, a field's: a call of a function that returns one is given arguments (MS-VBA, observed in Excel).
         var indexesAnArray = calleeResult.Result is VBArrayType
             && ProcedureNamedBy(context, indexExpression.Callee) is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
 
@@ -489,7 +489,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
     // an Enum of a class module that declares a procedure of the Enum's name qualifies no member of it, from any module: the procedure takes the name in a
     // value, and `PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier in another module as in the class
-    // (Excel-verified, oracle\s64 E15; E18 the same without the Get). The Enum is still the type of `Dim t As PlayerType`.
+    // (observed in Excel; the same without the Get). The Enum is still the type of `Dim t As PlayerType`.
     private static bool IsTakenByAProcedureOfItsClass(StaticEvaluationContext context, VBEnumType enumeration)
         => enumeration.Symbol.GetProperty(SymbolProperties.Library) is null
             && context.Resolver.ResolveQualifier(SymbolUri.ModuleNameOf(enumeration.Symbol.Uri), ScopeKind.Global, context.Scope.Uri).Symbol is VBClassModuleSymbol module
@@ -545,7 +545,7 @@ public static class ExpressionStaticSemanticsEvaluator
             var isArray = ReferenceEquals(operand, arrayBound.Array);
 
             // what the bounds are asked of is written as a name, a member or a call: a literal, an operator's result and anything in parentheses are a
-            // syntax error (MS-VBA, Excel-verified, oracle\s29 U05, U20-U24, U32).
+            // syntax error (MS-VBA, observed in Excel).
             if (isArray && operand is LiteralExpressionNode or VBUnaryOperatorExpressionNode or VBBinaryOperatorExpressionNode or TypeOfIsExpressionNode)
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, operand.Location,
@@ -555,7 +555,7 @@ public static class ExpressionStaticSemanticsEvaluator
             var result = Evaluate(context, operand);
             if (isArray && NameClassificationStaticSemantics.IsNotAValue(operand, result.ErrorInfo as VBCompileErrorInfo))
             {
-                // a project, a module or an enumeration is no array either (MS-VBA: "Expected array", oracle\s29 U26-U28).
+                // a project, a module or an enumeration is no array either (MS-VBA: "Expected array", observed in Excel).
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, operand.Location, result.ErrorInfo!.Verbose));
             }
 
@@ -565,7 +565,7 @@ public static class ExpressionStaticSemanticsEvaluator
             }
 
             // MS-VBAL §3.3.5.2: what the bounds are asked of is an array; one declared as an intrinsic type other than Variant, an object, a class or a
-            // user-defined type never holds one (MS-VBA: "Expected array", Excel-verified, oracle\s29 U01-U12, U29-U31). A Variant may, when it runs.
+            // user-defined type never holds one (MS-VBA: "Expected array", observed in Excel). A Variant may, when it runs.
             if (isArray && result.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType or VBObjectType or VBClassType or VBUserDefinedType)
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, operand.Location,
@@ -618,7 +618,7 @@ public static class ExpressionStaticSemanticsEvaluator
         return TypeOfIsExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, operandResult.Result!);
     }
 
-    // a project, a module or an enumeration as the operand of a binary operator is a type mismatch, as MS-VBA has it (Excel-verified, oracle\s29 O01-O18), and
+    // a project, a module or an enumeration as the operand of a binary operator is a type mismatch, as MS-VBA has it (observed in Excel), and
     // not its classification: that is what the operand of a unary operator is.
     private static StaticSemanticsEvaluationResult NoOperand(ExpressionNode operand, StaticSemanticsEvaluationResult result)
         => NameClassificationStaticSemantics.IsNotAValue(operand, result.ErrorInfo as VBCompileErrorInfo)

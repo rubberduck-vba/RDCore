@@ -13,7 +13,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// list was already specified for it) and <strong>MS-VBA</strong> compiles, as the array.
 /// </summary>
 /// <remarks>
-/// RD-VBA does as MS-VBA does (recorded in Excel: oracle\s53 E07, E08, F07, F08): <c>UBound(f()())</c> compiles, and <c>f()()</c> raises run-time error 9
+/// RD-VBA does as MS-VBA does (recorded in Excel): <c>UBound(f()())</c> compiles, and <c>f()()</c> raises run-time error 9
 /// (Subscript out of range) whenever it runs. A warning, because the specification refuses it, and it can never run. The analyzer finds the two empty lists in
 /// the syntax tree, and reads the declared type of what the first one is given to.
 /// </remarks>
