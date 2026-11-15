@@ -113,9 +113,14 @@ public static class ParameterRemoval
             return Refused(new(ParameterRemovalRefusalKind.NoParameter, target.Name));
         }
 
-        if (RefusalOf(context, procedure, target.Name) is { } refusal || FamilyOf(context, procedure, target.Name) is not { } family)
+        if (RefusalOf(context, procedure, target.Name) is { } refusal)
         {
-            return Refused(refusal ?? new(ParameterRemovalRefusalKind.Handler, procedure.Name));
+            return Refused(refusal);
+        }
+
+        if (FamilyOf(context, procedure, target.Name) is not { } family)
+        {
+            return Refused(new(ParameterRemovalRefusalKind.Handler, procedure.Name));
         }
 
         var edits = new List<RenameEdit>();
