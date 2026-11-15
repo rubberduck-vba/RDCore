@@ -69,7 +69,7 @@ internal sealed class ReplShell(
         };
         _debugger = context.Debugger;
 
-        await dispatcher.DispatchAsync(context, "SPLASH", string.Empty, CancellationToken.None);
+        // the splash is shown once, as the shell's host starts (ReplSplash): not again here.
         await dispatcher.DispatchAsync(context, "MEMORY", string.Empty, CancellationToken.None);
         WriteReady();
 

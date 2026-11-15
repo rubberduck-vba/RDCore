@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Implémenter l'interface : {0} est la classe d'interface, ou la variable WithEvents dont les événements sont gérés ; {1} est ce qui en est la raison, quand il y a quelque chose. TodoComment et HandlerTodoComment sont écrits dans le code, après une apostrophe. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ImplementInterface_Title" xml:space="preserve">
+    <value>Implémenter l'interface « {0} »</value>
+  </data>
+  <data name="ImplementInterface_EventsTitle" xml:space="preserve">
+    <value>Gérer les événements de « {0} »</value>
+  </data>
+  <data name="ImplementInterface_TodoComment" xml:space="preserve">
+    <value>TODO implémenter le membre d'interface</value>
+  </data>
+  <data name="ImplementInterface_HandlerTodoComment" xml:space="preserve">
+    <value>TODO traiter l'événement</value>
+  </data>
+  <data name="ImplementInterface_Nothing" xml:space="preserve">
+    <value>Il n'y a rien à implémenter ici : aucune directive Implements ni variable WithEvents dont il reste des membres à écrire.</value>
+  </data>
+  <data name="ImplementInterface_DocumentChanged" xml:space="preserve">
+    <value>Le document a changé depuis que l'implémentation a été proposée : redemandez-la.</value>
+  </data>
+  <data name="ImplementInterfaceRefusal_InvalidDirective" xml:space="preserve">
+    <value>« Implements {0} » n'est pas une directive valide : son erreur de compilation dit pourquoi.</value>
+  </data>
+  <data name="ImplementInterfaceRefusal_Conditional" xml:space="preserve">
+    <value>Les membres de « {0} » seraient écrits dans une branche d'un bloc #If, et ne seraient compilés qu'avec elle.</value>
+  </data>
+  <data name="ImplementInterfaceRefusal_NotWritable" xml:space="preserve">
+    <value>« {1} » a un paramètre Optional dont la bibliothèque n'indique pas la valeur par défaut : son implémentation ne peut pas être écrite.</value>
+  </data>
+  <data name="ImplementInterfaceVerification_DoesNotParse" xml:space="preserve">
+    <value>Les membres de « {0} » ne sont pas écrits : le module qui en résulterait ne peut pas être analysé.</value>
+  </data>
+  <data name="ImplementInterfaceVerification_Rebinds" xml:space="preserve">
+    <value>Les membres de « {0} » ne sont pas écrits : « {1} » ne désignerait plus ce qu'il désigne maintenant.</value>
+  </data>
+  <data name="ImplementInterfaceVerification_NewError" xml:space="preserve">
+    <value>Les membres de « {0} » ne sont pas écrits : le module qui en résulterait aurait une erreur de compilation qu'il n'a pas maintenant : {1}</value>
+  </data>
+  <data name="ImplementInterfaceVerification_Incomplete" xml:space="preserve">
+    <value>Les membres de « {0} » ne sont pas écrits : le module qui en résulterait n'implémenterait toujours pas « {1} ».</value>
+  </data>
+</root>

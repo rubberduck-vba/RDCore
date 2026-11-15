@@ -93,7 +93,7 @@ public sealed class HostExecuteHandlerTests
             workspaceRoot, moduleUri, ModuleType.StdModule, parse, workspaceResolver,
             withImplicitDeclarations: true, implicitScope).ProvideSymbols();
 
-        var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        var defined = await new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

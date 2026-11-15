@@ -181,8 +181,8 @@ public sealed class EncapsulateFieldTests
         var (state, _) = Encapsulate(workspace, "count");
         var (properties, _) = Encapsulate(workspace, "count", new EncapsulationOptions(InsideThroughProperties: true));
 
-        Assert.IsEmpty(state!.PassedByRef);
-        Assert.AreEqual(Module1, properties!.PassedByRef.Single().Module);
+        Assert.IsEmpty(state!.Fields.Single().PassedByRef);
+        Assert.AreEqual(Module1, properties!.Fields.Single().PassedByRef.Single().Module);
     }
 
     [TestMethod]
@@ -342,14 +342,178 @@ public sealed class EncapsulateFieldTests
         var (encapsulation, refusal) = Encapsulate(Compose(Header + "Public count As Long\r\n", module2), "count");
 
         Assert.IsNull(refusal, refusal?.ToString());
-        Assert.HasCount(1, encapsulation!.PassedByRef);
-        Assert.AreEqual(Module2.AbsoluteUri, encapsulation.PassedByRef[0].Module.AbsoluteUri);
+        var passed = encapsulation!.Fields.Single().PassedByRef;
+        Assert.HasCount(1, passed);
+        Assert.AreEqual(Module2.AbsoluteUri, passed[0].Module.AbsoluteUri);
+    }
+
+    private const string Grow = "Public items() As Long\r\n\r\nPublic Sub Grow()\r\n    ReDim items(1 To 3)\r\n    items(1) = 5\r\n    Debug.Print items(1)\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public void ADynamicArrayField_IsHeldAsAnArrayMember_AndItsPropertiesGiveAndTakeAnArray()
+    {
+        var text = Encapsulated(Compose(Header + Grow, UserHeader), "items");
+
+        Assert.AreEqual(Header
+            + "Private Type TModule1\r\n    items() As Long\r\nEnd Type\r\n\r\nPrivate this As TModule1\r\n\r\n"
+            + "Public Sub Grow()\r\n    ReDim this.items(1 To 3)\r\n    this.items(1) = 5\r\n    Debug.Print this.items(1)\r\nEnd Sub\r\n\r\n"
+            + "Public Property Get items() As Long()\r\n    items = this.items\r\nEnd Property\r\n\r\n"
+            + "Public Property Let items(value() As Long)\r\n    this.items = value\r\nEnd Property\r\n", text);
+    }
+
+    [TestMethod]
+    public void ADynamicArrayField_ThroughTheProperties_IsStillWrittenInsideItsModuleThroughTheState()
+    {
+        var text = Encapsulated(Compose(Header + Grow, UserHeader), "items", new EncapsulationOptions(InsideThroughProperties: true));
+
+        StringAssert.Contains(text, "    ReDim this.items(1 To 3)\r\n    this.items(1) = 5\r\n    Debug.Print items(1)\r\n");
+    }
+
+    [TestMethod]
+    public void ADynamicArrayField_WithABackingField_IsDeclaredAsAnArray()
+    {
+        var text = Encapsulated(Compose(Header + Grow, UserHeader), "items", new EncapsulationOptions(BackingField: "mItems"));
+
+        StringAssert.StartsWith(text, Header + "Private mItems() As Long\r\n\r\n");
+        StringAssert.Contains(text, "    ReDim mItems(1 To 3)\r\n    mItems(1) = 5\r\n");
+    }
+
+    [TestMethod]
+    [DataRow("    items(1) = 5", DisplayName = "an element assigned")]
+    [DataRow("    Module1.items(1) = 5", DisplayName = "an element assigned, the field qualified")]
+    [DataRow("    ReDim items(1 To 2)", DisplayName = "the array resized")]
+    [DataRow("    Erase items", DisplayName = "the array erased")]
+    public void AnArrayFieldWrittenOutside_IsRefused_ForTheWriteWouldGoToACopy(string write)
+    {
+        var module2 = UserHeader + "Public Sub Main()\r\n" + write + "\r\nEnd Sub\r\n";
+
+        var (encapsulation, refusal) = Encapsulate(Compose(Header + Grow, module2), "items");
+
+        Assert.IsNull(encapsulation);
+        Assert.AreEqual(EncapsulationRefusalKind.WritesAnElement, refusal?.Kind, refusal?.ToString());
+        Assert.AreEqual(Module2.AbsoluteUri, refusal!.Module!.AbsoluteUri);
+        Assert.AreEqual(3, refusal.Range?.Start.Line);
+    }
+
+    [TestMethod]
+    [DataRow("    Bump items(1)", 1, DisplayName = "an element passed")]
+    [DataRow("    Bump n:=items(1)", 1, DisplayName = "an element passed by name")]
+    [DataRow("    Bump (items(1))", 0, DisplayName = "an element in parentheses")]
+    [DataRow("    Debug.Print items(1) + UBound(items)", 0, DisplayName = "an element read")]
+    public void AnArrayElementPassedToACallOutside_IsEncapsulated_AndTheCallIsReported(string call, int reported)
+    {
+        var module2 = UserHeader + "Private Sub Bump(ByRef n As Long)\r\n    n = n + 1\r\nEnd Sub\r\n\r\nPublic Sub Main()\r\n" + call + "\r\nEnd Sub\r\n";
+
+        var (encapsulation, refusal) = Encapsulate(Compose(Header + Grow, module2), "items");
+
+        Assert.IsNull(refusal, refusal?.ToString());
+        var passed = encapsulation!.Fields.Single().ElementsPassed;
+        Assert.HasCount(reported, passed);
+        Assert.IsTrue(passed.All(reference => reference.Module.AbsoluteUri == Module2.AbsoluteUri && reference.Range.Start.Line == 7), string.Join("; ", passed));
+    }
+
+    [TestMethod]
+    public void AFixedLengthStringField_KeepsItsLengthWhereItIsHeld_AndItsPropertiesGiveAndTakeAString()
+    {
+        var module1 = Header + "Public code As String * 4\r\n";
+
+        var held = Encapsulated(Compose(module1, UserHeader), "code");
+        var backed = Encapsulated(Compose(module1, UserHeader), "code", new EncapsulationOptions(BackingField: "mCode"));
+
+        StringAssert.Contains(held, "Private Type TModule1\r\n    code As String * 4\r\nEnd Type\r\n");
+        StringAssert.Contains(held, "Public Property Get code() As String\r\n    code = this.code\r\nEnd Property\r\n");
+        StringAssert.Contains(held, "Public Property Let code(ByVal value As String)\r\n    this.code = value\r\nEnd Property\r\n");
+        StringAssert.StartsWith(backed, Header + "Private mCode As String * 4\r\n");
+    }
+
+    // the fields declared or named at the first place each marker is written in Module1, encapsulated in one edit.
+    private static (Encapsulation? Encapsulation, EncapsulationRefusal? Refusal) EncapsulateAll(Workspace workspace, params (string Marker, EncapsulationOptions Options)[] fields)
+        => EncapsulateField.Plan(workspace.Context, Module1, workspace.Parse,
+            [.. fields.Select(each => (EncapsulateField.FieldAt(workspace.Context, Module1, PositionOf(workspace.Text, each.Marker))!, each.Options))]);
+
+    private const string Totals = "Public count As Long\r\nPublic total As Currency\r\n\r\nPublic Sub Reset()\r\n    count = 0\r\n    total = 0\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public void FieldsEncapsulatedInOneEdit_ShareThePrivateType_AndTheirPropertiesFollowOneAnother()
+    {
+        var workspace = Compose(Header + Totals, UserHeader);
+
+        var (encapsulation, refusal) = EncapsulateAll(workspace, ("count", EncapsulationOptions.Defaults), ("total", new EncapsulationOptions(ReadOnly: true)));
+
+        Assert.IsNull(refusal, refusal?.ToString());
+        Assert.AreEqual(Header
+            + "Private Type TModule1\r\n    count As Long\r\n    total As Currency\r\nEnd Type\r\n\r\nPrivate this As TModule1\r\n\r\n"
+            + "Public Sub Reset()\r\n    this.count = 0\r\n    this.total = 0\r\nEnd Sub\r\n\r\n"
+            + "Public Property Get count() As Long\r\n    count = this.count\r\nEnd Property\r\n\r\n"
+            + "Public Property Let count(ByVal value As Long)\r\n    this.count = value\r\nEnd Property\r\n\r\n"
+            + "Public Property Get total() As Currency\r\n    total = this.total\r\nEnd Property\r\n", DeclarationEdits.ApplyTo(workspace.Text, encapsulation!.Edits));
+        CollectionAssert.AreEqual(new[] { "count", "total" }, encapsulation.Fields.Select(each => each.Field.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void FieldsEncapsulatedInOneEdit_WithBackingFields_EachHaveTheirOwn()
+    {
+        var workspace = Compose(Header + Totals, UserHeader);
+
+        var (encapsulation, refusal) = EncapsulateAll(workspace, ("count", new EncapsulationOptions(BackingField: "mCount")), ("total", new EncapsulationOptions(BackingField: "mTotal")));
+
+        Assert.IsNull(refusal, refusal?.ToString());
+        var text = DeclarationEdits.ApplyTo(workspace.Text, encapsulation!.Edits);
+        StringAssert.StartsWith(text, Header + "Private mCount As Long\r\nPrivate mTotal As Currency\r\n\r\nPublic Sub Reset()\r\n    mCount = 0\r\n    mTotal = 0\r\n");
+    }
+
+    [TestMethod]
+    public void FieldsEncapsulatedInOneEdit_AreAddedToThePrivateTypeThatHasASingleVariable_InOneEdit()
+    {
+        var module1 = Header + "Private Type TState\r\n    name As String\r\nEnd Type\r\n\r\nPrivate state As TState\r\n" + Totals;
+        var workspace = Compose(module1, UserHeader);
+
+        var (encapsulation, refusal) = EncapsulateAll(workspace, ("count", EncapsulationOptions.Defaults), ("total", EncapsulationOptions.Defaults));
+
+        Assert.IsNull(refusal, refusal?.ToString());
+        StringAssert.StartsWith(DeclarationEdits.ApplyTo(workspace.Text, encapsulation!.Edits),
+            Header + "Private Type TState\r\n    name As String\r\n    count As Long\r\n    total As Currency\r\nEnd Type\r\n\r\nPrivate state As TState\r\n\r\n");
+    }
+
+    [TestMethod]
+    public void FieldsNextToOneAnotherInOneStatement_AreRefused_AndTheRefusalNamesBoth()
+    {
+        var workspace = Compose(Header + "Public count As Long, total As Long\r\n", UserHeader);
+
+        var (encapsulation, refusal) = EncapsulateAll(workspace, ("count", EncapsulationOptions.Defaults), ("total", EncapsulationOptions.Defaults));
+
+        Assert.IsNull(encapsulation);
+        Assert.AreEqual(EncapsulationRefusalKind.SharesItsStatement, refusal?.Kind);
+        Assert.AreEqual("count", refusal?.Name);
+        Assert.AreEqual("total", refusal?.Field?.Name);
+    }
+
+    [TestMethod]
+    public void FieldsEncapsulatedInOneEdit_WithTheSameBackingField_AreRefused()
+    {
+        var workspace = Compose(Header + Totals, UserHeader);
+
+        var (_, refusal) = EncapsulateAll(workspace, ("count", new EncapsulationOptions(BackingField: "mValue")), ("total", new EncapsulationOptions(BackingField: "mValue")));
+
+        Assert.AreEqual(EncapsulationRefusalKind.NameTaken, refusal?.Kind);
+        Assert.AreEqual("mValue", refusal?.Name);
+        Assert.AreEqual("total", refusal?.Field?.Name);
+    }
+
+    [TestMethod]
+    public void AFieldEncapsulatedWithOthers_ThatIsRefused_IsNamedByTheRefusal()
+    {
+        var workspace = Compose(Header + "Public count As Long\r\nPublic WithEvents source As Collection\r\n", UserHeader, ModuleType.ClassModule);
+
+        var (_, refusal) = EncapsulateAll(workspace, ("count", EncapsulationOptions.Defaults), ("source", EncapsulationOptions.Defaults));
+
+        Assert.AreEqual(EncapsulationRefusalKind.WithEvents, refusal?.Kind);
+        Assert.AreEqual("source", refusal?.Field?.Name);
     }
 
     [TestMethod]
     [DataRow("Private count As Long", "NotPublic", DisplayName = "a private field")]
-    [DataRow("Public count() As Long", "NotSupported", DisplayName = "an array")]
-    [DataRow("Public count As String * 4", "NotSupported", DisplayName = "a fixed-length string")]
+    [DataRow("Public count(1 To 3) As Long", "NotSupported", DisplayName = "an array of a fixed size")]
     [DataRow("Public count As New Collection", "NotSupported", DisplayName = "an auto-instantiated object")]
     [DataRow("#If VBA7 Then\r\nPublic count As Long\r\n#End If", "Conditional", DisplayName = "in an #If branch")]
     [DataRow("Public count As Long: Public other As Long", "SharesItsLine", DisplayName = "sharing its line")]
