@@ -169,7 +169,7 @@ internal static class TestPictureFiles
         return bytes;
     }
 
-    // the smallest GIF, of the size given in its screen descriptor.
+    // the smallest GIF, of the size given in its screen descriptor and in the image descriptor of its one frame: LoadPicture sizes a GIF by its first frame.
     public static byte[] Gif(short width, short height)
     {
         var bytes = Convert.FromHexString(string.Concat(
@@ -177,6 +177,8 @@ internal static class TestPictureFiles
             "0244", "0100", "3B"));
         BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(6), width);
         BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(8), height);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(32), width);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(34), height);
         return bytes;
     }
 
