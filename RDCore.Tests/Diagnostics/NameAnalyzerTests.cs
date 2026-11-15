@@ -211,8 +211,33 @@ public sealed class NameAnalyzerTests
     [DataRow("Str", false)]
     [DataRow("strName1", true)]
     [DataRow("nameStr", false)]
+    [DataRow("str1", true)]
+    [DataRow("sName", true)]
+    [DataRow("iRow", true)]
+    [DataRow("oSheet", true)]
+    [DataRow("mCount", true)]
+    [DataRow("gConfig", true)]
+    [DataRow("bDone", true)]
+    [DataRow("lRow", true)]
+    [DataRow("nItems", true)]
+    [DataRow("txtName", true)]
+    [DataRow("cmdOK", true)]
+    [DataRow("lblTitle", true)]
+    [DataRow("frmMain", true)]
+    [DataRow("clsCustomer", true)]
+    [DataRow("index", false)]
+    [DataRow("item", false)]
+    [DataRow("s", false)]
+    [DataRow("isDone", false)]
     public void TheRule_IsAPrefixAndThenANewWord(string name, bool hungarian)
         => Assert.AreEqual(hungarian, HungarianNotationAnalyzer.IsHungarian(name));
+
+    // the names Rubberduck's inspection reports, and not isDone.
+    [TestMethod]
+    public void TheNamesRubberducksInspectionReports_AreHungarian()
+        => CollectionAssert.AreEquivalent(
+            new[] { "mCount", "sName", "iRow", "oSheet", "str1" },
+            Names(Run(new HungarianNotationAnalyzer(Options()), "Private mCount As Long\nPublic Sub Work(ByVal sName As String)\n    Dim iRow As Long, oSheet As Object, str1 As String, isDone As Boolean\nEnd Sub")));
 
     [TestMethod]
     public void AHungarianName_IsFixedByARename_ToTheWordAfterItsPrefix()
