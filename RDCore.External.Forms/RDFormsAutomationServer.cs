@@ -288,6 +288,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         => target is RDFormsControls or RDFormsMenuArray ? null : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
+    public bool IsFormHostObject(object target) => Owns(target);
+
+    /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
         => target is RDFormsControls or RDFormsMenuArray
             ? null

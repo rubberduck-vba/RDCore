@@ -259,7 +259,11 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationClassName"/>.</summary>
     public AutomationClassNameResult ClassName(AutomationClassNameParams request)
-        => Answer(request.HandlingEvent, () => new AutomationClassNameResult { Name = platform.ClassNameOf(_handles.ObjectOf(request.Target)) }, Failed<AutomationClassNameResult>);
+        => Answer(request.HandlingEvent, () =>
+            {
+                var target = _handles.ObjectOf(request.Target);
+                return new AutomationClassNameResult { Name = platform.ClassNameOf(target), IsFormHostObject = platform.IsFormHostObject(target) };
+            }, Failed<AutomationClassNameResult>);
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationIsInstanceOf"/>.</summary>
     public AutomationIsInstanceOfResult IsInstanceOf(AutomationIsInstanceOfParams request)
