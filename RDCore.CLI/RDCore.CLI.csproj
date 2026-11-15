@@ -78,6 +78,8 @@
     <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
     <!-- the host composes the session with the outside world of the platform it runs on. -->
     <ProjectReference Include="..\RDCore.External.Windows\RDCore.External.Windows.csproj" />
+    <!-- and with RDForms, which hosts the forms of a Visual Basic 6.0 project. -->
+    <ProjectReference Include="..\RDCore.External.Forms\RDCore.External.Forms.csproj" />
     <!-- rdc bench (and, later, rdc build) parse a workspace and build its symbols in-process, as the language server does. -->
     <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
     <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />

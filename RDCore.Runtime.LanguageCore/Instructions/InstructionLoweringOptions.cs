@@ -42,11 +42,16 @@ namespace RDCore.Runtime.LanguageCore.Instructions;
 /// <see cref="RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.ReleaseDropsDebugStatements"/>): they leave no instruction behind, not a no-op one,
 /// their arguments unevaluated, so a release build pays nothing for a <c>Debug.Print</c> left in the source. A debug build keeps them whatever this says.
 /// </param>
+/// <param name="DrawsOnMe">
+/// Whether the body is the code of a Visual Basic 6.0 form, whose graphics statements written with no object (<c>Line (0, 0)-(1, 1)</c>) draw on the form,
+/// <c>Me</c>. Elsewhere such a statement is undefined, and is not lowered.
+/// </param>
 public readonly record struct InstructionLoweringOptions(
     ImmutableArray<SourceRange> DeadRanges = default,
     bool IsReleaseBuild = false,
     RDCore.SDK.Workspace.SupportedLanguage? Language = null,
-    bool DropsDebugStatements = false)
+    bool DropsDebugStatements = false,
+    bool DrawsOnMe = false)
 {
     /// <summary>
     /// A debug build of a body with no conditional compilation in it.

@@ -35,6 +35,9 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// </remarks>
 internal static class FormEvents
 {
+    // the library a Visual Basic 6.0 form's Form class is of.
+    private const string VisualBasicLibrary = "VB";
+
     /// <summary>
     /// Listens to the events of <paramref name="form"/>, hosted for the instance <paramref name="identity"/>, and of each control its designer declares.
     /// </summary>
@@ -61,8 +64,12 @@ internal static class FormEvents
         {
             // the form's own events: those of the Microsoft Forms UserForm it is, and those of the VBA form object its window raises (Activate, Deactivate), run by its
             // UserForm_ handlers. Its user closing its window is the session's to do, as Unload does - its QueryClose can cancel it.
-            var userForm = VBProjectSymbol.ResolveQualifiedType(resolver, FormDesigner.MSFormsLibrary, FormObject.ClassName, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol;
+            // a Visual Basic 6.0 form's are those of the VB library's Form, run by its Form_ handlers; its user closing it says why, as its QueryUnload's UnloadMode.
+            var visualBasic6 = forms.IsVisualBasic6(live.ClassModule);
+            var userForm = VBProjectSymbol.ResolveQualifiedType(
+                resolver, visualBasic6 ? VisualBasicLibrary : FormDesigner.MSFormsLibrary, visualBasic6 ? "Form" : FormObject.ClassName, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol;
             var formObject = FormObject.ClassIn(live.ClassModule.WorkspaceRoot);
+            var prefix = FormHandlers.PrefixOf(session, live.ClassModule);
 
             // the form is listened to here, and only here: a WithEvents variable assigned the form once it is hosted (ExternalEvents) does not listen to it again,
             // which would leave its close with no route to its QueryClose.
@@ -71,7 +78,7 @@ internal static class FormEvents
                 session,
                 server,
                 name => (userForm?.FindEvent(name) ?? formObject.FindEvent(name)) is { } raised
-                    ? new ServerEventRoute(raised, HandlerOf(session, identity, $"{FormObject.ClassName}_{name}"))
+                    ? new ServerEventRoute(raised, HandlerOf(session, identity, $"{prefix}_{name}"))
                     : null,
                 (name, arguments) =>
                 {
@@ -80,7 +87,10 @@ internal static class FormEvents
                         return false;
                     }
 
-                    _ = FormHandlers.Unload(session, callables, identity, FormHandlers.FormControlMenu);
+                    var mode = visualBasic6 && arguments is [var given, ..] && given is not null
+                        ? Convert.ToInt16(given, System.Globalization.CultureInfo.InvariantCulture)
+                        : FormHandlers.FormControlMenu;
+                    _ = FormHandlers.Unload(session, callables, identity, mode);
                     return true;
                 }));
 
@@ -108,6 +118,18 @@ internal static class FormEvents
 
                 var controlName = control.Name;
                 var controlIdentity = wrapped.Value;
+
+                // a control array raises the events of its controls' class, each with the index of the control that raised it first; the form's handler is the
+                // array's, and no variable holds the array WithEvents.
+                if (FormControlArray.ElementOf(declared) is VBClassType element)
+                {
+                    Advise(server, handle, new ServerEventRouter(session, server, name =>
+                        (element.Symbol.FindEvent(name) ?? extender?.FindEvent(name)) is { } raised
+                            ? new ServerEventRoute(raised with { Parameters = MemberRoles.WithIndex(raised) }, [.. HandlerOf(session, identity, $"{controlName}_{name}")])
+                            : null));
+                    continue;
+                }
+
                 Advise(server, handle, new ServerEventRouter(session, server, name =>
                 {
                     if (!session.Symbols.TryGetInstance(controlIdentity, out var source))

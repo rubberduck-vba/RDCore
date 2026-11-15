@@ -42,6 +42,9 @@ public sealed class ProgramDebugAdapterTests
         // on a clock that never moves: the lines a result says were streamed are waited for until they come, and never given up on.
         public HostOutputRelay Relay { get; } = new(new ManualClock());
 
+        // where the language server takes the stops of the handlers of events that run while no program runs.
+        public SessionStopRelay Stops { get; } = new();
+
         // what the program that waits does not have of the edits, as the host says it: nothing, unless a test says otherwise.
         public EditStatusMonitor EditStatus { get; }
         public ProgramDebugAdapter Adapter { get; }
@@ -72,7 +75,7 @@ public sealed class ProgramDebugAdapterTests
             Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
             Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
             EditStatus = new EditStatusMonitor(Debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
-            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, NullLogger<ProgramDebugAdapter>.Instance);
+            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, Stops, NullLogger<ProgramDebugAdapter>.Instance);
         }
 
         // OmniSharp 0.19.9's client does not send supportsInvalidatedEvent, whatever its options say: a client that takes the event is one that initializes
@@ -1698,5 +1701,117 @@ public sealed class ProgramDebugAdapterTests
         {
             Assert.HasCount(2, order, "the second loads once the first is done with its own");
         }
+    }
+
+    // ---- a session attached to ----
+
+    private static HostDebugStoppedParams HandlerStopped(int line) => new() { Stop = new ExecuteResult { Outcome = ExecutionOutcome.Suspended, ErrorLine = line, ErrorModule = "Prog" } };
+
+    private static async Task AttachedAsync(Session session)
+    {
+        await session.StartAsync();
+        _ = await session.SendAsync(new AttachRequestArguments());
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+    }
+
+    [TestMethod]
+    public async Task AnAttach_RunsNoProgram()
+    {
+        await using var session = new Session();
+
+        await AttachedAsync(session);
+
+        await session.Workspace.Received(1).OpenAsync(Arg.Any<CancellationToken>());
+        await session.Workspace.DidNotReceiveWithAnyArgs().StartAsync(default!, default!, default);
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatStops_InASessionAttachedTo_IsTaken_AndIsAStoppedEvent()
+    {
+        await using var session = new Session();
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 3, procedure: "Clicked")));
+        await AttachedAsync(session);
+
+        var answer = await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None);
+
+        Assert.IsTrue(answer.Taken);
+        var stopped = await session.NextAsync<StoppedEvent>();
+        Assert.AreEqual(StoppedEventReason.Breakpoint, stopped.Reason);
+        Assert.AreEqual(1, stopped.ThreadId);
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatIsOver_InASessionAttachedTo_LeavesTheSession_ToTakeTheNextStop()
+    {
+        await using var session = new Session();
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 3, procedure: "Clicked")));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = ["clicked"] }));
+        await AttachedAsync(session);
+        _ = await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None);
+        _ = await session.NextAsync<StoppedEvent>();
+
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        Assert.AreEqual("clicked\n", (await session.NextAsync<OutputEvent>()).Output);
+
+        // the session goes on: the next click that stops is a stop of its own.
+        Assert.IsTrue((await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None)).Taken);
+        _ = await session.NextAsync<StoppedEvent>();
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatStops_InALaunchedSession_IsNotTaken()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+
+        Assert.IsFalse((await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None)).Taken);
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatStops_BeforeTheClientAttached_IsNotTaken()
+    {
+        await using var session = new Session();
+        await session.StartAsync();
+
+        Assert.IsFalse((await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None)).Taken);
+    }
+
+    [TestMethod]
+    public async Task AStatementOfTheDebugConsole_InASessionAttachedTo_RunsAsAtAPrompt()
+    {
+        await using var session = new Session();
+        session.Workspace.RunStatementAsync("Form1.Show", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = ["shown"] }));
+        await AttachedAsync(session);
+
+        var response = await session.SendAsync(new EvaluateArguments { Expression = "Form1.Show", Context = EvaluateArgumentsContext.Repl });
+
+        Assert.AreEqual(string.Empty, response.Result);
+        Assert.AreEqual("shown\n", (await session.NextAsync<OutputEvent>()).Output);
+        await session.Debugging.DidNotReceiveWithAnyArgs().ExecuteAsync(default, default!, default);
+    }
+
+    [TestMethod]
+    public async Task AStatementOfTheDebugConsole_ThatFails_IsRefusedWithItsError()
+    {
+        await using var session = new Session();
+        session.Workspace.RunStatementAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.RuntimeError, ErrorNumber = 424, ErrorMessage = "Object required", ErrorTitle = "Run-time error" }));
+        await AttachedAsync(session);
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "Nothing.Show", Context = EvaluateArgumentsContext.Repl }));
+
+        StringAssert.Contains(refusal.Message, "Object required");
+    }
+
+    [TestMethod]
+    public async Task ALaunch_AfterAnAttach_IsRefused()
+    {
+        await using var session = new Session();
+        await AttachedAsync(session);
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.LaunchAsync());
     }
 }

@@ -589,7 +589,7 @@ public sealed class FormHostingTests
             return forms.Create(form);
         }
 
-        public void Show(object form, bool modal) => forms.Show(form, modal);
+        public void Show(object form, bool modal, object? owner = null) => forms.Show(form, modal, owner);
 
         public void Hide(object form) => forms.Hide(form);
 

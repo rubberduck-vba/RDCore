@@ -167,7 +167,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     /// <summary>Answers <see cref="ExternalProtocol.FormShow"/>: a modal form is answered once it is hidden.</summary>
     public ExternalDoneResult ShowForm(FormShowParams request) => Answer(request.HandlingEvent, () =>
     {
-        _forms.Show(_handles.ObjectOf(request.Target), request.Modal);
+        _forms.Show(_handles.ObjectOf(request.Target), request.Modal, request.Owner is { } owner ? _handles.ObjectOf(owner) : null);
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 

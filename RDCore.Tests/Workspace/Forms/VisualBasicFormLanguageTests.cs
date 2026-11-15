@@ -275,6 +275,143 @@ public sealed class VisualBasicFormLanguageTests
         Assert.AreNotEqual("0", error.Split('|')[0], error);
     }
 
+    // the outside world of an external host that hosts its VB6 forms with RDForms, headless, and has no other server: the composition rdc's external host makes.
+    private static RDCore.External.ExternalWorld RDFormsWorld(RDCore.External.Forms.RDForms.VisualBasicFormsHost host = RDCore.External.Forms.RDForms.VisualBasicFormsHost.RDForms)
+    {
+        var (automation, forms) = RDCore.External.Forms.RDForms.RDFormsHosting.Compose(
+            RDCore.External.Automation.UnavailableAutomationServer.Instance,
+            RDCore.External.Forms.UnavailableFormHost.Instance,
+            new RDCore.External.Forms.RDForms.FormsOptions { VB = host, Headless = true });
+        return new RDCore.External.ExternalWorld(automation, RDCore.External.Native.UnavailableNativeLibraryHost.Instance) { Forms = forms };
+    }
+
+    private static Task<string[]> RunWithRDFormsAsync(string main, RDCore.External.ExternalWorld? world = null, string? form = null)
+        => ModuleWorkspace.RunAsync(
+            [], $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n{main}\r\nEnd Sub\r\n",
+            Libraries() with { Outside = world ?? RDFormsWorld() }, [FormModule(form ?? Form())], SupportedLanguages.VB6);
+
+    [TestMethod]
+    public async Task AVB6Form_HostedByRDForms_IsShownModelessByAShowThatSaysNothing_AndHidden()
+    {
+        var printed = await RunWithRDFormsAsync("Form1.Show\r\nDebug.Print Form1.Visible\r\nForm1.Hide\r\nDebug.Print Form1.Visible\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "True", "False" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsCaption_HostedByRDForms_IsItsDesignersUntilTheProgramSetsIt()
+    {
+        var printed = await RunWithRDFormsAsync("Debug.Print Form1.Caption\r\nForm1.Caption = \"Hello\"\r\nDebug.Print Form1.Caption\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "Form1", "Hello" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsOwnProperty_HostedByRDForms_IsReadAndWrittenOnItsModel()
+    {
+        var printed = await RunWithRDFormsAsync("Form1.Tag = \"tagged\"\r\nDebug.Print Form1.Tag\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "tagged" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControls_HostedByRDForms_HaveTheirDesignersProperties()
+    {
+        var printed = await RunWithRDFormsAsync("Debug.Print Form1.Command1.Caption\r\nDebug.Print Form1.Text1.Text\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "Command1", "Text1" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControl_HostedByRDForms_KeepsWhatTheProgramSetsIt()
+    {
+        var printed = await RunWithRDFormsAsync("Form1.Text1.Text = \"typed\"\r\nDebug.Print Form1.Text1.Text\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "typed" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControlsPosition_HostedByRDForms_IsInTwips_OrInTheFormsScale()
+    {
+        var printed = await RunWithRDFormsAsync(
+            "Form1.Text1.Left = 360\r\nForm1.Text1.Width = 1500\r\nDebug.Print Form1.Text1.Left\r\nDebug.Print Form1.Text1.Width\r\n" +
+            "Form1.ScaleMode = 3\r\nDebug.Print Form1.Text1.Left\r\nDebug.Print Form1.Text1.Width\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "360", "1500", "24", "100" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControlsEvent_HostedByRDForms_IsHandledByTheFormsHandler()
+    {
+        // setting a TextBox's Text from code raises its Change, in VB6 as in a UserForm.
+        var form = Form("Private Sub Text1_Change()", "Debug.Print \"changed \" & Text1.Text", "End Sub");
+        var printed = await RunWithRDFormsAsync("Form1.Text1.Text = \"typed\"\r\nUnload Form1", form: form);
+
+        CollectionAssert.AreEqual(new[] { "changed typed" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6Form_WithRDFormsTurnedOff_IsATrappableRunTimeError_AsWithNothingToHostIt()
+    {
+        var printed = await RunWithRDFormsAsync(
+            "On Error Resume Next\r\nForm1.Show\r\nDebug.Print Err.Number",
+            RDFormsWorld(RDCore.External.Forms.RDForms.VisualBasicFormsHost.Off));
+
+        Assert.AreNotEqual("0", Assert.ContainsSingle(printed));
+    }
+
+    [TestMethod]
+    public async Task AnObjectByName_WithRDFormsAndNoAutomationServer_IsError429_AsWithNoFormHost()
+    {
+        var printed = await RunWithRDFormsAsync("On Error Resume Next\r\nDim x As Object\r\nSet x = CreateObject(\"Scripting.Dictionary\")\r\nDebug.Print Err.Number");
+
+        CollectionAssert.AreEqual(new[] { "429" }, printed);
+    }
+
+    // a value assigned to a control's property is let-coerced to the property's declared type, early-bound or late-bound, as DispInvoke coerces it.
+    [TestMethod]
+    [DataRow("Form1.Text1", "Left = Empty", "Left", "0", DisplayName = "Empty to a Single, early-bound, is 0")]
+    [DataRow("o", "Left = Empty", "Left", "0", DisplayName = "Empty to a Single, late-bound, is 0")]
+    [DataRow("o", "Width = \"1500\"", "Width", "1500", DisplayName = "a String to a Single, late-bound, is its number")]
+    [DataRow("o", "Text = True", "Text", "True", DisplayName = "True to a String, late-bound, is True")]
+    [DataRow("o", "Text = 2.5", "Text", "2.5", DisplayName = "a Double to a String, late-bound, is its digits")]
+    [DataRow("o", "TabIndex = 1.5", "TabIndex", "2", DisplayName = "a Double to an Integer, late-bound, rounds to even")]
+    public async Task AValueAssignedToAControlsProperty_IsLetCoercedToItsDeclaredType(string target, string assignment, string read, string printed)
+    {
+        var lines = await RunWithRDFormsAsync(
+            $"Dim o As Object\r\nSet o = Form1.Text1\r\n{target}.{assignment}\r\nDebug.Print {target}.{read}\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { printed }, lines);
+    }
+
+    [TestMethod]
+    [DataRow("Text = Null", "94", DisplayName = "Null to a String is invalid use of Null")]
+    [DataRow("Width = \"wide\"", "13", DisplayName = "a String that is no number, to a Single, is a type mismatch")]
+    [DataRow("TabIndex = 70000", "6", DisplayName = "a number too large for an Integer overflows")]
+    public async Task AValueThatDoesNotCoerceToAControlsProperty_IsTheCoercionsError(string assignment, string error)
+    {
+        var printed = await RunWithRDFormsAsync($"On Error Resume Next\r\nDim o As Object\r\nSet o = Form1.Text1\r\no.{assignment}\r\nDebug.Print Err.Number\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { error }, printed);
+    }
+
+    [TestMethod]
+    public async Task AControlReachedLateBound_IsOfItsVBClass()
+    {
+        var printed = await RunWithRDFormsAsync("Dim o As Object\r\nSet o = Form1.Text1\r\nDebug.Print TypeName(o)\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "TextBox" }, printed);
+    }
+
+    [TestMethod]
+    [Ignore("control arrays are not implemented in the RDForms model")]
+    public async Task AControlOfAControlArray_IsReachedByItsIndex()
+    {
+        var printed = await RunWithRDFormsAsync("Debug.Print Form1.Command2(1).Index\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "1" }, printed);
+    }
+
     // ---- completion ----
 
     private static async Task<string[]> CompletionAtAsync(string form)

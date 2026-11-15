@@ -38,6 +38,7 @@ internal class RDCoreServerProxyFactory(IServiceProvider services) : IRDCoreServ
                 builder.WithHandler<HostOutputHandler>();
                 builder.WithHandler<HostMessageBoxHandler>();
                 builder.WithHandler<HostInputBoxHandler>();
+                builder.WithHandler<HostDebugStoppedHandler>();
             }
         };
 
@@ -49,6 +50,7 @@ internal class RDCoreServerProxyFactory(IServiceProvider services) : IRDCoreServ
             {
                 collection.AddSingleton(_ => services.GetRequiredService<IHostOutputRelay>());
                 collection.AddSingleton(_ => services.GetRequiredService<IClientInteractionRelay>());
+                collection.AddSingleton(_ => services.GetRequiredService<ISessionStopRelay>());
             }
         };
 }

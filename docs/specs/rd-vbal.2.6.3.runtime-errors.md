@@ -87,6 +87,8 @@ The verbose message for `ForLoopNotInitialized` is the resx entry `VBForLoopNotI
 |[`VBR00321`](../diagnostics/vbr00321.md)|Invalid file format|
 |[`VBR00322`](../diagnostics/vbr00322.md)|Can't create necessary temporary file|
 |[`VBR00325`](../diagnostics/vbr00325.md)|Invalid format in resource file|
+|[`VBR00361`](../diagnostics/vbr00361.md)|Can't load or unload this object|
+|[`VBR00364`](../diagnostics/vbr00364.md)|Object was unloaded|
 |[`VBR00380`](../diagnostics/vbr00380.md)|Invalid property value|
 |[`VBR00381`](../diagnostics/vbr00381.md)|Invalid property array index|
 |[`VBR00382`](../diagnostics/vbr00382.md)|Set not supported at runtime|
@@ -95,6 +97,9 @@ The verbose message for `ForLoopNotInitialized` is the resx entry `VBForLoopNotI
 |[`VBR00387`](../diagnostics/vbr00387.md)|Set not permitted|
 |[`VBR00393`](../diagnostics/vbr00393.md)|Get not supported at runtime|
 |[`VBR00394`](../diagnostics/vbr00394.md)|Get not supported (write-only property)|
+|[`VBR00401`](../diagnostics/vbr00401.md)|Can't show non-modal form when modal form is displayed|
+|[`VBR00402`](../diagnostics/vbr00402.md)|Must close or hide topmost modal form first|
+|[`VBR00405`](../diagnostics/vbr00405.md)|Unable to show modal form within this context|
 |[`VBR00422`](../diagnostics/vbr00422.md)|Property not found|
 |[`VBR00423`](../diagnostics/vbr00423.md)|Property or method not found|
 |[`VBR00424`](../diagnostics/vbr00424.md)|Object required|

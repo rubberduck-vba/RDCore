@@ -30,6 +30,7 @@
   <Project Path="RDCore.Diagnostics/RDCore.Diagnostics.csproj" Id="a259e578-edf1-420a-8af8-bdeb2b68f7e6" />
   <Project Path="RDCore.External/RDCore.External.csproj" />
   <Project Path="RDCore.External.Windows/RDCore.External.Windows.csproj" />
+  <Project Path="RDCore.External.Forms/RDCore.External.Forms.csproj" />
   <Project Path="RDCore.Parsing/RDCore.Parsing.csproj" Id="427398e8-d875-4bbd-bacc-fb5e6e0936dd" />
   <Project Path="RDCore.ParseServer/RDCore.ParseServer.csproj" />
   <Project Path="RDCore.Runtime/RDCore.Runtime.csproj" Id="4af376a2-f215-4064-96b0-c90c797ec5fa" />

@@ -1,3 +1,4 @@
+using RDCore.External.Forms;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
@@ -22,6 +23,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.Runtime.LanguageCore.Static;
+using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -126,11 +128,13 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         return outcome;
     }
 
-    // The object is evaluated, because naming one that is not there is an error of its own; and then it is asked for a method it does not have, because the
-    // objects of the platform are not surfaces. The statement with no object at all never gets here (GraphicsStatementStaticSemantics).
-    // TODO an object that is a drawing surface, a form or a picture box of a document module, is where this draws.
+    // a graphics statement calls the method of its name on the object it draws on, a Visual Basic 6.0 form or PictureBox, as VB6 compiles it: the
+    // method takes every argument its type library declares, after GraphicsFlags, which say what the syntax said. An object that has no such method raises 438.
+    // A statement with no object is the form's own in a Visual Basic 6.0 form's code, and never gets here anywhere else (GraphicsStatementStaticSemantics).
     private RuntimeExecutionOutcome ExecuteGraphics(IRuntimeSession session, RuntimeEvaluationContext context, GraphicsMethodStatementNode graphics)
     {
+        VBTypedValue? owner = null;
+        var ownerExpression = graphics.Target;
         if (graphics.Target is { } target)
         {
             var result = _expressionEvaluator.Evaluate(session, target, context);
@@ -138,11 +142,103 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             {
                 return result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
             }
+
+            owner = result.Result;
+        }
+        else if (graphics.IsWithRelative)
+        {
+            owner = context.EnclosingWithTarget;
+            ownerExpression = context.EnclosingWithTargetExpression;
+        }
+        else if (session.Symbols.Resolver.ResolveValue(Tokens.Me, ScopeKind.Local, context.Scope).Symbol is { } me)
+        {
+            // written with no object, in a Visual Basic 6.0 form's code: the form's own.
+            owner = new VBObjectValue(session.Symbols.Resolver.GetValue(me));
         }
 
-        return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
-            VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, graphics.SourceLocation,
-            $"The object has no {graphics.Token} method: the platform has no surface to draw on."));
+        if (owner is null)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, graphics.SourceLocation, $"The object has no {graphics.Token} method."));
+        }
+
+        var called = _expressionEvaluator.InvokeMember(session, context, owner, ownerExpression, graphics.Token, _graphicsArguments.GetOrAdd(graphics, GraphicsArguments),
+            graphics);
+        return called.IsSuccess ? RuntimeExecutionOutcome.Next
+            : called.IsInternalError ? RuntimeExecutionOutcome.InternalError
+            : RuntimeExecutionOutcome.Error(called.ErrorInfo!);
+    }
+
+    // the arguments of each graphics statement's call, made once for the statement: the evaluator lives for one execution.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<GraphicsMethodStatementNode, ImmutableArray<ExpressionNode>> _graphicsArguments =
+        new(ReferenceEqualityComparer.Instance);
+
+    // Line Flags, X1, Y1, X2, Y2, Color; Circle Flags, X, Y, Radius, Color, Start, End, Aspect; PSet Flags, X, Y, Color; Scale Flags[, X1, Y1, X2, Y2]. What the
+    // statement leaves out is 0, and its flag says so.
+    private static ImmutableArray<ExpressionNode> GraphicsArguments(GraphicsMethodStatementNode graphics)
+    {
+        var flags = GraphicsFlags.None;
+        var zero = new LiteralExpressionNode(graphics.Identity, graphics.SourceLocation, new VBIntegerValue(0));
+        ExpressionNode Given(int index, GraphicsFlags given)
+        {
+            if (index < graphics.Arguments.Length && graphics.Arguments[index] is { } argument)
+            {
+                flags |= given;
+                return argument;
+            }
+
+            return zero;
+        }
+
+        if (graphics.From is { IsRelative: true })
+        {
+            flags |= GraphicsFlags.FirstStep;
+        }
+
+        ImmutableArray<ExpressionNode> after;
+        switch (graphics.Token.ToUpperInvariant())
+        {
+            case "LINE":
+                if (graphics.From is not null)
+                {
+                    flags |= GraphicsFlags.HasFirstPoint;
+                }
+
+                if (graphics.To is { IsRelative: true })
+                {
+                    flags |= GraphicsFlags.SecondStep;
+                }
+
+                flags |= graphics.LineOption?.ToUpperInvariant() switch
+                {
+                    "B" => GraphicsFlags.Box,
+                    "BF" => GraphicsFlags.FilledBox,
+                    _ => GraphicsFlags.None,
+                };
+                after = [graphics.From?.X ?? zero, graphics.From?.Y ?? zero, graphics.To!.X, graphics.To.Y, Given(0, GraphicsFlags.HasColor)];
+                break;
+
+            case "CIRCLE":
+                // the radius is not optional: the syntax has it.
+                after = [graphics.From!.X, graphics.From.Y, graphics.Arguments[0] ?? zero, Given(1, GraphicsFlags.HasColor),
+                    Given(2, GraphicsFlags.HasStart), Given(3, GraphicsFlags.HasEnd), Given(4, GraphicsFlags.HasAspect)];
+                break;
+
+            case "PSET":
+                after = [graphics.From!.X, graphics.From.Y, Given(0, GraphicsFlags.HasColor)];
+                break;
+
+            default:
+                if (graphics.From is not null)
+                {
+                    flags |= GraphicsFlags.HasFirstPoint;
+                }
+
+                after = graphics.From is { } first && graphics.To is { } second ? [first.X, first.Y, second.X, second.Y] : [];
+                break;
+        }
+
+        return [new LiteralExpressionNode(graphics.Identity, graphics.SourceLocation, new VBIntegerValue((short)flags)), .. after];
     }
 
     // the parser gives the event's name as the first input, a bare name that is not an expression to evaluate, and the

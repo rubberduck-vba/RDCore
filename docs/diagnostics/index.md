@@ -200,6 +200,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBR00322](vbr00322.md)|Can't create necessary temporary file|A temporary file the operation needs cannot be created|
 |[VBR00325](vbr00325.md)|Invalid format in resource file|A resource file's format is not valid|
 |[VBR00361](vbr00361.md)|Can't load or unload this object|`Load` or `Unload` is given an object that is no form|
+|[VBR00364](vbr00364.md)|Object was unloaded|A form's `Form_Load` unloads it, under the use that loaded it|
 |[VBR00380](vbr00380.md)|Invalid property value|A property is given a value it does not accept|
 |[VBR00381](vbr00381.md)|Invalid property array index|A property array index is not valid|
 |[VBR00382](vbr00382.md)|Set not supported at runtime|A property cannot be set at run time|
@@ -208,6 +209,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBR00387](vbr00387.md)|Set not permitted|Setting this property is not permitted|
 |[VBR00393](vbr00393.md)|Get not supported at runtime|A property cannot be read at run time|
 |[VBR00394](vbr00394.md)|Get not supported (write-only property)|A property is write-only|
+|[VBR00401](vbr00401.md)|Can't show non-modal form when modal form is displayed|A form is shown modeless while a modal form is displayed|
+|[VBR00402](vbr00402.md)|Must close or hide topmost modal form first|A form is hidden while a modal form is displayed over it|
+|[VBR00405](vbr00405.md)|Unable to show modal form within this context|The modal form is shown modal again|
 |[VBR00422](vbr00422.md)|Property not found|A property is not found|
 |[VBR00423](vbr00423.md)|Property or method not found|A property or method is not found|
 |[VBR00424](vbr00424.md)|Object required|An object is required where a value is given|

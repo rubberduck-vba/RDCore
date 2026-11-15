@@ -274,49 +274,21 @@ internal static class ReplExecution
             // nothing handles was raised says the error instead, as a run it ended would.
             case ExecutionOutcome.Suspended:
                 var waitsBefore = program.LineNumberAt(result.ErrorLine);
-                var waitsAtAnError = result.ErrorNumber != 0;
                 context.Debugger.Suspended(waitsBefore);
 
                 // the lines around the stop come first, and what stopped it after them. A program that waits in a module of the workspace is listed, and
                 // said, by that module's own lines.
-                if (waitsBefore is null && await WaitsInAModuleAsync(context) is { } frame)
+                var frame = waitsBefore is null ? await WaitsInAModuleAsync(context) : null;
+                if (listsTheBreak && frame is not null)
                 {
-                    if (listsTheBreak)
-                    {
-                        await ListAroundInModuleAsync(context, frame.Module, frame.Line);
-                    }
-
-                    if (waitsAtAnError)
-                    {
-                        RenderRuntimeError(console, program, result, inModule: (frame.Module, frame.Line + 1));
-                    }
-                    else
-                    {
-                        console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
-                    }
+                    await ListAroundInModuleAsync(context, frame.Module, frame.Line);
                 }
-                else
+                else if (listsTheBreak)
                 {
-                    if (listsTheBreak)
-                    {
-                        await ListAroundAsync(context, waitsBefore);
-                    }
-
-                    if (waitsAtAnError)
-                    {
-                        RenderRuntimeError(console, program, result);
-                    }
-                    else
-                    {
-                        console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
-                    }
+                    await ListAroundAsync(context, waitsBefore);
                 }
 
-                // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
-                if (result.ConditionError.Length > 0)
-                {
-                    console.WriteMessage(MessageKind.Warning, string.Format(Resources.Repl_Breakpoint_ConditionFailed, result.ConditionError));
-                }
+                SayWhereItWaits(context, result, waitsBefore, frame);
                 break;
 
             // it cannot go on, and what it was before is what it is: the caller says which.
@@ -376,6 +348,60 @@ internal static class ReplExecution
     // the lines around the one a break stopped at, as LIST lists them, with that line marked as the statement the program waits before: as many lines of the program
     // above it and below it as there are, up to the setting. Every line of them is listed, a folded block's too: they are what the program was doing. A break that
     // could not be placed lists nothing. The requests are not the run's to cancel: a break at the keyboard cancelled the run's token already.
+    /// <summary>
+    /// Says that a handler of an event stopped while no program runs, and waits there, as a break of a program is said: the shell is then in break mode, and
+    /// <c>CONT</c>, the steps and <c>END</c> act on the handler. Nothing is listed, since the line being typed stays under it.
+    /// </summary>
+    /// <param name="context">The live session.</param>
+    /// <param name="result">Where the handler waits, as the language server told it.</param>
+    /// <param name="above">Writes what it is given above the line being typed at the prompt.</param>
+    public static async Task RenderSessionStopAsync(ReplCommandContext context, ExecuteResult result, Action<Action> above)
+    {
+        // what is asked of the platform is asked first: nothing waits for an answer while the line being typed is held.
+        var waitsBefore = context.Program.LineNumberAt(result.ErrorLine);
+        var frame = waitsBefore is null ? await WaitsInAModuleAsync(context) : null;
+        above(() =>
+        {
+            foreach (var line in result.Output)
+            {
+                context.Console.WriteLine(line);
+            }
+
+            context.Debugger.Suspended(waitsBefore);
+            SayWhereItWaits(context, result, waitsBefore, frame);
+        });
+    }
+
+    // what a program waits at, after the lines around it: the error nothing handles, said as a run it ended would say it, or the break and where. A program that
+    // waits in a module of the workspace is said by that module's own lines.
+    private static void SayWhereItWaits(ReplCommandContext context, ExecuteResult result, int? waitsBefore, DebugStackFrame? frame)
+    {
+        var (console, program) = (context.Console, context.Program);
+        var waitsAtAnError = result.ErrorNumber != 0;
+        if (frame is not null && waitsAtAnError)
+        {
+            RenderRuntimeError(console, program, result, inModule: (frame.Module, frame.Line + 1));
+        }
+        else if (frame is not null)
+        {
+            console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
+        }
+        else if (waitsAtAnError)
+        {
+            RenderRuntimeError(console, program, result);
+        }
+        else
+        {
+            console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
+        }
+
+        // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
+        if (result.ConditionError.Length > 0)
+        {
+            console.WriteMessage(MessageKind.Warning, string.Format(Resources.Repl_Breakpoint_ConditionFailed, result.ConditionError));
+        }
+    }
+
     private static async Task ListAroundAsync(ReplCommandContext context, int? stoppedAt)
     {
         var around = Math.Clamp(context.BreakListingLines, 0, AppOptions.MaximumBreakListingLines);

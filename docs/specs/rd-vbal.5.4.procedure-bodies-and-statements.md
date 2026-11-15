@@ -37,3 +37,4 @@ the instruction kind it lowers to), **Static Semantics**, **Runtime Semantics** 
 |5.4.3|[Data Manipulation Statements](rd-vbal.5.4.3.data-manipulation-statements.md)|[§5.4.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/ee62ca0d-bf15-4679-8d11-6e411b37901b)|
 |5.4.4|[Error Handling Statements](rd-vbal.5.4.4.error-handling-statements.md)|[§5.4.4](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/47b18690-3175-44d9-9de1-31629f0aacc7)|
 |5.4.5|[File Statements](rd-vbal.5.4.5.file-statements.md)|[§5.4.5](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2fd9c1be-0d9a-4b29-b5ac-c9d51ce483cf)|
+|5.4.6|[Graphics Statements](rd-vbal.5.4.6.graphics-statements.md)|RD-VBA addition|

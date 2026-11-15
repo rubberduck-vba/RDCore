@@ -236,12 +236,12 @@ public static class StatementStaticSemanticsEvaluator
             }
         }
 
-        // RD-VBAL: the graphics statements draw on an object, and a statement with none has no surface to draw on. What the points and the arguments hold
-        // is evaluated all the same, so that a name written in one is a reference the pass knows of.
+        // the graphics statements draw on an object, and a statement with none draws on the Visual Basic 6.0 form whose code it is, and is undefined anywhere
+        // else. What the points and the arguments hold is evaluated all the same, so that a name written in one is a reference the pass knows of.
         // TODO the coordinates and the colors are numbers: a coordinate that cannot be one is an error the pass does not report yet.
         if (statement is GraphicsMethodStatementNode graphics)
         {
-            if (GraphicsStatementStaticSemantics.Evaluate(graphics) is { } graphicsError)
+            if (GraphicsStatementStaticSemantics.Evaluate(graphics, walk.Options.DrawsOnMe) is { } graphicsError)
             {
                 walk.Errors.Add(graphicsError);
                 return;

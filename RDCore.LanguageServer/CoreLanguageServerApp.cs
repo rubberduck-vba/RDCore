@@ -59,6 +59,7 @@ internal sealed class CoreLanguageServerApp(
     IDiagnosticsPublisher publisher,
     Debugging.EditStatusPublication editStatusPublication,
     IClientInteractionRelay interaction,
+    ISessionStopRelay stops,
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
     ILogger<CoreLanguageServerApp> logger)
@@ -323,6 +324,9 @@ internal sealed class CoreLanguageServerApp(
 
         // the dialogs of the program that runs in the environment host are relayed to this client, if it answers them.
         interaction.Attach(new LanguageServerInteractionClient(server));
+
+        // and so are the stops of the handlers of events that run while no program runs, if it takes them.
+        stops.Attach(new LanguageServerSessionStopClient(server));
 
         // and the progress of the work the server does is reported to it, if it shows it.
         progress.Attach(server.WorkDoneManager);

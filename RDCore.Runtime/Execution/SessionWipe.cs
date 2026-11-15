@@ -31,7 +31,10 @@ public static class SessionWipe
         _ = session.Files.CloseAll();
         session.Errors.Clear();
         session.Objects.Clear();
+
+        // every form's window closes with the external objects, raising nothing, and the session's forms are forgotten with their objects.
         session.ExternalObjects.ReleaseAll();
+        External.Forms.SessionForms.Of(session).Clear();
         session.Symbols.ResetStorage();
         session.Clock.Reset();
         session.RandomNumbers.Reset();

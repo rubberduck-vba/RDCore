@@ -84,6 +84,105 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     // until it is done. Set and cleared with the lock held; the code itself runs with nothing locked (OffTheConnectionAsync).
     private bool _alongside;
 
+    // the session's gate while no program runs, when somebody is told of a handler that stops (IEnvironmentSessionProvider.SessionStopped): the handler that
+    // waits at it is then the program that waits.
+    private SuspendableExecution? _sessionEvents;
+
+    /// <summary>
+    /// Holds the handler of an event of the session that stops while no program runs, or lets it be stopped, as
+    /// <see cref="IEnvironmentSessionProvider.SessionStopped"/> says. Called when it is set.
+    /// </summary>
+    internal void SessionStopsChanged()
+    {
+        lock (_sync)
+        {
+            if (_state is ProgramState.Idle)
+            {
+                OpenToSessionStops();
+            }
+        }
+    }
+
+    // with no program, a handler that stops waits when somebody is told of it, and is stopped otherwise. A breakpoint is waited at only under a gate, and so is
+    // never one with nobody to tell. Called with the lock held.
+    private void OpenToSessionStops()
+    {
+        var session = provider.Session;
+        if (provider.SessionStopped is null)
+        {
+            CloseToSessionStops(session);
+            return;
+        }
+
+        _sessionEvents ??= SuspendableExecution.ForSessionEvents(session, TellSessionStopAsync);
+        session.Halt.Gate = _sessionEvents;
+    }
+
+    // a program runs: the session's gate is not its. Called with the lock held.
+    private void CloseToSessionStops(IRuntimeSession session)
+    {
+        if (_sessionEvents is not null && ReferenceEquals(session.Halt.Gate, _sessionEvents))
+        {
+            session.Halt.Gate = null;
+        }
+    }
+
+    // A handler of an event of the session stopped (SuspendableExecution.ForSessionEvents): it is the program that waits, as a run under a debugger that stopped
+    // would be, when nothing else runs and somebody takes the stop. Called while the handler waits for the answer.
+    private async Task<bool> TellSessionStopAsync(ExecutionStop stop)
+    {
+        if (provider.SessionStopped is not { } tell)
+        {
+            return false;
+        }
+
+        var session = provider.Session;
+        ExecuteResult stopped;
+        lock (_sync)
+        {
+            if (_state is not ProgramState.Idle || _alongside || _sessionEvents is not { } gate)
+            {
+                return false;
+            }
+
+            _execution = gate;
+            _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            (_terminating, _debugging, _stopWhenStarted, _streaming) = (false, true, false, false);
+            _output = new RuntimeOutputBuffer();
+            HeldDefinitions.Hold(session);
+            stopped = Segment(session, stop);
+        }
+
+        bool taken;
+        try
+        {
+            taken = await tell(stopped);
+        }
+        catch (Exception exception)
+        {
+            logger?.LogError(exception, "❌ A handler that stopped with no program running could not be told.");
+            taken = false;
+        }
+
+        if (!taken)
+        {
+            lock (_sync)
+            {
+                if (_state is ProgramState.Suspended && _execution is not null && ReferenceEquals(_execution, _sessionEvents))
+                {
+                    _execution = null;
+                    _suspendedWith = null;
+                    _ = HeldDefinitions.Release(session);
+                    Become(ProgramState.Idle);
+                    _inspector.Forget();
+                    _idle.TrySetResult();
+                }
+            }
+        }
+
+        return taken;
+    }
+
     /// <summary>
     /// Runs program code on a thread of its own, and not on the thread of the request that asked for it.
     /// </summary>
@@ -233,6 +332,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 EndSuspended(session, wipe: false);
             }
 
+            CloseToSessionStops(session);
             Become(ProgramState.Running);
             _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _terminating = false;
@@ -1087,6 +1187,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         session.Memory.Reclaim();
         _ = HeldDefinitions.Release(session);
         LeaveTurn(session);
+        OpenToSessionStops();
         _idle.TrySetResult();
     }
 
@@ -1106,6 +1207,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             Become(ProgramState.Idle);
             _inspector.Forget();
             LeaveTurn(session);
+            OpenToSessionStops();
             _idle.TrySetResult();
         }
     }

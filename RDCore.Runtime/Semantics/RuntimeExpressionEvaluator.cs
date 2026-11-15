@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.Semantics.Expressions;
 using System.Collections.Concurrent;
@@ -38,6 +39,7 @@ using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
@@ -967,7 +969,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // index expression's callee: the default member of the object it returns, again, or an element of the array (recorded in Excel). Called late, on
         // an Object or a Variant, only an object takes them: IDispatch is asked for the default member given the arguments, which a value that is not an
         // object cannot take (451, recorded in Excel).
-        if (ReturnsToBeIndexed(defaultMember.Member, defaultMember.Receiver, indexExpression.Arguments))
+        if (ReturnsToBeIndexed(defaultMember.Member, indexExpression.Arguments))
         {
             var returned = InvokeProcedure(session, context, defaultMember.Member, [], defaultMember.Receiver, call: indexExpression);
             var held = returned.Result;
@@ -1003,7 +1005,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (EvaluateInstanceField(session, qualified, owner, qualified.Member.IdentifierName), false);
         }
 
-        var returnsToBeIndexed = ReturnsToBeIndexed(found.Member, found.Receiver, indexExpression.Arguments);
+        var returnsToBeIndexed = ReturnsToBeIndexed(found.Member, indexExpression.Arguments);
         if (PropertyCalledByAStatement(session, qualified, owner, found.Member, returnsToBeIndexed) is { } refused)
         {
             return (refused, true);
@@ -1105,6 +1107,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         => classModule.GetProperty(SymbolProperties.Extensible)
             && session.ExternalObjects.TryGet(identity, out var owner, out _) && owner is RDCore.External.Automation.IAutomationServer;
 
+    // a property a server's object can be read through and its library declares no Let or Set of: the object is assigned it by name all the same, as MS-VBA's
+    // late-bound call of the object's IDispatch is, and the object answers whether it takes it (a form's StartUpPosition, which VB6 refuses with 382 at run time).
+    // An early-bound assignment of one does not compile.
+    private static bool IsServersReadableProperty(IRuntimeSession session, VBRuntimeObjectId identity, VBClassModuleSymbol classModule, string memberName)
+        => session.ExternalObjects.TryGet(identity, out var owner, out _) && owner is RDCore.External.Automation.IAutomationServer
+            && classModule.DefaultInterfaceMembers.Any(candidate => candidate is VBPropertyGetMemberSymbol
+                && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
+
     // a member of a class's own interface that a read or a call invokes by name. A Property Let or Set derives from the subroutine's symbol and is not one:
     // reading the property is its Get.
     // A late-bound object's class declares nothing, and every name reaches the member of that name, which the object answers to or not when it is called.
@@ -1188,6 +1198,24 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             ? InvokeProcedure(session, context, found.Member, [], found.Receiver)
             : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, default, $"The object has no member '{memberName}'."));
+
+    /// <summary>
+    /// Invokes a member of <paramref name="owner"/> by name, with arguments the caller makes: what a graphics statement calls on the object it draws on.
+    /// </summary>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the statement.</param>
+    /// <param name="owner">The value the member is called on.</param>
+    /// <param name="ownerExpression">The expression the value was reached through, or <see langword="null"/> for none.</param>
+    /// <param name="memberName">The member's name.</param>
+    /// <param name="arguments">The arguments, in the order of the member's parameters.</param>
+    /// <param name="call">The statement that makes the call, which the call is located at.</param>
+    /// <returns>What the member returned, or the error it raised; <c>438</c> when the value is no object that has such a member.</returns>
+    public RuntimeSemanticsEvaluationResult InvokeMember(IRuntimeSession session, RuntimeEvaluationContext context, VBTypedValue owner, ExpressionNode? ownerExpression,
+        string memberName, ImmutableArray<ExpressionNode> arguments, SyntaxNode call)
+        => TryResolveInvocableMember(session, context, ownerExpression, owner, memberName) is { } found
+            ? InvokeProcedure(session, context, found.Member, arguments, found.Receiver, reachedThrough: ownerExpression, call: call)
+            : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, call.SourceLocation, $"The object has no {memberName} method."));
 
     /// <summary>
     /// Invokes <paramref name="member"/> of <paramref name="owner"/> with the arguments written after its name, as a read of it does: what an assignment to a
@@ -1303,7 +1331,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             _assignmentSites[memberAccess] = new AssignmentSite(scopes, actual, isSet, member, isAccessor);
         }
 
-        if (member is null && IsReachedByName(session, owner.Value, actual))
+        if (member is null && (IsReachedByName(session, owner.Value, actual) || IsServersReadableProperty(session, owner.Value, actual, memberAccess.Member.IdentifierName)))
         {
             (member, isAccessor) = (Execution.External.Automation.LateBinding.MemberOf(
                 actual, memberAccess.Member.IdentifierName, isSet ? RDCore.External.Automation.AutomationInvocation.Set : RDCore.External.Automation.AutomationInvocation.Let), true);
@@ -1549,7 +1577,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         {
             // a function that declares no parameters is not given what follows it in parentheses: it is called, and what it
             // returns is what is indexed - `Items(1)` of a function that returns a Collection.
-            if (!ReturnsToBeIndexed(sub, null, indexExpression.Arguments))
+            if (!ReturnsToBeIndexed(sub, indexExpression.Arguments))
             {
                 return InvokeProcedure(session, context, sub, indexExpression.Arguments, call: indexExpression);
             }
@@ -1572,7 +1600,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (member is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
             {
                 var procedure = (VBTypeMemberSymbol)member;
-                if (!ReturnsToBeIndexed(procedure, null, indexExpression.Arguments))
+                if (!ReturnsToBeIndexed(procedure, indexExpression.Arguments))
                 {
                     return InvokeProcedure(session, context, procedure, indexExpression.Arguments, call: indexExpression);
                 }
@@ -1775,7 +1803,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && variable.GetProperty(SymbolProperties.AutoInstantiated);
 
     // a Function or Property Get that declares no parameters, called with arguments: they are not its own, and index what it returns.
-    private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, IRuntimeValue? receiver, ImmutableArray<ExpressionNode> arguments)
+    private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments)
     {
         // `F()` is written with an empty argument list, which is not an argument: it is the call itself.
         if (member is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || arguments.IsDefaultOrEmpty || arguments is [MissingArgumentNode])
@@ -1783,8 +1811,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        // the implicit Me of a member of a class is never written at the call: it is the object the member is called on, or, for one named bare in its class's
+        // code (mnuRecent(2) in its form's), the activation's own Me (InvokeProcedureFrom).
         var parameters = RuntimeProcedureInvoker.GetParameters(member);
-        return parameters.Length == (receiver is not null && parameters is [{ Name: "Me" }, ..] ? 1 : 0);
+        return parameters.Length == (parameters is [{ Name: Tokens.Me }, ..] ? 1 : 0);
     }
 
     /// <summary>
@@ -1997,6 +2027,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private RuntimeSemanticsEvaluationResult InvokeProcedureFrom(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
         ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver, ImmutableArray<BoundArgument>? boundArguments, ExpressionNode? reachedThrough)
     {
+        if (receiver is null && ElementLoadOf(session, context, procedure, argumentNodes) is { } elementLoad)
+        {
+            (procedure, argumentNodes, boundArguments) = elementLoad;
+        }
+
         // a member of a late-bound object called with named arguments is told their names, as MS-VBA tells the server through IDispatch.
         if (argumentNodes.Any(argument => argument is NamedArgumentNode) && Execution.External.Automation.LateBinding.IsLateBoundMember(procedure))
         {
@@ -2071,6 +2106,36 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     }
 
     private List<MemoryAddress>? _spareBorrowed;
+
+    private static readonly string LoadTarget = GlobalTargetOf(nameof(IStdGlobalClass.Load));
+    private static readonly string UnloadTarget = GlobalTargetOf(nameof(IStdGlobalClass.Unload));
+
+    private static string GlobalTargetOf(string member)
+        => StdLibSymbolReader.ExternalTargetOf(typeof(IStdGlobalClass), typeof(IStdGlobalClass).GetMethod(member)!);
+
+    // Load and Unload of an element of a Visual Basic 6.0 control array (Load mnuRecent(3)) do not reach the element, which does not exist before Load: they call
+    // the Global's members for an element (IStdGlobalClass.LoadElement), given the array and the index, which bind as their parameters do: the array by value,
+    // the index let-coerced to Integer. Null for any other call.
+    private (VBTypeMemberSymbol, ImmutableArray<ExpressionNode>, ImmutableArray<BoundArgument>?)? ElementLoadOf(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes)
+    {
+        if (argumentNodes is not [IndexExpressionNode { Arguments: [not (NamedArgumentNode or MissingArgumentNode)] } element]
+            || procedure.GetProperty(SymbolProperties.ExternalTarget) is not { } target || target != LoadTarget && target != UnloadTarget
+            || DeclaredTypeOfOwner(session, context, element.Callee) is not { } declared || FormControlArray.ElementOf(declared) is null
+            || session.Symbols.Resolver.ResolveValue(target == LoadTarget ? LoadElementName : UnloadElementName, ScopeKind.Local, context.Scope).Symbol
+                is not VBTypeMemberSymbol elementMember)
+        {
+            return null;
+        }
+
+        return (elementMember, _elementLoads.GetOrAdd(element, static node => [node.Callee, node.Arguments[0]]), null);
+    }
+
+    private const string LoadElementName = "_LoadElement";
+    private const string UnloadElementName = "_UnloadElement";
+
+    // the arguments of each Load or Unload of an element, by its index expression (one statement, one node): the array, then the index.
+    private readonly ConcurrentDictionary<IndexExpressionNode, ImmutableArray<ExpressionNode>> _elementLoads = new(ReferenceEqualityComparer.Instance);
 
     // MS-VBA calls a member of an object of the standard library that is reached late-bound - through an expression declared Object or Variant - by the
     // object's IDispatch, which is given each argument as a Variant and converts it to the type of the parameter with VariantChangeType: Null converts to

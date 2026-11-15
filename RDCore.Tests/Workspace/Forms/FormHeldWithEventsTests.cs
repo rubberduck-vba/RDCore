@@ -143,7 +143,7 @@ public sealed class FormHeldWithEventsTests
 
         public object Create(FormDefinition form) => new object();
 
-        public void Show(object form, bool modal) => _ = server.Raise(form, FormWindowEvents.Close);
+        public void Show(object form, bool modal, object? owner = null) => _ = server.Raise(form, FormWindowEvents.Close);
 
         public void Hide(object form)
         {

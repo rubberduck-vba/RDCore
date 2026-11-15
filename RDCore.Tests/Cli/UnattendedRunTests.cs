@@ -130,7 +130,7 @@ public sealed class UnattendedRunTests
 
         public object Create(FormDefinition form) => Ask<object>(nameof(Create));
 
-        public void Show(object form, bool modal) => Ask<object>(nameof(Show));
+        public void Show(object form, bool modal, object? owner = null) => Ask<object>(nameof(Show));
 
         public void Hide(object form) => Ask<object>(nameof(Hide));
 

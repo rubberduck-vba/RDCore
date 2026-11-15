@@ -19,8 +19,8 @@
 #                              (the LICENSE.TXT Microsoft.Bcl.AsyncInterfaces 7.0.0 ships, and the THIRD-PARTY-NOTICES.TXT
 #                              the 11.0.0 packages ship)
 #
-# -DataFile also writes the same data as JSON: each package with the assemblies it ships, each text with the packages it
-# applies to, and the application host's texts. rdc build writes a built program's THIRD-PARTY-NOTICES.txt from it, for
+# -DataFile also writes the same data as JSON: each package with the assemblies and the native libraries it ships, each text
+# with the packages it applies to, and the application host's texts. rdc build writes a built program's THIRD-PARTY-NOTICES.txt from it, for
 # exactly the packages the program's folder holds, so a program's notices are decided here and nowhere else.
 [CmdletBinding()]
 param(
@@ -28,7 +28,8 @@ param(
     [Parameter(Mandatory)][string]$OutFile,
     [string]$DataFile,
     [string]$PackagesRoot,
-    [string[]]$AllowedLicenses = @("MIT", "Apache-2.0", "BSD-3-Clause")
+    # BSD-2-Clause: Avalonia.Angle.Windows.Natives, the ANGLE build RDForms draws with on Windows, which ships its LICENSE in the package
+    [string[]]$AllowedLicenses = @("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause")
 )
 
 $ErrorActionPreference = "Stop"
@@ -291,15 +292,27 @@ foreach ($depsPath in (ConvertTo-OrdinalOrder $DepsFiles.FullName)) {
                 Id = $id; Version = $version; Path = $library.path
                 Components = [Collections.Generic.List[string]]::new()
                 Assemblies = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                Natives = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             }
         }
         if (-not $Packages[$key].Components.Contains($component)) { $Packages[$key].Components.Add($component) }
-        # the assemblies it ships, by name: what a built program's folder is matched against (-DataFile)
+        # the assemblies it ships, by name, and its native libraries, by file name, for every runtime identifier: what a built program's folder is matched
+        # against (-DataFile). a publish for one identifier lists that one's natives under "native"; a portable build lists each one's under "runtimeTargets"
         foreach ($target in $deps.targets.Values) {
             $entry = $target[$key]
-            if (-not $entry -or -not $entry.runtime) { continue }
-            foreach ($asset in $entry.runtime.Keys) {
-                if ($asset -like "*.dll") { [void]$Packages[$key].Assemblies.Add([IO.Path]::GetFileNameWithoutExtension($asset)) }
+            if (-not $entry) { continue }
+            if ($entry.runtime) {
+                foreach ($asset in $entry.runtime.Keys) {
+                    if ($asset -like "*.dll") { [void]$Packages[$key].Assemblies.Add([IO.Path]::GetFileNameWithoutExtension($asset)) }
+                }
+            }
+            if ($entry.native) {
+                foreach ($asset in $entry.native.Keys) { [void]$Packages[$key].Natives.Add([IO.Path]::GetFileName($asset)) }
+            }
+            if ($entry.runtimeTargets) {
+                foreach ($asset in $entry.runtimeTargets.Keys) {
+                    if ($entry.runtimeTargets[$asset].assetType -eq "native") { [void]$Packages[$key].Natives.Add([IO.Path]::GetFileName($asset)) }
+                }
             }
         }
     }
@@ -648,6 +661,7 @@ if ($DataFile) {
                 package = $row.Package; version = $row.Version; license = $row.License; copyright = $row.Copyright; projectUrl = $row.ProjectUrl
                 # ConvertTo-OrdinalOrder returns its array whole, which @() would nest in another
                 assemblies = (ConvertTo-OrdinalOrder @($Packages["$($row.Package)/$($row.Version)"].Assemblies))
+                natives    = (ConvertTo-OrdinalOrder @($Packages["$($row.Package)/$($row.Version)"].Natives))
             }
         })
         texts    = @(foreach ($sortKey in (ConvertTo-OrdinalOrder @($sortKeys))) {

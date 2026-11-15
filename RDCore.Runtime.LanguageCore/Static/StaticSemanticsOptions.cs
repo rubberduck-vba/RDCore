@@ -5,11 +5,12 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-// MS-VBAL §3.4.2
+// MS-VBAL §3.4.2. DrawsOnMe: the body is the code of a Visual Basic 6.0 form, whose graphics statements written with no object draw on the form, Me.
 public readonly record struct StaticSemanticsOptions(
     ImmutableArray<SourceRange> DeadRanges = default,
     SupportedLanguage? Language = null,
-    ConditionalCompilationBlocks? Blocks = null)
+    ConditionalCompilationBlocks? Blocks = null,
+    bool DrawsOnMe = false)
 {
     public ImmutableArray<SourceRange> Dead => DeadRanges.IsDefault ? [] : DeadRanges;
 

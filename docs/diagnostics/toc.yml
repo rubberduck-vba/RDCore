@@ -302,6 +302,8 @@
   href: vbr00325.md
 - name: "VBR00361: Can't load or unload this object"
   href: vbr00361.md
+- name: "VBR00364: Object was unloaded"
+  href: vbr00364.md
 - name: "VBR00380: Invalid property value"
   href: vbr00380.md
 - name: "VBR00381: Invalid property array index"
@@ -318,6 +320,12 @@
   href: vbr00393.md
 - name: "VBR00394: Get not supported (write-only property)"
   href: vbr00394.md
+- name: "VBR00401: Can't show non-modal form when modal form is displayed"
+  href: vbr00401.md
+- name: "VBR00402: Must close or hide topmost modal form first"
+  href: vbr00402.md
+- name: "VBR00405: Unable to show modal form within this context"
+  href: vbr00405.md
 - name: "VBR00422: Property not found"
   href: vbr00422.md
 - name: "VBR00423: Property or method not found"

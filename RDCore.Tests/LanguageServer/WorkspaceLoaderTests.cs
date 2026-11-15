@@ -447,6 +447,7 @@ public sealed class WorkspaceLoaderTests
             Substitute.For<RDCore.SDK.Server.Configuration.ILiveSettings>(),
             Microsoft.Extensions.Options.Options.Create(new RDCore.CLI.AppOptions()),
             new RDCore.CLI.App.Repl.ReplServerQuestions(keys),
+            new RDCore.CLI.App.Repl.ReplSessionStops(),
             NullLogger<RDCore.CLI.RDCoreConsoleClientApp>.Instance);
         var platform = Substitute.For<RDCore.SDK.Platform.IPlatformCompositionService>();
         platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });

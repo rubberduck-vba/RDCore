@@ -395,6 +395,9 @@ public sealed class CompiledEditAndContinueTests
         // the program was started in the host as the platform starts it, before the adapter was: what it answered is where it waits.
         public Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token) => Task.FromResult(Wire.RoundTrip(started));
 
+        // a launched program is all these sessions debug.
+        public Task<ExecuteResult> RunStatementAsync(string text, CancellationToken token) => throw new NotSupportedException();
+
         // as the platform's workspace does: a file whose text is what was loaded is nothing changed; the ones saved otherwise are loaded in the host, as the
         // language server loads an edit of a document, the names of every module bound among all of them as they now read.
         public async Task<string?> ReloadChangedAsync(CancellationToken token)
@@ -440,7 +443,7 @@ public sealed class CompiledEditAndContinueTests
             orchestration.RuntimeEnvironment.Returns(host);
             var debugging = new ProgramDebugService(orchestration, Substitute.For<IParsingClientService>(), Options.Create(new SdkAppOptions()));
             var editStatus = new EditStatusMonitor(debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
-            _adapter = new ProgramDebugAdapter(Workspace, debugging, new HostOutputRelay(new ManualClock()), editStatus, NullLogger<ProgramDebugAdapter>.Instance);
+            _adapter = new ProgramDebugAdapter(Workspace, debugging, new HostOutputRelay(new ManualClock()), editStatus, new SessionStopRelay(), NullLogger<ProgramDebugAdapter>.Instance);
         }
 
         // the environment host, as the language server reaches it: each request it is sent is handled by the handler the host serves it with, as the other

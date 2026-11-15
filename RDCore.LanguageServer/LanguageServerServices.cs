@@ -95,6 +95,7 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.LanguageServer.Debugging.IEditStatusMonitor, RDCore.LanguageServer.Debugging.EditStatusMonitor>()
             .AddSingleton<RDCore.LanguageServer.Debugging.EditStatusPublication>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
+            .AddSingleton<ISessionStopRelay, SessionStopRelay>()
             // a pull declined while a dialog of the program was open is made again once it closes: the client is asked to pull its diagnostics again.
             .AddSingleton(provider => new OpenDialogs { PullAgain = provider.GetRequiredService<IWorkspaceRefresh>().PullsDeclined })
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>()
