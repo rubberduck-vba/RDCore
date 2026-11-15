@@ -286,6 +286,7 @@ public sealed class UnusedDeclarationAnalyzerTests
     public async Task ASignatureTheProcedureDoesNotChoose_IsNotReported()
     {
         var findings = await ClassAsync(new ParameterNotUsedAnalyzer(), "Panel",
+            "Attribute VB_Exposed = True",
             "Option Explicit",
             "Private WithEvents Source As Button",
             "Private Sub Source_Click(ByVal times As Long)",
@@ -295,8 +296,20 @@ public sealed class UnusedDeclarationAnalyzerTests
             "Private Sub Hide(ByVal mode As Long)",
             "End Sub");
 
-        Assert.HasCount(1, findings, "only the Private procedure: not a handler, not a Public member that may be in an interface");
+        Assert.HasCount(1, findings, "only the Private procedure: not a handler, not a Public member of an exposed class, which may be in an interface");
         StringAssert.Contains(findings[0].Message, "'mode'");
+        Assert.AreEqual(12, findings[0].Range.Start.Line, "Hide's (a class module's source has five lines of header)");
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfAClassThatNoProjectCanImplement_ChoosesItsSignature()
+    {
+        var findings = await ClassAsync(new ParameterNotUsedAnalyzer(), "Panel",
+            "Option Explicit",
+            "Public Sub Show(ByVal mode As Long)",
+            "End Sub");
+
+        StringAssert.Contains(Assert.ContainsSingle(findings).Message, "'mode'");
     }
 
     [TestMethod]

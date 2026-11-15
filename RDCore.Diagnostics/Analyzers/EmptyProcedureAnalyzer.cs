@@ -17,10 +17,11 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </para>
 /// <para>
 /// A public member of a class module is a member of its interface (<strong>MS-VBAL §5.2.4</strong>), which another class module can implement: a class written to be an
-/// interface declares its members with no statement, and that is what it is for. Who implements a class is not in the module, so such a member is not judged. A
-/// private or friend member is in no interface, and one that implements a member of another interface or handles an event is no member of an interface either: those
-/// are judged, as is every procedure of a standard module. Whether a module is a class module is a fact the host vouches for, so the analyzer that is not given it has
-/// nothing to say.
+/// interface declares its members with no statement, and that is what it is for. Such a member is not judged in a class that may be an interface
+/// (<see cref="UnusedDeclarations.MayBeAnInterface"/>): one that a module of the project implements, or one that is exposed to the projects that reference this
+/// one. A private or friend member is in no interface, and one that implements a member of another interface or handles an event is no member of an interface either:
+/// those are judged, as is every procedure of a standard module, and every member of a class that is neither implemented nor exposed. What the module is, is a fact
+/// the host vouches for, so the analyzer that is not given it has nothing to say.
 /// </para>
 /// </remarks>
 internal sealed class EmptyProcedureAnalyzer : IModuleAnalyzer
@@ -34,11 +35,11 @@ internal sealed class EmptyProcedureAnalyzer : IModuleAnalyzer
             yield break;
         }
 
-        var isClass = semantics.Class is not null || semantics.Document is not null;
+        var mayBeAnInterface = UnusedDeclarations.MayBeAnInterface(semantics);
         foreach (var procedure in module.Children.OfType<MemberDeclarationNode>().Where(IsProcedure))
         {
             if (procedure.Children.SkipWhile(child => child is ParameterDeclarationNode or SDK.Model.AST.Expressions.AsTypeExpressionNode).HasNoStatement()
-                && (!isClass || IsInNoInterface(procedure, semantics)))
+                && (!mayBeAnInterface || IsInNoInterface(procedure, semantics)))
             {
                 yield return new AnalyzerFinding(
                     RDCoreDiagnosticId.EmptyProcedure.ToCode(),
