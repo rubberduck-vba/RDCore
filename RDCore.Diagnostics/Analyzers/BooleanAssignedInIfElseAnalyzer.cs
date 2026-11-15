@@ -15,14 +15,16 @@ using RDCore.SDK.Extensibility.Diagnostics;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC00209</c>: an <c>If…Else</c>, on several lines or on one, whose two branches each assign one Boolean literal to the same name, <c>True</c> in one and
+/// <c>RDC00209</c>: an <c>If…Else</c>, on several lines or on one, whose two branches each assign one Boolean literal to the same target, <c>True</c> in one and
 /// <c>False</c> in the other (<strong>MS-VBAL §5.4.2.8</strong>, <strong>§5.4.2.9</strong>): the assignment of the condition, or of its negation, says the same.
 /// </summary>
 /// <remarks>
-/// An <c>ElseIf</c>, a second statement or a <c>Set</c> in a branch makes it something else. The name is a variable, or a member of one (<c>Me.Done</c>,
-/// <c>o.Done</c>); an element of an array is not compared. The finding is the header of the <c>If</c>.
+/// An <c>ElseIf</c>, a second statement or a <c>Set</c> in a branch makes it something else. The two targets are the same expression
+/// (<see cref="ExpressionEquivalence"/>): a variable, a member of an object (<c>Me.Done</c>, <c>.Enabled</c> in a <c>With</c> block), an element of an array
+/// (<c>flags(i)</c>), a member of what a call returns (<c>Range("A1").Locked</c>). The finding is the header of the <c>If</c>.
 /// <para>
-/// The fix that assigns the condition is offered where the condition is a Boolean whatever its operands hold: an <c>Is</c> or <c>TypeOf…Is</c> operation, a
+/// The fix is offered for a target that is a name or a member of a name. The <c>If</c> evaluates its condition before the arguments of the target, and the
+/// assignment that takes its place need not. It is offered where the condition is a Boolean whatever its operands hold: an <c>Is</c> or <c>TypeOf…Is</c> operation, a
 /// Boolean literal, and <c>Not</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c>, <c>Imp</c> and parentheses of those. Another condition can be <c>Null</c>, which
 /// an <c>If</c> takes as <c>False</c> (<strong>MS-VBAL §5.4.2.8</strong>), or a number other than <c>0</c> and <c>-1</c>, whose <c>Not</c> is not <c>False</c>.
 /// </para>
@@ -48,31 +50,35 @@ internal sealed class BooleanAssignedInIfElseAnalyzer : IModuleAnalyzer
             };
 
             if (statement is not null && condition is not null && then is not null && otherwise is not null
-                && Assigned(then) is ({ } name, { } value)
-                && Assigned(otherwise) is ({ } otherName, { } otherValue)
-                && string.Equals(name, otherName, StringComparison.OrdinalIgnoreCase)
-                && value != otherValue)
+                && Assigned(then) is ({ } target, { } value)
+                && Assigned(otherwise) is ({ } otherTarget, { } otherValue)
+                && value != otherValue
+                && ExpressionEquivalence.AreEquivalent(target, otherTarget)
+                && ExpressionWriter.Write(target) is { } written)
             {
                 yield return new AnalyzerFinding(
                     RDCoreDiagnosticId.BooleanAssignedInIfElse.ToCode(),
                     new SourceRange(statement.SourceLocation.Range.Start, condition.SourceLocation.Range.End),
                     DiagnosticSeverity.Information,
-                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.BooleanAssignedInIfElse_Message, name))
+                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.BooleanAssignedInIfElse_Message, written))
                 {
-                    Fixes = FixOf(context.ParseResult, statement, condition, name, value) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
+                    Fixes = NameOf(target) is { } name && FixOf(context.ParseResult, statement, condition, name, value) is { } fix
+                        ? new DiagnosticFixes { Edits = [fix] }
+                        : null,
                 };
             }
         }
     }
 
-    // the one statement of the branch, when it Let-assigns True or False to a name.
-    private static (string? Name, bool? Value) Assigned(StatementBlock body)
+    // the one statement of the branch and what it assigns, when it Let-assigns True or False.
+    private static (ExpressionNode? Target, bool? Value) Assigned(StatementBlock body)
         => body.Children is [AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment]
             && assignment.Value is LiteralExpressionNode { StaticValue: VBBooleanValue literal }
-            && NameOf(assignment.Target) is { } name
-                ? (name, literal.Value.Equals(VBBooleanValue.True.Value))
+                ? (assignment.Target, literal.Value.Equals(VBBooleanValue.True.Value))
                 : (null, null);
 
+    // a target the fix writes the condition to: a name, or a member of a name. Not one with arguments (an element of an array, a call): the If evaluates the
+    // condition first, and the assignment need not.
     private static string? NameOf(ExpressionNode target) => target switch
     {
         SimpleNameExpressionNode simple => simple.IdentifierName,
