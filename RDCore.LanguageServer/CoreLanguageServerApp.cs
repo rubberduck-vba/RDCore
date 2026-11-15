@@ -160,6 +160,9 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();
+        // the tools an assistant calls, for a client that advertises them.
+        builder.WithHandler<Assistant.ToolsListHandler>();
+        builder.WithHandler<Assistant.ToolsCallHandler>();
 
         // the lifecycle of the documents a client has open.
         builder.WithHandler<DidOpenTextDocumentHandler>();

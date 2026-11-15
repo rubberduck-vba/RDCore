@@ -47,7 +47,7 @@ public sealed class FewCapabilitiesInitializeTests
             .AddHandler(new InlayHintHandler(workspace, options))
             .AddHandler(new CodeLensHandler(workspace))
             .AddHandler(new SelectionRangeHandler(documents, parsing))
-            .AddHandler(new WorkspaceSymbolHandler(documents, parsing, new IntrinsicSymbolResolver(), options));
+            .AddHandler(new WorkspaceSymbolHandler(new WorkspaceSymbolSearch(documents, parsing, new IntrinsicSymbolResolver(), options)));
     }
 
     [TestMethod]
