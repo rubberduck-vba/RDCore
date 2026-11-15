@@ -126,7 +126,7 @@ public sealed class EncapsulateFieldTests
         Assert.AreEqual(3, refusal?.Range?.Start.Line);
     }
 
-    private const string Text = "Public text As String\r\n\r\nPublic Sub Fix()\r\n    Mid(text, 1, 1) = \"x\"\r\n    Debug.Print text\r\nEnd Sub\r\n";
+    private const string Text = "Public text As String\r\n\r\nPublic Sub Retitle()\r\n    Mid(text, 1, 1) = \"x\"\r\n    Debug.Print text\r\nEnd Sub\r\n";
 
     [TestMethod]
     [DataRow("    Mid(text, 1, 1) = \"x\"", DisplayName = "Mid")]
@@ -151,6 +151,8 @@ public sealed class EncapsulateFieldTests
         var text = Encapsulated(Compose(Header + Text, UserHeader), "text");
 
         StringAssert.Contains(text, "    Mid(this.text, 1, 1) = \"x\"\r\n    Debug.Print this.text\r\n");
+        var parsed = new ModuleParser().Parse(Module1, text);
+        Assert.IsTrue(parsed.IsSuccess, string.Join("; ", parsed.SyntaxErrors.Select(error => error.Verbose)));
     }
 
     [TestMethod]
