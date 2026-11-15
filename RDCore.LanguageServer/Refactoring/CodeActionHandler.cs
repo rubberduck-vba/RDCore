@@ -532,7 +532,7 @@ internal sealed class CodeActionHandler(
             return new CodeAction { Title = title, Kind = RefactorEncapsulateField, Data = ResolvedData(RefactoringKinds.EncapsulateField, lspUri, range, version) };
         }
 
-        var answer = await encapsulateField.ApplyAsync(documentUri, range.Start, [], token);
+        var answer = await encapsulateField.ApplyAsync(documentUri, range.Start, [], [], token);
         return answer.Edit is { } edit && ForTheClient(LspEditOf(edit)) is { } applicable
             ? new CodeAction { Title = title, Kind = RefactorEncapsulateField, Edit = applicable }
             : null;
@@ -547,7 +547,7 @@ internal sealed class CodeActionHandler(
             return action;
         }
 
-        var answer = await encapsulateField.ApplyAsync(uri, range.Start, [], token);
+        var answer = await encapsulateField.ApplyAsync(uri, range.Start, [], [], token);
         var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? EncapsulateFieldService.DocumentChanged() : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
