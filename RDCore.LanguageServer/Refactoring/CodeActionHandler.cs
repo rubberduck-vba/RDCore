@@ -68,7 +68,12 @@ namespace RDCore.LanguageServer.Refactoring;
 /// A document whose procedures are not sorted is offered a source action that sorts them, by kind, then by name (<see cref="RefactoringKinds.SortMembers"/>).
 /// </para>
 /// <para>
-/// An extraction, a conversion, a move and a sort are the actions that are resolved (<c>resolveProvider = true</c>): a client that resolves an action's edit
+/// The field named at the start of a range is offered as a refactoring that encapsulates it behind properties (<see cref="IEncapsulateFieldService"/>), as an
+/// extraction is: a command for a client that expects <see cref="SDK.Client.Refactoring"/>, and its edit, made with the defaults, for any other when it changes
+/// nothing the user would have to accept. A refused one is offered disabled, with why, to a client that shows it so, unless no field is named there.
+/// </para>
+/// <para>
+/// An extraction, a conversion, a move, a sort and an encapsulation are the actions that are resolved (<c>resolveProvider = true</c>): a client that resolves an action's edit
 /// (<strong>LSP 3.17</strong> §Code Action Resolve Request) is answered them without their edit, which is made and verified when it resolves the action, and
 /// refused when the document has changed since. Any other client is answered every action complete.
 /// </para>
@@ -76,7 +81,7 @@ namespace RDCore.LanguageServer.Refactoring;
 internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null) : CodeActionHandlerBase
+    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null) : CodeActionHandlerBase
 {
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
@@ -107,6 +112,11 @@ internal sealed class CodeActionHandler(
     /// The kind of the action that sorts the procedures of a document: a source action (<see cref="RefactoringKinds.SortMembers"/>).
     /// </summary>
     public static readonly CodeActionKind SourceSortMembers = new(RefactoringKinds.SortMembers);
+
+    /// <summary>
+    /// The kind of the action that encapsulates a field behind properties (<see cref="RefactoringKinds.EncapsulateField"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorEncapsulateField = new(RefactoringKinds.EncapsulateField);
 
     /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
@@ -270,6 +280,11 @@ internal sealed class CodeActionHandler(
         if (IsAsked(SourceSortMembers) && await SortMembersActionAsync(request.TextDocument.Uri, range, cancellationToken) is { } sort)
         {
             actions.Add(sort);
+        }
+
+        if (IsAsked(RefactorEncapsulateField) && await EncapsulateFieldActionAsync(request.TextDocument.Uri, range, cancellationToken) is { } encapsulation)
+        {
+            actions.Add(encapsulation);
         }
 
         return new CommandOrCodeActionContainer(actions.Where(action => IsAsked(action.Kind)).Select(action => new CommandOrCodeAction(action)));
@@ -473,6 +488,96 @@ internal sealed class CodeActionHandler(
         }
     }
 
+    // the action that encapsulates the field named at the start of a range, as an extraction is offered: a command for a client with a dialog of its own, the
+    // edit with the defaults for any other, unless it changes what the code does. A refused one is offered disabled, with why, to a client that shows it so,
+    // unless no field is named there.
+    private async Task<CodeAction?> EncapsulateFieldActionAsync(DocumentUri lspUri, SourceRange range, CancellationToken token)
+    {
+        if (encapsulateField is null)
+        {
+            return null;
+        }
+
+        var documentUri = lspUri.ToUri();
+        var title = EncapsulateFieldService.Title();
+        int? version = documents.TryGetDocument(documentUri, out var document) ? document.Version : null;
+        var prepared = await encapsulateField.PrepareAsync(documentUri, range.Start, token);
+        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Refusal) is { } refused)
+        {
+            return ShowsDisabled && refused.Code != EncapsulateFieldService.NotAFieldCode
+                ? new CodeAction { Title = title, Kind = RefactorEncapsulateField, Disabled = new CodeActionDisabled { Reason = refused.Message } }
+                : null;
+        }
+
+        if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
+        {
+            var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.EncapsulateField, Uri = documentUri, Range = range };
+            return new CodeAction
+            {
+                Title = title,
+                Kind = RefactorEncapsulateField,
+                Command = new Command { Name = RefactoringCommands.Refactor, Title = title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+            };
+        }
+
+        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Change) is { } change)
+        {
+            return ShowsDisabled
+                ? new CodeAction { Title = title, Kind = RefactorEncapsulateField, Disabled = new CodeActionDisabled { Reason = ExtractMethodService.NeedsAccepting(change) } }
+                : null;
+        }
+
+        if (ResolvesEdits)
+        {
+            return new CodeAction { Title = title, Kind = RefactorEncapsulateField, Data = ResolvedData(RefactoringKinds.EncapsulateField, lspUri, range, version) };
+        }
+
+        var answer = await encapsulateField.ApplyAsync(documentUri, range.Start, [], token);
+        return answer.Edit is { } edit && ForTheClient(LspEditOf(edit)) is { } applicable
+            ? new CodeAction { Title = title, Kind = RefactorEncapsulateField, Edit = applicable }
+            : null;
+    }
+
+    // the encapsulation a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for. One that is
+    // refused, or whose document has changed since, is answered an error that says why.
+    private async Task<CodeAction> ResolveEncapsulationAsync(CodeAction action, JObject offered, CancellationToken token)
+    {
+        if (encapsulateField is null || !TryOfferedAt(offered, out var uri, out var range, out var version))
+        {
+            return action;
+        }
+
+        var answer = await encapsulateField.ApplyAsync(uri, range.Start, [], token);
+        var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? EncapsulateFieldService.DocumentChanged() : answer.Refusal;
+        if (refusal is not null || answer.Edit is null)
+        {
+            throw new RpcErrorException(RequestFailedCode, error: null!, refusal ?? string.Empty);
+        }
+
+        try
+        {
+            return new CodeAction { Title = action.Title, Kind = RefactorEncapsulateField, Data = action.Data, Edit = LspEditOf(answer.Edit).For(_client) };
+        }
+        catch (WorkspaceEditNotSupportedException unsupported)
+        {
+            throw new RpcErrorException(RequestFailedCode, error: null!, unsupported.Message);
+        }
+    }
+
+    // a refactoring's edits as LSP writes them: the edits of each document, of the version they were made from.
+    private static WorkspaceEdit LspEditOf(RefactorWorkspaceEdit edit) => new()
+    {
+        DocumentChanges = new Container<WorkspaceEditDocumentChange>(edit.Documents.Select(document => new WorkspaceEditDocumentChange(new TextDocumentEdit
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(document.Uri!), Version = document.Version },
+            Edits = new TextEditContainer(document.Edits.Select(each => new TextEdit
+            {
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(each.Range.Start.Line, each.Range.Start.Character, each.Range.End.Line, each.Range.End.Character),
+                NewText = each.NewText,
+            })),
+        }))),
+    };
+
     // the data of an action a client resolves: a client sends the action back as it holds it, and may drop a kind it does not know, so the data names the
     // refactoring, the range it was offered for, and the version of the document then.
     private JObject ResolvedData(string kind, DocumentUri lspUri, SourceRange range, int? version) => new()
@@ -622,6 +727,7 @@ internal sealed class CodeActionHandler(
             {
                 (RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub) and var kind => await ResolveRefactoringAsync(request, kind, offered, cancellationToken),
                 (RefactoringKinds.MoveMemberUp or RefactoringKinds.MoveMemberDown or RefactoringKinds.SortMembers) and var kind => await ResolveMoveAsync(request, kind, offered, cancellationToken),
+                RefactoringKinds.EncapsulateField => await ResolveEncapsulationAsync(request, offered, cancellationToken),
                 _ => request,
             }
             : request;
@@ -631,7 +737,7 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, RefactorEncapsulateField, SourceImportProject),
             ResolveProvider = true,
         };
     }
