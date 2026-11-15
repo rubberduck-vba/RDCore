@@ -123,7 +123,7 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
             return null;
         }
 
-        return new Planned(InterfaceImplementation.Plan(part.Context, source, module.Parse, range, Format("ImplementInterface_TodoComment")), part, module);
+        return new Planned(InterfaceImplementation.Plan(part.Context, source, module.Parse, range, Format("ImplementInterface_TodoComment"), Format("ImplementInterface_HandlerTodoComment")), part, module);
     }
 
     // the edits verified on the project composed again with the module as they leave it: it parses; every name it had refers to what it referred to; it has no

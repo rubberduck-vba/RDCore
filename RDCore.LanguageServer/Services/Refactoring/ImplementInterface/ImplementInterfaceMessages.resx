@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- Implement Interface: {0} is the interface class, or the WithEvents variable whose events are handled; {1} is what is why, where there is something. TodoComment is written into the code, after an apostrophe. -->
+  <!-- Implement Interface: {0} is the interface class, or the WithEvents variable whose events are handled; {1} is what is why, where there is something. TodoComment and HandlerTodoComment are written into the code, after an apostrophe. -->
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -21,6 +21,9 @@
   </data>
   <data name="ImplementInterface_TodoComment" xml:space="preserve">
     <value>TODO implement interface member</value>
+  </data>
+  <data name="ImplementInterface_HandlerTodoComment" xml:space="preserve">
+    <value>TODO handle the event</value>
   </data>
   <data name="ImplementInterface_Nothing" xml:space="preserve">
     <value>There is nothing to implement here: no Implements directive or WithEvents variable with members left to write.</value>

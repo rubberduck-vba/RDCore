@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- Implémenter l'interface : {0} est la classe d'interface, ou la variable WithEvents dont les événements sont gérés ; {1} est ce qui en est la raison, quand il y a quelque chose. TodoComment est écrit dans le code, après une apostrophe. -->
+  <!-- Implémenter l'interface : {0} est la classe d'interface, ou la variable WithEvents dont les événements sont gérés ; {1} est ce qui en est la raison, quand il y a quelque chose. TodoComment et HandlerTodoComment sont écrits dans le code, après une apostrophe. -->
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -21,6 +21,9 @@
   </data>
   <data name="ImplementInterface_TodoComment" xml:space="preserve">
     <value>TODO implémenter le membre d'interface</value>
+  </data>
+  <data name="ImplementInterface_HandlerTodoComment" xml:space="preserve">
+    <value>TODO traiter l'événement</value>
   </data>
   <data name="ImplementInterface_Nothing" xml:space="preserve">
     <value>Il n'y a rien à implémenter ici : aucune directive Implements ni variable WithEvents dont il reste des membres à écrire.</value>

@@ -91,7 +91,11 @@ internal sealed record class ImplementationPlan(ImplementationTarget Target, IRe
 /// A member of the interface that the class also has as a <c>Public</c> member of its own, of the same name, kind, parameters and type, is implemented by a
 /// call to that member, which is given the procedure's parameters. One with a <c>ParamArray</c> is not, since its arguments would reach the call as one array;
 /// nor one whose value is a <c>Variant</c> returned by a procedure, which could only be assigned by calling it twice. Any other raises error 5, with a comment
-/// to say it is to be written. An event handler is empty.
+/// to say it is to be written.
+/// </para>
+/// <para>
+/// An event handler is an <c>Exit Sub</c>, with a comment to say it is to be written: a handler with no statement is reported as an empty procedure, and one that
+/// raised an error would raise it to the code that raises the event, which ran without it before.
 /// </para>
 /// </remarks>
 internal static partial class InterfaceImplementation
@@ -108,7 +112,8 @@ internal static partial class InterfaceImplementation
     /// <param name="parse">Its parse, of the text <paramref name="context"/> has of it.</param>
     /// <param name="range">The range: on a line of the directive or of the variable's declaration.</param>
     /// <param name="todo">The comment the body of a procedure that raises error 5 ends with.</param>
-    public static ImplementationPlan? Plan(RenameContext context, RenameModule module, ModuleParseResult parse, SourceRange range, string todo)
+    /// <param name="handlerTodo">The comment the <c>Exit Sub</c> of an event handler ends with.</param>
+    public static ImplementationPlan? Plan(RenameContext context, RenameModule module, ModuleParseResult parse, SourceRange range, string todo, string handlerTodo)
     {
         if (parse.SyntaxTree is not { } tree
             || NameOccurrences.SymbolOf(context, new SemanticId(module.Module)) is not VBClassModuleSymbol type)
@@ -117,7 +122,7 @@ internal static partial class InterfaceImplementation
         }
 
         var text = new ExtractionText(module.Source);
-        var writer = new Writer(context, text.NewLine, todo);
+        var writer = new Writer(context, text.NewLine, todo, handlerTodo);
         ImplementationTarget target;
         IReadOnlyList<ImplementationStub> stubs;
         if (DirectiveAt(tree, range) is { } directive)
@@ -213,7 +218,7 @@ internal static partial class InterfaceImplementation
             ? member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit
             : member.Kind == SymbolKindExt.Field && member.AccessModifier is AccessModifier.Public;
 
-    private sealed partial class Writer(RenameContext context, string newLine, string todo)
+    private sealed partial class Writer(RenameContext context, string newLine, string todo, string handlerTodo)
     {
         // the procedures the class needs to implement the interface, or why they are not written.
         public (IReadOnlyList<ImplementationStub> Stubs, ImplementationRefusal? Refusal) Implementations(VBClassModuleSymbol type, VBClassModuleSymbol implemented)
@@ -258,7 +263,7 @@ internal static partial class InterfaceImplementation
             return (stubs, null);
         }
 
-        // the empty handlers of the events of a variable's class that the class does not handle.
+        // the handlers of the events of a variable's class that the class does not handle, each to be written.
         public IReadOnlyList<ImplementationStub> Handlers(VBClassModuleSymbol type, VBTypeMemberSymbol variable, VBClassModuleSymbol source)
         {
             var stubs = new List<ImplementationStub>();
@@ -270,7 +275,7 @@ internal static partial class InterfaceImplementation
                     continue;
                 }
 
-                stubs.Add(new ImplementationStub(name, MemberKind.Procedure, Procedure(MemberKind.Procedure, name, signature, []), Forwards: false));
+                stubs.Add(new ImplementationStub(name, MemberKind.Procedure, Procedure(MemberKind.Procedure, name, signature, [$"    Exit Sub '{handlerTodo}"]), Forwards: false));
             }
 
             return stubs;

@@ -10,6 +10,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
@@ -193,12 +194,12 @@ public sealed class ImplementInterfaceServiceTests
     }
 
     [TestMethod]
-    public async Task AWithEventsVariable_HasAnEmptyHandler_ForEachEventItHasNone()
+    public async Task AWithEventsVariable_HasAHandlerToWrite_ForEachEventItHasNone()
     {
         var answer = await _service.ImplementAsync(Document("Panel.cls"), At(6, 20), CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        Assert.AreEqual(Panel + "\r\nPrivate Sub btn_Closing(ByRef Cancel As Boolean)\r\nEnd Sub\r\n", DeclarationEdits.ApplyTo(Panel, answer.Edits!));
+        Assert.AreEqual(Panel + "\r\nPrivate Sub btn_Closing(ByRef Cancel As Boolean)\r\n    Exit Sub 'TODO handle the event\r\nEnd Sub\r\n", DeclarationEdits.ApplyTo(Panel, answer.Edits!));
     }
 
     [TestMethod]
@@ -259,7 +260,7 @@ public sealed class ImplementInterfaceServiceTests
         var resolved = await handler.Handle(offered, CancellationToken.None);
 
         Assert.IsNull(offered.Edit);
-        Assert.AreEqual("Private Sub btn_Closing(ByRef Cancel As Boolean)\r\nEnd Sub", resolved.Edit!.DocumentChanges!.Single().TextDocumentEdit!.Edits.Single().NewText.Trim());
+        Assert.AreEqual("Private Sub btn_Closing(ByRef Cancel As Boolean)\r\n    Exit Sub 'TODO handle the event\r\nEnd Sub", resolved.Edit!.DocumentChanges!.Single().TextDocumentEdit!.Edits.Single().NewText.Trim());
     }
 
     [TestMethod]
@@ -353,5 +354,44 @@ public sealed class ImplementInterfaceServiceTests
 
         CollectionAssert.AreEqual(new[] { "clicked 7", "closing cancelled: False" }, before.Select(line => line.Trim()).ToArray(), string.Join(" | ", before));
         CollectionAssert.AreEqual(before, after);
+    }
+
+    // ---- the diagnostics, before and after ----
+
+    [TestMethod]
+    [DataRow("Square", 6, DisplayName = "an Implements directive")]
+    [DataRow("Panel", 6, DisplayName = "a WithEvents variable")]
+    public async Task AcceptingTheImplementation_LeavesNoNewDiagnostic(string module, int line)
+    {
+        var sources = new Dictionary<string, string> { ["IShape"] = IShape, ["Square"] = Square, ["Button"] = Button, ["Panel"] = Panel };
+        var answer = await _service.ImplementAsync(Document(module + ".cls"), At(line, 0), CancellationToken.None);
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+
+        var before = await FindingsAsync(sources, module);
+        sources[module] = DeclarationEdits.ApplyTo(sources[module], answer.Edits!);
+        var after = await FindingsAsync(sources, module);
+
+        // a finding is new when there are more of its code than there were.
+        var added = after.Where(finding => after.Count(other => other.Code == finding.Code) > before.Count(other => other.Code == finding.Code)).ToArray();
+        Assert.IsEmpty(added, string.Join("; ", added.Select(finding => $"{finding.Code} at line {finding.Range.Start.Line}: {finding.Message}")));
+    }
+
+    // every finding of every analyzer of the platform, with the default options, for one class module of a workspace as the host models it.
+    private static async Task<AnalyzerFinding[]> FindingsAsync(IReadOnlyDictionary<string, string> classes, string module)
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync([.. classes.Select(each => (each.Key, each.Value))], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n");
+        var semantics = payload.Modules.Single(each => each.Module.Fragment.TrimStart('#') == module);
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, module + ".cls"));
+        var context = new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, classes[module]), semantics);
+        return [.. ModuleAnalyzerHost.Run(Analyzers(), context, AnalysisPhase.All, NullLogger.Instance)];
+    }
+
+    private static IEnumerable<IModuleAnalyzer> Analyzers()
+    {
+        var options = Options.Create(new RDCore.Diagnostics.DiagnosticsOptions());
+        return typeof(RDCore.Diagnostics.CoreDiagnosticsApp).Assembly.GetTypes()
+            .Where(type => type is { IsClass: true, IsAbstract: false } && typeof(IModuleAnalyzer).IsAssignableFrom(type))
+            .Select(type => (IModuleAnalyzer)(type.GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                .Single().GetParameters().Length == 0 ? Activator.CreateInstance(type, nonPublic: true)! : Activator.CreateInstance(type, options)!));
     }
 }
