@@ -21,7 +21,7 @@ using RDCore.SDK.Server.Configuration;
 namespace RDCore.LanguageServer.Refactoring;
 
 /// <summary>
-/// What can be done at a range of a document, as <c>textDocument/codeAction</c> answers it and an assistant's fix tools list it (<see cref="CodeActionService"/>).
+/// What can be done at a range of a document, as <c>textDocument/codeAction</c> answers it (<see cref="CodeActionService"/>).
 /// </summary>
 internal interface ICodeActionService
 {
