@@ -92,7 +92,7 @@
     <value>Read-only</value>
   </data>
   <data name="EncapsulateFieldChoice_ReadOnlyDescription" xml:space="preserve">
-    <value>Write a Property Get only. The code outside the module can no longer assign the field.</value>
+    <value>Write a Property Get only. Code outside the module cannot assign the field.</value>
   </data>
   <data name="EncapsulateFieldChoice_Inside" xml:space="preserve">
     <value>Inside the module</value>
