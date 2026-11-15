@@ -93,10 +93,18 @@ public static class SymbolRename
             return new(new RenameTarget(label.Name, module, label.Here, [], IsLabel: true), null);
         }
 
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source
-            || NameOccurrences.NameAt(source, position) is not { } name)
+        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
         {
             return new(null, new RenameRefusal(RenameRefusalKind.NoName, string.Empty));
+        }
+
+        if (NameOccurrences.NameAt(source, position) is not { } name)
+        {
+            // the name of a type in an As clause.
+            return NameOccurrences.TypeNameAt(source, position) is { } typeName
+                && context.Resolver.ResolveType(typeName.Name, ScopeKind.Local, NameOccurrences.ScopeOf(context, source, position).Uri).Symbol is { } named
+                ? PrepareType(context, module, typeName.Range, named)
+                : new(null, new RenameRefusal(RenameRefusalKind.NoName, string.Empty));
         }
 
         var found = NameOccurrences.Find(context, name, [source]);
@@ -108,9 +116,15 @@ public static class SymbolRename
         var here = found.Occurrences.FirstOrDefault(occurrence => Contains(occurrence.Range, position));
         if (here.Binding is not { } binding || NameOccurrences.SymbolOf(context, binding) is not { } symbol)
         {
-            // a name that means no value where it is written can be that of a type: a class that is created, a Type a variable is declared as.
-            var isType = here.Scope is { } scope && context.Resolver.ResolveType(name, ScopeKind.Local, scope.Uri).Symbol is not null;
-            return new(null, new RenameRefusal(isType ? RenameRefusalKind.Type : RenameRefusalKind.NotDeclaredByWorkspace, name));
+            // a name that means no value where it is written can be that of a type: a class that is created, an Enum whose member is qualified by it.
+            return here.Scope is { } scope && context.Resolver.ResolveType(name, ScopeKind.Local, scope.Uri).Symbol is { } type
+                ? PrepareType(context, module, here.Range, type)
+                : new(null, new RenameRefusal(RenameRefusalKind.NotDeclaredByWorkspace, name));
+        }
+
+        if (IsType(symbol))
+        {
+            return PrepareType(context, module, here.Range, symbol);
         }
 
         if (RefusalOf(context, symbol) is { } refusal)
@@ -120,6 +134,14 @@ public static class SymbolRename
 
         return new(new RenameTarget(symbol.Name, module, here.Range, [.. RenamedTogether(context, symbol).Select(renamed => renamed.SemanticId)]), null);
     }
+
+    private static RenamePreparation PrepareType(RenameContext context, Uri module, SourceRange range, Symbol type)
+        => RefusalOf(context, type) is { } refusal
+            ? new(null, refusal)
+            : new(new RenameTarget(type.Name, module, range, [type.SemanticId]), null);
+
+    // a Type and an Enum are module members; a module is the type of its class (MS-VBAL §5.2.3.3, §5.2.3.4, §5.2.4.1).
+    private static bool IsType(Symbol symbol) => symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
 
     public static IReadOnlyList<RenameTarget> TargetsIn(RenameContext context, Uri module, SourceRange range)
     {
@@ -177,6 +199,11 @@ public static class SymbolRename
 
         var targets = target.Symbols.ToHashSet();
         var symbols = target.Symbols.Select(id => NameOccurrences.SymbolOf(context, id)).OfType<Symbol>().ToList();
+        if (symbols is [var type] && IsType(type))
+        {
+            return PlanType(context, type, newName);
+        }
+
         var old = NameOccurrences.Find(context, target.Name, context.Modules);
 
         // a name written as the renamed one whose meaning is not known, where the symbol could be what it means.
@@ -227,6 +254,135 @@ public static class SymbolRename
 
     private static RenamePlan Refused(RenameRefusal refusal) => new([], refusal);
 
+    // a type is named where it is declared, in an As clause, and where it qualifies a member of an Enum (MS-VBAL §5.6.16.7): its name is not a value's,
+    // and is renamed where it means the type.
+    private static RenamePlan PlanType(RenameContext context, Symbol type, string newName)
+    {
+        if (TypeConflictOf(context, type, newName) is { } taken)
+        {
+            return Refused(taken);
+        }
+
+        // a name written as the type's whose meaning is not known, where it could be the type: the rename could miss it.
+        if (NameOccurrences.Find(context, type.Name, context.Modules).Unknown
+            .FirstOrDefault(unknown => unknown.Kind is OccurrenceKind.Name && unknown.Scope is { } scope && RenameBinding.IsTheType(context, type, scope.Uri))
+            is { Module: not null } unresolved)
+        {
+            return Refused(new(RenameRefusalKind.Unresolved, type.Name, Module: unresolved.Module, Position: unresolved.Range.Start));
+        }
+
+        var sites = TypeSites(context, type, type.Name).ToList();
+        foreach (var (module, range, scope, isValue) in sites)
+        {
+            // where the type is named, the new name must mean nothing else: no other type, as near or nearer, and no value before a member of an Enum.
+            var meant = context.Resolver.ResolveType(newName, ScopeKind.Local, scope.Uri).Symbol;
+            if (meant is not null && meant.SemanticId != type.SemanticId && RenameBinding.ChainIndex(scope, meant) <= RenameBinding.ChainIndex(scope, type))
+            {
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(meant), module, range.Start));
+            }
+
+            if (isValue && context.Resolver.ResolveValue(newName, ScopeKind.Local, scope.Uri).Symbol is { } value)
+            {
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(value), module, range.Start));
+            }
+        }
+
+        // where the code names a type by the new name already, it must not mean this one once it is renamed.
+        foreach (var (module, range, scope, _) in TypeSites(context, type: null, newName))
+        {
+            var meant = context.Resolver.ResolveType(newName, ScopeKind.Local, scope.Uri).Symbol;
+            var nearest = RenameBinding.ChainIndex(scope, type);
+            if (nearest < int.MaxValue && (meant is null || nearest <= RenameBinding.ChainIndex(scope, meant)))
+            {
+                return Refused(new(RenameRefusalKind.Conflict, newName, meant is null ? newName : NameOccurrences.Describe(meant), module, range.Start));
+            }
+        }
+
+        return new([.. sites
+            .DistinctBy(site => (site.Module.AbsoluteUri, site.Range))
+            .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
+            .ThenBy(site => site.Range.Start)
+            .Select(site => new RenameEdit(site.Module, site.Range, newName))], null);
+    }
+
+    // where a name is written as a type's: its declaration, an As clause, the qualifier of an Enum's member (a value's place). With no type, every place the name
+    // is written as one.
+    private static IEnumerable<(Uri Module, SourceRange Range, LexicalScope Scope, bool IsValue)> TypeSites(RenameContext context, Symbol? type, string name)
+    {
+        bool Means(LexicalScope scope)
+            => type is null
+                ? context.Resolver.ResolveType(name, ScopeKind.Local, scope.Uri).Symbol is not null
+                : RenameBinding.IsTheType(context, type, scope.Uri);
+
+        foreach (var occurrence in NameOccurrences.Find(context, name, context.Modules).Occurrences)
+        {
+            if (occurrence.Binding is { } binding)
+            {
+                if (type is not null && binding == type.SemanticId)
+                {
+                    yield return (occurrence.Module, occurrence.Range, occurrence.Scope, occurrence.Kind is OccurrenceKind.Name);
+                }
+            }
+            else if (occurrence.Kind is OccurrenceKind.Name && occurrence.Scope is { } scope && Means(scope))
+            {
+                yield return (occurrence.Module, occurrence.Range, scope, true);
+            }
+        }
+
+        foreach (var source in context.Modules.Where(candidate => candidate.Source.Contains(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var (written, range) in NameOccurrences.TypeNamesIn(source))
+            {
+                var scope = NameOccurrences.ScopeOf(context, source, range.Start);
+                if (string.Equals(written, name, StringComparison.OrdinalIgnoreCase) && Means(scope))
+                {
+                    yield return (source.Module, range, scope, false);
+                }
+            }
+        }
+    }
+
+    // MS-VBAL §5.2.3.3, §5.2.3.4: a Private Type or Enum is named as no other Type or Enum of its module; a Public one as no Public Type or Enum of its project, no
+    // module of it, no project and no library.
+    private static RenameRefusal? TypeConflictOf(RenameContext context, Symbol type, string newName)
+    {
+        static bool IsUserType(Symbol symbol) => symbol is VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
+        static bool IsPublic(Symbol symbol) => symbol is VBTypeMemberSymbol { AccessModifier: not AccessModifier.Private };
+
+        var declaring = NameOccurrences.ModuleOf(type.Uri);
+        if (context.ScopeTree.TryGetScope(declaring, out var own)
+            && own.DeclaredAs(newName).FirstOrDefault(other => IsUserType(other) && other.SemanticId != type.SemanticId) is { } sibling)
+        {
+            return ConflictWith(newName, sibling);
+        }
+
+        if (!IsPublic(type))
+        {
+            return null;
+        }
+
+        var project = ProjectOf(declaring);
+        foreach (var module in context.Modules.Where(candidate => ProjectOf(candidate.Module) == project))
+        {
+            if (string.Equals(SymbolUri.ModuleNameOf(module.Module), newName, StringComparison.OrdinalIgnoreCase))
+            {
+                return new(RenameRefusalKind.Conflict, newName, newName, module.Module);
+            }
+
+            if (context.ScopeTree.TryGetScope(module.Module, out var scope)
+                && scope.DeclaredAs(newName).FirstOrDefault(other => IsUserType(other) && IsPublic(other) && other.SemanticId != type.SemanticId) is { } other)
+            {
+                return ConflictWith(newName, other);
+            }
+        }
+
+        return own is not null && context.Resolver.ResolveValue(newName, ScopeKind.Local, own.Uri).Symbol is VBProjectSymbol named
+            ? ConflictWith(newName, named)
+            : null;
+    }
+
+    private static string ProjectOf(Uri module) => new UriBuilder(module) { Fragment = string.Empty }.Uri.AbsoluteUri;
+
     // MS-VBAL §5.4.1.1: a label is unique in its procedure, and is never named Randomize.
     private static RenamePlan PlanLabel(RenameContext context, RenameTarget target, string newName)
     {
@@ -261,7 +417,7 @@ public static class SymbolRename
         var parent = NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri));
         switch (symbol)
         {
-            case VBModuleSymbol or VBProjectSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol:
+            case VBModuleSymbol or VBProjectSymbol:
                 return new(RenameRefusalKind.Type, symbol.Name);
             case VBEventMemberSymbol:
                 return new(RenameRefusalKind.Event, symbol.Name);

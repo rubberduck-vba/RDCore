@@ -520,13 +520,138 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
-    public void AType_IsNotRenamedYet()
+    public void AClass_IsNotRenamedYet()
     {
         var context = Compose(("Class1", Class1), ("Main", Module("Main", "Public Sub One()", "    Dim c As Class1", "    Set c = New Class1", "End Sub")));
 
-        var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Set c", "Class1"));
+        Assert.AreEqual(RenameRefusalKind.Type, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Set c", "Class1")).Refusal?.Kind);
+        Assert.AreEqual(RenameRefusalKind.Type, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Dim c", "Class1")).Refusal?.Kind);
+    }
 
-        Assert.AreEqual(RenameRefusalKind.Type, preparation.Refusal?.Kind);
+    [TestMethod]
+    [DataRow("Public Enum Color", "Color", DisplayName = "at its declaration")]
+    [DataRow("ByVal c As Color", "Color", DisplayName = "in an As clause")]
+    [DataRow("Pick = Color.Red", "Color", DisplayName = "before a member")]
+    public void AnEnum_IsRenamedWhereItsNameIsWritten_InEveryModule(string line, string text)
+    {
+        var context = Compose(
+            ("Main", Module("Main",
+                "Public Enum Color",
+                "    Red = 1",
+                "End Enum",
+                "Public Function Pick(ByVal c As Color) As Color",
+                "    Pick = Color.Red",
+                "End Function")),
+            ("Other", Module("Other",
+                "Private Colors() As Color",
+                "Public Sub Two()",
+                "    Dim c As Main.Color",
+                "    ReDim Colors(1) As Color",
+                "    c = Pick(Red)",
+                "End Sub")));
+
+        var plan = Rename(context, "Main", line, text, "Shade");
+
+        Assert.AreEqual(Module("Main",
+            "Public Enum Shade",
+            "    Red = 1",
+            "End Enum",
+            "Public Function Pick(ByVal c As Shade) As Shade",
+            "    Pick = Shade.Red",
+            "End Function"), Renamed(context, plan, "Main"));
+        Assert.AreEqual(Module("Other",
+            "Private Colors() As Shade",
+            "Public Sub Two()",
+            "    Dim c As Main.Shade",
+            "    ReDim Colors(1) As Shade",
+            "    c = Pick(Red)",
+            "End Sub"), Renamed(context, plan, "Other"));
+    }
+
+    [TestMethod]
+    public void AType_IsRenamedWhereItsNameIsWritten_AndNotAVariableOfTheSameName()
+    {
+        // MS-VBAL §5.2.3.3: a variable may have the name of a Type; it is not the type.
+        var context = Compose(("Main", Module("Main",
+            "Private Type Point",
+            "    X As Long",
+            "End Type",
+            "Private Type Segment",
+            "    A As Point",
+            "End Type",
+            "Private Point As Long",
+            "Private Function Origin() As Point",
+            "    Point = 1",
+            "End Function")));
+
+        var plan = Rename(context, "Main", "A As Point", "Point", "Location");
+
+        Assert.AreEqual(Module("Main",
+            "Private Type Location",
+            "    X As Long",
+            "End Type",
+            "Private Type Segment",
+            "    A As Location",
+            "End Type",
+            "Private Point As Long",
+            "Private Function Origin() As Location",
+            "    Point = 1",
+            "End Function"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    [DataRow("Main", "Segment", DisplayName = "a Type of its module")]
+    [DataRow("Main", "Shade", DisplayName = "an Enum of its module")]
+    [DataRow("Main", "Other", DisplayName = "a module of its project, for a Public type")]
+    [DataRow("Main", "Size", DisplayName = "a Public type of another module, for a Public type")]
+    public void AType_IsNotRenamedToTheNameOfAnotherTypeItCannotShareItWith(string module, string newName)
+    {
+        // MS-VBAL §5.2.3.3, §5.2.3.4
+        var context = Compose(
+            ("Main", Module("Main", "Public Type Point", "    X As Long", "End Type", "Private Type Segment", "    A As Point", "End Type", "Private Enum Shade", "    Red", "End Enum")),
+            ("Other", Module("Other", "Public Enum Size", "    Small", "End Enum")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri(module), At(context, module, "Public Type Point", "Point"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, newName).Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void APrivateType_IsRenamedToTheNameOfAPublicTypeOfAnotherModule_WhenNoUseOfThatOneIsInItsModule()
+    {
+        var context = Compose(
+            ("Main", Module("Main", "Private Type Point", "    X As Long", "End Type", "Private p As Point")),
+            ("Other", Module("Other", "Public Enum Size", "    Small", "End Enum", "Private s As Size")));
+
+        var plan = Rename(context, "Main", "Private p As Point", "Point", "Size");
+
+        Assert.AreEqual(Module("Main", "Private Type Size", "    X As Long", "End Type", "Private p As Size"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void AType_IsNotRenamedToANameThatMeansAnotherTypeWhereItIsUsed()
+    {
+        var context = Compose(
+            ("Main", Module("Main", "Private Type Point", "    X As Long", "End Type", "Private p As Point", "Private s As Size")),
+            ("Other", Module("Other", "Public Enum Size", "    Small", "End Enum")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Private p As Point", "Point"));
+
+        var plan = SymbolRename.Plan(context, preparation.Target!, "Size");
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, plan.Refusal?.Kind, "Main's s would be a Point");
+    }
+
+    [TestMethod]
+    public void AnEnum_IsNotRenamedToTheNameOfAValue_WhereAMemberIsQualifiedByIt()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Private Enum Color", "    Red", "End Enum",
+            "Public Sub One()", "    Dim Shade As Long", "    Shade = Color.Red", "End Sub")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Private Enum Color", "Color"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, "Shade").Refusal?.Kind);
     }
 
     [TestMethod]
