@@ -160,7 +160,9 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();
-        // the tools an assistant calls, for a client that advertises them.
+        // what hover and the outline know, as data; and the tools an assistant calls, for a client that advertises them.
+        builder.WithHandler<Symbols.SemanticsDescribeHandler>();
+        builder.WithHandler<Symbols.SemanticsOutlineHandler>();
         builder.WithHandler<Assistant.ToolsListHandler>();
         builder.WithHandler<Assistant.ToolsCallHandler>();
 

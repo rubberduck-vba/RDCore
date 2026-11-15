@@ -14,9 +14,14 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Assistant;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Server.Assistant;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -62,7 +67,10 @@ public sealed class AssistantToolsWireTests
 
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
 
-    private static AssistantToolCatalog Catalog()
+    private static readonly Uri Title = SymbolUri.Member(SymbolUri.Module(Root, "Helpers"), "strTitle");
+
+    // the tools, and what answers rdcore/semantics/describe and /outline, over the two documents.
+    private static (AssistantToolCatalog Catalog, ISemanticsDescriptionService Semantics) Serve()
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
@@ -70,6 +78,12 @@ public sealed class AssistantToolsWireTests
         var all = new[] { new WorkspaceDocument("Module1.bas", Root, Module1, version: 1), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 1) };
         documents.GetAllDocuments().Returns(all);
         documents.TryGetDocument(Arg.Any<Uri>(), out Arg.Any<WorkspaceDocument>()).Returns(call =>
+        {
+            var found = all.FirstOrDefault(document => document.Id.Uri.ToUri() == call.ArgAt<Uri>(0));
+            call[1] = found!;
+            return found is not null;
+        });
+        documents.TryGetModule(Arg.Any<Uri>(), out Arg.Any<WorkspaceDocument>()).Returns(call =>
         {
             var found = all.FirstOrDefault(document => document.Id.Uri.ToUri() == call.ArgAt<Uri>(0));
             call[1] = found!;
@@ -98,14 +112,30 @@ public sealed class AssistantToolsWireTests
                 new Diagnostic { Range = new Range(2, 4, 2, 12), Code = "RDC01011", Severity = DiagnosticSeverity.Warning, Message = "m" },
             ]));
 
+        // the host's static pass: strTitle is read once and written once, and is the String variable written at Module1 3:5.
+        diagnostics.SemanticsAsync(Document("Helpers.bas"), Arg.Any<CancellationToken>()).Returns(new ModuleSemanticsDto(
+            SymbolUri.Module(Root, "Helpers"), true, [], [],
+            [new DeclarationFactDto(Title, "strTitle", DeclarationKind.Variable, AccessModifier.Public, false,
+                new SourceLocation(Document("Helpers.bas"), new SourceRange(1, 7, 1, 15)), new DeclarationReferences(1, 1, 0))],
+            Language: "vba"));
+        diagnostics.SemanticsAsync(Document("Module1.bas"), Arg.Any<CancellationToken>()).Returns(new ModuleSemanticsDto(
+            SymbolUri.Module(Root, "Module1"), true, [],
+            [new ProcedureSemanticsDto(SymbolUri.Member(SymbolUri.Module(Root, "Module1"), "Main"), true, [],
+                [new ExpressionFactDto(new SyntaxNodeId(Document("Module1.bas").ToString(), [0, 1]), new SourceLocation(Document("Module1.bas"), new SourceRange(2, 4, 2, 12)),
+                    "String", ExpressionClassification.Variable, Title, default, null)])],
+            []));
+
+        var semantics = new SemanticsDescriptionService(workspace, diagnostics, documents, parsing, new IntrinsicSymbolResolver(), options);
         var assistantDocuments = new AssistantDocuments(documents);
-        return new AssistantToolCatalog(
+        return (new AssistantToolCatalog(
         [
             new GetDiagnosticsTool(assistantDocuments, diagnostics, Substitute.For<IDocumentLifecycleService>()),
             new FindSymbolTool(assistantDocuments, new WorkspaceSymbolSearch(documents, parsing, new IntrinsicSymbolResolver(), options)),
             new ReferencesTool(assistantDocuments, workspace),
             new DefinitionTool(assistantDocuments, workspace),
-        ]);
+            new DescribeAtTool(assistantDocuments, semantics),
+            new OutlineTool(assistantDocuments, semantics),
+        ]), semantics);
     }
 
     private static PlatformClientCapabilitiesService Advertised(bool tools)
@@ -126,13 +156,15 @@ public sealed class AssistantToolsWireTests
         using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
-        var catalog = Catalog();
+        var (catalog, semantics) = Serve();
         var capabilities = Advertised(advertised);
         var serving = OmniSharpLanguageServer.From(server => server
             .WithInput(toServer.Reader)
             .WithOutput(toClient.Writer)
             .AddHandler(new ToolsListHandler(catalog, capabilities))
-            .AddHandler(new ToolsCallHandler(catalog, capabilities)), timeout.Token);
+            .AddHandler(new ToolsCallHandler(catalog, capabilities))
+            .AddHandler(new SemanticsDescribeHandler(semantics))
+            .AddHandler(new SemanticsOutlineHandler(semantics)), timeout.Token);
         var connecting = LanguageClient.From(client => client
             .WithInput(toClient.Reader)
             .WithOutput(toServer.Writer), timeout.Token);
@@ -158,7 +190,7 @@ public sealed class AssistantToolsWireTests
         var listed = await AskAsync<ToolsListReply>(advertised: true, new ToolsListRequest());
 
         CollectionAssert.AreEqual(
-            new[] { CoreAssistantTools.GetDiagnostics, CoreAssistantTools.FindSymbol, CoreAssistantTools.References, CoreAssistantTools.Definition },
+            new[] { CoreAssistantTools.GetDiagnostics, CoreAssistantTools.FindSymbol, CoreAssistantTools.References, CoreAssistantTools.Definition, CoreAssistantTools.DescribeAt, CoreAssistantTools.Outline },
             listed.Tools.Select(tool => tool.Name).ToArray());
         foreach (var tool in listed.Tools)
         {
@@ -250,6 +282,80 @@ public sealed class AssistantToolsWireTests
         Assert.IsTrue(notAPosition.IsError);
         Assert.IsTrue(notALine.IsError);
         Assert.IsTrue(unknownArgument.IsError);
+    }
+
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task Describe_SaysWhatTheNameRefersTo_WithTheHostsFacts_AndTheExpressionWrittenThere()
+    {
+        var described = await AskAsync<DescribeResult>(advertised: false, new SemanticsDescribeRequest { Uri = Document("Module1.bas"), Position = new SourcePosition(2, 6) });
+
+        var symbol = described.Symbol!;
+        Assert.AreEqual("strTitle", symbol.Name);
+        Assert.AreEqual(DescribedSymbolKind.Variable, symbol.Kind);
+        Assert.AreEqual(DescribedScope.Module, symbol.Scope);
+        Assert.AreEqual("String", symbol.DeclaredType);
+        Assert.AreEqual(AccessModifier.Public, symbol.Access);
+        Assert.AreEqual(Document("Helpers.bas"), symbol.Location?.Uri);
+        Assert.AreEqual(new SourcePosition(1, 7), symbol.Location?.Range.Start);
+        Assert.AreEqual(new DeclarationReferences(1, 1, 0), symbol.References);
+        Assert.IsFalse(symbol.IsImplicit);
+
+        Assert.AreEqual(ExpressionClassification.Variable, described.Expression?.Classification);
+        Assert.AreEqual(new SourceRange(2, 4, 2, 12), described.Expression?.Range);
+        Assert.AreEqual(new SourceRange(2, 4, 2, 12), described.Range);
+    }
+
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task DescribeAt_AnswersTheSameFacts_OneBased_FromTheWorkspaceRoot()
+    {
+        var reply = await CallAsync(CoreAssistantTools.DescribeAt, At("Module1.bas", 3, 7));
+
+        var symbol = reply.StructuredContent!["symbol"]!;
+        Assert.AreEqual("strTitle", (string?)symbol["name"]);
+        Assert.AreEqual("Variable", (string?)symbol["kind"]);
+        Assert.AreEqual("Helpers.bas", (string?)symbol["location"]!["path"]);
+        Assert.AreEqual(2, (int?)symbol["location"]!["range"]!["start"]!["line"]);
+        Assert.AreEqual(5, (int?)reply.StructuredContent["expression"]!["range"]!["start"]!["column"]);
+        StringAssert.Contains(reply.Content.Single().Text, "Public strTitle As String");
+        StringAssert.Contains(reply.Content.Single().Text, "Helpers.bas:2:8");
+    }
+
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task DescribeAt_WhereNothingIsWritten_SaysSo()
+    {
+        var reply = await CallAsync(CoreAssistantTools.DescribeAt, At("Helpers.bas", 3, 1));
+
+        Assert.IsFalse(reply.IsError);
+        Assert.IsNull(reply.StructuredContent!["symbol"]);
+        Assert.AreEqual(AssistantToolTexts.NothingDescribed, reply.Content.Single().Text);
+    }
+
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task Outline_ListsWhatTheModuleDeclares_InOrder_WithTheHostsModuleFacts()
+    {
+        var outline = await AskAsync<ModuleOutline>(advertised: false, new SemanticsOutlineRequest { Uri = Document("Helpers.bas") });
+
+        Assert.AreEqual("Helpers", outline.Name);
+        Assert.AreEqual("vba", outline.Language);
+        Assert.IsTrue(outline.OptionExplicit);
+        CollectionAssert.AreEqual(new[] { "strTitle", "Show" }, outline.Entries.Select(entry => entry.Name).ToArray());
+        Assert.AreEqual(DescribedSymbolKind.Procedure, outline.Entries[1].Kind);
+        Assert.AreEqual(new SourcePosition(3, 11), outline.Entries[1].SelectionRange.Start);
+    }
+
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task OutlineTool_ListsTheEntries_OneBased()
+    {
+        var reply = await CallAsync(CoreAssistantTools.Outline, new JsonObject { ["path"] = "Helpers.bas" });
+
+        Assert.AreEqual("Helpers.bas", (string?)reply.StructuredContent!["path"]);
+        Assert.AreEqual(2, (int?)reply.StructuredContent["total"]);
+        Assert.AreEqual("2:8 Public strTitle As String" + Environment.NewLine + "4:12 Public Sub Show()", reply.Content.Single().Text);
     }
 
     [TestMethod]
