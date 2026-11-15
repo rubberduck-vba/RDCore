@@ -28,8 +28,8 @@ namespace RDCore.Runtime.Execution.External.Pictures;
 /// <remarks>
 /// <para>
 /// A picture is what its file's header says it is (<see cref="PictureHeader"/>): its <c>Type</c>, and its <c>Width</c> and <c>Height</c> in HIMETRIC units. An
-/// icon or a cursor is its image of the size asked for, or its first. A PNG is a bitmap that keeps its alpha channel, an RD-VBA addition: MS-VBA raises 481
-/// for one.
+/// icon or a cursor is its image of the size asked for, or its first. A PNG is a bitmap that keeps its alpha channel, and an icon's or a cursor's image stored as
+/// a PNG loads as any other: RD-VBA additions, where MS-VBA raises 481.
 /// </para>
 /// <para>
 /// <c>Handle</c>, the default member, is a value that tells one picture from another, and 0 for none: there is no graphics device behind it to hand to a
