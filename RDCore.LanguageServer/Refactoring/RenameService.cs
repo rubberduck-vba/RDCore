@@ -138,7 +138,7 @@ internal sealed class RenameService(
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }
 
-        return new RenameWorkspace(parts);
+        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen };
     }
 
     private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
@@ -214,6 +214,9 @@ internal sealed class RenameWorkspace
         _parts = parts;
     }
 
+    // whether the client has the document open, and so knows its version: an edit of a document it has not opened names no version.
+    internal Func<TextDocumentIdentifier, bool> IsOpen { get; init; } = static _ => true;
+
     // the project a module of a document is in, which its names resolve in.
     private ProjectPart PartOf(DocumentModule module) => _parts.First(part => part.Modules.Any(candidate => ReferenceEquals(candidate, module)));
 
@@ -259,13 +262,18 @@ internal sealed class RenameWorkspace
         }
 
         // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
-        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For).
+        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
+        // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
         var changes = plan.Edits
             .GroupBy(edit => edit.Module.AbsoluteUri)
             .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
             .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
             {
-                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = edited.Document.Id.Uri, Version = edited.Document.Version },
+                TextDocument = new OptionalVersionedTextDocumentIdentifier
+                {
+                    Uri = edited.Document.Id.Uri,
+                    Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
+                },
                 Edits = new TextEditContainer(plan.Edits
                     .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
                     .Select(edit => AnnotationOf(edit) is { } annotation

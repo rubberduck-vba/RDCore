@@ -50,6 +50,12 @@ internal interface IWorkspaceDocumentService
     bool TryGetModule(Uri documentUri, out WorkspaceDocument document);
 
     /// <summary>
+    /// Whether the client has the document open: its <see cref="WorkspaceDocument.Version"/> is then the client's, and otherwise the server's own count.
+    /// </summary>
+    /// <param name="id">The document.</param>
+    bool IsOpen(TextDocumentIdentifier id);
+
+    /// <summary>
     /// Says which documents are the files the project lists as other files (<c>OtherFiles</c> of the <c>.rdproj</c>), and no module: they are loaded and
     /// tracked as any document is, found by <see cref="TryGetDocument"/>, and left out of <see cref="GetAllDocuments"/>. Whoever applies a project says so,
     /// each time it does.
@@ -486,7 +492,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         }
     }
 
-    private bool IsOpen(TextDocumentIdentifier id) => documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState;
+    public bool IsOpen(TextDocumentIdentifier id) => documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState;
 
     public bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId)
     {
