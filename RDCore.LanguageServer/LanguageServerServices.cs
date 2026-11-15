@@ -132,6 +132,7 @@ internal static class LanguageServerServices
                             SessionExecute = new SessionExecute(true),
                             SessionDiscard = new SessionDiscard(true),
                             ProjectReload = new ProjectReload(true),
+                            ProjectAnalysis = new ProjectAnalysis(true),
                             ProgramDebugging = new ProgramDebugging(true),
                             SessionMemoryAccess = new SessionMemoryAccess(true),
                         }

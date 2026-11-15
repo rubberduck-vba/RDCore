@@ -47,7 +47,7 @@ internal static class AnalysisFixture
                     throw new InvalidOperationException($"The workspace did not load: {string.Join("; ", problems)}");
                 }
 
-                var result = await new HostSemanticsHandler(provider).Handle(new HostSemanticsParams { ModuleName = Modules.BigName }, CancellationToken.None);
+                var result = await new HostSemanticsHandler(provider, new RDCore.Runtime.Support.Host.ProjectAnalysisSessions(RuntimeEnvironmentProfile.Default, fileSystem, NullLogger<RDCore.Runtime.Support.Host.ProjectAnalysisSessions>.Instance)).Handle(new HostSemanticsParams { ModuleName = Modules.BigName }, CancellationToken.None);
                 var semantics = PlatformJson.Deserialize<SemanticsPayload>(result.Json).Modules
                     .Single(module => module.Module.Fragment.TrimStart('#') == Modules.BigName);
                 var uri = workspace.DocumentOf(workspace.Modules.Single(module => module.Name == Modules.BigName));

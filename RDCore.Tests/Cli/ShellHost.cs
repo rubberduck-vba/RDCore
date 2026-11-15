@@ -120,7 +120,7 @@ internal sealed class ShellHost
         var symbols = new SyntaxTreeSymbolProvider(
             _workspaceRoot, _moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true, language).ProvideSymbols();
 
-        await new DefineSymbolsHandler(_provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        await new DefineSymbolsHandler(_provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = _workspaceRoot,

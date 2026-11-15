@@ -219,7 +219,7 @@ public sealed class SymbolIdentityTests
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, [(moduleUri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.ClassModule, parse, resolver).ProvideSymbols();
 
-        var result = await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        var result = await new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

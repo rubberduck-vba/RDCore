@@ -129,7 +129,7 @@ public static class BuiltProgram
             libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
             DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
-        var define = new DefineSymbolsHandler(provider, errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(provider, new ProjectAnalysisSessions(image.Environment.Profile, fileSystem, NullLogger<ProjectAnalysisSessions>.Instance), errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
         {
             var defined = await define.Handle(definition, token);
