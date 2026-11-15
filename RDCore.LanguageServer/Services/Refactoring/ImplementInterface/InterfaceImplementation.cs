@@ -95,7 +95,8 @@ internal sealed record class ImplementationPlan(ImplementationTarget Target, IRe
 /// </para>
 /// <para>
 /// An event handler is an <c>Exit Sub</c>, with a comment to say it is to be written: a handler with no statement is reported as an empty procedure, and one that
-/// raised an error would raise it to the code that raises the event, which ran without it before.
+/// raised error 5, as an unimplemented interface member does, would raise it to the code that raises the event, which ran without an error before the handler
+/// was written.
 /// </para>
 /// </remarks>
 internal static partial class InterfaceImplementation
