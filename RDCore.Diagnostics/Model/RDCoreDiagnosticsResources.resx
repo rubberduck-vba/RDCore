@@ -357,6 +357,9 @@
   <data name="UseMeaningfulIdentifierNames_NoVowel_Message" xml:space="preserve">
     <value>'{0}' has no vowel, and is unlikely to be a word. Give it a name that says what it is.</value>
   </data>
+  <data name="UseMeaningfulIdentifierNames_NoConsonant_Message" xml:space="preserve">
+    <value>'{0}' has no consonant, and is unlikely to say what it is. Give it a name that does.</value>
+  </data>
   <data name="HungarianNotation_Message" xml:space="preserve">
     <value>'{0}' begins with a prefix that states its type. The type is declared: the name should say what the thing is, not what it is made of.</value>
   </data>

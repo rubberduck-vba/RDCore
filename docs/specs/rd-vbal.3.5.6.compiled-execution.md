@@ -522,6 +522,3 @@ The rest of the activation runs in the interpreter instead when any of these hol
 |`Extended`|The floating-point arithmetic of compiled code: in `Double` where the result is exact, and in the 80-bit format otherwise. The interpreter computes the same operations with `ExtendedIntermediates`.|
 
 The IL calls only members of `RDCore.Runtime.Compiled`, and a test checks it.
-
----
-> ⏮️ [**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md) | ⏭️ [**RD-VBAL §4.0** Program Structure and Organization](rd-vbal.4.0.program-structure.md)

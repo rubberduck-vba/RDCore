@@ -11,7 +11,7 @@ namespace RDCore.Runtime.StdLib;
 internal delegate RuntimeSemanticsEvaluationResult StdLibInvoker(object implementation, object?[] arguments);
 
 /// <summary>
-/// The invoker of each member of the standard library's declarations, generated from them (IR lowering S1.9, <c>RDCore.Runtime.Generators</c>): the
+/// The invoker of each member of the standard library's declarations, generated from them (<c>RDCore.Runtime.Generators</c>): the
 /// interface method called itself, with no reflection when the program runs.
 /// </summary>
 internal static partial class StdLibInvokers

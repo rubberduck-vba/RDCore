@@ -414,7 +414,7 @@ public sealed class InstructionListLoweringTests
         Assert.AreEqual(InstructionKind.OnErrorGoTo, result.InstructionList.Items[0].Kind);
     }
 
-    // MS-VBAL §5.4.4.1's 0 disables the policy; MS-VBA's -1 ends the error being handled and keeps the policy (oracle\s53 A05): two instructions, neither a label.
+    // MS-VBAL §5.4.4.1's 0 disables the policy; MS-VBA's -1 ends the error being handled and keeps the policy (observed in Excel): two instructions, neither a label.
     [TestMethod]
     [DataRow("0", InstructionKind.OnErrorDisable, DisplayName = "On Error GoTo 0 (MS-VBAL §5.4.4.1)")]
     [DataRow("-1", InstructionKind.OnErrorReset, DisplayName = "On Error GoTo -1 (MS-VBA)")]

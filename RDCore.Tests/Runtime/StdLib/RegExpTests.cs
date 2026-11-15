@@ -4,7 +4,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 
 /// <summary>
 /// <strong>RD-VBAL §6.2</strong> VBScript Regular Expressions 5.5 - <c>RegExp</c>, <c>MatchCollection</c>, <c>Match</c>, <c>SubMatches</c> - as MS-VBA
-/// has them, recorded in Excel (oracle\s26: grid-re, grid-re2, grid-re3, grid-re4). Each case is the probe as it ran there, and what it printed.
+/// has them, observed in Excel. Each case is the probe as it ran there, and what it printed.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 6.2 VBScript Regular Expressions")]

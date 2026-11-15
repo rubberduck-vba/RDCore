@@ -25,7 +25,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// <summary>
 /// A golden master of let-coercion: every value of a broad set let-coerced to every type of another, the way an assignment asks for it - what each coercion
 /// yields or raises, and the fact an analysis is told of it - compared line for line with what was recorded before the coercion plans were extracted from
-/// the let-coercion provider (IR lowering S0.4). A line that differs is a change in behaviour.
+/// the let-coercion provider. A line that differs is a change in behaviour.
 /// </summary>
 /// <remarks>
 /// <para>

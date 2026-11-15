@@ -19,8 +19,8 @@ namespace RDCore.Runtime.Execution.External.Automation;
 /// <remarks>
 /// <para>
 /// <c>ConnectToConnectionPoint(punk, riidEvent, fConnect, punkTarget, pdwCookie, ppcpOut)</c> connects <c>punk</c> to <c>punkTarget</c>'s connection point for
-/// <c>riidEvent</c> and writes the connection's cookie, or disconnects the connection the cookie names; it returns an <c>HRESULT</c>. As Excel has it
-/// (<c>oracle\s41</c> P01-P06, Q01-Q04), for a form's control and <c>IDispatch</c>:
+/// <c>riidEvent</c> and writes the connection's cookie, or disconnects the connection the cookie names; it returns an <c>HRESULT</c>. As observed in Excel,
+/// for a form's control and <c>IDispatch</c>:
 /// <list type="bullet">
 /// <item>a connection is 0 and a cookie that is not 0; another sink of the same object is another connection;</item>
 /// <item>the sink is called after the form's own handler, the sinks in the order they were connected, until it is disconnected - even once the program let go of
@@ -75,7 +75,7 @@ public sealed class ConnectionPointCallProvider(IRuntimeSession session, IAutoma
             return Returned(InvalidArgument);
         }
 
-        // an object that is no server's, or no connection point for the interface, is E_NOINTERFACE, and no cookie (oracle\s41 Q02, Q03).
+        // an object that is no server's, or no connection point for the interface, is E_NOINTERFACE, and no cookie (observed in Excel).
         // TODO measure an object of the program's own whose class declares events (a connection point container in MS-VBA), and IDispatch on an Excel object.
         if (!session.ExternalObjects.TryGet(source, out var owner, out var handle) || !ReferenceEquals(owner, server) || events != DispatchInterface)
         {

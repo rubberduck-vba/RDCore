@@ -16,7 +16,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace RDCore.Runtime.Semantics.Plans;
 
 /// <summary>
-/// Executes the plans of operations and let-coercions (IR lowering §3.2, the execution half): the operands are let-coerced by the rule their
+/// Executes the plans of operations and let-coercions: the operands are let-coerced by the rule their
 /// <see cref="ConversionPlan"/> names, straight through the <see cref="ValueConversions"/> primitive the rule's strategy evaluates, and the operation is
 /// evaluated by its operator's own semantics, in the effective type its <see cref="OperationPlan"/> says.
 /// </summary>

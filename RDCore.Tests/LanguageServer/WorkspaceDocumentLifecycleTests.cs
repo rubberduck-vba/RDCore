@@ -53,7 +53,7 @@ public sealed class WorkspaceDocumentLifecycleTests
     }
 
     // a workspace that could not be loaded (a project file that is not JSON) leaves no root: what the client opens is a document all the same, addressed by
-    // its own path, where it used to fail with "The path is empty (relativeTo)" (HexIDE's findings desk #26).
+    // its own path, where it used to fail with "The path is empty (relativeTo)".
     [TestMethod]
     public void ADocument_OpenedWhenNoWorkspaceWasLoaded_IsOpenedAllTheSame()
     {

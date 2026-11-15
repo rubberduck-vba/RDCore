@@ -39,10 +39,7 @@ namespace RDCore.Runtime.Execution;
 /// rather than derived from <see cref="ISymbolResolver"/> (<c>Invoke</c>'s own parameter), since
 /// <see cref="ISymbolResolver"/> has no path back to <see cref="IRuntimeSession.CallStack"/> or
 /// <see cref="ISessionSymbols.CreateFrame"/>. <paramref name="Bodies"/> is the symbol-to-body bridge
-/// nothing else in the platform builds yet: production workspace loading has no step that lowers every
-/// procedure body and remembers the result keyed by its own symbol, so today this is populated by
-/// whoever composes the session (a test, for now) — a real host's own equivalent step is future work,
-/// not this slice's.
+/// that whoever composes the session populates: the bodies it has lowered, each keyed by its own symbol.
 /// </remarks>
 /// <param name="Session">The session this invoker runs every call against.</param>
 /// <param name="Bodies">Every procedure's own lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
@@ -88,7 +85,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
     /// <summary>
     /// Invokes <paramref name="procedure"/>, every parameter of which is a scalar passed by value, with <paramref name="arguments"/> - payloads of the
-    /// parameters' types, in order: each is what the parameter's cell is made of (IR lowering S1.3), and no value is made of it.
+    /// parameters' types, in order: each is what the parameter's cell is made of, and no value is made of it.
     /// </summary>
     internal RuntimeSemanticsEvaluationResult InvokeScalars(VBTypeMemberSymbol procedure, ReadOnlySpan<ScalarPayload> arguments)
         => Activate(procedure, null, arguments, sweep: false);
@@ -141,7 +138,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         if (parameters.Length != (arguments?.Length ?? payloads.Length))
         {
             // arity mismatch: a real static-semantics gap (no call-site argument-count check exists yet
-            // either), not something this slice invents error handling for.
+            // either), not something this code invents error handling for.
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
@@ -191,7 +188,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             }
             else if (IsAliased(parameter, arguments[i]) && arguments[i] is CellReference shared)
             {
-                // a variable of the caller held in a cell, which the parameter is a second name for: the parameter's slot holds the very cell (S1.3), so
+                // a variable of the caller held in a cell, which the parameter is a second name for: the parameter's slot holds the very cell, so
                 // what one writes the other reads, as through an address - with no address made, and none looked up.
                 frame.PushAlias(parameter, shared.Cell, activation.Layout.ParameterSlots[i], shared.ReferencedType);
             }
@@ -230,8 +227,9 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             : Executor.Sweep(Session, frame, body, context) ? RuntimeExecutionOutcome.ExitProcedure : RuntimeExecutionOutcome.InternalError;
 
         // a program that was stopped does not unwind: the objects its locals held are not let go of, because that is where a Terminate would run, and an End
-        // runs none. What it leaves is the session's to clear (ISessionSymbols.ResetStorage) when it is over, or to keep when it is only broken.
-        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        // runs none. What it leaves is the session's to clear (ISessionSymbols.ResetStorage) when it is over, or to keep when it is only broken. An error that
+        // ends the program is an end too.
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break) && !EndsTheProgram(outcome))
         {
             ReleaseLocals(frame, GetLocals(procedure), parameters, arguments);
 
@@ -306,7 +304,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             ObjectReferences.Release(Session, holder);
         }
 
-        // the cells are read by the number of their slot when they have one (S1.4c), and looked up by their symbol otherwise. An activation an edit relaid holds
+        // the cells are read by the number of their slot when they have one, and looked up by their symbol otherwise. An activation an edit relaid holds
         // the locals the procedure declares now, in its order, and those the edit removed, each looked up by its symbol.
         var layout = frame.Layout;
         if (frame.EditedLocals is { } edited)
@@ -316,7 +314,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         for (var i = 0; i < locals.Length; i++)
         {
-            // a variable of a type that holds no object (a number, a String) has nothing to let go of, and is not looked up (S1.3).
+            // a variable of a type that holds no object (a number, a String) has nothing to let go of, and is not looked up.
             if (locals[i] is not VBLocalVariableSymbol { IsStatic: false } variable || !ObjectReferences.CanHoldAnObject(variable.ResolvedType)
                 || CellOf(frame, variable, layout is { LocalSlots.Length: var count } && count == locals.Length ? layout.LocalSlots[i] : -1) is not { } handle)
             {
@@ -333,8 +331,8 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
 
         // a ByVal parameter is a local of the activation as much as a Dim is (MS-VBAL §5.3.1.11): what it holds it lets go of with it. Which parameters
-        // were given a copy is read again from the arguments, rather than remembered in a list made for each call (IR lowering S1.3). Parameters given
-        // payloads are all ByVal (InvokeScalars): a Variant one may have been Set to an object since (S1.7).
+        // were given a copy is read again from the arguments, rather than remembered in a list made for each call. Parameters given
+        // payloads are all ByVal (InvokeScalars): a Variant one may have been Set to an object since.
         layout = frame.Layout;
         for (var i = 0; i < parameters.Length; i++)
         {
@@ -459,7 +457,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // numbered: whether the locals are the procedure's own, which the frame's layout numbers; locals added by an edit are no part of its layout.
     internal static void HoistLocals(IRuntimeSession session, CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals, bool numbered = true)
     {
-        // the locals of the procedure the frame is laid out as are in its slots by number (S1.3).
+        // the locals of the procedure the frame is laid out as are in its slots by number.
         var slots = numbered && frame.Layout is { LocalSlots: var slotted } && slotted.Length == locals.Length ? slotted : default;
         for (var i = 0; i < locals.Length; i++)
         {
@@ -476,7 +474,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
             if (variable.IsStatic)
             {
-                // a member of a class called on an object: MS-VBA gives each object its own Static local (Excel-verified, oracle\s19 N37), which the
+                // a member of a class called on an object: MS-VBA gives each object its own Static local (observed in Excel), which the
                 // object holds beside its fields, where MS-VBAL §5.4.3.1 gives it module extent.
                 if (frame.Target is { } target && session.Symbols.TryGetInstance(target, out var instance))
                 {
@@ -497,8 +495,8 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
     }
 
-    // what an activation of a procedure is made of that the procedure alone decides, made once for each procedure the invoker activates (IR lowering S0.9):
-    // the invoker lives as long as one execution, and a procedure that is defined again is another symbol. Its layout too (S1.3), which is the symbol's.
+    // what an activation of a procedure is made of that the procedure alone decides, made once for each procedure the invoker activates:
+    // the invoker lives as long as one execution, and a procedure that is defined again is another symbol. Its layout too, which is the symbol's.
     // Its body is not among them: a module loaded again while a program is broken replaces it for the calls made after - the activation remembers the body
     // it found, with the program image it found it in (Body), which is the body as long as the image is the same.
     private sealed record class Activation(StaticSymbol Symbol, SyntaxNodeId NodeId, ModuleDirectives Directives, LanguageCore.Binding.FrameLayout Layout)
@@ -535,7 +533,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
     /// <summary>
     /// The activation of <paramref name="procedure"/> a call compiled code makes of it runs in, when it is compiled too and every parameter of it is a scalar
-    /// passed by value (IR lowering S2.3b): laid out, and on the call stack, as <see cref="InvokeScalars"/> would make it - but holding nothing. The callee's
+    /// passed by value: laid out, and on the call stack, as <see cref="InvokeScalars"/> would make it - but holding nothing. The callee's
     /// compiled code is given its arguments, and holds its parameters and its variables; it gives the frame their cells only when the activation is handed to
     /// the interpreter, or a debugger is to see them (<c>CompiledActivation.Spill</c>).
     /// </summary>
@@ -548,7 +546,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
     /// <summary>
     /// The frame of an activation of <paramref name="procedure"/> a call compiled code made of it, as <see cref="PushCompiledActivation"/> makes it, but not
-    /// pushed: the frame of an activation that was on the stack without one (IR lowering S2.3b2), which the stack pushes where the activation is.
+    /// pushed: the frame of an activation that was on the stack without one, which the stack pushes where the activation is.
     /// </summary>
     internal CallStackFrame CreateCompiledFrame(VBTypeMemberSymbol procedure, InstructionList body)
     {
@@ -660,13 +658,23 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     /// <returns>The activation's outcome, as its caller is to see it.</returns>
     internal RuntimeExecutionOutcome PopMemberActivation(CallStackFrame frame, VBTypeMemberSymbol member, RuntimeExecutionOutcome outcome)
     {
-        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break) && !EndsTheProgram(outcome))
         {
             ReleaseLocals(frame, GetLocals(member), GetParameters(member), arguments: null);
         }
 
         return PopCompiledActivation(outcome);
     }
+
+    // whether an error that leaves an activation ends the program: no activation on the stack handles it, or a Class_Terminate left it unhandled, which
+    // nothing handles. The program ends there as an End ends it: nothing is unwound, and no Terminate runs for what the activations held (MS-VBA, measured
+    // in Excel), and the session is wiped once the program is over. A statement run while the program waits, and a breakpoint's condition, are not the
+    // program, and an event handled between two programs ends none: what they leave is let go of.
+    private bool EndsTheProgram(RuntimeExecutionOutcome outcome)
+        => outcome.Kind is RuntimeExecutionOutcomeKind.Error && Session.Turn.IsRunning && !Executor.EvaluatesACondition
+            && Session.Halt.Gate is not SuspendableExecution { IsSuspended: true }
+            && (Session.Errors.Untrappable is not null
+                || !Session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled));
 
     /// <summary>
     /// The compiled body of <paramref name="procedure"/>, whose body is <paramref name="list"/>, as this invoker would run it (<see cref="Run"/>);

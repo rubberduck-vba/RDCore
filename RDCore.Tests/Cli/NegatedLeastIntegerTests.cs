@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The least <c>Integer</c> literal negated, as MS-VBA has it: <c>-&amp;H8000</c> is the unary minus of an <c>Integer</c> that has no negation an <c>Integer</c>
-/// holds, an overflow (6) when it runs and a compile error in a <c>Const</c> (recorded in Excel: oracle\s56 G14, s57 N01-N06).
+/// holds, an overflow (6) when it runs and a compile error in a <c>Const</c> (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class NegatedLeastIntegerTests

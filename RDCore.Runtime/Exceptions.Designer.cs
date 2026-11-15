@@ -628,5 +628,14 @@ namespace RDCore.Runtime {
                 return ResourceManager.GetString("VBDeclare_ObjectNotPassed_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No form host of this platform hosts a Visual Basic 6.0 form..
+        /// </summary>
+        internal static string FormHost_VisualBasic6FormUnavailable_Verbose {
+            get {
+                return ResourceManager.GetString("FormHost_VisualBasic6FormUnavailable_Verbose", resourceCulture);
+            }
+        }
     }
 }

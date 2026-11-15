@@ -54,7 +54,7 @@ public sealed class ClassModuleSemanticFlagsTests
         Assert.AreEqual(ClassModuleSemanticFlags.Stateful, model?.Class);
     }
 
-    // MS-VBA gives each object of the class its own Static local (Excel-verified, oracle\s19 N37), where MS-VBAL gives a static local module extent.
+    // MS-VBA gives each object of the class its own Static local (observed in Excel), where MS-VBAL gives a static local module extent.
     [TestMethod]
     public async Task APredeclaredClassWhoseMemberDeclaresAStaticLocal_HasAStatefulDefaultInstance()
     {

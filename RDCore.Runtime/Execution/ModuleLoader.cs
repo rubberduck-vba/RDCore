@@ -74,7 +74,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         }
 
         // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code.
-        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms } designer ? designer : null);
+        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms or FormDesignerKind.VisualBasic6 } designer ? designer : null);
 
         // composed before anything is lowered, because lowering needs its expression evaluator to decide
         // which #If branches are live. The invoker looks a body up at call time, so the image it holds is this same one.
@@ -196,7 +196,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
-        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, errorDetails);
+        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails);
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
@@ -263,7 +263,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
     // MS-VBAL §5.2.4.1.2, §5.2.3.1: whether the class has a default instance, and whether its objects - the default instance among them - hold state: a variable
     // the class declares at module level, of which each object has a distinct one, or a Static local of one of its members, which MS-VBA gives each object
-    // its own of too (Excel-verified, oracle\s19 N37), where MS-VBAL gives a static local module extent.
+    // its own of too (observed in Excel), where MS-VBAL gives a static local module extent.
     private static ClassModuleSemanticFlags ClassFlagsOf(VBClassModuleSymbol classModule, IReadOnlyList<VBTypeMemberSymbol> members)
         => (classModule.GetProperty(SymbolProperties.PredeclaredId) ? ClassModuleSemanticFlags.DefaultInstance : ClassModuleSemanticFlags.None)
             | (members.Any(member => member is VBModuleFieldVariableMemberSymbol
