@@ -62,7 +62,7 @@ public sealed class EncapsulateFieldCodeActionTests
         "Public label As String\r\n" +
         "Public note As String\r\n" +
         "\r\n" +
-        "Public Sub Fix()\r\n" +
+        "Public Sub Retitle()\r\n" +
         "    Mid(note, 1, 1) = \"x\"\r\n" +
         "End Sub\r\n";
 
@@ -175,8 +175,10 @@ public sealed class EncapsulateFieldCodeActionTests
     [TestMethod]
     public async Task AFieldAMidStatementWritesInsideItsModule_IsOfferedItsEncapsulation_TheMidWritingTheState()
     {
-        var action = (await ActionsAsync(Handler(), At(2, 8), DocumentUri.From(Path.Combine(Root, "Texts.bas")))).Single();
+        var actions = await ActionsAsync(Handler(showsDisabled: true), At(2, 8), DocumentUri.From(Path.Combine(Root, "Texts.bas")));
+        var action = actions.Single(each => each.Title == EncapsulateFieldService.Title());
 
+        Assert.IsNull(action.Disabled, action.Disabled?.Reason);
         var edits = action.Edit!.DocumentChanges!.Single().TextDocumentEdit!.Edits;
         Assert.IsTrue(edits.Any(each => each.NewText.Contains("this.note")), "the Mid writes the state");
     }
