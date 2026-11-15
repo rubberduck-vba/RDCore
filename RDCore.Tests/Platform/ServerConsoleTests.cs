@@ -21,7 +21,7 @@ public sealed class ServerConsoleTests
 
     // what is tested is the invariant: not one byte on the standard output, through the server's start, its work and its end, and its log in its file
     // instead. The hang itself needed the language server's flood, with its children and the published platform, which a test run does not have: it was
-    // reproduced and checked end to end with C:\Dev\Claude\oracle\keystroke-cost. Every read from the server is bounded, so that a server that stops
+    // reproduced and checked end to end with the published platform. Every read from the server is bounded, so that a server that stops
     // answering fails the test rather than hang it.
     [TestMethod]
     public async Task AServer_WhoseStandardOutputNobodyReads_WritesNothingToIt_AndLogsToItsFile()

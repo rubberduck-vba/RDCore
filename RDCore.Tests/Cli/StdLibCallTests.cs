@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A member of the standard library is bound once to the code behind it (IR lowering S1.9): every call of it is marshalled from what was found the first
+/// A member of the standard library is bound once to the code behind it: every call of it is marshalled from what was found the first
 /// time, whatever its arguments - given, left out, passed on as Missing, collected into a ParamArray - and whatever the call before it was given.
 /// </summary>
 [TestClass]
@@ -30,7 +30,7 @@ public sealed class StdLibCallTests
     public async Task AParamArray_CollectsEachCallsOwnArguments()
         => Assert.AreEqual("b/c/a", await Run("", "Debug.Print Choose(2, \"a\", \"b\", \"c\") ;; Debug.Print Choose(3, \"a\", \"b\", \"c\") ;; Debug.Print Choose(1, \"a\")"));
 
-    // MS-VBAL §5.5.1.2.12: a Variant holds what it is let-assigned as it is, of its own type - an argument evaluated on payloads (S1.9), or what a call
+    // MS-VBAL §5.5.1.2.12: a Variant holds what it is let-assigned as it is, of its own type - an argument evaluated on payloads, or what a call
     // returned - and the parameter is a value of its own.
     [TestMethod]
     [DataRow("Dim l As Long ;; l = 7 ;; F l, x", "Long 7", DisplayName = "a Long variable")]

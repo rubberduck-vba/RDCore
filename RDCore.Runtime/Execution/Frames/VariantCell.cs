@@ -8,7 +8,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// The cell of a <c>Variant</c> variable that holds a value of a scalar type as a payload (IR lowering S1.4): what an expression evaluated on payloads reads
+/// The cell of a <c>Variant</c> variable that holds a value of a scalar type as a payload: what an expression evaluated on payloads reads
 /// and writes, the payload's type being the Variant's subtype - and anything else (<c>Empty</c>, <c>Null</c>, a <c>String</c>, an object, an array,
 /// <c>Missing</c>) as the runtime value it is.
 /// </summary>
@@ -47,7 +47,7 @@ internal sealed class VariantCell : ICopyableBinding
 
     /// <summary>
     /// A Variant cell holding <paramref name="payload"/>: a known value of the payload's type, as a Let of it to a Variant makes it hold (MS-VBAL
-    /// §5.5.1.2.12) - what a Variant parameter passed a scalar by value starts as (IR lowering S1.7).
+    /// §5.5.1.2.12) - what a Variant parameter passed a scalar by value starts as.
     /// </summary>
     public static VariantCell Of(ScalarPayload payload)
     {

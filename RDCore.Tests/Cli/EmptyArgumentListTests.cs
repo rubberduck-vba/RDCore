@@ -34,7 +34,7 @@ public sealed class EmptyArgumentListTests
         CollectionAssert.AreEqual(new[] { printed }, output);
     }
 
-    // an array is no value Debug.Print writes, written `f` or `f()`: MS-VBA refuses it when it compiles (oracle\s53 E02, E03, F02, F03).
+    // an array is no value Debug.Print writes, written `f` or `f()`: MS-VBA refuses it when it compiles (observed in Excel).
     [TestMethod]
     [DataRow("f", DisplayName = "f")]
     [DataRow("f()", DisplayName = "f()")]
@@ -47,7 +47,7 @@ public sealed class EmptyArgumentListTests
         StringAssert.StartsWith(Assert.ContainsSingle(errors), "Type mismatch");
     }
 
-    // `Erase f()` erases `f`: a dynamic array loses its dimensions (9 for its bounds after), a fixed-size one its values (oracle\s53 E06, F06).
+    // `Erase f()` erases `f`: a dynamic array loses its dimensions (9 for its bounds after), a fixed-size one its values (observed in Excel).
     [TestMethod]
     [DataRow(new[] { "ReDim a(2)", "Erase a()", "On Error Resume Next", "Debug.Print UBound(a)", "Debug.Print Err.Number" }, new[] { "9" }, DisplayName = "dynamic")]
     [DataRow(new[] { "f(1) = 7", "Erase f()", "Debug.Print f(1)", "Debug.Print UBound(f)" }, new[] { "0", "2" }, DisplayName = "fixed")]
@@ -58,7 +58,7 @@ public sealed class EmptyArgumentListTests
         CollectionAssert.AreEqual(printed, output);
     }
 
-    // `f()()` compiles in MS-VBA, as the array, and raises 9 whenever it runs (oracle\s53 E07, E08, F07, F08); RDC11025 warns of it.
+    // `f()()` compiles in MS-VBA, as the array, and raises 9 whenever it runs (observed in Excel); RDC11025 warns of it.
     [TestMethod]
     [DataRow("Debug.Print UBound(f()())", DisplayName = "its bounds, a fixed-size array")]
     [DataRow("Dim v As Variant: v = f()()", DisplayName = "assigned, a fixed-size array")]

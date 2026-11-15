@@ -123,7 +123,7 @@ public sealed record class MidStatementRuntimeSemantics(
             source = wrapped;
         }
 
-        // a String nothing observes is let-coerced by its plan (IR lowering S0.11): a copy of it.
+        // a String nothing observes is let-coerced by its plan: a copy of it.
         if (Expressions.TryConvertUnobserved(source, VBStringType.TypeInfo, out var planned) && planned is VBStringValue plannedText)
         {
             text = plannedText;
@@ -165,7 +165,7 @@ public sealed record class MidStatementRuntimeSemantics(
             return false;
         }
 
-        // a number nothing observes is let-coerced by its plan (IR lowering S0.11); one that does not fit a Long is the coercion's to raise.
+        // a number nothing observes is let-coerced by its plan; one that does not fit a Long is the coercion's to raise.
         if (Expressions.TryConvertUnobserved(evaluated.Result!, VBLongType.TypeInfo, out var planned) && planned is VBLongValue plannedLong)
         {
             value = plannedLong.Value;

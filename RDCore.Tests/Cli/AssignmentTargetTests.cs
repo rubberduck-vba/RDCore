@@ -68,7 +68,7 @@ public sealed class AssignmentTargetTests
     public async Task AnAssignment_ToAConstant_IsAssignmentToConstantNotPermitted(string declarations, string body, string what)
         => await AssertTargetErrorAsync(Program(declarations, body), "Assignment to constant not permitted", what);
 
-    // a ReDim of a constant is "Expected array" (MS-VBA, Excel-verified, oracle\s29 E17, E18): RedimTargetTests.
+    // a ReDim of a constant is "Expected array" (MS-VBA, observed in Excel): RedimTargetTests.
     [TestMethod]
     [TestCategory("MS-VBAL 5.4.3.4 Erase Statement")]
     [DataRow("Private Const Limit = 10", "Erase Limit", "the constant Limit", DisplayName = "An element of an Erase statement")]

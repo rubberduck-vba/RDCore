@@ -4,8 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// MS-VBAL §5.4.1.1: a statement label is defined at the start of a line, and a name followed by a colon there is one, even right before the line that ends a
-/// block (<c>Fin: End If</c>) and even when a procedure has that name. Each row is what MS-VBA prints (recorded in Excel, grid <c>oracle\findings-labels</c>
-/// L01-L12, L20-L22; HexIDE's findings desk #22).
+/// block (<c>Fin: End If</c>) and even when a procedure has that name. Each row is what MS-VBA prints (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class LabelBeforeBlockEndTests

@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// MS-VBAL §5.4.4.1, §5.4.2.3: an error in the start, the end or the step of a <c>For</c> statement, under <c>On Error Resume Next</c>, goes on at the
-/// statement following it, the first of its body, as MS-VBA has it (recorded in Excel, grid <c>oracle\s54</c> F, X):
+/// statement following it, the first of its body, as MS-VBA has it (observed in Excel):
 /// <list type="bullet">
 /// <item>nothing the statement evaluates is kept: the counter is not assigned, and neither the end nor the step is, even one evaluated before the error;</item>
 /// <item>the body runs, with no test of the counter against the end;</item>

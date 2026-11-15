@@ -23,7 +23,7 @@ public sealed class SemanticTokensHandlerTests
             .GetRegistrationOptions(new SemanticTokensCapability(), new ClientCapabilities());
 
     // OmniSharp's builder encoded the first token of a range relative to the range, where LSP has every first token relative to the start of the document, so
-    // a client read it as being on the document's first line (HexIDE's findings desk #25): the whole document is cheap to give, and is what is served.
+    // a client read it as being on the document's first line: the whole document is cheap to give, and is what is served.
     [TestMethod]
     public void Ranges_AreNotServed_AndTheWholeDocumentIs()
     {

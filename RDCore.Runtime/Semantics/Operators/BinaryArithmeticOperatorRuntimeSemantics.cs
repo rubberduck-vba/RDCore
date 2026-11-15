@@ -103,7 +103,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     }
 
     // a Variant Single result outside the range of a Single is computed again as a Double (VariantArithmeticOverflow.WidensSingle), with no error; a typed
-    // one is an overflow (MS-VBAL §5.6.9.3; recorded in Excel, grid oracle\s16 D01-D10, H01).
+    // one is an overflow (MS-VBAL §5.6.9.3; observed in Excel).
     private RuntimeSemanticsEvaluationResult SingleResult(OperatorEvaluationFrame frame, VBSingleValue lhs, VBSingleValue rhs, ExpressionNode expression)
     {
         if (!frame.HasVariantOperand && ExtendedIntermediates.IsArithmetic(Operator))
@@ -145,7 +145,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     // MS-VBAL §5.6.9.3: a Single or Double operation of typed operands, on its own - not one of an expression the evaluator computes in the extended format
     // (ExtendedIntermediates): a step of a For loop, a Case - is computed in that format too, and stored as its type: rounded twice, as MS-VBA rounds it. A
     // division by zero is error 11, an invalid operation or an overflow 6, and the error carries the value IEEE 754 arithmetic gave, which a Let assignment
-    // assigns to a Single or Double variable before raising it (recorded in Excel, grid oracle\s16 D01-D10, F01-F15; oracle\s42).
+    // assigns to a Single or Double variable before raising it (observed in Excel).
     private static RuntimeSemanticsEvaluationResult ExtendedResult(VBType type, Float80 lhs, Float80 rhs, string token, ExpressionNode expression)
     {
         var none = FloatingPointExceptions.None;
@@ -166,14 +166,14 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
 
     // MS-VBAL §5.6.9.3: Single and Double operations are IEEE 754's, which an overflow stops: finite operands whose result is not finite - and MS-VBA
     // raises the invalid operation of operands that are no NaN, whose result is one (infinity less infinity), as an overflow too. An operation of an
-    // infinity is an infinity, with no error (recorded in Excel, grid oracle\s16 F11-F12).
+    // infinity is an infinity, with no error (observed in Excel).
     private static bool IsInvalid(double value, double lhs, double rhs)
         => (double.IsInfinity(value) && double.IsFinite(lhs) && double.IsFinite(rhs)) || (double.IsNaN(value) && !double.IsNaN(lhs) && !double.IsNaN(rhs));
 
     /// <summary>
     /// 💥 An overflow of a <c>Single</c> or <c>Double</c> operation, which carries the value IEEE 754 arithmetic gave it - an infinity, or a NaN: MS-VBA
     /// assigns it to a <c>Single</c> or <c>Double</c> variable the operation is assigned to before it raises the error (<c>s = s * 10</c> leaves <c>s</c>
-    /// infinite; recorded in Excel, grid oracle\s16 D01-D09, F01-F15).
+    /// infinite; observed in Excel).
     /// </summary>
     protected static RuntimeSemanticsEvaluationResult Overflowed(ExpressionNode expression, VBTypedValue ieee)
         => RuntimeSemanticsEvaluationResult.Error(OnOverflow(expression, Exceptions.VBRuntimeError_ArithmeticOverflow).ErrorInfo!, ieee);

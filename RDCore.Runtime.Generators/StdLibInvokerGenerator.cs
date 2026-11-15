@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace RDCore.Runtime.Generators;
 
 /// <summary>
-/// Generates the invoker of each member of the standard library's declarations (IR lowering S1.9): a call of the interface method itself, its arguments
+/// Generates the invoker of each member of the standard library's declarations: a call of the interface method itself, its arguments
 /// cast to the types it declares, in place of a reflected invocation.
 /// </summary>
 /// <remarks>

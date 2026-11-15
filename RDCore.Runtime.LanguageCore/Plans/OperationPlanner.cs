@@ -219,7 +219,7 @@ public static class OperationPlanner
     public static VBType? SpecifiedRelationalEffectiveType(VBType left, VBType right) => TableRelationalEffectiveType(AliasedTypeOf(left), AliasedTypeOf(right));
 
     // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL makes the effective type the number's: "2.5" = 2 is False and
-    // "2.5" > 2 True, a Variant String or a declared one (recorded in Excel: oracle\s56 G01, G03, G04, G12; RD-VBAL 5.6.9.5). A declared String and a
+    // "2.5" > 2 True, a Variant String or a declared one (observed in Excel; RD-VBAL 5.6.9.5). A declared String and a
     // Single are the table's; a Variant String and a Single or a LongLong are Doubles too, by the value it holds (BinaryRelationalOperatorRuntimeSemantics).
     private static VBType? RelationalEffectiveType(VBType left, VBType right)
         => left is VBByteType or VBIntegerType or VBLongType && right is VBStringType || left is VBStringType && right is VBByteType or VBIntegerType or VBLongType

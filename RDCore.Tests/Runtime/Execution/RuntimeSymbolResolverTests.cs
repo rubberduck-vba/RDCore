@@ -54,7 +54,7 @@ public sealed class RuntimeSymbolResolverTests
 
         Assert.IsTrue(sut.TryAllocate(symbol, value, out _));
 
-        // the cell holds the value: a cell of its own, which a variable of a scalar type holds as a payload (IR lowering S1.5).
+        // the cell holds the value: a cell of its own, which a variable of a scalar type holds as a payload.
         Assert.AreEqual(value.Handle.Value, sut.GetValue(symbol).Value);
     }
 

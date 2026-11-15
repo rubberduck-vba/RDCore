@@ -14,7 +14,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// RD-VBAL §5.4.5.8: two output clauses are written with a space, a <c>;</c> or a <c>,</c> between them, as the VBE writes them (oracle\s69). MS-VBAL
+/// RD-VBAL §5.4.5.8: two output clauses are written with a space, a <c>;</c> or a <c>,</c> between them, as the VBE writes them. MS-VBAL
 /// §5.4.5.8.1 lets an output item follow another with nothing between them.
 /// </summary>
 [TestClass]
@@ -199,7 +199,7 @@ public class OutputListSeparationTests
     }
 
     // at the start of an output clause, Tab and Spc( are a clause, never a name an expression begins with: what follows the clause is a second item, or
-    // nothing the list can hold. MS-VBA refuses a clause before `&`, kept as typed, with "Compile error: Syntax error" (Excel, oracle\s71 B01-B03, B09).
+    // nothing the list can hold. MS-VBA refuses a clause before `&`, kept as typed, with "Compile error: Syntax error" (observed in Excel).
     [TestMethod]
     [DataRow("Debug.Print Spc(2) & \"x\"")]
     [DataRow("Debug.Print Tab(2) & \"x\"")]
@@ -215,8 +215,8 @@ public class OutputListSeparationTests
             string.Join(" | ", result.SyntaxErrors.Select(error => $"{error.VBCompileErrorId}: {error.Description}")));
     }
 
-    // a clause, then a negation with a space before it, is two items, as MS-VBA reads it: the VBE writes `Spc(2); -1` and prints -1 after the clause (Excel,
-    // oracle\s71 B04, B06). Without the space (`Spc(2)-1`), the negation is written right after the clause, which is VBC00061 (B07, B08).
+    // a clause, then a negation with a space before it, is two items, as MS-VBA reads it: the VBE writes `Spc(2); -1` and prints -1 after the clause (observed in
+    // Excel). Without the space (`Spc(2)-1`), the negation is written right after the clause, which is VBC00061.
     [TestMethod]
     [DataRow("Debug.Print Spc(2) - 1")]
     [DataRow("Debug.Print Tab - 1")]

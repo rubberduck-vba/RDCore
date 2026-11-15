@@ -1,7 +1,7 @@
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// An activation on the call stack that has no frame yet: one compiled code made of a call it made directly (IR lowering S2.3b2), which is given its frame
+/// An activation on the call stack that has no frame yet: one compiled code made of a call it made directly, which is given its frame
 /// only when something is to see it (<see cref="RuntimeCallStack.MaterializeLights"/>).
 /// </summary>
 internal interface ILightActivation

@@ -21,7 +21,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 /// value of -8000 to the lender, repaid by positive payments. The expected values are the exact ones, which MS-VBA's
 /// agree with to twelve significant digits, or an iterated rate to within 1E-07 - except where MS-VBA's own algorithm,
 /// the VB runtime's (<c>Microsoft.VisualBasic.Financial</c> is its port to .NET), gives another answer, or none: what it
-/// gives then is recorded in Excel (grid <c>oracle\s43</c> V), to the bit.
+/// gives then is observed in Excel, to the bit.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.6 Financial")]
@@ -119,7 +119,7 @@ public sealed class AnnuityFunctionTests
         => AreClose(expected, Financial.PV(new(rate), new(nPer), new(pmt), Variant(fv), Variant(due)));
 
     // (1.05)^20000 is too large for a Double, and what the annuity functions compute of it is no number - an infinity over an infinity - where the exact
-    // answer is the perpetuity, or the interest alone: MS-VBA raises 6 for each (grid oracle\s43 V01-V05).
+    // answer is the perpetuity, or the interest alone: MS-VBA raises 6 for each (observed in Excel).
     [TestMethod]
     public void AnAnnuityOverPeriodsPastTheRangeOfADouble_IsError6()
     {
@@ -244,7 +244,7 @@ public sealed class AnnuityFunctionTests
     [DataRow(50)]
     public void PPmt_OfALoanThatBarelyPaysAnythingOff_IsWhatTheDifferenceRoundsTo(double per)
         // at 50% a period over a hundred periods, the interest is all but the whole payment, and the principal is what is left of it: 1.2E-15 and
-        // 5.2E-07 exactly, but MS-VBA computes it as the payment less the interest, which is all rounding - 0 for both (grid oracle\s43 V06-V07).
+        // 5.2E-07 exactly, but MS-VBA computes it as the payment less the interest, which is all rounding - 0 for both (observed in Excel).
         => Assert.AreEqual(0, ValueOf(Financial.PPmt(new(0.5), new(per), new(100), new(-1000))));
 
     [TestMethod]
@@ -308,7 +308,7 @@ public sealed class AnnuityFunctionTests
 
     // the rate MS-VBA's iteration finds where another one exists: from 2.2%, the same plan as above with every sign reversed balances at the second root,
     // 1.98%; from 300%, a plan whose only root is just below 200% gives -1.25, which is no rate at all; and 1000 grown with nothing to offset it, which
-    // balances at no rate, gives -0.906, where 1000 * (1+r)^10 has fallen below the tolerance on the way to -1 (grid oracle\s43 V13, V14, V19).
+    // balances at no rate, gives -0.906, where 1000 * (1+r)^10 has fallen below the tolerance on the way to -1 (observed in Excel).
     [TestMethod]
     [DataRow(360, 100, -5000, -49964.4718552713, 0, 0.022, 0x3F9449F47EB61784L)]
     [DataRow(12, -1000, 500, 800, 0, 3, unchecked((long)0xBFF3FFFFDF800C74UL))]
@@ -319,7 +319,7 @@ public sealed class AnnuityFunctionTests
 
     // where MS-VBA's forty secant steps find no rate within 1E-07 of balancing, or two steps meet the same imbalance - from a guess far from the rate,
     // for a savings plan with a large bonus, for 10 payments of 100 repaying 1000 with no interest at all, whose imbalance near 0 is noise above the
-    // tolerance - it is error 5, though there is a rate (grid oracle\s43 V08-V12, V15-V18, V20).
+    // tolerance - it is error 5, though there is a rate (observed in Excel).
     [TestMethod]
     [DataRow(508, -924.02, 29906.73, 841403207.4303956, 1, 0.1)]
     [DataRow(480, 100, -1000, -188191.61976145758, 0, 0.1)]
@@ -390,8 +390,8 @@ public sealed class AnnuityFunctionTests
     [TestMethod]
     public void AnOptionalArgumentThatIsAString_IsTheNumberItReadsAs()
     {
-        // Let-coerced to a Double, as a required parameter's argument is, in the regional settings of the session (MS-VBA, Excel-verified, oracle\s40
-        // F01, F04, F06-F08, F16): "0" and "1" are 0 and 1.
+        // Let-coerced to a Double, as a required parameter's argument is, in the regional settings of the session (MS-VBA, observed in Excel):
+        // "0" and "1" are 0 and 1.
         Assert.AreEqual(ValueOf(Financial.Pmt(new(0.1 / 12), new(48), new(-8000), Variant(0), Variant(1))),
             ValueOf(Financial.Pmt(new(0.1 / 12), new(48), new(-8000), new(new VBStringValue("0")), new(new VBStringValue("1")))));
         CollectionAssert.AreEqual(Run("Debug.Print Pmt(0.1, 12, -1000, 0, 1)").ToArray(), Run("Debug.Print Pmt(0.1, 12, -1000, \"0\", \"1\")").ToArray());

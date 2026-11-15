@@ -250,13 +250,13 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
         var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Sqr", "$"));
 
         // MS-VBAL 5.6.10: "If <name> specifies a type character, and this type character's associated type does not match
-        // the declared type of the match, the simple name expression is invalid" - the match is Sqr, which returns a Double (MS-VBA too: oracle\s44 D15).
+        // the declared type of the match, the simple name expression is invalid" - the match is Sqr, which returns a Double (MS-VBA too, observed in Excel).
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
         Assert.Contains("'Sqr' is declared as Double", result.ErrorInfo!.Verbose);
     }
 
-    // MS-VBA ignores the character on a reserved function of the library, where MS-VBAL §5.6.10 makes the name invalid (oracle\s46 F18, oracle\s44 D01-D18):
+    // MS-VBA ignores the character on a reserved function of the library, where MS-VBAL §5.6.10 makes the name invalid (observed in Excel):
     // the name is the function, and RDC11019 warns.
     [TestMethod]
     public void ATypedNameOfAReservedFunction_IsTheFunction()

@@ -401,7 +401,7 @@ public sealed record class FileStatementRuntimeSemantics(
         {
             // the format's ERROR rows: an object, or a Variant that holds one. A variable declared as one is a compile error (VBC); a Variant that holds one -
             // Nothing too - is error 13, once its descriptor (vbObject) is written to a Binary file: a Random record is not written at all (MS-VBA,
-            // oracle\s28 U02, U05, U06, B11-B13).
+            // observed in Excel).
             if (isVariant && Unwrapped(evaluated.Result!) is VBObjectValue)
             {
                 if (record.Channel.Mode is VBFileMode.Binary)

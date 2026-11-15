@@ -31,7 +31,7 @@ namespace RDCore.Runtime.StdLib;
 /// 👉 <see cref="Sin"/>, <see cref="Cos"/> and <see cref="Tan"/> refuse an angle of 2<sup>63</sup> radians or more, as MS-VBA does. A sine and a cosine
 /// are the platform's, within a unit of the last place of the true value as MS-VBA's are, and its to the last bit but for about one argument in forty;
 /// a tangent is MS-VBA's quotient of the two, divided in 80 bits - not the platform's own tangent, which differs in the last bit for one in three
-/// (recorded in Excel, grid oracle\s43 M01-M03, T: 80 arguments).
+/// (observed in Excel: 80 arguments).
 /// </para>
 /// <para>
 /// An object argument stands for its simple data value (<strong>MS-VBAL §5.5.1.2.13</strong>), read through its default member
@@ -83,8 +83,8 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
                 return Variant(new VBIntegerValue((short)((bool)boolean.Value ? 1 : 0)));
 
             // "If Number is of a numeric value type, returns a value of the same value type": so the absolute value of the smallest value of a type is an
-            // overflow, there being no value of that type that is its absolute value: the least Long too, which a variable holds (recorded in Excel:
-            // oracle\s60 A01, A03). Abs of the least Long in a constant expression is that Long, which MS-VBA evaluates as it compiles the code: the call's
+            // overflow, there being no value of that type that is its absolute value: the least Long too, which a variable holds (observed in Excel).
+            // Abs of the least Long in a constant expression is that Long, which MS-VBA evaluates as it compiles the code: the call's
             // (RuntimeExpressionEvaluator.AbsOfAConstantExpression).
             case VBNumericTypedValue when source.TypeInfo is IIntegralNumericType && ValueConversions.WholeValueOf(source) is { } whole:
                 return whole == long.MinValue || source is VBLongValue { Value: int.MinValue }
@@ -315,7 +315,7 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
                 sign = Math.Sign(@decimal.Value);
                 break;
 
-            // a NaN has no sign: an overflow, as MS-VBA has it (recorded in Excel, grid oracle\s16 G10); an infinity's is its own (H05).
+            // a NaN has no sign: an overflow, as MS-VBA has it (observed in Excel); an infinity's is its own.
             case VBNumericTypedValue numeric when double.IsNaN(numeric.AsDouble):
                 return Fail<VBVariantValue>(VBRuntimeErrorId.Overflow, Exceptions.VBSgn_NaN_Verbose);
 

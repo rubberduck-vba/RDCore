@@ -33,7 +33,7 @@ namespace RDCore.Tests.Workspace.Forms;
 
 /// <summary>
 /// A form's controls in the language: each is a <c>Public</c>, <c>WithEvents</c> field of the form's class, of the control's class, which its code refers to
-/// and handles the events of; its code declares no member of a control's name (MS-VBA, Excel-measured: <c>oracle\s30</c>).
+/// and handles the events of; its code declares no member of a control's name (MS-VBA, observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class FormLanguageTests
@@ -198,7 +198,7 @@ public sealed class FormLanguageTests
     [DataRow("Private Sub TextBox1_Change(ByVal Value As Long)", "End Sub")]
     [DataRow("Private Function TextBox1_Change() As Long", "End Function")]
     public async Task AControlsHandlerThatDoesNotMatchTheEvent_IsNoError(string declaration, string end)
-        // MS-VBA compiles it (s30 C06, C19): the event never calls it, which makes it dead code (RDC00407), not an invalid handler
+        // MS-VBA compiles it: the event never calls it, which makes it dead code (RDC00407), not an invalid handler
         => Assert.IsEmpty(await DeclarationErrorsAsync(Form(declaration, end)));
 
     // ---- RDC00407: a control's handler that does not match the event is dead, unless something calls it ----
@@ -334,7 +334,7 @@ public sealed class FormLanguageTests
         Assert.AreEqual(VBCompileErrorId.InvalidUseOfProperty, Assert.ContainsSingle(errors).Id);
     }
 
-    // ---- the form's own members and events: the Microsoft Forms UserForm's and the VBA form object's (oracle\s32b, s32c) ----
+    // ---- the form's own members and events: the Microsoft Forms UserForm's and the VBA form object's ----
 
     [TestMethod]
     public async Task TheFormsOwnMembers_AreMembersOfItsClass_ByMe_ByItsName_AndBare()

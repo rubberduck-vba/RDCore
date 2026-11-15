@@ -14,8 +14,7 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Tests.Runtime.Memory;
 
 /// <summary>
-/// The elements of an array laid out side by side in the session's memory (<see cref="ArrayBlock"/>), as MS-VBA lays them out (recorded in Excel, oracle\s17
-/// V02-V12): what <c>VarPtr</c> of an element is, and the bytes a <c>PEEK</c> reads and a <c>POKE</c> writes there.
+/// The elements of an array laid out side by side in the session's memory (<see cref="ArrayBlock"/>), as MS-VBA lays them out (observed in Excel): what <c>VarPtr</c> of an element is, and the bytes a <c>PEEK</c> reads and a <c>POKE</c> writes there.
 /// </summary>
 [TestClass]
 public sealed class ArrayBlockTests

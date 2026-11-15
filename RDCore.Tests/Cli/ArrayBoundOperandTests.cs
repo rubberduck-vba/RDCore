@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// any other expression, and any declared type that never holds an array, when it compiles.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA did with the same code, in Excel (64-bit, en-US, oracle\s29 U cases).
+/// Each expected outcome is what MS-VBA did with the same code, in Excel (64-bit, en-US).
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 3.3.5.2 Reserved Identifiers")]

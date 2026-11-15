@@ -21,7 +21,7 @@ using RDCore.SDK.Semantics.Analysis;
 namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
-/// An operation evaluated by its plan (IR lowering §3.2) is the operation the evaluation pipeline evaluates: the same value of the same type, or the same
+/// An operation evaluated by its plan is the operation the evaluation pipeline evaluates: the same value of the same type, or the same
 /// run-time error - for every operator, over operands chosen to overflow, divide by zero, round, and be held in a Variant.
 /// </summary>
 /// <remarks>

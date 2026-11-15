@@ -113,7 +113,7 @@ public static partial class ValueConversions
                 : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
 
         // MS-VBAL §2.4: an infinity and a NaN are values of a Single and of a Double, and one is the other's as it is (Single inf -> Double, no error;
-        // recorded in Excel, grid oracle\s16 F20). Of any other type it is no value: an overflow, below.
+        // observed in Excel). Of any other type it is no value: an overflow, below.
         IFloatingPointNumericType when destination is VBSingleType or VBDoubleType && !double.IsFinite(((VBNumericTypedValue)source).AsDouble)
             => ValueConversionResult.Success(destination.CreateValue(((VBNumericTypedValue)source).AsDouble)),
 
@@ -172,7 +172,7 @@ public static partial class ValueConversions
     };
 
     // a decimal number to a numeric type: for an integral type, it is rounded to a whole number by Banker's rounding, and that is the number that must be
-    // within the range (a Currency of -32768.5 is the Integer -32768, recorded in Excel: oracle\s58 K02).
+    // within the range (a Currency of -32768.5 is the Integer -32768, observed in Excel).
     private static ValueConversionResult FromFixed(decimal value, VBNumericType destination) => destination switch
     {
         IIntegralNumericType when WholeRangeOf(destination) is var (lowest, highest) && Math.Round(value, MidpointRounding.ToEven) is var whole

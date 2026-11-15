@@ -5,7 +5,7 @@ namespace RDCore.Runtime.Execution.Memory;
 
 /// <summary>
 /// An interface of an object in the session's memory: what <c>ObjPtr</c> is the address of, and what the bytes of an object variable are, as in
-/// <strong>MS-VBA</strong> (recorded in Excel, oracle\s17 O01-O08).
+/// <strong>MS-VBA</strong> (observed in Excel).
 /// </summary>
 /// <remarks>
 /// <para>

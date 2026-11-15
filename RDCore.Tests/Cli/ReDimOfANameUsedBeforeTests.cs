@@ -5,8 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>MS-VBAL §5.4.3.3</strong> a <c>ReDim</c> of a name that matches no declaration declares the array it re-dimensions. A name the procedure uses before
 /// its first <c>ReDim</c>, with no declaration, was declared there by that use (§5.6.10), whether the earlier line writes it, reads it, or never runs: the
-/// <c>ReDim</c> re-dimensions that variable, a <c>Variant</c>, as vb6.exe runs it. MS-VBA refuses it at compile time, "Invalid ReDim" (recorded in Excel: grid
-/// <c>oracle\findings-labels</c> R01-R10), which the author lets slip with <c>RDC11022</c> (HexIDE's findings desk #9). A name used only after it is the array
+/// <c>ReDim</c> re-dimensions that variable, a <c>Variant</c>, as vb6.exe runs it. MS-VBA refuses it at compile time, "Invalid ReDim" (observed in Excel), which <c>RDC11022</c> reports. A name used only after it is the array
 /// the <c>ReDim</c> declared.
 /// </summary>
 [TestClass]
@@ -47,14 +46,14 @@ public sealed class ReDimOfANameUsedBeforeTests
             "Attribute VB_Name = \"Program\"\r\nPrivate Sub Other()\r\nReDim y(2)\r\nEnd Sub\r\nPublic Sub Main()\r\ny = 5\r\nDebug.Print y\r\nEnd Sub\r\n"));
 
     // under Option Explicit no use declares anything, and the ReDim declares the array from where it is: a use before it is "Variable not defined", and the
-    // ReDim is valid (MS-VBA, Excel-verified, oracle\findings-labels cases-redim4 E01).
+    // ReDim is valid (MS-VBA, observed in Excel).
     [TestMethod]
     public async Task UnderOptionExplicit_ANameUsedBeforeItsReDim_IsNotDefined()
         => StringAssert.Contains(Assert.ContainsSingle(await ModuleWorkspace.LoadErrorsAsync([],
             "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\ny = 5\r\nReDim y(2)\r\nEnd Sub\r\n")), Exceptions.VBCompileError_VariableNotDefined);
 
     // the bound of an array declared before the ReDim is required to be a constant expression, which the name is not. Whether MS-VBA also reports the name as
-    // not defined there is not measured (oracle-pending-rows: a ReDim of a name a bound uses before it): no more than the bound's own error is reported.
+    // not defined there is not measured: no more than the bound's own error is reported.
     [TestMethod]
     public async Task UnderOptionExplicit_ANameInABoundBeforeItsReDim_IsAConstantExpressionRequired_Only()
     {

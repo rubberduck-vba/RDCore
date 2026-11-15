@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// MS-VBAL §5.4.4.1: an <c>On Error GoTo</c> sets the policy of the activation to go to its label, and an error caught by it runs the handler, which an
 /// error inside it does not enter again. A <c>Resume</c> ends the handler, and the policy is still to go to the label: the next error goes to it again
-/// (MS-VBA; recorded in Excel, grid <c>oracle\s16</c> W03).
+/// (MS-VBA; observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ErrorHandlerResumeTests

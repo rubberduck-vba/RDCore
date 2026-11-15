@@ -200,11 +200,9 @@ public sealed class VBArrayValueTests
     }
 
     [TestMethod]
-    // adversarial review, PRs #208-224, item 5: TryAllocateIn's `with`-copy shared the SAME _cells
-    // array by reference with the original - VBA deep-copies an array on assignment (MS-VBAL), so two
-    // allocations of "the same" array value aliased in a way VBA arrays do not have. Author's call:
-    // "we must stick to the expected behavior" - a write through either value's own element accessor
-    // must not be visible through the other's.
+    // TryAllocateIn's `with`-copy must not share the same _cells array by reference with the original - VBA deep-copies an array
+    // on assignment (MS-VBAL), so two allocations of "the same" array value would alias in a way VBA arrays do not have. A write
+    // through either value's own element accessor must not be visible through the other's.
     public void TryAllocateIn_GivesTheAllocatedCopyIndependentCells()
     {
         var array = Fixed([(1, 3)], VBLongType.TypeInfo);

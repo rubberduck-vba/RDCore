@@ -8,7 +8,7 @@ using RDCore.Diagnostics;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// <c>RDC11026</c>: a public variable of an object, named as a member of it, given to a <c>ByRef</c> parameter: MS-VBA passes a copy (oracle\s55 B), where
+/// <c>RDC11026</c>: a public variable of an object, named as a member of it, given to a <c>ByRef</c> parameter: MS-VBA passes a copy (observed in Excel), where
 /// MS-VBAL §5.6.12 and §5.3.1.11 pass the variable (RD-VBAL §5.3.1.11).
 /// </summary>
 [TestClass]

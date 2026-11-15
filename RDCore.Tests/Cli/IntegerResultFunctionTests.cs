@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// is one of <c>Integer</c>s, which overflows past 32767 (<strong>MS-VBAL §6.1.2.7</strong>, §6.1.2.11).
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US, oracle\s46 F10), as vb6.exe does (HexIDE findings desk #10).
+/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US), as vb6.exe does.
 /// </remarks>
 [TestClass]
 [TestCategory("RD-VBAL 6 Standard library")]

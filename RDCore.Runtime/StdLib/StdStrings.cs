@@ -347,7 +347,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return RuntimeSemanticsEvaluationResult<VBVariantValue>.Success(new VBVariantValue(VBNullValue.Null));
         }
 
-        // an Error has no length: MS-VBA raises a type mismatch, where MS-VBAL does not say (recorded in Excel: oracle\s56 G07, s57 E01).
+        // an Error has no length: MS-VBA raises a type mismatch, where MS-VBAL does not say (observed in Excel).
         if (value is VBErrorValue)
         {
             return Fail<VBVariantValue>(VBRuntimeErrorId.TypeMismatch, inMemory ? nameof(LenB) : nameof(Len), "Expression is an Error value, which has no length");
@@ -525,12 +525,12 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// declared <c>SourceArray()</c> would raise.
     /// <para>
     /// 👉 An element contains Match when <c>InStr</c> would find it there, so a zero-length element contains no other String, except that a
-    /// zero-length Match is in every element, a zero-length one too, as MS-VBA has it where <c>InStr("", "")</c> is 0 (recorded in Excel, oracle\s57
-    /// S06). A Compare that is no comparison is error 5 when an element is compared, and only then (S05). Each element is read as a <c>String</c> parameter would Let-coerce it, all of
+    /// zero-length Match is in every element, a zero-length one too, as MS-VBA has it where <c>InStr("", "")</c> is 0 (observed in Excel).
+    /// A Compare that is no comparison is error 5 when an element is compared, and only then. Each element is read as a <c>String</c> parameter would Let-coerce it, all of
     /// them before any is kept, so a Null element is error 94 whether it would be kept or not; an element never assigned in a
     /// <c>Variant()</c> is Empty, a zero-length string. What is kept is that <c>String</c>, unchanged: the filter selects
     /// elements, and transforms none. A SourceArray with no dimensions yet - a dynamic array never <c>ReDim</c>'d - is filtered to a
-    /// <c>String()</c> with none either, whose <c>UBound</c> is error 9 (recorded in Excel, oracle\s41 M03).
+    /// <c>String()</c> with none either, whose <c>UBound</c> is error 9 (observed in Excel).
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> Filter(VBVariantValue sourceArray, VBStringValue match, VBBooleanValue? include = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
@@ -551,7 +551,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return Fail<VBVariantValue>(error);
         }
 
-        // Compare is checked by the first element that is compared, as InStr checks it (oracle\s57 S05).
+        // Compare is checked by the first element that is compared, as InStr checks it (observed in Excel).
         var pattern = Text(match);
         StringComparisonRules? rules = null;
         var kept = new List<VBStringValue>();
@@ -946,7 +946,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// Strings as <c>String</c> parameters, in that order; a Null String makes the result Null before the start is checked. Then a
     /// zero-length String to search is 0, a zero-length pattern is the start, and a pattern not found is 0. 👉 The table's "Arg1 &gt;
     /// Arg3" row is read as a start past the end of the String to search, and its rows in their order, so a zero-length pattern is the start wherever
-    /// it is: <c>InStr(9, "abc", "")</c> is 9, as MS-VBA has it (recorded in Excel, oracle\s57 E05), where <c>InStrB</c>'s is 0 from past the end of the
+    /// it is: <c>InStr(9, "abc", "")</c> is 9, as MS-VBA has it (observed in Excel), where <c>InStrB</c>'s is 0 from past the end of the
     /// bytes. A start below 1 is error 5, as it is to the <c>Mid</c> statement (<strong>MS-VBAL §5.4.3.5</strong>).
     /// </para>
     /// <para>
@@ -954,8 +954,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// (<see cref="StringComparisonRules.TryFind"/>): a match may be part of an expanded character, and is found at the character it starts in. 👉 An explicit
     /// Compare is <c>vbBinaryCompare</c>, <c>vbTextCompare</c>, or the identifier of a locale, which is that locale's text comparison
     /// (<see cref="StringComparisonRules.TryForLocale"/>), as MS-VBA takes it and the table mentions; anything else, <c>vbDatabaseCompare</c> included, is
-    /// error 5 - unless the String or the pattern is zero-length, whose result takes no Compare, whatever it is (MS-VBA, recorded in Excel: oracle\s57
-    /// S05; a start past the end is error 5 too, D04).
+    /// error 5 - unless the String or the pattern is zero-length, whose result takes no Compare, whatever it is (MS-VBA, observed in Excel; a start past the end is error 5 too).
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> InStr(VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
@@ -1034,12 +1033,12 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     }
 
     // the 1-based position of the first run of characters from the start that is equal to the pattern, or 0. A zero-length String has
-    // none, and a zero-length pattern is found at the start, wherever it is (MS-VBA, recorded in Excel: oracle\s57 E05, InStr(9, "abc", "") is 9).
+    // none, and a zero-length pattern is found at the start, wherever it is (MS-VBA, observed in Excel: InStr(9, "abc", "") is 9).
     private static int CharacterPosition(string text, string pattern, int from, StringComparisonRules rules)
         => PositionWithoutComparing(text, pattern, from)
             ?? (from <= text.Length && rules.TryFind(text.AsSpan(from - 1), pattern, out var index, out _) ? from + index : 0);
 
-    // the position a search finds without its Compare, which is why MS-VBA's checks no Compare for it (oracle\s57 S05, D04): in a zero-length String, and of a
+    // the position a search finds without its Compare, which is why MS-VBA's checks no Compare for it (observed in Excel): in a zero-length String, and of a
     // zero-length pattern; null when the search compares, from past the end too.
     private static int? PositionWithoutComparing(string text, string pattern, int from)
         => text.Length == 0 ? 0
@@ -1119,7 +1118,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// "A string created by joining a number of substrings contained in an array", in index order from its lower bound, whatever
     /// that is. The Delimiter, "if omitted, the space character", and "if Delimiter is a zero-length string (""), all items in the
     /// list are concatenated with no delimiters". An array with no elements joins to a zero-length string, and so does one with no
-    /// dimensions yet - a dynamic array never <c>ReDim</c>'d (recorded in Excel, oracle\s41 M01, M02).
+    /// dimensions yet - a dynamic array never <c>ReDim</c>'d (observed in Excel).
     /// <para>
     /// 👉 The Delimiter and each element are read as a <c>String</c> parameter would Let-coerce them: Empty is a zero-length string,
     /// a number is written in the environment's regional settings, Null is error 94, and an Error, an object or an array that is not
@@ -1545,7 +1544,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     }
 
     // Join's and Filter's SourceArray, declared SourceArray() and a Variant here only so that a String() reaches the member: a
-    // one-dimensional array of any element type, fixed or resizable, or one with no dimensions yet (oracle\s41 M01-M03), and anything
+    // one-dimensional array of any element type, fixed or resizable, or one with no dimensions yet, and anything
     // else 13, as the declaration would raise.
     private static bool TryReadArray(VBVariantValue sourceArray, string member, [NotNullWhen(true)] out VBArrayValue? array, [NotNullWhen(false)] out IVBRaisableError? error)
     {

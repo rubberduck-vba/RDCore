@@ -8,8 +8,7 @@ using RDCore.Diagnostics;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// <c>RDC11021</c>: a <c>Const</c> of a procedure valued with <c>Len</c>, which MS-VBA compiles there and refuses in a module (Excel-measured, oracle\s44
-/// C01-C04; HexIDE findings desk #2, by the author's ruling).
+/// <c>RDC11021</c>: a <c>Const</c> of a procedure valued with <c>Len</c>, which MS-VBA compiles there and refuses in a module (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ProcedureConstantLengthAnalyzerTests

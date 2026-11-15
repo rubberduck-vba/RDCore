@@ -15,7 +15,7 @@ using RDCore.Tests.Semantics.Runtime;
 namespace RDCore.Tests.Semantics;
 
 /// <summary>
-/// The static semantics and the plans agree (IR lowering S0.8d): what the static semantics accept for operands of declared types that are not Variants or
+/// The static semantics and the plans agree: what the static semantics accept for operands of declared types that are not Variants or
 /// objects, the plan made for the same declared types does not reject.
 /// </summary>
 /// <remarks>

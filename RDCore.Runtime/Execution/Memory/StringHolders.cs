@@ -51,7 +51,7 @@ internal static class StringHolders
     /// <summary>
     /// The field of <paramref name="record"/> that begins at <paramref name="offset"/>, in its layout for <paramref name="pointerWidth"/>, and is what the
     /// session lays out (<see cref="VBUserDefinedTypeImage.IsLaidOutByTheHost"/>) - a variable-length <c>String</c>, an object, a <c>Variant</c>: in a record
-    /// that is a field of it too, and an element of a fixed-size array field, which is in the record (oracle\s24 P04).
+    /// that is a field of it too, and an element of a fixed-size array field, which is in the record (observed in Excel).
     /// </summary>
     /// <param name="record">The record.</param>
     /// <param name="offset">Where the field begins, from the start of the record.</param>

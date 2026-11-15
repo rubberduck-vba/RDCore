@@ -4,8 +4,8 @@ namespace RDCore.Tests.Runtime.StdLib;
 
 /// <summary>
 /// A member of an object of the standard library called late-bound - the object reached through an expression declared <c>Object</c> or <c>Variant</c> -
-/// is called as MS-VBA calls it, through the object's <c>IDispatch</c>, whose errors are not those of a call bound to the member. Recorded in Excel
-/// (oracle\s26: grid-lb to grid-lb6, early-bound controls in grid-lb2 and grid-lb4): each case is the probe as it ran there, and what it printed.
+/// is called as MS-VBA calls it, through the object's <c>IDispatch</c>, whose errors are not those of a call bound to the member. Observed in Excel:
+/// each case is the probe as it ran there, and what it printed.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 6 Standard library")]

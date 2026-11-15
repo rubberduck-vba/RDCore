@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// MS-VBAL §5.3.1.11: what a member access given to a <c>ByRef</c> parameter is - the variable it names, which the callee writes, or a copy of its value.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed for the same code in Excel (64-bit, en-US, oracle\s58 B01, W01): the callee adds 10 to a value of 1, so
+/// Each expected outcome is what MS-VBA printed for the same code in Excel (64-bit, en-US): the callee adds 10 to a value of 1, so
 /// 11 is the variable, and 1 a copy.
 /// </remarks>
 [TestClass]
@@ -55,7 +55,7 @@ public sealed class MemberAccessByRefArgumentTests
     [DataRow("Dim b As New Box ;; b.V = Array(1, 2) ;; b.SelfMe ;; Debug.Print b.V(0)", "1", DisplayName = "B01 Me.V(0)")]
     [DataRow("Dim b As New Box ;; b.V = Array(1, 2) ;; b.SelfBare ;; Debug.Print b.V(0)", "11", DisplayName = "B01 V(0) in the class")]
     [DataRow("Dim w As Variant ;; w = Array(1, 2) ;; BumpV w(0) ;; Debug.Print w(0)", "11", DisplayName = "B01 w(0) of a local Variant")]
-    // through a With block whose target is an object, or one nested in a With block of an object: a copy (oracle\s59 M04).
+    // through a With block whose target is an object, or one nested in a With block of an object: a copy (observed in Excel).
     [DataRow("Dim b As New Box ;; Set b.Inner = New Box ;; b.Inner.V = Array(1, 2) ;; With b ;; BumpV .Inner.V(0) ;; End With ;; Debug.Print b.Inner.V(0)", "1",
         DisplayName = "M04 .Inner.V(0) in With b")]
     [DataRow("Dim b As New Box ;; Set b.Inner = New Box ;; b.Inner.V = Array(1, 2) ;; With b.Inner ;; BumpV .V(0) ;; End With ;; Debug.Print b.Inner.V(0)", "1",
@@ -71,7 +71,7 @@ public sealed class MemberAccessByRefArgumentTests
     [DataRow("Dim r As TPair ;; r.X = 1 ;; BumpLong r.X ;; Debug.Print r.X", "11", DisplayName = "W01 r.X")]
     [DataRow("Dim t(1) As TPair ;; t(0).X = 1 ;; With t(0) ;; BumpLong .X ;; End With ;; Debug.Print t(0).X", "11", DisplayName = "W01 .X in With t(0)")]
     [DataRow("Dim t(1) As TPair ;; t(0).X = 1 ;; BumpLong t(0).X ;; Debug.Print t(0).X", "11", DisplayName = "W01 t(0).X")]
-    // a field of a field, an element of an array field, and a field in a nested With block of a record (oracle\s59 M01-M03).
+    // a field of a field, an element of an array field, and a field in a nested With block of a record (observed in Excel).
     [DataRow("Dim r As TOuter ;; r.A(0) = 1 ;; With r ;; BumpLong .A(0) ;; End With ;; Debug.Print r.A(0)", "11", DisplayName = "M01 .A(0) in With r")]
     [DataRow("Dim r As TOuter ;; r.A(0) = 1 ;; BumpLong r.A(0) ;; Debug.Print r.A(0)", "11", DisplayName = "M01 r.A(0)")]
     [DataRow("Dim r As TOuter ;; r.Inner.X = 1 ;; With r ;; BumpLong .Inner.X ;; End With ;; Debug.Print r.Inner.X", "11", DisplayName = "M01 .Inner.X in With r")]
@@ -92,7 +92,7 @@ public sealed class MemberAccessByRefArgumentTests
     public async Task AFieldOfAUserDefinedTypeVariable_IsTheVariable(string body, string expected)
         => await AssertPrintedInEitherEngineAsync(body, expected);
 
-    // a compiled procedure takes a ByRef Long the interpreter binds to the field it is given (S2.3c): the callee writes the field, run compiled.
+    // a compiled procedure takes a ByRef Long the interpreter binds to the field it is given: the callee writes the field, run compiled.
     [TestMethod]
     [DataRow("Dim r As TPair ;; r.X = 1 ;; With r ;; BumpLong .X ;; End With ;; Debug.Print r.X", "11", DisplayName = "W01 .X in With r")]
     [DataRow("Dim r As TOuter ;; r.A(0) = 1 ;; With r ;; BumpLong .A(0) ;; End With ;; Debug.Print r.A(0)", "11", DisplayName = "M01 .A(0) in With r")]

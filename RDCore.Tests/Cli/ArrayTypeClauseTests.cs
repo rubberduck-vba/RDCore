@@ -4,8 +4,8 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <strong>MS-VBAL §5.3.1.4</strong>: a type written with <c>()</c> - <c>As Long()</c> - is what a <c>Function</c>, a <c>Property Get</c> or a <c>Declare</c>'s
-/// <c>Function</c> returns, and nothing else is declared with one: <strong>MS-VBA</strong> reads it anywhere else as a syntax error (recorded in Excel,
-/// oracle\s23 T01-T18). An array variable or parameter is declared with <c>()</c> after its name.
+/// <c>Function</c> returns, and nothing else is declared with one: <strong>MS-VBA</strong> reads it anywhere else as a syntax error (observed in Excel).
+/// An array variable or parameter is declared with <c>()</c> after its name.
 /// </summary>
 [TestClass]
 public sealed class ArrayTypeClauseTests

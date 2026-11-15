@@ -204,7 +204,7 @@ public sealed class OperatorFactAnalyzerTests
         Assert.IsEmpty(await FindAsync(new VariantStringThatIsNoNumberRankedAnalyzer(), "", declarations, first, "b = 5", "r = a < b"));
     }
 
-    // RDC11027: MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles (oracle\s56 G, H).
+    // RDC11027: MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles (observed in Excel).
     [TestMethod]
     [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a Long (G01)")]
     [DataRow("Dim a As String, b As Integer, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a String \"2.5\" and an Integer (G03)")]

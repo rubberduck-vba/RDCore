@@ -9,8 +9,8 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.Runtime.StdLib;
 
 /// <summary>
-/// The financial functions and the tangent as MS-VBA computes them, to the last bit: random calls of each, recorded in Excel (grid <c>oracle\s43</c>,
-/// seed 4343 - R and T), as the eight bytes of the <c>Double</c> each returns, or the error it raises.
+/// The financial functions and the tangent as MS-VBA computes them, to the last bit: random calls of each, observed in Excel,
+/// as the eight bytes of the <c>Double</c> each returns, or the error it raises.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.6 Financial")]
@@ -183,7 +183,7 @@ public sealed class FinancialParityTests
     }
 
     // MS-VBA's sine and cosine are within a unit of the last place of the true value, as the platform's are, and the platform's to the last bit for
-    // all but about one argument in forty - these (grid oracle\s43 M01, M02).
+    // all but about one argument in forty - these (observed in Excel).
     private const string LastBit = "Known gap: MS-VBA's sine and cosine differ from the platform's in the last bit for about one argument in forty.";
 
     [TestMethod]

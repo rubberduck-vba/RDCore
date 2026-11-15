@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <c>AddressOf</c>: the address of a procedure of a standard module in the session's memory (<strong>MS-VBAL §5.6.16.8</strong>), as <strong>MS-VBA</strong>
-/// gives it (recorded in Excel, oracle\s17 A rows) - a <c>LongPtr</c>, not <c>0</c>, the same every time, another for another procedure.
+/// gives it (observed in Excel) - a <c>LongPtr</c>, not <c>0</c>, the same every time, another for another procedure.
 /// </summary>
 [TestClass]
 public sealed class AddressOfTests

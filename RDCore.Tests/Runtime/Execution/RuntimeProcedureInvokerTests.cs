@@ -29,7 +29,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.Runtime.Execution;
 
 /// <summary>
-/// <see cref="RuntimeProcedureInvoker"/> is S9a's own walking skeleton: a real <c>Call</c>/bare-call
+/// <see cref="RuntimeProcedureInvoker"/> is a walking skeleton: a real <c>Call</c>/bare-call
 /// statement, parsed and lowered for real, invokes a real callee procedure through the full
 /// <see cref="IProcedureInvoker"/> seam, ByVal parameters only, same session.
 /// </summary>
@@ -146,7 +146,7 @@ public sealed class RuntimeProcedureInvokerTests
 
     [TestMethod]
     public void CallStatement_ByVal_DoesNotWriteBackToTheCaller()
-        // ByRef write-back is a later sub-slice's job (S9a's own scope is ByVal only) - the callee
+        // ByRef write-back is not covered here (only ByVal is) - the callee
         // mutating its own copy of the parameter must never be visible to the caller's own argument.
     {
         var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
@@ -698,9 +698,9 @@ public sealed class RuntimeProcedureInvokerTests
         // Proves the round trip a nested call takes through RuntimeProcedureInvoker.Invoke: the callee's
         // own Run() produces an Error outcome, Invoke turns it into a RuntimeSemanticsEvaluationResult
         // error, and ExecuteCall turns THAT back into an Error outcome for the caller's own Run() loop -
-        // not just that Error outcomes propagate at all (every other slice's tests already prove that).
+        // not just that Error outcomes propagate at all (the other tests already prove that).
         // n \ 0 (integer division) uses only the callee's own parameter, no extra locals - a callee
-        // frame only ever has its declared parameters pushed onto it (S9a doesn't hoist Dim locals yet).
+        // frame only ever has its declared parameters pushed onto it (Dim locals are not hoisted).
     {
         var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
         var n = new VBParameterSymbol(Root, calleeStub.Uri, "n", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);

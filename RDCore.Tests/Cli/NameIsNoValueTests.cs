@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// no value: MS-VBA reports what each is, wherever it is written as an expression, but where the place it is written in has an error of its own.
 /// </summary>
 /// <remarks>
-/// Each expected error is the one MS-VBA reported for the same code, in Excel (64-bit, en-US, oracle\s29 N, C, O, W and Y cases).
+/// Each expected error is the one MS-VBA reported for the same code, in Excel (64-bit, en-US).
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.6.10 Simple Name Expressions")]

@@ -191,7 +191,7 @@ public sealed class ArrayBoundRuntimeTests
     [TestMethod]
     public void ANonArrayArgument_IsATypeMismatch()
     {
-        // a Variant that holds no array; a literal is a syntax error before the code runs (MS-VBA, Excel-verified, oracle\s29 U05, U04).
+        // a Variant that holds no array; a literal is a syntax error before the code runs (MS-VBA, observed in Excel).
         var output = Run("Dim v As Variant", "v = 5", "On Error Resume Next", "Debug.Print UBound(v)", "Debug.Print Err.Number");
 
         CollectionAssert.AreEqual(new[] { ((int)VBRuntimeErrorId.TypeMismatch).ToString() }, Trimmed(output), string.Join(" / ", output));

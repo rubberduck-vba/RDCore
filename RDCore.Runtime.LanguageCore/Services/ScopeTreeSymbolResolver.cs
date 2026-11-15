@@ -313,7 +313,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // the project tier holds the names every module declares: the namesakes of one module are decided among themselves as they are inside it, and two
     // modules' declarations of the name are still an ambiguous name. Seen from another module, an Enum and a Function of one module is the Function, an Enum
-    // and a variable the Enum; an Enum and a Function of two modules, ambiguous (Excel-verified, oracle\s66 X01-X06, X08, X09). A module is told by its
+    // and a variable the Enum; an Enum and a Function of two modules, ambiguous (observed in Excel). A module is told by its
     // address, and not by a candidate's parent: the parent of an Enum's constant is the Enum.
     private static IEnumerable<Symbol> ValuesOverEnumsOfEachModule(IEnumerable<Symbol> candidates)
         => candidates.GroupBy(candidate => (Root: candidate.Uri.GetLeftPart(UriPartial.Query), Module: SymbolUri.ModuleNameOf(candidate.Uri))).SelectMany(ValuesOverEnums);
@@ -321,7 +321,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     // an Enum and a procedure of one name in one module: in a value the name is the procedure, even where it qualifies a member of the Enum
     // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only. An Enum
     // and a variable or a constant of one name: the name is the Enum, whichever is declared first and whatever their access (`V = 5` is "Expected variable or
-    // procedure, not enum type"). Excel-verified, oracle\s64 E03, E04, E11, E14, E20-E23.
+    // procedure, not enum type"). Observed in Excel.
     private static IEnumerable<Symbol> ValuesOverEnums(IEnumerable<Symbol> candidates)
     {
         var matches = candidates.ToArray();
@@ -339,7 +339,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // MS-VBAL §5.6.10 lists no user-defined type, no class module and no event among the default binding context's
     // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2), and an event is only ever raised
-    // (RaiseEvent finds it in its class), so an Event and a Sub of one name are no collision (Excel-verified, oracle\s64 E06-E09).
+    // (RaiseEvent finds it in its class), so an Event and a Sub of one name are no collision (observed in Excel).
     // MS-VBAL §3.4.1: a conditional compilation constant is accessible to cc-expressions only, so it is
     // never a candidate here however the name ranks - `x = Win64` in ordinary source binds nothing.
     private static bool IsValueDeclaration(Symbol symbol)

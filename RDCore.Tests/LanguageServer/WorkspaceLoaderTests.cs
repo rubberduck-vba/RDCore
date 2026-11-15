@@ -87,7 +87,7 @@ public sealed class WorkspaceLoaderTests
         Assert.AreEqual("src/Mod1.bas", sut.Project.ProjectInfo.Modules[0].RelativeUri);
     }
 
-    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path (HexIDE's findings desk #26).
+    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path.
     [TestMethod]
     public async Task ProjectFileService_LoadAsync_ProjectFileThatIsNotJson_SaysWhereItIsNot()
     {
@@ -150,7 +150,7 @@ public sealed class WorkspaceLoaderTests
         Assert.IsInstanceOfType<LoadedDocumentState>(documentStates.GetCurrentState(loaded[0].Id));
     }
 
-    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
+    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed.
     [TestMethod]
     public async Task WorkspaceService_LoadAsync_LoadsTheOtherFiles_AndGivesThemToNoneThatReadsCode()
     {
@@ -178,7 +178,7 @@ public sealed class WorkspaceLoaderTests
     }
 
     // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
-    // 0.1 platform refused as a later platform's (desk card version-010-refuses-100). What is not this platform's format is said in the log, and only there.
+    // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and only there.
     [TestMethod]
     [DataRow("\"1.1\"", null, DisplayName = "1.1, this platform's format")]
     [DataRow("\"1.0.0\"", LogLevel.Information, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0, an older one")]

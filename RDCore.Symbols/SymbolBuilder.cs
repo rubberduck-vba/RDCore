@@ -469,7 +469,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var value = ValueOfConstant(resolver.ResolveValue(length, ScopeKind.Local, handle).Symbol, handle, depth: 0);
 
         // Let-coerced to Long: a fraction rounds half to even (Const K = 2.5 is 2), and a String that reads as a number is that number (Const K = "3" is 3),
-        // as MS-VBA has it (Excel-verified, oracle\s29 F05, F06).
+        // as MS-VBA has it (observed in Excel).
         return value switch
         {
             _ when value is not null && IsNumber(value) => RoundToLong(Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)),
@@ -605,12 +605,12 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         // Explicit). What it matches is a variable or a constant, of another module or of a library
         // too, and the result of the function the ReDim is in: a ReDim of another module's
         // `Public Items() As Long` re-dimensions that array. A procedure, a module or a project is no
-        // match - `ReDim Left(1)` declares an array that hides the function (MS-VBA, Excel-verified,
-        // oracle\s29 R01-R11, E01-E16).
+        // match - `ReDim Left(1)` declares an array that hides the function (MS-VBA, observed in
+        // Excel).
         //
         // where declarations are implicit, a name the procedure uses before its first ReDim was declared there, by that use (MS-VBAL §5.6.10, pass 3), and
         // the ReDim matches that variable: it re-dimensions it as it would any Variant, as vb6.exe runs it. MS-VBA refuses it at compile time ("Invalid
-        // ReDim", Excel-verified, oracle\findings-labels R01-R10), which the author lets slip with RDC11022 (HexIDE's findings desk #9).
+        // ReDim", observed in Excel), which RDC11022 reports.
         var implicitDeclarations = !directives.Explicit && withImplicitDeclarations;
         var valueNames = implicitDeclarations ? body.SelectMany(ValueContextSimpleNames).ToArray() : [];
         foreach (var redim in body.OfType<RedimDeclarationNode>())

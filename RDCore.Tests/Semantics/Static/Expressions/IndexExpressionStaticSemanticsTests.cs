@@ -66,8 +66,7 @@ public sealed class IndexExpressionStaticSemanticsTests
         Assert.AreEqual(array, result.Result);
     }
 
-    // `f()()`, the array already given its empty argument list, MS-VBAL makes invalid; MS-VBA compiles it as the array, and raises 9 when it runs (oracle\s53
-    // E07, E08), which RDC11025 warns of.
+    // `f()()`, the array already given its empty argument list, MS-VBAL makes invalid; MS-VBA compiles it as the array, and raises 9 when it runs (observed in Excel), which RDC11025 warns of.
     [TestMethod]
     public void ArrayCallee_GivenAnEmptyArgumentListAlready_IsTheArray_AsMSVBACompilesIt()
     {

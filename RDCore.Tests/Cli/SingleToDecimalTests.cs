@@ -4,8 +4,8 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// MS-VBA makes a <c>Single</c> a <c>Decimal</c> as its value to 7 significant digits, ties to even - <c>CDec</c>, and a <c>Variant</c> operation of a
-/// <c>Decimal</c> and a <c>Single</c> alike - where a <c>Double</c> keeps 15 digits and a <c>Currency</c> the exact value. Every expected line was recorded
-/// in Excel (grid <c>oracle\s43</c> K01-K26, J01).
+/// <c>Decimal</c> and a <c>Single</c> alike - where a <c>Double</c> keeps 15 digits and a <c>Currency</c> the exact value. Every expected line was observed
+/// in Excel.
 /// </summary>
 [TestClass]
 public sealed class SingleToDecimalTests

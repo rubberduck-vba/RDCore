@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A member of an object declared as a class, bound to the member of the class (IR lowering S0.10), is the member MS-VBAL 5.6.12 and 5.6.13 read and call:
+/// A member of an object declared as a class, bound to the member of the class, is the member MS-VBAL 5.6.12 and 5.6.13 read and call:
 /// the class's own, or - of an object declared as an interface its class implements - the one implementing it (MS-VBAL 5.3.1.9), whichever class the object
 /// is an instance of each time the expression is evaluated.
 /// </summary>
@@ -211,8 +211,7 @@ public sealed class BoundMemberTests
             "Set n = New Labelled",
             "Debug.Print n.Name"));
 
-    // MS-VBAL 5.6.7: TypeOf … Is is True of an object of the class, or of a class that implements it; of Nothing, it is error 91 (MS-VBA too, Excel-verified,
-    // oracle\s29 T09).
+    // MS-VBAL 5.6.7: TypeOf … Is is True of an object of the class, or of a class that implements it; of Nothing, it is error 91 (MS-VBA too, observed in Excel).
     [TestMethod]
     public async Task TypeOfIs_TestsTheClassOfTheObject_AndTheInterfacesItImplements()
         => CollectionAssert.AreEqual(new[] { "True", "False", "True", "True", "False", "91" }, await RunMainAsync(

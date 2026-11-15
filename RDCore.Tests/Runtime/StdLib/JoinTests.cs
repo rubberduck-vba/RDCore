@@ -118,7 +118,7 @@ public sealed class JoinTests
     [TestMethod]
     public void Join_OfAnArrayWithNoDimensionsYet_IsAZeroLengthString()
     {
-        // a dynamic array never ReDim'd joins to "", as one with no elements does (recorded in Excel, oracle\s41 M01 String(), M02 Variant()); MVVM's
+        // a dynamic array never ReDim'd joins to "", as one with no elements does (observed in Excel, of a String() and of a Variant()); MVVM's
         // StringBuilderNet joins its buffer before it first sizes it.
         Assert.AreEqual(string.Empty, TextOf(Module().Join(V(new VBResizableArrayValue([], VBStringType.TypeInfo)), V(string.Empty))));
         Assert.AreEqual(string.Empty, TextOf(Module().Join(V(VBResizableArrayValue.Empty))));
@@ -149,7 +149,7 @@ public sealed class JoinTests
         CollectionAssert.AreEqual(new[] { "a|b|", ",," }, RunWith([parts],
             "Parts = Split(\"a b\")", "ReDim Preserve Parts(0 To 2)", "Debug.Print Join(Parts, \"|\")",
             "ReDim Parts(0 To 2)", "Debug.Print Join(Parts, \",\")"));
-        // Erase leaves a dynamic array with no dimensions, as it was before it was first sized: "" (oracle\s41 M01).
+        // Erase leaves a dynamic array with no dimensions, as it was before it was first sized: "" (observed in Excel).
         CollectionAssert.AreEqual(new[] { "[]" }, RunWith([parts], "Parts = Split(\"a b\")", "Erase Parts", "Debug.Print \"[\" & Join(Parts) & \"]\""));
     }
 

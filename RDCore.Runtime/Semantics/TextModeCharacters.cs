@@ -10,7 +10,7 @@ namespace RDCore.Runtime.Semantics;
 /// <remarks>
 /// This is not how the relational operators compare in text mode (<see cref="StringComparisonRulesExtensions"/>):
 /// MS-VBA's <c>=</c> compares by the regional collation, which ignores width and kana and expands more, where its <c>Like</c> and its searches fold case and
-/// expand <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c>, and nothing else (recorded in Excel: oracle\like-collation, oracle\instr-text). A soft hyphen, a full-width
+/// expand <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c>, and nothing else (observed in Excel). A soft hyphen, a full-width
 /// letter, katakana, an accented letter and the Kelvin sign are characters of their own; <c>ĳ</c>, the ligatures <c>ﬀ</c> to <c>ﬆ</c>, <c>ǆ</c> and <c>ẞ</c>
 /// are not expanded.
 /// </remarks>

@@ -207,7 +207,7 @@ internal sealed class LikePattern
     /// folded, with a character MS-VBA expands (<see cref="Expansion"/>) as its two letters.
     /// </summary>
     /// <remarks>
-    /// What an element takes of a character that is expanded is what MS-VBA takes of it (Excel, oracle <c>like-collation</c> L01-L08, M01-M08):
+    /// What an element takes of a character that is expanded is what MS-VBA takes of it (observed in Excel):
     /// <list type="bullet">
     /// <item>A character, or a <c>*</c>, takes one letter: <c>æ Like "a?"</c>, <c>æ Like "*e"</c> and <c>"ae" Like "æ"</c> are <c>True</c>.</item>
     /// <item>A <c>?</c> takes the rest of the character it is at - the whole of it, at its start: <c>æ Like "??"</c> is <c>False</c>.</item>

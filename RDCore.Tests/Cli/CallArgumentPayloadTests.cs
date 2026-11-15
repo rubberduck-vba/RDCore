@@ -3,8 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// An omitted argument's default, let-coerced once for each parameter, and a scalar passed by value to a <c>Variant</c> parameter as its payload (IR lowering
-/// S1.7): the same values as the boxed evaluation - which the suite is also run with (<c>RDCORE_UNBOXED=0</c>), for these to hold both ways.
+/// An omitted argument's default, let-coerced once for each parameter, and a scalar passed by value to a <c>Variant</c> parameter as its payload: the same values as the boxed evaluation - which the suite is also run with (<c>RDCORE_UNBOXED=0</c>), for these to hold both ways.
 /// </summary>
 [TestClass]
 public sealed class CallArgumentPayloadTests
@@ -49,13 +48,13 @@ public sealed class CallArgumentPayloadTests
         DisplayName = "ByRef: a variable, then values")]
     [DataRow("Private Sub S(ByVal A As Long, ParamArray R() As Variant) ;; Debug.Print A & \":\" & UBound(R) ;; End Sub", "S 1 ;; S 1, 2, 3", "1:-1/1:1",
         DisplayName = "a ParamArray")]
-    // empty parentheses pass a ParamArray that comes first no element, as no parentheses do (MS-VBA: oracle\ismissing I05).
+    // empty parentheses pass a ParamArray that comes first no element, as no parentheses do (MS-VBA).
     [DataRow("Private Function F(ParamArray R() As Variant) As String ;; F = TypeName(R) & UBound(R) & IsMissing(R) ;; End Function ;; Private Sub S(ParamArray R() As Variant) ;; Debug.Print UBound(R) ;; End Sub",
         "Debug.Print F() ;; Debug.Print F ;; Call S() ;; S ;; Debug.Print F(1)", "Variant()-1True/Variant()-1True/-1/-1/Variant()0False",
         DisplayName = "a ParamArray, called with empty parentheses")]
     [DataRow("Private Sub S(Optional ByVal A As Long = 5, Optional ByVal B As Long = 6) ;; Debug.Print A * 10 + B ;; End Sub", "S ;; S B:=1 ;; S , 2", "56/51/52",
         DisplayName = "omitted, by name and by position")]
-    // an omitted argument that a ParamArray collects is an element that is missing, as an omitted Optional Variant is (MS-VBA: oracle\ismissing Q01-Q04).
+    // an omitted argument that a ParamArray collects is an element that is missing, as an omitted Optional Variant is (MS-VBA).
     [DataRow("Private Function T(ParamArray r() As Variant) As String ;; Dim k As Long, s As String ;; s = UBound(r) & \":\" ;; For k = 0 To UBound(r) ;; s = s & IsMissing(r(k)) & TypeName(r(k)) & \",\" ;; Next ;; T = s ;; End Function ;; "
         + "Private Function U(ByVal a As Long, ParamArray r() As Variant) As String ;; U = a & \":\" & UBound(r) & IsMissing(r(0)) & VarType(r(0)) ;; End Function ;; "
         + "Private Sub S(ParamArray r() As Variant) ;; Debug.Print UBound(r) & IsMissing(r(0)) ;; End Sub",

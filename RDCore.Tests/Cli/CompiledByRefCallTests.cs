@@ -15,7 +15,7 @@ using RDCore.SDK.Platform.Components;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A parameter passed by reference, and a variable compiled code passes by reference, is held in a cell (IR lowering S2.3c): the parameter is a second name
+/// A parameter passed by reference, and a variable compiled code passes by reference, is held in a cell: the parameter is a second name
 /// for its caller's variable (MS-VBAL §5.3.1.11) whichever engine runs either, and what the interpreter, a debugger or a frame made later sees of it is what
 /// compiled code wrote.
 /// </summary>

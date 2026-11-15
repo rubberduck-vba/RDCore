@@ -1,8 +1,7 @@
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// Whether variables of a numeric scalar type are held as payloads (<see cref="ScalarCell"/>), and expressions of them evaluated on payloads (IR
-/// lowering S1.2), or every value is held and evaluated boxed, as it was.
+/// Whether variables of a numeric scalar type are held as payloads (<see cref="ScalarCell"/>), and expressions of them evaluated on payloads, or every value is held and evaluated boxed, as it was.
 /// </summary>
 /// <remarks>
 /// It is on, unless the environment variable <c>RDCORE_UNBOXED</c> is <c>0</c>: the test suite is run both ways, the boxed evaluation being the oracle

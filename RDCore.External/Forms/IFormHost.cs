@@ -184,7 +184,7 @@ public interface IFormHost
     /// <summary>
     /// The focus leaves a form for good, as it does when the form is unloaded: the form is deactivated and closed, and the control that has the focus is left - the
     /// events of the extender MS-VBA wraps it in, its pending update (<c>BeforeUpdate</c>, asked once more when it is cancelled, then <c>AfterUpdate</c> unless it
-    /// is cancelled again) and its <c>Exit</c>, whose cancel changes nothing (Excel-measured, <c>oracle\s41</c> E01, E05, E10, E11). The form's window stays until
+    /// is cancelled again) and its <c>Exit</c>, whose cancel changes nothing (observed in Excel). The form's window stays until
     /// it is destroyed.
     /// </summary>
     /// <param name="form">The handle of the form.</param>
@@ -199,8 +199,8 @@ public interface IFormHost
 
     /// <summary>
     /// Says whether a program runs. While one does, the messages of the forms' windows wait - what their user does, what they draw, what Microsoft Forms posts to its
-    /// own windows - as MS-VBA dispatches none until the program waits for them (<see cref="DoEvents"/>, a modal <see cref="Show"/>) or ends (Excel-measured,
-    /// <c>oracle\s41</c> E09, E12 against E14, E15): a change Microsoft Forms has not taken in yet is the next focused control's update.
+    /// own windows - as MS-VBA dispatches none until the program waits for them (<see cref="DoEvents"/>, a modal <see cref="Show"/>) or ends (observed in Excel):
+    /// a change Microsoft Forms has not taken in yet is the next focused control's update.
     /// </summary>
     /// <param name="running">Whether a program runs.</param>
     void Hold(bool running)

@@ -19,7 +19,7 @@ namespace RDCore.Runtime.Execution;
 /// The handler is never looked up by the caller and never called by name.
 /// <para>
 /// A form's class is the exception: its lifecycle is the UserForm's, whose event procedures are named after it (<c>UserForm_Initialize</c>,
-/// <c>UserForm_Terminate</c>), and its <c>Class_Initialize</c> and <c>Class_Terminate</c> do not run (Excel-measured, <c>oracle\s41</c> L50). Creating one loads it,
+/// <c>UserForm_Terminate</c>), and its <c>Class_Initialize</c> and <c>Class_Terminate</c> do not run (observed in Excel). Creating one loads it,
 /// and its <c>Terminate</c> runs once: when it is let go of, unless <c>Unload</c> unloaded it before, which ran it then (<see cref="External.Forms.SessionForms"/>).
 /// </para>
 /// </remarks>

@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// arguments the target gives it, and what it returns is assigned through its default member; a Sub has no value to assign through.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA did with the same code, early-bound, in Excel (64-bit, en-US, oracle\s44 E01-E18, F01-F13): the compile error it
+/// Each expected outcome is what MS-VBA did with the same code, early-bound, in Excel (64-bit, en-US): the compile error it
 /// reported, or the error number the statement raised.
 /// </remarks>
 [TestClass]

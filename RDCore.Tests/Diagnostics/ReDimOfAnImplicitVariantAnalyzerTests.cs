@@ -9,7 +9,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11022</c>: a <c>ReDim</c> of a name the procedure used before it with no declaration, which MS-VBAL and vb6.exe re-dimension and MS-VBA refuses at
-/// compile time, "Invalid ReDim" (Excel-measured, oracle\findings-labels R01-R10; HexIDE findings desk #9, by the author's ruling).
+/// compile time, "Invalid ReDim" (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ReDimOfAnImplicitVariantAnalyzerTests

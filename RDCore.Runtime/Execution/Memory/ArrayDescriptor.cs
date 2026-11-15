@@ -8,7 +8,7 @@ namespace RDCore.Runtime.Execution.Memory;
 
 /// <summary>
 /// The <c>SAFEARRAY</c> a dynamic array, and a <c>Variant</c> holding an array, is a pointer to in the session's memory, as <strong>MS-VBA</strong> lays one
-/// out (recorded in Excel, oracle\s17 grid-p4): how many dimensions, its features, how wide an element is, how many locks it has, the address of its
+/// out (observed in Excel): how many dimensions, its features, how wide an element is, how many locks it has, the address of its
 /// elements, then each dimension's count and lower bound - the last dimension first.
 /// </summary>
 /// <remarks>

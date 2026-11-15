@@ -36,7 +36,7 @@ public interface IStdGlobalClass
     /// </summary>
     /// <remarks>
     /// A UserForm is asked first (<c>QueryClose</c>, with <c>vbFormCode</c>), and stays loaded when it cancels; otherwise its <c>Terminate</c> runs, its window is
-    /// destroyed, and a default instance is let go of, so that the next reference to it loads another (Excel-measured, <c>oracle\s41</c>).
+    /// destroyed, and a default instance is let go of, so that the next reference to it loads another (observed in Excel).
     /// </remarks>
     /// <param name="object">The form.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -49,7 +49,7 @@ public interface IStdGlobalClass
     /// </summary>
     /// <remarks>
     /// Declared <c>As Object</c>, as MS-VBA declares it: its members are late-bound, and what they are is the collection's, not any interface's a program could
-    /// name. It is the same object every time (Excel-measured, <c>oracle\s41</c> U01, U02).
+    /// name. It is the same object every time (observed in Excel).
     /// </remarks>
     [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
     public RuntimeSemanticsEvaluationResult<VBObjectValue> UserForms();
@@ -57,7 +57,7 @@ public interface IStdGlobalClass
 }
 
 /// <summary>
-/// The <c>UserForms</c> collection: the forms that are loaded, in the order they were, numbered from 0 (Excel-measured, <c>oracle\s41</c> U01-U19).
+/// The <c>UserForms</c> collection: the forms that are loaded, in the order they were, numbered from 0 (observed in Excel).
 /// </summary>
 /// <remarks>
 /// Its class is one MS-VBA names nothing - <c>TypeName(UserForms)</c> is <c>Object</c> - and nothing can declare a variable of it: it is reached late-bound, through

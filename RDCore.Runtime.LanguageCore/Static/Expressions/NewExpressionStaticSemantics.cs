@@ -55,7 +55,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
         }
 
         // MS-VBAL §5.2.3.1.4: a class of a library its type library does not say can be created - an interface (New Range), a class with no
-        // TYPEFLAG_FCANCREATE (New Office.CommandBars) - is no class New can create (MS-VBA, recorded in Excel: oracle\s62 X01, X05, s63 Y01, Y03, Y04).
+        // TYPEFLAG_FCANCREATE (New Office.CommandBars) - is no class New can create (MS-VBA, observed in Excel).
         if (result.Symbol is VBClassModuleSymbol libraryClass && libraryClass.GetProperty(SymbolProperties.Library) is { } library
             && !libraryClass.GetProperty(SymbolProperties.Creatable))
         {

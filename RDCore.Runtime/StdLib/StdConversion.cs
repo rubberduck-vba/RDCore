@@ -315,7 +315,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
 
             // "If the data value of the parameter Number has the value type LongLong, it is not coerced." Nor, in MS-VBA, is a number of any other
             // integer type: each is written in its own width - an Integer and a Boolean in 16 bits, a Long in 32, a LongPtr in its own - where the
-            // specification picks the width by the value (recorded in Excel, grid oracle\s43 X01-X16: Hex$(CLng(-7)) is FFFFFFF9, Hex$(CInt(-32768)) 8000).
+            // specification picks the width by the value (observed in Excel: Hex$(CLng(-7)) is FFFFFFF9, Hex$(CInt(-32768)) 8000).
             case VBLongLongValue longLong:
                 return Succeed(new VBStringValue(Digits(longLong.Value, radix, 64)));
             case VBLongPtrValue pointer:
@@ -372,8 +372,8 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             case VBNullValue:
                 return Fail<VBStringValue>(VBRuntimeErrorId.InvalidUseOfNull, "Str$ takes no Null.");
 
-            // MS-VBAL 6.1.2.3.1.20 gives an Error's text, "Error " and its code, which CStr gives; MS-VBA's Str raises a type mismatch (recorded in
-            // Excel: oracle\s56 G07, s57 E01; RD-VBAL 6.1.2.3.1.20).
+            // MS-VBAL 6.1.2.3.1.20 gives an Error's text, "Error " and its code, which CStr gives; MS-VBA's Str raises a type mismatch (observed in
+            // Excel; RD-VBAL 6.1.2.3.1.20).
             case VBErrorValue:
                 return Fail<VBStringValue>(VBRuntimeErrorId.TypeMismatch, "Str takes no Error value.");
 
@@ -462,7 +462,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     }
 
     // MS-VBA reads the digits of a radix number as the bits of an integer, typed by its width and by the type-declaration character after them, if any, much
-    // as a radix literal is (MS-VBAL §3.3.2), and the Double is that integer's value (recorded in Excel: oracle\s57 V01-V06, D01-D03). More than 64 bits
+    // as a radix literal is (MS-VBAL §3.3.2), and the Double is that integer's value (observed in Excel). More than 64 bits
     // overflow (6), whatever follows. Unsuffixed, up to 16 bits are an Integer and any more the low 32 bits of a Long: &HFFFF is -1, &H123456789 is
     // &H23456789. % is an Integer, which more than 16 bits overflow; & the low 32 bits of a Long; ^ a LongLong; ! # @ a Long when 32 bits hold them, and a
     // LongLong when they do not (&H8000! is 32768, &HFFFFFFFF! is -1). Null when the bits overflow.

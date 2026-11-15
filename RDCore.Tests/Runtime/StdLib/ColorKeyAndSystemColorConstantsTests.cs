@@ -4,7 +4,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 
 /// <summary>
 /// <strong>MS-VBAL §6.1.2.1, §6.1.2.9, §6.1.2.12</strong>: the ColorConstants, KeyCodeConstants and SystemColorConstants modules, as MS-VBA has them - every
-/// name, its type and its value, recorded in Excel (oracle\s27 grid-k, grid-p). A name MS-VBA does not have (<c>vbMajenta</c>, <c>vbButtonHighlight</c>) is
+/// name, its type and its value, observed in Excel. A name MS-VBA does not have (<c>vbMajenta</c>, <c>vbButtonHighlight</c>) is
 /// an undeclared variable there, as it is here.
 /// </summary>
 [TestClass]

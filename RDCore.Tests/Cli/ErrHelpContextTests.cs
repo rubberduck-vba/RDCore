@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <c>Err.HelpContext</c> as MS-VBA sets it: 1000000 and the number of a run-time error VBA raises or an <c>Err.Raise</c> or <c>Error</c> statement raises, 95
-/// for a number VBA does not define, 440 for one past 65535, and what an <c>Err.Raise</c> gives it (recorded in Excel: oracle\s57 H01).
+/// for a number VBA does not define, 440 for one past 65535, and what an <c>Err.Raise</c> gives it (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ErrHelpContextTests

@@ -109,11 +109,11 @@ public sealed class PredeclaredInstanceTests
     [DataRow("Set Widget = Nothing")]
     public void TheDefaultInstance_IsAValidTargetOfASetAssignment(string statement)
         // MS-VBAL 5.2.4.1.2 says "it is invalid for this named variable to be the target of a Set assignment"; MS-VBA compiles it and runs it
-        // (recorded in Excel, oracle\s18), and RD-VBA does what MS-VBA does (RD-VBAL 5.2.4.1.2).
+        // (observed in Excel), and RD-VBA does what MS-VBA does (RD-VBAL 5.2.4.1.2).
         => Assert.IsEmpty(Walk([statement], Widget("Attribute VB_PredeclaredId = True\r\n")));
 
     // the default instance of an extensible class - a document module, ThisWorkbook or Sheet1 - is a property of the host that extends it: MS-VBA reports
-    // "Invalid use of property" for a Set of it, whatever is assigned, the instance itself included (recorded in Excel, oracle\s18 D06-D08).
+    // "Invalid use of property" for a Set of it, whatever is assigned, the instance itself included (observed in Excel).
     [TestMethod]
     [DataRow("Set Widget = New Widget")]
     [DataRow("Set Widget = Nothing")]

@@ -142,7 +142,7 @@ public sealed class ObjectValueCompileErrorTests
     [DataRow("v = IIf(True, Nothing, 2)", Compiles)]
     public Task AnArgumentOfTheLibrary(string statement, string expected) => AssertCompiles(statement, expected);
 
-    // MS-VBA, Excel-measured (oracle s46 F16a-c): 438 when the object is one, 91 when the variable holds Nothing.
+    // MS-VBA, observed in Excel: 438 when the object is one, 91 when the variable holds Nothing.
     [TestMethod]
     [DataRow("l = New NoDflt", "438")]
     [DataRow("v = New NoDflt", "438")]

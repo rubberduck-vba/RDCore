@@ -20,8 +20,8 @@ namespace RDCore.Runtime.StdLib;
 /// one at all. So each is computed the way MS-VBA computes it, the VB runtime's algorithm - which <c>Microsoft.VisualBasic.Financial</c> ports to .NET -
 /// evaluated as MS-VBA's x87 code evaluates it: each statement's expression in the 80-bit extended format (<see cref="Float80"/>), its value stored in a
 /// <c>Double</c>, and a power by <see cref="Math.Pow"/>. The few places MS-VBA does otherwise - the order of <see cref="FV"/>'s terms, the totals of
-/// <see cref="NPV"/> and the quotient of <see cref="SYD"/> kept in 80 bits - are its own. What a function returns is MS-VBA's to the last bit (recorded in
-/// Excel, grid <c>oracle\s43</c>: 30 random calls of each function and the cases of F01-F09).
+/// <see cref="NPV"/> and the quotient of <see cref="SYD"/> kept in 80 bits - are its own. What a function returns is MS-VBA's to the last bit (observed in
+/// Excel: 30 random calls of each function).
 /// </para>
 /// <para>
 /// 👉 The specification names no error for any of these, so they are MS-VBA's, tabulated in RD-VBAL §6.1.2.6: an argument a function cannot compute with
@@ -578,8 +578,7 @@ public sealed class StdFinancial(IRuntimeSession session) : IStdFinancialModule
     // a Missing one, such as an omitted Optional Variant passed on - and stands for the value the specification
     // says an omitted one is. An explicit Empty is not an omitted argument but a value: it is 0, as it would be
     // Let-coerced to a Double parameter. Anything else is coerced to a Double the way a Let-coercion would: a String
-    // is read in the session's regional settings, as a required Double parameter's argument is (MS-VBA, Excel-verified,
-    // oracle\s40 F01-F16).
+    // is read in the session's regional settings, as a required Double parameter's argument is (MS-VBA, observed in Excel).
     private bool TryReadOptional(
         VBVariantValue? argument, double whenOmitted,
         out double number, out RuntimeSemanticsEvaluationResult<VBDoubleValue> error)
@@ -676,7 +675,7 @@ public sealed class StdFinancial(IRuntimeSession session) : IStdFinancialModule
     }
 
     // a Double calculation that overflows raises error 6 rather than producing an infinity, and so does one that has no numeric result at all - an
-    // infinity over an infinity, of a power past the range of a Double (MS-VBA: PV(0.05, 20000, -100) is 6 - grid oracle\s43 V01-V05). A negative zero
+    // infinity over an infinity, of a power past the range of a Double (MS-VBA: PV(0.05, 20000, -100) is 6, observed in Excel). A negative zero
     // is just zero.
     private static RuntimeSemanticsEvaluationResult<VBDoubleValue> Result(string function, double value)
         => double.IsFinite(value)

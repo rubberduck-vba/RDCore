@@ -15,7 +15,7 @@ namespace RDCore.Tests.Runtime.Memory;
 
 /// <summary>
 /// The <c>SAFEARRAY</c> a dynamic array, and a <c>Variant</c> holding an array, is a pointer to in the session's memory (<see cref="ArrayDescriptor"/>), as
-/// MS-VBA lays one out (recorded in Excel, oracle\s17 grid-p4 A01-A12, grid-p4b B01-B12).
+/// MS-VBA lays one out (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ArrayDescriptorTests

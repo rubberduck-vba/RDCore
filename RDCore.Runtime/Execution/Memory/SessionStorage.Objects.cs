@@ -9,7 +9,7 @@ using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.Execution.Memory;
 
-// the objects and the Variants of the session's memory, as MS-VBA lays them out (recorded in Excel, oracle\s17 O rows, V16, V22): an object variable is a
+// the objects and the Variants of the session's memory, as MS-VBA lays them out (observed in Excel): an object variable is a
 // pointer to an interface of the object (ObjectHeader), a Variant a VARIANT.
 internal sealed partial class SessionStorage
 {
@@ -22,7 +22,7 @@ internal sealed partial class SessionStorage
 
     /// <summary>
     /// The class an object is an instance of, as a key that is the same for every object of the class: what tells the objects whose interfaces begin with the
-    /// same pointer (oracle\s17 O07, O08). The session composes it; an object it knows no class of shares a table with every other such.
+    /// same pointer (observed in Excel). The session composes it; an object it knows no class of shares a table with every other such.
     /// </summary>
     public Func<VBRuntimeObjectId, string?>? ClassOf { get; set; }
 
@@ -32,7 +32,7 @@ internal sealed partial class SessionStorage
 
     /// <summary>
     /// Says that the variable at <paramref name="address"/> is an object, declared as <paramref name="declared"/>: its bytes are the address of the interface
-    /// of the object it holds that the type says (<c>ObjPtr</c>; recorded in Excel, oracle\s17 O03). What gives the address of a variable away (<c>VarPtr</c>)
+    /// of the object it holds that the type says (<c>ObjPtr</c>; observed in Excel). What gives the address of a variable away (<c>VarPtr</c>)
     /// says so of the ones it gives.
     /// </summary>
     public void HoldsObject(MemoryAddress address, VBType declared)

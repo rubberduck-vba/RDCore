@@ -13,7 +13,7 @@ public enum IneligibilityKind
 
     /// <summary>
     /// A <c>ParamArray</c> parameter: its elements are the caller's variables, passed by reference, which compiled code holds none of. A scalar parameter
-    /// passed by reference is compiled (IR lowering S2.3c).
+    /// passed by reference is compiled.
     /// </summary>
     ParameterByReference,
 
@@ -138,7 +138,7 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
 
     /// <summary>
     /// What the interpreter runs of a compiled procedure, one instruction at a time, and why: each instruction compiled code does not do yet, which it hands
-    /// to the interpreter alone, going on where the interpreter leaves the activation (IR lowering S2.5a). Empty for a procedure that is not compiled.
+    /// to the interpreter alone, going on where the interpreter leaves the activation. Empty for a procedure that is not compiled.
     /// </summary>
     public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
 
@@ -613,7 +613,7 @@ internal sealed record class CompiledField(int Slot, SDK.Model.Symbols.Abstract.
 }
 
 /// <summary>
-/// A call compiled code makes of a procedure that is compiled too (IR lowering S2.3b): the callee's typed entry, which the caller's IL calls with the
+/// A call compiled code makes of a procedure that is compiled too: the callee's typed entry, which the caller's IL calls with the
 /// arguments as they are, and what its activation is made of.
 /// </summary>
 /// <remarks>

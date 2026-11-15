@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// RD-VBAL §5.6.9.5: a <c>Variant</c> holding a <c>String</c>, compared with a number, a <c>Date</c> or a <c>Boolean</c> that is no <c>Variant</c>, is compared
 /// as the table says when the <c>String</c> is a value of the effective type, and ranks above it otherwise, raising nothing - where MS-VBAL §5.6.9.5's table
-/// makes it a type mismatch (13). Each row is the probe it was recorded with in Excel, under <c>On Error Resume Next</c> (grid <c>oracle\s48</c>).
+/// makes it a type mismatch (13). Each row is the probe it was observed with in Excel, under <c>On Error Resume Next</c>.
 /// </summary>
 [TestClass]
 public sealed class VariantStringComparedWithNumberTests

@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A statement whose target is bound (IR lowering S0.11) - a <c>Set</c>, an <c>LSet</c> or an <c>RSet</c> of a variable through its slot, a member of an
+/// A statement whose target is bound - a <c>Set</c>, an <c>LSet</c> or an <c>RSet</c> of a variable through its slot, a member of an
 /// object or a field of a record assigned through the member found once for each class, a <c>Mid</c> statement's operands let-coerced by their plans -
 /// writes what MS-VBAL 5.4.3 says it writes, and raises what it says it raises.
 /// </summary>

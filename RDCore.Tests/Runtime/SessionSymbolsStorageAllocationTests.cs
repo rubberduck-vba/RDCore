@@ -58,7 +58,7 @@ public sealed class SessionSymbolsStorageAllocationTests
 
         var handle = symbols.Resolver.GetValue(field);
 
-        // the cell holds the default: a cell of its own, which a variable of a scalar type holds as a payload (IR lowering S1.5).
+        // the cell holds the default: a cell of its own, which a variable of a scalar type holds as a payload.
         Assert.AreEqual(VBLongType.TypeInfo.DefaultValue.Handle.Value, handle.Value, "should hold the type's default value until assigned");
     }
 

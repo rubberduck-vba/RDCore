@@ -20,7 +20,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// <summary>
 /// A golden master of the static semantics of the operators and of let-coercion: the declared type, or the compile error, of every operator over every pair
 /// of a broad set of declared types, and whether each let-coercion between them is valid - compared line for line with what was recorded before the static
-/// semantics were reconciled with the operation and conversion plans (IR lowering S0.5). A line that differs is a change in behaviour.
+/// semantics were reconciled with the operation and conversion plans. A line that differs is a change in behaviour.
 /// </summary>
 /// <remarks>
 /// <para>

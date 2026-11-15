@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// MS-VBAL §5.6.9.3: a <c>Single</c> or <c>Double</c> operation of finite operands whose result is not finite overflows, unless an operand is a <c>Variant</c>
 /// and a <c>Double</c> holds the result; <c>^</c> raises 5 for a power that is no real number. Both ways: the payload evaluation declines what the boxed one
-/// raises (the suite is also run with <c>RDCORE_UNBOXED=0</c>). Every expected line was recorded in Excel (grid <c>oracle\s16</c> D01-D10, E01-E04).
+/// raises (the suite is also run with <c>RDCORE_UNBOXED=0</c>). Every expected line was observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class FloatingPointOverflowTests

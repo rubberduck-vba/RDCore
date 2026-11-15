@@ -262,8 +262,7 @@ internal sealed class CoreLanguageServerApp(
         {
             LogIfEnabled(LogLevel.Error, $"❌ Workspace could not be loaded:\n{exception}");
 
-            // a project file that is not JSON, or is missing, otherwise only showed later, as a didOpen error that did not say what was wrong (HexIDE's
-            // findings desk #26).
+            // a project file that is not JSON, or is missing, otherwise only showed later, as a didOpen error that did not say what was wrong.
             server.Window.ShowMessage(new ShowMessageParams
             {
                 Type = MessageType.Error,

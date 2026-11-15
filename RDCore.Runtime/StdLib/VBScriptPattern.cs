@@ -16,7 +16,7 @@ namespace RDCore.Runtime.StdLib;
 /// option of .NET's to mean what it says.
 /// </para>
 /// <para>
-/// What MS-VBA does, recorded in Excel (oracle\s26): <c>\d</c>, <c>\w</c>, <c>\s</c> and <c>\b</c> are ASCII; <c>.</c> is any character but a line feed;
+/// What MS-VBA does, observed in Excel: <c>\d</c>, <c>\w</c>, <c>\s</c> and <c>\b</c> are ASCII; <c>.</c> is any character but a line feed;
 /// <c>^</c> and <c>$</c> are the start and the very end of the text, or of a line, which a carriage return, a line feed, U+2028 or U+2029 each end; a
 /// backreference to a group that has not matched fails; a group inside a repetition is what it matched last. A letter matches its other case when the two
 /// are the same in lower case - except the Kelvin, Ohm and Angstrom signs, which are not their letters - so the text is matched in lower case, character for
@@ -385,7 +385,7 @@ internal sealed class VBScriptPattern
                     }
                     else
                     {
-                        // \c and no letter: what JScript makes of it matches nothing (oracle\s26 U01).
+                        // \c and no letter: what JScript makes of it matches nothing (observed in Excel).
                         _expression.Append("(?!)");
                     }
 

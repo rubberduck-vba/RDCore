@@ -6,8 +6,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// An error a <c>Class_Terminate</c> leaves unhandled ends the program: MS-VBA reports it as an unhandled run-time error whatever <c>On Error</c> is in
 /// effect where the object was let go of - <c>On Error Resume Next</c>, a handler of the caller's - and whatever let go of it: a <c>Set</c>, a
-/// reassignment, a local at the end of its procedure, an <c>Erase</c>, a collection let go of. One the handler handles is no error to anything (recorded in
-/// Excel, grid <c>oracle\s44</c> T01-T15, U05).
+/// reassignment, a local at the end of its procedure, an <c>Erase</c>, a collection let go of. One the handler handles is no error to anything (observed in
+/// Excel).
 /// </summary>
 [TestClass]
 public sealed class TerminateErrorTests

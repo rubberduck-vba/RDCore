@@ -894,7 +894,7 @@ public partial class ModuleParser(
     private static partial Regex ConditionalBlockPattern();
 
     // MS-VBA joins at most 25 physical lines into one logical line: 24 line-continuations in a row, and the 25th is a syntax error, "Too many line continuations"
-    // (MS Learn; recorded in Excel: oracle\size-limits B01-B03). MS-VBAL leaves the length of a line to the implementation (3.2.1).
+    // (MS Learn; observed in Excel). MS-VBAL leaves the length of a line to the implementation (3.2.1).
     private const int MaxLineContinuations = 24;
 
     // reports the line-continuation after the 24th of a logical line, once for that line.
@@ -921,7 +921,7 @@ public partial class ModuleParser(
     }
 
     // RD-VBA reads an expression nested in at most 2,500 others: MS-VBA runs a chain of 2,500 terms (2,499 additions), 2,000 nested parentheses and 1,000
-    // nested calls, and crashes the host past the chain, with no error (recorded in Excel: oracle\s65). MS-VBAL leaves the depth of an expression to the
+    // nested calls, and crashes the host past the chain, with no error (observed in Excel). MS-VBAL leaves the depth of an expression to the
     // implementation. RD-VBAL: a deeper expression is a syntax error, kept as text and not analyzed.
     internal const int MaxExpressionNesting = 2500;
 

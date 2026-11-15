@@ -246,7 +246,7 @@ public static class PayloadOperations
 
     /// <summary>
     /// <c>-operand</c> of a constant expression, of an integer type or a <c>Currency</c>: MS-VBA negates the least <c>Long</c> as the <c>Long</c> it is
-    /// (recorded in Excel: oracle\s58 N07, N10, N12), and any other value as <see cref="Negate(ScalarKind, long, out long)"/> does.
+    /// (observed in Excel), and any other value as <see cref="Negate(ScalarKind, long, out long)"/> does.
     /// </summary>
     public static PayloadStatus NegateConstant(ScalarKind kind, long operand, out long result)
     {

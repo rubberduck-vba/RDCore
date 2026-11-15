@@ -44,7 +44,7 @@ public sealed class DefaultInstanceTests
         "Option Explicit",
         "Public Function Make(ByVal v As Long) As IThing", "    Set Make = Thing.Create(v)", "End Function"));
 
-    // the class of the Excel grid oracle\s18: a predeclared class whose objects count their Initialize and Terminate.
+    // the class of the Excel observations: a predeclared class whose objects count their Initialize and Terminate.
     private static readonly (string Name, string Source) Widget = ("Widget", ClassModule("Widget",
         "Attribute VB_PredeclaredId = True",
         "Option Explicit",
@@ -104,7 +104,7 @@ public sealed class DefaultInstanceTests
             "Set t = New Thing",
             "Debug.Print t.Value"));
 
-    // MS-VBAL §5.2.4.1.2 says a default instance cannot be the target of a Set; MS-VBA compiles one and runs it (oracle\s18 D02): the object it held is
+    // MS-VBAL §5.2.4.1.2 says a default instance cannot be the target of a Set; MS-VBA compiles one and runs it (observed in Excel): the object it held is
     // let go of, and terminates, and the next reference to the class's name makes another - with the state a new object has.
     [TestMethod]
     public async Task ADefaultInstanceSetToNothing_IsLetGoOf_AndTheNextReferenceMakesAnother()
@@ -116,7 +116,7 @@ public sealed class DefaultInstanceTests
             "Debug.Print Widget.Size",
             "Debug.Print Initialized"));
 
-    // oracle\s18 D03: a default instance can be given another object of its class.
+    // a default instance can be given another object of its class.
     [TestMethod]
     public async Task ADefaultInstance_CanBeSetToAnotherObject()
         => CollectionAssert.AreEqual(new[] { "0", "False" }, await RunAsync(
@@ -148,7 +148,7 @@ public sealed class DefaultInstanceTests
     }
 
     // the host's Debug object is only ever written as its own statements, Debug.Print and Debug.Assert: anywhere else MS-VBA reads the name as a syntax error,
-    // and that is the one error (oracle\s18 D09, D11-D17).
+    // and that is the one error (observed in Excel).
     [TestMethod]
     [DataRow("Set Debug = Nothing", DisplayName = "the target of a Set")]
     [DataRow("Let Debug = 1", DisplayName = "the target of a Let")]

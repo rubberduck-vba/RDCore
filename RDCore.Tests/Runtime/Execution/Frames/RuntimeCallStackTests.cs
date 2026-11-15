@@ -121,7 +121,7 @@ public sealed class RuntimeCallStackTests
         Assert.AreSame(frame, popped);
     }
 
-    // an activation compiled code put on the stack without a frame (IR lowering S2.3b2), whose frame can be made, or not.
+    // an activation compiled code put on the stack without a frame, whose frame can be made, or not.
     private sealed class Light(CallStackFrame frame) : ILightActivation
     {
         public bool Fails { get; set; }

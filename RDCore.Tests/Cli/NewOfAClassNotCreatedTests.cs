@@ -9,7 +9,7 @@ namespace RDCore.Tests.Cli;
 /// <strong>MS-VBAL §5.6.8</strong> and <strong>§5.2.3.1.4</strong>: <c>New</c> of a class its library says can be created compiles, and one it does not say it
 /// of - an interface, a class with no <c>TYPEFLAG_FCANCREATE</c> - is an invalid use of <c>New</c>. <c>ErrObject</c> is one the library says can be created and
 /// nothing creates: creating one raises run-time error -2147221164 <em>Class not registered</em>. Each expectation is what MS-VBA did with the same code,
-/// recorded in Excel (oracle\s62 X01-X11, s63 Y01-Y08).
+/// observed in Excel.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.6.8 New Expressions")]

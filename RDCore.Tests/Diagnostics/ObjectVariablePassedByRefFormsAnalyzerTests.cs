@@ -10,7 +10,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11026</c> whatever takes the copy: a <c>ParamArray</c>, a <c>Declare</c>d procedure, the handlers of a raised event; and an element of an object's
-/// variable. <c>RDC11029</c>, a hint, for a procedure called late. Each is what MS-VBA passes as a copy, recorded in Excel (oracle\s58 B01, F01-F05, s59 M04).
+/// variable. <c>RDC11029</c>, a hint, for a procedure called late. Each is what MS-VBA passes as a copy, observed in Excel.
 /// Both analyzers run on every row, so a row has the one finding it should and not the other's.
 /// </summary>
 [TestClass]

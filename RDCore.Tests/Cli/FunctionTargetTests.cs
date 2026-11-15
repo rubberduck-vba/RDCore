@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>MS-VBAL §5.4.3.8, §5.4.3.9, §5.4.3.4</strong>: a function - of the library, of the workspace, a <c>Declare</c> - or a property of a module with no
 /// accessor for it, named as the target of a <c>Let</c>, a <c>Set</c>, or an element of an <c>Erase</c> outside its own body, is a call of it: what it returns
-/// is assigned through, or erased. What cannot be one is the compile error MS-VBA reports, and what can is called when it runs (Excel-verified, oracle\s28).
+/// is assigned through, or erased. What cannot be one is the compile error MS-VBA reports, and what can is called when it runs (observed in Excel).
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.8 Let Statement")]
@@ -80,7 +80,7 @@ public sealed class FunctionTargetTests
         "Public Property Set Inner(ByVal o As Object)", "    Set mInner = o", "End Property"));
 
     // MS-VBAL §5.4.3.9: what the call returns is Set through its default member, which is Set-coerced to what that member's Property Set takes, and not to
-    // what the call returns (MS-VBA, Excel-measured, oracle\s31 D01-D05: the default member is set, error 0).
+    // what the call returns (MS-VBA, observed in Excel: the default member is set, error 0).
     [TestMethod]
     [DataRow("Set One = New Collection", DisplayName = "D01 a function of the class")]
     [DataRow("Set AsVariant = New Collection", DisplayName = "D02 a Variant function that returns one")]

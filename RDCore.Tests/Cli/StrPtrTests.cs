@@ -3,8 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <c>StrPtr</c>: the address of the characters of a <c>String</c> in the session's memory, as <strong>MS-VBA</strong> gives it (recorded in Excel, oracle\s17
-/// S rows) - <c>0</c> for <c>vbNullString</c>, the characters of the very <c>String</c> it is passed, the same until another is assigned, and a copy's for a
+/// <c>StrPtr</c>: the address of the characters of a <c>String</c> in the session's memory, as <strong>MS-VBA</strong> gives it (observed in Excel) - <c>0</c> for <c>vbNullString</c>, the characters of the very <c>String</c> it is passed, the same until another is assigned, and a copy's for a
 /// copy.
 /// </summary>
 [TestClass]

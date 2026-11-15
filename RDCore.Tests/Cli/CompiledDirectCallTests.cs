@@ -11,8 +11,8 @@ using RDCore.SDK.Platform.Components;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A call compiled code makes of a procedure that is compiled too goes through the callee's typed entry, with the arguments as compiled code holds them
-/// (IR lowering S2.3b): what the program does, and what each thing that reads its activations sees of it - a debugger's stack and variables, an edit applied
+/// A call compiled code makes of a procedure that is compiled too goes through the callee's typed entry, with the arguments as compiled code holds them:
+/// what the program does, and what each thing that reads its activations sees of it - a debugger's stack and variables, an edit applied
 /// while it waits, the stack trace of an error - is what it is when the interpreter makes the call.
 /// </summary>
 [TestClass]
@@ -551,7 +551,7 @@ public sealed class CompiledDirectCallTests
     }
 
     // error 28 is raised as deep in a recursion compiled code makes directly as in one the interpreter makes: the activations without a frame are counted as the
-    // frames are (IR lowering S2.3b2). Not handled, the error's stack trace has every one of them.
+    // frames are. Not handled, the error's stack trace has every one of them.
     [TestMethod]
     public async Task ARecursionThatNeverEnds_IsOutOfStackSpace_AsDeepAsWhenTheInterpreterMakesIt()
     {
@@ -603,7 +603,7 @@ public sealed class CompiledDirectCallTests
         }
     }
 
-    // how many activations of the procedures named, called directly, were given a frame after the call, and how many were made (IR lowering S2.3b2): the
+    // how many activations of the procedures named, called directly, were given a frame after the call, and how many were made: the
     // program run compiled.
     private static async Task<(long Frames, long Activations)> MadeAsync(string program, params string[] callees)
     {
@@ -619,7 +619,7 @@ public sealed class CompiledDirectCallTests
 
     private static async Task<long> FramesMadeAsync(string program, params string[] callees) => (await MadeAsync(program, callees)).Frames;
 
-    // an activation of a call made directly is on the stack without a frame while nothing looks at the stack (IR lowering S2.3b2): Twice is called a hundred
+    // an activation of a call made directly is on the stack without a frame while nothing looks at the stack: Twice is called a hundred
     // times, and given no frame, each call in the activation the call before was in.
     [TestMethod]
     public async Task ACalleeCalledDirectly_IsGivenNoFrame_WhileNothingLooksAtTheStack()

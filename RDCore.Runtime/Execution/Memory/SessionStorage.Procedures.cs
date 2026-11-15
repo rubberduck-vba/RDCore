@@ -16,7 +16,7 @@ internal sealed partial class SessionStorage
     /// <summary>
     /// The address of <paramref name="procedure"/>, a procedure of a standard module: what <c>AddressOf</c> is (<strong>MS-VBAL §5.6.16.8</strong>). It is made
     /// the first time it is asked for, and is the same for as long as the session runs - bare or qualified by its module, it is the procedure's, and another
-    /// procedure has another (<strong>MS-VBA</strong>, recorded in Excel: oracle\s17 A01, A06).
+    /// procedure has another (<strong>MS-VBA</strong>, observed in Excel).
     /// </summary>
     /// <remarks>
     /// The address is the session's, as every address <c>VarPtr</c>, <c>StrPtr</c> and <c>ObjPtr</c> give is: what is at it reads as zeros, and nothing writes

@@ -237,7 +237,7 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         }
 
         // a form that was unloaded is an object whose form is gone, which MS-VBA calls a UserForm whatever form it was; a class of the library whose objects MS-VBA
-        // names otherwise is what it says (oracle\s41 U15, U01).
+        // names otherwise is what it says (recorded in Excel).
         if (Execution.External.Forms.SessionForms.Of(session).IsUnloaded(reference.Value))
         {
             return SDK.Workspace.Forms.FormObject.ClassName;

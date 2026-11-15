@@ -63,7 +63,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
     private static string GlobalKey(string member) => StdLibSymbolReader.ExternalTargetOf(typeof(IStdGlobalClass), typeof(IStdGlobalClass).GetMethod(member)!);
 
-    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (oracle\s41 L51).
+    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (observed in Excel).
     private const int FormUnloaded = unchecked((int)0x80010007);
 
     // REGDB_E_CLASSNOTREG: a form no host can create is a class that is not registered, error 429.
@@ -75,7 +75,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     /// </summary>
     public ICallableBindingFactory? Bindings { get; set; }
 
-    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, oracle\s41 C06, C10): Microsoft
+    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, observed in Excel): Microsoft
     // Forms itself would remove it.
     private const string RemoveKey = FormDesigner.MSFormsLibrary + ".Controls.Remove/method";
 
@@ -113,7 +113,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
         try
         {
-            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (oracle\s41 L15, L51, L52).
+            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (observed in Excel).
             if (SessionForms.Of(session).IsUnloaded(identity))
             {
                 throw new AutomationException(FormUnloaded, $"the form '{form}' was unloaded.");
@@ -198,7 +198,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     }
 
     // Load, which the reference to its argument has done already, and Unload: QueryClose (vbFormCode), which can cancel it; then Terminate, the form's window,
-    // and its default instance, which the next reference makes again (oracle\s41 L10-L19).
+    // and its default instance, which the next reference makes again (observed in Excel).
     private RuntimeSemanticsEvaluationResult LoadOrUnload(ExternalCallRequest request, IRuntimeSymbolResolver resolver, bool unload)
     {
         if (FormArgument(request, resolver) is not { } identity)

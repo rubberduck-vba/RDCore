@@ -70,7 +70,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
         // a Variant reference parameter given a variable that is no array - a Long, a String, an object - can't make it one, and one given an array of
         // another element type than the As clause states can't change the type it is declared with: MS-VBA raises 13 and the variable keeps what it
-        // held, with Preserve too (recorded in Excel: oracle\s56 D01-D04, D11).
+        // held, with Preserve too (observed in Excel).
         if (target.IsReferenced && (target.Declared is not (null or VBArrayType or VBVariantType)
             || target.Declared is VBArrayType { ItemType: var item } && ClauseTypeOf(session, context, redim) is { } clause && !IsSameType(item, clause)))
         {
@@ -85,7 +85,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
         }
 
         // a resizable array parameter bound to a fixed-size array (a ReDim of the array itself is a compile error) can't resize it: MS-VBA raises 10, the
-        // array keeping its bounds - with Preserve too (recorded in Excel, grid oracle\s16 B02, B08). A Variant that holds a copy of one is resized.
+        // array keeping its bounds - with Preserve too (observed in Excel). A Variant that holds a copy of one is resized.
         if (target.Current is VBFixedSizeArrayValue)
         {
             return Failed(redim, VBRuntimeErrorId.ThisArrayIsFixedOrTemporarilyLocked, $"{redim.Name} is fixed");
@@ -93,14 +93,14 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
         if (!TryEvaluateBounds(session, context, redim, out var bounds, out var boundsKnown, out var inverted, out var oneBelow, out var failure))
         {
-            // bounds whose upper is below their lower (MS-VBA, recorded in Excel: oracle\findings-labels cases-redim3, cases-redim4; oracle\s56 R03-R07, F01-F13):
-            // - a ReDim Preserve raises 9 and keeps the array, or 13 first for a Variant that holds no array (cases-redim4 B05);
-            // - a ReDim of a variable declared as an array raises 9, and the array loses its dimensions (R03, R04, F01, F02, F08, F09);
-            // - a ReDim of a Variant one below raises 9 and keeps what it held (R06, F05, F06, F10); further below, 7, and it is left Empty
-            //   (cases-redim3 N01, cases-redim4 B01, B02, F03, F04; vb6.exe too, HexIDE's findings desk #9);
+            // bounds whose upper is below their lower (MS-VBA, observed in Excel):
+            // - a ReDim Preserve raises 9 and keeps the array, or 13 first for a Variant that holds no array;
+            // - a ReDim of a variable declared as an array raises 9, and the array loses its dimensions;
+            // - a ReDim of a Variant one below raises 9 and keeps what it held; further below, 7, and it is left Empty
+            //   (vb6.exe too);
             // - a ReDim of a Variant parameter given a variable declared as an array is a Variant's, read from the parameter and not from the array it
             //   shares: one below raises 9 and the array keeps its bounds and elements, further below raises 7 and the array loses its dimensions, as it
-            //   can't be left Empty (oracle\s68 V03-V09, VV13-VV19). A parameter declared as an array is the array's (LA33-LA39).
+            //   can't be left Empty. A parameter declared as an array is the array's.
             if (inverted && redim.IsPreserve && target.Declared is not VBArrayType && Unwrapped(target.Current) is not VBArrayValue)
             {
                 return Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
@@ -125,9 +125,8 @@ public sealed record class ArrayStatementRuntimeSemantics(
         }
 
         // an array RD-VBA can't hold a cell for each element of is out of memory: MS-VBA (64-bit) allocates the 2,147,483,648 bytes of
-        // `ReDim b(2147483647) As Byte` and a billion Longs (recorded in Excel: oracle\s56 I07, I09, B09). A ReDim that is out of memory has let go of what
-        // the variable held, as MS-VBA's does: a variable declared as an array loses its dimensions, and a Variant is left Empty (oracle\s68 V10, VV20,
-        // LA40, BV30, VW50, W60; s68b T01, T03-T05, L03, L07). A ReDim Preserve keeps it (s68b P01-P05).
+        // `ReDim b(2147483647) As Byte` and a billion Longs (observed in Excel). A ReDim that is out of memory has let go of what
+        // the variable held, as MS-VBA's does: a variable declared as an array loses its dimensions, and a Variant is left Empty. A ReDim Preserve keeps it.
         if (VBArrayValue.LengthOf(bounds) > VBArrayValue.MaximumLength)
         {
             var outOfMemory = Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: more than {VBArrayValue.MaximumLength} elements");
@@ -150,15 +149,15 @@ public sealed record class ArrayStatementRuntimeSemantics(
         {
             // "Runtime Error 13 is raised if the declared type of a redimensioned variable is Variant and its
             // value type is not an array" - which MS-VBA reads as a ReDim Preserve, the one that has the elements of an array to keep: a plain
-            // ReDim makes the Variant an array whatever it held, a number, a String, an object or Null (recorded in Excel, oracle\findings-labels
-            // V01, V04-V06), and a ReDim Preserve of a Variant that holds no array raises 13 (V02), the Empty it starts as too, and leaves what it held
-            // (oracle\s44 H01-H05, H07). A variable declared as an array that holds nothing yet is dimensioned.
+            // ReDim makes the Variant an array whatever it held, a number, a String, an object or Null (observed in Excel),
+            // and a ReDim Preserve of a Variant that holds no array raises 13, the Empty it starts as too, and leaves what it held.
+            // A variable declared as an array that holds nothing yet is dimensioned.
             return redim.IsPreserve && target.Declared is not VBArrayType
                 ? Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array")
                 : Store(session, context, redim, target, Redimensioned(Resized(session, bounds, stated ?? ItemTypeOf(target.Current))));
         }
 
-        // an array that was never dimensioned has no bounds for Preserve to keep, nor an element: MS-VBA dimensions it (recorded in Excel, oracle\s20 S05),
+        // an array that was never dimensioned has no bounds for Preserve to keep, nor an element: MS-VBA dimensions it (observed in Excel),
         // the first ReDim Preserve of a list that grows as it is added to.
         return redim.IsPreserve && array.IsInitialized
             ? Preserved(session, context, redim, target, array, bounds, boundsKnown)
@@ -239,7 +238,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
     {
         foreach (var input in statement.Inputs.OfType<ExpressionNode>())
         {
-            // `Erase f()` erases the array `f()` is, which is `f` (MS-VBAL §5.6.13.1; MS-VBA, oracle\s53 E06, F06).
+            // `Erase f()` erases the array `f()` is, which is `f` (MS-VBAL §5.6.13.1; MS-VBA, observed in Excel).
             var element = RuntimeExpressionEvaluator.TheArrayItself(session, context, input);
 
             // §5.4.3.4 allows any l-expression classified as a variable, property, function or unbound member: a simple name is a symbol, and
@@ -247,7 +246,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
             var name = element is SimpleNameExpressionNode simpleName ? simpleName.IdentifierName : element.ToString() ?? string.Empty;
 
             // a function named outside its own body - a property of a module too - is called, and what it returns is erased: an array it returns is a copy
-            // nothing else holds, and anything else is error 13 (MS-VBA, oracle\s28 B19, B21, B22). What cannot return an array is a compile error.
+            // nothing else holds, and anything else is error 13 (MS-VBA, observed in Excel). What cannot return an array is a compile error.
             if (NamesAFunction(session, context, element))
             {
                 var returned = Expressions.Evaluate(session, element, context);
@@ -359,7 +358,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
         }
 
         // MS-VBAL §5.3.1.11: a Variant reference parameter given a variable of another type is that variable - `Grow arr` of `Grow(a As Variant)` with
-        // `Dim arr() As Long` re-dimensions arr, which stays a Long() (MS-VBA, recorded in Excel: oracle\s56 I03, I04), and raises 10 for a fixed-size one (I05).
+        // `Dim arr() As Long` re-dimensions arr, which stays a Long() (MS-VBA, observed in Excel), and raises 10 for a fixed-size one.
         VBType? referenced = null;
         var isReferenced = session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out referenced);
         var declared = isReferenced ? referenced : (symbol as ITypedSymbol)?.ResolvedType;
@@ -570,9 +569,9 @@ public sealed record class ArrayStatementRuntimeSemantics(
             {
                 // inverted bounds are error 9 - unless a bound is not known: the one it assumes may be what inverts them. The array then has
                 // the one element its lower bound gives it, which nothing read from it relies on. An upper bound one below the lower gives the
-                // dimension no element, which a Variant is told apart by: any dimension of it, the second deciding in I06 (oracle\s56 I05, I06):
+                // dimension no element, which a Variant is told apart by: any dimension of it, the second deciding (observed in Excel):
                 // every bound is evaluated, then the first inverted dimension's error raised. A bound after an inverted dimension is evaluated too, its
-                // side effects with it, and one that is no number raises 13, or 6 when it overflows, rather than the 9 (oracle\s58 R01-R05).
+                // side effects with it, and one that is no number raises 13, or 6 when it overflows, rather than the 9.
                 if (dimensionKnown)
                 {
                     oneBelow |= upper == lower - 1;

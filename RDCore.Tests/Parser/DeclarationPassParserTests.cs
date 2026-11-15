@@ -2610,7 +2610,7 @@ End Sub
     [TestMethod]
     // a Tab or Spc clause before the `=` is still in an output list, so the statement is no Let; and what follows the clause is no item of the list. MS-VBAL
     // would read `Tab(2) = 5` as the clause `Tab` right before the item `(2) = 5`; RD-VBA requires a separator between two clauses (RD-VBAL 5.4.5.8), and MS-VBA
-    // refuses each of these, kept as typed, with "Compile error: Syntax error" (Excel, oracle\s70 A14-A17).
+    // refuses each of these, kept as typed, with "Compile error: Syntax error" (observed in Excel).
     [DataRow("Debug.Print Tab(2) = 5")]
     [DataRow("Debug.Print Spc(2) = 5")]
     [DataRow("Debug.Print Tab = 5")]

@@ -7,8 +7,7 @@ namespace RDCore.Tests.Cli;
 /// to a resizable array (§5.4.3.8).
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed, or the compile error it reported, for the same code in Excel (64-bit, en-US, oracle\findings-labels
-/// <c>cases-redim2.txt</c>, <c>cases-redim.txt</c>).
+/// Each expected outcome is what MS-VBA printed, or the compile error it reported, for the same code in Excel (64-bit, en-US).
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.3 ReDim")]
@@ -43,8 +42,7 @@ public sealed class RedimOfAVariantTests
     public async Task AVariantThatHoldsAValue(string body, string expected)
         => Assert.AreEqual(expected, (await RunAsync([], Program(body))).Last());
 
-    // an upper bound below the lower: 7 for a Variant, which is left Empty; 9 for a variable declared as an array (cases-redim4 B01, B02, B05;
-    // cases-redim3 B03, B04, N01; vb6.exe gives HexIDE's findings desk #9 probe the same 7).
+    // an upper bound below the lower: 7 for a Variant, which is left Empty; 9 for a variable declared as an array (vb6.exe gives the same 7).
     [TestMethod]
     [DataRow("Dim q ;; q = 5 ;; ReDim q(5 To 2) ;; Debug.Print Err.Number & \" \" & TypeName(q)", "7 Empty", DisplayName = "B01 a Variant that holds a number")]
     [DataRow("Dim q ;; ReDim q(5 To 2) ;; Debug.Print Err.Number & \" \" & TypeName(q)", "7 Empty", DisplayName = "B02 a Variant that holds nothing yet")]
@@ -55,7 +53,7 @@ public sealed class RedimOfAVariantTests
     public async Task AnUpperBoundBelowTheLower(string body, string expected)
         => Assert.AreEqual(expected, (await RunAsync([], Program(body))).Last());
 
-    // what an array is left with (oracle\s56 R03-R07, F01-F13; HexIDE's findings desk, redim-one-below): a variable declared as an array raises 9 and loses its
+    // what an array is left with (observed in Excel): a variable declared as an array raises 9 and loses its
     // dimensions, and keeps them with Preserve; a Variant one below raises 9 and keeps what it held, and further below raises 7 and is left Empty. Each
     // row prints the error, then each read on its own line, a read that fails as e and its error.
     [TestMethod]
@@ -86,7 +84,7 @@ public sealed class RedimOfAVariantTests
     }
 
     // every bound is evaluated, its side effects with it, before an inverted dimension's 9, whichever dimension is inverted: a bound that is no number
-    // is 13 and one that overflows 6 (oracle\s58 R01-R05). Bump counts its calls; each P prints the error and clears it.
+    // is 13 and one that overflows 6 (observed in Excel). Bump counts its calls; each P prints the error and clears it.
     [TestMethod]
     [DataRow("Dim a() As Long ;; ReDim a(5 To 4, 1 To \"x\") ;; P ;; ReDim a(1 To \"x\", 5 To 4) ;; P ;; ReDim a(5 To 4, 1 To 2 ^ 40) ;; P", "e13|e13|e6",
         DisplayName = "R01 a Long(), a bound that is no number or overflows")]
@@ -136,7 +134,7 @@ public sealed class RedimOfAVariantTests
         StringAssert.StartsWith(Assert.ContainsSingle(errors), "Can't assign to array");
     }
 
-    // A02's `y = Empty` compiles and raises 13 (findings desk #17), which keeps the Variant() it printed.
+    // A02's `y = Empty` compiles and raises 13, which keeps the Variant() it printed.
     [TestMethod]
     [DataRow("ReDim y(2) ;; y = Array(1, 2) ;; Debug.Print TypeName(y)", "Variant()", DisplayName = "A01 an array")]
     [DataRow("Dim a() As Variant ;; a = Array(1, 2) ;; Debug.Print UBound(a)", "1", DisplayName = "A05 an array to a Variant()")]

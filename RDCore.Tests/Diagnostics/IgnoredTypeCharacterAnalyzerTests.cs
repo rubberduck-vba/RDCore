@@ -9,7 +9,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11019</c>: a reserved function of the library written with a type character that does not match its type, which MS-VBAL §5.6.10 makes invalid and
-/// MS-VBA ignores (Excel-measured, oracle\s46 F18, oracle\s44 D01-D18; HexIDE findings desk #18).
+/// MS-VBA ignores (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class IgnoredTypeCharacterAnalyzerTests

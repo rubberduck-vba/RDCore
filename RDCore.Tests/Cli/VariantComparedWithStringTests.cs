@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Variant</c> holding a number, a <c>Date</c> or a <c>Boolean</c>, compared with a <c>String</c> that is no <c>Variant</c>, is compared as text: MS-VBA
 /// let-coerces the <c>Variant</c>'s value to <c>String</c>, as Microsoft Learn documents it, where <strong>MS-VBAL §5.6.9.5</strong>'s table makes the
-/// effective type the number's - a type mismatch (13) when the <c>String</c> is no number. Every row is Excel's (oracle\s41 V01-V08, W01-W10).
+/// effective type the number's - a type mismatch (13) when the <c>String</c> is no number. Every row was observed in Excel.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.5 Relational Operators")]
@@ -45,7 +45,7 @@ public sealed class VariantComparedWithStringTests
     public async Task AComparisonOfAnotherKind_IsAsSpecified(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
 
-    // an arithmetic or & expression with a Variant operand is a Variant, and is compared as one (oracle\s56 G02, G09-G11).
+    // an arithmetic or & expression with a Variant operand is a Variant, and is compared as one.
     [TestMethod]
     [DataRow(new[] { "Dim v As Variant: v = 1", "Debug.Print (v + 1) = \"2.0\"", "Debug.Print (v + 1) = \"2\"", "Debug.Print \"2.0\" = (v + 1)", "Debug.Print (v + 1) > \"10\"" },
         new[] { "False", "True", "False", "True", "0" }, DisplayName = "G02 v + 1")]
@@ -58,8 +58,7 @@ public sealed class VariantComparedWithStringTests
     public async Task AnExpressionOverAVariant_IsComparedAsAVariant(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
 
-    // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL's table makes the effective type the number's (oracle\s56 G01,
-    // G03-G05, G07, G08, G12).
+    // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL's table makes the effective type the number's.
     [TestMethod]
     [DataRow(new[] { "Dim v As Variant: v = \"2.5\"", "Debug.Print v = 2", "Debug.Print 2 = v", "Debug.Print v = 2.5", "Debug.Print v > 2", "Debug.Print v = CLng(2)", "Debug.Print v = 2#" },
         new[] { "False", "False", "True", "True", "False", "False", "0" }, DisplayName = "G01 a Variant \"2.5\"")]
@@ -80,7 +79,7 @@ public sealed class VariantComparedWithStringTests
     public async Task AStringComparedWithAnIntegralNumber_IsComparedAsADouble(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
 
-    // MS-VBA compares a Variant String with a Single or a LongLong as Doubles too, and a declared String with a Single as a Single (oracle\s56 H02-H04).
+    // MS-VBA compares a Variant String with a Single or a LongLong as Doubles too, and a declared String with a Single as a Single.
     [TestMethod]
     [DataRow(new[] { "Dim v As Variant: v = \"0.1\"", "Dim f As Single: f = 0.1", "Debug.Print v = f", "Dim s As String: s = \"0.1\"", "Debug.Print s = f", "Debug.Print s = CSng(0.1)" },
         new[] { "False", "True", "True", "0" }, DisplayName = "H02 a Single")]
@@ -91,7 +90,7 @@ public sealed class VariantComparedWithStringTests
     public async Task AVariantStringComparedWithASingleOrALongLong_IsComparedAsADouble(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
 
-    // a Currency and a Decimal keep the table's types: a String is let-coerced to Currency, to 4 decimals, and to Decimal, exact (oracle\s56 I02-I04).
+    // a Currency and a Decimal keep the table's types: a String is let-coerced to Currency, to 4 decimals, and to Decimal, exact.
     [TestMethod]
     [DataRow(new[] { "Dim v As Variant: v = \"2.00001\"", "Dim c As Currency: c = 2", "Debug.Print v = c", "Debug.Print v > c", "Dim s As String: s = \"2.00001\"", "Debug.Print s = c" },
         new[] { "True", "False", "True", "0" }, DisplayName = "I02 a Currency")]

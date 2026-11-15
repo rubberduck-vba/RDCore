@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <c>Me</c>, the <c>LBound</c>, <c>UBound</c> and <c>Array</c> special forms, and the dictionary access, bound (IR lowering S0.12a), evaluate to what
+/// <c>Me</c>, the <c>LBound</c>, <c>UBound</c> and <c>Array</c> special forms, and the dictionary access, bound, evaluate to what
 /// MS-VBAL 5.6.11, 3.3.5.2 and 5.6.14 say they do, and raise what they say they raise.
 /// </summary>
 [TestClass]

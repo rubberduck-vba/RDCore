@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The rows of the gaps card measured in Excel (oracle\s57), each run whole as it was run there: what <c>P</c> prints of each statement under
+/// The rows of the gaps card measured in Excel, each run whole as it was run there: what <c>P</c> prints of each statement under
 /// <c>On Error Resume Next</c> is what MS-VBA printed. The class <c>Box</c> is the oracle's, with what a row adds to it.
 /// </summary>
 [TestClass]
@@ -85,14 +85,14 @@ public sealed class ExcelMeasuredGapsRowsTests
         "Function Count(ByRef a() As Collection) As Long ;;     Count = UBound(a) - LBound(a) + 1 ;; End Function",
         """Dim c(2) As Collection ;; Dim v As Variant ;; v = c ;; P Count(c) ;; P "e" & Err.Number ;; Err.Clear ;; Dim w() As Collection ;; w = v ;; P Count(w) ;; P "e" & Err.Number""",
         "3|e0|3|e0|")]
-    // oracle\s58: Before and After that name no member - of an empty collection, or of one with a member - by an index or by a key.
+    // Observed in Excel: Before and After that name no member - of an empty collection, or of one with a member - by an index or by a key.
     [DataRow("s58 C01", "", "",
         """Dim e As New Collection ;; e.Add 1, , 1 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , , 1 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , "k" ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , , "k" ;; P "e" & Err.Number ;; Err.Clear ;; P e.Count""",
         "e5|e5|e5|e5|e5|e5|0|")]
     [DataRow("s58 C02", "", "",
         """Dim e As New Collection ;; e.Add 7 ;; e.Add 8, , 2 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , , 2 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , "k" ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , , "k" ;; P "e" & Err.Number ;; Err.Clear ;; P e.Count""",
         "e9|e9|e9|e9|e5|e5|1|")]
-    // oracle\s58: the HelpContext a raise gives Err, and the one it keeps.
+    // Observed in Excel: the HelpContext a raise gives Err, and the one it keeps.
     [DataRow("s58 H03", "", "",
         """Err.Raise 13, , , , 77 ;; P Err.HelpContext ;; Err.Raise 5 ;; P Err.HelpContext ;; Err.Raise 9, , , , 0 ;; P Err.HelpContext ;; Error 11 ;; P Err.HelpContext ;; Dim z As Variant ;; z = 1 / 0 ;; P Err.HelpContext ;; Err.Clear ;; P Err.HelpContext ;; Err.Raise 13, , , , 77 ;; z = 1 / 0 ;; P Err.Number ;; P Err.HelpContext""",
         "77|77|1000009|1000011|1000011|0|11|1000011|")]
@@ -105,8 +105,8 @@ public sealed class ExcelMeasuredGapsRowsTests
     public async Task ARowMeasuredInExcel_PrintsWhatMSVBAPrinted(string id, string boxExtras, string module, string probe, string printed)
         => await AssertPrintedAsync(id, boxExtras, module, probe, printed);
 
-    // RD-VBAL §6.1.3.2.2.3: a run-time error leaves Err.HelpFile empty, where MS-VBA names its own help file (VbLR6.chm, oracle\s62 X12); its HelpContext
-    // is MS-VBA's (oracle\s58 H03), and a help file the program gives is kept until Err.Clear.
+    // RD-VBAL §6.1.3.2.2.3: a run-time error leaves Err.HelpFile empty, where MS-VBA names its own help file (VbLR6.chm, observed in Excel); its HelpContext
+    // is MS-VBA's, and a help file the program gives is kept until Err.Clear.
     [TestMethod]
     public async Task AnErrorRaisedWithNoHelpFile_LeavesErrHelpFileEmpty_AndItsHelpContextIsMSVBAs()
         => await AssertPrintedAsync("s58 H03, RD-VBAL §6.1.3.2.2.3", "", "",
@@ -120,7 +120,7 @@ public sealed class ExcelMeasuredGapsRowsTests
             """Err.Raise 5, , , "g.chm" ;; P Err.HelpFile ;; Err.Raise 6 ;; P Err.HelpFile ;; Err.Clear ;; P "[" & Err.HelpFile & "]" """,
             "g.chm|g.chm|[]|");
 
-    // oracle\s58 H05: an error an automation object raises has the help context of its message, whatever one Err had - Scripting.Dictionary's 457 is
+    // Observed in Excel: an error an automation object raises has the help context of its message, whatever one Err had - Scripting.Dictionary's 457 is
     // 1000457, and a RegExp's 5020 is no message of MS-VBA's (1000095).
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
@@ -129,7 +129,7 @@ public sealed class ExcelMeasuredGapsRowsTests
             """Dim d As Object ;; Set d = CreateObject("Scripting.Dictionary") ;; d.Add "a", 1 ;; d.Add "a", 2 ;; P Err.Number ;; P Err.HelpContext ;; Err.Clear ;; Dim r As Object ;; Set r = CreateObject("VBScript.RegExp") ;; r.Pattern = "(" ;; P r.Test("a") ;; P Err.Number ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 13, , , , 77 ;; d.Add "a", 3 ;; P Err.Number ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 13, , , , 77 ;; P r.Test("a") ;; P Err.Number ;; P Err.HelpContext""",
             "457|1000457|5020|1000095|457|1000457|5020|1000095|");
 
-    // oracle\s58 N07, N08, N10, N12: MS-VBA negates the least Long of a constant expression - a literal, a Const - as the Long it is, where the negation of a
+    // Observed in Excel: MS-VBA negates the least Long of a constant expression - a literal, a Const - as the Long it is, where the negation of a
     // Long variable overflows, and so does that of the least Integer or LongLong in any expression.
     [TestMethod]
     [DataRow("s58 N07", "",
@@ -139,7 +139,7 @@ public sealed class ExcelMeasuredGapsRowsTests
     public async Task TheNegationOfTheLeastLong_InAConstantExpression_IsTheLeastLong(string id, string module, string probe, string printed)
         => await AssertPrintedAsync(id, "", module, probe, printed);
 
-    // oracle\s58 H06, s61 H07-H12: an error's source is the project's - VBAProject in Excel, Project1 here - unless Err.Raise is given one, or keeps the one
+    // Observed in Excel: an error's source is the project's - VBAProject in Excel, Project1 here - unless Err.Raise is given one, or keeps the one
     // Err has: a run-time error, the Error statement and an automation object's error are the project's, whatever source Err had, in a class too.
     [TestMethod]
     [DataRow("s58 H06", "", """Err.Raise 13 ;; P Err.Source""", "Project1|")]
@@ -154,7 +154,7 @@ public sealed class ExcelMeasuredGapsRowsTests
     public async Task AnErrorGivenNoSource_IsTheProjects(string id, string boxExtras, string probe, string printed)
         => await AssertPrintedAsync(id, boxExtras, "", probe, printed);
 
-    // oracle\s61 H11: an automation object's error is the project's too. Scripting.Dictionary is a COM server, so this runs where COM does.
+    // Observed in Excel: an automation object's error is the project's too. Scripting.Dictionary is a COM server, so this runs where COM does.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task AnAutomationObjectsError_IsTheProjects()

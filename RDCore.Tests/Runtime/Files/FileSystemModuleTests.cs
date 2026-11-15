@@ -4,7 +4,7 @@ using System.IO.Abstractions.TestingHelpers;
 namespace RDCore.Tests.Runtime.Files;
 
 /// <summary>
-/// <strong>MS-VBAL §6.1.2.5</strong> the FileSystem module, and <c>GetAttr</c>: what MS-VBA gives and raises, recorded in Excel (oracle\s25 grid, grid-b), against
+/// <strong>MS-VBAL §6.1.2.5</strong> the FileSystem module, and <c>GetAttr</c>: what MS-VBA gives and raises, observed in Excel, against
 /// a fake file system. Paths are rooted because the platform's CI runs on Linux.
 /// </summary>
 [TestClass]

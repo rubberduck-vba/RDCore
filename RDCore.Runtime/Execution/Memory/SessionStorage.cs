@@ -45,7 +45,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             }
 
             // the blocks of the arrays that are gone are freed once this one is made, so that it is never where one of them was: an array ReDim'd is
-            // elsewhere (oracle\s17 V11), whenever the one it was is collected.
+            // elsewhere (observed in Excel), whenever the one it was is collected.
             FreeBlocksOfArraysThatAreGone();
             _arrayBlocks[at] = made;
             _blockOfArray.Add(array, start = new System.Runtime.CompilerServices.StrongBox<MemoryAddress>(at));
@@ -89,7 +89,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
 
     /// <summary>
     /// How many times what is bound at an address has changed: an allocation, a deallocation, a rebinding (a <c>POKE</c>). A binding read through an
-    /// address is the binding there for as long as this has not changed (IR lowering S1.5).
+    /// address is the binding there for as long as this has not changed.
     /// </summary>
     public int Generation { get; private set; }
 
@@ -270,7 +270,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
 
         image[offset] = value;
 
-        // a BSTR: the String it is held as is what its length says of its characters now, at the same address (oracle\s17 S12, grid-p3 L01).
+        // a BSTR: the String it is held as is what its length says of its characters now, at the same address (observed in Excel).
         if (_stringBlocks.TryGetValue(block, out var characters))
         {
             return TryPokeCharacters(characters, image);

@@ -8,8 +8,8 @@ using System.Diagnostics.CodeAnalysis;
 namespace RDCore.Runtime.Execution.Memory;
 
 /// <summary>
-/// The block of the session's memory the elements of an array are laid out in, side by side, as <strong>MS-VBA</strong> lays them out (recorded in Excel,
-/// oracle\s17 V02-V12): each element <see cref="ElementWidth"/> bytes wide, in the order <see cref="VBArrayValue.IndexOf"/> numbers them - the first subscript
+/// The block of the session's memory the elements of an array are laid out in, side by side, as <strong>MS-VBA</strong> lays them out (observed in Excel):
+/// each element <see cref="ElementWidth"/> bytes wide, in the order <see cref="VBArrayValue.IndexOf"/> numbers them - the first subscript
 /// varying fastest.
 /// </summary>
 /// <remarks>

@@ -852,7 +852,7 @@ internal sealed partial class ProcedureEmitter
         var floating = _il.DeclareLocal(typeof(double));
         var returned = _il.DefineLabel();
 
-        // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
+        // a callee that is compiled is called through its typed entry, with the arguments as they are, while the activation can be made that
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
         // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has. A member given an object is called
         // through its binding, which gives the object to its parameter as the interpreter gives it. One that returns an object is called through the invoker,

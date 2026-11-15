@@ -5,7 +5,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>Select Case</c> of a scalar selector, compiled (IR lowering S2.5b): the selector evaluated once into a local, and each <c>Case</c> compared on
+/// A <c>Select Case</c> of a scalar selector, compiled: the selector evaluated once into a local, and each <c>Case</c> compared on
 /// payloads as the interpreter compares it (MS-VBAL §5.4.2.10, RD-VBAL §5.4.2.10). A program runs the same either way.
 /// </summary>
 [TestClass]

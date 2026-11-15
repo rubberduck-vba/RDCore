@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>RD-VBAL §5.5.1.2.7</strong>: an array of objects let-coerced to an array of objects of another class, or of <c>Object</c>, is copied as MS-VBA
 /// copies it, a shallow copy that checks no element's class, where MS-VBAL says only an array of the same element type is; an array of Variants or of
-/// numbers is still a type mismatch (recorded in Excel: oracle\s57 A01-A03, A06-A08).
+/// numbers is still a type mismatch (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ObjectArrayLetCoercionTests

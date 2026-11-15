@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// <c>Variant</c> operation, which widens where the declared type's would overflow.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US, oracle\s46 F11), as vb6.exe does (HexIDE findings desk #11).
+/// Each expected outcome is what MS-VBA printed for the same code, in Excel (64-bit, en-US), as vb6.exe does.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.6.12 Member Access Expressions")]

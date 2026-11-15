@@ -136,7 +136,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     // A function named - by its name, or qualified by its module - as the target of an assignment or an element of an Erase statement, outside its own body,
     // is a call of it with no argument: what it returns is what is assigned, through its default member, or erased (MS-VBAL §5.4.3.8, §5.4.3.9, §5.4.3.4).
     // So is a property of a module that has no accessor for the assignment, the library's (Now, Timer) as the workspace's.
-    // What cannot be one is a compile error, as MS-VBA has it (Excel-verified, oracle\s28): a Let of one whose declared type is neither a Variant nor an
+    // What cannot be one is a compile error, as MS-VBA has it (observed in Excel): a Let of one whose declared type is neither a Variant nor an
     // object is "Function call on left-hand side of assignment must return Variant or Object" - "Can't assign to read-only property" for a property -
     // before what its parameters are (`Left$ = "x"`); one that takes an argument is "Argument not optional" (`Left = "x"`, and first for a Set and an
     // Erase: `Set Left$ = Nothing`); a Set of one that returns no object is "Invalid use of property", and so is a Set of the library's Err, which MS-VBA's

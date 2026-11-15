@@ -46,7 +46,7 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
             storage.TryDeallocate(previous);
         }
 
-        // a variable of a scalar type (or a Variant holding one) is held as a payload, as a local is (IR lowering S1.5, Frames.CallStackFrame.CellFor).
+        // a variable of a scalar type (or a Variant holding one) is held as a payload, as a local is (Frames.CallStackFrame.CellFor).
         if (!storage.TryAllocate(value.Size, Frames.CallStackFrame.CellFor(value), out address))
         {
             _addressBySymbol.Remove(symbol.SemanticId);
@@ -59,7 +59,7 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
 
     /// <summary>
     /// Reserves <paramref name="size"/> bytes of storage for a binding that already exists, and binds it to <paramref name="symbol"/>: the address is then
-    /// another way to reach that very binding, as a variable that is given one only when something asks for it is (IR lowering S1.1).
+    /// another way to reach that very binding, as a variable that is given one only when something asks for it is.
     /// </summary>
     /// <returns><c>false</c> if the underlying storage is exhausted.</returns>
     public bool TryAllocate(Symbol symbol, int size, IBindingHandle binding, out MemoryAddress address)

@@ -101,7 +101,7 @@ public sealed class SessionErrorStateTests
     [TestMethod]
     public void AHandlerThatReachesTheEndOfTheProcedure_ClearsIt()
     {
-        // as an Exit Sub from the handler does (MS-VBA, recorded in Excel: oracle\s44 U01).
+        // as an Exit Sub from the handler does (MS-VBA, observed in Excel).
         var session = Run(
             "10 On Error GoTo 30",
             "20 Error 11",
@@ -150,7 +150,7 @@ public sealed class SessionErrorStateTests
     public void AnExitProcedureStatement_PastAnErrorResumeNextWentOnFrom_LeavesItSet()
     {
         // MS-VBAL 6.1.3.2.1 has Exit Sub clear Err; MS-VBA clears it only from within an error handler, and an error On Error Resume Next went on past
-        // was handled by none (recorded in Excel: oracle\s44 U06).
+        // was handled by none (observed in Excel).
         var session = Run(
             "10 On Error Resume Next",
             "20 Error 11",

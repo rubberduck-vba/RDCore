@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A call bound to the procedure its name resolves to (IR lowering S0.9) is the call MS-VBAL 5.6.13 makes: its arguments passed as the parameters say - a
+/// A call bound to the procedure its name resolves to is the call MS-VBAL 5.6.13 makes: its arguments passed as the parameters say - a
 /// ByVal one let-coerced by its plan, a ByRef one aliased to the variable it names, a ParamArray collected, an omitted one missing - and what the function
 /// returns let-coerced to the type it declares.
 /// </summary>

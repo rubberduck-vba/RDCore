@@ -183,8 +183,8 @@ public sealed class VBResizableArrayLetCoercionTests : LetCoercionRuntimeSemanti
         Assert.AreNotSame(sourceBinding, copyBinding, "a binding of its own");
     }
 
-    // RD-VBAL §5.5.1.2.7: MS-VBA copies an array of one class into an array of another, where MS-VBAL's same element type would be a type mismatch (recorded in
-    // Excel: oracle\s57 A06, A09).
+    // RD-VBAL §5.5.1.2.7: MS-VBA copies an array of one class into an array of another, where MS-VBAL's same element type would be a type mismatch (observed in
+    // Excel).
     [TestMethod]
     public void ClassElementTypes_OfAnyClass_AreCopied()
     {

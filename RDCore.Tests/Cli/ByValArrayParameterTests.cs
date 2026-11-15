@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An array parameter is passed by reference, and one declared <c>ByVal</c> is refused: <strong>MS-VBA</strong> reports <em>Array argument must be ByRef</em>
-/// for it, whatever declares it - a procedure, a property, an event, a <c>Declare</c>, an implementation of an interface member. Recorded in Excel (oracle\s23).
+/// for it, whatever declares it - a procedure, a property, an event, a <c>Declare</c>, an implementation of an interface member. Observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class ByValArrayParameterTests

@@ -46,7 +46,7 @@ public sealed partial class CompiledActivation : ILightActivation
     // session's own, never one the body was compiled with - a body is shared by every session composed over the same scopes.
     private readonly RuntimeProcedureInvoker _invoker;
 
-    // the activation's frame; none for one of a call compiled code made directly, until something is to see it (IR lowering S2.3b2): it is then made
+    // the activation's frame; none for one of a call compiled code made directly, until something is to see it: it is then made
     // (RuntimeCallStack.MaterializeLights), and the activation is held in it from then on.
     private CallStackFrame? _frame;
 
@@ -717,7 +717,7 @@ public sealed partial class CompiledActivation : ILightActivation
         _failed = null;
 
         // under a debugger, which may look at the stack while the program waits in it, the callee's frame is made as it is called; any other is on the stack
-        // without one until something is to see it (IR lowering S2.3b2), in the activation that last left its place of the stack, begun again, when that
+        // without one until something is to see it, in the activation that last left its place of the stack, begun again, when that
         // was an activation of the same procedure: a loop of calls is made in one, a recursion in as many as it goes deep.
         CompiledActivation activation;
         if (_halt.Gate is not null || _stack is null)
@@ -1405,7 +1405,7 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Has the interpreter run the instruction at <paramref name="pc"/> alone - or, after a call there that raised an error, give the error to the
-    /// activation's handler - and says where compiled code goes on (IR lowering S2.4): at the offset the interpreter left the activation at, every variable,
+    /// activation's handler - and says where compiled code goes on: at the offset the interpreter left the activation at, every variable,
     /// the function result and each loop read back from the frame; or nowhere (<c>-1</c>), when the activation returned, the program stopped, or the
     /// interpreter goes on with it (<see cref="Recovered"/>). Every variable and every loop that was opened has been written into the frame.
     /// </summary>
@@ -1637,7 +1637,7 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>
     /// How many activations of the body that compiled code called directly were given a frame after the call: because something looked at the stack while
-    /// they were on it, or they were handed to the interpreter (IR lowering S2.3b2). One called under a debugger, which is given its frame as it is called, is
+    /// they were on it, or they were handed to the interpreter. One called under a debugger, which is given its frame as it is called, is
     /// not counted.
     /// </summary>
     public long FramesMade => Interlocked.Read(ref _framesMade);
@@ -1648,7 +1648,7 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>
     /// How many activations of the body were made for calls compiled code made directly without a frame: each call is made in the activation that last left
-    /// its place of the stack when it can be, so a loop of calls makes one, and a recursion as many as it goes deep (IR lowering S2.3b2).
+    /// its place of the stack when it can be, so a loop of calls makes one, and a recursion as many as it goes deep.
     /// </summary>
     public long ActivationsMade => Interlocked.Read(ref _activationsMade);
 
@@ -1672,7 +1672,7 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>
     /// The slots its activations hold in cells, by the number compiled code knows each cell by (<see cref="ProcedureAnalysis.CellSlots"/>): each parameter
-    /// passed by reference, and each parameter or variable the body passes by reference (IR lowering S2.3c).
+    /// passed by reference, and each parameter or variable the body passes by reference.
     /// </summary>
     public IReadOnlyList<int> CellSlots { get; init; } = [];
 
@@ -1787,7 +1787,7 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     private long _recovered;
 
     /// <summary>
-    /// How many times an activation of the body had the interpreter run one instruction and went on compiled (IR lowering S2.4): an error its handler
+    /// How many times an activation of the body had the interpreter run one instruction and went on compiled: an error its handler
     /// caught, a <c>Resume</c>, an <c>On...GoTo</c> (<see cref="CompiledActivation.Recover"/>).
     /// </summary>
     public long Recoveries => Interlocked.Read(ref _recovered);

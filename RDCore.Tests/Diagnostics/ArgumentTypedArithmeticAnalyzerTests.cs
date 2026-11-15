@@ -9,7 +9,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11018</c>: integer arithmetic of <c>Abs</c>, <c>Int</c> or <c>Fix</c> of a typed number, which MS-VBA types as the number's type where MS-VBAL declares
-/// <c>Variant</c>: it can overflow where a <c>Variant</c> operation would widen (Excel-measured, oracle\s46 F10; HexIDE findings desk #10).
+/// <c>Variant</c>: it can overflow where a <c>Variant</c> operation would widen (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ArgumentTypedArithmeticAnalyzerTests

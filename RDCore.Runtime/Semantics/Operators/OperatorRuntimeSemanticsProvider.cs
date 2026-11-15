@@ -139,7 +139,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         => token switch
         {
             // an assignment states the conversion of its source, which is a fact of its own: it is not an operation to state.
-            // one nothing observes is let-coerced by its plan when it can be (IR lowering §3.2).
+            // one nothing observes is let-coerced by its plan when it can be.
             OperatorSymbolNames.BinaryAssignmentValueOp => (IsObserved ? null : _letAssignment.TryAssignPlanned(session, left, right))
                 ?? _letAssignment.EvaluateAtSite(session, Empty<ConversionOperationSemanticContext>.Context, expression, ConversionSite.Assignment, left, right),
             Tokens.AdditionOp => Evaluate(_addition, session, token, expression, site, left, right),
@@ -176,7 +176,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
             // let-coercion one anywhere else (RD-VBAL §5.6.6) - and either evaluates to the simple data value of what it encloses: an object's default
             // member, read once (`(o) Is Nothing` tests what it returns, `Set x = (o)` is set to it; MS-VBA, Excel-verified), and a value's conversion.
             // "the declared type of a parenthesized expression is that of the enclosed expression": a Variant's value is still a Variant's, which `(v + 1)`
-            // compared with a String is (MS-VBA, recorded in Excel: oracle\s56 G02, G09).
+            // compared with a String is (MS-VBA, observed in Excel).
             OperatorSymbolNames.UnaryLetCoerceOp or OperatorSymbolNames.UnaryArithmeticPrecedenceOp => operand switch
             {
                 VBObjectValue enclosed => Execution.ObjectDefaultMember.EnclosedValueOf(session, enclosed),
@@ -241,7 +241,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         // that has no value is the operation's error, which is stated as the operation's like any other.
         var unreadable = token != Tokens.CompareIsOp ? SimpleDataValues(session, expression, operands) : null;
 
-        // an operation nothing observes is evaluated by its plan when it can be (IR lowering §3.2), and by the pipeline otherwise. An observed operation
+        // an operation nothing observes is evaluated by its plan when it can be, and by the pipeline otherwise. An observed operation
         // always goes through the pipeline, which is what describes the conversions of its operands.
         if (unreadable is null && !IsObserved && PlanExecutor.TryEvaluate(semantics, session, Empty<TContext>.Context, token, expression, site, operands) is { } planned)
         {

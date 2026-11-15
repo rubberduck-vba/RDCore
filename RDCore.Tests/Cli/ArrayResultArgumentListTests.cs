@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// An argument list written after a function that returns an array is the call's (recorded in Excel, oracle\s55 A01-A05). MS-VBA gives it to the function,
+/// An argument list written after a function that returns an array is the call's (observed in Excel). MS-VBA gives it to the function,
 /// with too many arguments for one that takes fewer - though <strong>MS-VBAL §5.6.13</strong> lets the arguments a function that takes none cannot accept index
 /// what it returns. The result is indexed by a second argument list: <c>F()(1)</c>.
 /// </summary>
@@ -33,12 +33,12 @@ public sealed class ArrayResultArgumentListTests
 
     private const string WrongNumberOfArguments = "Wrong number of arguments or invalid property assignment";
 
-    // A01: MS-VBA, Compile error: Wrong number of arguments or invalid property assignment (oracle\s55 dlg_A01).
+    // MS-VBA, Compile error: Wrong number of arguments or invalid property assignment.
     [TestMethod]
     public async Task AnArgument_ToAFunctionThatTakesNone_AndReturnsAnArray_IsWrongNumberOfArguments()
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync([], [], Program("x = F(1)"))), WrongNumberOfArguments);
 
-    // A04: MS-VBA, Compile error: Wrong number of arguments or invalid property assignment (oracle\s55 dlg_A04), not a type mismatch of the array assigned.
+    // MS-VBA, Compile error: Wrong number of arguments or invalid property assignment, not a type mismatch of the array assigned.
     [TestMethod]
     public async Task OneArgumentTooMany_ToAFunctionThatReturnsAnArray_IsWrongNumberOfArguments()
     {

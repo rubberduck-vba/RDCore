@@ -8,7 +8,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11023</c>: a procedure of more than 5,000 statements, which MS-VBA refuses as "Procedure too large" (past 64K of compiled code: 5,000 to 5,250 of
-/// <c>x = x + 1</c>, recorded in Excel, oracle\size-limits A, E, H) and RD-VBA runs.
+/// <c>x = x + 1</c>, observed in Excel) and RD-VBA runs.
 /// </summary>
 [TestClass]
 public sealed class ProcedureTooLargeAnalyzerTests

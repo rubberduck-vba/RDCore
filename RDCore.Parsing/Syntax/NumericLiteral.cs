@@ -60,8 +60,8 @@ internal static class NumericLiteral
     /// <see cref="Resolve"/> produces, and for one whose negation its type cannot hold: the least
     /// <c>Integer</c>, <c>Long</c> or <c>LongLong</c>, which the unary operator negates. Of the least
     /// <c>Integer</c> and <c>LongLong</c> that is an overflow (MS-VBA: <c>-&amp;H8000</c> raises 6 at run
-    /// time, and is a compile error in a <c>Const</c>; Excel, oracle\s56 G14, s57 N01-N06, s58 N09-N11);
-    /// the least <c>Long</c> of a constant expression is its own negation (s58 N07, N08), which the
+    /// time, and is a compile error in a <c>Const</c>; observed in Excel);
+    /// the least <c>Long</c> of a constant expression is its own negation, which the
     /// operator's binding says (<c>BoundUnary.NegatesAConstantExpression</c>).
     /// </summary>
     public static VBTypedValue? Negate(VBTypedValue value) => value switch

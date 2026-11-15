@@ -26,7 +26,7 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     private CallStackFrame? _selected;
     private int _selectedDepth;
 
-    // the activations compiled code made of the calls it made directly that have no frame yet (IR lowering S2.3b2), bottom first: all of them above every
+    // the activations compiled code made of the calls it made directly that have no frame yet, bottom first: all of them above every
     // frame, since a frame pushed above one makes the frames of them all first.
     private ILightActivation[] _lights = [];
     private int _lightCount;

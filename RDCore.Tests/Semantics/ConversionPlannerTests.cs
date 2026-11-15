@@ -11,7 +11,7 @@ using RDCore.Runtime.LanguageCore.Plans;
 namespace RDCore.Tests.Semantics;
 
 /// <summary>
-/// The plan of a let-coercion (IR lowering §3.2): the rule of MS-VBAL 5.5.1.2 that applies, decided from the type of the value and the type it is let-coerced
+/// The plan of a let-coercion: the rule of MS-VBAL 5.5.1.2 that applies, decided from the type of the value and the type it is let-coerced
 /// to, once. What each coercion yields is pinned by <c>LetCoercionGoldenMasterTests</c>; this is what a plan is.
 /// </summary>
 [TestClass]

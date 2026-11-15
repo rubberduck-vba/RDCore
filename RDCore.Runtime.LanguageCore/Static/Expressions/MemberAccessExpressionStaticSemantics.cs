@@ -43,7 +43,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
         if (owner is not IVBMemberOwnerType ownerType)
         {
             // a number, a String, a Boolean or a Date has no members, nor does an array, fixed-size or resizable, read or assigned: MS-VBA refuses a member of one at
-            // compile time (Excel-verified; arrays oracle\s56 I02, C01, C02, C13). Any other type that is not known to own members is deferred, not an error.
+            // compile time (observed in Excel). Any other type that is not known to own members is deferred, not an error.
             return owner is VBNumericType or VBStringType or VBBooleanType or VBDateType or VBArrayType
                 ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName))
                 : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);

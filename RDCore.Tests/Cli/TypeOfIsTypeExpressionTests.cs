@@ -104,7 +104,7 @@ public sealed class TypeOfIsTypeExpressionTests
     [DataRow("Dim x As Variant", "Debug.Print Object", "Variable not defined")]
     public async Task AnIntrinsicTypeWhereAValueIs_IsAnError(string declaration, string statement, string expected)
     {
-        // a type is no value (MS-VBA: "Syntax error", Excel-verified, oracle\s29 X1-X5); Object is read as a name, as MS-VBA reads it.
+        // a type is no value (MS-VBA: "Syntax error", observed in Excel); Object is read as a name, as MS-VBA reads it.
         var errors = await LoadErrorsAsync(Classes, Modules, Program(declaration, statement));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));

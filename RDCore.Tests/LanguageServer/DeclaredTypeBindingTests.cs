@@ -139,7 +139,7 @@ public sealed class DeclaredTypeBindingTests
 
     [TestMethod]
     public void NewQualifiedByTheProjectsName_IgnoresALocalOfThatName()
-        // the legacy Rubberduck bug (issue #973): `New MyProject.Class` bound MyProject to the local variable.
+        // the legacy Rubberduck bug: `New MyProject.Class` bound MyProject to the local variable.
     {
         var widget = Class("Widget", "Public Size As Long\r\n");
         var main = Std("Main", "Sub Run()\r\nDim MyProject As Widget\r\nDim r\r\nSet r = New MyProject.Widget\r\nEnd Sub\r\n");

@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// MS-VBAL §5.4.1.1: a statement label is defined at the start of a logical line, and whitespace is no token of the syntactic grammar (§3.3): a label
-/// indented by it is a label, as MS-VBA has it (recorded in Excel, grid <c>oracle\s16</c> W00). The VBE moves a label to the first column; a module
+/// indented by it is a label, as MS-VBA has it (observed in Excel). The VBE moves a label to the first column; a module
 /// written in any other editor, or typed at the BASIC prompt, may not.
 /// </summary>
 [TestClass]

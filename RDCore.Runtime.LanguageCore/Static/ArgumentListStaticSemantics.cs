@@ -109,7 +109,7 @@ internal static class ArgumentListStaticSemantics
     }
 
     // an `As Any` parameter - of a Declare, or of a library member (VarPtr) - takes a variable of any type but an array, which MS-VBA refuses there by its
-    // name (Excel-verified, oracle\s21 R01, R02, R25: "Type mismatch"); an element of one it takes. A parameter of another procedure that has no declared
+    // name (observed in Excel: "Type mismatch"); an element of one it takes. A parameter of another procedure that has no declared
     // type is one whose type is not resolved, and is not this.
     private static VBCompileErrorInfo? AnyError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
     {
@@ -127,8 +127,8 @@ internal static class ArgumentListStaticSemantics
     }
 
     // a record is passed by reference, to a parameter of its type. MS-VBA refuses one given to a Variant - ByVal, ByRef, untyped, a ParamArray, a library's
-    // (`c.Add t1` of a Collection) - and one given in parentheses, which is a value and no variable to pass, `F (t1)` (recorded in Excel: oracle\s56 I11-I13,
-    // C08-C11, C14). A record of a referenced library's public type is one a Variant holds (VBExternalUserDefinedType); a Declare's parameters are its own;
+    // (`c.Add t1` of a Collection) - and one given in parentheses, which is a value and no variable to pass, `F (t1)` (observed in Excel).
+    // A record of a referenced library's public type is one a Variant holds (VBExternalUserDefinedType); a Declare's parameters are its own;
     // and Len and LenB take "any valid variable name" (MS-VBAL §6.1.2.11.1.22), a record's for its length.
     private static VBCompileErrorInfo? RecordError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
     {
@@ -142,7 +142,7 @@ internal static class ArgumentListStaticSemantics
             return null;
         }
 
-        // an array of records is refused a Variant too (oracle\s56 D12); given to a record parameter it is the ByRef mismatch ByRefError reports.
+        // an array of records is refused a Variant too; given to a record parameter it is the ByRef mismatch ByRefError reports.
         return toVariant
             ? VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant, argument.Location,
                 string.Format(Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose, record))
@@ -182,15 +182,15 @@ internal static class ArgumentListStaticSemantics
     }
 
     // MS-VBAL §5.3.1.11: an array parameter is a second name for an array of its element type, which it is given. MS-VBA refuses another at compile time,
-    // "Type mismatch: array or user-defined type expected" (recorded in Excel: oracle\s57 A05, s58 G01-G12, s59 G13-G20): an array of another element type -
+    // "Type mismatch: array or user-defined type expected" (observed in Excel): an array of another element type -
     // an Integer() to a Long(), a Variant() to a Long(), a Collection() to an Object() - a Variant, whatever it holds (a variable, a parameter, an element
     // of a Variant array, what Array or Split returns, to a Variant() or a String() too), a scalar, and an array in parentheses, which is a value and no
-    // array variable, of its element type or not, in a statement's argument list too (`Takes (c)`, s61 G30). What a function or a Property Get returns
-    // that is an array of its element type it takes, as an array field of a record (G26); a member of a late-bound object is a Variant (s61 G24, G25).
+    // array variable, of its element type or not, in a statement's argument list too (`Takes (c)`). What a function or a Property Get returns
+    // that is an array of its element type it takes, as an array field of a record; a member of a late-bound object is a Variant.
     // The element types are matched as they are declared, except that every Enum is the same element type: an array of an Enum is no array of Long, nor
-    // an array of Long one of an Enum (s61 G21, s61b G22), but it is an array of another Enum (s61b G23, G34); an array of String * N is no array of String
-    // (G31). The standard library's array parameters are checked too: IRR given a Variant, or an array in parentheses
-    // (G27, G28). ArrayError checks those; ByRefError leaves an array parameter to it. A ParamArray and a Declare's parameter are not checked here.
+    // an array of Long one of an Enum, but it is an array of another Enum; an array of String * N is no array of String.
+    // The standard library's array parameters are checked too: IRR given a Variant, or an array in parentheses.
+    // ArrayError checks those; ByRefError leaves an array parameter to it. A ParamArray and a Declare's parameter are not checked here.
     private static VBCompileErrorInfo? ArrayError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
     {
         if (parameter.ResolvedType is not VBArrayType { ItemType: var expected } || parameter is ParamArrayParameterSymbol

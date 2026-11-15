@@ -104,7 +104,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         // Regression: VBModuleFieldVariableMemberSymbol (and Const/EnumConst/instance/UDT fields) are
         // ALSO VBReturningMemberSymbol - the same base Function/Property Get share - so a check against
         // that base type alone would wrongly treat a plain field read as an implicit call. Never
-        // reachable before S9a's own tests were the first to read a module-level symbol by bare name.
+        // reachable before a test read a module-level symbol by bare name.
     {
         var moduleUri = TestUri.TestModuleUri();
         var counter = new VBModuleFieldVariableMemberSymbol(Root, moduleUri, "counter", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
@@ -170,7 +170,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var memberAccess = new MemberAccessExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("obj"), new SimpleNameExpressionNode(NextId(), TestLocations.TestLocation, "State"));
         var result = Evaluator().Evaluate(session, memberAccess, new(ProcedureUri));
 
-        // obj is declared Object: the read is late-bound, and what it returns is a Variant holding the Long (MS-VBAL §5.6.12; oracle\s46 F11).
+        // obj is declared Object: the read is late-bound, and what it returns is a Variant holding the Long (MS-VBAL §5.6.12; observed in Excel).
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
         Assert.AreEqual(7, ((VBLongValue)((VBVariantValue)result.Result!).TypedValue).Value);
     }

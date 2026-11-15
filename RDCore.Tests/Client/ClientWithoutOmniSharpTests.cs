@@ -209,7 +209,7 @@ public sealed class ClientWithoutOmniSharpTests
         });
     }
 
-    // the order HexIDE's add-in sent its messages in (C:\Dev\Claude\hexide-msgbox-wire-2026-10-30.txt): the document opened and its diagnostics asked for before the
+    // the order HexIDE's add-in sent its messages in (a byte tap of HexIDE's messages): the document opened and its diagnostics asked for before the
     // platform handshake, which is sent without waiting for them; its requests numbered from 2, so that the handshake is 4, as the language server's msgBox is.
     [TestMethod]
     public async Task AClientInHexIdesOrder_AnswersTheMsgBoxOfAProgram_AndTheProgramCompletes()
@@ -246,7 +246,7 @@ public sealed class ClientWithoutOmniSharpTests
             + string.Concat(Enumerable.Range(0, 20).Select(procedure =>
                 $"Public Function F{procedure}(ByVal a As Long, ByVal b As String) As Long\r\n    Dim i As Long, s As String\r\n    For i = 1 To a\r\n        s = s & b & CStr(i)\r\n        If Len(s) > 10 Then s = Left$(s, 5)\r\n    Next\r\n    F{procedure} = Len(s) + i\r\nEnd Function\r\n"));
 
-    // the order HexIDE's add-in sent its messages in when the reply was lost (C:\Dev\Claude\hexide-msgbox-tap-2026-10-30.log): the program run as soon as the client
+    // the order HexIDE's add-in sent its messages in when the reply was lost (a byte tap of HexIDE's messages): the program run as soon as the client
     // is connected, while the language server is still parsing the workspace and composing the session - which replaces the module just before it runs it.
     [TestMethod]
     public async Task AProgramRunWhileTheWorkspaceIsComposed_AsksTheClient_AndCompletesWithItsAnswer()
@@ -306,7 +306,7 @@ public sealed class ClientWithoutOmniSharpTests
         }
     }
 
-    // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
+    // a second byte tap of HexIDE's messages: the language server asks the client to refresh its diagnostics while the program waits to
     // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once. The refresh comes of the document's open and the
     // workspace's bring-up, not of the run, so the client holds it and the program's MsgBox for each other: the document is pulled again while the program
     // waits.
@@ -372,7 +372,7 @@ public sealed class ClientWithoutOmniSharpTests
         Assert.IsFalse(error["data"]!["retriggerRequest"]!.GetValue<bool>(), $"and not to be retriggered: {reply.ToJsonString()}");
     }
 
-    // the third byte tap (C:\Dev\Claude\hexide-msgbox-tap3-2026-10-30.log), in its order to the byte: HexIDE pulls the document's diagnostics again before it answers
+    // a third byte tap of HexIDE's messages, in its order to the byte: HexIDE pulls the document's diagnostics again before it answers
     // the refresh, and writes both at once; the program's msgBox is then the language server's request 5, which is the id of the client's execute, still running.
     // The client holds the refresh and the MsgBox for each other, as above: the pull and the refresh's answer are written while the program waits.
     [TestMethod]
@@ -457,7 +457,7 @@ public sealed class ClientWithoutOmniSharpTests
         };
     }
 
-    // overnight #39/#75, what hung HexIDE: its probe answered a vbOKOnly box with vbYes, and the host showed a native dialog nobody saw. A client that shows dialogs
+    // what hung HexIDE: its probe answered a vbOKOnly box with vbYes, and the host showed a native dialog nobody saw. A client that shows dialogs
     // is the one that answers, and an answer the dialog cannot have fails the run, untrappably, instead; one it can have is the program's.
     private const string OkOnly = "Public Sub Main()\r\n    On Error Resume Next\r\n    Debug.Print MsgBox(\"from the add-in probe\")\r\n    Debug.Print \"after\"\r\nEnd Sub\r\n";
 

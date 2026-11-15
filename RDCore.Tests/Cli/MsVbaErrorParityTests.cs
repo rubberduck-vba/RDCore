@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// What MS-VBA rejects at compile time, and what it raises at run time, for the member accesses, indexes, special forms and statement targets the bound
-/// tree evaluates (IR lowering S0.12): each case recorded in Excel, compiled with Debug > Compile, then run with its errors trapped one statement at a time.
+/// tree evaluates: each case observed in Excel, compiled with Debug > Compile, then run with its errors trapped one statement at a time.
 /// </summary>
 [TestClass]
 public sealed class MsVbaErrorParityTests
@@ -101,7 +101,7 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Const k As Long = 1 ;; k = 2", "Assignment to constant not permitted", DisplayName = "a Let of a constant")]
     [DataRow("Const k As Long = 1 ;; Set k = Nothing", "Assignment to constant not permitted", DisplayName = "a Set of a constant")]
     [DataRow("Dim n As Long ;; Const k As Long = n", "Constant expression required", DisplayName = "a constant of a variable")]
-    // a procedure's Const of Len compiles, with RDC11021 (oracle\s44 C03, C04): ProcedureConstantLengthAnalyzerTests.
+    // a procedure's Const of Len compiles, with RDC11021: ProcedureConstantLengthAnalyzerTests.
     [DataRow("Const k = LenB(\"abc\")", "Constant expression required", DisplayName = "a constant of a function MS-VBAL admits and MS-VBA refuses")]
     [DataRow("Const k = Globals.Two", "Constant expression required", DisplayName = "a constant of a function of the workspace")]
     [DataRow("Const k = Nothing", "Invalid data type for constant", DisplayName = "a constant of Nothing")]
@@ -158,7 +158,7 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim a(5 To 1) As Long", "Range has no values", DisplayName = "an upper bound less than the lower one")]
     [DataRow("Dim a(-1) As Long", "Range has no values", DisplayName = "a negative upper bound")]
     [DataRow("Debug.Print Len()", "Syntax error", DisplayName = "Len with no argument")]
-    // an argument list does not end with an omitted argument, for an Optional parameter too (oracle\ismissing Q03, Q05, Q07).
+    // an argument list does not end with an omitted argument, for an Optional parameter too (observed in Excel).
     [DataRow("Debug.Print Globals.Twice(1, )", "Syntax error", DisplayName = "Q03 a call that ends with an omitted argument")]
     [DataRow("Dim n As Long ;; Globals.TakesLong n,", "Syntax error", DisplayName = "Q05 a call statement that ends with an omitted argument")]
     [DataRow("Dim n As Long ;; Call Globals.TakesLong(n, )", "Syntax error", DisplayName = "a Call statement that ends with an omitted argument")]

@@ -93,7 +93,7 @@ public static class ClassModuleEventSemantics
     }
 
     // a form's control is no variable the code declares: MS-VBA binds the handlers of its events when the event is raised, and compiles one that does not match
-    // the event, which is then never called (Excel-measured, oracle\s30 C06, C19). It is dead code, which the static pass says (DeclarationRole.UnmatchedEventHandler),
+    // the event, which is then never called (observed in Excel). It is dead code, which the static pass says (DeclarationRole.UnmatchedEventHandler),
     // and not an error.
     private static void CheckHandlers(
         VBClassModuleSymbol module, VBTypeMemberSymbol variable, VBClassModuleSymbol source, ImmutableArray<VBCompileErrorInfo>.Builder errors)

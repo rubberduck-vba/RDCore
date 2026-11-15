@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// element type, a <c>Variant</c>, whatever it holds, a scalar, and an array in parentheses.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA reported, or printed, for the same code in Excel (64-bit, en-US, oracle\s57 A05, s58 G01-G12, s59 G13-G20, s61 G21-G33, s61b G22, G23, G34).
+/// Each expected outcome is what MS-VBA reported, or printed, for the same code in Excel (64-bit, en-US).
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.3.1.11 Procedure invocation argument processing")]

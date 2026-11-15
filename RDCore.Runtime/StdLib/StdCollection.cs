@@ -179,7 +179,7 @@ internal sealed class StdCollection : IStdCollectionClass, IStdLibReceiverBound
     // correspond to the Key argument specified when the member referred to was added to the collection." A position that is not there is a subscript out
     // of range, as it is for an array; a key that is not there is not a subscript at all, and is an invalid argument. A collection with no member has no
     // position at all, and any is an invalid argument, as MS-VBA has it: c(1), c.Item(1), c(0) and c.Remove 1 of an empty one raise 5, where a position
-    // past the end of one that has members raises 9 (recorded in Excel: oracle\s56 G13, s57 K01).
+    // past the end of one that has members raises 9 (observed in Excel).
     private static VBRuntimeErrorInfo? Locate(Members members, VBVariantValue index, out int position)
     {
         position = -1;

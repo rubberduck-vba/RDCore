@@ -29,7 +29,7 @@ public sealed class ConditionalCompilationTests
         => CollectionAssert.AreEqual(new[] { expected }, await ModuleWorkspace.RunAsync([], Chosen(directive)));
 
     // MS-VBAL 3.2.2: a line-continuation joins physical lines into one logical line, which is what a directive is (3.4). Each row is what MS-VBA printed for the
-    // same module in Excel (oracle\cc-continued C01-C14, D01-D06): the module's own lines, the body of Main, and what it printed.
+    // same module in Excel (observed in Excel): the module's own lines, the body of Main, and what it printed.
     [TestMethod]
     [DataRow("#Const LC = _ ;;     1", "#If LC = 1 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If ;; Debug.Print \"compiled\"", "true|compiled", DisplayName = "C01 #Const continued before its value")]
     [DataRow("#Const LC = 1 + _ ;;     1", "#If LC = 2 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "C02 #Const continued in its expression")]
@@ -130,7 +130,7 @@ public sealed class ConditionalCompilationTests
     }
 
     // a predefined constant that is true is 1, as MS-VBA's are, so a condition that reads its bits has MS-VBA's outcome (RD-VBAL §2.3.1.2, MS-VBAL §5.6.9.8):
-    // oracle s79 recorded Not Win64 live in 64-bit Excel, and Not 1 = -2 and 1 And 2 = 0; the VBE takes #ElseIf Win64 = 1 over #If Win64 = -1 there.
+    // 64-bit Excel was observed to take Not Win64 live, and Not 1 = -2 and 1 And 2 = 0; the VBE takes #ElseIf Win64 = 1 over #If Win64 = -1 there.
     [TestMethod]
     [DataRow("#If Not Win64 Then ;; Debug.Print \"live\" ;; #Else ;; Debug.Print \"dead\" ;; #End If", "live", DisplayName = "#If Not Win64 is live")]
     [DataRow("#Const NotWin64 = Not Win64 ;; #If NotWin64 = -2 Then ;; Debug.Print \"-2\" ;; #Else ;; Debug.Print \"other\" ;; #End If", "-2", DisplayName = "Not Win64 is -2")]

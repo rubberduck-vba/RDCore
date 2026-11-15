@@ -43,7 +43,7 @@ public sealed class InStrAndInStrBTests
         Assert.AreEqual(0, LongOf(Module().InStr(V(""), V("a"), null, Binary)));
     }
 
-    // MS-VBA, recorded in Excel: oracle\s57 E05, where InStrB's is 0 past the end of the bytes.
+    // MS-VBA, observed in Excel: where InStrB's is 0 past the end of the bytes.
     [TestMethod]
     [DataRow(1, 1, 1)]
     [DataRow(3, 3, 3)]
@@ -160,7 +160,7 @@ public sealed class InStrAndInStrBTests
     public void InStr_WithVbDatabaseCompare_IsError5()
         => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStr(V(1), V("abc"), V("b"), (VBCompareMethod)2)));
 
-    // MS-VBA, recorded in Excel: oracle\s57 S05, D04 - a zero-length String or pattern takes no Compare, and a start past the end still does.
+    // MS-VBA, observed in Excel: a zero-length String or pattern takes no Compare, and a start past the end still does.
     [TestMethod]
     [DataRow(1, "", "", -2, 0, DisplayName = "S05 two zero-length Strings")]
     [DataRow(1, "a", "", 2, 1, DisplayName = "S05 a zero-length pattern")]

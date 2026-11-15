@@ -51,7 +51,7 @@ public sealed class CaseMatchEvaluator(
         => expressionEvaluator.Evaluate(session, controlExpression, context);
 
     /// <summary>
-    /// <see cref="EvaluateSelector"/> on payloads (IR lowering S1.6), when the selector is an expression evaluated on them.
+    /// <see cref="EvaluateSelector"/> on payloads, when the selector is an expression evaluated on them.
     /// </summary>
     /// <returns><see langword="false"/> when the selector is to be evaluated the way it always is.</returns>
     internal bool TryEvaluateSelectorUnboxed(IRuntimeSession session, ExpressionNode controlExpression, RuntimeEvaluationContext context, out ScalarPayload selector)
@@ -194,8 +194,8 @@ public sealed class CaseMatchEvaluator(
     }
 
     // MS-VBA let-coerces the value of a clause to the declared type of the selector, and compares the two in it - where MS-VBAL states the comparison
-    // as an expression of the two, of the effective type of their types (RD-VBAL 5.4.2.10; Excel, oracle s46 F15a-e, s48 G01-G20): with n a Long of 2,
-    // Case 1.7 matches, and Case "abc" raises 13. A selector declared Variant is compared with the value as it is (s48 G04, G14).
+    // as an expression of the two, of the effective type of their types (RD-VBAL 5.4.2.10; observed in Excel): with n a Long of 2,
+    // Case 1.7 matches, and Case "abc" raises 13. A selector declared Variant is compared with the value as it is.
     private RuntimeSemanticsEvaluationResult ConvertToSelectorType(
         IRuntimeSession session, CaseRangeClauseNode clause, VBTypedValue selector, ExpressionNode operand, VBTypedValue value)
     {
@@ -222,9 +222,9 @@ public sealed class CaseMatchEvaluator(
     }
 
     // the type the value of a clause is converted to: the declared type of the selector, when it is one of the intrinsic types MS-VBA converts to. A String
-    // of a fixed length is a String (s48 H07: with f a String * 5 of "ab", Case "ab" does not match, and Case "ab   " does). An integer is not rounded to a
+    // of a fixed length is a String (with f a String * 5 of "ab", Case "ab" does not match, and Case "ab   " does). An integer is not rounded to a
     // Single, which MS-VBA loads at its exact value (as the x87 does, RD-VBAL 5.6.9.3): with s a Single of 16777216, Case 16777217 does not match, and
-    // Case Is < 16777217 does (s48 M02, s42 D22) - where a Double, a String and a Single are converted to the selector's type (M01, M03, M06, M07). It is
+    // Case Is < 16777217 does - where a Double, a String and a Single are converted to the selector's type. It is
     // compared as it is, which a Single and an integer are in a Double (RD-VBAL 5.6.9.5).
     private static VBType? DestinationOf(VBTypedValue selector, VBTypedValue value)
     {

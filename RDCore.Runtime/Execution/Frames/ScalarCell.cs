@@ -60,7 +60,7 @@ internal sealed class ScalarCell : ICopyableBinding
         return cell;
     }
 
-    // a copy of an element of an array that is assigned (S1.6) is a payload cell too: a scalar is immutable, so the boxed value, if any, is shared.
+    // a copy of an element of an array that is assigned is a payload cell too: a scalar is immutable, so the boxed value, if any, is shared.
     public IBindingHandle Copy()
         => new ScalarCell(Type) { _boxed = _boxed, _payload = _payload, _hasPayload = _hasPayload, IsKnown = IsKnown };
 

@@ -2,8 +2,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The text-mode search of <c>InStr</c>, <c>InStrRev</c>, <c>Replace</c>, <c>Split</c> and <c>Filter</c>, end to end, as MS-VBA does it: the letters of both
-/// texts, folded to one case and with <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c> expanded, and nothing ignored. Every row was run in Excel (oracle\instr-text),
-/// and the batches keep their names there.
+/// texts, folded to one case and with <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c> expanded, and nothing ignored. Every row was run in Excel.
 /// </summary>
 /// <remarks>
 /// A row is one module: its <c>Option Compare</c>, then expressions separated by <c>;;</c>, with <c>'</c> for <c>"</c>. Each prints its value, or <c>e</c> and

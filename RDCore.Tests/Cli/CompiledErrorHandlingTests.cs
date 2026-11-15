@@ -10,7 +10,7 @@ using RDCore.SDK.Platform.Components;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// Error handling and <c>GoSub</c> in compiled code (IR lowering S2.4): the <c>On Error</c> statements, <c>GoSub</c> and <c>Return</c> compiled; an error
+/// Error handling and <c>GoSub</c> in compiled code: the <c>On Error</c> statements, <c>GoSub</c> and <c>Return</c> compiled; an error
 /// raised under a handler, a <c>Resume</c>, an <c>Error</c> statement, an <c>On...GoTo</c> run by the interpreter alone, and the activation gone on
 /// compiled where it was left. A program runs the same either way - what it prints, the error it raises and where, what <c>Err</c> holds after it.
 /// </summary>
@@ -318,7 +318,7 @@ public sealed class CompiledErrorHandlingTests
             "    Return",
             "End Function"), "Summed", recoveries: 1);
 
-    // an error in a For header gone past: the loop the interpreter gave its state - a 0 end and a step of 1 (oracle s54) - is stepped in compiled code.
+    // an error in a For header gone past: the loop the interpreter gave its state - a 0 end and a step of 1, as observed in Excel - is stepped in compiled code.
     [TestMethod]
     public async Task AnErrorInAForHeader_GonePast_RunsTheSameAsTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -395,7 +395,7 @@ public sealed class CompiledErrorHandlingTests
             "    Resume Inside",
             "End Function"), "Again", recoveries: 2);
 
-    // a For statement that fails the second time it runs, gone past: its loop has the end and the step the first time gave it (oracle s54), which the
+    // a For statement that fails the second time it runs, gone past: its loop has the end and the step the first time gave it (observed in Excel), which the
     // counter, not assigned, is stepped to.
     [TestMethod]
     public async Task AForHeaderThatFailsTheSecondTime_GonePast_KeepsTheEndAndTheStepTheFirstTimeGaveIt()

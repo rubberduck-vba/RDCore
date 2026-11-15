@@ -124,12 +124,12 @@ public sealed class CallByNameTests
     public async Task AMemberTheObjectDoesNotHave_IsError438()
         => StringAssert.Contains(await FailsWith("Debug.Print CallByName(c, \"Subtract\", VbMethod, 1, 2)"), "438");
 
-    // MS-VBA, recorded in Excel: oracle\s57 C04.
+    // MS-VBA, observed in Excel.
     [TestMethod]
     public async Task AFunction_CalledAsAProperty_IsError450()
         => StringAssert.Contains(await FailsWith("CallByName c, \"Add\", VbLet, 1"), "450");
 
-    // MS-VBA, recorded in Excel: oracle\s56 G04, s57 C03 - where a call written in source on Nothing is 91.
+    // MS-VBA, observed in Excel, where a call written in source on Nothing is 91.
     [TestMethod]
     public async Task Nothing_IsError5()
         => Assert.AreEqual("VBR00005", await FailsWith("Set c = Nothing", "Debug.Print CallByName(c, \"Add\", VbMethod, 1, 2)"));

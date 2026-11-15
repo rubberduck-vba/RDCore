@@ -4,8 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A fixed-size array passed to an <c>A() As T</c> parameter is passed by reference, as a resizable one is (MS-VBAL §5.3.1.11): the declared type of
-/// either is an array of <c>T</c>. What the callee writes is the caller's, and a <c>ReDim</c> of it raises 10. Every expected line was recorded in Excel
-/// (grid <c>oracle\s16</c>, B01-B08).
+/// either is an array of <c>T</c>. What the callee writes is the caller's, and a <c>ReDim</c> of it raises 10. Every expected line was observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class FixedArrayByReferenceTests

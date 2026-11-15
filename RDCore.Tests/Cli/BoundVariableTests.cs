@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A variable read through the slot it is bound to (IR lowering S0.8b) is the variable of the activation that reads it: its own in each activation of a
+/// A variable read through the slot it is bound to is the variable of the activation that reads it: its own in each activation of a
 /// recursive procedure, the caller's through a ByRef parameter, read as the type it is declared to be through a Variant ByRef parameter, and a Static
 /// variable that outlives every activation.
 /// </summary>

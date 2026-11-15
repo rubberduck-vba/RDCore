@@ -34,7 +34,7 @@ internal static class VariantArithmeticOverflow
     /// <summary>
     /// Whether a Single operation whose value is not finite - outside the range of a Single - is evaluated again, in a wider type: with a Variant operand, a
     /// Double (<c>3E+38 * 10</c> = Double 3.00000000549776E+39), with no error even when that is not finite either (an infinity plus one is a Double
-    /// infinity; recorded in Excel, grid oracle\s16 H01).
+    /// infinity; observed in Excel).
     /// </summary>
     /// <param name="frame">The frame of the operation.</param>
     /// <param name="value">The value of the operation, as a Single.</param>
@@ -43,7 +43,7 @@ internal static class VariantArithmeticOverflow
 
     /// <summary>
     /// Whether a Double operation whose value is not finite is an overflow because an operand is a Variant: MS-VBA's Variant arithmetic raises 6 for any
-    /// such Double - of an infinity, of a NaN - where a typed one is IEEE 754's, and assigns nothing (recorded in Excel, grid oracle\s16 G09, H02-H03).
+    /// such Double - of an infinity, of a NaN - where a typed one is IEEE 754's, and assigns nothing (observed in Excel).
     /// </summary>
     /// <param name="frame">The frame of the operation.</param>
     /// <param name="value">The value of the operation.</param>

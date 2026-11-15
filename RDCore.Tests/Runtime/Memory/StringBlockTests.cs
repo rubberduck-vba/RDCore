@@ -14,8 +14,8 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Tests.Runtime.Memory;
 
 /// <summary>
-/// The <c>BSTR</c> a variable-length <c>String</c> is in the session's memory (<see cref="StringBlock"/>), as MS-VBA lays one out (recorded in Excel, oracle\s17
-/// S04-S13): its length in bytes, its characters - where <c>StrPtr</c> points - and a null character; and a <c>String</c> variable's bytes, the address of them.
+/// The <c>BSTR</c> a variable-length <c>String</c> is in the session's memory (<see cref="StringBlock"/>), as MS-VBA lays one out (observed in Excel):
+/// its length in bytes, its characters - where <c>StrPtr</c> points - and a null character; and a <c>String</c> variable's bytes, the address of them.
 /// </summary>
 [TestClass]
 public sealed class StringBlockTests
@@ -365,7 +365,7 @@ public sealed class StringBlockTests
         return (storage, record, field, address);
     }
 
-    // oracle\s24 P04: a fixed-size array field is in the record, its elements side by side - and its bytes are theirs.
+    // Observed in Excel: a fixed-size array field is in the record, its elements side by side - and its bytes are theirs.
     [TestMethod]
     public void AFixedSizeArrayFieldsElements_AreTheirBytes_InTheRecord()
     {

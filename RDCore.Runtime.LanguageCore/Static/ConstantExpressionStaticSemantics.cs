@@ -36,7 +36,7 @@ public static class ConstantExpressionStaticSemantics
                 yield return boundError;
             }
 
-            // a field of a user-defined type that is an array is declared with bounds as a variable is (MS-VBA, Excel-verified, oracle\s29 A09, A10).
+            // a field of a user-defined type that is an array is declared with bounds as a variable is (MS-VBA, observed in Excel).
             foreach (var field in member is VBUserDefinedTypeMemberSymbol { Members.IsDefault: false } userDefinedType ? userDefinedType.Members : [])
             {
                 // MS-VBA bounds a field's arrays from 0, whatever the module's Option Base (RD-VBAL §5.2.1.2).
@@ -63,8 +63,7 @@ public static class ConstantExpressionStaticSemantics
     }
 
     // a constant whose value names itself - directly, or through the constants it names - has no value to be folded to: "Constant expression required", as
-    // MS-VBA reports it however the cycle is made, in a module or in a procedure, and whether or not anything reads the constant (Excel-verified, oracle\s28
-    // C01-C05). Each constant on the cycle is one.
+    // MS-VBA reports it however the cycle is made, in a module or in a procedure, and whether or not anything reads the constant (observed in Excel). Each constant on the cycle is one.
     private static VBCompileErrorInfo? CycleError(ISymbolResolver resolver, Symbol constant, ExpressionNode value)
     {
         var start = constant.Uri.AbsoluteUri;
@@ -145,7 +144,7 @@ public static class ConstantExpressionStaticSemantics
             }
 
             // a bound is a Long (MS-VBAL §5.2.3.1.3: "Let-coerced to Long"): one past its range is an overflow, before any range is looked at (MS-VBA: "Overflow",
-            // Excel-verified, oracle\s29 A13, A25-A27).
+            // observed in Excel).
             var outOfRange = new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>()
                 .FirstOrDefault(expression => LiteralValue(expression) is { } value && (value < int.MinValue || value > int.MaxValue));
             if (outOfRange is not null)
@@ -165,7 +164,7 @@ public static class ConstantExpressionStaticSemantics
         }
 
         // RD-VBA holds each element in a cell of its own, and an array of more than VBArrayValue.MaximumLength of them is out of memory, as a ReDim of one is
-        // when it runs (RD-VBAL §5.4.3.3): MS-VBA (64-bit) allocates `Dim b(100000000) As Byte` (recorded in Excel: oracle\s56 C12). Bounds written as literals
+        // when it runs (RD-VBAL §5.4.3.3): MS-VBA (64-bit) allocates `Dim b(100000000) As Byte` (observed in Excel). Bounds written as literals
         // are known here; a dimension with no lower bound starts at the module's Option Base, as the array the runtime makes of it does.
         var literal = bounds.Select(bound => (Lower: bound.LowerExpression is { } lower ? LiteralValue(lower) : optionBase, Upper: bound.UpperExpression is { } upper ? LiteralValue(upper) : null))
             .ToArray();
@@ -220,9 +219,9 @@ public static class ConstantExpressionStaticSemantics
     }
 
     // which calls of the standard library's functions MS-VBAL §5.6.16.1 names are constant expressions where they are written. MS-VBA admits Len and LenB
-    // in the bounds of an array (Excel-verified, oracle\s46 F02a, F02b, oracle\s44 C06: `Dim d(Len(K))`), Len alone in the value of a Const of a procedure
-    // (C03, C04, which the author lets slip with RDC11021: MS-VBA compiles it, and its run crashes the host), and none in the value of a Const of a module
-    // (C01, C02), nor LenB in a procedure's (C05). Where code is run, it evaluates every one of them as it compiles the code (oracle\s60).
+    // in the bounds of an array (observed in Excel: `Dim d(Len(K))`), Len alone in the value of a Const of a procedure
+    // (which RDC11021 reports: MS-VBA compiles it, and its run crashes the host), and none in the value of a Const of a module, nor LenB in a procedure's.
+    // Where code is run, it evaluates every one of them as it compiles the code.
     [Flags]
     private enum IntrinsicCalls
     {

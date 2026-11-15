@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A variable let-assigned through the slot it is bound to, by the plan of its coercion (IR lowering S0.8c), is assigned as a let-assignment assigns it
+/// A variable let-assigned through the slot it is bound to, by the plan of its coercion, is assigned as a let-assignment assigns it
 /// (MS-VBAL 5.4.3.1): the value let-coerced to the variable's declared type - or to the type of the variable a Variant reference parameter is bound to - and
 /// an error when the coercion fails, where the assignment is written.
 /// </summary>

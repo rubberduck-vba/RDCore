@@ -54,7 +54,7 @@ public static class MemberRoles
             var isControl = variable.GetProperty(SymbolProperties.DesignerControl);
             foreach (var handled in FormControlExtender.EventsOf(variable, source, extender))
             {
-                // the handler of an event of a form's control that does not match the event is never called by it: MS-VBA compiles it (oracle\s30 C06)
+                // the handler of an event of a form's control that does not match the event is never called by it: MS-VBA compiles it (observed in Excel)
                 if (isControl)
                 {
                     var required = array is not null ? WithIndex(handled) : handled.Parameters;

@@ -5,10 +5,10 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>MS-VBAL §5.3.1.11</strong> a public variable of an object named as its member, or an element of one, is passed as a copy to whatever takes it by
 /// reference: a <c>ParamArray</c>, a procedure called late, the handler of a raised event. Named by itself in its own class, it is the variable. Each
-/// expectation is what MS-VBA printed for the same code, recorded in Excel (oracle\s58 B01, F01, F04, F05, s59 M04).
+/// expectation is what MS-VBA printed for the same code, observed in Excel.
 /// </summary>
 /// <remarks>
-/// A <c>Declare</c>'s <c>ByRef</c> parameter is given a copy too (s58 F02), which the analyzer tests say; calling into kernel32 is no test that runs everywhere.
+/// A <c>Declare</c>'s <c>ByRef</c> parameter is given a copy too, which the analyzer tests say; calling into kernel32 is no test that runs everywhere.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.3.1.11 Procedure Invocation Argument Processing")]

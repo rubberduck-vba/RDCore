@@ -134,7 +134,7 @@ public static partial class ValueConversions
             return VBStringValue.NegativeInfinity;
         }
 
-        // MS-VBA shows the sign of a NaN: the one an invalid operation makes is negative, and Abs clears it (recorded in Excel, grid oracle\s16 H06).
+        // MS-VBA shows the sign of a NaN: the one an invalid operation makes is negative, and Abs clears it (observed in Excel).
         if (double.IsNaN(numericValue))
         {
             return double.IsNegative(numericValue) ? VBStringValue.NaN : VBStringValue.PositiveNaN;
@@ -160,7 +160,7 @@ public static partial class ValueConversions
     }
 
     // a Currency or a Decimal is every digit it has, with trailing zeros removed: MS-VBA prints 922337203685477.5807 and 0.1234567890123456789 whole
-    // (recorded in Excel, through CStr, &, Str and Format alike), where MS-VBAL 5.5.1.2.4 caps any number at 15 digits - RD-VBA is MS-VBA (author's ruling).
+    // (observed in Excel, through CStr, &, Str and Format alike), where MS-VBAL 5.5.1.2.4 caps any number at 15 digits - RD-VBA is MS-VBA.
     private static string FixedPointToText(decimal value, string decimalSeparator)
     {
         if (value == 0)

@@ -20,15 +20,14 @@ internal readonly record struct WideValue(Float80 Value, VBType Type, FloatingPo
 /// <summary>
 /// <strong>MS-VBAL 5.6.9.3</strong>: MS-VBA performs the floating-point operations of an expression "with a higher-precision than the effective value type",
 /// as the specification allows: an x87's, of 80 bits. An expression of operands of declared types whose operation's effective type is <c>Single</c>,
-/// <c>Double</c> or <c>Date</c> is computed in that format, operation after operation, and rounded where the value is stored (recorded in Excel, grid
-/// <c>oracle\s42</c>).
+/// <c>Double</c> or <c>Date</c> is computed in that format, operation after operation, and rounded where the value is stored (observed in Excel).
 /// </summary>
 /// <remarks>
 /// <para>
 /// Where the value goes decides what it is rounded to. Let-coerced to a declared numeric type - a variable assigned, a parameter, a function's result, the
 /// operand of an operator of another effective type, the bound of a <c>For</c> - it is converted to that type from the 80 bits: <c>e = s + 1</c> with
-/// <c>s</c> a <c>Single</c> of 16777216 and <c>e</c> a <c>Double</c> assigns 16777217, and <c>l = 2.5 + 2^-60</c> assigns 3 to a <c>Long</c> (s42 B07, C14,
-/// D01-D31). Held as itself - by a <c>Variant</c>, written as a <c>String</c>, as the selector of a <c>Select Case</c> - it is stored as the type of the
+/// <c>s</c> a <c>Single</c> of 16777216 and <c>e</c> a <c>Double</c> assigns 16777217, and <c>l = 2.5 + 2^-60</c> assigns 3 to a <c>Long</c>.
+/// Held as itself - by a <c>Variant</c>, written as a <c>String</c>, as the selector of a <c>Select Case</c> - it is stored as the type of the
 /// expression first (D03, D18, D22, D25). Compared, it is rounded to the precision of the comparison's effective type, in the extended range: <c>d * 10 >
 /// 0</c> is <c>True</c> for a <c>Double</c> of 1E+308, and <c>1 + 2^-60 > 1</c> is <c>False</c> (A22, B18, B19).
 /// </para>
@@ -60,7 +59,9 @@ internal static class ExtendedIntermediates
         => token is Tokens.CompareEqualOp or Tokens.CompareNotEqualOp or Tokens.CompareLessThanOp or Tokens.CompareLessThanOrEqualOp
             or Tokens.CompareGreaterThanOp or Tokens.CompareGreaterThanOrEqualOp;
 
-    /// <summary>The value of a payload, exactly: a <c>Currency</c> is its ten-thousandths divided by 10,000, rounded once (s42 C23, C24).</summary>
+    /// <summary>
+    /// The value of a payload, exactly: a <c>Currency</c> is its ten-thousandths divided by 10,000, rounded once.
+    /// </summary>
     public static Float80 Of(ScalarPayload payload) => payload.Type switch
     {
         VBCurrencyType => Float80.FromCurrency(payload.Integral),
@@ -184,7 +185,7 @@ internal static class ExtendedIntermediates
 
     /// <summary>
     /// A comparison of two extended values of the comparison's effective type: each is rounded to that type's precision - not its range - and a NaN,
-    /// ordered with nothing, is an invalid operation (s42 A22, B18, B19, C08, C09, D05).
+    /// ordered with nothing, is an invalid operation.
     /// </summary>
     /// <returns>The result of the comparison; <see langword="null"/> when it raises <paramref name="error"/>.</returns>
     public static bool? Compare(string token, WideValue left, WideValue right, VBType effectiveType, out VBRuntimeErrorId? error)
@@ -212,7 +213,7 @@ internal static class ExtendedIntermediates
 
     /// <summary>
     /// What the standard library's <c>Abs</c>, <c>Int</c>, <c>Fix</c>, <c>CSng</c> and <c>CDbl</c> make of an extended value, which MS-VBA computes without
-    /// storing it: the first three keep its type and its 64 bits (s42 A10-A13, C16-C18, D10, D11); <c>CDbl</c> rounds it to a <c>Double</c>, and
+    /// storing it: the first three keep its type and its 64 bits; <c>CDbl</c> rounds it to a <c>Double</c>, and
     /// <c>CSng</c> to a <c>Double</c> and then to the precision of a <c>Single</c>, in the range of a <c>Double</c> - a <c>Double</c> past its range is an
     /// infinity and an overflow, pending (A16, A17, C02-C06).
     /// </summary>
@@ -239,7 +240,7 @@ internal static class ExtendedIntermediates
 
     /// <summary>
     /// The type the standard library's conversion functions of a numeric type convert an extended value to, directly: <c>CByte</c>, <c>CInt</c>,
-    /// <c>CLng</c>, <c>CLngLng</c>, <c>CCur</c>, <c>CBool</c> (s42 C15, D12).
+    /// <c>CLng</c>, <c>CLngLng</c>, <c>CCur</c>, <c>CBool</c>.
     /// </summary>
     /// <returns>The type; <see langword="null"/> when <paramref name="function"/> is none of them.</returns>
     public static VBType? ConversionOf(string function) => function switch
@@ -255,7 +256,7 @@ internal static class ExtendedIntermediates
 
     /// <summary>
     /// <c>Sgn</c> of an extended value: -1, 0 or 1, an <c>Integer</c>; the value is not stored, but what is pending is raised, and a NaN is an invalid
-    /// operation (s42 A11, C45; oracle\s16 G10).
+    /// operation.
     /// </summary>
     public static ScalarPayload? SignOf(WideValue argument, out VBRuntimeErrorId? error)
     {
