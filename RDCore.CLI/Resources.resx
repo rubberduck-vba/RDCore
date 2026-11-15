@@ -893,7 +893,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>{0} is not on this terminal&apos;s PATH yet: {1} adds it in a new terminal.</value>
   </data>
   <data name="Mcp_Summary" xml:space="preserve">
-    <value>Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output: rdc mcp --workspace &lt;path&gt;.</value>
+    <value>Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output.</value>
   </data>
   <data name="Mcp_Usage" xml:space="preserve">
     <value>Usage: rdc mcp --workspace &lt;path&gt;. The workspace is a folder, with or without a .rdproj.</value>

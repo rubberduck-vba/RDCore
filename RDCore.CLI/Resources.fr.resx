@@ -885,7 +885,7 @@
     <value>{0} n&apos;est pas encore dans le PATH de ce terminal : {1} l&apos;y ajoute dans un nouveau terminal.</value>
   </data>
   <data name="Mcp_Summary" xml:space="preserve">
-    <value>Sert les outils de RDCore à un assistant, comme serveur Model Context Protocol sur l'entrée et la sortie standard : rdc mcp --workspace &lt;chemin&gt;.</value>
+    <value>Sert les outils de RDCore à un assistant, comme serveur Model Context Protocol sur l'entrée et la sortie standard.</value>
   </data>
   <data name="Mcp_Usage" xml:space="preserve">
     <value>Utilisation : rdc mcp --workspace &lt;chemin&gt;. L'espace de travail est un dossier, avec ou sans fichier .rdproj.</value>

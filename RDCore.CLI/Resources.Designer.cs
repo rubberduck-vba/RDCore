@@ -142,7 +142,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output: rdc mcp --workspace &lt;path&gt;..
+        ///   Looks up a localized string similar to Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output..
         /// </summary>
         public static string Mcp_Summary {
             get {
