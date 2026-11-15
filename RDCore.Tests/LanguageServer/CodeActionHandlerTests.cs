@@ -446,19 +446,27 @@ public sealed class CodeActionHandlerTests
         var document = DocumentUri.From(Path.Combine(Root, "Tools.bas"));
         _capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(true);
 
+        var rename = Rename();
+        var at = new RDCore.SDK.Model.Source.SourceRange(1, 12, 1, 12);
+
         var offered = await ActionsAsync(document, new Range(1, 12, 1, 12), null);
-        var prepared = await new ParameterReorderService(Rename()).PrepareAsync(document.ToUri(), new RDCore.SDK.Model.Source.SourcePosition(1, 12), CancellationToken.None);
-        var applied = await new ParameterReorderService(Rename()).ApplyAsync(document.ToUri(), new RDCore.SDK.Model.Source.SourcePosition(1, 12),
-            [new RDCore.SDK.Platform.Protocol.RefactorAnswer { Id = ParameterReorderService.ParametersChoice, Items = [new() { Id = "b" }, new() { Id = "a" }] }], [],
-            CancellationToken.None);
+        var prepared = await new RefactorPrepareHandler(new ExtractMethodService(rename, _parsing, AppOptions()), _capabilities, new ParameterReorderService(rename)).Handle(
+            new RDCore.SDK.Platform.Protocol.RefactorPrepareRequest { Kind = RefactoringKinds.ReorderParameters, Uri = document.ToUri(), Range = at }, CancellationToken.None);
+        var applied = await new RefactorApplyHandler(new ExtractMethodService(rename, _parsing, AppOptions()), _capabilities, new ParameterReorderService(rename)).Handle(
+            new RDCore.SDK.Platform.Protocol.RefactorApplyRequest
+            {
+                Kind = RefactoringKinds.ReorderParameters,
+                Uri = document.ToUri(),
+                Range = at,
+                Answers = [new() { Id = ParameterReorderService.ParametersChoice, Items = [new() { Id = "b" }, new() { Id = "a" }] }],
+            }, CancellationToken.None);
 
         var reorder = Assert.ContainsSingle(offered.Where(action => action.Kind == CodeActionHandler.RefactorReorderParameters));
         Assert.AreEqual("Reorder the parameters of 'Go'", reorder.Title);
         Assert.AreEqual(RefactoringCommands.Refactor, reorder.Command!.Name);
         CollectionAssert.AreEqual(new[] { "ByVal a As Long", "ByVal b As String" }, prepared.Choices.Single().Items.Select(item => item.Label).ToArray());
-        Assert.IsNull(applied.Refusal, applied.Refusal);
         Assert.AreEqual(tools.Replace("(ByVal a As Long, ByVal b As String)", "(ByVal b As String, ByVal a As Long)").Replace("Go 1, \"x\"", "Go \"x\", 1"),
-            DeclarationEdits.ApplyTo(tools, applied.Edit!.Documents.Single().Edits));
+            DeclarationEdits.ApplyTo(tools, applied.Documents.Single().Edits));
     }
 
     [TestMethod]

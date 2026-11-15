@@ -151,9 +151,9 @@ public sealed class ConvertGoSubServiceTests
         var capabilities = Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>();
         capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(true);
 
-        var prepared = await new RefactorPrepareHandler(Sut(), new ParameterReorderService(_rename), capabilities).Handle(
+        var prepared = await new RefactorPrepareHandler(Sut(), capabilities).Handle(
             new RefactorPrepareRequest { Kind = RefactoringKinds.ConvertGoSub, Uri = Document, Range = At(8, 0) }, CancellationToken.None);
-        var applied = await new RefactorApplyHandler(Sut(), new ParameterReorderService(_rename), capabilities).Handle(
+        var applied = await new RefactorApplyHandler(Sut(), capabilities).Handle(
             new RefactorApplyRequest { Kind = RefactoringKinds.ConvertGoSub, Uri = Document, Range = At(8, 0) }, CancellationToken.None);
 
         Assert.AreEqual("TwiceProc", prepared.Choices[0].Default);
