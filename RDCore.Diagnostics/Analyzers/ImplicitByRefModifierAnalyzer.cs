@@ -15,7 +15,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// A <c>ParamArray</c> cannot state either, and the value parameter of a property <c>Let</c> or <c>Set</c> is always passed by value, so neither is reported.
 /// Nor is a parameter of an implementation of an interface member or of a handler of an event, which is the member's or the event's
 /// (<see cref="UnusedDeclarations.HasAnothersSignature"/>). Under the convention that leaves <c>ByRef</c> unwritten
-/// (<see cref="DiagnosticsOptions.ByRefModifier"/>) nothing is: <c>RDC00314</c> reports the opposite.
+/// (<see cref="DiagnosticsOptions.ByRefModifier"/>), nothing is reported: <c>RDC00314</c> reports the opposite.
 /// The fix writes <c>ByRef</c> before the name, after <c>Optional</c>: the parameter is passed as it was.
 /// </remarks>
 /// <param name="options">The settings of the extension.</param>
