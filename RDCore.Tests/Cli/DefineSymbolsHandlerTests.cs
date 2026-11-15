@@ -31,7 +31,7 @@ public sealed class DefineSymbolsHandlerTests
             provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
         }
 
-        return new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), logger ?? NullLogger<DefineSymbolsHandler>.Instance);
+        return new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), logger ?? NullLogger<DefineSymbolsHandler>.Instance);
     }
 
     private static DefineSymbolsParams Request(params SymbolDescriptor[] symbols) => new()
@@ -107,7 +107,7 @@ public sealed class DefineSymbolsHandlerTests
             new MockFileSystem(),
             NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
-        var handler = new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var handler = new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
 
         await handler.Handle(Request(Procedure("Main")) with { ModuleName = "Program", SessionModule = sessionModule }, CancellationToken.None);
 
@@ -131,7 +131,7 @@ public sealed class DefineSymbolsHandlerTests
             new MockFileSystem(),
             NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = relativeUri }] }, WorkspaceRoot);
-        var handler = new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var handler = new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
         Assert.IsTrue(provider.Session.Symbols.TryGetModule("Program", out var projects));
 
         await handler.Handle(Request(Procedure("Main")) with { ModuleName = "Program", SessionModule = true }, CancellationToken.None);
@@ -160,7 +160,7 @@ public sealed class DefineSymbolsHandlerTests
             Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }],
             References = [new RDCoreReference { Name = "Scripting" }],
         }, WorkspaceRoot);
-        var handler = new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var handler = new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
 
         await handler.Handle(Request(Procedure("Main")) with { ModuleName = name, SessionModule = true }, CancellationToken.None);
 

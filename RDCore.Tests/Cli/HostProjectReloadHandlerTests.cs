@@ -70,7 +70,7 @@ public sealed class HostProjectReloadHandlerTests
             Parse: new ModuleParser().Parse(new Uri(Path.Combine(Root, module.File)), _files.File.ReadAllText(Path.Combine(Root, module.File))))).ToList();
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, parsed.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver());
 
-        var define = new DefineSymbolsHandler(_session, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(_session, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var module in parsed)
         {
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
