@@ -52,7 +52,7 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
             {
                 Fixes = references.Writes == 0 && declaration is not null && !redimensioned.Contains(fact.Name)
                     && UnusedDeclarations.RemovalOf(context.ParseResult, declaration, AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotUsed_Fix, fact.Name)) is { } fix
-                    ? new DiagnosticFixes { Edit = fix }
+                    ? new DiagnosticFixes { Edits = [fix] }
                     : null,
             };
         }

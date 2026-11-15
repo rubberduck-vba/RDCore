@@ -85,6 +85,6 @@ internal sealed class ObsoleteCallStatementAnalyzer : IModuleAnalyzer
             edits.Add(SyntaxEdits.Remove(new SourceRange(last.End, end)));
         }
 
-        return new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteCallStatement_Fix, [.. edits]) };
+        return new DiagnosticFixes { Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteCallStatement_Fix, [.. edits])] };
     }
 }

@@ -36,7 +36,7 @@ internal sealed class ImplicitVariantDeclarationAnalyzer : SyntaxTreeAnalyzer
                     RDCoreDiagnosticId.ImplicitVariantDeclaration.ToCode(), range, DiagnosticSeverity.Information, Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Message, name))
                 {
                     Fixes = asClauseAt is { } at
-                        ? new DiagnosticFixes { Edit = SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Fix, name), SyntaxEdits.Insert(at, " As Variant")) }
+                        ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Fix, name), SyntaxEdits.Insert(at, " As Variant"))] }
                         : null,
                 };
             }

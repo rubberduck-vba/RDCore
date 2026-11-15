@@ -30,9 +30,9 @@ internal sealed class ObsoleteOnLocalErrorStatementAnalyzer : SyntaxTreeAnalyzer
             {
                 Fixes = new DiagnosticFixes
                 {
-                    Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteOnLocalErrorStatement_Fix, statement is OnErrorGoToStatementNode goTo
+                    Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteOnLocalErrorStatement_Fix, statement is OnErrorGoToStatementNode goTo
                         ? SyntaxEdits.Replace(new SourceRange(goTo.SourceLocation.Range.Start, goTo.LabelExpression.SourceLocation.Range.Start), "On Error GoTo ")
-                        : SyntaxEdits.Replace(statement.SourceLocation.Range, "On Error Resume Next")),
+                        : SyntaxEdits.Replace(statement.SourceLocation.Range, "On Error Resume Next"))],
                 },
             });
 }

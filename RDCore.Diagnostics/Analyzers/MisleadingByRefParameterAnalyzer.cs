@@ -30,8 +30,8 @@ internal sealed class MisleadingByRefParameterAnalyzer : SyntaxTreeAnalyzer
                     ? null
                     : new DiagnosticFixes
                     {
-                        Edit = SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.MisleadingByRefParameter_Fix, parameter.Name),
-                            SyntaxEdits.Replace(SyntaxEdits.Following(parameter.Location.Range.Start, "ByRef".Length), "ByVal")),
+                        Edits = [SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.MisleadingByRefParameter_Fix, parameter.Name),
+                            SyntaxEdits.Replace(SyntaxEdits.Following(parameter.Location.Range.Start, "ByRef".Length), "ByVal"))],
                     },
             });
 }

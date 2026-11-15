@@ -41,11 +41,14 @@ internal sealed class EmptyStringLiteralAnalyzer : SyntaxTreeAnalyzer
                 Fixes = compared.Contains(literal.Identity)
                     ? new DiagnosticFixes
                     {
-                        Edit = new EditFix
-                        {
-                            Title = RDCoreDiagnosticsResources.EmptyStringLiteral_Fix,
-                            Edits = [new TextEdit { Range = literal.SourceLocation.Range.ToLsp(), NewText = "vbNullString" }],
-                        },
+                        Edits =
+                        [
+                            new EditFix
+                            {
+                                Title = RDCoreDiagnosticsResources.EmptyStringLiteral_Fix,
+                                Edits = [new TextEdit { Range = literal.SourceLocation.Range.ToLsp(), NewText = "vbNullString" }],
+                            },
+                        ],
                     }
                     : null,
             });

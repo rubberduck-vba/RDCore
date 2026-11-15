@@ -29,7 +29,7 @@ internal sealed class ObsoleteRemCommentAnalyzer : IModuleAnalyzer
                     DiagnosticSeverity.Information,
                     RDCoreDiagnosticsResources.ObsoleteCommentSyntax_Message)
                 {
-                    Fixes = new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteCommentSyntax_Fix, SyntaxEdits.Replace(keyword, "'")) },
+                    Fixes = new DiagnosticFixes { Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteCommentSyntax_Fix, SyntaxEdits.Replace(keyword, "'"))] },
                 })
             : [];
 

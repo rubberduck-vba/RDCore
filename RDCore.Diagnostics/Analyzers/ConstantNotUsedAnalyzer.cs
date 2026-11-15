@@ -39,7 +39,7 @@ internal sealed class ConstantNotUsedAnalyzer : IModuleAnalyzer
             {
                 Fixes = declaration is not null
                     && UnusedDeclarations.RemovalOf(context.ParseResult, declaration, AnalyzerMessages.Format(RDCoreDiagnosticsResources.ConstantNotUsed_Fix, fact.Name)) is { } fix
-                    ? new DiagnosticFixes { Edit = fix }
+                    ? new DiagnosticFixes { Edits = [fix] }
                     : null,
             };
         }

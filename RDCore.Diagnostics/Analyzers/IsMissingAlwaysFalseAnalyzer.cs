@@ -83,11 +83,14 @@ internal sealed class IsMissingAlwaysFalseAnalyzer : IModuleAnalyzer
                 {
                     Fixes = new DiagnosticFixes
                     {
-                        Edit = new EditFix
-                        {
-                            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.IsMissingAlwaysFalse_Fix, argument.IdentifierName),
-                            Edits = [new TextEdit { Range = call.Location.Range.ToLsp(), NewText = "False" }],
-                        },
+                        Edits =
+                        [
+                            new EditFix
+                            {
+                                Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.IsMissingAlwaysFalse_Fix, argument.IdentifierName),
+                                Edits = [new TextEdit { Range = call.Location.Range.ToLsp(), NewText = "False" }],
+                            },
+                        ],
                     },
                 };
             }

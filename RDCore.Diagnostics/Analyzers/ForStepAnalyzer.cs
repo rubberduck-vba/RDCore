@@ -49,5 +49,5 @@ internal sealed class ForStepAnalyzer(IOptions<DiagnosticsOptions> options) : Sy
 
     // the Integer 1 is the step of a loop that states none: the loop counts the same with or without it.
     private static DiagnosticFixes Fix(string title, SourceRange range, string text)
-        => new() { Edit = new EditFix { Title = title, Edits = [new TextEdit { Range = range.ToLsp(), NewText = text }] } };
+        => new() { Edits = [new EditFix { Title = title, Edits = [new TextEdit { Range = range.ToLsp(), NewText = text }] }] };
 }

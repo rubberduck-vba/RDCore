@@ -30,7 +30,7 @@ internal sealed class StopStatementAnalyzer : IModuleAnalyzer
                 RDCoreDiagnosticsResources.StopStatement_Message)
             {
                 Fixes = LineEdits.WholeLinesOf(context.ParseResult, statement) is { } lines
-                    ? new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.StopStatement_Fix, SyntaxEdits.Remove(lines)) }
+                    ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.StopStatement_Fix, SyntaxEdits.Remove(lines))] }
                     : null,
             });
 }

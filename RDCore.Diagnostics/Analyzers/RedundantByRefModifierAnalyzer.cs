@@ -63,11 +63,14 @@ internal sealed class RedundantByRefModifierAnalyzer(IOptions<DiagnosticsOptions
         var keyword = parameter.IsOptional ? new SourcePosition(start.Line, start.Character + "Optional ".Length) : start;
         return new DiagnosticFixes
         {
-            Edit = new EditFix
-            {
-                Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.RedundantByRefModifier_Fix, parameter.Name),
-                Edits = [new TextEdit { Range = new SourceRange(keyword, name).ToLsp(), NewText = string.Empty }],
-            },
+            Edits =
+            [
+                new EditFix
+                {
+                    Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.RedundantByRefModifier_Fix, parameter.Name),
+                    Edits = [new TextEdit { Range = new SourceRange(keyword, name).ToLsp(), NewText = string.Empty }],
+                },
+            ],
         };
     }
 

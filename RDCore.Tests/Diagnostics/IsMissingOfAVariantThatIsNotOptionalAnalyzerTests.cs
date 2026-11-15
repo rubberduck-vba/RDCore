@@ -58,7 +58,7 @@ public sealed class IsMissingOfAVariantThatIsNotOptionalAnalyzerTests
     {
         var finding = Assert.ContainsSingle(await FindingsAsync(signature, "Debug.Print IsMissing(p)"));
 
-        var fix = finding.Fixes?.Edit;
+        var fix = finding.Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
         StringAssert.Contains(fix.Title, "'p'");
         var edit = Assert.ContainsSingle(fix.Edits);
@@ -76,7 +76,7 @@ public sealed class IsMissingOfAVariantThatIsNotOptionalAnalyzerTests
     {
         var finding = Assert.ContainsSingle(await FindingsAsync(signature, body));
 
-        Assert.IsNull(finding.Fixes?.Edit);
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault());
     }
 
     [TestMethod]
@@ -91,6 +91,6 @@ public sealed class IsMissingOfAVariantThatIsNotOptionalAnalyzerTests
 
         var finding = Assert.ContainsSingle(new IsMissingOfAVariantThatIsNotOptionalAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), model)));
 
-        Assert.AreEqual(offered, finding.Fixes?.Edit is not null);
+        Assert.AreEqual(offered, finding.Fixes?.Edits.SingleOrDefault()is not null);
     }
 }

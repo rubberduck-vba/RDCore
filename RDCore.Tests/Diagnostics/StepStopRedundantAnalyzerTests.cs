@@ -90,7 +90,7 @@ public sealed class StepStopRedundantAnalyzerTests
     private static async Task AssertFixedAsync(IModuleAnalyzer analyzer, string before, string after, string title, ModuleSemanticsDto? semantics = null)
     {
         var program = Module(before);
-        var fix = Assert.ContainsSingle(Run(analyzer, program, semantics)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(Run(analyzer, program, semantics)).Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
         Assert.AreEqual(title, fix.Title);
 
@@ -173,12 +173,12 @@ public sealed class StepStopRedundantAnalyzerTests
     [DataRow("IsNumeric(n)", DisplayName = "a call, which any procedure of that name can answer")]
     public void NoFixIsOffered_ForAConditionThatMayBeNullOrANumber(string condition)
         => Assert.IsNull(Assert.ContainsSingle(Run(new BooleanAssignedInIfElseAnalyzer(),
-            Module($"Public Sub DoSomething(ByVal n As Variant)\n    Dim bar As Boolean\n    If {condition} Then\n        bar = True\n    Else\n        bar = False\n    End If\nEnd Sub"))).Fixes?.Edit);
+            Module($"Public Sub DoSomething(ByVal n As Variant)\n    Dim bar As Boolean\n    If {condition} Then\n        bar = True\n    Else\n        bar = False\n    End If\nEnd Sub"))).Fixes?.Edits.SingleOrDefault());
 
     [TestMethod]
     public void NoFixIsOffered_WhereAComment_WouldGoWithTheBlock()
         => Assert.IsNull(Assert.ContainsSingle(Run(new BooleanAssignedInIfElseAnalyzer(),
-            Module("Public Sub DoSomething(ByVal o As Object)\n    Dim bar As Boolean\n    If o Is Nothing Then ' no object\n        bar = True\n    Else\n        bar = False\n    End If\nEnd Sub"))).Fixes?.Edit);
+            Module("Public Sub DoSomething(ByVal o As Object)\n    Dim bar As Boolean\n    If o Is Nothing Then ' no object\n        bar = True\n    Else\n        bar = False\n    End If\nEnd Sub"))).Fixes?.Edits.SingleOrDefault());
 
     [TestMethod]
     public void AnElseIf_MakesItSomethingElse()
@@ -231,7 +231,7 @@ public sealed class StepStopRedundantAnalyzerTests
     public void TheFix_RemovesTheStop_AndSaysTheProgramNoLongerBreaks()
     {
         var source = Module("Public Sub DoSomething()\n    Debug.Print 1\n    Stop\n    Debug.Print 2\nEnd Sub");
-        var fix = Assert.ContainsSingle(Run(new StopStatementAnalyzer(), source)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(Run(new StopStatementAnalyzer(), source)).Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
 
         Assert.AreEqual("Remove the Stop: the program no longer breaks here", fix.Title);
@@ -245,7 +245,7 @@ public sealed class StepStopRedundantAnalyzerTests
     [DataRow("    If True Then Stop", DisplayName = "in a single-line If")]
     [DataRow("    Stop ' look here", DisplayName = "before a comment")]
     public void NoRemovalIsOffered_ForAStopThatSharesItsLine(string line)
-        => Assert.IsNull(Assert.ContainsSingle(Run(new StopStatementAnalyzer(), Module($"Public Sub DoSomething()\n{line}\nEnd Sub"))).Fixes?.Edit);
+        => Assert.IsNull(Assert.ContainsSingle(Run(new StopStatementAnalyzer(), Module($"Public Sub DoSomething()\n{line}\nEnd Sub"))).Fixes?.Edits.SingleOrDefault());
 
     #endregion
 
@@ -314,7 +314,7 @@ public sealed class StepStopRedundantAnalyzerTests
     [TestMethod]
     public void NoRemovalIsOffered_AfterOptional_WrittenWithMoreThanOneSpace()
         => Assert.IsNull(Assert.ContainsSingle(Run(new RedundantByRefModifierAnalyzer(Options(byRef: ByRefConvention.Implicit)),
-            Module("Public Sub DoSomething(Optional  ByRef n As Long)\nEnd Sub"), StandardModule(Program))).Fixes?.Edit);
+            Module("Public Sub DoSomething(Optional  ByRef n As Long)\nEnd Sub"), StandardModule(Program))).Fixes?.Edits.SingleOrDefault());
 
     #endregion
 
@@ -347,7 +347,7 @@ public sealed class StepStopRedundantAnalyzerTests
 
     [TestMethod]
     public void NoRemovalIsOffered_ForAnOptionThatSharesItsLine()
-        => Assert.IsNull(Assert.ContainsSingle(Run(new RedundantModuleOptionAnalyzer(), Module("Option Explicit: Option Base 0\nPublic Sub DoSomething()\nEnd Sub"))).Fixes?.Edit);
+        => Assert.IsNull(Assert.ContainsSingle(Run(new RedundantModuleOptionAnalyzer(), Module("Option Explicit: Option Base 0\nPublic Sub DoSomething()\nEnd Sub"))).Fixes?.Edits.SingleOrDefault());
 
     #endregion
 }

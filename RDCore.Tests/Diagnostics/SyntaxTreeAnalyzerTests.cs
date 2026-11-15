@@ -503,7 +503,7 @@ public sealed class SyntaxTreeAnalyzerTests
     {
         var finding = Run(new ModuleScopeDimAnalyzer(), $"{declaration}\r\n").Single();
 
-        Assert.AreEqual(isFixed, finding.Fixes?.Edit is not null);
+        Assert.AreEqual(isFixed, finding.Fixes?.Edits.SingleOrDefault()is not null);
     }
 
     #endregion

@@ -29,7 +29,7 @@ internal sealed class ImplicitPublicMemberAnalyzer : SyntaxTreeAnalyzer
             {
                 Fixes = new DiagnosticFixes
                 {
-                    Edit = SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.ImplicitPublicMember_Fix, member.Name), SyntaxEdits.Insert(member.SourceLocation.Range.Start, "Public ")),
+                    Edits = [SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.ImplicitPublicMember_Fix, member.Name), SyntaxEdits.Insert(member.SourceLocation.Range.Start, "Public "))],
                 },
             });
 }

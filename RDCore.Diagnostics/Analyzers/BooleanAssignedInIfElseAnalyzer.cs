@@ -59,7 +59,7 @@ internal sealed class BooleanAssignedInIfElseAnalyzer : IModuleAnalyzer
                     DiagnosticSeverity.Information,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.BooleanAssignedInIfElse_Message, name))
                 {
-                    Fixes = FixOf(context.ParseResult, statement, condition, name, value) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                    Fixes = FixOf(context.ParseResult, statement, condition, name, value) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
                 };
             }
         }

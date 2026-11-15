@@ -98,7 +98,7 @@ public sealed class IsMissingAlwaysFalseAnalyzerTests
     {
         var finding = Assert.ContainsSingle(await FindingsAsync(signature, body));
 
-        var fix = finding.Fixes?.Edit;
+        var fix = finding.Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
         StringAssert.Contains(fix.Title, "False");
         var edit = Assert.ContainsSingle(fix.Edits);

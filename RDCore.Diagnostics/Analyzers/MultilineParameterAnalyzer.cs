@@ -69,7 +69,7 @@ internal sealed partial class MultilineParameterAnalyzer : SyntaxTreeAnalyzer
             edits.Add(SyntaxEdits.Replace(new SourceRange(end, value.SourceLocation.Range.Start), " = "));
         }
 
-        return new DiagnosticFixes { Edit = SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.MultilineParameterDeclaration_Fix, parameter.Name), [.. edits]) };
+        return new DiagnosticFixes { Edits = [SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.MultilineParameterDeclaration_Fix, parameter.Name), [.. edits])] };
     }
 
     // the keywords the parameter is declared with, which the tree says by its properties, each followed by a space.

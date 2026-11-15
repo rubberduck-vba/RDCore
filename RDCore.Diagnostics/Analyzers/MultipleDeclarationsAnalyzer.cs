@@ -54,7 +54,7 @@ internal sealed class MultipleDeclarationsAnalyzer : SyntaxTreeAnalyzer
 
     private static DiagnosticFixes? FixOf(IReadOnlyList<SyntaxNode> statement, bool atModuleLevel)
         => KeywordsOf(statement[0], atModuleLevel) is { } keywords && SplitEdits(statement, keywords) is { } edits
-            ? new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.MultipleDeclarations_Fix, edits) }
+            ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.MultipleDeclarations_Fix, edits)] }
             : null;
 
     // a line break and the given keywords in place of each comma between two names: the text between them is the comma and the blanks around it.

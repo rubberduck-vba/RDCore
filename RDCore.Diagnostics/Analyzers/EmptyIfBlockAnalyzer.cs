@@ -61,7 +61,7 @@ internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
         DiagnosticSeverity.Information,
         AnalyzerMessages.Format(RDCoreDiagnosticsResources.EmptyIfBlock_Message, keyword))
     {
-        Fixes = fix is null ? null : new DiagnosticFixes { Edit = fix },
+        Fixes = fix is null ? null : new DiagnosticFixes { Edits = [fix] },
     };
 
     // the lines of the block, when nothing else is written on them and its condition is inert.

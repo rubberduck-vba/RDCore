@@ -82,7 +82,7 @@ internal sealed class OptionExplicitAnalyzer : IModuleAnalyzer
             edits.Add(SyntaxEdits.Insert(new SourcePosition(first.SourceLocation.Range.Start.Line, 0), string.Concat(declarators)));
         }
 
-        return new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ImplicitDeclarationsEnabled_Fix, [.. edits]) };
+        return new DiagnosticFixes { Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ImplicitDeclarationsEnabled_Fix, [.. edits])] };
     }
 
     // the name as the implicit declaration typed it: As the type of its type-declaration character, where a use of it has one, which then comes out of each

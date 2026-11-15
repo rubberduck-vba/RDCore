@@ -47,9 +47,9 @@ internal sealed class ObsoleteWhileWendAnalyzer : SyntaxTreeAnalyzer
 
         return new DiagnosticFixes
         {
-            Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteWhileWend_Fix,
+            Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteWhileWend_Fix,
                 SyntaxEdits.Insert(range.Start, "Do "),
-                SyntaxEdits.Replace(new SourceRange(new SourcePosition(range.End.Line, range.End.Character - "Wend".Length), range.End), "Loop")),
+                SyntaxEdits.Replace(new SourceRange(new SourcePosition(range.End.Line, range.End.Character - "Wend".Length), range.End), "Loop"))],
         };
     }
 

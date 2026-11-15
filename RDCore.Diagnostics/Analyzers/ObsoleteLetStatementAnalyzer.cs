@@ -30,8 +30,8 @@ internal sealed class ObsoleteLetStatementAnalyzer : SyntaxTreeAnalyzer
             {
                 Fixes = new DiagnosticFixes
                 {
-                    Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteLetStatement_Fix,
-                        SyntaxEdits.Remove(new SourceRange(assignment.SourceLocation.Range.Start, assignment.Target.SourceLocation.Range.Start))),
+                    Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteLetStatement_Fix,
+                        SyntaxEdits.Remove(new SourceRange(assignment.SourceLocation.Range.Start, assignment.Target.SourceLocation.Range.Start)))],
                 },
             });
 }

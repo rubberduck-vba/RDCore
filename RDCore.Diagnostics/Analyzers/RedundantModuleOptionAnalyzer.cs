@@ -30,7 +30,7 @@ internal sealed class RedundantModuleOptionAnalyzer : IModuleAnalyzer
                 Fixes = LineEdits.WholeLinesOf(context.ParseResult, found.Option) is { } lines
                     ? new DiagnosticFixes
                     {
-                        Edit = SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.RedundantModuleOption_Fix, found.Name), SyntaxEdits.Remove(lines)),
+                        Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.RedundantModuleOption_Fix, found.Name), SyntaxEdits.Remove(lines))],
                     }
                     : null,
             });

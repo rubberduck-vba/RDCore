@@ -80,7 +80,7 @@ internal sealed class IsMissingOfAVariantThatIsNotOptionalAnalyzer : IModuleAnal
                     DiagnosticSeverity.Warning,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.IsMissingOfAVariantThatIsNotOptional_Message, argument.IdentifierName, what))
                 {
-                    Fixes = isParameter && FixOf(written.Member, argument.IdentifierName, semantics) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                    Fixes = isParameter && FixOf(written.Member, argument.IdentifierName, semantics) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
                 };
             }
         }

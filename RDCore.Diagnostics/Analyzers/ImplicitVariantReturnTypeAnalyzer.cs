@@ -30,7 +30,7 @@ internal sealed class ImplicitVariantReturnTypeAnalyzer : SyntaxTreeAnalyzer
                 Fixes = member.ParameterListRange is { } parameters
                     ? new DiagnosticFixes
                     {
-                        Edit = SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Fix, member.Name), SyntaxEdits.Insert(parameters.End, " As Variant")),
+                        Edits = [SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Fix, member.Name), SyntaxEdits.Insert(parameters.End, " As Variant"))],
                     }
                     : null,
             });

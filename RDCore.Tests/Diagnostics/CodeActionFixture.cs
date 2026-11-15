@@ -74,7 +74,7 @@ internal static class CodeActionFixture
         var program = Module(before);
         var found = await FindingsOfAsync(program);
         var fixedOne = found.Where(each => each.Id == code).ElementAt(finding);
-        var fix = fixedOne.Fixes?.Edit;
+        var fix = fixedOne.Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix, $"the finding carries a fix: {fixedOne.Message}");
 
         var fixedProgram = Fixed(program, fix);
@@ -103,7 +103,7 @@ internal static class CodeActionFixture
     {
         var found = (await FindingsOfAsync(Module(lines))).Where(each => each.Id == code).ToArray();
         Assert.IsNotEmpty(found, "the code is found");
-        Assert.IsTrue(found.All(each => each.Fixes?.Edit is null), "and offers no fix");
+        Assert.IsTrue(found.All(each => each.Fixes?.Edits.SingleOrDefault()is null), "and offers no fix");
     }
 
     private static string Said(AnalyzerFinding finding) => $"{finding.Code}: {finding.Message}";

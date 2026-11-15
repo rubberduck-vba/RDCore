@@ -112,9 +112,9 @@ public sealed class UnusedDeclarationAnalyzerTests
         ];
         var findings = await ProgramAsync(new VariableNotUsedAnalyzer(), lines);
 
-        CollectionAssert.AreEqual(new[] { 2, 4 }, Lines([.. findings.Where(finding => finding.Fixes?.Edit is not null)]),
+        CollectionAssert.AreEqual(new[] { 2, 4 }, Lines([.. findings.Where(finding => finding.Fixes?.Edits.SingleOrDefault()is not null)]),
             "the field and the local nothing refers to; not one assigned, one declared with another name, one with a comment on its line, nor one a ReDim names");
-        var fix = findings.Single(finding => finding.Range.Start.Line == 4).Fixes!.Edit!;
+        var fix = findings.Single(finding => finding.Range.Start.Line == 4).Fixes!.Edits.Single();
         Assert.AreEqual("Remove the declaration of 'unused'", fix.Title);
         Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 3)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
     }
@@ -332,9 +332,9 @@ public sealed class UnusedDeclarationAnalyzerTests
         var findings = await ProgramAsync(new ConstantNotUsedAnalyzer(), lines);
 
         CollectionAssert.AreEqual(new[] { 3, 4, 4, 5 }, Lines(findings));
-        CollectionAssert.AreEqual(new[] { 3 }, Lines([.. findings.Where(finding => finding.Fixes?.Edit is not null)]),
+        CollectionAssert.AreEqual(new[] { 3 }, Lines([.. findings.Where(finding => finding.Fixes?.Edits.SingleOrDefault()is not null)]),
             "not a constant declared with another, nor one with a comment on its line");
-        var fix = findings[0].Fixes!.Edit!;
+        var fix = findings[0].Fixes!.Edits.Single();
         Assert.AreEqual("Remove the declaration of 'Unused'", fix.Title);
         Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 2)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
     }

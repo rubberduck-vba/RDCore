@@ -43,11 +43,11 @@ internal sealed class ModuleScopeDimAnalyzer : SyntaxTreeAnalyzer
         var keyword = SyntaxEdits.Replace(SyntaxEdits.Following(statement[0].SourceLocation.Range.Start, "Dim".Length), "Private");
         if (statement.Count == 1)
         {
-            return new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ModuleScopeDimDeclaration_Fix, keyword) };
+            return new DiagnosticFixes { Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ModuleScopeDimDeclaration_Fix, keyword)] };
         }
 
         return MultipleDeclarationsAnalyzer.SplitEdits(statement, "Private") is { } split
-            ? new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ModuleScopeDimDeclaration_Fix, [keyword, .. split]) }
+            ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.ModuleScopeDimDeclaration_Fix, [keyword, .. split])] }
             : null;
     }
 

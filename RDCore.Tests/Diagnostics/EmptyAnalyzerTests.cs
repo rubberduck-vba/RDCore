@@ -104,9 +104,9 @@ public sealed class EmptyAnalyzerTests
     {
         var program = Module($"Public Sub Main()\n    Dim n As Long, d As Double, h&\n    Dim o As Collection\n    Dim flag As Boolean\n    Debug.Print 1\n    If {condition} Then\n    End If\n    Debug.Print 2\nEnd Sub");
         var finding = Assert.ContainsSingle(Run(new EmptyIfBlockAnalyzer(), program));
-        Assert.AreEqual("Remove the empty If", finding.Fixes?.Edit?.Title);
+        Assert.AreEqual("Remove the empty If", finding.Fixes?.Edits.SingleOrDefault()?.Title);
 
-        var fixedProgram = Fixed(program, finding.Fixes!.Edit!);
+        var fixedProgram = Fixed(program, finding.Fixes!.Edits.Single());
         Assert.AreEqual(Module("Public Sub Main()\n    Dim n As Long, d As Double, h&\n    Dim o As Collection\n    Dim flag As Boolean\n    Debug.Print 1\n    Debug.Print 2\nEnd Sub"), fixedProgram);
         CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
     }
@@ -125,7 +125,7 @@ public sealed class EmptyAnalyzerTests
         var findings = Run(new EmptyIfBlockAnalyzer(), Module(
             $"Public Sub DoSomething(ByVal s As String, ByVal v As Variant)\n    Dim n As Long, d As Double, a(1) As Long\n    Dim o As Collection\n    If {condition} Then\n    End If\nEnd Sub"));
 
-        Assert.IsNull(Assert.ContainsSingle(findings).Fixes?.Edit);
+        Assert.IsNull(Assert.ContainsSingle(findings).Fixes?.Edits.SingleOrDefault());
     }
 
     [TestMethod]
@@ -138,7 +138,7 @@ public sealed class EmptyAnalyzerTests
     {
         var findings = Run(new EmptyIfBlockAnalyzer(), Module($"Public Sub DoSomething()\n    Dim n As Long\n{block}\nEnd Sub"));
 
-        Assert.IsTrue(findings.All(finding => finding.Fixes?.Edit is null));
+        Assert.IsTrue(findings.All(finding => finding.Fixes?.Edits.SingleOrDefault()is null));
     }
 
     [TestMethod]
@@ -181,10 +181,10 @@ public sealed class EmptyAnalyzerTests
     {
         var program = Module($"Public Sub Main()\n    Dim n As Long\n    For n = 1 To 2\n        If n = 1 Then\n            Debug.Print \"one\"\n    {emptyElse}        End If\n        Debug.Print n\n    Next\nEnd Sub");
         var finding = Assert.ContainsSingle(Run(new EmptyCodeBlockAnalyzer(), program));
-        Assert.IsNotNull(finding.Fixes?.Edit);
-        Assert.AreEqual("Remove the empty Else", finding.Fixes.Edit.Title);
+        Assert.IsNotNull(finding.Fixes?.Edits.SingleOrDefault());
+        Assert.AreEqual("Remove the empty Else", finding.Fixes.Edits.Single().Title);
 
-        var fixedProgram = Fixed(program, finding.Fixes.Edit);
+        var fixedProgram = Fixed(program, finding.Fixes.Edits.Single());
         Assert.AreEqual(Module("Public Sub Main()\n    Dim n As Long\n    For n = 1 To 2\n        If n = 1 Then\n            Debug.Print \"one\"\n        End If\n        Debug.Print n\n    Next\nEnd Sub"), fixedProgram);
         Assert.IsEmpty(Run(new EmptyCodeBlockAnalyzer(), fixedProgram));
         CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
@@ -194,7 +194,7 @@ public sealed class EmptyAnalyzerTests
     public async Task TheFix_KeepsAnElseIfBeforeTheEmptyElse()
     {
         var program = Module("Public Sub Main()\n    Dim n As Long\n    For n = 1 To 3\n        If n = 1 Then\n            Debug.Print \"one\"\n        ElseIf n = 2 Then\n            Debug.Print \"two\"\n        Else\n        End If\n    Next\nEnd Sub");
-        var fixedProgram = Fixed(program, Assert.ContainsSingle(Run(new EmptyCodeBlockAnalyzer(), program)).Fixes!.Edit!);
+        var fixedProgram = Fixed(program, Assert.ContainsSingle(Run(new EmptyCodeBlockAnalyzer(), program)).Fixes!.Edits.Single());
 
         Assert.AreEqual(Module("Public Sub Main()\n    Dim n As Long\n    For n = 1 To 3\n        If n = 1 Then\n            Debug.Print \"one\"\n        ElseIf n = 2 Then\n            Debug.Print \"two\"\n        End If\n    Next\nEnd Sub"), fixedProgram);
         CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
@@ -210,7 +210,7 @@ public sealed class EmptyAnalyzerTests
     {
         var finding = Assert.ContainsSingle(Run(new EmptyCodeBlockAnalyzer(), Module($"Public Sub DoSomething(ByVal foo As Boolean)\n    If foo Then\n        Debug.Print 1\n{emptyElse}    End If\nEnd Sub")));
 
-        Assert.IsNull(finding.Fixes?.Edit);
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault());
     }
 
     [TestMethod]
@@ -220,7 +220,7 @@ public sealed class EmptyAnalyzerTests
     {
         var findings = Run(new EmptyCodeBlockAnalyzer(), Module($"Public Sub DoSomething(ByVal foo As Boolean)\n{block}\nEnd Sub"));
 
-        Assert.IsTrue(findings.All(finding => finding.Fixes?.Edit is null));
+        Assert.IsTrue(findings.All(finding => finding.Fixes?.Edits.SingleOrDefault()is null));
     }
 
     [TestMethod]
@@ -230,7 +230,7 @@ public sealed class EmptyAnalyzerTests
             "Public Sub DoSomething(ByVal foo As Long)\n    Do While foo > 0\n    Loop\n    Select Case foo\n        Case 0\n        Case Else\n            Debug.Print foo\n    End Select\nEnd Sub"));
 
         Assert.HasCount(2, findings);
-        Assert.IsTrue(findings.All(finding => finding.Fixes?.Edit is null));
+        Assert.IsTrue(findings.All(finding => finding.Fixes?.Edits.SingleOrDefault()is null));
     }
 
     [TestMethod]
@@ -437,8 +437,8 @@ public sealed class EmptyAnalyzerTests
         var fixedProgram = program;
         foreach (var finding in findings.OrderByDescending(finding => finding.Range.Start))
         {
-            Assert.AreEqual("Replace \"\" with vbNullString", finding.Fixes?.Edit?.Title);
-            fixedProgram = Fixed(fixedProgram, finding.Fixes!.Edit!);
+            Assert.AreEqual("Replace \"\" with vbNullString", finding.Fixes?.Edits.SingleOrDefault()?.Title);
+            fixedProgram = Fixed(fixedProgram, finding.Fixes!.Edits.Single());
         }
 
         Assert.AreEqual(Program(after), fixedProgram);
@@ -453,7 +453,7 @@ public sealed class EmptyAnalyzerTests
     {
         var finding = Assert.ContainsSingle(Run(new EmptyStringLiteralAnalyzer(), Module($"Public Sub DoSomething()\n    Dim s As String\n{line}\nEnd Sub")));
 
-        Assert.IsNull(finding.Fixes?.Edit);
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault());
     }
 
     [TestMethod]

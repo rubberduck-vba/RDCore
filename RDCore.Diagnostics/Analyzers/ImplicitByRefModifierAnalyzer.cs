@@ -39,6 +39,6 @@ internal sealed class ImplicitByRefModifierAnalyzer(IOptions<DiagnosticsOptions>
 
     private static DiagnosticFixes? FixOf(ParameterDeclarationNode parameter)
         => parameter.NameRange is { } name
-            ? new DiagnosticFixes { Edit = SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitByRefModifier_Fix, parameter.Name), SyntaxEdits.Insert(name.Start, "ByRef ")) }
+            ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitByRefModifier_Fix, parameter.Name), SyntaxEdits.Insert(name.Start, "ByRef "))] }
             : null;
 }

@@ -49,8 +49,8 @@ internal sealed class RedundantByValArgumentAnalyzer : IModuleAnalyzer
                 {
                     Fixes = new DiagnosticFixes
                     {
-                        Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.RedundantByValArgument_Fix,
-                            SyntaxEdits.Remove(new SourceRange(byVal.SourceLocation.Range.Start, byVal.Operand.SourceLocation.Range.Start))),
+                        Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.RedundantByValArgument_Fix,
+                            SyntaxEdits.Remove(new SourceRange(byVal.SourceLocation.Range.Start, byVal.Operand.SourceLocation.Range.Start)))],
                     },
                 };
             }

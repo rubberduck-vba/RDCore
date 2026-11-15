@@ -68,7 +68,7 @@ internal sealed class ObsoleteTypeHintAnalyzer : IModuleAnalyzer
                 yield return new AnalyzerFinding(
                     RDCoreDiagnosticId.ObsoleteTypeHint.ToCode(), range, DiagnosticSeverity.Information, AnalyzerMessages.Format(RDCoreDiagnosticsResources.ObsoleteTypeHint_Message, name))
                 {
-                    Fixes = fix is null ? null : new DiagnosticFixes { Edit = fix },
+                    Fixes = fix is null ? null : new DiagnosticFixes { Edits = [fix] },
                 };
             }
         }

@@ -42,7 +42,7 @@ internal sealed class EmptyCodeBlockAnalyzer : IModuleAnalyzer
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.EmptyCodeBlock_Message, keyword))
                 {
                     Fixes = node is ElseBlockStatementNode block && ifs.TryGetValue(block.Identity, out var owner) && RemovalOf(context.ParseResult, owner, block) is { } fix
-                        ? new DiagnosticFixes { Edit = fix }
+                        ? new DiagnosticFixes { Edits = [fix] }
                         : null,
                 };
             }
