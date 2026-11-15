@@ -31,6 +31,9 @@ internal sealed class GetDiagnosticsTool(AssistantDocuments documents, IDocument
 
     protected override async Task<DiagnosticsToolResult> RunAsync(DiagnosticsToolArguments arguments, CancellationToken token)
     {
+        // what the workspace holds is read once it is loaded: a document not parsed yet has no findings to give.
+        await documents.LoadedAsync(token);
+
         // a pull that comes as documents are edited waits for the host to have the edits, as the client's own pulls do.
         var targets = arguments.Path is { } path ? [documents.Resolve(path)] : documents.All.ToList();
         if (arguments.Path is null)
@@ -106,6 +109,7 @@ internal sealed class FindSymbolTool(AssistantDocuments documents, IWorkspaceSym
 
     protected override async Task<SymbolsToolResult> RunAsync(FindSymbolToolArguments arguments, CancellationToken token)
     {
+        await documents.LoadedAsync(token);
         var found = await search.SearchAsync(arguments.Query, token);
         var capped = ToolResultLimits.Cap(found.Select(entry => new ToolSymbol
         {
@@ -151,6 +155,7 @@ internal sealed class ReferencesTool(AssistantDocuments documents, IRenameServic
 
     protected override async Task<LocationsToolResult> RunAsync(ReferencesToolArguments arguments, CancellationToken token)
     {
+        await documents.LoadedAsync(token);
         var document = documents.Resolve(arguments.Path);
         var position = AssistantDocuments.PositionOf(arguments);
         if (await workspace.ComposeAsync(token) is not { } composed)
@@ -180,6 +185,7 @@ internal sealed class DefinitionTool(AssistantDocuments documents, IRenameServic
 
     protected override async Task<LocationsToolResult> RunAsync(PositionToolArguments arguments, CancellationToken token)
     {
+        await documents.LoadedAsync(token);
         var document = documents.Resolve(arguments.Path);
         var position = AssistantDocuments.PositionOf(arguments);
         if (await workspace.ComposeAsync(token) is not { } composed)

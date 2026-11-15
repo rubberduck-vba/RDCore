@@ -132,6 +132,14 @@ internal interface ISymbolSyncService
     /// </remarks>
     /// <returns>The scope of the bring-up: disposed once the workspace is synced, or once the bring-up ends without it, which lets what waits go.</returns>
     IDisposable ExpectWorkspace();
+
+    /// <summary>
+    /// Waits for the workspace's modules to be defined in the host: until the scope of the bring-up (<see cref="ExpectWorkspace"/>) is disposed, or at once when
+    /// no bring-up is under way.
+    /// </summary>
+    /// <param name="token">A token that cancels the wait.</param>
+    /// <returns>A task that completes once the bring-up has ended, however it ended.</returns>
+    Task WorkspaceDefinedAsync(CancellationToken token);
 }
 
 internal sealed class SymbolSyncService(
@@ -177,7 +185,7 @@ internal sealed class SymbolSyncService(
         public void Dispose() => expected.TrySetResult();
     }
 
-    private Task WorkspaceDefinedAsync(CancellationToken token) => Volatile.Read(ref _workspaceDefined).Task.WaitAsync(token);
+    public Task WorkspaceDefinedAsync(CancellationToken token) => Volatile.Read(ref _workspaceDefined).Task.WaitAsync(token);
 
     public async Task<IAsyncDisposable> HoldAsync(CancellationToken token)
     {

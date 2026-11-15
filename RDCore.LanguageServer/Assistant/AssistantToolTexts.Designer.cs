@@ -164,6 +164,12 @@ namespace RDCore.LanguageServer.Assistant {
             }
         }
 
+        internal static string WorkspaceLoading {
+            get {
+                return ResourceManager.GetString("WorkspaceLoading", resourceCulture);
+            }
+        }
+
         internal static string NotAdvertised {
             get {
                 return ResourceManager.GetString("NotAdvertised", resourceCulture);

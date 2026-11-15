@@ -177,6 +177,9 @@
   <data name="PositionNotValid" xml:space="preserve">
     <value>Lines and columns count from 1.</value>
   </data>
+  <data name="WorkspaceLoading" xml:space="preserve">
+    <value>The workspace is still loading. Call the tool again in a moment.</value>
+  </data>
   <data name="NotAdvertised" xml:space="preserve">
     <value>The client did not advertise the '{0}' platform capability.</value>
   </data>
