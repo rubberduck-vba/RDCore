@@ -110,9 +110,12 @@ public sealed class McpCommandTests
             CollectionAssert.IsSubsetOf(new[] { CoreAssistantTools.GetDiagnostics, CoreAssistantTools.FindSymbol, CoreAssistantTools.References, CoreAssistantTools.Definition }, names);
 
             var found = await AskAsync("""{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_symbol","arguments":{"query":"Twice"}}}""");
-            // answered by the tool, whether or not the workspace has been read by then.
+            // asked right after start, and answered from the workspace once it is loaded.
             Assert.AreEqual(3, (int)found["id"]!);
             Assert.IsFalse((bool)found["result"]!["isError"]!, found.ToJsonString());
+            var symbol = found["result"]!["structuredContent"]!["symbols"]!.AsArray().Single()!;
+            Assert.AreEqual("Twice", (string?)symbol["name"], found.ToJsonString());
+            Assert.AreEqual("Module1.bas", (string?)symbol["location"]!["path"], found.ToJsonString());
 
             // the host ends the session by closing its end.
             rdc.StandardInput.Close();
