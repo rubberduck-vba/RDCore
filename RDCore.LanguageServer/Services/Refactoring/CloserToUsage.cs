@@ -1,5 +1,6 @@
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.Runtime.LanguageCore.Refactoring;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
