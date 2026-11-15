@@ -91,9 +91,12 @@ public static class MemberRoles
         }
     }
 
-    // the controls of a Visual Basic 6.0 control array share one handler of each event, which is told which control raised it by an Index As Integer before
-    // the event's own parameters.
-    private static ImmutableArray<VBParameterSymbol> WithIndex(VBEventMemberSymbol handled)
+    /// <summary>
+    /// The parameters of the handler of an event of a Visual Basic 6.0 control array: the controls of the array share one handler of each event, which is told
+    /// which control raised it by an <c>Index As Integer</c> before the event's own parameters.
+    /// </summary>
+    /// <param name="handled">The event of the controls' class.</param>
+    public static ImmutableArray<VBParameterSymbol> WithIndex(VBEventMemberSymbol handled)
         => handled.Parameters.Insert(0, new VBParameterSymbol(
             handled.WorkspaceRoot, handled.Uri, "Index", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBIntegerType.TypeInfo));
 

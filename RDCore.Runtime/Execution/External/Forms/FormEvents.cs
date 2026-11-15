@@ -118,6 +118,18 @@ internal static class FormEvents
 
                 var controlName = control.Name;
                 var controlIdentity = wrapped.Value;
+
+                // a control array raises the events of its controls' class, each with the index of the control that raised it first; the form's handler is the
+                // array's, and no variable holds the array WithEvents.
+                if (FormControlArray.ElementOf(declared) is VBClassType element)
+                {
+                    Advise(server, handle, new ServerEventRouter(session, server, name =>
+                        (element.Symbol.FindEvent(name) ?? extender?.FindEvent(name)) is { } raised
+                            ? new ServerEventRoute(raised with { Parameters = MemberRoles.WithIndex(raised) }, [.. HandlerOf(session, identity, $"{controlName}_{name}")])
+                            : null));
+                    continue;
+                }
+
                 Advise(server, handle, new ServerEventRouter(session, server, name =>
                 {
                     if (!session.Symbols.TryGetInstance(controlIdentity, out var source))

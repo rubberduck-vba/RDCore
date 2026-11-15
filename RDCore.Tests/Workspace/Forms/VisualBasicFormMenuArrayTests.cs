@@ -57,6 +57,7 @@ public sealed class VisualBasicFormMenuArrayTests
             "Public Sub PrintOwn()", "    Debug.Print mnuRecent(2).Caption & \",\" & mnuRecent.Count", "End Sub",
             "Public Sub LoadOwn(ByVal index As Integer)", "    Load mnuRecent(index)", "End Sub",
             "Public Sub UnloadOwn(ByVal index As Integer)", "    Unload mnuRecent(index)", "End Sub",
+            "Private Sub mnuRecent_Click(Index As Integer)", "    Debug.Print \"mnuRecent Click \" & Index", "End Sub",
             string.Empty]);
 
     private static string Program(string[] body)
@@ -106,7 +107,6 @@ public sealed class VisualBasicFormMenuArrayTests
         => AssertPrintsAsync(["Third,2"], "Form3.PrintOwn");
 
     [TestMethod]
-    [Ignore("the class of a control array declares no enumerator (FormControlArray): For Each of the array raises 438")]
     public Task ForEach_GoesThroughTheElements_InTheOrderOfTheirIndexes()
         => AssertPrintsAsync(["First", "Third"], "Dim m As Object", "For Each m In Form3.mnuRecent", "    Debug.Print m.Caption", "Next");
     [TestMethod]
@@ -143,6 +143,78 @@ public sealed class VisualBasicFormMenuArrayTests
     [DataRow("Unload Form3.mnuRecent", DisplayName = "Unload of the array")]
     public Task LoadAndUnload_OfWhatIsNoElement_Are361(string statement)
         => AssertPrintsAsync(["361"], "On Error Resume Next", statement, "Debug.Print Err.Number");
+
+    // what a user does with the first menu a form pops up: a click on the element of an index of mnuRecent, on the UI thread, once the menu is open. A form that
+    // pops up nothing is hidden, which ends the program's PopupMenu, and the row fails on what was printed.
+    private sealed class ElementClicked(RDCore.External.Forms.IFormHost forms, int index) : RDCore.External.Forms.IFormHost
+    {
+        public bool IsAvailable => forms.IsAvailable;
+
+        public object Create(RDCore.External.Forms.FormDefinition form) => forms.Create(form);
+
+        public void Show(object form, bool modal, object? owner = null)
+        {
+            forms.Show(form, modal, owner);
+            OnceItPopsUp(RDCore.External.Forms.RDForms.RDFormsAutomationServer.HandleOf(form), 1000);
+        }
+
+        private void OnceItPopsUp(RDCore.External.Forms.RDForms.RDFormsObject form, int jobsLeft)
+            => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (form.Form.Window.PoppedUpMenu is { IsOpen: true } popup)
+                {
+                    Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(popup).OfType<Avalonia.Controls.MenuItem>()
+                        .Single(item => RDCore.Forms.Avalonia.Controls.VBControl.GetInstance(item) is { Name: "mnuRecent" } element && element.Index == index)
+                        .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.MenuItem.ClickEvent));
+                    popup.Close();
+                }
+                else if (jobsLeft > 0 && !form.Form.IsDestroyed)
+                {
+                    OnceItPopsUp(form, jobsLeft - 1);
+                }
+                else if (!form.Form.IsDestroyed)
+                {
+                    form.Form.Hide();
+                }
+            }, Avalonia.Threading.DispatcherPriority.Background);
+
+        public void Hide(object form) => forms.Hide(form);
+
+        public bool IsShown(object form) => forms.IsShown(form);
+
+        public string GetCaption(object form) => forms.GetCaption(form);
+
+        public void SetCaption(object form, string caption) => forms.SetCaption(form, caption);
+
+        public RDCore.External.Forms.FormBounds GetBounds(object form) => forms.GetBounds(form);
+
+        public void SetBounds(object form, RDCore.External.Forms.FormBounds bounds) => forms.SetBounds(form, bounds);
+
+        public void Leave(object form) => forms.Leave(form);
+
+        public void Destroy(object form) => forms.Destroy(form);
+
+        public void Hold(bool running) => forms.Hold(running);
+
+        public void DoEvents() => forms.DoEvents();
+    }
+
+    [TestMethod]
+    [DataRow(2, DisplayName = "an element of the form's file")]
+    [DataRow(1, true, DisplayName = "an element the program loaded")]
+    public async Task AnElementsClick_RunsTheArraysHandler_WithItsIndex(int index, bool loaded = false)
+    {
+        var form3 = Form3();
+        var libraries = new ModuleWorkspace.WorkspaceLibraries([], VisualBasicFormLifecycleTests.Shipped)
+            with { Outside = VisualBasicFormLifecycleTests.RDFormsWorld(forms => new ElementClicked(forms, index)) };
+        string[] load = loaded ? ["Load Form3.mnuRecent(1)"] : [];
+
+        var printed = await ModuleWorkspace.RunAsync([], Program([.. load, "Form3.Show", "Form3.PopupMenu Form3.mnuFile", "Debug.Print \"back\"", "Unload Form3"]),
+            libraries, [("Form3", form3, FormDesigner.Read(form3)!)], SupportedLanguages.VB6);
+
+        CollectionAssert.AreEqual(new[] { $"mnuRecent Click {index}", "back" }, printed.Where(line => line.StartsWith("mnu", StringComparison.Ordinal) || line == "back").ToArray(),
+            string.Join(" | ", printed));
+    }
 
     [TestMethod]
     [Ignore("an array of controls other than menus has no object in RDForms: its name raises 438")]

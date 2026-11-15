@@ -3,6 +3,7 @@ using RDCore.External.Automation;
 using RDCore.Forms.Avalonia.Controls;
 using RDCore.Forms.Avalonia.Rendering;
 using RDCore.Forms.Menus;
+using RDCore.Forms.Model.VB;
 using RDCore.Forms.Model;
 using Model = RDCore.Forms.Model;
 
@@ -27,6 +28,7 @@ internal sealed class RDFormsForm : IComponentEventSink
     private readonly Dictionary<ComponentInstance, RDFormsObject> _handles = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ComponentInstance, IAutomationEventSink> _sinks = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<FormMenuArray, RDFormsMenuArray> _menuArrays = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<FormMenuArray, IAutomationEventSink> _arraySinks = new(ReferenceEqualityComparer.Instance);
     private DispatcherFrame? _modal;
 
     public RDFormsForm(Model.FormDefinition model, CodeUnit unit)
@@ -84,6 +86,11 @@ internal sealed class RDFormsForm : IComponentEventSink
     public void Advise(ComponentInstance source, IAutomationEventSink sink) => _sinks[source] = sink;
 
     public void Unadvise(ComponentInstance source) => _sinks.Remove(source);
+
+    // where the events of a menu array's elements go, those a program loads included: each with its element's index first.
+    public void Advise(FormMenuArray source, IAutomationEventSink sink) => _arraySinks[source] = sink;
+
+    public void Unadvise(FormMenuArray source) => _arraySinks.Remove(source);
 
     // shown with the owner form's window as its owner when it has one: only a window not shown yet takes an owner, and only one that is another form's window, shown
     // (Avalonia's Show refuses a closed owner and the window itself). A form owned is placed over its owner, and closed with it (UnloadMode vbFormOwner).
@@ -163,16 +170,26 @@ internal sealed class RDFormsForm : IComponentEventSink
     // control reads back.
     public void Raise(ComponentInstance source, EventDefinition definition, FormValue[] arguments)
     {
+        // an element of a menu array raises its events to the array's sink, with its index before the event's own arguments, as VB6 calls the array's handler.
+        var first = 0;
+        object? element = null;
         if (!_sinks.TryGetValue(source, out var sink))
         {
-            return;
+            if (source is not { Index: { } index } || source.Class != VBClasses.Menu || FormMenuItem.Of(source).Array is not { } array
+                || !_arraySinks.TryGetValue(array, out sink))
+            {
+                return;
+            }
+
+            first = 1;
+            element = (short)index;
         }
 
-        var raised = arguments.Select(argument => RDFormsValues.ToNeutral(argument, HandleOf)).ToArray();
+        object?[] raised = [.. first == 1 ? [element] : Array.Empty<object?>(), .. arguments.Select(argument => RDFormsValues.ToNeutral(argument, HandleOf))];
         sink.OnEvent(new AutomationEvent(definition.Name, raised, RDFormsUI.IsInCall, _ => RDFormsUI.Serve()));
         for (var index = 0; index < arguments.Length; index++)
         {
-            arguments[index] = RDFormsValues.FromNeutral(raised[index], arguments[index]);
+            arguments[index] = RDFormsValues.FromNeutral(raised[first + index], arguments[index]);
         }
     }
 

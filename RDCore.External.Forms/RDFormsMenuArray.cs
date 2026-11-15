@@ -15,17 +15,18 @@ internal sealed class RDFormsMenuArray(RDFormsForm form, FormMenuArray array)
     public override string ToString() => $"{Form.Model.Name}.{Array.Name}";
 }
 
-// the members of a menu array, as VB6 has them: Count, LBound, UBound, and Item (its default member, by index); and the Load and Unload of an element, which the
-// Load and Unload statements call (FormControlArrayMembers). They run on the UI thread. What the array refuses is the error VB6 raises: 340 for an index no
-// element has.
+// the members of a menu array, as VB6 has them: Count, LBound, UBound, Item (its default member, by index), and its enumerator; and the Load and Unload of an
+// element, which the Load and Unload statements call (FormControlArrayMembers). They run on the UI thread. What the array refuses is the error VB6 raises: 340
+// for an index no element has.
 internal static class RDFormsMenuArrayMembers
 {
     private const int UnknownName = unchecked((int)0x80020006);
     private const int BadParameterCount = unchecked((int)0x8002000E);
     private const int VisualBasicError = unchecked((int)0x800A0000);
 
-    // DISPID_VALUE, as a late-bound call names the default member.
+    // DISPID_VALUE and DISPID_NEWENUM, as a late-bound call names them.
     private const string DefaultMember = "[DISPID=0]";
+    private const string EnumerationMember = "[DISPID=-4]";
 
     public static object? Invoke(RDFormsMenuArray handle, string member, AutomationInvocation invocation, object?[] arguments, CultureInfo culture)
     {
@@ -54,6 +55,11 @@ internal static class RDFormsMenuArrayMembers
                 case "ITEM" or "_DEFAULT" or DefaultMember:
                     Takes(handle, member, arguments, 1);
                     return handle.Form.HandleOf(array[IndexOf(arguments[0], culture)].Component);
+
+                // the elements loaded when For Each starts, in the order of their indexes.
+                case "_NEWENUM" or EnumerationMember:
+                    Takes(handle, member, arguments, 0);
+                    return new RDFormsControlsEnumerator([.. array.Elements.Select(element => handle.Form.HandleOf(element.Component))]);
 
                 case "[LOAD]" when member == FormControlArrayMembers.Load:
                     Takes(handle, member, arguments, 1);

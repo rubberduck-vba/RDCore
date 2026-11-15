@@ -403,6 +403,61 @@ public sealed class RDFormsFormHostTests
         "End\r\n" +
         "Attribute VB_Name = \"Form1\"\r\n";
 
+    // a form whose hidden menu mnuFile holds the menu array mnuRecent, of indexes 0 and 2.
+    private const string MenuArrayDesigner =
+        "VERSION 5.00\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   Caption         =   \"Menus\"\r\n" +
+        "   ClientHeight    =   3195\r\n" +
+        "   ClientWidth     =   4680\r\n" +
+        "   Begin VB.Menu mnuFile \r\n" +
+        "      Caption         =   \"&File\"\r\n" +
+        "      Visible         =   0   'False\r\n" +
+        "      Begin VB.Menu mnuRecent \r\n" +
+        "         Caption         =   \"First\"\r\n" +
+        "         Index           =   0\r\n" +
+        "      End\r\n" +
+        "      Begin VB.Menu mnuRecent \r\n" +
+        "         Caption         =   \"Third\"\r\n" +
+        "         Index           =   2\r\n" +
+        "      End\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n";
+
+    [TestMethod]
+    [DoNotParallelize]
+    public void AnElementOfAMenuArray_RaisesItsClick_ToTheArray_WithItsIndexFirst()
+    {
+        var host = Host();
+        var form = host.Create(VisualBasicForm(MenuArrayDesigner));
+        try
+        {
+            var file = Get(host, form, "mnuFile")!;
+            var raised = new List<string>();
+            host.Server.Advise(Get(host, form, "mnuRecent")!, new Recorder { Handler = clicked => raised.Add($"mnuRecent {clicked.Name} {string.Join(",", clicked.Arguments)}") });
+            host.Server.Advise(file, new Recorder
+            {
+                Handler = _ => OnceItPopsUp(RDFormsAutomationServer.HandleOf(form), popup =>
+                {
+                    Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(popup).OfType<Avalonia.Controls.MenuItem>()
+                        .Single(item => RDCore.Forms.Avalonia.Controls.VBControl.GetInstance(item) is { Name: "mnuRecent", Index: 2 })
+                        .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.MenuItem.ClickEvent));
+                    popup.Close();
+                }),
+            });
+            host.Show(form, modal: false);
+
+            PopupMenu(host, form, file);
+
+            CollectionAssert.AreEqual(new[] { "mnuRecent Click 2" }, raised, string.Join(" | ", raised));
+        }
+        finally
+        {
+            host.Destroy(form);
+        }
+    }
+
     // what a user does with the menu PopupMenu pops up, once it is open: run on the UI thread, after the menu's own Click, while the PopupMenu call waits. The
     // popup opens on a job of its own, so the action waits behind the jobs before it until it is there.
     private static void OnceItPopsUp(RDFormsObject form, Action<Avalonia.Controls.ContextMenu> act, int jobsLeft = 20)

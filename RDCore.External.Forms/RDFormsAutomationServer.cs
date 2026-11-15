@@ -315,19 +315,27 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// <inheritdoc/>
     public void Advise(object source, IAutomationEventSink sink)
     {
-        var handle = source switch
+        // a menu array raises the events of its elements, each with the element's index first.
+        if (source is RDFormsMenuArray array)
         {
-            RDFormsControls => throw new AutomationException(NotImplemented, "A form's Controls collection raises no events."),
-            RDFormsMenuArray => throw new AutomationException(NotImplemented, "A menu array raises no events of its own."),
-            _ => HandleOf(source),
-        };
+            RDFormsUI.Run(() => array.Form.Advise(array.Array, sink));
+            return;
+        }
+
+        var handle = source is RDFormsControls ? throw new AutomationException(NotImplemented, "A form's Controls collection raises no events.") : HandleOf(source);
         RDFormsUI.Run(() => handle.Form.Advise(handle.Component, sink));
     }
 
     /// <inheritdoc/>
     public void Unadvise(object source)
     {
-        if (source is RDFormsControls or RDFormsMenuArray)
+        if (source is RDFormsMenuArray array)
+        {
+            RDFormsUI.Run(() => array.Form.Unadvise(array.Array));
+            return;
+        }
+
+        if (source is RDFormsControls)
         {
             return;
         }
