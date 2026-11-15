@@ -357,6 +357,9 @@
   <data name="UseMeaningfulIdentifierNames_NoVowel_Message" xml:space="preserve">
     <value>'{0}' n'a aucune voyelle, et n'est probablement pas un mot. Donnez-lui un nom qui dit ce qu'il est.</value>
   </data>
+  <data name="UseMeaningfulIdentifierNames_NoConsonant_Message" xml:space="preserve">
+    <value>'{0}' n'a aucune consonne, et ne dit probablement pas ce qu'il est. Donnez-lui un nom qui le dit.</value>
+  </data>
   <data name="HungarianNotation_Message" xml:space="preserve">
     <value>'{0}' commence par un préfixe qui indique son type. Le type est déclaré: le nom devrait dire ce qu'est la chose, pas de quoi elle est faite.</value>
   </data>
