@@ -123,8 +123,8 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // an expression of Strings given to a Variant parameter, which takes it by value, is given a Variant holding its text (VariantTextNode); outside an
-            // instruction that calls inside an expression only, whose known operands are payloads.
+            // an expression of Strings given to a Variant parameter, which takes it by value, is given a Variant holding its text (VariantTextNode). That is done
+            // only outside an instruction that calls inside an expression, whose known operands are payloads.
             if (typed is null && arguments[i] is { Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } text } && IsStringItem(text))
             {
                 if (_nesting is not null || Text(text) is not { } texts)

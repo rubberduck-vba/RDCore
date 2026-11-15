@@ -173,7 +173,7 @@ public sealed partial class CompiledActivation
             && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
     }
 
-    // the call made, and what it returned, a Variant what it holds; none when the call failed, or returned nothing.
+    // the call made, and what it returned (for a Variant, what it holds); none when the call failed, or returned nothing.
     private bool TryCallLibraryValue(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
         IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, [NotNullWhen(true)] out VBTypedValue? value)
     {

@@ -355,7 +355,7 @@ public sealed class CompiledStringArgumentTests
     }
 
     // a String and a Long given by reference to one call: each the caller's variable, which the callee writes. N goes 1, 2, 3, 6, 7, 14, and S is "xxx":
-    // 143. Compiled code calls Len(S): 0.
+    // 143. Compiled code calls Len(S), so the interpreter recovers nothing: 0 recoveries.
     [TestMethod]
     public async Task AStringAndALongGivenByReference_AreBothTheCallersVariables()
     {

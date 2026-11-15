@@ -349,7 +349,7 @@ public sealed class CompiledSteppingTests
 
     // a compiled variable passed by reference in a call the interpreter makes is its cell in the frame, which the callee writes: read back after the call.
     // The call is the interpreter's because it also gives a late-bound call's result: a support call at each of 3 passes, which steps nothing. Compiled
-    // code calls the Len after the loop: 0.
+    // code calls the Len after the loop, so the interpreter recovers nothing: 0 recoveries.
     [TestMethod]
     public async Task AVariablePassedByReferenceInACallTheInterpreterMakes_IsWhatTheCalleeWrote()
     {
