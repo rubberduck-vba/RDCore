@@ -129,10 +129,70 @@ jobs:
       RDCORE_ENGINE: Interpreter
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
 
- # the only job that can write to the repo: it runs none of the repo's code, just pushes the badge files built above
- badge:
-  needs: build-and-test
+ # the performance table of the README: the built-in corpus of rdc bench (no Excel), timed with the merged commit's rdc and the reference commit's
+ # (the commit of the MS-VBA reference run, RDCore.CLI/Bench/Reference/msvba.json) in alternated rounds on this one runner, so that its speed
+ # weighs on both alike. Windows, as the reference machine. A build or a case that fails fails the job, and its figures are not published.
+ bench:
   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  runs-on: windows-latest
+  timeout-minutes: 60
+
+  steps:
+   - name: Configure line endings
+     run: git config --global core.autocrlf true
+
+   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+     with:
+      fetch-depth: 0
+      persist-credentials: false
+
+   - name: Setup .NET
+     uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+     with:
+      dotnet-version: 11.0
+
+   - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+     with:
+      distribution: temurin
+      java-version: '21'
+
+   - name: Check out the reference commit
+     shell: pwsh
+     run: |
+       $commit = (Get-Content -Raw RDCore.CLI/Bench/Reference/msvba.json | ConvertFrom-Json).reference.commit
+       git worktree add ../reference $commit
+
+   - name: Build rdc (Release), merged and reference
+     shell: pwsh
+     run: |
+       dotnet build RDCore.CLI --configuration Release
+       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+       dotnet build ../reference/RDCore.CLI --configuration Release
+       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+   - name: Bench, alternated rounds
+     shell: pwsh
+     run: |
+       $merged = (Get-ChildItem RDCore.CLI/bin/Release -Recurse -Filter rdc.exe | Select-Object -First 1).FullName
+       $reference = (Get-ChildItem ../reference/RDCore.CLI/bin/Release -Recurse -Filter rdc.exe | Select-Object -First 1).FullName
+       ./.github/scripts/bench-rounds.ps1 -Merged $merged -Reference $reference -Out bench-runs
+
+   - name: Figures
+     shell: pwsh
+     run: ./.github/scripts/bench-figures.ps1 -Runs bench-runs -ReferenceData RDCore.CLI/Bench/Reference/msvba.json -Out bench-badge -Commit $env:GITHUB_SHA
+
+   - name: Upload bench badges
+     uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+     with:
+      name: bench-badges
+      path: bench-badge/*.json
+      retention-days: 7
+
+ # the only job that can write to the repo: it runs none of the repo's code, just pushes the badge files built above. The branch is rebuilt each time,
+ # so it gets both sets: when the bench job failed, the bench files it had are carried over as they were, and they name the commit they were measured at.
+ badge:
+  needs: [build-and-test, bench]
+  if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build-and-test.result == 'success'
   runs-on: ubuntu-latest
   permissions:
    contents: write
@@ -143,15 +203,34 @@ jobs:
       name: coverage-badges
       path: badge
 
-   - name: Publish coverage badge
+   - if: needs.bench.result == 'success'
+     uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+     with:
+      name: bench-badges
+      path: bench-badge
+
+   - if: needs.bench.result != 'success'
+     uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+     continue-on-error: true
+     with:
+      ref: badges
+      path: previous
+      persist-credentials: false
+
+   - name: Publish badges
      run: |
        git config --global user.name  'github-actions[bot]'
        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
        tmp=$(mktemp -d)
        cp badge/*.json "$tmp/"
+       if [ -d bench-badge ]; then
+         cp bench-badge/*.json "$tmp/"
+       elif [ -d previous ]; then
+         cp previous/bench*.json "$tmp/" 2>/dev/null || true
+       fi
        cd "$tmp"
        git init -q
        git checkout -q -b badges
        git add ./*.json
-       git commit -q -m 'coverage badge'
+       git commit -q -m 'coverage and bench badges'
        git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
