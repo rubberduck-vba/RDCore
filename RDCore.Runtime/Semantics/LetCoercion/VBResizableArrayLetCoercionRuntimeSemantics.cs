@@ -53,7 +53,7 @@ public record class VBResizableArrayLetCoercionRuntimeSemantics(
                 => LetCoercionResult.Success(CopyOf(source, destination.ItemType)),
 
             // MS-VBA copies an array of objects into one of objects of another type as well, Object or any class, and checks no element's class: a Box()
-            // is given a Collection (RD-VBAL §5.5.1.2.7; recorded in Excel, oracle\s57 A06-A08). An array of Variants is still another type.
+            // is given a Collection (RD-VBAL §5.5.1.2.7; observed in Excel). An array of Variants is still another type.
             VBArrayValue source when HoldsObjects(source.ItemType) && HoldsObjects(destination.ItemType)
                 => LetCoercionResult.Success(CopyOf(source, destination.ItemType)),
 

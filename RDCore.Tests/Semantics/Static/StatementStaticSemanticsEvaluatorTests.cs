@@ -145,7 +145,7 @@ public sealed class StatementStaticSemanticsEvaluatorTests
 
     [TestMethod]
     public void AWithBlockWhoseTargetIsAnError_ReportsItOnce_AndItsBodyIsStillInTheBlock()
-        // a procedural module is no value, and no object a With block can be about (MS-VBA, Excel-verified, oracle\s29 C20); what the body accesses with a dot
+        // a procedural module is no value, and no object a With block can be about (MS-VBA, observed in Excel); what the body accesses with a dot
         // is a member of the target, whose type is not known - not an implicit With-reference outside any With block, once for each.
     {
         var module = Module("Caller");

@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 /// MS-VBAL §5.4.2.21: a <c>With</c> block holds its object from its <c>With</c> statement to its <c>End With</c> - wherever the program jumps meanwhile, out
 /// of the block and back in, to an error handler and back with <c>Resume Next</c> - and has none before its <c>With</c> statement set one, nor after its
 /// <c>End With</c>: a member with no object before the dot is then error 91. It holds the object a variable held, not the variable. Every expected line was
-/// recorded in Excel (grid <c>oracle\s16</c> W01-W10).
+/// observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class WithBlockReentryTests

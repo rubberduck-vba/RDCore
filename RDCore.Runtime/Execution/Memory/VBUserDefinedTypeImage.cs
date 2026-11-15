@@ -99,7 +99,7 @@ public static class VBUserDefinedTypeImage
         => type is VBStringType and not VBFixedStringType or VBObjectType or VBClassType or VBVariantType or VBArrayType and not VBFixedSizeArrayType;
 
     // what a field, or an element of a fixed-size array field, is in memory at an offset of the outermost record: what the host lays out for a pointer or a
-    // VARIANT, a record its own fields, a fixed-size array its elements side by side - in the record (oracle\s24 P04) - and anything else as Encoded lays it out.
+    // VARIANT, a record its own fields, a fixed-size array its elements side by side - in the record - and anything else as Encoded lays it out.
     private static byte[]? ImageOf(
         VBType type, VBTypedValue? value, int width, int pointerWidth, Func<int, VBType, VBTypedValue, byte[]?>? hostBytes, int at) => type switch
     {

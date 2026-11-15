@@ -20,7 +20,7 @@ public sealed class ConfigurationSymbolProviderTests
             .Cast<PrecompilerConstantSymbol>()
             .ToDictionary(s => s.Name, s => s, StringComparer.OrdinalIgnoreCase);
 
-    // each operating system's constant is 1 on it alone, as MS-VBA's are (oracle s79: Win32, Win64, VBA6 and VBA7 are 1 in 64-bit Excel), and defined 0 on
+    // each operating system's constant is 1 on it alone, as MS-VBA's are (Win32, Win64, VBA6 and VBA7 are 1 in 64-bit Excel), and defined 0 on
     // every other; Win32 says the Win32 API is there, as MS-VBA's does in 64-bit Office too.
     [TestMethod]
     [DataRow(VBOperatingSystem.Windows, true, "Win32 Win64", DisplayName = "64-bit Windows")]

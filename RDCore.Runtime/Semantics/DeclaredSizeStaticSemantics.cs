@@ -24,7 +24,7 @@ namespace RDCore.Runtime.Semantics;
 /// </summary>
 /// <remarks>
 /// Both are "Let-coerced to declared type Long" constant expressions, reduced here, when the module is loaded and its constants are folded, as MS-VBA
-/// reduces them when it compiles (Excel-verified, oracle\s29):
+/// reduces them when it compiles (observed in Excel):
 /// <list type="bullet">
 /// <item>a length is 1 to 65526 characters, whether it is written as a number or given by a constant (<see cref="VBCompileErrorId.InvalidLengthForFixedLengthString"/>);
 /// written as a number, it is an integer up to 65535, or no length at all (<see cref="VBCompileErrorId.SyntaxError"/>); a name that is no constant is

@@ -171,8 +171,8 @@ public abstract class VBABaseParser : Parser
         return IsTokenType(TokenTypeAtRelativePosition(offset), VBALexer.NEWLINE, VBALexer.LINE_CONTINUATION);
     }
 
-    // MS-VBAL §5.4.1.1: a name followed by a colon at the start of a line is a statement label, never a call of a procedure by that name (MS-VBA, Excel-
-    // verified, oracle\findings-labels L20: `PrintGreeting:` at the start of a line calls nothing). Without this, a block took a label right before the line
+    // MS-VBAL §5.4.1.1: a name followed by a colon at the start of a line is a statement label, never a call of a procedure by that name (MS-VBA, observed in Excel:
+    // `PrintGreeting:` at the start of a line calls nothing). Without this, a block took a label right before the line
     // that ends it (`Fin: End If`) for a call of `Fin`, since a label alone needs an end of statement after it, and the block's end is none.
     protected bool IsLabelAhead()
     {
@@ -236,7 +236,7 @@ public abstract class VBABaseParser : Parser
     }
 
     // MS-VBAL §5.4.5.8.1: at the start of an output clause, `Tab` is a tab clause and `Spc` followed by `(` a spc clause, never an expression that calls a name
-    // Spc or Tab. The VBE writes `Spc(1)(2)` as `Spc(1); (2)` (oracle\s69 O04). Without this, the argument list of a name read `Spc(1)(2)` as one
+    // Spc or Tab. The VBE writes `Spc(1)(2)` as `Spc(1); (2)`. Without this, the argument list of a name read `Spc(1)(2)` as one
     // expression, an index of `Spc(1)`, when what follows the clause was no output item it could be.
     protected bool IsSpcOrTabClauseAhead()
     {

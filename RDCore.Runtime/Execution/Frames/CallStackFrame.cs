@@ -31,13 +31,13 @@ namespace RDCore.Runtime.Execution.Frames;
 /// </summary>
 public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol StaticSymbol, ImmutableArray<VBTypedValue> Inputs, ISessionStorage Storage, ModuleDirectives Directives = default) : ICallStackFrame
 {
-    // made when the activation first needs one (IR lowering S0.9, S1.3): most activations have no ByRef alias, no block, no loop and no GoSub, and one that has
+    // made when the activation first needs one: most activations have no ByRef alias, no block, no loop and no GoSub, and one that has
     // none does not hash a symbol's identity to find out - and, laid out, no variable without a slot and no variable that was given an address.
     private SymbolAddressTable? _addresses;
     private HashSet<SemanticId>? _declared;
 
     // what few activations have - a ByRef alias by address, a block, a loop, a GoSub, a variable declared at a stop - is kept apart, made when it is first
-    // needed (IR lowering S1.7): an activation that has none is that much smaller, and most calls make one that has none.
+    // needed: an activation that has none is that much smaller, and most calls make one that has none.
     private sealed class Occasional
     {
         public Dictionary<SemanticId, MemoryAddress>? ByRefAliases;
@@ -403,7 +403,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return FrameRebaseRefusal.BlockChanged;
         }
 
-        // the handler and the GoSub Resumption List compiled code keeps in the frame (IR lowering S2.4) are moved as an interpreted activation's are.
+        // the handler and the GoSub Resumption List compiled code keeps in the frame are moved as an interpreted activation's are.
         if (RebasedGoSubReturns(alignment) is { } goSubRefusal)
         {
             return goSubRefusal;
@@ -674,8 +674,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <summary>
     /// The address of the function result variable (<strong>MS-VBAL §5.3.1</strong>), given the first time it is asked for: what <c>VarPtr</c> of the
-    /// function's own name is in its code, one address for the whole activation and none of its locals' (<strong>MS-VBA</strong>, recorded in Excel, oracle\s24
-    /// F01-F03). The variable is at the address from then on: what is assigned to it is written there, and what is there is what it returns.
+    /// function's own name is in its code, one address for the whole activation and none of its locals' (<strong>MS-VBA</strong>, observed in Excel).
+    /// The variable is at the address from then on: what is assigned to it is written there, and what is there is what it returns.
     /// </summary>
     /// <param name="size">How many bytes a value of the function's type occupies.</param>
     /// <param name="address">The address.</param>
@@ -697,12 +697,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return true;
     }
 
-    // the function result variable of a scalar type assigned on payloads (IR lowering S1.3): a value is made of it once, when it is read as one.
+    // the function result variable of a scalar type assigned on payloads: a value is made of it once, when it is read as one.
     private ScalarPayload _resultPayload;
     private bool _hasResultPayload;
 
     /// <summary>
-    /// Assigns the function result variable a payload of its declared type (IR lowering S1.3), which <see cref="ReturnValue"/> is when it is read.
+    /// Assigns the function result variable a payload of its declared type, which <see cref="ReturnValue"/> is when it is read.
     /// </summary>
     internal void AssignResult(ScalarPayload payload)
     {
@@ -887,7 +887,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Stashes a <c>Select Case</c>'s selector evaluated on payloads (IR lowering S1.6), in place of the value <see cref="SetBlockState"/> would stash: the
+    /// Stashes a <c>Select Case</c>'s selector evaluated on payloads, in place of the value <see cref="SetBlockState"/> would stash: the
     /// <c>Case</c> headers compare it as it is, and make a value of it only for a clause compared boxed.
     /// </summary>
     internal void SetSelectorPayload(int openerOffset, ScalarPayload selector)
@@ -988,15 +988,15 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </param>
     public void Push(Symbol symbol, VBTypedValue value, int slot)
     {
-        // the variable is a cell of the activation, which takes no session memory until something asks for its address (IR lowering S1.1, Q1): most
-        // locals are never passed by reference, and an activation of them reserves nothing. One the layout has a slot for is held in it (S1.1b).
+        // the variable is a cell of the activation, which takes no session memory until something asks for its address: most
+        // locals are never passed by reference, and an activation of them reserves nothing. One the layout has a slot for is held in it.
         Hold(symbol, CellFor(value), value.Size, slot);
     }
 
     /// <summary>
     /// The cell a variable that starts as <paramref name="value"/> is held in - a local's, a field's of an object: a variable of a scalar type holds its value
-    /// as a payload, which an expression of it is evaluated on (IR lowering S1.2), in a cell made of the value as it is; a Variant that holds a scalar (or
-    /// nothing yet) holds it as a payload too (S1.4), which its subtype is the type of; anything else is a fresh copy of the value
+    /// as a payload, which an expression of it is evaluated on, in a cell made of the value as it is; a Variant that holds a scalar (or
+    /// nothing yet) holds it as a payload too, which its subtype is the type of; anything else is a fresh copy of the value
     /// (<see cref="SymbolAddressTable.FreshBinding"/>).
     /// </summary>
     internal static IBindingHandle CellFor(VBTypedValue value)
@@ -1017,7 +1017,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     /// <remarks>
     /// The same as <see cref="Push"/> with a value of <paramref name="type"/> made of <paramref name="value"/>, which a parameter of a scalar type is not
-    /// made of (IR lowering S1.3): its cell holds the argument as it is.
+    /// made of: its cell holds the argument as it is.
     /// </remarks>
     /// <param name="slot">The number of the parameter's slot, when the caller knows it (<see cref="Push"/>); <c>-1</c> to look it up.</param>
     /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame.</exception>
@@ -1040,7 +1040,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return Hold(symbol, variant!, type.DefaultValue.Size, slot);
         }
 
-        // an object - the Me of a member, an object passed by value - is the cell of its reference, which is what a value of it would be copied into (S1.4c).
+        // an object - the Me of a member, an object passed by value - is the cell of its reference, which is what a value of it would be copied into.
         if (UnboxedEvaluation.IsEnabled && type is VBClassType or VBObjectType && value is VBRuntimeValue<VBRuntimeObjectId>)
         {
             return Hold(symbol, new ValueBindingHandle(value), type.DefaultValue.Size, slot);
@@ -1051,7 +1051,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// The cell held in slot <paramref name="slot"/> of the activation's layout, when it holds one rather than an address (IR lowering S1.4c): what a
+    /// The cell held in slot <paramref name="slot"/> of the activation's layout, when it holds one rather than an address: what a
     /// variable that has a slot is, read by number rather than looked up by its symbol.
     /// </summary>
     internal bool TryGetSlotCell(int slot, [NotNullWhen(true)] out IBindingHandle? cell)
@@ -1061,15 +1061,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Declares the parameter <paramref name="symbol"/>, a scalar passed by value, holding <paramref name="payload"/>: its argument, of its type (IR
-    /// lowering S1.3).
+    /// Declares the parameter <paramref name="symbol"/>, a scalar passed by value, holding <paramref name="payload"/>: its argument, of its type.
     /// </summary>
     /// <param name="symbol">The parameter.</param>
     /// <param name="payload">The argument, let-coerced to the parameter's type.</param>
     /// <param name="slot">The number of the parameter's slot, when the caller knows it (<see cref="Push(Symbol, VBTypedValue, int)"/>); <c>-1</c> to look it up.</param>
     internal void PushPayload(Symbol symbol, ScalarPayload payload, int slot)
     {
-        // a Variant parameter holds the scalar it is passed as it is, of its own type (IR lowering S1.7).
+        // a Variant parameter holds the scalar it is passed as it is, of its own type.
         if (symbol is ITypedSymbol { ResolvedType: VBVariantType })
         {
             Hold(symbol, VariantCell.Of(payload), VBVariantType.TypeInfo.DefaultValue.Size, slot);
@@ -1081,7 +1080,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <summary>
     /// Declares the <c>ByRef</c> parameter <paramref name="symbol"/> as a second name for a variable of the caller held in <paramref name="cell"/>: the
-    /// parameter's slot holds that very cell (IR lowering S1.3, <see cref="CellReference"/>).
+    /// parameter's slot holds that very cell (<see cref="CellReference"/>).
     /// </summary>
     /// <param name="symbol">The parameter.</param>
     /// <param name="cell">The cell of the caller's variable.</param>
@@ -1100,8 +1099,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Declares <paramref name="symbol"/>, a variable of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds it in
-    /// (IR lowering S2.3c), which the activation frees as its own.
+    /// Declares <paramref name="symbol"/>, a variable of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds it in,
+    /// which the activation frees as its own.
     /// </summary>
     /// <param name="symbol">The parameter or the variable.</param>
     /// <param name="cell">Its cell.</param>
@@ -1135,7 +1134,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>The layout the activation was laid out as (<see cref="LayOut"/>), if it was.</summary>
     internal FrameLayout? Layout => _layout;
 
-    // a slot the caller numbered is the one of this activation's layout, which is what the caller read the number from: no symbol is looked up (S1.3).
+    // a slot the caller numbered is the one of this activation's layout, which is what the caller read the number from: no symbol is looked up.
     // isAlias: the cell is a variable of the caller's (PushAlias), which this activation has a second name for and does not free; referencedType, the type a
     // Variant reference parameter reads it as.
     private IBindingHandle Hold(Symbol symbol, IBindingHandle cell, int size, int slot, bool isAlias = false, VBType? referencedType = null)
@@ -1163,7 +1162,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Lays the activation out as <paramref name="layout"/> says (IR lowering S1.1b): a variable it has a slot for is held in that slot from the moment it
+    /// Lays the activation out as <paramref name="layout"/> says: a variable it has a slot for is held in that slot from the moment it
     /// is declared, and is found by its number.
     /// </summary>
     /// <param name="layout">The layout of the procedure this is an activation of (<see cref="FrameLayout.For"/>).</param>
@@ -1391,7 +1390,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>
     /// The address of the <c>VARIANT</c> a <c>Variant</c> reference parameter given a variable of another type is (<see cref="TryGetReferencedType"/>):
     /// <strong>MS-VBA</strong> passes it a <c>VARIANT</c> of its own that refers to the variable, at one address for as long as the activation runs
-    /// (recorded in Excel, oracle\s21 R19, R27). It is what <c>VarPtr</c> of the parameter is; the parameter reads and writes the variable it was given.
+    /// (observed in Excel). It is what <c>VarPtr</c> of the parameter is; the parameter reads and writes the variable it was given.
     /// </summary>
     /// <param name="symbol">The parameter.</param>
     /// <param name="size">The size of a <c>VARIANT</c> in the session's memory.</param>
@@ -1441,7 +1440,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
         => TryGetAlias(symbol, out address) || _addresses is not null && _addresses.TryGetAddress(symbol, out address) || TryGiveAddress(symbol, out address);
 
-    // the slots of the activation (IR lowering D2), filled as they are read: each holds the cell of a variable that has no address, or the address of one
+    // the slots of the activation, filled as they are read: each holds the cell of a variable that has no address, or the address of one
     // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
     // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address may (a POKE
     // rebinds one that is not a cell), which is why it is read there every time rather than kept.

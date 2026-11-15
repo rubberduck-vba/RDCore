@@ -475,7 +475,7 @@ public sealed class HostExecuteHandlerTests
     public async Task CircularConstants_AreRefusedBeforeTheyRun()
     {
         // folding one constant can fold another, so a cycle between them would recurse forever: as in VBA, it is
-        // a compile error ("Constant expression required", oracle\s28 C01), and the module does not load.
+        // a compile error ("Constant expression required"), and the module does not load.
         var result = await ExecuteAsync(
             $"Attribute VB_Name = \"{ModuleName}\"\r\n"
             + "Public Const A As Long = B\r\n"
@@ -514,7 +514,7 @@ public sealed class HostExecuteHandlerTests
     public async Task ADeadIfBranch_DoesNotRun()
     {
         // MS-VBAL 3.4.2: an excluded #If branch is logically removed before the rest of the language
-        // sees it. PrecompilerLiveBranchEvaluator has computed the dead ranges correctly since #315 but
+        // sees it. PrecompilerLiveBranchEvaluator has computed the dead ranges correctly but
         // had no production caller, so lowering kept both branches and ran them in source order.
         var result = await ExecuteAsync(Module(
             "#If False Then",
@@ -645,7 +645,7 @@ public sealed class HostExecuteHandlerTests
     [TestMethod]
     // MS-VBAL 5.4.2.1: the bare call statement, whose argument list is the statement's own because the
     // grammar grants it no parenthesized lExpression equivalent. It is the ordinary VBA call form, and
-    // the one shape ExecuteCall refused — S9a wired the parenthesized and no-argument ones only.
+    // the one shape ExecuteCall refused, where the parenthesized and no-argument ones were wired only.
     [DataRow("Foo 7", "k=7|n=0", DisplayName = "one argument")]
     [DataRow("Foo 7, 8", "k=7|n=8", DisplayName = "two arguments")]
     [DataRow("Foo n:=8, k:=7", "k=7|n=8", DisplayName = "named arguments, out of order")]

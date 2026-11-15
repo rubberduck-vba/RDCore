@@ -158,8 +158,7 @@ public sealed class ComApartment : IDisposable
 
     /// <summary>
     /// Whether the messages of the apartment's windows wait - what their user does, what they draw, what Microsoft Forms posts to its own windows - because a program
-    /// runs: MS-VBA dispatches none until the program waits for them (<c>DoEvents</c>, a modal <c>Show</c>) or ends (Excel-measured, <c>oracle\s41</c> E09, E12
-    /// against E14, E15). What COM sends the apartment is dispatched all the same: a server's call back, an Excel event raised while the program runs.
+    /// runs: MS-VBA dispatches none until the program waits for them (<c>DoEvents</c>, a modal <c>Show</c>) or ends (observed in Excel). What COM sends the apartment is dispatched all the same: a server's call back, an Excel event raised while the program runs.
     /// </summary>
     public bool HoldsMessages
     {

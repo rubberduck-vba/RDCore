@@ -54,7 +54,7 @@ public interface IStdStringsModule
     /// <strong>MS-VBAL 6.1.2.11.1.3 AscW</strong> Gets the <em>Unicode</em> code point of the first character of a string.
     /// </summary>
     /// <param name="string">The string whose first character to report the code point of: the parameter <c>String</c>, which a named argument names
-    /// (<c>AscW(String:="Z")</c>, MS-VBA, recorded in Excel: oracle\s46 F19).</param>
+    /// (<c>AscW(String:="Z")</c>, MS-VBA, observed in Excel).</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBIntegerValue> AscW(VBStringValue @string);
 

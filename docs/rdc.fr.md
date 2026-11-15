@@ -68,7 +68,8 @@ une instruction.
 le _shell_ liste les deux lignes au-dessus de la ligne de l'arrêt et les deux au-dessous, la ligne de l'arrêt étant mise en évidence, puis affiche
 `INTERRUPTION À LA LIGNE` et le numéro de ligne. Une erreur d'exécution que rien ne gère arrête le programme à l'instruction qui l'a déclenchée,
 comme dans le VBIDE : le _shell_ liste de la même façon les lignes autour de cette instruction, puis affiche l'erreur. `CONT` exécute de nouveau
-l'instruction, et `END` termine le programme. Une erreur qu'une instruction `On Error` gère ne l'arrête pas. Un pas ne liste rien : il affiche
+l'instruction, et `END` termine le programme comme une instruction `End` : les variables que les lignes précédentes ont affectées, les
+variables locales `Static`, les objets et les fichiers ouverts disparaissent avec lui, et aucun `Class_Terminate` ne s'exécute. Une erreur qu'une instruction `On Error` gère ne l'arrête pas. Un pas ne liste rien : il affiche
 seulement `INTERRUPTION À LA LIGNE` et le numéro de ligne, ou l'erreur à laquelle il s'est arrêté. `CONFIG CLI.BreakListingLines` fixe combien de lignes
 sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme
 dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.

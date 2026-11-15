@@ -80,7 +80,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     // standard library.
     private const string FormsKey = "VB.Global.Forms/get";
 
-    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (oracle\s41 L51).
+    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (observed in Excel).
     private const int FormUnloaded = unchecked((int)0x80010007);
 
     // the session's forms, which know which of them a Visual Basic 6.0 designer wrote: their lifecycle and their handlers' names are VB6's.
@@ -99,7 +99,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     /// </summary>
     public ICallableBindingFactory? Bindings { get; set; }
 
-    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, oracle\s41 C06, C10): Microsoft
+    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, observed in Excel): Microsoft
     // Forms itself would remove it.
     private const string RemoveKey = FormDesigner.MSFormsLibrary + ".Controls.Remove/method";
 
@@ -149,7 +149,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
         try
         {
-            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (oracle\s41 L15, L51, L52).
+            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (observed in Excel).
             if (SessionForms.Of(session).IsUnloaded(identity))
             {
                 throw new AutomationException(FormUnloaded, $"the form '{form}' was unloaded.");
@@ -248,7 +248,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     }
 
     // Load, which the reference to its argument has done already for a UserForm, and does now for a Visual Basic 6.0 form; and Unload: QueryClose (vbFormCode),
-    // which can cancel it; then Terminate, the form's window, and its default instance, which the next reference makes again (Excel-measured). A Visual
+    // which can cancel it; then Terminate, the form's window, and its default instance, which the next reference makes again (observed in Excel). A Visual
     // Basic 6.0 form's Unload is its own (FormHandlers.Unload).
     private RuntimeSemanticsEvaluationResult LoadOrUnload(ExternalCallRequest request, IRuntimeSymbolResolver resolver, bool unload)
     {
