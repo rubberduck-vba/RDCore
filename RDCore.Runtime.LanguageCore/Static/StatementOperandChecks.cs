@@ -3,6 +3,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -92,6 +93,36 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     // MS-VBAL §5.6.1, §5.6.10
     public void RequireVariable(ExpressionNode expression, string role, string? section = null)
         => Report(expression, NotAVariable(expression, LibraryFunctions.None), $"{role} must be a variable", section);
+
+    // MS-VBAL §5.6.16.6: a bound variable expression is a variable, even where an assignment to the same expression would call a Property Let. A member of an
+    // object's class that is a property or a procedure is reported at the member as it is written after the dot (`.Name`, observed in Excel).
+    public void RequireBoundVariable(ExpressionNode expression, string role, string section)
+    {
+        if (expression is MemberAccessExpressionNode access && ProcedureOfAClass(access) is { } member)
+        {
+            var at = access.Owner is { } owner ? expression.Location with { Range = new SourceRange(owner.Location.Range.End, expression.Location.Range.End) } : expression.Location;
+            _errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, at,
+                $"{role} must be a variable, and this is the {(member is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? "property" : "procedure")} {member.Name} (MS-VBAL §{section})."));
+            return;
+        }
+
+        RequireVariable(expression, role, section);
+    }
+
+    // the property or procedure of a class that a member access names, on an object of the class or in a With block on one; null for a variable of the class,
+    // and for a member of an object whose class is not known (Object, Variant), which is bound at run time.
+    private VBTypeMemberSymbol? ProcedureOfAClass(MemberAccessExpressionNode access)
+    {
+        var ownerType = access.Owner is { } owner
+            ? ExpressionStaticSemanticsEvaluator.Evaluate(context, owner) is { IsError: false, Result: { } type } ? type : null
+            : context.EnclosingWithTargetType;
+        return ownerType is VBClassType classType
+            ? Expressions.MemberAccessExpressionStaticSemantics.CurrentMembersOf(context, classType)
+                .FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                    && member is not (VBInstanceFieldVariableMemberSymbol or VBModuleFieldVariableMemberSymbol)
+                    && member is VBReturningMemberSymbol or VBProcedureMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+            : null;
+    }
 
     // MS-VBAL §5.4.3.8
     public void RequireLetTarget(ExpressionNode expression, string role, string section)
