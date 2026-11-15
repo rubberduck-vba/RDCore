@@ -2,6 +2,7 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using System.Runtime.CompilerServices;
 
@@ -63,6 +64,41 @@ public static class VariantOperations
         var read = Unsafe.As<VariantCell>(cell).TryRead(out var payload);
         value = new VariantPayload(payload);
         return read;
+    }
+
+    /// <summary>
+    /// <c>IsEmpty</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.4): whether it holds <c>Empty</c>. A Variant that holds a value of
+    /// a scalar type, a <c>String</c>, <c>Null</c> or an error does not.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="empty">Whether the Variant holds <c>Empty</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
+    /// <c>IsEmpty</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool IsEmpty(object? cell, out bool empty)
+    {
+        empty = false;
+        if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant)
+        {
+            return false;
+        }
+
+        if (variant.TryRead(out _))
+        {
+            return true;
+        }
+
+        switch (variant.Value)
+        {
+            case VBRuntimeVariantValue { WrappedValue: VBEmptyValue }:
+                empty = true;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: VBStringValue or VBNullValue or VBErrorValue }:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>

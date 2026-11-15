@@ -256,7 +256,16 @@ internal sealed partial class ProcedureEmitter
             }
 
             BeginKnowing(step.Offset);
+
+            // a step that may give a holder another array keeps none, from its start: whatever way it is left, no array it found is kept.
+            _keepsArrays = KeepsArrays(step);
+            if (!_keepsArrays)
+            {
+                EmitForgetArrays();
+            }
+
             EmitObjectStatement(step);
+            _keepsArrays = true;
         }
 
         // the end of the body (MS-VBAL §5.4.2.17): as an Exit.
@@ -1105,6 +1114,7 @@ internal sealed partial class ProcedureEmitter
     private void EmitReload(Label unread)
     {
         _unreads = true;
+        EmitForgetArrays();
         foreach (var (slot, kind) in _analysis.Slots)
         {
             if (_cells.ContainsKey(slot))
@@ -1365,7 +1375,7 @@ internal sealed partial class ProcedureEmitter
 
     private static bool ReadsVariant(PayloadNode node) => node switch
     {
-        UnvariantNode or TruthNode => true,
+        UnvariantNode or TruthNode or VariantIsEmptyNode => true,
         ConvertNode convert => ReadsVariant(convert.Operand),
         IntegralNode integral => ReadsVariant(integral.Left) || ReadsVariant(integral.Right),
         LogicalNode logical => ReadsVariant(logical.Left) || ReadsVariant(logical.Right),
