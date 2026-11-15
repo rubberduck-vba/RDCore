@@ -132,7 +132,7 @@ internal sealed class RenameService(
         }
 
         // the project the server runs, then the others: each is composed of its own modules, so that a name resolves in the project of the module that writes it.
-        List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, name: null, token)];
+        List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, workspaceProjects.Projects.FirstOrDefault()?.Project.ProjectInfo.Name, token)];
         foreach (var other in workspaceProjects.Projects.Skip(1))
         {
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
@@ -159,7 +159,7 @@ internal sealed class RenameService(
         }
 
         // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
-        var projectName = primary || string.IsNullOrEmpty(name) ? null : name;
+        var projectName = string.IsNullOrEmpty(name) ? null : name;
         var implicitScope = options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope;
         var libraries = primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null;
         var documentHosts = modules.Where(module => module.Document.Super is not null)
@@ -342,6 +342,12 @@ internal sealed class RenameWorkspace
             }
         }
 
+        // a project is renamed in its project file too, where the file writes its name (ProjectFile.NameRangeIn).
+        if (plan.Project is { } project && ProjectFileEditOf(project, newName) is { } projectFile)
+        {
+            changes = changes.Append(new WorkspaceEditDocumentChange(projectFile));
+        }
+
         var workspaceEdit = new WorkspaceEdit
         {
             DocumentChanges = new Container<WorkspaceEditDocumentChange>(changes),
@@ -370,6 +376,39 @@ internal sealed class RenameWorkspace
             NewUri = Sibling(module.Document.Id.Uri, newName + Path.GetExtension(path)),
             Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
         };
+    }
+
+    // the edit of the project file of the workspace's project of a name, where its text writes the name; none when the file cannot be read, or writes no name.
+    private TextDocumentEdit? ProjectFileEditOf(string project, string newName)
+    {
+        if (workspaceProjects.Projects.FirstOrDefault(candidate => string.Equals(candidate.Project.ProjectInfo.Name, project, StringComparison.OrdinalIgnoreCase)) is not { } owner)
+        {
+            return null;
+        }
+
+        var path = Path.Combine(owner.Root, ProjectFile.FileName);
+        string text;
+        try
+        {
+            text = File.ReadAllText(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "📁 The project file {Path} could not be read: the project is renamed in its code only.", path);
+            return null;
+        }
+
+        return ProjectFile.NameRangeIn(text) is { } range
+            ? new TextDocumentEdit
+            {
+                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.FromFileSystemPath(path) },
+                Edits = new TextEditContainer(new TextEdit
+                {
+                    Range = new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character),
+                    NewText = newName,
+                }),
+            }
+            : null;
     }
 
     // the binary file of a designer's file, by the extension of each (a form's .frx, a user control's .ctx), when the designer's text names it as the file of

@@ -81,6 +81,9 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 
     // a module that is renamed, whose file is renamed with it when the file is named after it.
     public Uri? Module { get; init; }
+
+    // the name of the workspace's project that is renamed, which its project file writes.
+    public string? Project { get; init; }
 }
 
 // a name whose meaning cannot be told is refused, never guessed at; late-bound and in-string edits are flagged for the user to confirm, since only the running
@@ -326,6 +329,11 @@ public static class SymbolRename
 
         var targets = target.Symbols.ToHashSet();
         var symbols = target.Symbols.Select(id => NameOccurrences.SymbolOf(context, id)).OfType<Symbol>().ToList();
+        if (symbols is [VBProjectSymbol project] && IsOwnProject(project))
+        {
+            return PlanProject(context, project, newName);
+        }
+
         if (symbols is [VBModuleSymbol module])
         {
             return PlanModule(context, module, newName);
@@ -920,9 +928,38 @@ public static class SymbolRename
         return new([.. label.Occurrences.Select(name => new RenameEdit(target.Module, name.Range, name.IsBracketed ? $"[{newName}]" : newName))], null);
     }
 
+    private static bool IsOwnProject(Symbol symbol) => symbol is VBProjectSymbol && symbol.GetProperty(SymbolProperties.Library) is null;
+
+    // MS-VBAL §5.6.12: the workspace's project is renamed where its name qualifies a module or a type (Billing.Tools.Go), and in its project file. The new
+    // name is not that of a module of the project, nor of a library it references, which the same qualifier would mean.
+    private static RenamePlan PlanProject(RenameContext context, Symbol project, string newName)
+    {
+        if (context.Modules.FirstOrDefault(module => string.Equals(SymbolUri.ModuleNameOf(module.Module), newName, StringComparison.OrdinalIgnoreCase)) is { } named)
+        {
+            return Refused(new(RenameRefusalKind.Conflict, newName, SymbolUri.ModuleNameOf(named.Module), named.Module, default));
+        }
+
+        if (context.Modules.FirstOrDefault() is { } any
+            && context.Resolver.ResolveValue(newName, ScopeKind.Local, any.Module).Symbol is VBProjectSymbol library)
+        {
+            return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(library), any.Module, default));
+        }
+
+        var qualifiers = NameOccurrences.Find(context, project.Name, context.Modules).Occurrences
+            .Where(occurrence => occurrence.Binding == project.SemanticId && occurrence.Kind is not OccurrenceKind.Declaration)
+            .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName));
+        return new([.. qualifiers.OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal).ThenBy(edit => edit.Range.Start)], null) { Project = project.Name };
+    }
+
     // what makes a symbol one that is not renamed: what the workspace does not declare, a type, and a name that something else is named after.
     private static RenameRefusal? RefusalOf(RenameContext context, Symbol symbol)
     {
+        // the workspace's own project is of no library: its project file names it.
+        if (IsOwnProject(symbol))
+        {
+            return null;
+        }
+
         if (!NameOccurrences.IsDeclaredBy(context, symbol))
         {
             return new(RenameRefusalKind.NotDeclaredByWorkspace, symbol.Name);
@@ -931,7 +968,6 @@ public static class SymbolRename
         var parent = NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri));
         switch (symbol)
         {
-            case VBProjectSymbol:
             case VBClassModuleSymbol { IsDocument: true }:
                 return new(RenameRefusalKind.Type, symbol.Name);
             case VBExternalSubMemberSymbol or VBExternalFunctionMemberSymbol:

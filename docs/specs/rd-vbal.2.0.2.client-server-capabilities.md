@@ -436,6 +436,8 @@ The module's file is renamed with it when the file has the module's name (`Helpe
 
 A designer's binary file (`.frx` of a `.frm`, `.ctx` of a `.ctl`, `.dsx`, `.pgx`, `.dox`) is renamed with it when the designer's text names it as the file of the same name (`OleObjectBlob = "Dialog.frx":0000`). Once both files are renamed, the renamed text names the new binary file. Neither file is renamed over a file that exists: the client refuses the edit, so the text never names a file it was not renamed to. A client that does not rename files is sent neither rename, and the text keeps the old name.
 
+A project of the workspace is renamed where its name qualifies a module or a member (`Billing.Tools.Go`, **MS-VBAL §5.6.12**), and in its project file, where the file writes its `Name` ([`ProjectFile.NameRangeIn`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectFile.html)). A project file the server cannot read is left as it is, and the project keeps its old name there. A referenced library is not renamed.
+
 A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A string left as it is names nothing the call can find, and the call fails only when the code runs.
 
 A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's name is renamed too, when the symbol is a member of a class that code outside the class can call (not `Private`). Which member the access calls is only known when the code runs (**MS-VBAL §5.6.12**), so the user confirms these edits as well. What is known of the classes the object may hold decides which accesses are proposed (`PossibleClasses`):
@@ -462,7 +464,8 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |What a name written as the symbol's refers to is not known|The rename could miss it.|
 |The new name is one that MS-VBAL §5.2.3.3 or §5.2.3.4 does not allow for a `Type` or an `Enum`|Two types, or a type and a module, would have one name.|
 |The symbol is a module, and the new name is one MS-VBAL §4.2 does not allow: longer than 31 characters, or the name of another module, a `Public` type or a project|Two modules, or a module and a type, would have one name.|
-|The symbol is a document module, or a project|What else names it (its document) would not be renamed with it.|
+|The symbol is a document module|Its document names it, and would not be renamed with it.|
+|The symbol is the workspace's project, and the new name is that of one of its modules or of a project it references|A qualifier with the new name would mean the module or the other project.|
 |The symbol is a form's control|Its designer names it, and would not be renamed with it.|
 |The symbol is a procedure that handles an event of its own class or form (`Class_Initialize`, `UserForm_Click`) or of a control, or a procedure of a document module|It is named after the event it handles.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|

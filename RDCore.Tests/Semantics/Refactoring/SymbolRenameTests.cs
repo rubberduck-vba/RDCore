@@ -100,7 +100,7 @@ public sealed class SymbolRenameTests
         ],
     };
 
-    private static RenameContext ComposeReferencing(IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> libraries, (string Name, string Source)[] modules)
+    private static RenameContext ComposeReferencing(IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> libraries, (string Name, string Source)[] modules, string? projectName = null)
     {
         var parsed = modules.Select(module =>
         {
@@ -111,7 +111,7 @@ public sealed class SymbolRenameTests
         }).ToList();
 
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [.. parsed.Select(module => (module.Uri, module.Type, module.Parse))], new IntrinsicSymbolResolver(),
-            libraries: libraries.Count == 0 ? null : libraries);
+            projectName: projectName, libraries: libraries.Count == 0 ? null : libraries);
         return new RenameContext(composition.Resolver, composition.ScopeTree, [.. parsed.Select(module => new RenameModule(module.Uri, module.Parse.SyntaxTree!, module.Source))]);
     }
 
@@ -1292,5 +1292,42 @@ public sealed class SymbolRenameTests
         var targets = SymbolRename.TargetsIn(context, ModuleUri("Main"), new SourceRange(start with { Character = 0 }, start with { Line = start.Line + 1 }));
 
         Assert.AreEqual("Retry", targets.Single(target => target.IsLabel).Name);
+    }
+
+    private static readonly (string Name, string Source)[] Qualified =
+    [
+        ("Tools", Module("Tools",
+            "Public Sub Go()",
+            "End Sub")),
+        ("Main", Module("Main",
+            "Public Sub Main()",
+            "    Billing.Tools.Go",
+            "    Billing.Go",
+            "End Sub")),
+    ];
+
+    [TestMethod]
+    public void AProject_IsRenamedInTheQualifiersThatNameIt()
+    {
+        var context = ComposeReferencing([], Qualified, projectName: "Billing");
+
+        var plan = Rename(context, "Main", "Billing.Tools.Go", "Billing", "Invoicing");
+
+        Assert.AreEqual("Billing", plan.Project, "the project file is renamed in it too");
+        Assert.AreEqual(Module("Main",
+            "Public Sub Main()",
+            "    Invoicing.Tools.Go",
+            "    Invoicing.Go",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void AProject_IsNotRenamedTo_TheNameOfOneOfItsModules()
+    {
+        var context = ComposeReferencing([], Qualified, projectName: "Billing");
+
+        var plan = Rename(context, "Main", "Billing.Tools.Go", "Billing", "Tools");
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, plan.Refusal?.Kind);
     }
 }

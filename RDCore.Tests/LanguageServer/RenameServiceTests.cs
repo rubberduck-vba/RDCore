@@ -60,14 +60,14 @@ public sealed class RenameServiceTests
         }
     }
 
-    private RenameService Sut()
+    private RenameService Sut(IWorkspaceProjects? projects = null)
     {
         var source = new InMemoryLibrarySource();
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
-        return new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
+        return new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, projects ?? OneProject.Registry());
     }
 
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
@@ -180,5 +180,39 @@ public sealed class RenameServiceTests
         Assert.AreEqual((new Range(3, 20, 3, 30), "Prompt.frx"), (named.Edits.Single().Range, named.Edits.Single().NewText));
         var designer = changes.First(change => change.IsTextDocumentEdit).TextDocumentEdit!;
         Assert.IsTrue(designer.Edits.Any(edit => edit.Range.Start.Line == 1 && edit.NewText == "Prompt"), "the designer's Begin line");
+    }
+
+    [TestMethod]
+    public async Task AProject_IsRenamedInItsQualifiers_AndInItsProjectFile()
+    {
+        const string text = "Attribute VB_Name = \"Caller\"\r\nPublic Sub Go()\r\n    Billing.Helpers.Show\r\nEnd Sub\r\n";
+        var caller = new WorkspaceDocument("Caller.bas", Root, text, version: 2);
+        var all = _documents.GetAllDocuments().ToList();
+        _documents.GetAllDocuments().Returns([.. all, caller]);
+        var uri = caller.Id.Uri.ToUri();
+        _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = caller; return true; });
+        _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(caller))));
+
+        var projects = Substitute.For<IWorkspaceProjects>();
+        projects.Projects.Returns([new WorkspaceProject(Root, new ProjectFile(Root, new RDCoreProject { Name = "Billing" }))]);
+        projects.Folders.Returns(new WorkspaceFolders([]));
+        var projectFile = Path.Combine(Root, ProjectFile.FileName);
+        Directory.CreateDirectory(Root);
+        File.WriteAllText(projectFile, "{\r\n  \"SchemaVersion\": 1,\r\n  \"Name\": \"Billing\"\r\n}\r\n");
+        try
+        {
+            var answer = await Sut(projects).RenameAsync(Document("Caller.bas"), new Position(2, 6), "Invoicing", CancellationToken.None);
+
+            Assert.IsNotNull(answer.Value, answer.Refusal);
+            var changes = answer.Value.DocumentChanges!.Select(change => change.TextDocumentEdit!).ToList();
+            var qualifier = changes.Single(change => change.TextDocument.Uri.ToUri().AbsoluteUri == Document("Caller.bas").AbsoluteUri);
+            Assert.AreEqual((new Range(2, 4, 2, 11), "Invoicing"), (qualifier.Edits.Single().Range, qualifier.Edits.Single().NewText));
+            var project = changes.Single(change => change.TextDocument.Uri.ToUri().AbsoluteUri == Document(ProjectFile.FileName).AbsoluteUri);
+            Assert.AreEqual((new Range(2, 11, 2, 18), "Invoicing"), (project.Edits.Single().Range, project.Edits.Single().NewText), "the name the project file writes");
+        }
+        finally
+        {
+            File.Delete(projectFile);
+        }
     }
 }
