@@ -428,9 +428,8 @@ internal static class EncapsulateField
         return found.Occurrences.Count > 0 || found.Unknown.Count > 0;
     }
 
-    // the type as the field's declaration writes it: the member and the properties are written in the same module, where it names the same type, a library's
-    // type qualified as the user qualified it, or not, where the project declares nothing of its name. A field with no As clause is of an intrinsic type, its
-    // type hint's, a Def statement's or Variant, whose name is a keyword.
+    // the type as the field's declaration writes it, qualified or not: the member and the properties are written in the same module, where that name means
+    // the same type. A field with no As clause is of an intrinsic type (its type hint's, a Def statement's, or Variant), whose name is a keyword.
     private static string TypeNameOf(VariableDeclarationNode variable, VBType type)
         => variable.ChildNodes().OfType<AsTypeExpressionNode>().FirstOrDefault() is { } written
             ? written.QualifierName is { } qualifier ? $"{qualifier}.{written.TypeName}" : written.TypeName
