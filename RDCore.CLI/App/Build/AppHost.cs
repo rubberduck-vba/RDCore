@@ -4,7 +4,8 @@ using System.Text;
 namespace RDCore.CLI.App.Build;
 
 // the .NET application host the SDK makes an application's executable from, out of its packs
-// (packs/Microsoft.NETCore.App.Host.<rid>/<version>/runtimes/<rid>/native/). Its 1024-byte slot begins with a placeholder, the hex SHA-256 of "foobar":
+// (packs/Microsoft.NETCore.App.Host.<rid>/<version>/runtimes/<rid>/native/), and that the platform ships beside rdc in the same layout.
+// Its 1024-byte slot begins with a placeholder, the hex SHA-256 of "foobar":
 // the assembly's path, relative to the executable, is written over it in UTF-8, and the rest of the slot is zeroed.
 internal static class AppHost
 {
@@ -28,9 +29,16 @@ internal static class AppHost
 
     private const string PackPrefix = "Microsoft.NETCore.App.Host.";
 
-    public static string? Find(string runtime, string? dotnetRoot = null)
+    // the folder beside rdc that the published platform ships the host of its own runtime in, as a .NET installation lays out its packs (RDCore.CLI.csproj):
+    // a machine with only the .NET runtime has no packs folder.
+    internal const string ShippedFolder = "apphost";
+
+    // the host a program for the runtime is made of: the platform's own, then one of the packs of the .NET installation rdc runs on.
+    public static string? Find(string runtime) => Find(runtime, Path.Combine(AppContext.BaseDirectory, ShippedFolder)) ?? Find(runtime, DotnetRoot());
+
+    // the host for the runtime in the packs folder of a root laid out as a .NET installation, of the major version rdc runs on; the latest such one.
+    public static string? Find(string runtime, string? root)
     {
-        var root = dotnetRoot ?? DotnetRoot();
         if (root is null)
         {
             return null;

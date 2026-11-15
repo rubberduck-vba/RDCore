@@ -154,8 +154,11 @@ le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui 
 Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
 Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
-second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
-installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui.
+
+L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec celui du _runtime_ sur lequel il s'exécute; pour un autre
+_runtime_, il prend celui d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
+`dotnet <nom>.dll`, il n'appelle pas le monde extérieur.
 
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.

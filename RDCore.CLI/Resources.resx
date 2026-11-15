@@ -505,7 +505,7 @@
     <value>A program cannot be named {0}: the runtime it runs on has an assembly of that name. Name it with --name.</value>
   </data>
   <data name="Build_NoAppHost" xml:space="preserve">
-    <value>No .NET application host for {0} is installed, so no executable was written: run the program with dotnet {1}.</value>
+    <value>Neither rdc nor an installed .NET SDK has the .NET application host for {0}, so no executable was written: run the program with dotnet {1}.</value>
   </data>
   <data name="Build_NoticesLacking" xml:space="preserve">
     <value>The program's folder lacks {0}: this copy of RDCore has none to put there. A released RDCore has them all.</value>
