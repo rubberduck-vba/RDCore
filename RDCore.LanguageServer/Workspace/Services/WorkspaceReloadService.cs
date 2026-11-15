@@ -121,6 +121,18 @@ internal interface IWorkspaceReloadService
     /// <param name="token">A token that cancels the reload before the documents are read.</param>
     /// <returns>The reload, and when it is done; <see langword="null"/> when the server is not running a workspace.</returns>
     Task<WorkspaceReloadStep?> BeginReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token);
+
+    /// <summary>
+    /// Makes the workspace what its folders are once a client added some or removed some (<strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>),
+    /// and returns once the documents are what the projects list: the documents the projects gained are parsed, the modules the primary project no longer has are
+    /// taken out of the environment host, and the symbols follow, as for <see cref="BeginChangeAsync"/>. The host does not compose its session again: the project
+    /// file it composes it from is what it was.
+    /// </summary>
+    /// <param name="change">Makes the projects and their documents what the folders are (<see cref="IWorkspaceService.ChangeFoldersAsync"/>), one change at a time
+    /// with the others.</param>
+    /// <param name="token">A token that cancels the change before the documents are made.</param>
+    /// <returns>The change, and when it is done; <see langword="null"/> when the server is not running a workspace.</returns>
+    Task<WorkspaceReloadStep?> BeginChangeFoldersAsync(Func<CancellationToken, Task<WorkspaceFoldersChange>> change, CancellationToken token);
 }
 
 /// <summary>
@@ -312,6 +324,46 @@ internal sealed class WorkspaceReloadService(
         try
         {
             return Queued(await ReloadListedFilesAsync(files, token));
+        }
+        finally
+        {
+            _reloading.Release();
+        }
+    }
+
+    public async Task<WorkspaceReloadStep?> BeginChangeFoldersAsync(Func<CancellationToken, Task<WorkspaceFoldersChange>> change, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        if (!IsRunningAWorkspace())
+        {
+            logger.LogInformation("The workspace folders changed before a workspace was loaded; they are read when it is.");
+            return null;
+        }
+
+        await _reloading.WaitAsync(token);
+        try
+        {
+            var changed = await change(token);
+            if (changed.IsUnchanged)
+            {
+                return new WorkspaceReloadStep(WorkspaceReloadResult.Unchanged, Task.FromResult(WorkspaceReloadResult.Unchanged));
+            }
+
+            // the name each module the primary project no longer has was defined under, which is read from what was parsed of it.
+            var removedModules = changed.LeftThePrimaryProject
+                .Select(module => parsing.TryGetCached(module.Id.Uri.ToUri(), out var parse) && parse.SyntaxTree?.GetDeclaredName() is { } name ? name : module.Name)
+                .ToList();
+
+            var started = new WorkspaceReloadResult(changed.Added, changed.Removed, false, false);
+            return Queued(new Applied(started, new FinishWork(changed.Loaded, [], removedModules, ComposeHost: false, (_, _) =>
+            {
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation("🔄 The workspace folders changed: {added} file(s) of its projects added, {removed} removed.", changed.Added, changed.Removed);
+                }
+
+                return started;
+            })));
         }
         finally
         {

@@ -58,8 +58,28 @@ internal interface IWorkspaceProjects
     /// <param name="foldersWithProject">The folders that hold a <c>.rdproj</c>.</param>
     void Initialize(string primaryRoot, IEnumerable<string> folders, IEnumerable<string> foldersWithProject);
 
+    /// <summary>
+    /// Takes in folders the client added to the workspace once it was initialized (<strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>): they
+    /// are folders of the workspace after those it has, and whether each is a project's is told as it is of those (<see cref="Roles"/>).
+    /// </summary>
+    /// <param name="folders">The folders added; one the workspace has already stays where it is.</param>
+    /// <param name="foldersWithProject">Those of them that hold a <c>.rdproj</c>.</param>
+    void AddFolders(IEnumerable<string> folders, IEnumerable<string> foldersWithProject);
+
+    /// <summary>
+    /// Lets go of folders the client removed from the workspace: they are no longer folders of it. The folder of the primary project stays one, whatever the client
+    /// says: it is the project the server runs.
+    /// </summary>
+    /// <param name="folders">The folders removed.</param>
+    void RemoveFolders(IEnumerable<string> folders);
+
     /// <summary>Makes a project of a folder.</summary>
     void Add(WorkspaceProject project);
+
+    /// <summary>Drops a project that is not the primary one: its folder left the workspace.</summary>
+    /// <param name="root">The folder of the project.</param>
+    /// <returns><see langword="false"/> when the folder is the primary project's, or no project's.</returns>
+    bool Remove(string root);
 
     /// <summary>Replaces the project file of a project that is not the primary one: its file was changed.</summary>
     /// <param name="root">The folder of the project.</param>
@@ -81,6 +101,13 @@ internal interface IWorkspaceProjects
     /// <param name="project">The root of the project that lists it.</param>
     /// <param name="relativeUri">The path as the project lists it.</param>
     void Refuse(string project, string relativeUri);
+
+    /// <summary>
+    /// Forgets a file that was refused (<see cref="Refuse"/>): a folder of the workspace holds it now, or the project that lists it is gone.
+    /// </summary>
+    /// <param name="project">The root of the project that lists it.</param>
+    /// <param name="relativeUri">The path as the project lists it.</param>
+    void Admit(string project, string relativeUri);
 
     /// <summary>The files that were refused, as <c>(project, path)</c>.</summary>
     IReadOnlyList<(string Project, string RelativeUri)> Refused { get; }
@@ -145,11 +172,41 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
         }
     }
 
+    public void AddFolders(IEnumerable<string> folders, IEnumerable<string> foldersWithProject)
+    {
+        lock (_sync)
+        {
+            _folders = new WorkspaceFolders([.. _folders.Roots, .. folders]);
+            _withProject = [.. _withProject, .. foldersWithProject];
+        }
+    }
+
+    public void RemoveFolders(IEnumerable<string> folders)
+    {
+        lock (_sync)
+        {
+            var removed = folders.Where(folder => !WorkspacePaths.Same(folder, _primaryRoot)).ToList();
+            bool IsRemoved(string root) => removed.Any(folder => WorkspacePaths.Same(folder, root));
+
+            // a folder that holds a .rdproj is told by the folder that holds it: one that is gone would be said of a folder of the workspace it is in.
+            _folders = new WorkspaceFolders(_folders.Roots.Where(root => !IsRemoved(root)));
+            _withProject = [.. _withProject.Where(folder => !IsRemoved(folder))];
+        }
+    }
+
     public void Add(WorkspaceProject project)
     {
         lock (_sync)
         {
             _secondary.Add(project);
+        }
+    }
+
+    public bool Remove(string root)
+    {
+        lock (_sync)
+        {
+            return _secondary.RemoveAll(project => WorkspacePaths.Same(project.Root, root)) > 0;
         }
     }
 
@@ -182,6 +239,14 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
         lock (_sync)
         {
             _refused.Add((project, relativeUri));
+        }
+    }
+
+    public void Admit(string project, string relativeUri)
+    {
+        lock (_sync)
+        {
+            _refused.RemoveAll(refused => WorkspacePaths.Same(refused.Project, project) && string.Equals(refused.RelativeUri, relativeUri, WorkspacePaths.Comparison));
         }
     }
 }
