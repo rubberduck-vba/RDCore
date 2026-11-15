@@ -441,6 +441,10 @@ public static class SymbolRename
         {
             edits.Add(new RenameEdit(attribute.Module, attribute.Range, newName));
         }
+        else if (VbNameInsertion(context, module, newName) is { } inserted)
+        {
+            edits.Add(inserted);
+        }
 
         foreach (var (at, range) in ImplementsNames(context, module))
         {
@@ -559,8 +563,35 @@ public static class SymbolRename
 
     private static readonly Regex VbName = new(@"^\s*Attribute\s+VB_Name\s*=\s*""(?<name>[^""]*)""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    // a module whose source names it (VB_Name): one that does not is named by its file.
-    private static bool NamesItself(RenameContext context, Symbol module) => VbNameRange(context, module) is not null;
+    // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name, first of its header: after the VERSION line
+    // of a class's file and its BEGIN ... END block, or on the first line.
+    private static RenameEdit? VbNameInsertion(RenameContext context, Symbol module, string newName)
+    {
+        var at = NameOccurrences.ModuleOf(module.Uri);
+        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
+        {
+            return null;
+        }
+
+        var lines = source.Source.Split('\n');
+        var line = 0;
+        if (lines[0].TrimStart().StartsWith("VERSION ", StringComparison.OrdinalIgnoreCase))
+        {
+            line = 1;
+            if (line < lines.Length && lines[line].Trim().Equals("BEGIN", StringComparison.OrdinalIgnoreCase))
+            {
+                while (line < lines.Length && !lines[line].Trim().Equals("END", StringComparison.OrdinalIgnoreCase))
+                {
+                    line++;
+                }
+
+                line = Math.Min(line + 1, lines.Length - 1);
+            }
+        }
+
+        var newLine = source.Source.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        return new RenameEdit(source.Module, new SourceRange(line, 0, line, 0), $"Attribute VB_Name = \"{newName}\"{newLine}");
+    }
 
     // a form, a user control, a designer: the designer's text names the module too (Begin VB.Form Form1), which is not renamed yet.
     private static bool IsDesigned(RenameContext context, Symbol module)
@@ -632,7 +663,7 @@ public static class SymbolRename
         {
             case VBProjectSymbol:
             case VBClassModuleSymbol { IsDocument: true }:
-            case VBModuleSymbol when !NamesItself(context, symbol) || IsDesigned(context, symbol):
+            case VBModuleSymbol when IsDesigned(context, symbol):
                 return new(RenameRefusalKind.Type, symbol.Name);
             case VBEventMemberSymbol:
                 return new(RenameRefusalKind.Event, symbol.Name);

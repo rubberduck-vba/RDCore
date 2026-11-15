@@ -537,6 +537,29 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
+    [DataRow(false, DisplayName = "a standard module")]
+    [DataRow(true, DisplayName = "a class module, after its VERSION block")]
+    public void AModuleWithNoVBName_GainsItsVBName_AndIsRenamedInItAfterwards(bool isClass)
+    {
+        // MS-VBAL §4.2: a module whose source does not name it is named by its file.
+        string[] header = isClass ? ["VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END"] : [];
+        var user = isClass
+            ? Module("Main", "Public Sub One()", "    Dim t As New Tools", "    t.Go", "End Sub")
+            : Module("Main", "Public Sub One()", "    Tools.Go", "End Sub");
+        var context = Compose(("Tools", Lines([.. header, "Option Explicit", "Public Sub Go()", "End Sub"])), ("Main", user));
+
+        var plan = Rename(context, "Main", isClass ? "Dim t" : "Tools.Go", "Tools", "Helpers");
+
+        var renamed = Renamed(context, plan, "Tools");
+        Assert.AreEqual(Lines([.. header, "Attribute VB_Name = \"Helpers\"", "Option Explicit", "Public Sub Go()", "End Sub"]), renamed);
+        Assert.AreEqual(ModuleUri("Tools").AbsoluteUri, plan.Module?.AbsoluteUri, "its file is renamed with it");
+
+        var named = Compose(("Helpers", renamed), ("Main", Renamed(context, plan, "Main")));
+        var again = Rename(named, "Helpers", "VB_Name", "Helpers", "Kit");
+        Assert.AreEqual(Lines([.. header, "Attribute VB_Name = \"Kit\"", "Option Explicit", "Public Sub Go()", "End Sub"]), Renamed(named, again, "Helpers"));
+    }
+
+    [TestMethod]
     public void AClass_IsRenamedWhereItsNameIsWritten()
     {
         var context = Compose(("Class1", Class1), ("Main", Module("Main", "Public Sub One()", "    Dim c As Class1", "    Set c = New Class1", "End Sub")));
