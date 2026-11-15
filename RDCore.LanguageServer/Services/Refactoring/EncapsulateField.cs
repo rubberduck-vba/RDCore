@@ -132,7 +132,7 @@ internal sealed record class Encapsulation(
 // - the first field encapsulated in a module declares `Private Type T<Module>` and `Private this As T<Module>`; a later one is added to the private type that
 //   has a single variable of the module, whatever their names;
 // - the references inside the module are written through that variable (`this.Name`), and the others are left as they are, to refer to the properties.
-// The options: a Private backing field (`mName`) in place of the type; a Get only; the references inside the module left to the properties, but for those that
+// the options: a Private backing field (`mName`) in place of the type; a Get only; the references inside the module left to the properties, but for those that
 // assign the field where no property takes the assignment.
 // MS-VBAL §5.2.3.1.1, §5.2.3.1.2, §5.2.3.3, §5.3.1.7, §5.3.1.8
 internal static class EncapsulateField

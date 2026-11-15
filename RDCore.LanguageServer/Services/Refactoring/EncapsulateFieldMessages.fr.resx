@@ -65,7 +65,7 @@
     <value>{1} ferait référence à autre chose.</value>
   </data>
   <data name="EncapsulateFieldRefusal_NotAName" xml:space="preserve">
-    <value>'{1}' n'est pas un nom avec lequel une variable peut être déclarée.</value>
+    <value>'{1}' ne peut pas être le nom d'une variable.</value>
   </data>
   <data name="EncapsulateFieldRefusal_WrittenOutside" xml:space="preserve">
     <value>{1} assigne '{0}', ce qu'une propriété en lecture seule ne peut pas recevoir.</value>
@@ -92,7 +92,7 @@
     <value>Lecture seule</value>
   </data>
   <data name="EncapsulateFieldChoice_ReadOnlyDescription" xml:space="preserve">
-    <value>N'écrire qu'un Property Get. Le code hors du module ne peut plus assigner le champ.</value>
+    <value>N'écrire qu'un Property Get. Le code hors du module ne peut pas assigner le champ.</value>
   </data>
   <data name="EncapsulateFieldChoice_Inside" xml:space="preserve">
     <value>Dans le module</value>
