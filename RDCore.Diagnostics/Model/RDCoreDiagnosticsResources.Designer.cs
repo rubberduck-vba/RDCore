@@ -576,6 +576,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; hides &apos;{1}&apos;: wherever &apos;{0}&apos; is in scope, the name means &apos;{0}&apos;. Give &apos;{0}&apos; a name of its own..
+        /// </summary>
+        public static string ShadowedDeclaration_ModuleMessage {
+            get {
+                return ResourceManager.GetString("ShadowedDeclaration_ModuleMessage", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it..
         /// </summary>
         public static string ProcedureCanBeWrittenAsFunction_Message {

@@ -185,7 +185,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
                 declared, procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri), arguments, declarationFacts),
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
             Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
