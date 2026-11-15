@@ -126,6 +126,41 @@ public sealed class EncapsulateFieldTests
         Assert.AreEqual(3, refusal?.Range?.Start.Line);
     }
 
+    private const string Text = "Public text As String\r\n\r\nPublic Sub Fix()\r\n    Mid(text, 1, 1) = \"x\"\r\n    Debug.Print text\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    [DataRow("    Mid(text, 1, 1) = \"x\"", DisplayName = "Mid")]
+    [DataRow("    Mid$(text, 1, 1) = \"x\"", DisplayName = "Mid$")]
+    [DataRow("    MidB(text, 1, 2) = \"x\"", DisplayName = "MidB")]
+    [DataRow("    MidB$(text, 1) = \"x\"", DisplayName = "MidB$, no length")]
+    [DataRow("    Mid(Module1.text, 1, 1) = \"x\"", DisplayName = "Mid, the field qualified")]
+    public void AFieldAMidStatementWritesOutsideItsModule_IsRefused_WhereItIsWritten(string write)
+    {
+        var module2 = UserHeader + "Public Sub Main()\r\n" + write + "\r\nEnd Sub\r\n";
+
+        var (_, refusal) = Encapsulate(Compose(Header + Text, module2), "text");
+
+        Assert.AreEqual(EncapsulationRefusalKind.ReplacedByMid, refusal?.Kind);
+        Assert.AreEqual(Module2, refusal?.Module);
+        Assert.AreEqual(3, refusal?.Range?.Start.Line);
+    }
+
+    [TestMethod]
+    public void AFieldAMidStatementWritesInsideItsModule_IsEncapsulated_TheMidWritingTheState()
+    {
+        var text = Encapsulated(Compose(Header + Text, UserHeader), "text");
+
+        StringAssert.Contains(text, "    Mid(this.text, 1, 1) = \"x\"\r\n    Debug.Print this.text\r\n");
+    }
+
+    [TestMethod]
+    public void AMidStatementInsideTheModule_StillWritesTheState_WhenTheReferencesGoThroughTheProperties()
+    {
+        var text = Encapsulated(Compose(Header + Text, UserHeader), "text", new EncapsulationOptions(InsideThroughProperties: true));
+
+        StringAssert.Contains(text, "    Mid(this.text, 1, 1) = \"x\"\r\n    Debug.Print text\r\n");
+    }
+
     [TestMethod]
     public void TheReferencesInsideTheModule_GoThroughTheProperties_WhenAsked()
     {
