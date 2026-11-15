@@ -94,7 +94,7 @@ public sealed class NotAllPathsReturnValueAnalyzerTests
     {
         var source = $"Attribute VB_Name = \"Program\"\r\nPublic Function F(ByVal c As Boolean) {returns}\r\n    If c Then Exit Function\r\n    Debug.Print c\r\nEnd Function";
 
-        var fix = Assert.ContainsSingle(await FindAsync(source)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(await FindAsync(source)).Fixes?.Edits.SingleOrDefault();
 
         Assert.IsNotNull(fix);
         var edit = Assert.ContainsSingle(fix.Edits);
@@ -109,7 +109,7 @@ public sealed class NotAllPathsReturnValueAnalyzerTests
     [DataRow("Attribute VB_Name = \"Program\"\r\nPublic Function F(ByVal c As Boolean) As Long()\r\n    If c Then Exit Function\r\nEnd Function", DisplayName = "an array")]
     [DataRow("Attribute VB_Name = \"Program\"\r\nDefLng A-Z\r\nPublic Function F(ByVal c As Boolean)\r\n    If c Then Exit Function\r\nEnd Function", DisplayName = "a type a DefType statement sets")]
     public async Task NoFixIsOffered_WhereTheDefaultHasNoLiteral(string source)
-        => Assert.IsNull(Assert.ContainsSingle(await FindAsync(source)).Fixes?.Edit);
+        => Assert.IsNull(Assert.ContainsSingle(await FindAsync(source)).Fixes?.Edits.SingleOrDefault());
 
     [TestMethod]
     public async Task WithNoFactsFromTheHost_TheAnalyzerWillNotGuess()

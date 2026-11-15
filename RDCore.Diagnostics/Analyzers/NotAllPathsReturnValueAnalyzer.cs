@@ -45,7 +45,7 @@ internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
                 Fixes = members.FirstOrDefault(member => member.SourceLocation.Range.Start.Line == fact.Location.Range.Start.Line
                         && string.Equals(member.Name, fact.Name, StringComparison.OrdinalIgnoreCase)) is { } procedure
                     && FixOf(context.ParseResult, procedure, hasDefType) is { } fix
-                    ? new DiagnosticFixes { Edit = fix }
+                    ? new DiagnosticFixes { Edits = [fix] }
                     : null,
             });
     }
