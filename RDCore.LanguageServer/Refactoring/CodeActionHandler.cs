@@ -50,6 +50,13 @@ namespace RDCore.LanguageServer.Refactoring;
 /// it or on one of its <c>Return</c>s, and for a selection whose extraction is refused for a <c>GoSub</c> to it or one of its <c>Return</c>s.
 /// </para>
 /// <para>
+/// A parameter declared at the start of the range is offered its removal (<see cref="ParameterRemoval"/>), as an edit, and so is the parameter of a diagnostic
+/// fixed by removing it, as a preferred quick fix. The procedure named at the start of the range, or whose parameter is declared there, is offered the
+/// reordering of its parameters (<see cref="IParameterReorderService"/>) when it has two or more: a command (<see cref="RefactoringCommands.Refactor"/>) that
+/// a client expecting <see cref="SDK.Client.Refactoring"/> runs with its user's order. A refused one is offered disabled, with why, to a client that shows it
+/// so.
+/// </para>
+/// <para>
 /// The diagnostics of a code that can be disabled are offered, once for the code and after their fixes, a quick fix that disables it in every workspace of the
 /// user (<c>Analysis.DisabledDiagnostics</c>): a command (<see cref="Workspace.ListSettingValueCommand"/>) that asks the client to add it to the user's list. Only a
 /// client that expects <see cref="SDK.Client.ListSettingValue"/> is offered it.
@@ -67,7 +74,7 @@ namespace RDCore.LanguageServer.Refactoring;
 internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null) : CodeActionHandlerBase
+    ILibrarySource? libraries = null, IParameterReorderService? parameterReorder = null) : CodeActionHandlerBase
 {
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
@@ -88,6 +95,11 @@ internal sealed class CodeActionHandler(
     /// The kind of the action that removes a parameter (<see cref="RefactoringKinds.RemoveParameter"/>).
     /// </summary>
     public static readonly CodeActionKind RefactorRemoveParameter = new(RefactoringKinds.RemoveParameter);
+
+    /// <summary>
+    /// The kind of the action that reorders the parameters of a procedure (<see cref="RefactoringKinds.ReorderParameters"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorReorderParameters = new(RefactoringKinds.ReorderParameters);
 
     /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
@@ -246,6 +258,28 @@ internal sealed class CodeActionHandler(
             else if (ShowsDisabled && parameter.Answer.Refusal is { } refusal)
             {
                 actions.Add(new CodeAction { Title = title, Kind = RefactorRemoveParameter, Disabled = new CodeActionDisabled { Reason = refusal } });
+            }
+        }
+
+        // the procedure named at the start of the range, or one of its parameters declared there, is offered the reordering of its parameters: a command that a
+        // client with a dialog runs, which asks the order of its user. It is not offered to another client: the order it would take is the one they have.
+        if (IsAsked(RefactorReorderParameters) && parameterReorder is not null && clientCapabilities.Expects(capabilities => capabilities.Refactoring)
+            && await parameterReorder.OfferAsync(documentUri, new SourcePosition(request.Range.Start.Line, request.Range.Start.Character), cancellationToken) is { } reorder)
+        {
+            if (reorder.Refusal is null)
+            {
+                var start = new SourcePosition(request.Range.Start.Line, request.Range.Start.Character);
+                var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.ReorderParameters, Uri = documentUri, Range = new SourceRange(start, start) };
+                actions.Add(new CodeAction
+                {
+                    Title = reorder.Title,
+                    Kind = RefactorReorderParameters,
+                    Command = new Command { Name = RefactoringCommands.Refactor, Title = reorder.Title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+                });
+            }
+            else if (ShowsDisabled)
+            {
+                actions.Add(new CodeAction { Title = reorder.Title, Kind = RefactorReorderParameters, Disabled = new CodeActionDisabled { Reason = reorder.Refusal } });
             }
         }
 
@@ -519,7 +553,8 @@ internal sealed class CodeActionHandler(
         return new()
         {
             CodeActionKinds = new Container<CodeActionKind>(
-                CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorRemoveParameter, SourceImportProject),
+                CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorRemoveParameter, RefactorReorderParameters,
+                SourceImportProject),
             ResolveProvider = true,
         };
     }

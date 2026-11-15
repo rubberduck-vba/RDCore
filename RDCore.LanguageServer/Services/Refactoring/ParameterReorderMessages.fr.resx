@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Reorder Parameters: {0} is the procedure (or a parameter), {1} another name, {2} where. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ReorderParameters_Title" xml:space="preserve">
+    <value>Réordonner les paramètres de « {0} »</value>
+  </data>
+  <data name="ReorderParameters_Choice" xml:space="preserve">
+    <value>Paramètres</value>
+  </data>
+  <data name="ReorderParameters_ChoiceDescription" xml:space="preserve">
+    <value>L'ordre des paramètres. Chaque appel passe ses arguments dans cet ordre.</value>
+  </data>
+  <data name="ReorderParameters_NotAccepted" xml:space="preserve">
+    <value>La modification n'est pas acceptée : {0}</value>
+  </data>
+  <data name="ReorderParameters_NoProcedure" xml:space="preserve">
+    <value>Il n'y a pas ici de procédure dont les paramètres peuvent être réordonnés.</value>
+  </data>
+  <data name="ReorderParameters_OneParameter" xml:space="preserve">
+    <value>« {0} » a moins de deux paramètres à réordonner.</value>
+  </data>
+  <data name="ReorderParameters_NotDeclaredByWorkspace" xml:space="preserve">
+    <value>« {0} » n'est pas déclaré par l'espace de travail : seul ce que l'espace de travail déclare peut être modifié.</value>
+  </data>
+  <data name="ReorderParameters_Event" xml:space="preserve">
+    <value>« {0} » est un événement : réordonner les paramètres d'un événement n'est pas encore pris en charge.</value>
+  </data>
+  <data name="ReorderParameters_Handler" xml:space="preserve">
+    <value>« {0} » gère un événement, et en prend les paramètres dans leur ordre : il les garde.</value>
+  </data>
+  <data name="ReorderParameters_ExternalProcedure" xml:space="preserve">
+    <value>« {0} » est déclaré par sa bibliothèque : ses paramètres ne peuvent pas être réordonnés.</value>
+  </data>
+  <data name="ReorderParameters_Order" xml:space="preserve">
+    <value>Le nouvel ordre doit nommer une fois chaque paramètre de « {0} ».</value>
+  </data>
+  <data name="ReorderParameters_Optional" xml:space="preserve">
+    <value>« {0} » est obligatoire, et viendrait après le paramètre facultatif « {1} » : les paramètres facultatifs viennent en dernier.</value>
+  </data>
+  <data name="ReorderParameters_ParamArray" xml:space="preserve">
+    <value>« {0} » est un ParamArray : il reste le dernier paramètre.</value>
+  </data>
+  <data name="ReorderParameters_Mismatched" xml:space="preserve">
+    <value>Les paramètres de « {1} » ne sont pas ceux de la procédure avec laquelle elle change : ils ne peuvent pas être réordonnés ensemble.</value>
+  </data>
+  <data name="ReorderParameters_Evaluated" xml:space="preserve">
+    <value>Les arguments de l'appel de « {0} » à {2} seraient évalués dans un autre ordre, et ils font plus que lire une valeur : la modification peut changer ce que fait le code.</value>
+  </data>
+  <data name="ReorderParameters_LateBound" xml:space="preserve">
+    <value>« {0} » est peut-être appelé en liaison tardive à {2} : les arguments qui y sont passés ne seraient pas réordonnés.</value>
+  </data>
+  <data name="ReorderParameters_CalledByName" xml:space="preserve">
+    <value>« {0} » est appelé par son nom dans une chaîne à {2} : les arguments qui y sont passés ne seraient pas réordonnés.</value>
+  </data>
+  <data name="ReorderParameters_Unresolved" xml:space="preserve">
+    <value>Ce à quoi « {0} » fait référence à {2} n'est pas connu : la modification pourrait l'omettre.</value>
+  </data>
+  <data name="ReorderParameters_MayEvaluate" xml:space="preserve">
+    <value>L'appel de « {0} » à {2} passe des arguments qui font plus que lire une valeur : un ordre qui les évalue dans un autre ordre peut changer ce que fait le code.</value>
+  </data>
+</root>
