@@ -285,7 +285,10 @@ internal sealed class CoreLanguageServerApp(
     // the language a client names in its initializationOptions is already the server's, and wins; one that names none leaves it to the project file. The
     // children are started with the setting once initialize is answered, so they are told the language taken here too.
     internal static Action<SupportedLanguage>? LanguageTakerOf(InitializeParams request, SdkWorkspaceOptions workspace)
-        => ClientLanguage(request) is null ? language => workspace.Language = language.Id : null;
+        => ClientLanguage(request) is null ? ProjectLanguageTaker(workspace) : null;
+
+    // the project file's language, taken as the server's: what a workspace whose client names none is written in, the debug adapter's included.
+    internal static Action<SupportedLanguage> ProjectLanguageTaker(SdkWorkspaceOptions workspace) => language => workspace.Language = language.Id;
 
     // a project file that can't be read is offered to be regenerated: asked with window/showMessageRequest, which LSP allows before initialize is answered, and
     // only of a client that says it answers then. One that can't, or has no handler for the request, would leave initialize unanswered for good; one that runs

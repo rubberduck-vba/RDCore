@@ -51,7 +51,7 @@ public sealed class WorkspaceLanguageTests
         [Path.Combine(Root, "Module1.bas")] = new MockFileData("Attribute VB_Name = \"Module1\"\r\n"),
     });
 
-    private static WorkspaceService Service(MockFileSystem fs, Func<SupportedLanguage> language)
+    internal static WorkspaceService Service(MockFileSystem fs, Func<SupportedLanguage> language)
     {
         var state = Substitute.For<IServerStateProvider>();
         state.State.Returns(ServerState.Initializing);

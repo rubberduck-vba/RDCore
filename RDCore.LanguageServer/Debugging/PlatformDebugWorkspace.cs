@@ -55,7 +55,9 @@ internal sealed class PlatformDebugWorkspace(
         {
             // the workspace may only be loaded while the server initializes.
             serverState.OnInitialize();
-            await workspace.LoadAsync(root);
+
+            // a debug adapter's client names no language: the project file's is taken, as a language server takes it, before the components are started with it.
+            await workspace.LoadAsync(root, [root], ask: null, token, CoreLanguageServerApp.ProjectLanguageTaker(options.Value.Workspace));
             serverState.OnInitialized();
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
