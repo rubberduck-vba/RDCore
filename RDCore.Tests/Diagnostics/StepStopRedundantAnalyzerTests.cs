@@ -304,17 +304,14 @@ public sealed class StepStopRedundantAnalyzerTests
     [TestMethod]
     [DataRow("ByRef n As Long", "n As Long", DisplayName = "ByRef")]
     [DataRow("Optional ByRef n As Long = 1", "Optional n As Long = 1", DisplayName = "Optional ByRef")]
+    [DataRow("Optional  ByRef   n As Long = 1", "Optional  n As Long = 1", DisplayName = "Optional ByRef, written with more than one space")]
+    [DataRow("ByRef _\n    n As Long", "n As Long", DisplayName = "ByRef, the name on the next line")]
     public async Task TheFix_RemovesByRef_AndTheArgumentIsStillPassedByReference(string before, string after)
     {
         static string Source(string parameter) => $"Public Sub Main()\n    Dim x As Long\n    x = 41\n    Bump x\n    Debug.Print x\nEnd Sub\nPublic Sub Bump({parameter})\n    n = n + 1\nEnd Sub";
 
         await AssertFixedAsync(new RedundantByRefModifierAnalyzer(Options(byRef: ByRefConvention.Implicit)), Source(before), Source(after), "Remove ByRef from 'n'", StandardModule(Program));
     }
-
-    [TestMethod]
-    public void NoRemovalIsOffered_AfterOptional_WrittenWithMoreThanOneSpace()
-        => Assert.IsNull(Assert.ContainsSingle(Run(new RedundantByRefModifierAnalyzer(Options(byRef: ByRefConvention.Implicit)),
-            Module("Public Sub DoSomething(Optional  ByRef n As Long)\nEnd Sub"), StandardModule(Program))).Fixes?.Edits.SingleOrDefault());
 
     #endregion
 
