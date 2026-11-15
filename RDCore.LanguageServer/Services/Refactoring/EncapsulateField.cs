@@ -156,8 +156,8 @@ internal static class EncapsulateField
             return (null, new(EncapsulationRefusalKind.NameTaken, $"{held.Variable}.{field.Name}"));
         }
 
-        var typeName = $"T{SymbolUri.ModuleNameOf(field.Uri)}";
-        if (holder is null && new[] { typeName, "this" }.FirstOrDefault(name => IsTaken(context, source, name)) is { } taken)
+        var holderType = $"T{SymbolUri.ModuleNameOf(field.Uri)}";
+        if (holder is null && new[] { holderType, "this" }.FirstOrDefault(name => IsTaken(context, source, name)) is { } taken)
         {
             return (null, new(EncapsulationRefusalKind.NameTaken, taken));
         }
@@ -168,8 +168,9 @@ internal static class EncapsulateField
         }
 
         var instance = holder?.Variable ?? "this";
-        var member = $"{field.Name} As {TypeNameOf(type)}";
-        var properties = Properties(field.Name, type, instance, newLine);
+        var typeName = TypeNameOf(variable, type);
+        var member = $"{field.Name} As {typeName}";
+        var properties = Properties(field.Name, type, typeName, instance, newLine);
         var edits = new List<RefactorTextEdit>(removed);
 
         var lastProcedure = tree.Children.OfType<MemberDeclarationNode>()
@@ -185,7 +186,7 @@ internal static class EncapsulateField
         }
         else
         {
-            declarations = string.Join(newLine, $"Private Type {typeName}", $"    {member}", "End Type", string.Empty, $"Private this As {typeName}");
+            declarations = string.Join(newLine, $"Private Type {holderType}", $"    {member}", "End Type", string.Empty, $"Private this As {holderType}");
         }
 
         // a module with no procedure has its properties written after its declarations.
@@ -427,12 +428,17 @@ internal static class EncapsulateField
         return found.Occurrences.Count > 0 || found.Unknown.Count > 0;
     }
 
-    private static string TypeNameOf(VBType type) => type.Name;
+    // the type as the field's declaration writes it: the member and the properties are written in the same module, where it names the same type, a library's
+    // type qualified as the user qualified it, or not, where the project declares nothing of its name. A field with no As clause is of an intrinsic type, its
+    // type hint's, a Def statement's or Variant, whose name is a keyword.
+    private static string TypeNameOf(VariableDeclarationNode variable, VBType type)
+        => variable.ChildNodes().OfType<AsTypeExpressionNode>().FirstOrDefault() is { } written
+            ? written.QualifierName is { } qualifier ? $"{qualifier}.{written.TypeName}" : written.TypeName
+            : type.Name;
 
     // the properties of the field: its value read and written through the holder, the way its type is assigned (MS-VBAL §5.4.3.8, §5.4.3.9).
-    private static string Properties(string name, VBType type, string instance, string newLine)
+    private static string Properties(string name, VBType type, string typeName, string instance, string newLine)
     {
-        var typeName = TypeNameOf(type);
         var value = string.Equals(name, "value", StringComparison.OrdinalIgnoreCase) ? "newValue" : "value";
         var held = $"{instance}.{name}";
         string[] get = type switch

@@ -59,6 +59,11 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     /// </summary>
     public const string PassedByRefCode = "encapsulateField.passedByRef";
 
+    /// <summary>
+    /// The code of the refusal of a position that names no field: a code action offers nothing there.
+    /// </summary>
+    public const string NotAFieldCode = "encapsulateField.notAField";
+
     private static readonly ResourceManager Messages = new("RDCore.LanguageServer.Services.Refactoring.EncapsulateFieldMessages", typeof(EncapsulateFieldService).Assembly);
 
     /// <summary>
@@ -136,7 +141,8 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     {
         Code = Code(refused.Refusal.Kind.ToString()),
         Kind = RefactorNoticeKind.Refusal,
-        Message = Format($"EncapsulateFieldRefusal_{refused.Refusal.Kind}", refused.Field, refused.Refusal.Name),
+        Message = Format($"EncapsulateFieldRefusal_{refused.Refusal.Kind}", refused.Field,
+            refused.Refusal is { Module: { } at, Range: { } where } && part is not null ? RenameWorkspace.Locator(part)(at, where.Start) : refused.Refusal.Name),
         Location = refused.Refusal is { Module: { } module, Range: { } range } ? LocationOf(part, module, range) : null,
     };
 

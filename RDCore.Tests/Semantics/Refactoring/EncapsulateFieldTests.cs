@@ -5,9 +5,14 @@ using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
+using RDCore.Tests.Runtime.Libraries;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -89,6 +94,41 @@ public sealed class EncapsulateFieldTests
         StringAssert.Contains(text, "Public Property Get items() As Collection\r\n    Set items = this.items\r\nEnd Property\r\n");
         StringAssert.Contains(text, "Public Property Set items(ByVal value As Collection)\r\n    Set this.items = value\r\nEnd Property\r\n");
         Assert.DoesNotContain("Property Let", text);
+    }
+
+    [TestMethod]
+    [DataRow("VBA.Collection", DisplayName = "the library's class, qualified")]
+    [DataRow("Collection", DisplayName = "the project's class named like it")]
+    public void TheTypeOfTheMemberAndTheProperties_IsWrittenAsTheFieldDeclaresIt_AndNamesTheSameType(string written)
+    {
+        var collection = new UriBuilder(Root) { Fragment = "Collection" }.Uri;
+        var module1 = Header + $"Public Items As {written}\r\n";
+        (Uri, ModuleType, string) project = (collection, ModuleType.ClassModule, "Attribute VB_Name = \"Collection\"\r\nOption Explicit\r\n");
+        var workspace = ComposeWithLibraries(module1, project);
+        var field = (ITypedSymbol)EncapsulateField.FieldAt(workspace.Context, Module1, PositionOf(module1, "Items"))!;
+
+        var text = Encapsulated(workspace, "Items");
+
+        StringAssert.Contains(text, $"    Items As {written}\r\n");
+        StringAssert.Contains(text, $"Public Property Get Items() As {written}\r\n");
+        StringAssert.Contains(text, $"Public Property Set Items(ByVal value As {written})\r\n");
+        var after = ComposeWithLibraries(text, project);
+        var property = (ITypedSymbol)RenameBinding.SymbolAt(after.Context, Module1, PositionOf(text, "Items() As"))!.Value.Symbol;
+        Assert.IsInstanceOfType<VBClassType>(field.ResolvedType);
+        Assert.AreEqual(((VBClassType)field.ResolvedType!).Symbol.Uri, (property.ResolvedType as VBClassType)?.Symbol.Uri);
+    }
+
+    // Module1 and other modules, composed with the VBA library referenced.
+    private static Workspace ComposeWithLibraries(string module1, params (Uri Uri, ModuleType Type, string Text)[] others)
+    {
+        IReadOnlyList<Symbol> libraries = [.. new LibrarySymbolProvider(Root, ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()];
+        var modules = new[] { (Uri: Module1, Type: ModuleType.StdModule, Text: module1) }.Concat(others)
+            .Select(module => (module.Uri, module.Type, module.Text, Parse: new ModuleParser().Parse(module.Uri, module.Text)))
+            .ToList();
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            Root, [.. modules.Select(module => (module.Uri, module.Type, module.Parse))], new IntrinsicSymbolResolver(), libraries: libraries);
+        var context = new RenameContext(composition.Resolver, composition.ScopeTree, [.. modules.Select(module => new RenameModule(module.Uri, module.Parse.SyntaxTree!, module.Text))]);
+        return new(context, modules[0].Parse, module1);
     }
 
     [TestMethod]
