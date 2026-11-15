@@ -24,10 +24,13 @@ namespace RDCore.Runtime.Compiled;
 public static class ArrayOperations
 {
     /// <summary>
-    /// The array held in <paramref name="holder"/> when it is known, as the operations below find it: what compiled code keeps, and gives them as the
-    /// holder in its place.
+    /// The array held in <paramref name="holder"/>, found as the other operations of this class find it. Compiled code keeps it while the variable
+    /// cannot be given another array, and gives it to those operations as their holder.
     /// </summary>
-    /// <returns><see langword="null"/> when the holder holds no array that is known: each operation given it declines.</returns>
+    /// <param name="holder">The cell of the array variable, the array field, or the cell of the <c>Variant</c> that holds the array.</param>
+    /// <returns>
+    /// <see langword="null"/> when the holder holds no array that is known: each operation given it declines.
+    /// </returns>
     public static VBArrayValue? KnownArray(object? holder) => KnownArrayIn(holder);
 
     /// <summary>
