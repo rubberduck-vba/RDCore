@@ -251,6 +251,11 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
 
+// IsEmpty of a Variant read in its cell, a Variant of the activation (VariantSlotNode) or an element of an array of Variants (VariantElementNode): whether
+// it holds Empty (MS-VBAL §6.1.2.7.1.4), as the cell says (VariantOperations.IsEmpty). Of a Variant the cell says nothing of (an object, an array), it
+// is what the call of the standard library's function returns (Library), or the interpreter's when there is no such call.
+internal sealed record class VariantIsEmptyNode(VariantNode Variant, LibraryCallNode? Library) : PayloadNode(ScalarKind.Boolean);
+
 // left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing). An
 // operand that is the default instance of a class (LeftMade, RightMade) is compared only once it holds an object (ObjectOperations.HoldsAnObject).
 internal sealed record class IsNode(int? Left, int? Right, bool LeftMade = false, bool RightMade = false) : PayloadNode(ScalarKind.Boolean);
