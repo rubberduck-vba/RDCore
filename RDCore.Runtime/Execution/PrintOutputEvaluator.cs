@@ -189,7 +189,7 @@ public sealed class PrintOutputEvaluator(
 
         // "outputting space characters until (current line position modulo 14) equals 1. ... Note that the
         // print zone is advanced even if the current file-pointer-position is already at the beginning of
-        // a print zone" — so a zone boundary always moves a whole zone on, never stays put.
+        // a print zone": a zone boundary always moves a whole zone on.
         public void NextZone()
         {
             var column = output.LinePosition - 1;
