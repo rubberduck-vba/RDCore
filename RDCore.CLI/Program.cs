@@ -12,6 +12,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Install;
+using RDCore.CLI.App.Mcp;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
@@ -91,6 +92,12 @@ public class Program
             // which needs neither a workspace nor an LSP connection.
             if (args is [{ Length: > 0 } verb, ..] && !verb.StartsWith('-'))
             {
+                // rdc mcp brings the platform up as a client, and its standard output is the MCP session's from before anything is written.
+                if (string.Equals(verb, CommandNames.McpCommand, StringComparison.OrdinalIgnoreCase))
+                {
+                    McpStandardStreams.Claim();
+                }
+
                 using var commandHost = new RDCoreConsoleCommandHost();
                 try
                 {
@@ -482,6 +489,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<ICliCommand, BuildCommand>()
             .AddSingleton<ICliCommand, RunCommand>()
+            .AddSingleton<ICliCommand, McpCommand>()
             .AddSingleton<ICliCommand, InstallCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
