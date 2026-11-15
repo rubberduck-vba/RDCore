@@ -179,7 +179,7 @@ public sealed class AssistantToolsWireTests
         return capabilities;
     }
 
-    // the answer to each request, from a client that does or does not advertise the tools; to a workspace loaded already, unless the load is held.
+    // the answer to each request, from a client that does or does not advertise the tools; to a loaded workspace, unless the load is held.
     private static async Task<TResponse> AskAsync<TResponse>(bool advertised, MediatR.IRequest<TResponse> request, HeldLoad? load = null, TimeSpan? loadBound = null)
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
@@ -307,7 +307,7 @@ public sealed class AssistantToolsWireTests
     [DataRow(CoreAssistantTools.Outline, """{"path":"Helpers.bas"}""")]
     public async Task AToolWhoseWaitForTheLoadRunsOut_SaysTheWorkspaceIsStillLoading(string tool, string arguments)
     {
-        // a bound of nothing runs out on a load that is held.
+        // a bound of zero runs out on a load that is held.
         var reply = await CallAsync(tool, JsonNode.Parse(arguments)!.AsObject(), new HeldLoad(), TimeSpan.Zero);
 
         Assert.IsTrue(reply.IsError, tool);
