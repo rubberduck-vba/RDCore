@@ -285,6 +285,10 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
 - a `Let` of a `Variant` variable of the procedure (`V = 1 + F(2)`, `V = 1 + G.Size`), which is given what the value evaluates to, of its own type
   (**MS-VBAL §5.5.1.2.12**): a `Long` when `F` and `Size` return one. The value is evaluated once. When the interpreter runs the `Let` after the call, because an operation raises an error
   or because the `Variant` holds an object, it is given what was evaluated, and the call is not made again;
+- a `Let` of a field of a record (`this.N = F(2) + 1`), of a public variable or a `Property Let` of an object variable of the procedure
+  (`P.X = F(2) + 1`), or of an element of an array (`A(I) = F(2) + 1`) (**MS-VBAL §5.4.3.8**). The value is evaluated first, then the target is
+  found, as the interpreter finds it: a subscript is read as the call left it. When the target cannot be assigned after the call, because a subscript
+  is out of range or the object variable holds `Nothing`, the interpreter raises the error, given what was evaluated, and the call is not made again;
 - a call statement;
 - the condition of an `If`, an `ElseIf` or a loop;
 - the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
