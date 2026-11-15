@@ -29,7 +29,7 @@
     <value>'{0}' is declared WithEvents: the procedures named after it handle its events, and a property cannot be declared WithEvents.</value>
   </data>
   <data name="EncapsulateFieldRefusal_NotSupported" xml:space="preserve">
-    <value>'{0}' is an array, a fixed-length string or a variable declared As New, or its type is not known: the encapsulation writes no properties for it.</value>
+    <value>'{0}' is an array of a fixed size or a variable declared As New, or its type is not known: the encapsulation writes no properties for it.</value>
   </data>
   <data name="EncapsulateFieldRefusal_Conditional" xml:space="preserve">
     <value>'{0}' is declared in a branch of an #If block: it is compiled only when that branch is live, and its properties would always be.</value>
@@ -108,5 +108,29 @@
   </data>
   <data name="EncapsulateFieldChoice_Unknown" xml:space="preserve">
     <value>'{0}' is not an answer to '{1}'.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WritesAnElement" xml:space="preserve">
+    <value>{1} writes an element of '{0}', an array, or resizes or erases it: through a property, it would write to a copy, and the write would be lost without an error, or not compile.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_SharesItsStatement" xml:space="preserve">
+    <value>'{0}' is declared in one statement with '{1}', which is encapsulated with it: declare each in a statement of its own first.</value>
+  </data>
+  <data name="EncapsulateFieldChange_ElementPassed" xml:space="preserve">
+    <value>{1} passes an element of '{0}' to a call that may take it ByRef: through a property, what the call writes to it is written to a copy, and lost.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Fields" xml:space="preserve">
+    <value>Other fields</value>
+  </data>
+  <data name="EncapsulateFieldChoice_FieldsDescription" xml:space="preserve">
+    <value>The other Public fields of the module: those picked are encapsulated in the same edit, and held the same way.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Encapsulate" xml:space="preserve">
+    <value>Encapsulate</value>
+  </data>
+  <data name="EncapsulateFieldChoice_UnknownField" xml:space="preserve">
+    <value>The module has no other Public field named '{0}'.</value>
+  </data>
+  <data name="EncapsulateField_AllTitle" xml:space="preserve">
+    <value>Encapsulate all fields</value>
   </data>
 </root>
