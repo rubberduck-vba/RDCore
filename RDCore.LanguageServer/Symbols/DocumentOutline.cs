@@ -80,7 +80,7 @@ internal static class DocumentOutline
     /// <summary>
     /// A module, and the symbols of what it declares.
     /// </summary>
-    /// <param name="Module">The module's address (<see cref="SymbolUri.Module"/>).</param>
+    /// <param name="Module">The module's address (<see cref="SymbolUri.Module(Uri, string)"/>).</param>
     /// <param name="Name">The module's name.</param>
     /// <param name="Type">What module it is.</param>
     /// <param name="Tree">Its syntax tree.</param>

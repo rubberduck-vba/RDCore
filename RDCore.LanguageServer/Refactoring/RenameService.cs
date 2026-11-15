@@ -547,6 +547,8 @@ internal sealed class RenameWorkspace
     /// <summary>
     /// The symbol the name at a position of a document refers to, and where the name is written.
     /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">The position, in the document's text.</param>
     /// <returns>The symbol; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
     public (Symbol Symbol, LspRange Range)? SymbolAt(Uri documentUri, Position position)
         => ModuleOf(documentUri) is { } module && RenameBinding.SymbolAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is { } named

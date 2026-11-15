@@ -184,13 +184,13 @@
     <value>Décrire ce qui est écrit à une position</value>
   </data>
   <data name="DescribeAt_Description" xml:space="preserve">
-    <value>Indique ce qui est écrit à une position : le symbole auquel le nom fait référence (sa déclaration, sa sorte, sa portée, son type déclaré, l'endroit où il est défini et la façon dont il est utilisé) et l'expression la plus intérieure (sa classification, son type déclaré, sa liaison et sa valeur constante). Les lignes et les colonnes commencent à 1.</value>
+    <value>Indique ce qui est écrit à une position : le symbole auquel le nom fait référence (sa déclaration, sa nature, sa portée, son type déclaré, l'endroit où il est défini et la façon dont il est utilisé) et l'expression la plus intérieure (sa classification, son type déclaré, sa liaison et sa valeur constante). Les lignes et les colonnes comptent à partir de 1.</value>
   </data>
   <data name="Outline_Title" xml:space="preserve">
-    <value>Plan d'un module</value>
+    <value>Dresser le plan d'un module</value>
   </data>
   <data name="Outline_Description" xml:space="preserve">
-    <value>Énumère ce que déclare le module d'un document, dans l'ordre où c'est écrit : chaque membre avec sa sorte, son accès, son type déclaré et sa plage. Les accesseurs d'une propriété forment une seule entrée; les constantes d'une énumération et les membres d'un type défini par l'utilisateur sont les enfants de son entrée. Les lignes et les colonnes commencent à 1.</value>
+    <value>Énumère ce que déclare le module d'un document, dans l'ordre où c'est écrit : chaque membre avec sa nature, son accès, son type déclaré et sa plage. Les accesseurs d'une propriété forment une seule entrée; les constantes d'une énumération et les membres d'un type défini par l'utilisateur sont les enfants de son entrée. Les lignes et les colonnes comptent à partir de 1.</value>
   </data>
   <data name="NothingDescribed" xml:space="preserve">
     <value>Rien n'est connu de ce qui est écrit à cet endroit : aucun nom ni aucune expression, ou du code que l'hôte d'environnement n'a pas analysé.</value>
