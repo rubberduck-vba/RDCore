@@ -36,7 +36,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     public object? ToServer(VBRuntimeObjectId identity)
         => session.ExternalObjects.TryGet(identity, out var owner, out var handle)
             ? ReferenceEquals(owner, server) ? handle
-                : handle is Pictures.StdPictureObject picture ? SessionObjectHost.Of(session).Export(identity, server) with { Picture = picture.Content } : null
+                : handle is RDCore.SDK.Runtime.Stdole.StdPictureObject picture ? SessionObjectHost.Of(session).Export(identity, server) with { Picture = Pictures.PictureBytes.ContentOf(picture) } : null
             : session.Symbols.TryGetInstance(identity, out _) ? SessionObjectHost.Of(session).Export(identity, server) : null;
 
     /// <summary>
