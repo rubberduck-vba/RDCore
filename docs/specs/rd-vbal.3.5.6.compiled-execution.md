@@ -252,18 +252,26 @@ handles an array field of a record it handles (see Records, above): of a record 
 keeps (`this.State`, of `Private this As TState`). An array field of `Me` or of a module that is not in a record is the interpreter's.
 
 A `ParamArray` is a 0-based array of `Variant`s whose elements are the caller's arguments (**MS-VBAL §5.3.1.5**). An element given a `Variant` variable
-is that variable, so a `Let` of the element writes the variable. Compiled code also handles the array that a `Variant` variable of the procedure holds:
-it finds the array in the `Variant` each time it reads it, and reads its elements as `Variant`s.
+is that variable, so a `Let` of the element writes the variable. Compiled code also handles the array that a `Variant` variable of the procedure holds,
+and reads its elements as `Variant`s.
 
 - `LBound` and `UBound` read the array's bounds, whatever its element type (**MS-VBAL §3.3.5.2**).
-- It finds an element in the array the frame or the record holds each time it reads or writes one (**MS-VBAL §5.6.13**), so after a `ReDim` it finds
-  the element in the new array, and after the interpreter assigns the whole record it finds the element in the record as assigned. Each subscript is
-  converted to a `Long`. The array has up to three dimensions.
+- It finds an element in the array the frame, the record or the `Variant` holds (**MS-VBAL §5.6.13**). It keeps that array from one element to the
+  next while nothing it runs can give the variable another array: a `Let` of a scalar or of an element, a branch, a loop. After a statement that can
+  (a `ReDim`, an `Erase`, a `Let` of the whole array, a call, anything the interpreter runs) it finds the array again, so after a `ReDim` it finds the
+  element in the new array, and after the interpreter assigns the whole record it finds the element in the record as assigned. Each subscript is
+  converted to a `Long`, and checked against its dimension at each access. The array has up to three dimensions.
+- A `Let` whose value reads the element it writes, at the same subscripts (`V(R, C) = V(R, C) * 2`), finds that element once. An element read at
+  other subscripts (`A(R) = A(R - 1) + A(R)`) is found at its own.
 - An element of an array of a scalar type is read and written as a variable of that type, and an element of an array of `Variant`s as a `Variant`.
   An element of an array of an enumeration is a `Long` (**MS-VBAL §5.2.3.4**). An element of an array of objects can be compared with `Is` and tested
   with `TypeOf`.
-- The interpreter runs a `ReDim` of an array of a scalar type whose bounds compiled code computes, and an `Erase` of such an array, for compiled code.
-  An error either raises goes to the procedure's error handler, as an error of a call does.
+- The runtime runs a `ReDim` of an array variable of the procedure whose bounds compiled code computes, with `Preserve` or without
+  (**MS-VBAL §5.4.3.3**), an `Erase` of one (**MS-VBAL §5.4.3.4**), and the `Let` of an array variable to a `Variant` variable of the procedure (`V = A`), which
+  gives the `Variant` a copy of the array (**MS-VBAL §5.4.3.8**, **§5.5.1.2.12**), for compiled code: compiled code calls the runtime's statement, and
+  copies nothing itself. Of an array of `Variant`s or of objects, and for the `Let` to a `Variant`, the statement can let go of an object: it is
+  terminated in the statement, where the interpreter terminates it, and compiled code reads its variables back after it, as after a call. An error
+  the statement raises goes to the procedure's error handler, as an error of a call does.
 
 The interpreter does the rest on its own:
 
@@ -272,7 +280,6 @@ The interpreter does the rest on its own:
 - An element of an array a `Variant` holds whose elements are not `Variant`s: compiled code reads only that array's bounds.
 - An element of a `ParamArray` given a variable of another type than `Variant`, which converts what is assigned to it to the variable's type.
 - A `Set` of an element of an array of objects.
-- A `ReDim` or an `Erase` of an array of `Variant`s or of objects, which can release objects.
 - An element passed `ByRef`: the array cannot be resized while the callee holds its element.
 - An element of an array of `String`s or of records.
 - A `ReDim` or an `Erase` of an array field (`ReDim Preserve this.Items(1 To N)`).
@@ -364,6 +371,12 @@ returns a `Variant`, and an operation of it is the `Variant`'s: `IIf(C, 32767, 1
 to call, so when compiled code hands its statement to the interpreter, the interpreter calls it again, given its parts as compiled code evaluated
 them: a call in a part is not made twice.
 
+`IsEmpty` of a `Variant` variable of the procedure, or of an element of one of its arrays of `Variant`s, is read in the `Variant` (**MS-VBAL
+§6.1.2.7.1.4**): a number, a `String`, `Null` or an error is not `Empty`. Of a `Variant` that holds an object or an array, `IsEmpty` is the standard
+library's, which looks at the object's default member. Compiled code calls it as it calls the functions above, and the interpreter runs the statement
+where compiled code cannot, as of an element that holds an array. A single-line `If` such as
+`If Not IsEmpty(V(R, C)) Then V(R, C) = V(R, C) * 2` is compiled code's whole.
+
 `Rnd` moves the random number generator at each call, so compiled code calls it only in a statement listed under Calls inside an expression, above. When
 compiled code hands that statement to the interpreter after the call, it gives the interpreter the number `Rnd` returned, so no number is drawn twice. A
 `Resume` runs the statement again, and draws again, as in the interpreter.
@@ -374,9 +387,9 @@ Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, and of such array fields of its records, `LBound` and `UBound` of its arrays and of the array fields of its records (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `Chr$` of a whole number, `TypeName` and `Replace` (see Strings, above), and parentheses.|
+|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, and of such array fields of its records, `LBound` and `UBound` of its arrays and of the array fields of its records (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `IsEmpty` of a `Variant` (see Functions of the standard library, above), `Chr$` of a whole number, `TypeName` and `Replace` (see Strings, above), and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, what a call returns (see Calls inside an expression, above), and `Nothing`, and `TypeOf` of one of its object variables or fields, of an element of one of its arrays of objects, or of one of its `Variant` variables.|
-|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above); `Debug.Print` of `String`s (see `Debug.Print`, above).|
+|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim`, with `Preserve` or without, and `Erase` of its array variables, and the `Let` of an array variable to a `Variant`, which the runtime runs for compiled code (see Arrays, above); `Debug.Print` of `String`s (see `Debug.Print`, above).|
 |Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above), to a member of an object or to a field of a record, of a procedure of a standard module, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. An `Optional` parameter the call leaves out is given what the interpreter gives it (MS-VBAL §5.3.1.11): its declared default, let-coerced to its type, or the default value of its type, `Nothing` for an object; the interpreter makes a call that leaves out a `Variant` parameter, a parameter whose default is the calling module's `Option Compare`, or one whose default raises an error. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above), and so can the functions listed under Functions of the standard library, above. A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `For Each` … `Next`, which the interpreter runs for compiled code (see below); `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
