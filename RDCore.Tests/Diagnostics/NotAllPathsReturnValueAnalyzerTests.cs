@@ -84,7 +84,7 @@ public sealed class NotAllPathsReturnValueAnalyzerTests
 
     [TestMethod]
     [DataRow("As Long", "    F = 0", DisplayName = "a number")]
-    [DataRow("As Date", "    F = 0", DisplayName = "a date")]
+    [DataRow("As Date", "    F = #12:00:00 AM#", DisplayName = "a date")]
     [DataRow("As String", "    F = vbNullString", DisplayName = "a string")]
     [DataRow("As Boolean", "    F = False", DisplayName = "a Boolean")]
     [DataRow("As Variant", "    F = Empty", DisplayName = "a Variant")]

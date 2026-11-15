@@ -1,12 +1,13 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Extensibility.Diagnostics;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -21,7 +22,6 @@ namespace RDCore.Diagnostics.Analyzers;
 internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
 {
     public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.NotAllPathsReturnValue.ToCode()];
-    private const string NewLine = "\r\n";
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
@@ -44,7 +44,7 @@ internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
             {
                 Fixes = members.FirstOrDefault(member => member.SourceLocation.Range.Start.Line == fact.Location.Range.Start.Line
                         && string.Equals(member.Name, fact.Name, StringComparison.OrdinalIgnoreCase)) is { } procedure
-                    && FixOf(procedure, hasDefType) is { } fix
+                    && FixOf(context.ParseResult, procedure, hasDefType) is { } fix
                     ? new DiagnosticFixes { Edit = fix }
                     : null,
             });
@@ -53,7 +53,7 @@ internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
     // the return value assigned its default value before the first statement, which every call starts with (MS-VBAL §5.3.1.6, a fresh function result variable
     // at each call, in a Static procedure too): the code does what it did, and says so. Not offered for a type whose default has no literal (a user-defined
     // type, an array, a class or an Enum that only the declaration knows), nor for a return type a DefType statement may set.
-    private static EditFix? FixOf(MemberDeclarationNode procedure, bool hasDefType)
+    private static EditFix? FixOf(ModuleParseResult parse, MemberDeclarationNode procedure, bool hasDefType)
     {
         var asType = procedure.Children.OfType<AsTypeExpressionNode>().FirstOrDefault();
         if (asType is { IsArrayDef: true } || DefaultOf(asType, procedure.TypeHint, hasDefType) is not { } value)
@@ -70,29 +70,28 @@ internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
             return null;
         }
 
-        var line = first.SourceLocation.Range.Start.Line;
+        // the assignment is written at the indentation of the first statement.
         var indent = new string(' ', first.SourceLocation.Range.Start.Character);
         var assignment = value is "Nothing" ? $"Set {procedure.Name} = Nothing" : $"{procedure.Name} = {value}";
-        return new EditFix
-        {
-            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.NotAllPathsReturnValue_Fix, procedure.Name, value),
-            Edits = [new TextEdit { Range = new Range(line, 0, line, 0), NewText = $"{indent}{assignment}{NewLine}" }],
-        };
+        return SyntaxEdits.Fix(
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.NotAllPathsReturnValue_Fix, procedure.Name, value),
+            LineEdits.InsertLinesBefore(parse, first, $"{indent}{assignment}"));
     }
 
+    // the literal of the default value of the return type, as the As clause or the type character states it; a qualified type name has none here.
     private static string? DefaultOf(AsTypeExpressionNode? asType, string? typeHint, bool hasDefType)
     {
-        var typeName = asType is null ? null : asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-        return (typeName?.ToUpperInvariant(), typeHint) switch
+        if (asType is not null)
         {
-            ("BYTE" or "INTEGER" or "LONG" or "LONGLONG" or "LONGPTR" or "SINGLE" or "DOUBLE" or "CURRENCY" or "DECIMAL" or "DATE", _) => "0",
-            ("STRING", _) => "vbNullString",
-            ("BOOLEAN", _) => "False",
-            ("VARIANT", _) => "Empty",
-            ("OBJECT", _) => "Nothing",
-            (null, "%" or "&" or "^" or "!" or "#" or "@") => "0",
-            (null, "$") => "vbNullString",
-            (null, null) when !hasDefType => "Empty",
+            return asType.QualifierName is not { Length: > 0 } && IntrinsicVBTypes.TryResolve(asType.TypeName, out var declared)
+                ? IntrinsicVBTypes.DefaultLiteralOf(declared)
+                : null;
+        }
+
+        return typeHint switch
+        {
+            { } hint => IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? IntrinsicVBTypes.DefaultLiteralOf(hinted) : null,
+            null when !hasDefType => IntrinsicVBTypes.DefaultLiteralOf(VBVariantType.TypeInfo),
             _ => null,
         };
     }
