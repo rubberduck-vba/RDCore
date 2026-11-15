@@ -47,11 +47,11 @@ public sealed class EncapsulateFieldTests
     }
 
     // the field declared or named at the first place `marker` is written in Module1, encapsulated.
-    private static (Encapsulation? Encapsulation, EncapsulationRefusal? Refusal) Encapsulate(Workspace workspace, string marker)
+    private static (Encapsulation? Encapsulation, EncapsulationRefusal? Refusal) Encapsulate(Workspace workspace, string marker, EncapsulationOptions? options = null)
     {
         var field = EncapsulateField.FieldAt(workspace.Context, Module1, PositionOf(workspace.Text, marker));
         Assert.IsNotNull(field, $"a field at '{marker}'");
-        return EncapsulateField.Plan(workspace.Context, Module1, workspace.Parse, field);
+        return EncapsulateField.Plan(workspace.Context, Module1, workspace.Parse, field, options);
     }
 
     private static SourcePosition PositionOf(string text, string marker)
@@ -62,11 +62,101 @@ public sealed class EncapsulateFieldTests
         return new SourcePosition(line, at - (before.LastIndexOf('\n') + 1));
     }
 
-    private static string Encapsulated(Workspace workspace, string marker)
+    private static string Encapsulated(Workspace workspace, string marker, EncapsulationOptions? options = null)
     {
-        var (encapsulation, refusal) = Encapsulate(workspace, marker);
+        var (encapsulation, refusal) = Encapsulate(workspace, marker, options);
         Assert.IsNull(refusal, refusal?.ToString());
         return DeclarationEdits.ApplyTo(workspace.Text, encapsulation!.Edits);
+    }
+
+    private const string Counter = "Public count As Long\r\n\r\nPublic Sub Reset()\r\n    count = 0\r\n    Debug.Print count\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public void ABackingField_HoldsTheValue_AndTheReferencesInsideTheModuleNameIt()
+    {
+        var text = Encapsulated(Compose(Header + Counter, UserHeader), "count", new EncapsulationOptions(BackingField: "mCount"));
+
+        Assert.AreEqual(Header
+            + "Private mCount As Long\r\n\r\n"
+            + "Public Sub Reset()\r\n    mCount = 0\r\n    Debug.Print mCount\r\nEnd Sub\r\n\r\n"
+            + "Public Property Get count() As Long\r\n    count = mCount\r\nEnd Property\r\n\r\n"
+            + "Public Property Let count(ByVal value As Long)\r\n    mCount = value\r\nEnd Property\r\n", text);
+    }
+
+    [TestMethod]
+    public void ABackingFieldNamedValue_IsNotShadowedByTheLetParameter()
+    {
+        var text = Encapsulated(Compose(Header + Counter, UserHeader), "count", new EncapsulationOptions(BackingField: "value"));
+
+        StringAssert.Contains(text, "Public Property Let count(ByVal newValue As Long)\r\n    value = newValue\r\n");
+    }
+
+    [TestMethod]
+    [DataRow("count", "NameTaken", DisplayName = "the field's own name")]
+    [DataRow("Reset", "NameTaken", DisplayName = "a name of the module")]
+    [DataRow("Dim", "NotAName", DisplayName = "a keyword")]
+    [DataRow("2nd", "NotAName", DisplayName = "no identifier")]
+    public void ABackingFieldName_ThatCannotBeDeclared_IsRefused(string backing, string kind)
+    {
+        var (_, refusal) = Encapsulate(Compose(Header + Counter, UserHeader), "count", new EncapsulationOptions(BackingField: backing));
+
+        Assert.AreEqual(Enum.Parse<EncapsulationRefusalKind>(kind), refusal?.Kind);
+        Assert.AreEqual(backing, refusal?.Name);
+    }
+
+    [TestMethod]
+    public void AReadOnlyField_GetsAGetOnly_AndIsStillWrittenInsideItsModule()
+    {
+        var text = Encapsulated(Compose(Header + Counter, UserHeader), "count", new EncapsulationOptions(ReadOnly: true, InsideThroughProperties: true));
+
+        StringAssert.Contains(text, "    this.count = 0\r\n    Debug.Print count\r\n");
+        StringAssert.Contains(text, "Public Property Get count() As Long\r\n");
+        Assert.DoesNotContain("Property Let", text);
+    }
+
+    [TestMethod]
+    public void AReadOnlyField_AssignedOutsideItsModule_IsRefused_WhereItIsAssigned()
+    {
+        var module2 = UserHeader + "Public Sub Main()\r\n    count = 5\r\nEnd Sub\r\n";
+
+        var (_, refusal) = Encapsulate(Compose(Header + Counter, module2), "count", new EncapsulationOptions(ReadOnly: true));
+
+        Assert.AreEqual(EncapsulationRefusalKind.WrittenOutside, refusal?.Kind);
+        Assert.AreEqual(Module2, refusal?.Module);
+        Assert.AreEqual(3, refusal?.Range?.Start.Line);
+    }
+
+    [TestMethod]
+    public void TheReferencesInsideTheModule_GoThroughTheProperties_WhenAsked()
+    {
+        var text = Encapsulated(Compose(Header + Counter, UserHeader), "count", new EncapsulationOptions(InsideThroughProperties: true));
+
+        StringAssert.Contains(text, "Public Sub Reset()\r\n    count = 0\r\n    Debug.Print count\r\nEnd Sub\r\n");
+        StringAssert.Contains(text, "Public Property Let count(ByVal value As Long)\r\n    this.count = value\r\n");
+    }
+
+    [TestMethod]
+    public void AFieldPassedByRefInsideAClassModule_ThroughTheProperties_IsReported()
+    {
+        var module1 = Header + "Public count As Long\r\n\r\nPrivate Sub Bump(ByRef n As Long)\r\n    n = n + 1\r\nEnd Sub\r\n\r\nPublic Sub Run()\r\n    Bump count\r\nEnd Sub\r\n";
+        var workspace = Compose(module1, UserHeader, ModuleType.ClassModule);
+
+        var (state, _) = Encapsulate(workspace, "count");
+        var (properties, _) = Encapsulate(workspace, "count", new EncapsulationOptions(InsideThroughProperties: true));
+
+        Assert.IsEmpty(state!.PassedByRef);
+        Assert.AreEqual(Module1, properties!.PassedByRef.Single().Module);
+    }
+
+    [TestMethod]
+    public void AUserDefinedTypeField_WhoseMemberIsWrittenInsideItsModule_ThroughTheProperties_IsRefused()
+    {
+        var module1 = Header + Point + "\r\nPublic Origin As TPoint\r\n\r\nPublic Sub Reset()\r\n    Origin.X = 0\r\nEnd Sub\r\n";
+
+        var (_, refusal) = Encapsulate(Compose(module1, UserHeader), "Origin", new EncapsulationOptions(InsideThroughProperties: true));
+
+        Assert.AreEqual(EncapsulationRefusalKind.WritesThroughACopy, refusal?.Kind);
+        Assert.AreEqual(Module1, refusal?.Module);
     }
 
     [TestMethod]
