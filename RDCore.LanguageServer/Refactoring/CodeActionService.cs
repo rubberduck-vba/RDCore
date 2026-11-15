@@ -44,8 +44,25 @@ internal interface ICodeActionService
 }
 
 /// <summary>
-/// What <c>textDocument/codeAction</c> answers (<strong>LSP 3.17</strong> §Code Action Request): what can be done about the diagnostics of a range of a document,
-/// and what can be renamed or extracted in it, for the client whose capabilities each call is given.
+/// The <see cref="ICodeActionService"/> of the language server: each call is answered by the <see cref="CodeActions"/> of the client it is given.
+/// </summary>
+internal sealed class CodeActionService(
+    IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
+    IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
+    ILibrarySource? libraries = null) : ICodeActionService
+{
+    public Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionParams request, ClientCapabilities? client, CancellationToken cancellationToken)
+        => For(client).ActionsAsync(request, cancellationToken);
+
+    public Task<CodeAction> ResolveAsync(CodeAction request, ClientCapabilities? client, CancellationToken cancellationToken)
+        => For(client).ResolveAsync(request, cancellationToken);
+
+    private CodeActions For(ClientCapabilities? client) => new(client, rename, documents, fileSystem, extractMethod, clientCapabilities, serializer, projectFiles, libraries);
+}
+
+/// <summary>
+/// What <c>textDocument/codeAction</c> answers (<strong>LSP 3.17</strong> §Code Action Request) to one client, as its capabilities say: what can be done about the
+/// diagnostics of a range of a document, and what can be renamed or extracted in it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -87,10 +104,11 @@ internal interface ICodeActionService
 /// refused when the document has changed since. Any other client is answered every action complete.
 /// </para>
 /// </remarks>
-internal sealed class CodeActionService(
+internal sealed class CodeActions(
+    ClientCapabilities? client,
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null) : ICodeActionService
+    ILibrarySource? libraries = null)
 {
     // LSP "RequestFailed": the request is valid, and is refused.
     private const int RequestFailedCode = -32803;
@@ -99,13 +117,13 @@ internal sealed class CodeActionService(
     private const string ExtractionDataKey = "refactoring";
 
     // a client that sends an action's data back and resolves its edit is sent an extraction without its edit.
-    private static bool ResolvesEdits(ClientCapabilities? client) => client?.TextDocument?.CodeAction.Value is { DataSupport: true, ResolveSupport.Properties: { } properties }
+    private bool ResolvesEdits => client?.TextDocument?.CodeAction.Value is { DataSupport: true, ResolveSupport.Properties: { } properties }
         && properties.Contains("edit");
 
     // a client that shows an action it cannot take, with why, is offered a refactoring that is refused.
-    private static bool ShowsDisabled(ClientCapabilities? client) => client?.TextDocument?.CodeAction.Value is { DisabledSupport: true };
+    private bool ShowsDisabled => client?.TextDocument?.CodeAction.Value is { DisabledSupport: true };
 
-    public async Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionParams request, ClientCapabilities? client, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionParams request, CancellationToken cancellationToken)
     {
         var documentUri = request.TextDocument.Uri.ToUri();
         if (await rename.ComposeAsync(cancellationToken) is not { } workspace)
@@ -132,7 +150,7 @@ internal sealed class CodeActionService(
             {
                 var editFix = fixes!.Edits[index];
                 if (editFix.Edits.Count == 0 || editFix.Version is not { } madeOf || madeOf != version
-                    || ForTheClient(EditOf(request.TextDocument.Uri, madeOf, editFix.Edits), client) is not { } applicable)
+                    || ForTheClient(EditOf(request.TextDocument.Uri, madeOf, editFix.Edits)) is not { } applicable)
                 {
                     continue;
                 }
@@ -153,7 +171,7 @@ internal sealed class CodeActionService(
             {
                 var diagnosed = new SourceRange(diagnostic.Range.Start.Line, diagnostic.Range.Start.Character, diagnostic.Range.End.Line, diagnostic.Range.End.Character);
                 if (refactored.Add((fixes.Refactoring.Kind, diagnosed))
-                    && (await RefactoringActionAsync(request.TextDocument.Uri, fixes.Refactoring.Kind, diagnosed, client, cancellationToken)).Action is { } refactoring)
+                    && (await RefactoringActionAsync(request.TextDocument.Uri, fixes.Refactoring.Kind, diagnosed, cancellationToken)).Action is { } refactoring)
                 {
                     actions.Add(refactoring with { Diagnostics = new Container<Diagnostic>(diagnostic) });
                 }
@@ -190,7 +208,7 @@ internal sealed class CodeActionService(
                 // which the server asks them for, still is.
                 if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion) is { Value: { } edit } answer
                     && (answer.Questions is not { Count: > 0 } || client.TakesChangeAnnotations())
-                    && ForTheClient(edit, client) is { } applicable)
+                    && ForTheClient(edit) is { } applicable)
                 {
                     actions.Add(new CodeAction
                     {
@@ -220,7 +238,7 @@ internal sealed class CodeActionService(
         SourceRange? routine = range.IsEmpty ? range : null;
         if (!range.IsEmpty && (IsAsked(CodeActionHandler.RefactorExtractMethod) || IsAsked(CodeActionHandler.RefactorConvertGoSub)))
         {
-            var (extraction, refused) = await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ExtractMethod, range, client, cancellationToken);
+            var (extraction, refused) = await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ExtractMethod, range, cancellationToken);
             if (extraction is not null && !refactored.Contains((RefactoringKinds.ExtractMethod, range)))
             {
                 actions.Add(extraction);
@@ -233,7 +251,7 @@ internal sealed class CodeActionService(
         }
 
         if (routine is { } at && IsAsked(CodeActionHandler.RefactorConvertGoSub) && !refactored.Contains((RefactoringKinds.ConvertGoSub, at))
-            && (await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ConvertGoSub, at, client, cancellationToken)).Action is { } conversion)
+            && (await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ConvertGoSub, at, cancellationToken)).Action is { } conversion)
         {
             actions.Add(conversion);
         }
@@ -279,7 +297,7 @@ internal sealed class CodeActionService(
     // edit, with the defaults, when the refactoring changes nothing the user would have to accept. A refused one is offered disabled, with why, to a client that
     // shows it so, unless the range holds nothing it refactors.
     private async Task<(CodeAction? Action, IReadOnlyList<RefactorNotice> Refused)> RefactoringActionAsync(
-        DocumentUri lspUri, string kind, SourceRange range, ClientCapabilities? client, CancellationToken token)
+        DocumentUri lspUri, string kind, SourceRange range, CancellationToken token)
     {
         var documentUri = lspUri.ToUri();
         var actionKind = new CodeActionKind(kind);
@@ -290,7 +308,7 @@ internal sealed class CodeActionService(
         var prepared = await extractMethod.PrepareAsync(kind, documentUri, range, token);
         if (prepared.Notices.Where(notice => notice.Kind is RefactorNoticeKind.Refusal).ToArray() is { Length: > 0 } refused)
         {
-            return (ShowsDisabled(client) && !ExtractMethodService.FindsNothing(refused[0])
+            return (ShowsDisabled && !ExtractMethodService.FindsNothing(refused[0])
                 ? new CodeAction { Title = title, Kind = actionKind, Disabled = new CodeActionDisabled { Reason = refused[0].Message } }
                 : null, refused);
         }
@@ -311,7 +329,7 @@ internal sealed class CodeActionService(
             return (null, []);
         }
 
-        if (ResolvesEdits(client))
+        if (ResolvesEdits)
         {
             return (new CodeAction
             {
@@ -329,8 +347,8 @@ internal sealed class CodeActionService(
             }, []);
         }
 
-        var answer = await extractMethod.ApplyAsync(kind, documentUri, range, DefaultAnswers(client), [], token);
-        if (answer.Edit is null || ForTheClient(LspEditOf(answer), client) is not { } applicable)
+        var answer = await extractMethod.ApplyAsync(kind, documentUri, range, DefaultAnswers(), [], token);
+        if (answer.Edit is null || ForTheClient(LspEditOf(answer)) is not { } applicable)
         {
             return (null, []);
         }
@@ -340,7 +358,7 @@ internal sealed class CodeActionService(
 
     // the refactoring a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for. One that is refused,
     // or whose document has changed since, is answered an error that says why.
-    private async Task<CodeAction> ResolveRefactoringAsync(CodeAction action, string kind, JObject offered, ClientCapabilities? client, CancellationToken token)
+    private async Task<CodeAction> ResolveRefactoringAsync(CodeAction action, string kind, JObject offered, CancellationToken token)
     {
         if (offered["uri"]?.ToString() is not { Length: > 0 } uri || offered["range"] is not JObject offeredRange)
         {
@@ -351,7 +369,7 @@ internal sealed class CodeActionService(
         var range = new SourceRange(lspRange.Start.Line, lspRange.Start.Character, lspRange.End.Line, lspRange.End.Character);
         int? version = offered["version"] is { Type: JTokenType.Integer } number ? number.Value<int>() : null;
 
-        var answer = await extractMethod.ApplyAsync(kind, DocumentUri.From(uri).ToUri(), range, DefaultAnswers(client), [], token);
+        var answer = await extractMethod.ApplyAsync(kind, DocumentUri.From(uri).ToUri(), range, DefaultAnswers(), [], token);
         var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? ExtractMethodService.DocumentChanged(kind) : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
@@ -370,7 +388,7 @@ internal sealed class CodeActionService(
 
     // what a client with no dialog extracts with: the defaults, but for the duplicates, which the user confirms each of where the client asks for change
     // annotations, and which are not replaced where it cannot.
-    private static IReadOnlyList<RefactorAnswer> DefaultAnswers(ClientCapabilities? client)
+    private IReadOnlyList<RefactorAnswer> DefaultAnswers()
         => client.TakesChangeAnnotations() ? [] : [new RefactorAnswer { Id = ExtractMethodService.ReplaceDuplicatesChoice, Value = "false" }];
 
     // an extraction's edit as LSP writes it: the edits of each document, of the version the client said it last; those that replace a duplicate of the
@@ -404,7 +422,7 @@ internal sealed class CodeActionService(
     }
 
     // the edit as the client applies it; an action whose edit the client can't apply is not offered - the rename command, which says why, still is.
-    private static WorkspaceEdit? ForTheClient(WorkspaceEdit edit, ClientCapabilities? client)
+    private WorkspaceEdit? ForTheClient(WorkspaceEdit edit)
     {
         try
         {
@@ -470,9 +488,9 @@ internal sealed class CodeActionService(
         });
     }
 
-    public async Task<CodeAction> ResolveAsync(CodeAction request, ClientCapabilities? client, CancellationToken cancellationToken)
+    public async Task<CodeAction> ResolveAsync(CodeAction request, CancellationToken cancellationToken)
         => request.Edit is null && request.Data is JObject offered
             && offered[ExtractionDataKey]?.ToString() is RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub
-            ? await ResolveRefactoringAsync(request, offered[ExtractionDataKey]!.ToString(), offered, client, cancellationToken)
+            ? await ResolveRefactoringAsync(request, offered[ExtractionDataKey]!.ToString(), offered, cancellationToken)
             : request;
 }
