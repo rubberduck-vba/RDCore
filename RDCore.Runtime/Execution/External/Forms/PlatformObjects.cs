@@ -237,7 +237,8 @@ internal sealed class PlatformObjects
     /// The call being made (<see cref="Answering"/>), until it is over.
     /// </summary>
     /// <param name="objects">The platform's objects of the session.</param>
-    /// <param name="outer">The receiver and member of the call being made before this one, which is again once this one is over.</param>
+    /// <param name="outer">The receiver and member of the call being made before this one, which is the call being made again once this one
+    /// is over.</param>
     public readonly struct Scope(PlatformObjects objects, (VBRuntimeObjectId Receiver, string? Member)? outer) : IDisposable
     {
         /// <inheritdoc/>
