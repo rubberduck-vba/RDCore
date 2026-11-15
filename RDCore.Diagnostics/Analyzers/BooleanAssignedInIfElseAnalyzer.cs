@@ -24,7 +24,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// (<c>flags(i)</c>), a member of what a call returns (<c>Range("A1").Locked</c>). The finding is the header of the <c>If</c>.
 /// <para>
 /// The fix is offered for a target that is a name or a member of a name. The <c>If</c> evaluates its condition before the arguments of the target, and the
-/// assignment that takes its place need not. It is offered where the condition is a Boolean whatever its operands hold: an <c>Is</c> or <c>TypeOf…Is</c> operation, a
+/// assignment that takes its place can evaluate them first. It is offered where the condition is a Boolean whatever its operands hold: an <c>Is</c> or <c>TypeOf…Is</c> operation, a
 /// Boolean literal, and <c>Not</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c>, <c>Imp</c> and parentheses of those. Another condition can be <c>Null</c>, which
 /// an <c>If</c> takes as <c>False</c> (<strong>MS-VBAL §5.4.2.8</strong>), or a number other than <c>0</c> and <c>-1</c>, whose <c>Not</c> is not <c>False</c>.
 /// </para>
@@ -78,7 +78,7 @@ internal sealed class BooleanAssignedInIfElseAnalyzer : IModuleAnalyzer
                 : (null, null);
 
     // a target the fix writes the condition to: a name, or a member of a name. Not one with arguments (an element of an array, a call): the If evaluates the
-    // condition first, and the assignment need not.
+    // condition first, and the assignment can evaluate the arguments first.
     private static string? NameOf(ExpressionNode target) => target switch
     {
         SimpleNameExpressionNode simple => simple.IdentifierName,
