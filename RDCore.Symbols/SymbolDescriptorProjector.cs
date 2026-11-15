@@ -219,11 +219,14 @@ public static class SymbolDescriptorProjector
 
         // a local reaches the projector two ways: on its own procedure's Locals, and as a child of it
         // in the flat symbol stream (by ParentUri). Which of the two a given provider populates is its
-        // own business, so read both and let the name settle a duplicate.
-        var locals = declared.OfType<VBLocalVariableSymbol>()
-            .Concat(children.OfType<VBLocalVariableSymbol>())
+        // own business, so read both and let the site settle a duplicate. A name declared in more than one
+        // branch of a #If block travels once for each branch, what each other branch declares beside it
+        // (WorkspaceSymbol.Alternatives): the host keeps the one of the live branch.
+        var locals = declared.Concat(children)
+            .SelectMany(local => AlternativesOf(local).Prepend(local))
+            .OfType<VBLocalVariableSymbol>()
             .Where(local => local is not VBParameterSymbol)
-            .DistinctBy(local => local.Name, StringComparer.OrdinalIgnoreCase)
+            .DistinctBy(local => (local.Name.ToUpperInvariant(), local.Range))
             .ToArray();
 
         if (locals.Length == 0)
@@ -268,9 +271,9 @@ public static class SymbolDescriptorProjector
             _ => [],
         };
 
-        var constants = declared.Concat(symbol is VBConstantMemberSymbol ? [] : children)
+        var constants = declared.Concat(symbol is VBConstantMemberSymbol ? [] : children.SelectMany(local => AlternativesOf(local).Prepend(local)))
             .Where(constant => constant is VBConstantMemberSymbol or VBLocalConstantSymbol)
-            .DistinctBy(constant => constant.Name, StringComparer.OrdinalIgnoreCase)
+            .DistinctBy(constant => (constant.Name.ToUpperInvariant(), (constant as WorkspaceSymbol)?.Range))
             .ToArray();
 
         if (constants.Length == 0)

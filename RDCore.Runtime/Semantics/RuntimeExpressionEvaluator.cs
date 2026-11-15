@@ -3331,8 +3331,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // of Long, and is an array of another Enum (observed in Excel).
     private static bool IsOfDeclaredType(VBParameterSymbol parameter, VBType variableType)
         => (parameter.ResolvedType, variableType) is (VBArrayType parameterArray, VBArrayType variableArray)
-            ? parameterArray.ItemType.Equals(variableArray.ItemType) || parameterArray.ItemType is VBEnumType && variableArray.ItemType is VBEnumType
-            : VBEnumType.AsDeclaredType(parameter.ResolvedType).Equals(VBEnumType.AsDeclaredType(variableType));
+            ? IsSameDeclaredType(parameterArray.ItemType, variableArray.ItemType) || parameterArray.ItemType is VBEnumType && variableArray.ItemType is VBEnumType
+            : IsSameDeclaredType(VBEnumType.AsDeclaredType(parameter.ResolvedType), VBEnumType.AsDeclaredType(variableType));
+
+    // a class is the declared type of a declaration bound to any symbol of it: its module is defined in phases, each giving it a new symbol of the same
+    // identity, and a declaration keeps the symbol it was bound to: the class as it was when its own module's declarations were bound (DefineSymbolsHandler).
+    private static bool IsSameDeclaredType(VBType parameterType, VBType variableType)
+        => parameterType is VBClassType parameterClass && variableType is VBClassType variableClass
+            ? parameterClass.Symbol.SemanticId == variableClass.Symbol.SemanticId
+            : parameterType.Equals(variableType);
 
     // MS-VBAL §5.3.1.11: a Variant parameter given a variable of another type is bound to it, and the binding knows what the variable is declared to be - the
     // binding reads as a Variant, and is assigned as that type. A parameter of the variable's own type needs nothing more than the address.

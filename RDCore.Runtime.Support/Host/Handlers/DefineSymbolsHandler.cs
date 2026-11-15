@@ -266,21 +266,30 @@ internal sealed class DefineSymbolsHandler(
     // what fuses with what: a procedure's headers whatever their kind, and otherwise a symbol of the same type.
     private static string KindOf(Symbol symbol) => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol ? "procedure" : symbol.GetType().Name;
 
-    // MS-VBAL §3.4, §5.6.10: the locals of a procedure, with what a name declares that the module declares only in #If branches: declared where each of
-    // those is dead, and not otherwise (SymbolProperties.UnlessLive). Without the directives, every branch is read as live.
+    // MS-VBAL §3.4, §5.6.10: the locals of a procedure that the live code declares. A Dim, a Static or a Const of a dead branch is not compiled, and declares
+    // nothing; what a name declares that the module or the procedure declares only in #If branches is declared where each of those is dead, and not
+    // otherwise (SymbolProperties.UnlessLive). Without the directives, every branch is read as live.
     private static Symbol WithLiveLocals(Symbol symbol, Func<SourcePosition, bool>? isDead)
     {
         static bool IsConditional(BoundTypedSymbol local) => !local.GetProperty(SymbolProperties.UnlessLive).IsDefaultOrEmpty;
-        bool IsDeclared(BoundTypedSymbol local) => !IsConditional(local) || isDead is not null && local.GetProperty(SymbolProperties.UnlessLive).All(isDead);
+        static bool IsDeclaredByAStatement(BoundTypedSymbol local) => local is VBLocalVariableSymbol { DeclaredBy: LocalDeclarationKind.Dim } or VBLocalConstantSymbol;
+        bool IsDeclared(BoundTypedSymbol local) => IsConditional(local)
+            ? isDead is not null && local.GetProperty(SymbolProperties.UnlessLive).All(isDead)
+            : isDead is null || !IsDeclaredByAStatement(local) || !isDead(local.Range.Start);
 
-        // what is declared is then declared whatever the branches are: the scope of the procedure has it.
+        // what is declared is then declared whatever the branches are: the scope of the procedure has it. A name declared in more than one branch arrives
+        // once for each, and is declared once: by the first of them that is declared.
         ImmutableArray<BoundTypedSymbol> Live(ImmutableArray<BoundTypedSymbol> locals)
-            => [.. locals.Where(IsDeclared).Select(local => IsConditional(local) ? (BoundTypedSymbol)local.With(SymbolProperties.UnlessLive, []) : local)];
+            => [.. locals.Where(IsDeclared).DistinctBy(local => local.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(local => IsConditional(local) ? (BoundTypedSymbol)local.With(SymbolProperties.UnlessLive, []) : local)];
+
+        bool IsAsDeclared(ImmutableArray<BoundTypedSymbol> locals)
+            => locals.All(local => !IsConditional(local) && IsDeclared(local)) && locals.DistinctBy(local => local.Name, StringComparer.OrdinalIgnoreCase).Count() == locals.Length;
 
         return symbol switch
         {
-            VBProcedureMemberSymbol procedure when procedure.Locals.Any(IsConditional) => procedure with { Locals = Live(procedure.Locals) },
-            VBReturningMemberSymbol returning when returning.Locals.Any(IsConditional) => returning with { Locals = Live(returning.Locals) },
+            VBProcedureMemberSymbol procedure when !IsAsDeclared(procedure.Locals) => procedure with { Locals = Live(procedure.Locals) },
+            VBReturningMemberSymbol returning when !IsAsDeclared(returning.Locals) => returning with { Locals = Live(returning.Locals) },
             _ => symbol,
         };
     }

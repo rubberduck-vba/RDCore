@@ -45,11 +45,15 @@ public sealed record class ExternalCallPipeline(
     /// Anything that wants to see calls before they happen, beyond the platform's own policy — which is
     /// always first, so that nothing an extension does can let through what an administrator refused.
     /// </param>
+    /// <param name="implementations">
+    /// The providers among <paramref name="providers"/> that are the platform's own implementation of a library, whose calls the policy over automation lets through.
+    /// </param>
     public static ExternalCallPipeline For(
         IRuntimeSession session,
         IEnumerable<IExternalCallProvider> providers,
-        IEnumerable<IExternalCallInterceptor>? interceptors = null)
-        => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(), .. interceptors ?? []], [.. providers]);
+        IEnumerable<IExternalCallInterceptor>? interceptors = null,
+        IEnumerable<IExternalCallProvider>? implementations = null)
+        => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(implementations), .. interceptors ?? []], [.. providers]);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
