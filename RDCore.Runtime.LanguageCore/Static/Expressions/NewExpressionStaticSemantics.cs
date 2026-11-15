@@ -75,8 +75,18 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
 
         // resolved to something that isn't a class (TypeMismatch), or didn't resolve at all
         // (UserDefinedTypeNotDefined) - either way, MS-VBAL 5.6.8 requires an instantiable class.
-        var errorId = result.IsResolved ? VBCompileErrorId.TypeMismatch : VBCompileErrorId.UserDefinedTypeNotDefined;
-        return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(errorId, expression.Location,
+        if (!result.IsResolved)
+        {
+            // a name that resolves to nothing is the declared type's error, and says so as it does: a qualifier that is nothing this project can see is most likely
+            // a library that is not referenced (New stdole.StdFont, without the OLE Automation reference).
+            var name = qualifier is null ? typeName : $"{qualifier}.{typeName}";
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, expression.Location,
+                qualifier is not null && context.Resolver.ResolveQualifier(qualifier, ScopeKind.Global, context.Scope.Uri).Symbol is null
+                    ? string.Format(Exceptions.VBCompileError_NewTypeQualifierNotResolved_Verbose, name, qualifier)
+                    : string.Format(Exceptions.VBCompileError_NewTypeNotResolved_Verbose, name)));
+        }
+
+        return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
             $"'{typeName}' does not reference an instantiable class."));
     }
 
