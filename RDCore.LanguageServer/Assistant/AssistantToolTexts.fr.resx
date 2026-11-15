@@ -124,7 +124,7 @@
     <value>Liste les diagnostics que RDCore signale, pour un document (path) ou pour chaque document de l'espace de travail (sans path) : chacun avec son emplacement, son code, sa gravité, son message, sa page d'aide, et s'il a un correctif. Les lignes et les colonnes comptent à partir de 1.</value>
   </data>
   <data name="GetDiagnostics_Path" xml:space="preserve">
-    <value>Le document : un chemin relatif à la racine de l'espace de travail, ou absolu. Omis pour chaque document de l'espace de travail.</value>
+    <value>Le document : un chemin relatif à la racine de l'espace de travail, ou absolu. Omettez-le pour tous les documents de l'espace de travail.</value>
   </data>
   <data name="FindSymbol_Title" xml:space="preserve">
     <value>Trouver un symbole</value>
@@ -142,7 +142,7 @@
     <value>Liste les endroits de l'espace de travail qui font référence au symbole nommé à une position : chaque nom qu'un renommage du symbole renommerait. Les lignes et les colonnes comptent à partir de 1.</value>
   </data>
   <data name="References_IncludeDeclaration" xml:space="preserve">
-    <value>Si les noms que déclarent les déclarations du symbole sont listés aussi. Vrai lorsqu'omis.</value>
+    <value>Si les noms que déclarent les déclarations du symbole sont listés aussi. Vrai s'il est omis.</value>
   </data>
   <data name="Definition_Title" xml:space="preserve">
     <value>Atteindre la définition</value>
@@ -166,7 +166,7 @@
     <value>Aucun symbole ne correspond à la requête.</value>
   </data>
   <data name="NoLocations" xml:space="preserve">
-    <value>Rien de trouvé : aucun nom nest écrit là, ou ce à quoi il fait référence nest pas connu.</value>
+    <value>Aucun résultat : aucun nom n'est écrit à cet endroit, ou ce à quoi il fait référence est inconnu.</value>
   </data>
   <data name="FixAvailable" xml:space="preserve">
     <value>correctif disponible</value>
