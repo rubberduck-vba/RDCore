@@ -608,6 +608,20 @@ public sealed class RDFormsFormHostTests
     }
 
     [TestMethod]
+    public void AnExternalHost_GivesACallThatNamesItsArguments_ToTheObjectsServer()
+    {
+        var platform = NSubstitute.Substitute.For<IAutomationServer>();
+        var dictionary = new object();
+        NSubstitute.SubstituteExtensions.Returns(platform.Invoke(dictionary, "Add", AutomationInvocation.Method, NSubstitute.Arg.Any<object?[]>(),
+            NSubstitute.Arg.Any<bool[]>(), NSubstitute.Arg.Any<IReadOnlyList<string>>(), CultureInfo.InvariantCulture), "added");
+        var (automation, _) = RDFormsHosting.Compose(platform, UnavailableFormHost.Instance, new FormsOptions { Headless = true });
+
+        var result = automation.Invoke(dictionary, "Add", AutomationInvocation.Method, ["a", 1], [false, false], ["Key", "Item"], CultureInfo.InvariantCulture);
+
+        Assert.AreEqual("added", result);
+    }
+
+    [TestMethod]
     public void AnExternalHost_WithRDFormsTurnedOff_HostsNoVisualBasicForm()
     {
         var (_, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { VB = VisualBasicFormsHost.Off });
