@@ -25,23 +25,37 @@ namespace RDCore.LanguageServer.Refactoring;
 internal interface IEncapsulateFieldService
 {
     /// <summary>
-    /// Why the field named at a position is not encapsulated, or what its encapsulation would change of what the code does.
+    /// What the encapsulation of the field named at a position asks its user, and why it is not made or what it would change of what the code does, with the
+    /// defaults.
     /// </summary>
     /// <param name="documentUri">The document.</param>
     /// <param name="position">The position, in the text of the document: on the field's declaration or on a reference to it.</param>
     /// <param name="token">A token that cancels the parses.</param>
-    /// <returns>The notices: a refusal, or the changes the user is asked to accept.</returns>
+    /// <returns>The choices, each with its default, and the notices: a refusal, or the changes the user is asked to accept.</returns>
     Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourcePosition position, CancellationToken token);
 
     /// <summary>
-    /// The edit that encapsulates the field named at a position, verified against the workspace as it leaves it; or why it is not made.
+    /// Whether the name answered for the backing field can be declared in the field's module, before the encapsulation is applied.
     /// </summary>
     /// <param name="documentUri">The document.</param>
     /// <param name="position">The position, in the text of the document.</param>
+    /// <param name="answers">The answers so far.</param>
+    /// <param name="token">A token that cancels the parses.</param>
+    /// <returns>The refusal of the name, if it is refused.</returns>
+    Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourcePosition position, IReadOnlyList<RefactorAnswer> answers, CancellationToken token);
+
+    /// <summary>
+    /// The edit that encapsulates the field named at a position with the user's answers, verified against the workspace as it leaves it; or why it is not
+    /// made.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">The position, in the text of the document.</param>
+    /// <param name="answers">The answers to the choices; a choice that is not answered takes its default.</param>
     /// <param name="accepted">The codes of the changes the user accepted.</param>
     /// <param name="token">A token that cancels the parses.</param>
     /// <returns>The edit, or why it is not made.</returns>
-    Task<EncapsulateFieldAnswer> ApplyAsync(Uri documentUri, SourcePosition position, IReadOnlyList<string> accepted, CancellationToken token);
+    Task<EncapsulateFieldAnswer> ApplyAsync(
+        Uri documentUri, SourcePosition position, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token);
 }
 
 /// <summary>
@@ -64,6 +78,47 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     /// </summary>
     public const string NotAFieldCode = "encapsulateField.notAField";
 
+    /// <summary>
+    /// The choice of what holds the value: <see cref="ThisMode"/> or <see cref="BackingFieldMode"/>.
+    /// </summary>
+    public const string ModeChoice = "mode";
+
+    /// <summary>
+    /// The value held by a member of the module's private type, through its single variable: the default.
+    /// </summary>
+    public const string ThisMode = "this";
+
+    /// <summary>
+    /// The value held by a <c>Private</c> field of the module, named by <see cref="BackingFieldChoice"/>.
+    /// </summary>
+    public const string BackingFieldMode = "backingField";
+
+    /// <summary>
+    /// The name of the backing field, in <see cref="BackingFieldMode"/>: <c>m</c> and the field's name by default.
+    /// </summary>
+    public const string BackingFieldChoice = "backingField";
+
+    /// <summary>
+    /// Whether only a <c>Property Get</c> is written: <c>false</c> by default.
+    /// </summary>
+    public const string ReadOnlyChoice = "readOnly";
+
+    /// <summary>
+    /// What the references inside the module go through: <see cref="StateInside"/> or <see cref="PropertiesInside"/>.
+    /// </summary>
+    public const string InsideChoice = "inside";
+
+    /// <summary>
+    /// The references inside the module read and write the value where it is held: the default, which keeps what a call that writes through a <c>ByRef</c>
+    /// parameter does.
+    /// </summary>
+    public const string StateInside = "state";
+
+    /// <summary>
+    /// The references inside the module go through the properties, but for those that assign the field where no property takes the assignment.
+    /// </summary>
+    public const string PropertiesInside = "properties";
+
     private static readonly ResourceManager Messages = new("RDCore.LanguageServer.Services.Refactoring.EncapsulateFieldMessages", typeof(EncapsulateFieldService).Assembly);
 
     /// <summary>
@@ -78,18 +133,41 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
 
     public async Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourcePosition position, CancellationToken token)
     {
-        var (planned, part, refusal) = await PlannedAsync(documentUri, position, token);
+        var (planned, part, refusal) = await PlannedAsync(documentUri, position, [], token);
         if (planned is null)
         {
             return new RefactorPrepareResult { Notices = [Refused(refusal!.Value, part)] };
         }
 
-        return new RefactorPrepareResult { Notices = [.. Changes(planned.Encapsulation, part!)] };
+        return new RefactorPrepareResult { Choices = Choices(planned.Encapsulation.Field.Name), Notices = [.. Changes(planned.Encapsulation, part!)] };
     }
 
-    public async Task<EncapsulateFieldAnswer> ApplyAsync(Uri documentUri, SourcePosition position, IReadOnlyList<string> accepted, CancellationToken token)
+    public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(
+        Uri documentUri, SourcePosition position, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
     {
-        var (planned, part, refusal) = await PlannedAsync(documentUri, position, token);
+        // only a name typed for a backing field is checked: the plan of the other choices refuses nothing a name changes.
+        if (!string.Equals(Answer(answers, ModeChoice), BackingFieldMode, StringComparison.OrdinalIgnoreCase)
+            || Answer(answers, BackingFieldChoice) is not { Length: > 0 } typed)
+        {
+            return new RefactorIdentifierCheckResult();
+        }
+
+        var (_, part, refusal) = await PlannedAsync(documentUri, position, answers, token);
+        return refusal is ({ Kind: EncapsulationRefusalKind.NotAName or EncapsulationRefusalKind.NameTaken, Name: { } name }, _) refused
+            && string.Equals(name, typed.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? new RefactorIdentifierCheckResult { Notices = [Refused(refused, part) with { Choice = BackingFieldChoice }] }
+            : new RefactorIdentifierCheckResult();
+    }
+
+    public async Task<EncapsulateFieldAnswer> ApplyAsync(
+        Uri documentUri, SourcePosition position, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token)
+    {
+        if (UnknownAnswer(answers) is { } unknown)
+        {
+            return new(null, unknown);
+        }
+
+        var (planned, part, refusal) = await PlannedAsync(documentUri, position, answers, token);
         if (planned is null)
         {
             return new(null, Refused(refusal!.Value, part).Message);
@@ -119,9 +197,84 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
 
     private sealed record class Planned(Encapsulation Encapsulation, RenameWorkspace.DocumentModule Module);
 
-    // the field named at a position of a document, and how it is encapsulated in its own module, or why it is not.
+    // the choices of the encapsulation of a field, each with its default.
+    private static IReadOnlyList<RefactorChoice> Choices(string field) =>
+    [
+        new()
+        {
+            Id = ModeChoice,
+            Kind = RefactorChoiceKind.Option,
+            Label = Format("EncapsulateFieldChoice_Mode"),
+            Description = Format("EncapsulateFieldChoice_ModeDescription"),
+            Default = ThisMode,
+            Options =
+            [
+                new() { Value = ThisMode, Label = Format("EncapsulateFieldChoice_ModeThis") },
+                new() { Value = BackingFieldMode, Label = Format("EncapsulateFieldChoice_ModeBackingField") },
+            ],
+        },
+        new()
+        {
+            Id = BackingFieldChoice,
+            Kind = RefactorChoiceKind.Name,
+            Label = Format("EncapsulateFieldChoice_BackingField"),
+            Description = Format("EncapsulateFieldChoice_BackingFieldDescription"),
+            Default = DefaultBackingField(field),
+        },
+        new()
+        {
+            Id = ReadOnlyChoice,
+            Kind = RefactorChoiceKind.Flag,
+            Label = Format("EncapsulateFieldChoice_ReadOnly"),
+            Description = Format("EncapsulateFieldChoice_ReadOnlyDescription"),
+            Default = "false",
+        },
+        new()
+        {
+            Id = InsideChoice,
+            Kind = RefactorChoiceKind.Option,
+            Label = Format("EncapsulateFieldChoice_Inside"),
+            Description = Format("EncapsulateFieldChoice_InsideDescription"),
+            Default = StateInside,
+            Options =
+            [
+                new() { Value = StateInside, Label = Format("EncapsulateFieldChoice_InsideState") },
+                new() { Value = PropertiesInside, Label = Format("EncapsulateFieldChoice_InsideProperties") },
+            ],
+        },
+    ];
+
+    // `m` and the field's name, its first letter capitalized: `count` is held by `mCount`.
+    private static string DefaultBackingField(string field) => $"m{char.ToUpperInvariant(field[0])}{field[1..]}";
+
+    private static string? Answer(IReadOnlyList<RefactorAnswer> answers, string choice) => answers.FirstOrDefault(answer => answer.Id == choice)?.Value;
+
+    // an answer that is not a value of its choice: why the encapsulation is not made; null when every answer is one.
+    private static string? UnknownAnswer(IReadOnlyList<RefactorAnswer> answers)
+    {
+        (string Choice, string[] Values)[] known = [(ModeChoice, [ThisMode, BackingFieldMode]), (InsideChoice, [StateInside, PropertiesInside]), (ReadOnlyChoice, ["true", "false"])];
+        foreach (var (choice, values) in known)
+        {
+            if (Answer(answers, choice) is { } answered && !values.Contains(answered, StringComparer.OrdinalIgnoreCase))
+            {
+                return Format("EncapsulateFieldChoice_Unknown", answered, choice);
+            }
+        }
+
+        return null;
+    }
+
+    // the choices answered, as the plan takes them: the defaults for those that are not.
+    private static EncapsulationOptions OptionsOf(IReadOnlyList<RefactorAnswer> answers, string field) => new(
+        BackingField: string.Equals(Answer(answers, ModeChoice), BackingFieldMode, StringComparison.OrdinalIgnoreCase)
+            ? Answer(answers, BackingFieldChoice) is { Length: > 0 } typed && typed.Trim() is { Length: > 0 } trimmed ? trimmed : DefaultBackingField(field)
+            : null,
+        ReadOnly: bool.TryParse(Answer(answers, ReadOnlyChoice), out var readOnly) && readOnly,
+        InsideThroughProperties: string.Equals(Answer(answers, InsideChoice), PropertiesInside, StringComparison.OrdinalIgnoreCase));
+
+    // the field named at a position of a document, and how it is encapsulated in its own module with the answers, or why it is not.
     private async Task<(Planned? Planned, RenameWorkspace.ProjectPart? Part, (EncapsulationRefusal Refusal, string Field)? Refusal)> PlannedAsync(
-        Uri documentUri, SourcePosition position, CancellationToken token)
+        Uri documentUri, SourcePosition position, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
     {
         var none = (new EncapsulationRefusal(EncapsulationRefusalKind.NotAField), string.Empty);
         if (await rename.ComposeAsync(token) is not { } workspace
@@ -133,7 +286,7 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             return (null, null, none);
         }
 
-        var (encapsulation, refusal) = EncapsulateField.Plan(part.Context, module.Module, module.Parse, field);
+        var (encapsulation, refusal) = EncapsulateField.Plan(part.Context, module.Module, module.Parse, field, OptionsOf(answers, field.Name));
         return encapsulation is null ? (null, part, (refusal!, field.Name)) : (new Planned(encapsulation, module), part, null);
     }
 
