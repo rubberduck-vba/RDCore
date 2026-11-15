@@ -413,6 +413,16 @@ A `Type` or an `Enum` is renamed where its name means it: its declaration, its `
 
 Where it qualifies a member of the `Enum`, the new name must mean no value, or the member would be read from that value.
 
+A standard or class module is renamed where its name means it, the same way, and also:
+
+- in its `VB_Name` attribute (**MS-VBAL §4.2**), where a rename can start too;
+- in the `Implements` directives of the classes that implement it (**MS-VBAL §5.2.4.2**);
+- in the procedures that implement its members, whose names start with its name (`IShape_Draw`, **MS-VBAL §5.3.1.9**). Only that part is renamed, where each is declared and called.
+
+The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, or of a project (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
+
+The module's file is renamed with it when the file has the module's name (`Helpers.bas`), after its text is edited (**LSP 3.17** `RenameFile`), and only when no file of the new name exists there already. A client that does not rename files (`workspace.workspaceEdit.resourceOperations`) is sent the rest of the edit. The module is named by its `VB_Name` attribute, so its file keeps its old name. A client that renames the file says so (`workspace/didRenameFiles`), and the server writes the project file.
+
 A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A string left as it is names nothing the call can find, and the call fails only when the code runs.
 
 A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's name is renamed too, when the symbol is a member of a class that code outside the class can call (not `Private`). Which member the access calls is only known when the code runs (**MS-VBAL §5.6.12**), so the user confirms these edits as well. What is known of the classes the object may hold decides which accesses are proposed (`PossibleClasses`):
@@ -438,7 +448,8 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The symbol would be nearer, or as near, than what the new name means where the code writes it already|The code would refer to the symbol instead.|
 |What a name written as the symbol's refers to is not known|The rename could miss it.|
 |The new name is one that MS-VBAL §5.2.3.3 or §5.2.3.4 does not allow for a `Type` or an `Enum`|Two types, or a type and a module, would have one name.|
-|The symbol is a module or a class|A module is not renamed.|
+|The symbol is a module, and the new name is one MS-VBAL §4.2 does not allow: longer than 31 characters, or the name of another module, a `Public` type or a project|Two modules, or a module and a type, would have one name.|
+|The symbol is a form or another module with a designer, a document module, a module whose source has no `VB_Name`, or a project|What else names it (its designer, its host, its file) would not be renamed with it.|
 |The symbol is an event, a `WithEvents` variable, a form's control, or a member of a class another implements|What is named after it would not be renamed with it.|
 |The symbol is a procedure of a class module with an underscore in its name|It is named after the event it handles or the member it implements.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|

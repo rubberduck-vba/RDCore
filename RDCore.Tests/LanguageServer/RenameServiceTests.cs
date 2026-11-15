@@ -137,4 +137,20 @@ public sealed class RenameServiceTests
             CultureInfo.CurrentUICulture = culture;
         }
     }
+
+    [TestMethod]
+    public async Task AModuleNamedLikeItsFile_IsRenamedWithItsFile_AfterItsTextIsEdited()
+    {
+        // the VB_Name of Helpers.bas, renamed from its own attribute.
+        var answer = await Sut().RenameAsync(Document("Helpers.bas"), new Position(0, 22), "Tools", CancellationToken.None);
+
+        Assert.IsNotNull(answer.Value, answer.Refusal);
+        var changes = answer.Value.DocumentChanges!.ToList();
+        var helpers = changes.Single(change => change.IsTextDocumentEdit).TextDocumentEdit!;
+        Assert.AreEqual(Document("Helpers.bas").AbsoluteUri, helpers.TextDocument.Uri.ToUri().AbsoluteUri);
+        Assert.AreEqual(new Range(0, 21, 0, 28), helpers.Edits.Single().Range);
+        Assert.IsTrue(changes[^1].IsRenameFile, "the file is renamed last, once the edits of its text are made");
+        Assert.AreEqual(Document("Tools.bas").AbsoluteUri, changes[^1].RenameFile!.NewUri.ToUri().AbsoluteUri);
+        Assert.AreEqual(true, changes[^1].RenameFile!.Options?.IgnoreIfExists, "a file of that name is left as it is");
+    }
 }

@@ -68,6 +68,12 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
             }
         }
 
+        // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit.
+        if (!TakesFileRenames(_client) && edit.DocumentChanges is { } documentChanges && documentChanges.Any(change => change.IsRenameFile))
+        {
+            edit = edit with { DocumentChanges = new Container<WorkspaceEditDocumentChange>(documentChanges.Where(change => !change.IsRenameFile)) };
+        }
+
         // an edit the client can't apply is refused as any other rename is, with why: one it would apply none of would say nothing.
         try
         {
@@ -78,6 +84,10 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
             throw new RpcErrorException(RenameAnswer<WorkspaceEdit>.RequestFailedCode, error: null!, refused.Message);
         }
     }
+
+    private static bool TakesFileRenames(ClientCapabilities? client)
+        => client.TakesDocumentChanges()
+            && client?.Workspace?.WorkspaceEdit is { IsSupported: true, Value.ResourceOperations: { } kinds } && kinds.Contains(ResourceOperationKind.Rename);
 
     // whether the client said it runs with no user to ask (the platform handshake).
     private bool IsUnattended()

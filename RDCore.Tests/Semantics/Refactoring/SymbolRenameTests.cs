@@ -520,12 +520,119 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
-    public void AClass_IsNotRenamedYet()
+    [DataRow("Main", "Tools.Go", "Tools", DisplayName = "where it qualifies a member")]
+    [DataRow("Tools", "VB_Name", "Tools", DisplayName = "in its VB_Name")]
+    public void AStandardModule_IsRenamedInItsVBName_AndWhereItQualifiesItsMembers(string module, string line, string text)
+    {
+        // MS-VBAL §4.2
+        var context = Compose(
+            ("Tools", Module("Tools", "Public Sub Go()", "End Sub")),
+            ("Main", Module("Main", "Public Sub One()", "    Tools.Go", "    Call Tools.Go", "End Sub")));
+
+        var plan = Rename(context, module, line, text, "Helpers");
+
+        Assert.AreEqual(Module("Helpers", "Public Sub Go()", "End Sub"), Renamed(context, plan, "Tools"));
+        Assert.AreEqual(Module("Main", "Public Sub One()", "    Helpers.Go", "    Call Helpers.Go", "End Sub"), Renamed(context, plan, "Main"));
+        Assert.AreEqual(ModuleUri("Tools").AbsoluteUri, plan.Module?.AbsoluteUri, "the module whose file is renamed with it");
+    }
+
+    [TestMethod]
+    public void AClass_IsRenamedWhereItsNameIsWritten()
     {
         var context = Compose(("Class1", Class1), ("Main", Module("Main", "Public Sub One()", "    Dim c As Class1", "    Set c = New Class1", "End Sub")));
 
-        Assert.AreEqual(RenameRefusalKind.Type, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Set c", "Class1")).Refusal?.Kind);
-        Assert.AreEqual(RenameRefusalKind.Type, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Dim c", "Class1")).Refusal?.Kind);
+        var plan = Rename(context, "Main", "Set c", "Class1", "Account");
+
+        Assert.AreEqual(Class1.Replace("\"Class1\"", "\"Account\""), Renamed(context, plan, "Class1"));
+        Assert.AreEqual(Module("Main", "Public Sub One()", "    Dim c As Account", "    Set c = New Account", "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    private static readonly string Shape = Lines(
+        "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"IShape\"",
+        "Public Sub Draw()", "End Sub",
+        "Public Property Get Area() As Double", "End Property");
+
+    private static readonly string Square = Lines(
+        "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Square\"",
+        "Implements IShape",
+        "Private Sub IShape_Draw()", "End Sub",
+        "Private Property Get IShape_Area() As Double", "    IShape_Area = 1", "End Property",
+        "Public Sub Show()", "    IShape_Draw", "End Sub");
+
+    [TestMethod]
+    public void AClass_IsRenamedWhereItsNameIsWritten_WithTheProceduresThatImplementIt()
+    {
+        // MS-VBAL §5.2.4.2, §5.3.1.9: an implementation is named after the interface.
+        var context = Compose(
+            ("IShape", Shape),
+            ("Square", Square),
+            ("Main", Module("Main",
+                "Public Sub One()",
+                "    Dim s As IShape",
+                "    Set s = New Square",
+                "    If TypeOf s Is IShape Then s.Draw",
+                "End Sub")));
+
+        var plan = Rename(context, "Main", "Dim s As IShape", "IShape", "IFigure");
+
+        Assert.AreEqual(Shape.Replace("\"IShape\"", "\"IFigure\""), Renamed(context, plan, "IShape"));
+        Assert.AreEqual(Square.Replace("IShape", "IFigure"), Renamed(context, plan, "Square"));
+        Assert.AreEqual(Module("Main",
+            "Public Sub One()",
+            "    Dim s As IFigure",
+            "    Set s = New Square",
+            "    If TypeOf s Is IFigure Then s.Draw",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    [DataRow("Main", DisplayName = "another module of the project")]
+    [DataRow("Size", DisplayName = "a Public Enum of the project")]
+    public void AModule_IsNotRenamedToTheNameOfAnotherModule_OrOfAPublicType(string newName)
+    {
+        // MS-VBAL §4.2, §5.2.3.4
+        var context = Compose(
+            ("Tools", Module("Tools", "Public Sub Go()", "End Sub")),
+            ("Main", Module("Main", "Public Enum Size", "    Small", "End Enum", "Public Sub One()", "    Tools.Go", "End Sub")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Tools.Go", "Tools"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, newName).Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void AModule_IsNotRenamedToANameLongerThanAModuleNameCanBe()
+    {
+        // MS-VBAL §4.2: at most 31 characters.
+        var context = Compose(("Tools", Module("Tools", "Public Sub Go()", "End Sub")), ("Main", Module("Main", "Public Sub One()", "    Tools.Go", "End Sub")));
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Tools.Go", "Tools"));
+
+        Assert.IsTrue(SymbolRename.Plan(context, preparation.Target!, new string('A', 31)).IsValid);
+        Assert.AreEqual(RenameRefusalKind.ModuleNameTooLong, SymbolRename.Plan(context, preparation.Target!, new string('A', 32)).Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void AnImplementationThatWouldTakeTheNameOfAnotherMember_RefusesTheRename()
+    {
+        var context = Compose(
+            ("IShape", Shape),
+            ("Square", Square.Replace("Public Sub Show()", "Public Sub IFigure_Draw()\r\nEnd Sub\r\nPublic Sub Show()")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Square"), At(context, "Square", "Implements IShape", "IShape"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, "IFigure").Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void AForm_IsNotRenamedYet()
+    {
+        // the designer's text names the form too (Begin ... Dialog).
+        var form = Lines(
+            "VERSION 5.00", "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog", "   Caption = \"Dialog\"", "End",
+            "Attribute VB_Name = \"Dialog\"", "Attribute VB_PredeclaredId = True", "Public Sub Go()", "End Sub");
+        var context = Compose(("Dialog", form), ("Main", Module("Main", "Public Sub One()", "    Dialog.Go", "End Sub")));
+
+        Assert.AreEqual(RenameRefusalKind.Type, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Dialog.Go", "Dialog")).Refusal?.Kind);
     }
 
     [TestMethod]

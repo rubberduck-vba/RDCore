@@ -317,12 +317,39 @@ internal sealed class RenameWorkspace
             }
         }
 
+        // a module's file named after it is renamed with it, after its text is edited (LSP 3.17 RenameFile); the module is named by its VB_Name, so a client
+        // that does not rename files is sent the rest of the edit (RenameHandler).
+        if (plan.Module is { } renamedModule && part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == renamedModule.AbsoluteUri) is { } file
+            && FileRenameOf(file, target.Name, newName) is { } renameFile)
+        {
+            changes = changes.Append(new WorkspaceEditDocumentChange(renameFile));
+        }
+
         var workspaceEdit = new WorkspaceEdit
         {
             DocumentChanges = new Container<WorkspaceEditDocumentChange>(changes),
             ChangeAnnotations = annotations.Count == 0 ? null : annotations,
         };
         return new(workspaceEdit, null, questions.Count == 0 ? null : questions);
+    }
+
+    // the file of a module, when its name is the module's, renamed to the new name; a file of that name that is there already is left as it is, and so is the
+    // module's file.
+    private static RenameFile? FileRenameOf(DocumentModule module, string oldName, string newName)
+    {
+        var path = module.Document.Id.Uri.GetFileSystemPath();
+        if (!string.Equals(Path.GetFileNameWithoutExtension(path), oldName, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var renamed = Path.Combine(Path.GetDirectoryName(path) ?? string.Empty, newName + Path.GetExtension(path));
+        return new RenameFile
+        {
+            OldUri = module.Document.Id.Uri,
+            NewUri = DocumentUri.FromFileSystemPath(renamed),
+            Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
+        };
     }
 
     private static ChangeAnnotationIdentifier? AnnotationOf(RenameEdit edit)

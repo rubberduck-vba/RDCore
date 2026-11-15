@@ -16,6 +16,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Resources;
+using System.Text.RegularExpressions;
 using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
@@ -40,6 +41,9 @@ public enum RenameRefusalKind
     ExternalProcedure,
 
     InterfaceMember,
+
+    // MS-VBAL §4.2
+    ModuleNameTooLong,
 
     Empty,
 
@@ -78,6 +82,9 @@ public sealed record class RenamePreparation(RenameTarget? Target, RenameRefusal
 public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRefusal? Refusal)
 {
     public bool IsValid => Refusal is null;
+
+    // a module that is renamed, whose file is renamed with it when the file is named after it.
+    public Uri? Module { get; init; }
 }
 
 // a name whose meaning cannot be told is refused, never guessed at; late-bound and in-string edits are flagged for the user to confirm, since only the running
@@ -96,6 +103,13 @@ public static class SymbolRename
         if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
         {
             return new(null, new RenameRefusal(RenameRefusalKind.NoName, string.Empty));
+        }
+
+        // the module's own name, in its VB_Name attribute.
+        if (NameOccurrences.SymbolOf(context, new SemanticId(module)) is VBModuleSymbol self
+            && VbNameRange(context, self) is { } attribute && Contains(attribute.Range, position))
+        {
+            return PrepareType(context, module, attribute.Range, self);
         }
 
         if (NameOccurrences.NameAt(source, position) is not { } name)
@@ -199,6 +213,11 @@ public static class SymbolRename
 
         var targets = target.Symbols.ToHashSet();
         var symbols = target.Symbols.Select(id => NameOccurrences.SymbolOf(context, id)).OfType<Symbol>().ToList();
+        if (symbols is [VBModuleSymbol module])
+        {
+            return PlanModule(context, module, newName);
+        }
+
         if (symbols is [var type] && IsType(type))
         {
             return PlanType(context, type, newName);
@@ -257,12 +276,10 @@ public static class SymbolRename
     // a type is named where it is declared, in an As clause, and where it qualifies a member of an Enum (MS-VBAL §5.6.16.7): its name is not a value's,
     // and is renamed where it means the type.
     private static RenamePlan PlanType(RenameContext context, Symbol type, string newName)
-    {
-        if (TypeConflictOf(context, type, newName) is { } taken)
-        {
-            return Refused(taken);
-        }
+        => TypeConflictOf(context, type, newName) is { } taken ? Refused(taken) : PlanTypeNames(context, type, newName);
 
+    private static RenamePlan PlanTypeNames(RenameContext context, Symbol type, string newName)
+    {
         // a name written as the type's whose meaning is not known, where it could be the type: the rename could miss it.
         if (NameOccurrences.Find(context, type.Name, context.Modules).Unknown
             .FirstOrDefault(unknown => unknown.Kind is OccurrenceKind.Name && unknown.Scope is { } scope && RenameBinding.IsTheType(context, type, scope.Uri))
@@ -383,6 +400,201 @@ public static class SymbolRename
 
     private static string ProjectOf(Uri module) => new UriBuilder(module) { Fragment = string.Empty }.Uri.AbsoluteUri;
 
+    // MS-VBAL §4.2
+    private const int MaxModuleName = 31;
+
+    // a module is named by its VB_Name attribute (MS-VBAL §4.2), where its name means it, in the Implements directives of the classes that implement it, and in
+    // the procedures that implement its members, which are named after it (MS-VBAL §5.3.1.9): only the part before the underscore is renamed.
+    private static RenamePlan PlanModule(RenameContext context, VBModuleSymbol module, string newName)
+    {
+        if (newName.Length > MaxModuleName)
+        {
+            return Refused(new(RenameRefusalKind.ModuleNameTooLong, newName, MaxModuleName.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (ModuleConflictOf(context, module, newName) is { } taken)
+        {
+            return Refused(taken);
+        }
+
+        var named = PlanTypeNames(context, module, newName);
+        if (!named.IsValid)
+        {
+            return named;
+        }
+
+        // where the code writes the new name as a value already (a variable, a procedure), the module must not become what it means.
+        foreach (var occurrence in NameOccurrences.Find(context, newName, context.Modules).Occurrences
+            .Where(occurrence => occurrence.Kind is OccurrenceKind.Name && occurrence.Binding is not null))
+        {
+            var nearest = RenameBinding.ChainIndex(occurrence.Scope, module);
+            if (nearest < int.MaxValue && NameOccurrences.SymbolOf(context, occurrence.Binding!.Value) is { } meant
+                && nearest <= RenameBinding.ChainIndex(occurrence.Scope, meant))
+            {
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(meant), occurrence.Module, occurrence.Range.Start));
+            }
+        }
+
+        var edits = named.Edits.ToList();
+        if (VbNameRange(context, module) is { } attribute)
+        {
+            edits.Add(new RenameEdit(attribute.Module, attribute.Range, newName));
+        }
+
+        foreach (var (at, range) in ImplementsNames(context, module))
+        {
+            edits.Add(new RenameEdit(at, range, newName));
+        }
+
+        if (module is VBClassModuleSymbol implemented)
+        {
+            foreach (var implementer in context.Modules
+                .Select(candidate => NameOccurrences.SymbolOf(context, new SemanticId(candidate.Module)))
+                .OfType<VBClassModuleSymbol>()
+                .Where(candidate => candidate.ImplementedInterfaces.Any(each => each.SemanticId == implemented.SemanticId)))
+            {
+                if (ImplementationEdits(context, implemented, implementer, newName, edits) is { } refusal)
+                {
+                    return Refused(refusal);
+                }
+            }
+        }
+
+        return new([.. edits
+            .DistinctBy(edit => (edit.Module.AbsoluteUri, edit.Range))
+            .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
+            .ThenBy(edit => edit.Range.Start)], null) { Module = module.Uri };
+    }
+
+    // the procedures of a class that implement the members of the renamed one, named Old_Member: renamed New_Member, where they are declared and called.
+    private static RenameRefusal? ImplementationEdits(
+        RenameContext context, VBClassModuleSymbol implemented, VBClassModuleSymbol implementer, string newName, List<RenameEdit> edits)
+    {
+        var at = NameOccurrences.ModuleOf(implementer.Uri);
+        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source
+            || !context.ScopeTree.TryGetScope(at, out var members))
+        {
+            return null;
+        }
+
+        var prefix = implemented.Name.Length;
+        foreach (var implementation in implemented.DefaultInterfaceMembers
+            .Select(member => implementer.FindImplementation(implemented, member))
+            .OfType<VBTypeMemberSymbol>()
+            .Where(implementation => implementation.Name.Length > prefix && implementation.Name[prefix] == '_'
+                && implementation.Name.StartsWith(implemented.Name, StringComparison.OrdinalIgnoreCase))
+            .DistinctBy(implementation => implementation.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var accessors = RenameBinding.DefinedTogether(context, implementation).Select(accessor => accessor.SemanticId).ToHashSet();
+            var renamed = newName + implementation.Name[prefix..];
+            if (members.DeclaredAs(renamed).FirstOrDefault(declared => !accessors.Contains(declared.SemanticId)) is { } taken)
+            {
+                return ConflictWith(renamed, taken);
+            }
+
+            foreach (var occurrence in NameOccurrences.Find(context, implementation.Name, [source]).Occurrences
+                .Where(occurrence => occurrence.Binding is { } binding && accessors.Contains(binding)))
+            {
+                var start = occurrence.Range.Start;
+                edits.Add(new RenameEdit(occurrence.Module, new SourceRange(start, new SourcePosition(start.Line, start.Character + prefix)), newName));
+            }
+        }
+
+        return null;
+    }
+
+    // MS-VBAL §4.2, §5.2.3.3, §5.2.3.4: a module is named as no other module of its project, no project it is in or references, and no Public Type or Enum of
+    // its project.
+    private static RenameRefusal? ModuleConflictOf(RenameContext context, VBModuleSymbol module, string newName)
+    {
+        var declaring = NameOccurrences.ModuleOf(module.Uri);
+        var project = ProjectOf(declaring);
+        foreach (var other in context.Modules.Where(candidate => ProjectOf(candidate.Module) == project && candidate.Module.AbsoluteUri != declaring.AbsoluteUri))
+        {
+            if (string.Equals(SymbolUri.ModuleNameOf(other.Module), newName, StringComparison.OrdinalIgnoreCase))
+            {
+                return new(RenameRefusalKind.Conflict, newName, newName, other.Module);
+            }
+
+            if (context.ScopeTree.TryGetScope(other.Module, out var scope)
+                && scope.DeclaredAs(newName).FirstOrDefault(declared => declared is VBTypeMemberSymbol { AccessModifier: not AccessModifier.Private }
+                    and (VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol)) is { } type)
+            {
+                return ConflictWith(newName, type);
+            }
+        }
+
+        var meant = context.ScopeTree.TryGetScope(declaring, out var own) ? context.Resolver.ResolveValue(newName, ScopeKind.Local, own.Uri).Symbol : null;
+        if (meant is VBProjectSymbol
+            || NameOccurrences.SymbolOf(context, new SemanticId(module.ParentUri)) is VBProjectSymbol { Name: var name } && string.Equals(name, newName, StringComparison.OrdinalIgnoreCase))
+        {
+            return new(RenameRefusalKind.Conflict, newName, newName, declaring);
+        }
+
+        return null;
+    }
+
+    // where a module's VB_Name attribute writes its name, between the quotes.
+    private static (Uri Module, SourceRange Range)? VbNameRange(RenameContext context, Symbol module)
+    {
+        var at = NameOccurrences.ModuleOf(module.Uri);
+        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
+        {
+            return null;
+        }
+
+        var lines = source.Source.Split('\n');
+        for (var line = 0; line < lines.Length; line++)
+        {
+            if (VbName.Match(lines[line]) is { Success: true } match)
+            {
+                var name = match.Groups["name"];
+                return (source.Module, new SourceRange(line, name.Index, line, name.Index + name.Length));
+            }
+        }
+
+        return null;
+    }
+
+    private static readonly Regex VbName = new(@"^\s*Attribute\s+VB_Name\s*=\s*""(?<name>[^""]*)""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    // a module whose source names it (VB_Name): one that does not is named by its file.
+    private static bool NamesItself(RenameContext context, Symbol module) => VbNameRange(context, module) is not null;
+
+    // a form, a user control, a designer: the designer's text names the module too (Begin VB.Form Form1), which is not renamed yet.
+    private static bool IsDesigned(RenameContext context, Symbol module)
+    {
+        var at = NameOccurrences.ModuleOf(module.Uri);
+        return context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is { } source
+            && source.Source.Split('\n').TakeWhile(line => !VbName.IsMatch(line)).Any(line => Designer.IsMatch(line));
+    }
+
+    private static readonly Regex Designer = new(@"^Begin\s+\S+\s+\S+", RegexOptions.CultureInvariant);
+
+    // the name an Implements directive writes, where it is the module's.
+    private static IEnumerable<(Uri Module, SourceRange Range)> ImplementsNames(RenameContext context, Symbol module)
+    {
+        foreach (var source in context.Modules)
+        {
+            foreach (var directive in source.Syntax.Children.OfType<ImplementsDirectiveNode>())
+            {
+                var name = directive.NameExpression switch
+                {
+                    SimpleNameExpressionNode simple => simple,
+                    MemberAccessExpressionNode access => access.Member,
+                    _ => null,
+                };
+
+                if (name is not null && string.Equals(name.IdentifierName, module.Name, StringComparison.OrdinalIgnoreCase)
+                    && RenameBinding.IsTheType(context, module, NameOccurrences.ScopeOf(context, source, directive.Location.Range.Start).Uri))
+                {
+                    var start = name.Location.Range.Start;
+                    yield return (source.Module, new SourceRange(start, new SourcePosition(start.Line, start.Character + name.IdentifierName.Length)));
+                }
+            }
+        }
+    }
+
     // MS-VBAL §5.4.1.1: a label is unique in its procedure, and is never named Randomize.
     private static RenamePlan PlanLabel(RenameContext context, RenameTarget target, string newName)
     {
@@ -417,7 +629,9 @@ public static class SymbolRename
         var parent = NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri));
         switch (symbol)
         {
-            case VBModuleSymbol or VBProjectSymbol:
+            case VBProjectSymbol:
+            case VBClassModuleSymbol { IsDocument: true }:
+            case VBModuleSymbol when !NamesItself(context, symbol) || IsDesigned(context, symbol):
                 return new(RenameRefusalKind.Type, symbol.Name);
             case VBEventMemberSymbol:
                 return new(RenameRefusalKind.Event, symbol.Name);
