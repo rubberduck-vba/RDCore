@@ -572,6 +572,38 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
+    // a client sets a breakpoint while the program runs, and is answered then: the breakpoint is the module's from then on, and not from the program's next stop.
+    [TestMethod]
+    public async Task ABreakpoint_SetWhileTheProgramRuns_IsAnsweredAtOnce_AndIsTheModulesFromThen()
+    {
+        await using var session = new Session();
+        var running = new TaskCompletionSource<ExecuteResult>();
+        var started = new TaskCompletionSource();
+        session.Workspace.StartAsync("Prog", "Main", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            started.TrySetResult();
+            return running.Task;
+        });
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+        await started.Task.WaitAsync(Patience);
+
+        var response = await session.SendAsync(new SetBreakpointsArguments
+        {
+            Source = new Source { Path = Path },
+            Breakpoints = new Container<SourceBreakpoint>(new SourceBreakpoint { Line = 3 }),
+        });
+
+        Assert.IsFalse(running.Task.IsCompleted, "the program still runs");
+        Assert.IsTrue(response.Breakpoints.Single().Verified);
+        _ = await session.Debugging.Received(1).SetBreakpointsAsync("Prog",
+            Arg.Is<IReadOnlyList<SessionBreakpointLine>>(lines => lines.Single().Line == 2), Arg.Any<CancellationToken>());
+
+        running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
+
     [TestMethod]
     public async Task TheProgram_IsNotStartedBeforeALaunch()
     {
