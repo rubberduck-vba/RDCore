@@ -451,7 +451,7 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
     private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));
 
     // the other folders of the workspace that are project folders, in the order the client gave them: whether a folder is one depends on what the projects before it list.
-    // A folder that has its project already keeps it; one that was a folder of the workspace before (known) was said to be no project then.
+    // a folder that has its project already keeps it; one that was a folder of the workspace before (known) was said to be no project then.
     private async Task LoadOtherProjectsAsync(IReadOnlyList<string> known)
     {
         var primary = _projects.Projects[0].Root;

@@ -68,7 +68,7 @@ internal interface IWorkspaceProjects
 
     /// <summary>
     /// Takes in folders the client added to the workspace once it was initialized (<strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>): they
-    /// are folders of the workspace after those it has, and whether each is a project's is told as it is of those (<see cref="Roles"/>).
+    /// are folders of the workspace after those it has, and whether each is a project's folder is told by the same rule as for those (<see cref="Roles"/>).
     /// </summary>
     /// <param name="folders">The folders added; one the workspace has already stays where it is.</param>
     /// <param name="foldersWithProject">Those of them that hold a <c>.rdproj</c>.</param>
