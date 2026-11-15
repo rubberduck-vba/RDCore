@@ -17,8 +17,9 @@ namespace RDCore.Runtime.StdLib;
 
 /// <inheritdoc cref="IStdGlobalClass"/>
 /// <remarks>
-/// <c>UserForms</c> is the session's one collection of its loaded forms. <c>Load</c> and <c>Unload</c> are answered by the form host's provider when a program runs,
-/// ahead of this one: they are reached here only in an analysis, which makes no call the platform does not run itself, and has no form to load.
+/// <c>UserForms</c> is the session's one collection of its loaded forms. <c>Load</c> and <c>Unload</c>, of a form or of an element of a control array, are answered
+/// by the form host's provider when a program runs, ahead of this one: they are reached here only in an analysis, which makes no call the platform does not run
+/// itself, and has no form to load.
 /// </remarks>
 /// <param name="session">The session whose forms these are.</param>
 internal sealed class StdGlobal(IRuntimeSession session) : IStdGlobalClass
@@ -28,6 +29,12 @@ internal sealed class StdGlobal(IRuntimeSession session) : IStdGlobalClass
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Unload(VBObjectValue @object) => RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+
+    /// <inheritdoc/>
+    public RuntimeSemanticsEvaluationResult LoadElement(VBObjectValue array, VBIntegerValue index) => RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+
+    /// <inheritdoc/>
+    public RuntimeSemanticsEvaluationResult UnloadElement(VBObjectValue array, VBIntegerValue index) => RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBObjectValue> UserForms()

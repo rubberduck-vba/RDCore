@@ -571,7 +571,7 @@ public sealed partial class RuntimeExpressionEvaluator
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
         => IsWide(call) ? EvaluateStored(session, call, context)
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
-            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
+            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, call.Call.Arguments)
                 ? OfResultType(call, AbsOfTheLeast(session, call, context,
                     InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments, call: call.Call)))
                 : EvaluateLate(session, call.Expression, context);

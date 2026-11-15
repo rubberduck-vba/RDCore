@@ -70,6 +70,10 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     private static readonly string LoadKey = GlobalKey(nameof(IStdGlobalClass.Load));
     private static readonly string UnloadKey = GlobalKey(nameof(IStdGlobalClass.Unload));
 
+    // what Load and Unload of an element of a Visual Basic 6.0 control array call, with the array and the index: the array's server loads and unloads its elements.
+    private static readonly string LoadElementKey = GlobalKey(nameof(IStdGlobalClass.LoadElement));
+    private static readonly string UnloadElementKey = GlobalKey(nameof(IStdGlobalClass.UnloadElement));
+
     private static string GlobalKey(string member) => StdLibSymbolReader.ExternalTargetOf(typeof(IStdGlobalClass), typeof(IStdGlobalClass).GetMethod(member)!);
 
     // the VB library's global Forms, a Visual Basic 6.0 program's loaded forms: the session's one collection of them, answered here as UserForms is by the
@@ -103,7 +107,8 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     public bool CanDispatch(ExternalCallRequest request)
         => FormObject.IsDeclaredBy(request.Member)
         || request.Member.GetProperty(SymbolProperties.ExternalTarget) is { } key
-            && (key == LoadKey || key == UnloadKey || key == FormsKey || key == RemoveKey && DesignedNamesOf(request) is not null);
+            && (key == LoadKey || key == UnloadKey || key == LoadElementKey || key == UnloadElementKey || key == FormsKey
+                || key == RemoveKey && DesignedNamesOf(request) is not null);
 
     // the names a hosted form's designer declares, when the receiver of a request is that form's Controls collection.
     private IReadOnlySet<string>? DesignedNamesOf(ExternalCallRequest request)
@@ -119,6 +124,11 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         if (key == LoadKey || key == UnloadKey)
         {
             return LoadOrUnload(request, resolver, unload: key == UnloadKey);
+        }
+
+        if (key == LoadElementKey || key == UnloadElementKey)
+        {
+            return LoadOrUnloadElement(request, resolver, unload: key == UnloadElementKey);
         }
 
         if (key == RemoveKey)
@@ -260,15 +270,40 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
-    // the instance of a form's class the argument is, if it is one.
-    private VBRuntimeObjectId? FormArgument(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
+    // Load and Unload of an element of a control array, given the array and the index: its server loads or unloads the element, and raises what VB6 raises. An
+    // object that is no control array of a form's server has no element to load (361).
+    private RuntimeSemanticsEvaluationResult LoadOrUnloadElement(ExternalCallRequest request, IRuntimeSymbolResolver resolver, bool unload)
     {
-        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        if (request.Arguments is not [var array, var index] || ObjectArgument(array, resolver) is not { } identity
+            || !session.ExternalObjects.TryGet(identity, out var owner, out var handle) || !ReferenceEquals(owner, outside.Automation))
         {
-            argument = cell.Value;
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.CantLoadOrUnloadThisObject, request.CallSite,
+                $"{request.Describe()}: the object is no control array."));
         }
 
-        // a Variant argument is the form its object is, and a Variant that holds no object (Missing, for an omitted owner form) is not a form.
+        try
+        {
+            _ = outside.Automation.Invoke(handle, unload ? FormControlArrayMembers.Unload : FormControlArrayMembers.Load, AutomationInvocation.Method,
+                [Dereferenced(index, resolver).BoxedValue], [false], session.Environment.Culture);
+            return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        }
+        catch (AutomationException failure)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe()));
+        }
+    }
+
+    // the instance of a form's class the argument is, if it is one.
+    private VBRuntimeObjectId? FormArgument(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
+        => ObjectArgument(argument, resolver) is { } identity && session.Symbols.TryGetInstance(identity, out var live) && FormObject.IsFormClass(live.ClassModule)
+            ? identity
+            : null;
+
+    // the object an argument is, if it is one: a Variant argument is the object it holds, and a Variant that holds no object (Missing, for an omitted owner form) is
+    // none.
+    private static VBRuntimeObjectId? ObjectArgument(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
+    {
+        argument = Dereferenced(argument, resolver);
         if (argument is VBRuntimeVariantValue { WrappedValue: var held })
         {
             if (held is not VBObjectValue)
@@ -279,10 +314,18 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             argument = held.RuntimeValue;
         }
 
-        return VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBObjectValue { } value && !value.IsNothing()
-            && session.Symbols.TryGetInstance(value.Value, out var live) && FormObject.IsFormClass(live.ClassModule)
-            ? value.Value
-            : null;
+        return VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBObjectValue { } value && !value.IsNothing() ? value.Value : null;
+    }
+
+    // the value an argument is: the variable's, for one passed by reference.
+    private static IRuntimeValue Dereferenced(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
+    {
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        {
+            argument = cell.Value;
+        }
+
+        return argument;
     }
 
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
