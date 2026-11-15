@@ -68,6 +68,15 @@ internal interface IDocumentDiagnosticsService
     /// <param name="progress">Where the steps of the analysis are reported: the parse, the semantic model, and each provider as it answers.</param>
     /// <returns>The diagnostics, and how many providers answered.</returns>
     Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null);
+
+    /// <summary>
+    /// What the environment host's static pass found out about the module a document is (<see cref="AnalysisPhase.Static"/>), which does not wait for its code
+    /// to be evaluated.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The module's semantics; <see langword="null"/> when the host does not have the document as a module, or could not answer.</returns>
+    Task<ModuleSemanticsDto?> SemanticsAsync(Uri documentUri, CancellationToken token);
 }
 
 /// <summary>
@@ -157,6 +166,18 @@ internal sealed class DocumentDiagnosticsService(
         return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress) ?? throw IncomingDocumentChanges.ContentModified();
     }
 
+    public async Task<ModuleSemanticsDto?> SemanticsAsync(Uri documentUri, CancellationToken token)
+    {
+        if (Resolve(documentUri) is not { } document || !IsHostModule(document))
+        {
+            return null;
+        }
+
+        var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
+        var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
+        return await SemanticsOfAsync(moduleName, SemanticsRootOf(document, isHostModule: true) is { } root ? SymbolUri.Module(root, moduleName) : null, AnalysisPhase.Static, token);
+    }
+
     public async Task<DocumentDiagnosticsResult> GetPhaseAsync(Uri documentUri, AnalysisPhase phase, CancellationToken token)
     {
         var document = Resolve(documentUri);
@@ -182,7 +203,7 @@ internal sealed class DocumentDiagnosticsService(
 
         // the edits a program that waits does not have are the server's own finding, which no extension is needed for; they are told once, by the static phase,
         // which a client pushed to has published before the runtime phase adds to it.
-        var isHostModule = document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)));
+        var isHostModule = IsHostModule(document);
         var tellsEdits = isHostModule && phase.HasFlag(AnalysisPhase.Static);
 
         var providers = DiagnosticsProviders();
@@ -198,10 +219,13 @@ internal sealed class DocumentDiagnosticsService(
         // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not. A document
         // that is no file is no module the host has - one of the workspace may have its name - and is analyzed for its syntax alone.
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
-        // the host runs the primary project only: a module of another project has the static diagnostics, and none of what running it would find out - and its
-        // name is never asked for, since the host may hold a module by that name that is another. A document that is no file is the client's alone, and none of the host's.
+        // the host runs the primary project, and analyzes every other project in a session of its own: a module is asked for by its address, under the root of
+        // the project that loaded it first, which is the primary project for a file the primary project lists. A document that is not a file is the client's
+        // alone, and none of the host's.
         var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
-        var semantics = isHostModule ? await SemanticsOfAsync(moduleName, phase, token) : null;
+        var semantics = SemanticsRootOf(document, isHostModule) is { } root ? await SemanticsOfAsync(moduleName, SymbolUri.Module(root, moduleName), phase, token)
+            : isHostModule ? await SemanticsOfAsync(moduleName, null, phase, token)
+            : null;
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
 
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
@@ -223,6 +247,10 @@ internal sealed class DocumentDiagnosticsService(
     // redefinitions that would free what the program holds, and applies them when it is run again, so the code the evaluation would be of is neither the code
     // that runs nor the code that will. A pull answers without them, and a client that was told them is told again once the program goes on, ends or is reset
     // (IEditStatusMonitor.Changed).
+    // a module the host has: a file of the primary project, or any file of a workspace that has no root.
+    private bool IsHostModule(WorkspaceDocument document)
+        => document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)));
+
     private AnalysisPhase PhaseNow(AnalysisPhase phase) => editStatus?.Current.Suspended == true ? phase & ~AnalysisPhase.Runtime : phase;
 
     // RDC20001: each edit of the module the program that waits does not have, where the edited declaration is now - an edit of the module as a whole, or of a
@@ -261,9 +289,10 @@ internal sealed class DocumentDiagnosticsService(
         // the host holds one module by this name, which the workspace may be sending its own text of (the shell's scaffold of the program is one): what is asked
         // about is what was sent only if nothing else is sent until the answer is in, the evaluation of the code included.
         await using var hold = await symbols.HoldAsync(token);
+        Uri moduleUri;
         try
         {
-            await symbols.SyncModuleAsync(moduleName, parseResult, token);
+            moduleUri = await symbols.SyncModuleAsync(moduleName, parseResult, token);
             await symbols.LoadModuleCodeAsync(moduleName, parseResult, token);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -276,12 +305,32 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        return await SemanticsOfAsync(moduleName, phase, token);
+        return await SemanticsOfAsync(moduleName, moduleUri, phase, token);
+    }
+
+    // the root a document's module is addressed under in the host: the primary project's, for a module the host runs, and that of the project that loaded it
+    // first, for one the host analyzes apart; none for a server with no workspace, whose modules are asked for by their name, and for a project the host does
+    // not analyze.
+    private Uri? SemanticsRootOf(WorkspaceDocument document, bool isHostModule)
+    {
+        if (!document.IsFile || documents.WorkspaceRoot.Length == 0)
+        {
+            return null;
+        }
+
+        if (isHostModule)
+        {
+            return SymbolUri.Root(documents.WorkspaceRoot);
+        }
+
+        return document.WorkspaceRoot.Length > 0 && orchestration.RuntimeEnvironment?.PlatformInfo?.Provides<ProjectAnalysis>() == true
+            ? SymbolUri.Root(document.WorkspaceRoot)
+            : null;
     }
 
     // what the environment host's semantic analysis pass found out about the module, which is what an analyzer decides what to say of; nothing when the host
     // does not run the pass, has not loaded the module, or could not answer: a diagnostics extension still has the syntax tree to go on.
-    private async Task<ModuleSemanticsDto?> SemanticsOfAsync(string moduleName, AnalysisPhase phase, CancellationToken token)
+    private async Task<ModuleSemanticsDto?> SemanticsOfAsync(string moduleName, Uri? moduleUri, AnalysisPhase phase, CancellationToken token)
     {
         var host = orchestration.RuntimeEnvironment;
         if (host?.PlatformInfo?.Provides<SemanticAnalysis>() != true)
@@ -291,7 +340,8 @@ internal sealed class DocumentDiagnosticsService(
 
         try
         {
-            var result = await host.SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(new HostSemanticsParams { ModuleName = moduleName, Phase = phase }, token);
+            var result = await host.SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+                new HostSemanticsParams { ModuleName = moduleName, ModuleUri = moduleUri, Phase = phase }, token);
             return PlatformJson.Deserialize<SemanticsPayload>(result.Json).Modules.FirstOrDefault();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)

@@ -163,6 +163,11 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();
+        // what hover and the outline know, as data; and the tools an assistant calls, for a client that advertises them.
+        builder.WithHandler<Symbols.SemanticsDescribeHandler>();
+        builder.WithHandler<Symbols.SemanticsOutlineHandler>();
+        builder.WithHandler<Assistant.ToolsListHandler>();
+        builder.WithHandler<Assistant.ToolsCallHandler>();
 
         // the lifecycle of the documents a client has open.
         builder.WithHandler<DidOpenTextDocumentHandler>();
@@ -192,6 +197,9 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IRenameService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IExtractMethodService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IMoveMemberService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IEncapsulateFieldService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IImplementInterfaceService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
