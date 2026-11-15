@@ -445,6 +445,9 @@
   <data name="Repl_Suspended" xml:space="preserve">
     <value>PROGRAMME INTERROMPU : CONT, STEP, RUN OU NEW</value>
   </data>
+  <data name="Repl_Splash_Summary" xml:space="preserve">
+    <value>Affiche de nouveau l'écran de démarrage.</value>
+  </data>
   <data name="Repl_Stack_Summary" xml:space="preserve">
     <value>Affiche les procédures où se trouve le programme interrompu, de la plus interne à la plus externe.</value>
   </data>
