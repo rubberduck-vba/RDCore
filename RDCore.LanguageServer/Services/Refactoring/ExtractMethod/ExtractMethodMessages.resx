@@ -276,6 +276,9 @@
   <data name="ExtractMethodEdit_NotAccepted" xml:space="preserve">
     <value>The extraction would change what the code does, and the change was not accepted: {0}</value>
   </data>
+  <data name="ExtractMethodAction_NeedsAccepting" xml:space="preserve">
+    <value>This would change what the code does, and only an editor that can ask you to accept the change applies it: {0}</value>
+  </data>
   <data name="ExtractMethodVerification_Failed" xml:space="preserve">
     <value>The extraction was not made: it would break the code. {0}</value>
   </data>
