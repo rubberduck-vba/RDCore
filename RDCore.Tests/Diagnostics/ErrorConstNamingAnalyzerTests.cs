@@ -251,7 +251,7 @@ public sealed class ErrorConstNamingAnalyzerTests
     }
 
     // the form's code as its code window holds it, with no designer block and no attributes: its first procedure starts at the start, where the host places
-    // the members the designer declares, which no code holds, and is no declaration of theirs.
+    // the members the designer declares, which no code holds; it declares none of them.
     [TestMethod]
     public async Task AVisualBasicFormsCode_FromItsFirstLine_IsNoDeclarationOfItsDesigner()
     {
