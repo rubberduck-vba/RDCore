@@ -76,7 +76,7 @@ none of them:
 |---|---|
 |An object|[`VBR00438`](../diagnostics/vbr00438.md): the object has no `Print` method.|
 |`Nothing`|[`VBR00091`](../diagnostics/vbr00091.md).|
-|A value that is no object|[`VBR00424`](../diagnostics/vbr00424.md).|
+|A value that is not an object|[`VBR00424`](../diagnostics/vbr00424.md).|
 
 > [!NOTE]
 > **Not implemented.** `.Print` in a `With` block, the `Print` method of the block's object, is a syntax error: the grammar has no `.Print`.
