@@ -182,7 +182,7 @@ internal sealed partial class ProcedureEmitter
     }
 
     // a Let of a String field: the text evaluated first, as the interpreter evaluates it before the record (AssignField), then written as it is, as a String
-    // variable's (TextLetStep). One compiled code reads or writes nothing of is the interpreter's.
+    // variable's (TextLetStep). A field compiled code neither reads nor writes is the interpreter's.
     private void EmitFieldTextLet(FieldTextLetStep let)
     {
         var failure = RecoverAt(let.Offset);

@@ -114,12 +114,14 @@ public static class RecordOperations
 
     /// <summary>
     /// The text the <c>String</c> field of variable length at <paramref name="index"/> of <paramref name="record"/> holds, as the interpreter reads it
-    /// (<c>RuntimeExpressionEvaluator.EvaluateInstanceField</c>): <see langword="null"/> for <c>vbNullString</c>, which reads as the zero-length string.
+    /// (<c>RuntimeExpressionEvaluator.EvaluateInstanceField</c>).
     /// </summary>
     /// <param name="record">The record, as its cell holds it.</param>
     /// <param name="index">The field's place among the record's fields.</param>
-    /// <param name="text">The text read.</param>
-    /// <returns><see langword="false"/> when there is no such record, or the field holds no known text: the interpreter runs the statement.</returns>
+    /// <param name="text">The text read; <see langword="null"/> for <c>vbNullString</c>, which reads as the zero-length string.</param>
+    /// <returns>
+    /// <see langword="false"/> when there is no such record, or the field holds no known text: the interpreter runs the statement.
+    /// </returns>
     public static bool ReadText(object? record, int index, out string? text)
     {
         if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> held } field
@@ -141,7 +143,9 @@ public static class RecordOperations
     /// <param name="record">The record, as its cell holds it.</param>
     /// <param name="index">The field's place among the record's fields.</param>
     /// <param name="text">The text assigned; <see langword="null"/> for <c>vbNullString</c>.</param>
-    /// <returns><see langword="false"/> when there is no such record, or the field holds no String of variable length: the interpreter runs the statement.</returns>
+    /// <returns>
+    /// <see langword="false"/> when there is no such record, or the field holds no String of variable length: the interpreter runs the statement.
+    /// </returns>
     public static bool WriteText(object? record, int index, string? text)
         => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is VBStringValue and not VBFixedStringValue
             && held.TryLetFieldAt(index, new VBStringValue(new ValueBindingHandle(new VBRuntimeValue<string>(text!))));
