@@ -266,7 +266,7 @@ public sealed class UnusedDeclarationAnalyzerTests
 
     [TestMethod]
     [DataRow("Dim n As Long", "n = 0", "0", DisplayName = "a Long")]
-    [DataRow("Dim n As Date", "n = 0", "0", DisplayName = "a Date")]
+    [DataRow("Dim n As Date", "n = #12:00:00 AM#", "0", DisplayName = "a Date")]
     [DataRow("Dim n As String", "n = vbNullString", "0", DisplayName = "a String, which StrPtr tells from an empty one")]
     [DataRow("Dim n As Boolean", "n = False", "False", DisplayName = "a Boolean")]
     [DataRow("Dim n", "n = Empty", "True", DisplayName = "a Variant")]

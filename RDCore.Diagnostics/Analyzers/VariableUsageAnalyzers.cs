@@ -1,6 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
@@ -9,7 +10,6 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -103,7 +103,7 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name))
             {
-                Fixes = FixOf(module, fact, declaration) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                Fixes = FixOf(context.ParseResult, module, fact, declaration) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
             };
         }
     }
@@ -111,7 +111,7 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
     // the local assigned the default value of its type on a line of its own after its declaration: nothing else assigns it, so it holds that value wherever
     // it is read, and the code does what it did. Not offered for a field of the module, which no one procedure starts with; for a fixed-length string, whose
     // default is made of null characters; nor for a declaration with no As clause or type character in a module whose DefType statements may type it.
-    private static EditFix? FixOf(ModuleNode module, DeclarationFactDto fact, VariableDeclarationNode declaration)
+    private static EditFix? FixOf(ModuleParseResult parse, ModuleNode module, DeclarationFactDto fact, VariableDeclarationNode declaration)
     {
         if (UnusedDeclarations.ProcedureAt(module, fact.Location.Range.Start) is not { } procedure
             || DefaultOf(declaration, module.Descendants().OfType<TypeDefDirectiveNode>().Any()) is not { } value
@@ -127,34 +127,25 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
             return null;
         }
 
-        var line = statement.End.Line + 1;
+        // the assignment is written at the indentation of the declaration.
         var indent = new string(' ', statement.Start.Character);
-        return new EditFix
-        {
-            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Fix, fact.Name, value),
-            Edits = [new TextEdit { Range = new Range(line, 0, line, 0), NewText = $"{indent}{fact.Name} = {value}\r\n" }],
-        };
+        return SyntaxEdits.Fix(
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Fix, fact.Name, value),
+            LineEdits.InsertLinesAfter(parse, statement, $"{indent}{fact.Name} = {value}"));
     }
 
+    // the literal of the default value of the type the declaration states, with its As clause or its type character.
     private static string? DefaultOf(VariableDeclarationNode declaration, bool hasDefType)
     {
         if (declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is { } asType)
         {
-            return asType.FixedLength is not null ? null : asType.TypeName.ToUpperInvariant() switch
-            {
-                "BYTE" or "INTEGER" or "LONG" or "LONGLONG" or "LONGPTR" or "SINGLE" or "DOUBLE" or "CURRENCY" or "DECIMAL" or "DATE" => "0",
-                "STRING" => "vbNullString",
-                "BOOLEAN" => "False",
-                "VARIANT" => "Empty",
-                _ => null,
-            };
+            return asType.FixedLength is null && IntrinsicVBTypes.TryResolve(asType.TypeName, out var declared) ? IntrinsicVBTypes.DefaultLiteralOf(declared) : null;
         }
 
         return declaration.TypeHint switch
         {
-            "%" or "&" or "^" or "!" or "#" or "@" => "0",
-            "$" => "vbNullString",
-            null when !hasDefType => "Empty",
+            { } hint => IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? IntrinsicVBTypes.DefaultLiteralOf(hinted) : null,
+            null when !hasDefType => IntrinsicVBTypes.DefaultLiteralOf(VBVariantType.TypeInfo),
             _ => null,
         };
     }
