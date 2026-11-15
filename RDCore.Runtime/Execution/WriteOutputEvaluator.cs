@@ -66,9 +66,10 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                 if (Unwrapped(written) is VBObjectValue)
                 {
                     var read = ObjectDefaultMember.ValueOf(session, written);
+                    // a default member that had no answer (an End or a Stop in it) raised nothing: the statement fails as the call did.
                     if (!read.IsSuccess)
                     {
-                        return RuntimeExecutionOutcome.Error(read.ErrorInfo!);
+                        return read.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(read.ErrorInfo!);
                     }
 
                     var text = ValueConversions.ToText(read.Result!, session.Environment.Culture, session.Environment.Regional);

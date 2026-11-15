@@ -240,7 +240,7 @@ public sealed class StdInteraction(
             var answered = callables.ForMember(lateBound, objectValue.RuntimeValue).Call(session.Symbols.Resolver, lateArguments);
             return answered.IsSuccess
                 ? Succeed(answered.Result is null or VBVoidValue ? new VBVariantValue(VBEmptyValue.Empty) : InVariant(answered.Result))
-                : RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(answered.ErrorInfo ?? NotImplementedError(nameof(CallByName), "the call had no answer"));
+                : CallFailed(answered);
         }
 
         var candidates = instance.ClassModule.DefaultInterfaceMembers
@@ -344,11 +344,18 @@ public sealed class StdInteraction(
         var called = callables.ForMember(target, objectValue.RuntimeValue).Call(session.Symbols.Resolver, bound);
         if (!called.IsSuccess)
         {
-            return RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(called.ErrorInfo ?? NotImplementedError(nameof(CallByName), "the call had no answer"));
+            return CallFailed(called);
         }
 
         return Succeed(called.Result is null or VBVoidValue ? new VBVariantValue(VBEmptyValue.Empty) : InVariant(called.Result));
     }
+
+    // what the call CallByName made raised, or the internal error of a call that has no answer: an End or a Stop in the member called, which the session
+    // says (ISessionHalt), or a fault of the platform's, which CallByName passes on as it is.
+    private static RuntimeSemanticsEvaluationResult<VBVariantValue> CallFailed(RuntimeSemanticsEvaluationResult call)
+        => call.ErrorInfo is { } error
+            ? RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(error)
+            : RuntimeSemanticsEvaluationResult<VBVariantValue>.InternalError();
 
     // VbLet and VbSet of a public variable of the object assign it, as `obj.Name = value` and `Set obj.Name = value` do: the value is the one argument (MS-VBA,
     // Excel-verified, oracle\s40 B01-B05, B15, B18, B20, B21, B23-B27, B30-B32). None is error 446 and more than one 451, as MS-VBA has it; a Let of an object

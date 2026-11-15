@@ -1,3 +1,6 @@
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Platform.Protocol;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
 namespace RDCore.Tests.Cli;
@@ -272,4 +275,51 @@ public sealed class CallByNameTests
         => CollectionAssert.AreEqual(new[] { $"e{expected}|" }, await ProbeBox(statement, "P \"e\" & Err.Number"));
 
     #endregion
+
+    // a member CallByName calls that runs End ends the program there, as a direct call of it does: nothing after the CallByName runs, an On Error Resume Next
+    // of the caller has no error to go on from, and the session is reset as End resets it.
+    [TestMethod]
+    [DataRow("", "CallByName e, \"Quit\", VbMethod", DisplayName = "a method")]
+    [DataRow("On Error Resume Next", "CallByName e, \"Quit\", VbMethod", DisplayName = "a method, under On Error Resume Next")]
+    [DataRow("", "Total = CallByName(e, \"Value\", VbGet)", DisplayName = "a property got")]
+    [DataRow("On Error Resume Next", "Total = CallByName(e, \"Value\", VbGet)", DisplayName = "a property got, under On Error Resume Next")]
+    public async Task AMemberThatEndsTheProgram_EndsItThere(string policy, string call)
+    {
+        (string Name, string Source)[] classes =
+        [
+            ("Ender", ClassModule("Ender", "Option Explicit",
+                "Public Sub Quit()", "    End", "End Sub",
+                "Public Property Get Value() As Long", "    Value = 1", "    End", "End Property")),
+        ];
+        var program = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Dim e As Ender",
+            "    Set e = New Ender",
+            "    " + policy,
+            "    Debug.Print \"before \" & Total",
+            "    Total = 7",
+            "    " + call,
+            "    Debug.Print \"after \" & Err.Number",
+            "    Total = 8",
+            "End Sub",
+            string.Empty);
+        ExecuteResult? first = null, again = null;
+        long total = -1;
+
+        await InspectAsync(classes, program, async (provider, result, runAgain) =>
+        {
+            first = result;
+            Assert.IsTrue(provider.Session.Symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module));
+            Assert.IsTrue(provider.Session.Symbols.TryResolveValue("Total", module!, out var variable));
+            total = Convert.ToInt64(provider.Session.Symbols.Resolver.GetValue(variable!).Value.BoxedValue);
+            again = await runAgain();
+        });
+
+        Assert.AreEqual(ExecutionOutcome.Halted, first!.Outcome, first.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "before 0" }, first.Output.Select(line => line.Trim()).ToArray());
+        Assert.AreEqual(0, total, "End reset the module's variable, which the program had set to 7");
+        CollectionAssert.AreEqual(new[] { "before 0" }, again!.Output.Select(line => line.Trim()).ToArray(), "and the program run again starts from the start");
+    }
 }
