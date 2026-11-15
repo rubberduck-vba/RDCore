@@ -355,10 +355,10 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="global::RDCore.Runtime.LanguageCore.Refactoring.ParameterHints"/>),
-    /// each where its argument begins in the text of the document.
+    /// The inlay hints of a range of a document that the settings show (<see cref="SourceInlayHints"/>), each at its place in the text of the document; a
+    /// hint of what the module of a program adds to its text, which the document does not have, is not one of them.
     /// </summary>
-    public IReadOnlyList<(string Name, Position Position)> ParameterHints(Uri documentUri, LspRange range)
+    public IReadOnlyList<InlayHint> InlayHints(Uri documentUri, LspRange range, SdkInlayHintOptions sites)
     {
         if (ModuleOf(documentUri) is not { } module)
         {
@@ -367,26 +367,9 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. global::RDCore.LanguageServer.Services.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
-            .Select(hint => (hint.Name, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
-    }
-
-    /// <summary>
-    /// The type the declarations in a range of a document have because they state none (<see cref="SDK.Semantics.Refactoring.ImplicitTypeHints"/>), each where the
-    /// declaration ends in the text of the document.
-    /// </summary>
-    public IReadOnlyList<(string TypeName, Position Position)> ImplicitTypeHints(Uri documentUri, LspRange range)
-    {
-        if (ModuleOf(documentUri) is not { } module
-            || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
-        {
-            return [];
-        }
-
-        var start = module.ToModulePosition(range.Start);
-        var end = module.ToModulePosition(range.End);
-        return [.. global::RDCore.LanguageServer.Services.Refactoring.ImplicitTypeHints.In(source.Syntax, new SourceRange(start, end))
-            .Select(hint => (hint.TypeName, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
+        return [.. global::RDCore.LanguageServer.Services.Refactoring.InlayHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end), sites)
+            .Where(hint => module.IsInText(hint.Position))
+            .Select(hint => hint.ToInlayHint(module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
     }
 
     /// <summary>
@@ -595,6 +578,10 @@ internal sealed class RenameWorkspace
 
         public SourcePosition ToModulePosition(Position position)
             => new(IsProgram ? position.Line + BasicProgramText.HeaderLines : position.Line, position.Character);
+
+        // whether a position of the module is in the text of the document: a program has no header and no footer of its own, which its module adds.
+        public bool IsInText(SourcePosition position)
+            => !IsProgram || position.Line >= BasicProgramText.HeaderLines && position.Line < Source.Count(character => character == '\n') - 1;
 
         public LspRange ToTextRange(SourceRange range)
         {
