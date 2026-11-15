@@ -59,7 +59,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             sourceType = value.Result!;
         }
 
-        // a record a Variant can't hold, or an array of them, is refused with what MS-VBA says of it (recorded in Excel: oracle\s56 C07, D13), rather than as a
+        // a record a Variant can't hold, or an array of them, is refused with what MS-VBA says of it (observed in Excel), rather than as a
         // type mismatch.
         if (RecordOf(sourceType) is { } record && destinationType is VBVariantType)
         {
@@ -100,7 +100,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
 
         // MS-VBAL §5.5.1.1 (below its table) refuses to let-coerce a LongLong implicitly to anything but a LongLong or a Variant. MS-VBA refuses only what
         // is narrower than it - Byte, Integer, Long (an Enum is one, §5.2.3.4), Currency - and lets Double, Single, String, Boolean and Date have it
-        // (Excel-verified); RD-VBA does what MS-VBA does (author's ruling, 2026-10-22). A 64-bit LongPtr is a LongLong (§2.2), and a 32-bit one a Long.
+        // (observed in Excel); RD-VBA does what MS-VBA does. A 64-bit LongPtr is a LongLong (§2.2), and a 32-bit one a Long.
         VBLongLongType or VBLongPtrType_x64
             when destination is VBByteType or VBIntegerType or VBLongType or VBEnumType or VBCurrencyType or VBLongPtrType_x86 => true,
 

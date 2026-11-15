@@ -6,7 +6,7 @@ using RDCore.Runtime.LanguageCore.Plans;
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// What a <c>For</c> loop stepped on payloads keeps from one <c>Next</c> to the next (IR lowering S1, <see cref="SDK.Runtime.Shared.ForLoopState.RuntimeState"/>):
+/// What a <c>For</c> loop stepped on payloads keeps from one <c>Next</c> to the next (<see cref="SDK.Runtime.Shared.ForLoopState.RuntimeState"/>):
 /// the counter as it is bound, the step and the end as payloads - which do not change while the loop runs - and, for a <c>Variant</c> counter, the plans of
 /// its sum and of its comparison with the end, for the subtype it last held.
 /// </summary>

@@ -53,7 +53,7 @@ public static class ArgumentMapping
     public static ArgumentMap Map(ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> arguments)
     {
         // `Area()` is a call that supplies nothing; the parser reads the empty parentheses as one omitted argument, which a procedure that takes none has no
-        // parameter for, and a ParamArray that comes first does not collect: `Total()` passes it no element, as MS-VBA has it (oracle\ismissing I05).
+        // parameter for, and a ParamArray that comes first does not collect: `Total()` passes it no element, as MS-VBA has it.
         if (arguments is [MissingArgumentNode] && (parameters.IsEmpty || parameters[0] is ParamArrayParameterSymbol))
         {
             arguments = [];

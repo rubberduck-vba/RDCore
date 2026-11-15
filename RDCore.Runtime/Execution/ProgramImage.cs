@@ -239,7 +239,7 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     /// <inheritdoc/>
     public bool TryGetValue(SemanticId key, out InstructionList value) => _procedures.TryGetValue(key, out value!);
 
-    // the procedures as the last load left them: a load replaces the map, so a body found in this one is the body for as long as it is the image's (S1.3).
+    // the procedures as the last load left them: a load replaces the map, so a body found in this one is the body for as long as it is the image's.
     internal ImmutableDictionary<SemanticId, InstructionList> Procedures => _procedures;
 
     /// <inheritdoc/>

@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// Arrays of objects: an <c>As</c> clause that names a class or <c>Object</c> with a trailing <c>()</c> declares an array of it (<strong>MS-VBAL
 /// §5.2.3.1</strong>, §5.3.1.6), and a <c>For Each</c> over an array Set-assigns an element that is an object to the control variable - whatever the
-/// array is declared as, as MS-VBA does (§5.4.2.4 says only an array declared <c>Object</c>, which the author rules an oversight).
+/// array is declared as, as MS-VBA does (§5.4.2.4 says only an array declared <c>Object</c>, which is an oversight).
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.2.3.1 Variable Declarations")]

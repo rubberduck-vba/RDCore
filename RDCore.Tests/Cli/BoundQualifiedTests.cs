@@ -3,8 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A name qualified by its module, its project or its enumeration, an index of a value that is no variable, and a member of any value, bound
-/// (IR lowering S0.12b), evaluate to what MS-VBAL 5.6.12 and 5.6.13 say they do, and raise what they say they raise.
+/// A name qualified by its module, its project or its enumeration, an index of a value that is no variable, and a member of any value, bound, evaluate to what MS-VBAL 5.6.12 and 5.6.13 say they do, and raise what they say they raise.
 /// </summary>
 [TestClass]
 public sealed class BoundQualifiedTests

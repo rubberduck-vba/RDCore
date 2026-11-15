@@ -172,7 +172,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
-    // a member of the library, bound once to the code behind it (IR lowering S1.9): its method and implementation, found by the key the reader stamped on
+    // a member of the library, bound once to the code behind it: its method and implementation, found by the key the reader stamped on
     // it, the call of it generated from its declaration (StdLibInvokers) - reflected, for a member none is generated for - and what reflection says of each
     // parameter, which it would otherwise be asked again on every call. A member nothing implements has no entry.
     private sealed record class StdLibEntry(

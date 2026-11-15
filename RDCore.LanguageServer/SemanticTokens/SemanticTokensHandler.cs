@@ -12,7 +12,7 @@ namespace RDCore.LanguageServer.SemanticTokens;
 /// </summary>
 /// <remarks>
 /// Ranges are not served: the tokens of the whole document are cheap to give, and OmniSharp's builder encoded the first token of a range relative to the range
-/// rather than to the start of the document, as LSP has it, so a client put it on the wrong line (HexIDE's findings desk #25). Deltas are not served either; a
+/// rather than to the start of the document, as LSP has it, so a client put it on the wrong line. Deltas are not served either; a
 /// client that asks for the document again gets the document.
 /// </remarks>
 internal sealed class SemanticTokensHandler(ISemanticTokensService tokens, IncomingDocumentChanges incoming) : SemanticTokensHandlerBase

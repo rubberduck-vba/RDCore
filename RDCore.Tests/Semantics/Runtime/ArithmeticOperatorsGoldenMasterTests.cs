@@ -16,8 +16,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
 /// A golden master of the arithmetic operators: every operator over every pair of a broad set of operand values - what each operation yields or raises, and the
-/// facts an analysis is told of it - compared line for line with what was recorded before the operation plans were extracted from the operator semantics (IR
-/// lowering S0.2). A line that differs is a change in behaviour.
+/// facts an analysis is told of it - compared line for line with what was recorded before the operation plans were extracted from the operator semantics. A line that differs is a change in behaviour.
 /// </summary>
 /// <remarks>
 /// The snapshot is <c>GoldenMasters/arithmetic-operators.txt.gz</c>, next to this file: some 11,000 lines, recorded and compared as <see cref="GoldenMaster"/>

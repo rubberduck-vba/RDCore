@@ -88,6 +88,7 @@ public sealed class NameAnalyzerTests
         Private x As Long
         Private total1 As Long
         Private tmp As Long
+        Private Oui As Boolean
         Private été As Long
         Private Total As Long
         Public Const PI2 = 3
@@ -100,11 +101,11 @@ public sealed class NameAnalyzerTests
         """;
 
     [TestMethod]
-    public void ANameThatIsTooShort_EndsWithADigit_OrHasNoVowel_DoesNotSayWhatItIs()
+    public void ANameThatIsTooShort_EndsWithADigit_OrHasNoVowelOrNoConsonant_DoesNotSayWhatItIs()
     {
         var findings = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Declarations);
 
-        CollectionAssert.AreEqual(new[] { "x", "total1", "tmp", "PI2", "a", "i" }, Names(findings));
+        CollectionAssert.AreEqual(new[] { "x", "total1", "tmp", "Oui", "PI2", "a", "i" }, Names(findings));
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.UseMeaningfulIdentifierNames, Severity: DiagnosticSeverity.Information }));
     }
 
@@ -117,6 +118,7 @@ public sealed class NameAnalyzerTests
         Assert.AreNotEqual(messages["x"], messages["total1"]);
         Assert.AreNotEqual(messages["total1"], messages["tmp"]);
         Assert.AreNotEqual(messages["x"], messages["tmp"]);
+        Assert.AreNotEqual(messages["tmp"], messages["Oui"]);
         Assert.AreEqual(messages["x"], messages["a"], "the same rule, the same message");
     }
 
@@ -129,7 +131,7 @@ public sealed class NameAnalyzerTests
     {
         var findings = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options(meaningful: ["I", "X", "tmp"])), Declarations);
 
-        CollectionAssert.AreEqual(new[] { "total1", "PI2", "a" }, Names(findings));
+        CollectionAssert.AreEqual(new[] { "total1", "Oui", "PI2", "a" }, Names(findings));
     }
 
     // a live setting: the client says the names while the extension runs, and the analyzer that is built already reads them when it analyzes.
@@ -145,7 +147,7 @@ public sealed class NameAnalyzerTests
         options.Value.HungarianNotation.AllowedNames = [.. Names(Run(hungarian, Declarations))];
 
         CollectionAssert.Contains(before, "tmp");
-        CollectionAssert.AreEqual(new[] { "total1", "PI2", "a" }, Names(Run(meaningful, Declarations)));
+        CollectionAssert.AreEqual(new[] { "total1", "Oui", "PI2", "a" }, Names(Run(meaningful, Declarations)));
         Assert.IsEmpty(Run(hungarian, Declarations));
     }
 
@@ -209,8 +211,33 @@ public sealed class NameAnalyzerTests
     [DataRow("Str", false)]
     [DataRow("strName1", true)]
     [DataRow("nameStr", false)]
+    [DataRow("str1", true)]
+    [DataRow("sName", true)]
+    [DataRow("iRow", true)]
+    [DataRow("oSheet", true)]
+    [DataRow("mCount", true)]
+    [DataRow("gConfig", true)]
+    [DataRow("bDone", true)]
+    [DataRow("lRow", true)]
+    [DataRow("nItems", true)]
+    [DataRow("txtName", true)]
+    [DataRow("cmdOK", true)]
+    [DataRow("lblTitle", true)]
+    [DataRow("frmMain", true)]
+    [DataRow("clsCustomer", true)]
+    [DataRow("index", false)]
+    [DataRow("item", false)]
+    [DataRow("s", false)]
+    [DataRow("isDone", false)]
     public void TheRule_IsAPrefixAndThenANewWord(string name, bool hungarian)
         => Assert.AreEqual(hungarian, HungarianNotationAnalyzer.IsHungarian(name));
+
+    // the names Rubberduck's inspection reports, and not isDone.
+    [TestMethod]
+    public void TheNamesRubberducksInspectionReports_AreHungarian()
+        => CollectionAssert.AreEquivalent(
+            new[] { "mCount", "sName", "iRow", "oSheet", "str1" },
+            Names(Run(new HungarianNotationAnalyzer(Options()), "Private mCount As Long\nPublic Sub Work(ByVal sName As String)\n    Dim iRow As Long, oSheet As Object, str1 As String, isDone As Boolean\nEnd Sub")));
 
     [TestMethod]
     public void AHungarianName_IsFixedByARename_ToTheWordAfterItsPrefix()

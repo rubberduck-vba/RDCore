@@ -49,7 +49,7 @@ public sealed class ObjectInstanceTests
 
         sut.Push(field, value);
 
-        // the field's cell holds the value: a cell of its own, which a field of a scalar type holds as a payload (IR lowering S1.4c).
+        // the field's cell holds the value: a cell of its own, which a field of a scalar type holds as a payload.
         Assert.AreEqual(value.Handle.Value, sut.GetValue(field).Value);
     }
 

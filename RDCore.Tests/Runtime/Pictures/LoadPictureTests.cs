@@ -64,6 +64,10 @@ public sealed class LoadPictureTests
     // and its first 16 bytes.
     private static Task<string[]> RunAsync(params string[] lines) => ModuleWorkspace.RunAsync([], Source(lines), Stdole);
 
+    // an environment that allows no automation, for a project that references stdole and Scripting: stdole's pictures are the platform's own.
+    private static Task<string[]> RunWithoutAutomationAsync(params string[] lines)
+        => ModuleWorkspace.RunAsync([], Source(lines), Stdole with { References = ["stdole", "Scripting"], AllowAutomation = false });
+
     // a Visual Basic 6.0 project, which references the Visual Basic objects and procedures (VB.Global's LoadPicture), and stdole, without listing them.
     private static async Task<string[]> RunVB6Async(params string[] lines)
     {
@@ -193,6 +197,17 @@ public sealed class LoadPictureTests
     public async Task LoadPicture_IsReachedQualified()
         => Printed(new[] { "1 265 529 True", "1 265 529 True" }, await RunAsync(
             "Set p = stdole.LoadPicture(D & \"bmp24.bmp\"): R p", "Set p = stdole.StdFunctions.LoadPicture(D & \"bmp24.bmp\"): R p"));
+
+    [TestMethod]
+    public async Task Pictures_AreMade_WhereNoAutomationIsAllowed()
+        => Printed(new[] { "1 265 529 True", "0 0 0 False", "0" }, await RunWithoutAutomationAsync(
+            Load("D & \"bmp24.bmp\""),
+            "Set p = New StdPicture: R p",
+            "SavePicture LoadPicture(D & \"bmp24.bmp\"), D & \"saved-without-automation.bmp\": Debug.Print Err.Number"));
+
+    [TestMethod]
+    public async Task AServersObject_IsRefused_WhereNoAutomationIsAllowed()
+        => Printed(new[] { "70" }, await RunWithoutAutomationAsync("Dim d As Object: Set d = New Scripting.Dictionary: Debug.Print Err.Number"));
 
     [TestMethod]
     public async Task ANewStdPicture_HoldsNoPicture()
