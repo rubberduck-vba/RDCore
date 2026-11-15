@@ -2,7 +2,8 @@
 # ratio of RD-VBA's time to MS-VBA's, live: the reference run's ratio, scaled by how the merged commit's fastest run compares with the reference commit's on
 # this machine (ratio = rdvba / msvba * merged / reference). Writes a shields.io endpoint file per case (bench-<case>.json), the median and the worst of
 # each group (bench-<group>-median.json, bench-<group>-worst.json), and bench.json with every figure. The Excel automation cases are the reference run's
-# own figures: no Excel runs here. A case that failed, or is missing from either side or from the reference, fails the script.
+# own figures: no Excel runs here. A case added since the reference run has its time on this machine and no ratio, and is in no group's figures; a case
+# the merged commit no longer has is left out. A case that failed, or a report with no case in it, fails the script.
 param(
     [Parameter(Mandatory)][string]$Runs,
     [Parameter(Mandatory)][string]$ReferenceData,
@@ -36,8 +37,10 @@ function Read-Fastest([string]$side) {
     }
 
     foreach ($report in $reports) {
+        $found = 0
         foreach ($line in Get-Content $report) {
             if ($line -match '^(?<case>[A-Za-z]\w*\.Bench\w+)\s+\d+\s+(?<min>[0-9.]+) ms\s+[0-9.]+ ms\s*$') {
+                $found++
                 $time = [Math]::Max([double]::Parse($Matches.min, $invariant), $resolution)
                 if (-not $fastest.ContainsKey($Matches.case) -or $time -lt $fastest[$Matches.case]) {
                     $fastest[$Matches.case] = $time
@@ -46,6 +49,10 @@ function Read-Fastest([string]$side) {
             elseif ($line -match '^[A-Za-z]\w*\.Bench\w+\s+\d+\s') {
                 throw "$($report.Name): a case failed: $line"
             }
+        }
+
+        if ($found -eq 0) {
+            throw "$($report.Name): no case could be read"
         }
     }
 
@@ -104,26 +111,23 @@ $reference = Read-Fastest 'reference'
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 
 $cases = @()
-foreach ($name in ($merged.Keys + $reference.Keys | Sort-Object -Unique)) {
-    if (-not $merged.ContainsKey($name) -or -not $reference.ContainsKey($name)) {
-        throw "$name was run by one build only"
-    }
-
+foreach ($name in ($merged.Keys | Sort-Object)) {
     $measured = $data.cases.$name
-    if (-not ($measured.msvba -gt 0 -and $measured.rdvba -gt 0)) {
-        throw "$name has no MS-VBA reference figure"
-    }
-
     $module = ($name -split '\.', 2)[0]
-    if (-not $groups.Contains($module)) {
-        throw "$name is in no group"
+    $group = if ($groups.Contains($module)) { $groups[$module].Title }
+
+    # a case the reference run did not have: its time on this machine, and no ratio.
+    if (-not ($reference.ContainsKey($name) -and $measured.msvba -gt 0 -and $measured.rdvba -gt 0)) {
+        $cases += [pscustomobject][ordered]@{ name = $name; group = $group; runnerMerged = $merged[$name]; ratio = $null }
+        Write-Badge "bench-$name" '' "$(Format-Time $merged[$name]) · not in the reference run" 'lightgrey'
+        continue
     }
 
     # RD-VBA's time on the reference machine, as the merged commit would take it there.
     $rdvba = $measured.rdvba * $merged[$name] / $reference[$name]
     $ratio = [Math]::Round($rdvba / $measured.msvba, 2)
     $cases += [pscustomobject][ordered]@{
-        name = $name; group = $groups[$module].Title; msvba = $measured.msvba; rdvbaReference = $measured.rdvba; rdvba = [Math]::Round($rdvba, 3)
+        name = $name; group = $group; msvba = $measured.msvba; rdvbaReference = $measured.rdvba; rdvba = [Math]::Round($rdvba, 3)
         runnerMerged = $merged[$name]; runnerReference = $reference[$name]; ratio = $ratio
     }
     Write-Badge "bench-$name" '' (Format-Case $ratio $rdvba $measured.msvba) (Get-Color $ratio)
@@ -131,7 +135,7 @@ foreach ($name in ($merged.Keys + $reference.Keys | Sort-Object -Unique)) {
 
 $summary = @()
 foreach ($module in $groups.Keys) {
-    $members = @($cases | Where-Object { $_.name.StartsWith("$module.", [StringComparison]::Ordinal) })
+    $members = @($cases | Where-Object { $null -ne $_.ratio -and $_.name.StartsWith("$module.", [StringComparison]::Ordinal) })
     if ($members.Count -gt 0) {
         $summary += Add-Group $groups[$module].Title $groups[$module].Slug $members ''
     }

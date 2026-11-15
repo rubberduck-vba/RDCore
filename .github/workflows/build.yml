@@ -156,17 +156,35 @@ jobs:
       distribution: temurin
       java-version: '21'
 
+   # the reference tree builds with its own toolchain: the SDK of its global.json when it has one, else the .NET of its TargetFramework
    - name: Check out the reference commit
+     id: reference
      shell: pwsh
      run: |
        $commit = (Get-Content -Raw RDCore.CLI/Bench/Reference/msvba.json | ConvertFrom-Json).reference.commit
        git worktree add ../reference $commit
+       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+       $framework = ([xml](Get-Content -Raw ../reference/RDCore.CLI/RDCore.CLI.csproj)).Project.PropertyGroup.TargetFramework | Where-Object { $_ } | Select-Object -First 1
+       "dotnet=$($framework -replace '^net', '')" >> $env:GITHUB_OUTPUT
+       "global-json=$(if (Test-Path ../reference/global.json) { '../reference/global.json' })" >> $env:GITHUB_OUTPUT
+
+   - name: Setup .NET (reference)
+     id: reference-dotnet
+     uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+     with:
+      dotnet-version: ${{ steps.reference.outputs.global-json == '' && steps.reference.outputs.dotnet || '' }}
+      global-json-file: ${{ steps.reference.outputs.global-json }}
 
    - name: Build rdc (Release), merged and reference
      shell: pwsh
      run: |
        dotnet build RDCore.CLI --configuration Release
        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+       # without a global.json of its own, the reference tree is given one naming the SDK installed for it, so a newer SDK installed for the merged tree
+       # is not the one that builds it
+       if (-not (Test-Path ../reference/global.json)) {
+         @{ sdk = @{ version = '${{ steps.reference-dotnet.outputs.dotnet-version }}'; rollForward = 'latestPatch' } } | ConvertTo-Json | Set-Content ../reference/global.json
+       }
        dotnet build ../reference/RDCore.CLI --configuration Release
        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
