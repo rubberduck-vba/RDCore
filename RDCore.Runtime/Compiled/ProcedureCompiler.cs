@@ -319,7 +319,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         var compiled = new CompiledBody(run, analysis.ResultKind, analysis.Loops, procedure.Name, analysis.Callees, directs, analysis.SlotSymbols)
         {
             Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
-            Classes = analysis.Classes, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
+            Classes = analysis.Classes, News = analysis.News, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
             Libraries = analysis.Libraries,
         };
 

@@ -953,8 +953,30 @@ internal sealed partial class ProcedureAnalysis
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
         ObjectParameter?[]? objects = null;
+        bool[]? omitted = null;
         for (var i = 0; i < parameters.Length; i++)
         {
+            if (arguments[i] is { Passing: ArgumentPassing.Omitted })
+            {
+                (omitted ??= new bool[parameters.Length])[i] = true;
+            }
+
+            // an optional Variant the call leaves out is given what the interpreter gives it, the default it declares or Missing (MS-VBAL §5.3.1.11), of the
+            // parameter of the member the call invokes, as the call is made (CompiledActivation.SetOmitted). One whose default raises an error is the
+            // interpreter's to give.
+            if (parameters[i] is not ParamArrayParameterSymbol && parameters[i].ResolvedType is VBVariantType && arguments[i] is { Passing: ArgumentPassing.Omitted })
+            {
+                if (_evaluator.OmittedArgument(_session, parameters[i]) is not { IsSuccess: true })
+                {
+                    return null;
+                }
+
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(new OmittedArgumentNode());
+                continue;
+            }
+
             // an object, given the object a variable holds, Me or Nothing, or the address of an object variable of the activation. A call given an object is
             // never made through a direct entry: the invoker or the member's binding gives the object to the parameter, as the interpreter gives it
             // (CompiledActivation.SetObject), and counts it for as long as the callee runs.
@@ -1011,6 +1033,7 @@ internal sealed partial class ProcedureAnalysis
             HoldsWhatItReturns = assigns || resultKind is null && ReturnedType(procedure) is VBVariantType,
             ReturnsObject = returnsObject,
             ObjectParameters = objects ?? [],
+            Omitted = omitted ?? [],
         });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }

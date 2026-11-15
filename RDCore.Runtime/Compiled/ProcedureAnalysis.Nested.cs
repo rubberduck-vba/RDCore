@@ -73,9 +73,9 @@ internal sealed partial class ProcedureAnalysis
         {
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode } assignment }
                 => IsScalarTarget(Bind(assignment.Target)) && CallsInside(Bind(assignment.Value)),
-            // a Set of an object variable, or of the function result variable, to what a call returns.
+            // a Set of an object variable, or of the function result variable, to what a call returns, or to a New, whose Initialize is a call.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
-                => Calls(Bind(assignment.Value)),
+                => Bind(assignment.Value) is var value && (value is BoundNew || Calls(value)),
             { Kind: InstructionKind.Simple, Node: CallStatementNode call }
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
@@ -188,8 +188,11 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return parameters.IsEmpty
-            ? CallWith(function, parameters, [], CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject)
+        // each of its parameters Optional, left out as the interpreter binds it (MS-VBAL §5.3.1.11).
+        System.Collections.Immutable.ImmutableArray<BoundArgument> arguments
+            = parameters.IsEmpty ? [] : ArgumentMapping.Bind([.. parameters], [], static _ => null, static _ => null) ?? default;
+        return !arguments.IsDefault && arguments.Length == parameters.Length
+            ? CallWith(function, parameters, arguments, CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject)
             : null;
     }
 
@@ -214,6 +217,7 @@ internal sealed partial class ProcedureAnalysis
         LetStep let => Admits(let.Value),
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         SetStep { SourceCall: { } source } => Admits(source),
+        SetStep { SourceNew: not null } => true,
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
@@ -227,7 +231,7 @@ internal sealed partial class ProcedureAnalysis
         // an element, read once its subscripts are evaluated, calls among them.
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
-        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode => true,
+        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or OmittedArgumentNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
         ConvertNode convert => Admits(convert.Operand),
