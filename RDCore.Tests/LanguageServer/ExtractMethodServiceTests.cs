@@ -335,6 +335,18 @@ public sealed class ExtractMethodServiceTests
     public async Task ASelectionOfNoProcedure_IsNotOfferedDisabled()
         => Assert.IsNull(await ExtractMethodActionAsync(new Range(0, 0, 1, 0), showsDisabled: true));
 
+    [TestMethod]
+    public async Task AnExtractionWithAChangeToAccept_IsOfferedDisabled_WithTheChange_ToAClientWithNoDialogThatShowsSo()
+    {
+        var action = await ExtractMethodActionAsync(new Range(9, 0, 12, 0), showsDisabled: true);
+
+        Assert.IsNotNull(action);
+        Assert.IsNull(action.Edit);
+        Assert.IsNull(action.Command);
+        StringAssert.StartsWith(action.Disabled!.Reason, "This would change what the code does, and only an editor that can ask you to accept the change applies it: ");
+        StringAssert.Contains(action.Disabled.Reason, "These variables become the new procedure's own: c.");
+    }
+
     // the extraction a client is offered for a range, among the code actions of the document; showsDisabled, when it shows an action it cannot take.
     private async Task<CodeAction?> ExtractMethodActionAsync(Range range, bool showsDisabled = false)
     {
