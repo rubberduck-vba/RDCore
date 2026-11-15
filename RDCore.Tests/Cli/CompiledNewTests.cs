@@ -115,7 +115,7 @@ public sealed class CompiledNewTests
             "    Tried = Err.Number * 10 - (F Is Nothing)",
             "End Function"), "Tried", supportCalls: 0, expected: "| 51 |");
 
-    // the same error with no handler: the program stops with it, at the Set, as the interpreter stops it.
+    // the same error with no handler: the program stops with it, raised in Initialize, the caller located at the Set (line 5), as the interpreter stops it.
     [TestMethod]
     public async Task AnErrorInInitialize_WithNoHandler_StopsTheProgramAtTheSet()
         => await AssertAlikeAsync(Program(
@@ -126,7 +126,7 @@ public sealed class CompiledNewTests
             "    Dim F As Faulty",
             "    Set F = New Faulty",
             "    Tried = 1",
-            "End Function"), Classes, expected: "| 5 VBR00005");
+            "End Function"), Classes, expected: "| 5 VBA00005 Invalid procedure call or argument @7:4 | Class_Initialize@7:4 < Tried@5:4 < Main@1:16");
 
     // a New of a class of the standard library, made by the runtime as the interpreter makes it.
     [TestMethod]

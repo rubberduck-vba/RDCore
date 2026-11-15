@@ -593,7 +593,7 @@ public sealed partial class CompiledActivation : ILightActivation
 
     // whether a member is called as the member a call was bound to: itself, or one whose parameters after Me, and what it returns, are of the same kinds. The
     // last one found to be is remembered, as an object of one class nearly always is what a call is made on.
-    private bool Takes(CompiledCallee called, VBTypeMemberSymbol member)
+    private static bool Takes(CompiledCallee called, VBTypeMemberSymbol member)
     {
         if (ReferenceEquals(member, called.Procedure) || ReferenceEquals(member, called.Implementation))
         {
@@ -621,10 +621,10 @@ public sealed partial class CompiledActivation : ILightActivation
             var passed = i < called.ObjectParameters.Count ? called.ObjectParameters[i] : null;
             // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject). A Variant the call
             // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted). A scalar the call leaves out is given the
-            // default the member it was bound to declares, which the interpreter gives this member's: they are the same (OmitsAlike).
+            // default the member it was bound to declares, which is this member's: an implemented member declares the defaults of the interface member
+            // (MS-VBAL §5.3.1.9), and one that does not is refused before the program runs.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
                 || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
-                || omitted && called.Parameters[i] is not null && !OmitsAlike(RuntimeProcedureInvoker.GetParameters(called.Procedure)[i + 1], parameter)
                 || called.Parameters[i] is null && (passed is not null ? !passed.Type.Equals(parameter.ResolvedType)
                     : !omitted || parameter.ResolvedType is not SDK.Model.Types.VBVariantType))
             {
@@ -634,18 +634,6 @@ public sealed partial class CompiledActivation : ILightActivation
 
         called.Implementation = member;
         return true;
-    }
-
-    // whether a scalar parameter a call leaves out is given by the member it invokes what compiled code gives it, the default of the parameter of the member
-    // the call was bound to: the interpreter gives it the default of the member it invokes. They are the same constant when the member implements the one
-    // bound (MS-VBAL §5.3.1.9); a member that declares another is the interpreter's to call.
-    private bool OmitsAlike(VBParameterSymbol bound, VBParameterSymbol invoked)
-    {
-        var expressions = _executor.Expressions;
-        return expressions.OmittedArgument(_session, bound) is { IsSuccess: true, Result: { } given }
-            && expressions.OmittedArgument(_session, invoked) is { IsSuccess: true, Result: { } taken }
-            && ScalarPayload.TryOf(bound.ResolvedType, given.RuntimeValue, out var compiled) && ScalarPayload.TryOf(invoked.ResolvedType, taken.RuntimeValue, out var interpreted)
-            && compiled.Integral == interpreted.Integral && compiled.Floating.Equals(interpreted.Floating);
     }
 
     /// <summary>

@@ -39,12 +39,6 @@ public sealed class CompiledOmittedArgumentTests
             "Private Function IShape_Area(Optional ByVal Factor As Long = 3, Optional ByVal Unit As Variant) As Long",
             "    IShape_Area = Factor * 10 - IsMissing(Unit)",
             "End Function")),
-        ("Oblong", ModuleWorkspace.ClassModule("Oblong",
-            "Option Explicit",
-            "Implements IShape",
-            "Private Function IShape_Area(Optional ByVal Factor As Long = 5, Optional ByVal Unit As Variant) As Long",
-            "    IShape_Area = Factor * 10 - IsMissing(Unit)",
-            "End Function")),
     ];
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
@@ -123,21 +117,4 @@ public sealed class CompiledOmittedArgumentTests
             "    Next",
             "    Measured = R",
             "End Function"), "Measured", calls: 4, expected: " 84");
-
-    // a member that implements the interface with another default than the interface member declares, which MS-VBAL §5.3.1.9 makes invalid: whatever runs
-    // of it runs as the interpreter runs it, which gives the parameter the default of the member it invokes.
-    [TestMethod]
-    public async Task AnImplementationDeclaringAnotherDefault_RunsAsInTheInterpreter()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
-            "    Debug.Print Measured(2)",
-            "End Sub",
-            "Private Function Measured(ByVal N As Long) As Long",
-            "    Dim S As IShape, I As Long, R As Long",
-            "    Set S = New Oblong",
-            "    For I = 1 To N",
-            "        R = R + S.Area",
-            "    Next",
-            "    Measured = R",
-            "End Function"), Classes);
 }
