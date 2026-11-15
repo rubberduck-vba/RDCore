@@ -413,7 +413,7 @@ A `Type` or an `Enum` is renamed where its name means it: its declaration, its `
 
 Where it qualifies a member of the `Enum`, the new name must mean no value, or the member would be read from that value.
 
-A standard or class module is renamed where its name means it, the same way, and also:
+A standard or class module is renamed where its name means it, the same way, its default instance included (`VB_PredeclaredId`, **MS-VBAL §5.2.4.1.2**), and also:
 
 - in its `VB_Name` attribute (**MS-VBAL §4.2**), where a rename can start too. A module whose source has no `VB_Name` is named by its file: the rename writes `Attribute VB_Name = "<new name>"` first of its header, after the `VERSION` line and `BEGIN` … `END` block of a class's file;
 - in the `Implements` directives of the classes that implement it (**MS-VBAL §5.2.4.2**);

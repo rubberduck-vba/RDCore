@@ -537,6 +537,20 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
+    public void AClassWithADefaultInstance_IsRenamedWhereItsDefaultInstanceIsUsed()
+    {
+        string Counter(string name) => Lines(
+            "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END",
+            $"Attribute VB_Name = \"{name}\"", "Attribute VB_PredeclaredId = True", "Public Sub Bump()", "End Sub");
+        var context = Compose(("Counter", Counter("Counter")), ("Main", Module("Main", "Public Sub One()", "    Counter.Bump", "    Dim c As Counter", "End Sub")));
+
+        var plan = Rename(context, "Main", "Counter.Bump", "Counter", "Tally");
+
+        Assert.AreEqual(Counter("Tally"), Renamed(context, plan, "Counter"));
+        Assert.AreEqual(Module("Main", "Public Sub One()", "    Tally.Bump", "    Dim c As Tally", "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
     [DataRow(false, DisplayName = "a standard module")]
     [DataRow(true, DisplayName = "a class module, after its VERSION block")]
     public void AModuleWithNoVBName_GainsItsVBName_AndIsRenamedInItAfterwards(bool isClass)

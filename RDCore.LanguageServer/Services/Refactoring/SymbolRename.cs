@@ -137,6 +137,12 @@ public static class SymbolRename
                 : new(null, new RenameRefusal(RenameRefusalKind.NotDeclaredByWorkspace, name));
         }
 
+        // the default instance of a class (VB_PredeclaredId, MS-VBAL §5.2.4.1.2) is named by its class: renaming it renames the class.
+        if (symbol is VBPredeclaredInstanceSymbol { ClassModule: var predeclaring })
+        {
+            symbol = NameOccurrences.SymbolOf(context, predeclaring.SemanticId) ?? predeclaring;
+        }
+
         if (IsType(symbol))
         {
             return PrepareType(context, module, here.Range, symbol);
@@ -325,6 +331,10 @@ public static class SymbolRename
 
     // where a name is written as a type's: its declaration, an As clause, the qualifier of an Enum's member (a value's place). With no type, every place the name
     // is written as one.
+    // a name bound to the default instance of the class, which the class names.
+    private static bool IsDefaultInstanceOf(RenameContext context, SemanticId binding, Symbol type)
+        => NameOccurrences.SymbolOf(context, binding) is VBPredeclaredInstanceSymbol { ClassModule: var predeclaring } && predeclaring.SemanticId == type.SemanticId;
+
     private static IEnumerable<(Uri Module, SourceRange Range, LexicalScope Scope, bool IsValue)> TypeSites(RenameContext context, Symbol? type, string name)
     {
         bool Means(LexicalScope scope)
@@ -336,7 +346,7 @@ public static class SymbolRename
         {
             if (occurrence.Binding is { } binding)
             {
-                if (type is not null && binding == type.SemanticId)
+                if (type is not null && (binding == type.SemanticId || IsDefaultInstanceOf(context, binding, type)))
                 {
                     yield return (occurrence.Module, occurrence.Range, occurrence.Scope, occurrence.Kind is OccurrenceKind.Name);
                 }

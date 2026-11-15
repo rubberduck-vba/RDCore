@@ -333,6 +333,10 @@ internal sealed class RenameWorkspace
         return new(workspaceEdit, null, questions.Count == 0 ? null : questions);
     }
 
+    // the file of that name in the folder of a document, as the client spells the document's URI (its drive letter, its escapes).
+    private static DocumentUri Sibling(DocumentUri document, string fileName)
+        => DocumentUri.From(new Uri(document.ToUri(), Uri.EscapeDataString(fileName)));
+
     // the file of a module, when its name is the module's, renamed to the new name; a file of that name that is there already is left as it is, and so is the
     // module's file.
     private static RenameFile? FileRenameOf(DocumentModule module, string oldName, string newName)
@@ -343,11 +347,10 @@ internal sealed class RenameWorkspace
             return null;
         }
 
-        var renamed = Path.Combine(Path.GetDirectoryName(path) ?? string.Empty, newName + Path.GetExtension(path));
         return new RenameFile
         {
             OldUri = module.Document.Id.Uri,
-            NewUri = DocumentUri.FromFileSystemPath(renamed),
+            NewUri = Sibling(module.Document.Id.Uri, newName + Path.GetExtension(path)),
             Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
         };
     }
