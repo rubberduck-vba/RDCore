@@ -176,6 +176,20 @@ public sealed class DeclaredTypeErrorTests
         StringAssert.Contains(errors[0], $"{RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_TypeMismatch}: 'Strings' does not reference an instantiable class");
     }
 
+    [TestMethod]
+    public async Task NewOfAClassOfAnUnreferencedLibrary_IsAUserDefinedTypeNotDefined()
+    {
+        // stdole is not referenced: its StdFont is nothing this project can see, by its name alone or qualified, as in MS-VBA.
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
+            "Public Sub Work()", "Dim f As Object", "Set f = New StdFont", "Set f = New stdole.StdFont", "End Sub"));
+
+        Assert.HasCount(2, errors, string.Join("; ", errors));
+        StringAssert.Contains(errors[0], $"{RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_UserDefinedTypeNotDefined}: "
+            + string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_NewTypeNotResolved_Verbose, "StdFont"));
+        StringAssert.Contains(errors[1], $"{RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_UserDefinedTypeNotDefined}: "
+            + string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_NewTypeQualifierNotResolved_Verbose, "stdole.StdFont", "stdole"));
+    }
+
     private static string Running(string[] declarations, params string[] main)
         => $"Attribute VB_Name = \"Program\"\r\n{string.Join("\r\n", declarations)}\r\nPublic Sub Main()\r\n{string.Join("\r\n", main)}\r\nEnd Sub\r\n";
 
