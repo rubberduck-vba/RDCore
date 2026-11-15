@@ -572,6 +572,10 @@ internal sealed partial class ProcedureEmitter
                 EmitVariantFieldLet(variantFieldLet);
                 break;
 
+            case FieldTextLetStep fieldTextLet:
+                EmitFieldTextLet(fieldTextLet);
+                break;
+
             case TextAppendStep textAppend:
                 EmitTextAppend(textAppend);
                 break;
