@@ -110,7 +110,7 @@
     <value>'{0}' is not an answer to '{1}'.</value>
   </data>
   <data name="EncapsulateFieldRefusal_WritesAnElement" xml:space="preserve">
-    <value>{1} writes an element of '{0}', an array, or resizes or erases it: through a property, it would write to a copy, and the write would be lost without an error, or not compile.</value>
+    <value>{1} writes an element of '{0}', an array, or resizes or erases it: through a property, the write would go to a copy and be lost without an error, or would not compile.</value>
   </data>
   <data name="EncapsulateFieldRefusal_SharesItsStatement" xml:space="preserve">
     <value>'{0}' is declared in one statement with '{1}', which is encapsulated with it: declare each in a statement of its own first.</value>

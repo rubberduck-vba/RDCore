@@ -113,7 +113,7 @@
     <value>{1} écrit dans un élément de '{0}', un tableau, ou le redimensionne ou l'efface : par une propriété, l'écriture irait à une copie et serait perdue sans erreur, ou ne compilerait pas.</value>
   </data>
   <data name="EncapsulateFieldRefusal_SharesItsStatement" xml:space="preserve">
-    <value>'{0}' est déclaré dans une même instruction que '{1}', encapsulé avec lui : déclarez d'abord chacun dans une instruction à part.</value>
+    <value>'{0}' est déclaré dans la même instruction que '{1}', encapsulé avec lui : déclarez d'abord chacun dans une instruction à part.</value>
   </data>
   <data name="EncapsulateFieldChange_ElementPassed" xml:space="preserve">
     <value>{1} passe un élément de '{0}' à un appel qui peut le prendre ByRef : par une propriété, ce que l'appel y écrit va à une copie et est perdu.</value>
