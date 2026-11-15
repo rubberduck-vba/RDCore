@@ -193,10 +193,10 @@
     <value>Le type déclaré '{0}' n'a pas pu être résolu : '{1}' n'est pas un projet ou un module que ce projet peut voir. S'il s'agit d'une bibliothèque, elle manque peut-être dans les références du projet.</value>
   </data>
   <data name="VBCompileError_NewTypeNotResolved_Verbose" xml:space="preserve">
-    <value>La classe '{0}' de l'expression New n'a pas pu être résolue.</value>
+    <value>La classe « {0} » de l'expression New n'a pas pu être résolue.</value>
   </data>
   <data name="VBCompileError_NewTypeQualifierNotResolved_Verbose" xml:space="preserve">
-    <value>La classe '{0}' de l'expression New n'a pas pu être résolue : '{1}' n'est pas un projet ou un module que ce projet peut voir. S'il s'agit d'une bibliothèque, elle manque peut-être dans les références du projet.</value>
+    <value>La classe « {0} » de l'expression New n'a pas pu être résolue : « {1} » n'est ni un projet ni un module que ce projet peut voir. S'il s'agit d'une bibliothèque, elle manque peut-être dans les références du projet.</value>
   </data>
   <data name="VBCompileError_DeclaredTypeIsAProceduralModule_Verbose" xml:space="preserve">
     <value>Le type déclaré '{0}' est un module standard, pas un type.</value>

@@ -77,8 +77,8 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
         // (UserDefinedTypeNotDefined) - either way, MS-VBAL 5.6.8 requires an instantiable class.
         if (!result.IsResolved)
         {
-            // a name that resolves to nothing is the declared type's error, and says so as it does: a qualifier that is nothing this project can see is most likely
-            // a library that is not referenced (New stdole.StdFont, without the OLE Automation reference).
+            // a name that resolves to nothing is the error of a declared type of that name (UserDefinedTypeNotDefined), and its message names it: a qualifier that
+            // is nothing this project can see is most likely a library that is not referenced (New stdole.StdFont, without the OLE Automation reference).
             var name = qualifier is null ? typeName : $"{qualifier}.{typeName}";
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, expression.Location,
                 qualifier is not null && context.Resolver.ResolveQualifier(qualifier, ScopeKind.Global, context.Scope.Uri).Symbol is null
