@@ -377,14 +377,101 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
-    public void TheMemberOfAClassThatIsImplemented_AndTheProcedureThatImplementsIt_AreNotRenamed()
+    [DataRow("IShape", "Public Sub Draw", "Draw", DisplayName = "at its declaration")]
+    [DataRow("Square", "Private Sub IShape_Draw", "Draw", DisplayName = "at the part of an implementation's name that is the member's")]
+    [DataRow("Square", "    IShape_Draw", "Draw", DisplayName = "where an implementation is called")]
+    [DataRow("Main", "s.Draw", "Draw", DisplayName = "where it is called")]
+    public void TheMemberOfAClassThatIsImplemented_IsRenamedWithTheProceduresThatImplementIt(string module, string line, string text)
     {
-        var context = Compose(
-            ("IShape", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"IShape\"", "Public Sub Draw()", "End Sub")),
-            ("Square", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Square\"", "Implements IShape", "Private Sub IShape_Draw()", "End Sub")));
+        // MS-VBAL §5.3.1.9: an implementation is named after the interface and its member.
+        var context = Compose(("IShape", Shape), ("Square", Square), ("Main", Module("Main", "Public Sub One()", "    Dim s As IShape", "    s.Draw", "End Sub")));
 
-        Assert.AreEqual(RenameRefusalKind.InterfaceMember, SymbolRename.Prepare(context, ModuleUri("IShape"), At(context, "IShape", "Public Sub Draw", "Draw")).Refusal?.Kind);
-        Assert.AreEqual(RenameRefusalKind.NamedByConvention, SymbolRename.Prepare(context, ModuleUri("Square"), At(context, "Square", "IShape_Draw", "IShape_Draw")).Refusal?.Kind);
+        var plan = Rename(context, module, line, text, "Paint");
+
+        Assert.AreEqual(Shape.Replace("Draw", "Paint"), Renamed(context, plan, "IShape"));
+        Assert.AreEqual(Square.Replace("IShape_Draw", "IShape_Paint"), Renamed(context, plan, "Square"));
+        Assert.AreEqual(Module("Main", "Public Sub One()", "    Dim s As IShape", "    s.Paint", "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void ThePropertyOfAClassThatIsImplemented_IsRenamedWithTheImplementation_WhereItAssignsItsResult()
+    {
+        var context = Compose(("IShape", Shape), ("Square", Square));
+
+        var plan = Rename(context, "Square", "Private Property Get IShape_Area", "Area", "Size");
+
+        Assert.AreEqual(Shape.Replace("Area", "Size"), Renamed(context, plan, "IShape"));
+        Assert.AreEqual(Square.Replace("IShape_Area", "IShape_Size"), Renamed(context, plan, "Square"));
+    }
+
+    [TestMethod]
+    public void ThePartOfAnImplementationsNameThatIsTheInterfaces_RenamesTheInterface()
+    {
+        var context = Compose(("IShape", Shape), ("Square", Square));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Square"), At(context, "Square", "Private Sub IShape_Draw", "IShape"));
+
+        Assert.AreEqual("IShape", preparation.Target?.Name);
+        Assert.AreEqual(Square.Replace("IShape", "IFigure"), Renamed(context, SymbolRename.Plan(context, preparation.Target!, "IFigure"), "Square"));
+    }
+
+    [TestMethod]
+    public void AnImplementationThatWouldTakeTheNameOfAnotherMember_RefusesTheRenameOfTheMember()
+    {
+        var context = Compose(("IShape", Shape), ("Square", Square.Replace("Public Sub Show()", "Public Sub IShape_Paint()\r\nEnd Sub\r\nPublic Sub Show()")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("IShape"), At(context, "IShape", "Public Sub Draw", "Draw"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, "Paint").Refusal?.Kind);
+    }
+
+    private static readonly string Spinner = Lines(
+        "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Spinner\"",
+        "Public Event Spun()",
+        "Public Sub Go()", "    RaiseEvent Spun", "End Sub");
+
+    private static readonly string Watcher = Lines(
+        "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Watcher\"",
+        "Private WithEvents source As Spinner",
+        "Public Sub Start()", "    Set source = New Spinner", "    source_Spun", "End Sub",
+        "Private Sub source_Spun()", "End Sub");
+
+    [TestMethod]
+    [DataRow("Spinner", "Public Event Spun", "Spun", DisplayName = "at its declaration")]
+    [DataRow("Spinner", "RaiseEvent Spun", "Spun", DisplayName = "where it is raised")]
+    [DataRow("Watcher", "Private Sub source_Spun", "Spun", DisplayName = "at the part of a handler's name that is the event's")]
+    public void AnEvent_IsRenamedWhereItIsRaised_WithItsHandlers(string module, string line, string text)
+    {
+        // MS-VBAL §5.3.1.8: a handler is named after the WithEvents variable and the event.
+        var context = Compose(("Spinner", Spinner), ("Watcher", Watcher));
+
+        var plan = Rename(context, module, line, text, "Turned");
+
+        Assert.AreEqual(Spinner.Replace("Spun", "Turned"), Renamed(context, plan, "Spinner"));
+        Assert.AreEqual(Watcher.Replace("source_Spun", "source_Turned"), Renamed(context, plan, "Watcher"));
+    }
+
+    [TestMethod]
+    [DataRow("Private WithEvents source", "source", DisplayName = "at its declaration")]
+    [DataRow("Private Sub source_Spun", "source", DisplayName = "at the part of a handler's name that is the variable's")]
+    public void AWithEventsVariable_IsRenamedWithItsHandlers(string line, string text)
+    {
+        var context = Compose(("Spinner", Spinner), ("Watcher", Watcher.Replace("Public Sub Start()", "Private Sub source_Other()\r\nEnd Sub\r\nPublic Sub Start()")));
+
+        var plan = Rename(context, "Watcher", line, text, "watched");
+
+        // a procedure named after the variable that handles none of its events is named as any other.
+        Assert.AreEqual(Watcher.Replace("source", "watched").Replace("Public Sub Start()", "Private Sub source_Other()\r\nEnd Sub\r\nPublic Sub Start()"), Renamed(context, plan, "Watcher"));
+    }
+
+    [TestMethod]
+    public void AHandlerThatWouldTakeTheNameOfAnotherMember_RefusesTheRenameOfTheEvent()
+    {
+        var context = Compose(("Spinner", Spinner), ("Watcher", Watcher.Replace("Public Sub Start()", "Public Sub source_Turned()\r\nEnd Sub\r\nPublic Sub Start()")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Spinner"), At(context, "Spinner", "Public Event Spun", "Spun"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, "Turned").Refusal?.Kind);
     }
 
     [TestMethod]
@@ -402,9 +489,7 @@ public sealed class SymbolRenameTests
     [TestMethod]
     [DataRow("Private Sub Class_Initialize()", "Class_Initialize", DisplayName = "the class's own event")]
     [DataRow("Private Sub UserForm_Click()", "UserForm_Click", DisplayName = "a form's own event")]
-    [DataRow("Private Sub source_Spun()", "source_Spun", DisplayName = "an event of a WithEvents variable")]
-    [DataRow("Private Sub source_Other()", "source_Other", DisplayName = "named for a WithEvents variable, an event it does not raise")]
-    public void AClassProcedureCalledByItsName_AsAHandler_IsNotRenamed(string declaration, string name)
+    public void AClassProcedureCalledByItsName_AsAHandlerOfItsOwnEvents_IsNotRenamed(string declaration, string name)
     {
         var context = Compose(
             ("Spinner", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Spinner\"", "Public Event Spun()")),
@@ -823,16 +908,16 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
-    public void TheMemberOfAClassThatAClassNamedWithAnAccentImplements_IsRefused_NamingTheImplementerAsItsCodeDoes()
+    public void TheMemberOfAClassThatAClassNamedWithAnAccentImplements_IsRenamedInTheImplementation()
     {
+        var carré = Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Carré\"", "Implements IForme", "Private Sub IForme_Dessiner()", "End Sub");
         var context = Compose(
             ("IForme", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"IForme\"", "Public Sub Dessiner()", "End Sub")),
-            ("Carré", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Carré\"", "Implements IForme", "Private Sub IForme_Dessiner()", "End Sub")));
+            ("Carré", carré));
 
-        var refusal = SymbolRename.Prepare(context, ModuleUri("IForme"), At(context, "IForme", "Public Sub Dessiner", "Dessiner")).Refusal;
+        var plan = Rename(context, "IForme", "Public Sub Dessiner", "Dessiner", "Tracer");
 
-        Assert.AreEqual(RenameRefusalKind.InterfaceMember, refusal?.Kind);
-        StringAssert.Contains(refusal!.ToMessage(culture: CultureInfo.InvariantCulture), "IForme, Carré");
+        Assert.AreEqual(carré.Replace("IForme_Dessiner", "IForme_Tracer"), Renamed(context, plan, "Carré"));
     }
 
     [TestMethod]

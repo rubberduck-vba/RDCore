@@ -33,15 +33,9 @@ public enum RenameRefusalKind
     // MS-VBAL §5.2.3.1.2, §5.3.1.1
     NamedByConvention,
 
-    Event,
-
-    WithEvents,
-
     Control,
 
     ExternalProcedure,
-
-    InterfaceMember,
 
     // MS-VBAL §4.2
     ModuleNameTooLong,
@@ -113,6 +107,14 @@ public static class SymbolRename
             return PrepareType(context, module, attribute.Range, self);
         }
 
+        // the event a RaiseEvent raises, which it names (MS-VBAL §5.4.2.20).
+        if (RaisedEventAt(context, source, position) is { } raised)
+        {
+            return RefusalOf(context, raised.Event) is { } refused
+                ? new(null, refused)
+                : new(new RenameTarget(raised.Event.Name, module, raised.Range, [raised.Event.SemanticId]), null);
+        }
+
         if (NameOccurrences.NameAt(source, position) is not { } name)
         {
             // the name of a type in an As clause.
@@ -148,6 +150,12 @@ public static class SymbolRename
             return PrepareType(context, module, here.Range, symbol);
         }
 
+        // a procedure named after what it implements or handles: the part of its name the position is in names what is renamed.
+        if (ConventionalPartAt(context, module, symbol, here.Range, position) is { } part)
+        {
+            return part;
+        }
+
         if (RefusalOf(context, symbol) is { } refusal)
         {
             return new(null, refusal);
@@ -160,6 +168,97 @@ public static class SymbolRename
         => RefusalOf(context, type) is { } refusal
             ? new(null, refusal)
             : new(new RenameTarget(type.Name, module, range, [type.SemanticId]), null);
+
+    // MS-VBAL §5.3.1.8, §5.3.1.9: Interface_Member implements Member of Interface, and Variable_Event handles Event for the WithEvents Variable. Before the
+    // underscore, the name is the interface's or the variable's; after it, the member's or the event's.
+    private static RenamePreparation? ConventionalPartAt(RenameContext context, Uri module, Symbol procedure, SourceRange range, SourcePosition position)
+    {
+        if (!IsProcedure(procedure) || range.Start.Line != range.End.Line
+            || NameOccurrences.SymbolOf(context, new SemanticId(procedure.ParentUri)) is not VBClassModuleSymbol { IsDocument: false } owner
+            || NamedAfter(owner, procedure) is not { } named)
+        {
+            return null;
+        }
+
+        var split = named.Prefix.Name.Length;
+        var start = range.Start;
+        if (position.Character - start.Character <= split)
+        {
+            var prefix = new SourceRange(start, new SourcePosition(start.Line, start.Character + split));
+            return named.Prefix is VBClassModuleSymbol implemented
+                ? PrepareType(context, module, prefix, implemented)
+                : RefusalOf(context, named.Prefix) is { } refused ? new(null, refused) : new(new RenameTarget(named.Prefix.Name, module, prefix, [named.Prefix.SemanticId]), null);
+        }
+
+        var suffix = new SourceRange(new SourcePosition(start.Line, start.Character + split + 1), range.End);
+        if (named.Member is not { } member)
+        {
+            return new(null, new RenameRefusal(RenameRefusalKind.NotDeclaredByWorkspace, procedure.Name[(split + 1)..]));
+        }
+
+        return RefusalOf(context, member) is { } refusal
+            ? new(null, refusal)
+            : new(new RenameTarget(member.Name, module, suffix, [.. RenamedTogether(context, member).Select(renamed => renamed.SemanticId)]), null);
+    }
+
+    // what a procedure of a class is named after: an interface the class implements and its member, or a WithEvents variable of the class and its event (none
+    // when the variable's class is not known, or has no such event).
+    private static (Symbol Prefix, Symbol? Member)? NamedAfter(VBClassModuleSymbol owner, Symbol procedure)
+    {
+        foreach (var implemented in owner.ImplementedInterfaces.Where(implemented => IsNamedAfter(procedure, implemented.Name)))
+        {
+            var memberName = procedure.Name[(implemented.Name.Length + 1)..];
+            if (implemented.DefaultInterfaceMembers.FirstOrDefault(member => string.Equals(member.Name, memberName, StringComparison.OrdinalIgnoreCase)) is { } member)
+            {
+                return (implemented, member);
+            }
+        }
+
+        foreach (var variable in owner.WithEventsVariables.Where(variable => IsNamedAfter(procedure, variable.Name)))
+        {
+            var eventName = procedure.Name[(variable.Name.Length + 1)..];
+            return (variable, ClassOf(variable)?.FindEvent(eventName));
+        }
+
+        return null;
+    }
+
+    private static bool IsNamedAfter(Symbol procedure, string prefix)
+        => procedure.Name.Length > prefix.Length + 1 && procedure.Name[prefix.Length] == '_' && procedure.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+
+    private static VBClassModuleSymbol? ClassOf(VBTypeMemberSymbol variable) => (variable.ResolvedType as VBClassType)?.Symbol as VBClassModuleSymbol;
+
+    // where a RaiseEvent names the event it raises: the event of its class by that name.
+    private static (VBEventMemberSymbol Event, SourceRange Range)? RaisedEventAt(RenameContext context, RenameModule source, SourcePosition position)
+    {
+        if (NameOccurrences.SymbolOf(context, new SemanticId(source.Module)) is not VBClassModuleSymbol owner)
+        {
+            return null;
+        }
+
+        foreach (var (name, range) in RaisedNames(source))
+        {
+            if (Contains(range, position) && owner.FindEvent(name) is { } raised)
+            {
+                return (raised, range);
+            }
+        }
+
+        return null;
+    }
+
+    // the event names the RaiseEvent statements of a module write.
+    private static IEnumerable<(string Name, SourceRange Range)> RaisedNames(RenameModule source)
+    {
+        foreach (var (node, _) in NameOccurrences.Walk(source.Syntax))
+        {
+            if (node is KeywordStatementNode { Token: Tokens.RaiseEvent, Inputs: [SimpleNameExpressionNode name, ..] })
+            {
+                var start = name.Location.Range.Start;
+                yield return (name.IdentifierName, new SourceRange(start, new SourcePosition(start.Line, start.Character + name.IdentifierName.Length)));
+            }
+        }
+    }
 
     // a Type and an Enum are module members; a module is the type of its class (MS-VBAL §5.2.3.3, §5.2.3.4, §5.2.4.1).
     private static bool IsType(Symbol symbol) => symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
@@ -231,11 +330,17 @@ public static class SymbolRename
         }
 
         var old = NameOccurrences.Find(context, target.Name, context.Modules);
+        var raisedNames = RaisedNamesOf(context, symbols).ToList();
 
         // a name written as the renamed one whose meaning is not known, where the symbol could be what it means.
         var inStrings = new List<NameOccurrence>();
         foreach (var unknown in old.Unknown)
         {
+            if (raisedNames.Any(raised => raised.Module.AbsoluteUri == unknown.Module?.AbsoluteUri && raised.Range.Start == unknown.Range.Start))
+            {
+                continue;
+            }
+
             if (unknown.Kind == OccurrenceKind.String)
             {
                 if (RenameBinding.IsCalledBy(context, symbols, unknown))
@@ -262,6 +367,12 @@ public static class SymbolRename
             return Refused(conflict);
         }
 
+        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName)).ToList();
+        if (ConventionEdits(context, symbols, newName, named) is { } taken)
+        {
+            return Refused(taken);
+        }
+
         var edits = renamed
             .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
             .OrderBy(occurrence => occurrence.Module.AbsoluteUri, StringComparer.Ordinal)
@@ -273,6 +384,8 @@ public static class SymbolRename
             .Concat(lateBound
                 .DistinctBy(site => (site.Occurrence.Module.AbsoluteUri, site.Occurrence.Range))
                 .Select(site => new RenameEdit(site.Occurrence.Module, site.Occurrence.Range, newName, IsLateBound: true, IsBacked: site.Match == RenameBinding.LateBoundMatch.Backed)))
+            .Concat(named)
+            .DistinctBy(edit => (edit.Module.AbsoluteUri, edit.Range))
             .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start);
         return new([.. edits], null);
@@ -463,10 +576,7 @@ public static class SymbolRename
 
         if (module is VBClassModuleSymbol implemented)
         {
-            foreach (var implementer in context.Modules
-                .Select(candidate => NameOccurrences.SymbolOf(context, new SemanticId(candidate.Module)))
-                .OfType<VBClassModuleSymbol>()
-                .Where(candidate => candidate.ImplementedInterfaces.Any(each => each.SemanticId == implemented.SemanticId)))
+            foreach (var implementer in ImplementersOf(context, implemented))
             {
                 if (ImplementationEdits(context, implemented, implementer, newName, edits) is { } refusal)
                 {
@@ -485,37 +595,141 @@ public static class SymbolRename
     private static RenameRefusal? ImplementationEdits(
         RenameContext context, VBClassModuleSymbol implemented, VBClassModuleSymbol implementer, string newName, List<RenameEdit> edits)
     {
-        var at = NameOccurrences.ModuleOf(implementer.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source
-            || !context.ScopeTree.TryGetScope(at, out var members))
-        {
-            return null;
-        }
-
-        var prefix = implemented.Name.Length;
         foreach (var implementation in implemented.DefaultInterfaceMembers
             .Select(member => implementer.FindImplementation(implemented, member))
             .OfType<VBTypeMemberSymbol>()
-            .Where(implementation => implementation.Name.Length > prefix && implementation.Name[prefix] == '_'
-                && implementation.Name.StartsWith(implemented.Name, StringComparison.OrdinalIgnoreCase))
+            .Where(implementation => IsNamedAfter(implementation, implemented.Name))
             .DistinctBy(implementation => implementation.Name, StringComparer.OrdinalIgnoreCase))
         {
-            var accessors = RenameBinding.DefinedTogether(context, implementation).Select(accessor => accessor.SemanticId).ToHashSet();
-            var renamed = newName + implementation.Name[prefix..];
-            if (members.DeclaredAs(renamed).FirstOrDefault(declared => !accessors.Contains(declared.SemanticId)) is { } taken)
+            if (RenamePart(context, implementer, implementation, 0, implemented.Name.Length, newName, edits) is { } refusal)
             {
-                return ConflictWith(renamed, taken);
-            }
-
-            foreach (var occurrence in NameOccurrences.Find(context, implementation.Name, [source]).Occurrences
-                .Where(occurrence => occurrence.Binding is { } binding && accessors.Contains(binding)))
-            {
-                var start = occurrence.Range.Start;
-                edits.Add(new RenameEdit(occurrence.Module, new SourceRange(start, new SourcePosition(start.Line, start.Character + prefix)), newName));
+                return refusal;
             }
         }
 
         return null;
+    }
+
+    // a procedure named after what it implements or handles, renamed in part where it is declared and where it is called: the part at offset, of the given
+    // length, becomes part. Refused when the class declares the new name already.
+    private static RenameRefusal? RenamePart(RenameContext context, VBClassModuleSymbol owner, Symbol procedure, int offset, int length, string part, List<RenameEdit> edits)
+    {
+        if (!context.ScopeTree.TryGetScope(NameOccurrences.ModuleOf(owner.Uri), out var members))
+        {
+            return null;
+        }
+
+        var accessors = RenameBinding.DefinedTogether(context, procedure).Select(accessor => accessor.SemanticId).ToHashSet();
+        var renamed = string.Concat(procedure.Name.AsSpan(0, offset), part, procedure.Name.AsSpan(offset + length));
+        if (members.DeclaredAs(renamed).FirstOrDefault(declared => !accessors.Contains(declared.SemanticId)) is { } taken)
+        {
+            return ConflictWith(renamed, taken);
+        }
+
+        foreach (var occurrence in NameOccurrences.Find(context, procedure.Name, context.Modules).Occurrences
+            .Where(occurrence => occurrence.Binding is { } binding && accessors.Contains(binding)))
+        {
+            var start = occurrence.Range.Start;
+            edits.Add(new RenameEdit(occurrence.Module, new SourceRange(start.Line, start.Character + offset, start.Line, start.Character + offset + length), part));
+        }
+
+        return null;
+    }
+
+    // MS-VBAL §5.3.1.8, §5.3.1.9: the procedures named after a renamed symbol are renamed with it, in the part of their name that is its: the handlers of an
+    // event and of a WithEvents variable, and the implementations of the member of a class that other classes implement.
+    private static RenameRefusal? ConventionEdits(RenameContext context, IReadOnlyList<Symbol> symbols, string newName, List<RenameEdit> edits)
+    {
+        foreach (var symbol in symbols)
+        {
+            if (NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri)) is not VBClassModuleSymbol owner)
+            {
+                continue;
+            }
+
+            if (symbol is VBEventMemberSymbol)
+            {
+                foreach (var handling in ClassesOf(context))
+                {
+                    foreach (var variable in handling.WithEventsVariables.Where(variable => ClassOf(variable)?.SemanticId == owner.SemanticId))
+                    {
+                        foreach (var handler in ProceduresOf(context, handling, $"{variable.Name}_{symbol.Name}"))
+                        {
+                            if (RenamePart(context, handling, handler, variable.Name.Length + 1, symbol.Name.Length, newName, edits) is { } refusal)
+                            {
+                                return refusal;
+                            }
+                        }
+                    }
+                }
+
+                continue;
+            }
+
+            if (symbol.GetProperty(SymbolProperties.WithEvents))
+            {
+                // the handlers of its events, those of a library's class too; a procedure named after it that handles none is named as any other.
+                var roles = MemberRoles.Of(owner, context.Resolver, designer: null);
+                foreach (var handler in owner.Members.Where(member => IsNamedAfter(member, symbol.Name)
+                    && roles.TryGetValue(member.SemanticId, out var role) && role is DeclarationRole.EventHandler))
+                {
+                    if (RenamePart(context, owner, handler, 0, symbol.Name.Length, newName, edits) is { } refusal)
+                    {
+                        return refusal;
+                    }
+                }
+
+                continue;
+            }
+
+            if (symbol is not VBTypeMemberSymbol member)
+            {
+                continue;
+            }
+
+            // a Public variable is implemented by properties: they are renamed together, by any one of them.
+            foreach (var implementer in ImplementersOf(context, owner))
+            {
+                if (implementer.FindImplementation(owner, member) is { } implementation && IsNamedAfter(implementation, owner.Name)
+                    && RenamePart(context, implementer, implementation, owner.Name.Length + 1, symbol.Name.Length, newName, edits) is { } refusal)
+                {
+                    return refusal;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<VBClassModuleSymbol> ClassesOf(RenameContext context)
+        => context.Modules.Select(candidate => NameOccurrences.SymbolOf(context, new SemanticId(candidate.Module))).OfType<VBClassModuleSymbol>();
+
+    private static IEnumerable<VBClassModuleSymbol> ImplementersOf(RenameContext context, VBClassModuleSymbol implemented)
+        => ClassesOf(context).Where(candidate => candidate.ImplementedInterfaces.Any(each => each.SemanticId == implemented.SemanticId));
+
+    private static IEnumerable<Symbol> ProceduresOf(RenameContext context, VBClassModuleSymbol owner, string name)
+        => context.ScopeTree.TryGetScope(NameOccurrences.ModuleOf(owner.Uri), out var members) ? members.DeclaredAs(name).Where(IsProcedure) : [];
+
+    // the names the RaiseEvent statements of its class write, which mean a renamed event (MS-VBAL §5.4.2.20).
+    private static IEnumerable<(Uri Module, SourceRange Range)> RaisedNamesOf(RenameContext context, IReadOnlyList<Symbol> symbols)
+    {
+        foreach (var raised in symbols.OfType<VBEventMemberSymbol>())
+        {
+            var at = NameOccurrences.ModuleOf(raised.Uri);
+            if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source
+                || NameOccurrences.SymbolOf(context, new SemanticId(raised.ParentUri)) is not VBClassModuleSymbol owner)
+            {
+                continue;
+            }
+
+            foreach (var (name, range) in RaisedNames(source))
+            {
+                if (owner.FindEvent(name)?.SemanticId == raised.SemanticId)
+                {
+                    yield return (source.Module, range);
+                }
+            }
+        }
     }
 
     // MS-VBAL §4.2, §5.2.3.3, §5.2.3.4: a module is named as no other module of its project, no project it is in or references, and no Public Type or Enum of
@@ -675,15 +889,8 @@ public static class SymbolRename
             case VBClassModuleSymbol { IsDocument: true }:
             case VBModuleSymbol when IsDesigned(context, symbol):
                 return new(RenameRefusalKind.Type, symbol.Name);
-            case VBEventMemberSymbol:
-                return new(RenameRefusalKind.Event, symbol.Name);
             case VBExternalSubMemberSymbol or VBExternalFunctionMemberSymbol:
                 return new(RenameRefusalKind.ExternalProcedure, symbol.Name);
-        }
-
-        if (symbol.GetProperty(SymbolProperties.WithEvents))
-        {
-            return new(RenameRefusalKind.WithEvents, symbol.Name);
         }
 
         if (symbol.GetProperty(SymbolProperties.DesignerControl))
@@ -691,20 +898,9 @@ public static class SymbolRename
             return new(RenameRefusalKind.Control, symbol.Name);
         }
 
-        if (parent is VBClassModuleSymbol owner)
-        {
-            if (IsProcedure(symbol) && symbol.Name.Contains('_') && IsNamedByConvention(context, owner, symbol))
-            {
-                return new(RenameRefusalKind.NamedByConvention, symbol.Name);
-            }
-
-            if (NameOccurrences.ImplementerOf(context, owner) is { } implementer)
-            {
-                return new(RenameRefusalKind.InterfaceMember, symbol.Name, $"{owner.Name}, {implementer}");
-            }
-        }
-
-        return null;
+        return parent is VBClassModuleSymbol owner && IsProcedure(symbol) && symbol.Name.Contains('_') && IsNamedByConvention(context, owner, symbol)
+            ? new(RenameRefusalKind.NamedByConvention, symbol.Name)
+            : null;
     }
 
     // MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10: a procedure of a class named Object_Member is called by that name, and is not renamed away from it. It is the handler of

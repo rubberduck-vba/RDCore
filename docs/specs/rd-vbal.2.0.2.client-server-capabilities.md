@@ -421,6 +421,16 @@ A standard or class module is renamed where its name means it, the same way, its
 
 The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, or of a project (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
 
+A procedure named after what it implements or handles (**MS-VBAL §5.3.1.8**, §5.3.1.9) is renamed with it. Only the part of its name that is the renamed symbol's changes, where the procedure is declared and called:
+
+|Renamed|With it|
+|---|---|
+|The member of a class that other classes implement (`Draw`)|The procedures that implement it (`IShape_Draw` to `IShape_Paint`).|
+|An event (`Spun`)|The `RaiseEvent` statements of its class, and the handlers of the `WithEvents` variables of its class (`source_Spun` to `source_Turned`).|
+|A `WithEvents` variable (`source`)|The handlers of its events, those of a library's class included (`source_Spun` to `watched_Spun`). A procedure named after it that handles none of its events keeps its name.|
+
+A rename can start at either part of such a procedure's name: before the underscore, it renames the interface or the variable; after it, the member or the event. A procedure renamed with it must not take the name of another member of its class.
+
 The module's file is renamed with it when the file has the module's name (`Helpers.bas`), after its text is edited (**LSP 3.17** `RenameFile`), and only when no file of the new name exists there already. A client that does not rename files (`workspace.workspaceEdit.resourceOperations`) is sent the rest of the edit. The module is named by its `VB_Name` attribute, so its file keeps its old name. A client that renames the file says so (`workspace/didRenameFiles`), and the server writes the project file.
 
 A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A string left as it is names nothing the call can find, and the call fails only when the code runs.
@@ -450,8 +460,8 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The new name is one that MS-VBAL §5.2.3.3 or §5.2.3.4 does not allow for a `Type` or an `Enum`|Two types, or a type and a module, would have one name.|
 |The symbol is a module, and the new name is one MS-VBAL §4.2 does not allow: longer than 31 characters, or the name of another module, a `Public` type or a project|Two modules, or a module and a type, would have one name.|
 |The symbol is a form or another module with a designer, a document module, or a project|What else names it (its designer, its document) would not be renamed with it.|
-|The symbol is an event, a `WithEvents` variable, a form's control, or a member of a class another implements|What is named after it would not be renamed with it.|
-|The symbol is a procedure of a class module with an underscore in its name|It is named after the event it handles or the member it implements.|
+|The symbol is a form's control|Its designer names it, and would not be renamed with it.|
+|The symbol is a procedure that handles an event of its own class or form (`Class_Initialize`, `UserForm_Click`) or of a control, or a procedure of a document module|It is named after the event it handles.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
