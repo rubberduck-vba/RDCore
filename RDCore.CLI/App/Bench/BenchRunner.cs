@@ -297,11 +297,17 @@ internal sealed class BenchRunner(
 
     // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile and reaching the outside world it is given
     // (outside), or the machine's when outside is null; what was defined in it, in order, kept in definitions when it is given. The caller disposes the
-    // provider: the session's current directory is the workspace, which the caller may delete.
+    // provider: the session's current directory is the workspace, which the caller may delete. The language is the one the project file says, as the language
+    // server takes it, over the setting's: a project imported from a .vbp is Visual Basic 6.0 (SupportedLanguages.OfProject). No client names one here.
     private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, ExternalWorld? outside, CancellationToken token,
         List<DefineSymbolsParams>? definitions = null)
     {
         var root = workspace.RootUri;
+        if (SupportedLanguages.OfProject(workspace.Project) is { } language && language != profile.Language)
+        {
+            profile = SDK.Runtime.RuntimeEnvironmentProfile.Of(profile) with { SourceLanguage = language };
+        }
+
         var provider = new EnvironmentSessionProvider(
             profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, outside);
         try
