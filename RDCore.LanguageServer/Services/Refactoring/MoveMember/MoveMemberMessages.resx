@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- Move Member Up and Move Member Down: {0} is the procedure moved, {1} the one it would go past. -->
+  <!-- Move Member Up and Move Member Down: {0} is the procedure moved, {1} the one it would go past. Sort Members (SortMembers_*): no arguments. -->
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -33,5 +33,17 @@
   </data>
   <data name="MoveMember_DocumentChanged" xml:space="preserve">
     <value>The document has changed since the move was offered: ask for it again.</value>
+  </data>
+  <data name="SortMembers_Title" xml:space="preserve">
+    <value>Sort procedures by kind, then by name</value>
+  </data>
+  <data name="SortMembers_Nothing" xml:space="preserve">
+    <value>The procedures of this module are sorted already.</value>
+  </data>
+  <data name="SortMembers_VerificationFailed" xml:space="preserve">
+    <value>The procedures are not sorted: the module the sort would leave did not pass its check.</value>
+  </data>
+  <data name="SortMembers_DocumentChanged" xml:space="preserve">
+    <value>The document has changed since the sort was offered: ask for it again.</value>
   </data>
 </root>
