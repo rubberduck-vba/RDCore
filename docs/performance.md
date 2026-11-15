@@ -9,7 +9,7 @@ MS-VBA takes for the same code in Excel: below 1× is faster, above 1× slower. 
 (Excel 16, 64-bit, Windows 11 x64, 12 cores). The figures describe the default settings: the `Compiled` execution engine and the `Debug` program
 configuration (`--configuration`, see [The shell and the rdc commands](rdc.md)).
 
-The RD-VBA figures are measured again on every merge. Every case of the corpus is listed, the slowest included.
+The RD-VBA figures are measured on every merge. Every case of the corpus is listed, the slowest included.
 
 ## Calls
 
@@ -134,7 +134,7 @@ calls decides how long the code takes.
 ## How the figures are measured
 
 - **The reference run.** On the reference machine, MS-VBA and RD-VBA run the corpus in three alternated rounds, MS-VBA first in each round. Each case runs
-  seven times a round (five for Excel automation), and the figure is the fastest run. It is repeated when the corpus changes.
+  seven times a round (five for Excel automation), and the figure is the fastest run. The reference run is repeated when the corpus changes.
 - **On every merge.** A Windows build machine runs the corpus in three alternated rounds with two builds of `rdc`: the merged one, and the one the
   reference run used. A case's RD-VBA time is the reference run's, scaled by how the merged build compares with the reference build on that machine.
   Comparing the two builds on one machine keeps that machine's own speed out of the figure.

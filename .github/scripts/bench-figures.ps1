@@ -137,7 +137,7 @@ foreach ($module in $groups.Keys) {
     }
 }
 
-# the Excel automation cases: the reference run's figures, labelled with its date.
+# the Excel automation cases: the reference run's figures, labeled with its date.
 $excel = @()
 foreach ($property in @(if ($data.excel -is [pscustomobject]) { $data.excel.PSObject.Properties })) {
     if (-not ($property.Value.msvba -gt 0 -and $property.Value.rdvba -gt 0)) {

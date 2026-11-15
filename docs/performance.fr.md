@@ -10,7 +10,7 @@ donne aussi les deux temps, en millisecondes, sur la machine de référence (Exc
 réglages par défaut : le moteur d'exécution `Compiled` et la configuration de programme `Debug` (`--configuration`, voir
 [Le _shell_ et les commandes rdc](rdc.fr.md)).
 
-Les chiffres de RD-VBA sont mesurés de nouveau à chaque fusion. Tous les cas du corpus sont listés, les plus lents compris.
+Les chiffres de RD-VBA sont mesurés à chaque fusion. Tous les cas du corpus sont listés, les plus lents compris.
 
 ## Appels
 
@@ -135,8 +135,8 @@ le nombre d'appels qui décide du temps que prend le code.
 ## Comment les chiffres sont mesurés
 
 - **L'exécution de référence.** Sur la machine de référence, MS-VBA et RD-VBA exécutent le corpus en trois rondes alternées, MS-VBA en premier à chaque
-  ronde. Chaque cas s'exécute sept fois par ronde (cinq pour l'automatisation d'Excel), et le chiffre retenu est l'exécution la plus rapide. Elle est
-  refaite quand le corpus change.
+  ronde. Chaque cas s'exécute sept fois par ronde (cinq pour l'automatisation d'Excel), et le chiffre retenu est l'exécution la plus rapide.
+  L'exécution de référence est refaite quand le corpus change.
 - **À chaque fusion.** Une machine de compilation Windows exécute le corpus en trois rondes alternées avec deux compilations de `rdc` : celle de la
   fusion, et celle de l'exécution de référence. Le temps de RD-VBA pour un cas est celui de l'exécution de référence, multiplié par le rapport entre les
   deux compilations sur cette machine. Comparer les deux compilations sur une même machine écarte la vitesse propre de cette machine.
