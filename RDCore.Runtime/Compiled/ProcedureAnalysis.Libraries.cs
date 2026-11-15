@@ -53,10 +53,12 @@ internal sealed partial class ProcedureAnalysis
     }.ToImmutableDictionary(StringComparer.Ordinal);
 
     // the functions compiled code calls for a Variant they return, each of parameters of the Variant type or of a scalar type passed by value, and keeping
-    // nothing: IIf, which is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11); Round and Sgn; and the dates made of their
-    // parts, and the parts of a date.
+    // nothing: IIf, which is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11); Round and Sgn; the dates made of their
+    // parts, and the parts of a date; and Len and LenB (MS-VBAL §6.1.2.11.1.22), of a String or of a value of another type.
     private static readonly ImmutableHashSet<string> VariantLibraryFunctions = ImmutableHashSet.Create(StringComparer.Ordinal,
         "IStdInteractionModule.IIf/3",
+        "IStdStringsModule.Len/1",
+        "IStdStringsModule.LenB/1",
         "IStdMathModule.Round/2",
         "IStdMathModule.Sgn/1",
         "IStdDateTimeModule.DateSerial/3",
@@ -121,6 +123,19 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
+            // an expression of Strings given to a Variant parameter, which takes it by value, is given a Variant holding its text (VariantTextNode). That is done
+            // only outside an instruction that calls inside an expression, whose known operands are payloads.
+            if (typed is null && arguments[i] is { Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } text } && IsStringItem(text))
+            {
+                if (_nesting is not null || Text(text) is not { } texts)
+                {
+                    return null;
+                }
+
+                values.Add(new VariantTextNode(texts));
+                continue;
+            }
+
             // a Variant variable given to a Variant parameter is given what it holds, whatever it holds (VariantValueNode).
             if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value }
                 || (typed is { } destination ? PayloadAs(value, destination) is { } coerced ? new VariantOfNode(coerced) : null
@@ -139,7 +154,6 @@ internal sealed partial class ProcedureAnalysis
     private static bool IsCompiledLibrary(Symbol symbol)
         => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && CompiledLibraryFunctions.ContainsKey(target)
             && StandardLibrary.IsLibraryMember(symbol);
-
     // a call of a function of the standard library (IsCompiledLibrary), written with its arguments, or by its name when it is given none, as the
     // interpreter makes it (LibraryArgumentsOf). What it returns is a scalar of its type, or of the type of its argument for a function typed by it
     // (ArgumentTypedFunctions, the call's ResultType). Inside an instruction that calls inside an expression, the call is known once it is made, as any is;

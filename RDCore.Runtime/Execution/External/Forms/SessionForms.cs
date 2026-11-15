@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -38,6 +39,39 @@ internal sealed class SessionForms
     private readonly Dictionary<VBRuntimeObjectId, (VBRuntimeObjectId[] Controls, Action Leave, Action Stop)> _listening = [];
     private readonly Dictionary<object, (VBRuntimeObjectId Form, HashSet<string> Names)> _designed = new(ReferenceEqualityComparer.Instance);
     private bool _holding;
+
+    // the form host's side of the pipeline that runs the session's program: what says whether a host can create a form, when a New makes one.
+    private FormCallProvider? _creator;
+
+    /// <summary>
+    /// Sets <paramref name="provider"/> as what says, from then on, whether a <c>New</c> of a form's class can make its form (<see cref="CreationFailure"/>):
+    /// the provider of the pipeline that runs the session's program.
+    /// </summary>
+    /// <param name="provider">The pipeline's provider of the forms' members.</param>
+    public void CreatesWith(FormCallProvider provider)
+    {
+        lock (_gate)
+        {
+            _creator = provider;
+        }
+    }
+
+    /// <summary>
+    /// The error of a <c>New</c> of <paramref name="classModule"/> at <paramref name="site"/>, when it is a form's class whose form no host can create
+    /// (<see cref="FormCallProvider.CreationFailure"/>); <see langword="null"/> otherwise, and for a session no program runs in.
+    /// </summary>
+    /// <param name="classModule">The class of the object to create.</param>
+    /// <param name="site">Where the <c>New</c> is written.</param>
+    public RuntimeSemanticsEvaluationResult? CreationFailure(VBClassModuleSymbol classModule, SourceLocation site)
+    {
+        FormCallProvider? creator;
+        lock (_gate)
+        {
+            creator = _creator;
+        }
+
+        return creator?.CreationFailure(classModule, site);
+    }
 
     /// <summary>
     /// Holds the messages of the windows of <paramref name="host"/>'s forms while a program of the session runs, from now on (<see cref="RDCore.External.Forms.IFormHost.Hold"/>):

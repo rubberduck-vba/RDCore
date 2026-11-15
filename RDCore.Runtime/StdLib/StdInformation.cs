@@ -56,9 +56,10 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         {
             // the standard library's class, named by its library, whatever else a referenced library declares by that name.
             var declared = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, "ErrObject", StaticSymbol.GlobalUri).Symbol;
+            // every session the platform composes defines the standard library: one without it is a fault of the platform's, an internal error.
             if (declared is not VBClassModuleSymbol errorClass)
             {
-                return Fail<VBObjectValue>(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError,
+                return Fail<VBObjectValue>(VBRuntimeErrorId.InternalError,
                     "The standard library's 'ErrObject' class is not defined in this session.");
             }
 

@@ -139,8 +139,9 @@ public sealed record class ExternalCallPipeline(
         return Providers.FirstOrDefault(provider => provider.CanDispatch(request)) as StdLibDispatcher;
     }
 
-    // nothing here can run it. For a library import that is "the library call could not be made", which is
-    // what error 48 says; for anything else the platform simply has not got it.
+    // nothing here can run it. For a library import that is "the library call could not be made", which is what error 48 says, and for a member of a
+    // library's class it is 429. Any other member is the standard library's, whose provider every session has: a call of one that reaches none is a fault
+    // of the platform's, an internal error.
     private static RuntimeSemanticsEvaluationResult Unreachable(ExternalCallRequest request)
         => RuntimeSemanticsEvaluationResult.Error(request switch
         {
@@ -149,7 +150,7 @@ public sealed record class ExternalCallPipeline(
             // 429 is what VBA reports for a class it cannot get an object of, and the same for a member of one it cannot reach.
             { IsAutomation: true } => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ActiveXComponentCantCreateObject, request.CallSite,
                 $"{request.Describe()} could not be made: this platform has no automation servers."),
-            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
+            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, request.CallSite,
                 $"{request.Describe()} could not be called: nothing here can reach it."),
         });
 }

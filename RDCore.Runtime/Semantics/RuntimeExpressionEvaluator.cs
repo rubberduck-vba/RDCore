@@ -288,7 +288,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // why `Is Nothing` of it can never be true.
         return isAutoInstantiated && value is VBObjectValue { } held && held.IsNothing()
             && variable.ResolvedType is VBClassType { Symbol: { } classModule }
-                ? Assumed(AutoInstantiate(session, handle, classModule))
+                ? Assumed(AutoInstantiate(session, handle, classModule, isDefaultInstance: variable is VBPredeclaredInstanceSymbol))
                 : Assumed(RuntimeSemanticsEvaluationResult.Success(value));
     }
 
@@ -480,7 +480,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return ExpressionStaticSemanticsEvaluator.Evaluate(new StaticEvaluationContext(session.Symbols.Resolver, scope), ownerExpression).Result;
     }
 
-    private static RuntimeSemanticsEvaluationResult AutoInstantiate(IRuntimeSession session, IBindingHandle handle, VBClassModuleSymbol classModule)
+    // a variable declared As New is made by a New, which a form's class refuses where no host can make its form; a default instance is the form's own, made by
+    // any reference, which a member of it that needs the form fails at.
+    private static RuntimeSemanticsEvaluationResult AutoInstantiate(IRuntimeSession session, IBindingHandle handle, VBClassModuleSymbol classModule, bool isDefaultInstance)
     {
         // a declared type carries the class as it was when the type was built, and the class is what the instance is
         // made from: its members at the moment of the reference.
@@ -492,7 +494,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         // the variable is left Nothing, and the next reference to it tries again.
-        if (NewExpressionRuntimeSemantics.CreationFailure(classModule, default) is { } refused)
+        if ((NewExpressionRuntimeSemantics.CreationFailure(classModule, default)
+            ?? (isDefaultInstance ? null : Execution.External.Forms.SessionForms.Of(session).CreationFailure(classModule, default))) is { } refused)
         {
             return refused;
         }
@@ -1731,7 +1734,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (element is VBObjectValue { } held && held.IsNothing() && !array.IsIndeterminate && array.ItemType is VBClassType { Symbol: { } classModule }
             && IsDeclaredAsNew(session, context, callee) && array.IndexOf(subscripts) is >= 0 and var flat && array.CellAt(flat) is { } cell)
         {
-            created = Assumed(AutoInstantiate(session, cell, classModule));
+            created = Assumed(AutoInstantiate(session, cell, classModule, isDefaultInstance: false));
             return true;
         }
 

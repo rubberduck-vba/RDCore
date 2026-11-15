@@ -77,6 +77,9 @@ internal sealed class CoreLanguageServerApp(
     // the workspace as it is brought up, which what the client supplies the host waits for: begun as the server initializes, ended by the bring-up.
     private IDisposable? _workspaceExpected;
 
+    // what the client says of the workspace folders it adds and removes, read from OmniSharp's workspace folder manager until the server stops.
+    private IDisposable? _workspaceFolderChanges;
+
     protected override async Task BeforeRunAsync(string[] args)
     {
         var platform = composition.GetManifest();
@@ -239,6 +242,9 @@ internal sealed class CoreLanguageServerApp(
         // what the client sends once it is answered - a program it runs, a document it opens - is given the host once the workspace's modules are.
         _workspaceExpected = symbolSync.ExpectWorkspace();
         await LoadWorkspaceAsync(server, request, cancellationToken);
+        // and the folders the client adds and removes once it is answered are loaded and dropped as those it gave now were. They are read from OmniSharp's own
+        // folder manager, which keeps serving workspace/didChangeWorkspaceFolders and stating changeNotifications: a handler of ours would take its place.
+        _workspaceFolderChanges = ExternalServices.GetRequiredService<IWorkspaceFolderChanges>().Attach(server.WorkspaceFolderManager, server);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }
 
@@ -278,14 +284,7 @@ internal sealed class CoreLanguageServerApp(
         }
 
         // a project that lists a file no workspace folder holds does not have it: the client is told which, and why.
-        foreach (var (project, relativeUri) in projects.Refused)
-        {
-            server.Window.ShowMessage(new ShowMessageParams
-            {
-                Type = MessageType.Warning,
-                Message = string.Format(DebuggerMessages.FileOutsideTheWorkspaceFolders, relativeUri, project),
-            });
-        }
+        WorkspaceFolderChanges.TellRefused(server, projects.Refused);
     }
 
     // the language a client names in its initializationOptions is already the server's, and wins; one that names none leaves it to the project file. The
@@ -503,6 +502,7 @@ internal sealed class CoreLanguageServerApp(
         await _componentsCts.CancelAsync();
         // a bring-up that never began lets go of what waits for it.
         _workspaceExpected?.Dispose();
+        _workspaceFolderChanges?.Dispose();
 
         // what a change of the project left to do (composing the host's session, defining the symbols) waits for components that are going away.
         ExternalServices.GetService<IWorkspaceReloadService>()?.Stop();
