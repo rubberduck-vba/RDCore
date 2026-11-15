@@ -57,6 +57,21 @@ public sealed class EncapsulateFieldCodeActionTests
         "    Debug.Print total\r\n" +
         "End Sub\r\n";
 
+    private const string Texts =
+        "Option Explicit\r\n" +
+        "Public label As String\r\n" +
+        "Public note As String\r\n" +
+        "\r\n" +
+        "Public Sub Fix()\r\n" +
+        "    Mid(note, 1, 1) = \"x\"\r\n" +
+        "End Sub\r\n";
+
+    private const string Stamps =
+        "Option Explicit\r\n" +
+        "Public Sub Stamp()\r\n" +
+        "    Mid(Texts.label, 1, 1) = \"x\"\r\n" +
+        "End Sub\r\n";
+
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly IPlatformClientCapabilitiesService _capabilities = Substitute.For<IPlatformClientCapabilitiesService>();
@@ -66,7 +81,11 @@ public sealed class EncapsulateFieldCodeActionTests
     public EncapsulateFieldCodeActionTests()
     {
         _documents.WorkspaceRoot.Returns(Root);
-        var documents = new[] { new WorkspaceDocument("Fields.bas", Root, Fields, version: Version), new WorkspaceDocument("Main.bas", Root, Main, version: 1) };
+        var documents = new[]
+        {
+            new WorkspaceDocument("Fields.bas", Root, Fields, version: Version), new WorkspaceDocument("Main.bas", Root, Main, version: 1),
+            new WorkspaceDocument("Texts.bas", Root, Texts, version: 1), new WorkspaceDocument("Stamps.bas", Root, Stamps, version: 1),
+        };
         _documents.GetAllDocuments().Returns(documents);
         foreach (var document in documents)
         {
@@ -138,6 +157,28 @@ public sealed class EncapsulateFieldCodeActionTests
 
         Assert.IsNull(action.Edit);
         StringAssert.Contains(action.Disabled!.Reason, "'hidden'");
+    }
+
+    [TestMethod]
+    public async Task AFieldAMidStatementWritesOutsideItsModule_IsOfferedDisabled_WithWhy_ToAClientThatShowsIt()
+    {
+        var texts = DocumentUri.From(Path.Combine(Root, "Texts.bas"));
+        Assert.IsEmpty(await ActionsAsync(Handler(), At(1, 8), texts));
+
+        var action = (await ActionsAsync(Handler(showsDisabled: true), At(1, 8), texts)).Single();
+
+        Assert.IsNull(action.Edit);
+        StringAssert.Contains(action.Disabled!.Reason, "'label'");
+        StringAssert.Contains(action.Disabled!.Reason, "Mid");
+    }
+
+    [TestMethod]
+    public async Task AFieldAMidStatementWritesInsideItsModule_IsOfferedItsEncapsulation_TheMidWritingTheState()
+    {
+        var action = (await ActionsAsync(Handler(), At(2, 8), DocumentUri.From(Path.Combine(Root, "Texts.bas")))).Single();
+
+        var edits = action.Edit!.DocumentChanges!.Single().TextDocumentEdit!.Edits;
+        Assert.IsTrue(edits.Any(each => each.NewText.Contains("this.note")), "the Mid writes the state");
     }
 
     [TestMethod]
@@ -224,12 +265,12 @@ public sealed class EncapsulateFieldCodeActionTests
         return handler;
     }
 
-    // the encapsulations a client is offered for a range, among the code actions of the document.
-    private static async Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionHandler handler, Range range)
+    // the encapsulations a client is offered for a range, among the code actions of the document: Fields.bas, unless another is named.
+    private static async Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionHandler handler, Range range, DocumentUri? document = null)
     {
         var actions = await handler.Handle(new CodeActionParams
         {
-            TextDocument = new TextDocumentIdentifier(Document),
+            TextDocument = new TextDocumentIdentifier(document ?? Document),
             Range = range,
             Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(), Only = new Container<CodeActionKind>(CodeActionHandler.RefactorEncapsulateField) },
         }, CancellationToken.None);
