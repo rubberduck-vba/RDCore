@@ -181,6 +181,12 @@ public static class SymbolRename
             return null;
         }
 
+        // an interface the workspace does not declare (the Class interface of Class_Initialize, a library's) names the procedure: neither part is renamed.
+        if (!NameOccurrences.IsDeclaredBy(context, named.Prefix))
+        {
+            return null;
+        }
+
         var split = named.Prefix.Name.Length;
         var start = range.Start;
         if (position.Character - start.Character <= split)
