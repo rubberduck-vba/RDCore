@@ -151,7 +151,7 @@ A built program calls the outside world (a `Declare`d procedure, an automation s
 executable, started again as its external host, which ends with it.
 
 The executable is made of the .NET application host for the program's runtime. `rdc` comes with the one for the runtime it runs on; for another runtime,
-it uses the one of an installed .NET SDK. Where neither has it, the program is built without an executable; run with `dotnet <name>.dll`, it makes no
+it uses the one in an installed .NET SDK. Where neither has it, the program is built without an executable; run with `dotnet <name>.dll`, it makes no
 call to the outside world.
 
 The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program

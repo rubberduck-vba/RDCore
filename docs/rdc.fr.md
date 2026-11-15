@@ -156,7 +156,7 @@ Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sor
 Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
 second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui.
 
-L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec celui du _runtime_ où il s'exécute; pour un autre
+L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec celui du _runtime_ sur lequel il s'exécute; pour un autre
 _runtime_, il prend celui d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
 `dotnet <nom>.dll`, il n'appelle pas le monde extérieur.
 
