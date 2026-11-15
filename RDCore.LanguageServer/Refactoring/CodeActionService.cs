@@ -286,9 +286,9 @@ internal sealed class CodeActions(
             actions.Add(sort);
         }
 
-        if (IsAsked(CodeActionHandler.RefactorEncapsulateField) && await EncapsulateFieldActionAsync(request.TextDocument.Uri, range, cancellationToken) is { } encapsulation)
+        if (IsAsked(CodeActionHandler.RefactorEncapsulateField))
         {
-            actions.Add(encapsulation);
+            actions.AddRange(await EncapsulateFieldActionsAsync(request.TextDocument.Uri, range, cancellationToken));
         }
 
         if (IsAsked(CodeActionHandler.RefactorImplementInterface)
@@ -498,28 +498,54 @@ internal sealed class CodeActions(
         }
     }
 
-    // the action that encapsulates the field named at the start of a range, as an extraction is offered: a command for a client with a dialog of its own, the
-    // edit with the defaults for any other, unless it changes what the code does. A refused one is offered disabled, with why, to a client that shows it so,
-    // unless no field is named there.
-    private async Task<CodeAction?> EncapsulateFieldActionAsync(DocumentUri lspUri, SourceRange range, CancellationToken token)
+    // the key of the data of an encapsulation a client resolves that encapsulates every Public field of the module.
+    private const string AllFieldsDataKey = "allFields";
+
+    // the actions that encapsulate the field named at the start of a range. The field alone, as an extraction is offered: a command for a client with a dialog
+    // of its own, the edit with the defaults for any other, unless it changes what the code does. A refused one is offered disabled, with why, to a client that
+    // shows it so, unless no field is named there. And, when the module has other Public fields, the field with all of them, with the defaults, offered as an
+    // edit to any client: disabled, with why, when one of them is refused or the edit changes what the code does.
+    private async Task<IReadOnlyList<CodeAction>> EncapsulateFieldActionsAsync(DocumentUri lspUri, SourceRange range, CancellationToken token)
     {
         if (encapsulateField is null)
         {
-            return null;
+            return [];
         }
 
         var documentUri = lspUri.ToUri();
-        var title = EncapsulateFieldService.Title();
         int? version = documents.TryGetDocument(documentUri, out var document) ? document.Version : null;
         var prepared = await encapsulateField.PrepareAsync(documentUri, range.Start, token);
-        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Refusal) is { } refused)
+        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Refusal && notice.Item is null) is { } refused)
         {
             return ShowsDisabled && refused.Code != EncapsulateFieldService.NotAFieldCode
-                ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Disabled = new CodeActionDisabled { Reason = refused.Message } }
-                : null;
+                ? [new CodeAction { Title = EncapsulateFieldService.Title(), Kind = CodeActionHandler.RefactorEncapsulateField, Disabled = new CodeActionDisabled { Reason = refused.Message } }]
+                : [];
         }
 
-        if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
+        var own = prepared with { Notices = [.. prepared.Notices.Where(notice => notice.Item is null)] };
+        var all = EncapsulateFieldService.AllFields(prepared.Choices);
+        CodeAction?[] actions =
+        [
+            await EncapsulationActionAsync(lspUri, range, version, own, [], EncapsulateFieldService.Title(), dialog: true, token),
+            all.Count > 0 ? await EncapsulationActionAsync(lspUri, range, version, prepared, all, EncapsulateFieldService.AllTitle(), dialog: false, token) : null,
+        ];
+        return [.. actions.OfType<CodeAction>()];
+    }
+
+    // the action of an encapsulation with answers, as its notices prepared it: a command for a client with a dialog of its own when the dialog asks it, the edit
+    // for any other, unless it is refused or changes what the code does, which a client that shows it so is offered disabled, with why.
+    private async Task<CodeAction?> EncapsulationActionAsync(
+        DocumentUri lspUri, SourceRange range, int? version, RefactorPrepareResult prepared, IReadOnlyList<RefactorAnswer> answers, string title, bool dialog,
+        CancellationToken token)
+    {
+        var documentUri = lspUri.ToUri();
+        CodeAction? Disabled(string reason) => ShowsDisabled ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Disabled = new CodeActionDisabled { Reason = reason } } : null;
+        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Refusal) is { } refused)
+        {
+            return Disabled(refused.Message);
+        }
+
+        if (dialog && clientCapabilities.Expects(capabilities => capabilities.Refactoring))
         {
             var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.EncapsulateField, Uri = documentUri, Range = range };
             return new CodeAction
@@ -532,24 +558,31 @@ internal sealed class CodeActions(
 
         if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Change) is { } change)
         {
-            return ShowsDisabled
-                ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Disabled = new CodeActionDisabled { Reason = ExtractMethodService.NeedsAccepting(change) } }
-                : null;
+            return Disabled(ExtractMethodService.NeedsAccepting(change));
         }
 
         if (ResolvesEdits)
         {
-            return new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Data = ResolvedData(RefactoringKinds.EncapsulateField, lspUri, range, version) };
+            var data = ResolvedData(RefactoringKinds.EncapsulateField, lspUri, range, version);
+            if (answers.Count > 0)
+            {
+                data[AllFieldsDataKey] = true;
+            }
+
+            return new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Data = data };
         }
 
-        var answer = await encapsulateField.ApplyAsync(documentUri, range.Start, [], [], token);
-        return answer.Edit is { } edit && ForTheClient(LspEditOf(edit)) is { } applicable
-            ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Edit = applicable }
-            : null;
+        var answer = await encapsulateField!.ApplyAsync(documentUri, range.Start, answers, [], token);
+        if (answer.Edit is null)
+        {
+            return answer.Refusal is { } refusal ? Disabled(refusal) : null;
+        }
+
+        return ForTheClient(LspEditOf(answer.Edit)) is { } applicable ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Edit = applicable } : null;
     }
 
-    // the encapsulation a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for. One that is
-    // refused, or whose document has changed since, is answered an error that says why.
+    // the encapsulation a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for; of every Public
+    // field of the module when it was offered so. One that is refused, or whose document has changed since, is answered an error that says why.
     private async Task<CodeAction> ResolveEncapsulationAsync(CodeAction action, JObject offered, CancellationToken token)
     {
         if (encapsulateField is null || !TryOfferedAt(offered, out var uri, out var range, out var version))
@@ -557,7 +590,10 @@ internal sealed class CodeActions(
             return action;
         }
 
-        var answer = await encapsulateField.ApplyAsync(uri, range.Start, [], [], token);
+        var answers = offered[AllFieldsDataKey] is { Type: JTokenType.Boolean } all && all.Value<bool>()
+            ? EncapsulateFieldService.AllFields((await encapsulateField.PrepareAsync(uri, range.Start, token)).Choices)
+            : [];
+        var answer = await encapsulateField.ApplyAsync(uri, range.Start, answers, [], token);
         var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? EncapsulateFieldService.DocumentChanged() : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
