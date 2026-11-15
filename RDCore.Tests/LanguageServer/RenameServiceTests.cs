@@ -207,7 +207,7 @@ public sealed class RenameServiceTests
             var changes = answer.Value.DocumentChanges!.Select(change => change.TextDocumentEdit!).ToList();
             var qualifier = changes.Single(change => change.TextDocument.Uri.ToUri().AbsoluteUri == Document("Caller.bas").AbsoluteUri);
             Assert.AreEqual((new Range(2, 4, 2, 11), "Invoicing"), (qualifier.Edits.Single().Range, qualifier.Edits.Single().NewText));
-            var project = changes.Single(change => change.TextDocument.Uri.ToUri().AbsoluteUri == Document(ProjectFile.FileName).AbsoluteUri);
+            var project = changes.Single(change => change.TextDocument.Uri == DocumentUri.FromFileSystemPath(projectFile));
             Assert.AreEqual((new Range(2, 11, 2, 18), "Invoicing"), (project.Edits.Single().Range, project.Edits.Single().NewText), "the name the project file writes");
         }
         finally
