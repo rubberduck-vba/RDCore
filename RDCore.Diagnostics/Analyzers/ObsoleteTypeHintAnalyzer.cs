@@ -19,7 +19,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <para>
 /// The declaration of a variable, a constant, a parameter or a function that is written with one is reported where its name is written. So is a reference to a name
 /// that the host vouches is bound to a declaration of the project (<see cref="ExpressionFactDto.Binding"/>), of this module or of another, since the declaration is
-/// what is changed to get rid of it.
+/// what is changed to get rid of it: a simple name (<c>gCount%</c>), or the name of a member access (<c>Globals.gCount%</c>), reported where the member's name is
+/// written.
 /// </para>
 /// <para>
 /// A reference to a member of a library (<see cref="ValueExpressionSemanticFlags.BoundToLibrary"/>), such as <c>Mid$</c> or <c>Error$</c> of the standard library,
@@ -48,11 +49,17 @@ internal sealed class ObsoleteTypeHintAnalyzer : IModuleAnalyzer
             .Where(fact => fact.Binding is not null && !fact.Flags.HasFlag(ValueExpressionSemanticFlags.BoundToLibrary))
             .Select(fact => fact.Node)
             .ToHashSet();
+        // the name of a member access is reported with the access, which is what the host binds: Globals.gCount% is one reference.
+        var memberNames = module.Descendants().OfType<MemberAccessExpressionNode>().Select(access => access.Member.Identity).ToHashSet();
 
         foreach (var node in module.Descendants())
         {
             var (name, range, fix) = node switch
             {
+                MemberAccessExpressionNode { Member: { TypeHint.Length: > 0 } member } access
+                    when boundToTheProject.Contains(access.Identity) || boundToTheProject.Contains(member.Identity)
+                    => (member.IdentifierName, member.Location.Range, ReferenceFix(member)),
+                SimpleNameExpressionNode reference when memberNames.Contains(reference.Identity) => (null, default, null),
                 VariableDeclarationNode { TypeHint.Length: > 0 } variable
                     => (variable.Name, NameOf(variable.NameRange, variable.SourceLocation), DeclarationFix(variable.Name, variable.TypeHint, variable.NameRange, variable.SourceLocation.Range.End)),
                 ConstantDeclarationNode { ConstKind: not ConstKind.EnumMember, TypeHint.Length: > 0 } constant

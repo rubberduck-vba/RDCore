@@ -163,6 +163,19 @@ public sealed class ObsoleteSyntaxAnalyzerTests
     }
 
     [TestMethod]
+    public async Task ATypeHintOnTheMemberOfAMemberAccess_IsObsolete_WhereTheMembersNameIsWritten()
+    {
+        var module = Module("Public Sub Work()\n    Globals.gCount% = Globals.gCount% + 1\n    Debug.Print VBA.Mid$(\"abc\", 1, 1)\nEnd Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([("Globals", ModuleWorkspace.StandardModule("Globals", "Public gCount%"))], module);
+        var findings = Run(new ObsoleteTypeHintAnalyzer(), module, payload.Modules.Single(semantics => semantics.Module.Fragment.TrimStart('#') == "Program"));
+
+        CollectionAssert.AreEqual(new[] { 2, 2 }, Lines(findings), "Globals.gCount% written and read; VBA.Mid$ is of a library");
+        StringAssert.Contains(findings[0].Message, "'gCount'");
+        Assert.AreEqual(new SourceRange(new SourcePosition(2, 12), new SourcePosition(2, 19)), findings[0].Range);
+        Assert.AreEqual(new SourceRange(new SourcePosition(2, 30), new SourcePosition(2, 37)), findings[1].Range);
+    }
+
+    [TestMethod]
     public void WithNoFactsFromTheHost_OnlyTheDeclarationsAreReported()
     {
         var findings = Run(new ObsoleteTypeHintAnalyzer(), Module(Hinted));
