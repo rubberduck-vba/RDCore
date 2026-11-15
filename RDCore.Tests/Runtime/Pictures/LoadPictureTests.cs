@@ -350,12 +350,12 @@ public sealed class LoadPictureTests
     public async Task APicturesTypeName_IsPicture(string picture)
         => Printed(new[] { "Picture" }, await RunAsync($"Set p = {picture}: Debug.Print TypeName(p)"));
 
+    // the length and the first 16 bytes of each saved file.
     [TestMethod]
-    [Ignore("SavePicture of a GIF, a JPEG, a PNG, an icon or a cursor needs the picture decoded: not implemented")]
-    [DataRow("pic.gif", "len 1118 424D5E04000000000000360400002800", DisplayName = "a GIF: an 8-bit bitmap")]
+    [DataRow("pic.gif", "len 82 424D52000000000000003E0000002800", DisplayName = "a GIF: a 1-bit bitmap of its 7 by 5 frame, its table of 2 colors")]
     [DataRow("pic.jpg", "len 362 424D6A01000000000000360000002800", DisplayName = "a JPEG: a 24-bit bitmap")]
     [DataRow("pic.png", "len 134 424D8600000000000000360000002800", DisplayName = "a PNG: a 24-bit bitmap, its alpha left out as a 32-bit bitmap's is")]
-    [DataRow("three.ico", "len 766 0000010001002020100000000000E802", DisplayName = "an icon: one 32 by 32 image of 16 colours")]
+    [DataRow("three.ico", "len 766 0000010001002020100000000000E802", DisplayName = "an icon: one 32 by 32 image of 16 colors")]
     [DataRow("arrow.cur", "len 766 0000010001002020100000000000E802", DisplayName = "a cursor: an icon")]
     public async Task ASavedPictureOfAnotherFormat_IsWrittenAsMSVBAWritesIt(string file, string expected)
         => Printed(new[] { "0 " + expected }, await RunAsync(
