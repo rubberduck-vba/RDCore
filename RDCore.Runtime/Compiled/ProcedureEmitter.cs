@@ -855,10 +855,10 @@ internal sealed partial class ProcedureEmitter
         // a callee that is compiled is called through its typed entry, with the arguments as they are, while the activation can be made that
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
         // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has. A member given an object is called
-        // through its binding, which gives the object to its parameter as the interpreter gives it. One that returns an object is called through the invoker,
-        // which holds what it returns as the statement's temporary.
+        // through its binding, which gives the object to its parameter as the interpreter gives it, and so is one given a Variant it leaves out. One that
+        // returns an object is called through the invoker, which holds what it returns as the statement's temporary.
         var direct = _analysis.Callees[call.Callee].ReturnsObject ? null : _directs[call.Callee];
-        if (direct is not null || call.IsOfAMember && _analysis.Callees[call.Callee].ObjectParameters.Count == 0 && !_analysis.Callees[call.Callee].ReturnsObject)
+        if (direct is not null || call.IsOfAMember && !_analysis.Callees[call.Callee].Parameters.Contains(null) && !_analysis.Callees[call.Callee].ReturnsObject)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -963,6 +963,16 @@ internal sealed partial class ProcedureEmitter
                 }
 
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObject))!);
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
+                continue;
+            }
+
+            // an optional Variant left out: what the interpreter gives the parameter of the member the call invokes. One whose default raises an error is the
+            // interpreter's, which makes the call.
+            if (call.Arguments[i] is OmittedArgumentNode)
+            {
+                _il.Emit(OpCodes.Ldc_I4, call.Callee);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetOmitted))!);
                 _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
                 continue;
             }
@@ -1692,6 +1702,10 @@ internal sealed partial class ProcedureEmitter
 
             // an object is read from its cell, or given its address, as the call is made (CompiledActivation.SetObject, SetObjectReference).
             case ObjectArgumentNode or ObjectReferenceNode:
+                return default;
+
+            // an optional Variant left out is given as the call is made (CompiledActivation.SetOmitted).
+            case OmittedArgumentNode:
                 return default;
             default:
                 return EmitPayload(node, failure);

@@ -182,8 +182,11 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return parameters.IsEmpty
-            ? CallWith(function, parameters, [], CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject)
+        // each of its parameters Optional, left out as the interpreter binds it (MS-VBAL §5.3.1.11).
+        System.Collections.Immutable.ImmutableArray<BoundArgument> arguments
+            = parameters.IsEmpty ? [] : ArgumentMapping.Bind([.. parameters], [], static _ => null, static _ => null) ?? default;
+        return !arguments.IsDefault && arguments.Length == parameters.Length
+            ? CallWith(function, parameters, arguments, CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject)
             : null;
     }
 
@@ -221,7 +224,7 @@ internal sealed partial class ProcedureAnalysis
         // an element, read once its subscripts are evaluated, calls among them.
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
-        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode => true,
+        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or OmittedArgumentNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
         ConvertNode convert => Admits(convert.Operand),
