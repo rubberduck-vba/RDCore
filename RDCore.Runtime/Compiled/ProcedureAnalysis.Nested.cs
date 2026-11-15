@@ -73,9 +73,9 @@ internal sealed partial class ProcedureAnalysis
         {
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode } assignment }
                 => IsScalarTarget(Bind(assignment.Target)) && CallsInside(Bind(assignment.Value)),
-            // a Set of an object variable, or of the function result variable, to what a call returns.
+            // a Set of an object variable, or of the function result variable, to what a call returns, or to a New, whose Initialize is a call.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
-                => Calls(Bind(assignment.Value)),
+                => Bind(assignment.Value) is var value && (value is BoundNew || Calls(value)),
             { Kind: InstructionKind.Simple, Node: CallStatementNode call }
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
@@ -211,6 +211,7 @@ internal sealed partial class ProcedureAnalysis
         LetStep let => Admits(let.Value),
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         SetStep { SourceCall: { } source } => Admits(source),
+        SetStep { SourceNew: not null } => true,
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),

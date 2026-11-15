@@ -1791,6 +1791,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
 
     /// <summary>
+    /// The <c>New</c> expressions whose objects the body makes, by the number compiled code knows each by (<see cref="ProcedureAnalysis.News"/>).
+    /// </summary>
+    public IReadOnlyList<LanguageCore.Binding.BoundNew> News { get; init; } = [];
+
+    /// <summary>
     /// The public variables of objects the body reads, by the number compiled code knows each by (<see cref="ProcedureAnalysis.MemberFields"/>).
     /// </summary>
     public IReadOnlyList<CompiledMemberField> MemberFields { get; init; } = [];
