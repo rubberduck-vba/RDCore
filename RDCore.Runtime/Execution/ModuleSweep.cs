@@ -19,8 +19,8 @@ namespace RDCore.Runtime.Execution;
 /// is stated as a fact (<see cref="RuntimeExecutionPipeline.CreateForSweep"/>).
 /// </para>
 /// <para>
-/// The facts are those of the module's own code. Its code also evaluates expressions another module declares - the value of a constant or of an enumeration
-/// member, the default of an optional parameter - and what such an expression is, is a fact of the module that declares it, not of this one: a fact located
+/// The facts are those of the module's own code. Its code also evaluates expressions another module declares (the value of a constant or of an enumeration
+/// member, the default of an optional parameter), and what such an expression is, is a fact of the module that declares it, not of this one: a fact located
 /// in another document is not stated.
 /// </para>
 /// <para>
