@@ -96,8 +96,7 @@ public sealed class StdHidden(IRuntimeSession session) : IStdHiddenModule
         => ReadBytes(number.Value, fileNumber.Value);
 
     // the bytes themselves, at the same file-pointer-position characters are read at, as a String of those bytes: "ABC" read 2 bytes at a time is one
-    // character, of the bytes 41 42 (StrConv(s, vbUnicode) is "AB"). Valid where Input is, and failing as it does (MS-VBA, Excel-verified, oracle\s40
-    // I01-I11).
+    // character, of the bytes 41 42 (StrConv(s, vbUnicode) is "AB"). Valid where Input is, and failing as it does (MS-VBA, observed in Excel).
     private RuntimeSemanticsEvaluationResult<VBStringValue> ReadBytes(int number, int fileNumber)
     {
         if (number < 0)

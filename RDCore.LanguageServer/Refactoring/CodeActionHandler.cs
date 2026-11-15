@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.LanguageServer.Services.Refactoring.MoveMember;
 using RDCore.LanguageServer.Workspace.Services;
@@ -18,7 +19,7 @@ namespace RDCore.LanguageServer.Refactoring;
 internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null) : CodeActionHandlerBase
+    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null) : CodeActionHandlerBase
 {
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
@@ -51,11 +52,16 @@ internal sealed class CodeActionHandler(
     public static readonly CodeActionKind SourceSortMembers = new(RefactoringKinds.SortMembers);
 
     /// <summary>
+    /// The kind of the action that encapsulates a field behind properties (<see cref="RefactoringKinds.EncapsulateField"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorEncapsulateField = new(RefactoringKinds.EncapsulateField);
+
+    /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
     /// </summary>
     public static readonly CodeActionKind SourceImportProject = new(RefactoringKinds.ImportProject);
 
-    private readonly CodeActionService _actions = new(rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries);
+    private readonly CodeActionService _actions = new(rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField);
 
     // what the client said it can do, as it initialized: a rename's edits are sent in the form it applies.
     private ClientCapabilities? _client;
@@ -70,7 +76,7 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, RefactorEncapsulateField, SourceImportProject),
             ResolveProvider = true,
         };
     }

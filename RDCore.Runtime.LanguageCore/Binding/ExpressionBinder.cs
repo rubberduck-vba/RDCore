@@ -258,7 +258,7 @@ public sealed class ExpressionBindings
         => member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && !arguments.IsDefaultOrEmpty && arguments is not [MissingArgumentNode]
             && ParametersOf(member).All(parameter => parameter.Name == "Me");
 
-    // how each argument of a call is passed, bound once (IR lowering S1.7): to the parameters of the procedure after its Me, if it has one - a member called
+    // how each argument of a call is passed, bound once: to the parameters of the procedure after its Me, if it has one - a member called
     // on an object is given that object, and one of the class named bare in its own code the current instance (MS-VBAL §5.6.10).
     private ImmutableArray<BoundArgument>? BoundArgumentsOf(VBTypeMemberSymbol procedure, IndexExpressionNode call)
     {

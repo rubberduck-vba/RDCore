@@ -6,8 +6,7 @@ using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.Execution.Memory;
 
-// the variable-length Strings of the session's memory: each a pointer to the characters of a BSTR (StringBlock), as MS-VBA lays them out (recorded in Excel,
-// oracle\s17 S rows and grid-p3).
+// the variable-length Strings of the session's memory: each a pointer to the characters of a BSTR (StringBlock), as MS-VBA lays them out (observed in Excel).
 internal sealed partial class SessionStorage
 {
     // the BSTRs, by the address each starts at and by where a String in it is held; the addresses of the variables that are variable-length Strings, whose
@@ -19,7 +18,7 @@ internal sealed partial class SessionStorage
 
     /// <summary>
     /// Says that the variable at <paramref name="address"/> is a variable-length <c>String</c>: its bytes are a pointer to its characters, as
-    /// <strong>MS-VBA</strong>'s are (recorded in Excel, oracle\s17 S04), which nothing else here can tell from a fixed-length one's, which are its
+    /// <strong>MS-VBA</strong>'s are (observed in Excel), which nothing else here can tell from a fixed-length one's, which are its
     /// characters. What gives the address of a variable away (<c>VarPtr</c>) says so of the ones it gives.
     /// </summary>
     public void HoldsString(MemoryAddress address)
@@ -56,7 +55,7 @@ internal sealed partial class SessionStorage
         }
 
         // the String it was is not held any more, and MS-VBA frees its BSTR when another is assigned - once the other is made, so the two are never at one
-        // address (oracle\s17 S02).
+        // address (observed in Excel).
         var made = (StringBlock?)null;
         if (text.BoxedValue is not null)
         {
@@ -103,7 +102,7 @@ internal sealed partial class SessionStorage
 
     /// <summary>
     /// Says that the <c>String</c> a holder of <paramref name="block"/> holds now is in it, at the same address, when it is as long as the one it was: the
-    /// <c>Mid</c> statement writes the characters of its target in place (<strong>MS-VBA</strong>, recorded in Excel, oracle\s17 S07) - which every other
+    /// <c>Mid</c> statement writes the characters of its target in place (<strong>MS-VBA</strong>, observed in Excel) - which every other
     /// holder of the block then holds too (grid-p3 Q01).
     /// </summary>
     public void KeepInPlace(StringBlock block)
@@ -160,8 +159,8 @@ internal sealed partial class SessionStorage
         Generation++;
     }
 
-    // a POKE into a BSTR: the String is what its length says of its characters now, at the same address, for every holder of it (oracle\s17 S12, grid-p3
-    // L01). A length that goes on past the block is refused, as reading memory it is not.
+    // a POKE into a BSTR: the String is what its length says of its characters now, at the same address, for every holder of it (observed in Excel).
+    // A length that goes on past the block is refused, as reading memory it is not.
     private bool TryPokeCharacters(StringBlock block, byte[] image)
     {
         var previous = block.Value;

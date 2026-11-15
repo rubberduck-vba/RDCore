@@ -138,7 +138,7 @@ internal sealed class RenameService(
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }
 
-        return new RenameWorkspace(parts);
+        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen };
     }
 
     private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
@@ -214,6 +214,9 @@ internal sealed class RenameWorkspace
         _parts = parts;
     }
 
+    // whether the client has the document open, and so knows its version: an edit of a document it has not opened names no version.
+    internal Func<TextDocumentIdentifier, bool> IsOpen { get; init; } = static _ => true;
+
     // the project a module of a document is in, which its names resolve in.
     private ProjectPart PartOf(DocumentModule module) => _parts.First(part => part.Modules.Any(candidate => ReferenceEquals(candidate, module)));
 
@@ -259,13 +262,18 @@ internal sealed class RenameWorkspace
         }
 
         // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
-        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For).
+        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
+        // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
         var changes = plan.Edits
             .GroupBy(edit => edit.Module.AbsoluteUri)
             .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
             .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
             {
-                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = edited.Document.Id.Uri, Version = edited.Document.Version },
+                TextDocument = new OptionalVersionedTextDocumentIdentifier
+                {
+                    Uri = edited.Document.Id.Uri,
+                    Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
+                },
                 Edits = new TextEditContainer(plan.Edits
                     .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
                     .Select(edit => AnnotationOf(edit) is { } annotation
@@ -356,10 +364,10 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="global::RDCore.Runtime.LanguageCore.Refactoring.ParameterHints"/>),
-    /// each where its argument begins in the text of the document.
+    /// The inlay hints of a range of a document that the settings show (<see cref="SourceInlayHints"/>), each at its place in the text of the document; a
+    /// hint of what the module of a program adds to its text, which the document does not have, is not one of them.
     /// </summary>
-    public IReadOnlyList<(string Name, Position Position)> ParameterHints(Uri documentUri, LspRange range)
+    public IReadOnlyList<InlayHint> InlayHints(Uri documentUri, LspRange range, SdkInlayHintOptions sites)
     {
         if (ModuleOf(documentUri) is not { } module)
         {
@@ -368,26 +376,9 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. global::RDCore.LanguageServer.Services.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
-            .Select(hint => (hint.Name, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
-    }
-
-    /// <summary>
-    /// The type the declarations in a range of a document have because they state none (<see cref="SDK.Semantics.Refactoring.ImplicitTypeHints"/>), each where the
-    /// declaration ends in the text of the document.
-    /// </summary>
-    public IReadOnlyList<(string TypeName, Position Position)> ImplicitTypeHints(Uri documentUri, LspRange range)
-    {
-        if (ModuleOf(documentUri) is not { } module
-            || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
-        {
-            return [];
-        }
-
-        var start = module.ToModulePosition(range.Start);
-        var end = module.ToModulePosition(range.End);
-        return [.. global::RDCore.LanguageServer.Services.Refactoring.ImplicitTypeHints.In(source.Syntax, new SourceRange(start, end))
-            .Select(hint => (hint.TypeName, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
+        return [.. global::RDCore.LanguageServer.Services.Refactoring.InlayHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end), sites)
+            .Where(hint => module.IsInText(hint.Position))
+            .Select(hint => hint.ToInlayHint(module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
     }
 
     /// <summary>
@@ -605,6 +596,10 @@ internal sealed class RenameWorkspace
 
         public SourcePosition ToModulePosition(Position position)
             => new(IsProgram ? position.Line + BasicProgramText.HeaderLines : position.Line, position.Character);
+
+        // whether a position of the module is in the text of the document: a program has no header and no footer of its own, which its module adds.
+        public bool IsInText(SourcePosition position)
+            => !IsProgram || position.Line >= BasicProgramText.HeaderLines && position.Line < Source.Count(character => character == '\n') - 1;
 
         public LspRange ToTextRange(SourceRange range)
         {

@@ -112,7 +112,7 @@ public sealed class LetAssignmentEvaluator(
                 // MS-VBAL §5.4.3.8: `Me = value` is a value of the class's type, let-assigned through the default member of the object, as a variable of a class is.
                 : target is InstanceExpressionNode
                     ? AssignDefaultMember(session, context, statement, target, source, value)
-                    // a variable is assigned through the slot it is bound to, by the plan of its coercion, when it can be (IR lowering S0.8c).
+                    // a variable is assigned through the slot it is bound to, by the plan of its coercion, when it can be.
                     : expressions.TryAssignBound(session, target, value, context) is { } assigned
                         ? assigned.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Next
                         : TryResolveTarget(session, context, target, out var symbol)
@@ -399,8 +399,8 @@ public sealed class LetAssignmentEvaluator(
             VBUserDefinedTypeValue record when !indexArguments.IsEmpty && record[memberAccess.Member.IdentifierName] is { } field
                 => AssignElementOf(session, context, statement, field, memberAccess, indexArguments, source, value, isSet),
             VBUserDefinedTypeValue => RuntimeExecutionOutcome.InternalError,
-            // a Variant that holds neither an object nor a record - an array, a number - has no member to assign, indexed or Set: 424 (MS-VBA, recorded in
-            // Excel: oracle\s56 D09, D10), as AssignField raises for `v.Foo = 1`.
+            // a Variant that holds neither an object nor a record - an array, a number - has no member to assign, indexed or Set: 424 (MS-VBA, observed in
+            // Excel), as AssignField raises for `v.Foo = 1`.
             _ => RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, memberAccess.Member.IdentifierName)),
         };
     }
@@ -675,8 +675,7 @@ public sealed class LetAssignmentEvaluator(
     /// returns is assigned, as <strong>MS-VBAL §5.4.3.8</strong> has it for a property or function of an object: what is no object is error 451, and an error
     /// the call raises is the assignment's (<c>e.Raise(5) = 1</c> is error 5). With none, the property's object, when it returns one, has its default
     /// member assigned, and any other property is error 450; a method, and a member that takes arguments it is not given, are error 438. A <c>Set</c> is
-    /// error 450 for a property, 438 for a method, and 438 for a property with no argument that returns an object. Recorded in Excel (oracle s26: grid-lb,
-    /// grid-lb3, grid-lb5, grid-lb6) for <c>Collection</c>, <c>ErrObject</c>, <c>RegExp</c>, <c>MatchCollection</c>, <c>Match</c> and <c>SubMatches</c>, as
+    /// error 450 for a property, 438 for a method, and 438 for a property with no argument that returns an object. Observed in Excel for <c>Collection</c>, <c>ErrObject</c>, <c>RegExp</c>, <c>MatchCollection</c>, <c>Match</c> and <c>SubMatches</c>, as
     /// for Scripting's <c>Dictionary</c>.
     /// <para>
     /// The default member of an object that a <c>Variant</c> holds, given arguments - <c>v(1) = 5</c> - is not invoked to have what it returns assigned: a
@@ -891,7 +890,7 @@ public sealed class LetAssignmentEvaluator(
         if (owner is not VBUserDefinedTypeValue udt)
         {
             // a public variable of an object, or a Property Let of it. A Variant that holds neither an object nor a record - an array, a number - has no
-            // member to assign: 424 (MS-VBA, recorded in Excel: oracle\s56 I01, C04); a variable declared as one is a compile error, Invalid qualifier.
+            // member to assign: 424 (MS-VBA, observed in Excel); a variable declared as one is a compile error, Invalid qualifier.
             return owner is VBObjectValue objectOwner
                 ? AssignObjectMember(session, context, statement, memberAccess, [], objectOwner, source, value, isSet: false)
                 : RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, memberAccess.Member.IdentifierName));
@@ -935,7 +934,7 @@ public sealed class LetAssignmentEvaluator(
         return RuntimeExecutionOutcome.Next;
     }
 
-    // a value let-coerced to the declared type of a field it is assigned to: by the plan of the coercion when nothing observes it (IR lowering S0.11), as
+    // a value let-coerced to the declared type of a field it is assigned to: by the plan of the coercion when nothing observes it, as
     // a variable's is (RuntimeExpressionEvaluator.TryAssignBound), or by its strategy - which is also how a coercion that fails raises its error.
     private bool TryLetCoerce(
         IRuntimeSession session, StatementNode statement, ExpressionNode source, VBTypedValue value, SDK.Model.Types.Abstract.VBType destination,
@@ -1081,7 +1080,7 @@ public sealed class LetAssignmentEvaluator(
             // result variable isn't a real addressable Symbol, so this can't go through the same
             // "__let_op" operator every other target does (it needs a real IBindingHandle) - Let-coerce
             // directly instead, the same lower-level call ByVal/ByRef-fallback parameter passing already
-            // makes for the identical reason - by its plan, when it can be (IR lowering S0.9).
+            // makes for the identical reason - by its plan, when it can be.
             // the function result variable holds what it is assigned as a variable does (ObjectReferences.AssignResult).
             var resultFrame = (CallStackFrame)enclosing;
             if (expressions.TryConvertUnobserved(value, ((ITypedSymbol)symbol).ResolvedType, out var planned))
@@ -1165,7 +1164,7 @@ public sealed class LetAssignmentEvaluator(
 
         if (accessor is null)
         {
-            // a property of a module is called as a function is, and what it returns that is no object is error 424 (MS-VBA, oracle\s28 W2, B01: `Now = 5`); a
+            // a property of a module is called as a function is, and what it returns that is no object is error 424 (MS-VBA, observed in Excel: `Now = 5`); a
             // class's own, invoked on the object, is error 451.
             if (property is VBPropertyGetMemberSymbol && RuntimeProcedureInvoker.GetParameters(property) is not [{ Name: Tokens.Me }, ..])
             {
@@ -1270,7 +1269,7 @@ public sealed class LetAssignmentEvaluator(
     /// </summary>
     /// <remarks>
     /// What the function returns is assigned through its default member, as an object variable assigned a value is (<c>Err = 5</c> assigns <c>Err.Number</c>).
-    /// What returns no object has nothing to assign through: error <c>424</c>, as MS-VBA has it (Excel-verified, oracle\s28: <c>Command = "x"</c>, a
+    /// What returns no object has nothing to assign through: error <c>424</c>, as MS-VBA has it (observed in Excel: <c>Command = "x"</c>, a
     /// <c>Variant</c> function of the workspace assigned or Set from another procedure). What cannot be called so is a compile error the static pass reports.
     /// </remarks>
     /// <param name="session">The session the function is called in.</param>

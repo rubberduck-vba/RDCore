@@ -223,7 +223,7 @@ public sealed class StdHiddenTests
 
     #region InputB and InputB$
 
-    // each expectation is what MS-VBA printed for the same code, in Excel (oracle\s40 I01-I11).
+    // each expectation is what MS-VBA printed for the same code, in Excel.
     private static string[] ReadOf(string content, string open, params string[] body)
     {
         var (output, outcome, _) = Run(WithFile(content), ModuleDirectives.None, [$"Open \"{Root}/data.txt\" {open} As #1", .. body]);

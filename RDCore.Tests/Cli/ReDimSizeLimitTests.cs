@@ -5,9 +5,9 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>RD-VBAL §5.4.3.3</strong> RD-VBA holds each element of an array in a cell of its own, and a <c>ReDim</c> of more than
 /// <see cref="VBArrayValue.MaximumLength"/> elements is run-time error 7, <em>Out of memory</em>. MS-VBA (64-bit) allocates
-/// <c>ReDim b(2147483647) As Byte</c> and a billion <c>Long</c>s (recorded in Excel: oracle\s56 I07-I09, B09), where RD-VBA crashed, hung, or made an empty
+/// <c>ReDim b(2147483647) As Byte</c> and a billion <c>Long</c>s (observed in Excel), where RD-VBA crashed, hung, or made an empty
 /// array that every subscript was out of range of. A <c>ReDim</c> that MS-VBA can't allocate lets go of what the variable held before it fails: a declared
-/// array is erased and a Variant is Empty (oracle\s68 V10, LA40, W60); a <c>ReDim Preserve</c> keeps it.
+/// array is erased and a Variant is Empty; a <c>ReDim Preserve</c> keeps it.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.3 ReDim Statement")]
@@ -24,9 +24,9 @@ public sealed class ReDimSizeLimitTests
                 "End Sub",
             ]) + "\r\n");
 
-    // MS-VBA can't allocate 65535³ Integers (oracle\s68b T01) and lets go of the array, as it does of 2147483648 Longs (s68 LA40, s68b T04, T05). It does
-    // allocate the Bytes and the billion Longs (s56 I07-I09, B09), and the others are a few dozen megabytes. Every Long subscript of Variants is a deliberate
-    // divergence: MS-VBA accepts the bounds and holds no elements, as its count wraps (s68b T02), and RD-VBA raises error 7 and erases the array there, the
+    // MS-VBA can't allocate 65535³ Integers and lets go of the array, as it does of 2147483648 Longs. It does
+    // allocate the Bytes and the billion Longs, and the others are a few dozen megabytes. Every Long subscript of Variants is a deliberate
+    // divergence: MS-VBA accepts the bounds and holds no elements, as its count wraps, and RD-VBA raises error 7 and erases the array there, the
     // same as for an array MS-VBA can't allocate.
     [TestMethod]
     [DataRow("Byte", "2147483647", DisplayName = "2,147,483,648 Bytes")]

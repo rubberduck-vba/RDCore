@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// MS-VBAL §5.4.4.1, §5.4.4.2: after an error, <c>Resume Next</c> goes on at the statement immediately following the one that caused it. A <c>Select Case</c>
 /// is one statement up to its <c>End Select</c>: an error in its selector goes on past the whole construct, no <c>Case</c> matched - <c>Case Else</c>
-/// included (recorded in Excel, grid <c>oracle\s16</c> C01-C03).
+/// included (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class SelectCaseResumeNextTests

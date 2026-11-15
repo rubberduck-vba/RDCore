@@ -129,36 +129,8 @@
   <data name="Command_ShowSplash" xml:space="preserve">
     <value>Affiche l'écran de démarrage de l'application.</value>
   </data>
-  <data name="CopyrightNotice" xml:space="preserve">
-    <value>Copyright © {$YEAR} {$COMPANY}, tous droits réservés.</value>
-  </data>
   <data name="Prompt_READY" xml:space="preserve">
     <value>PRÊT.</value>
-  </data>
-  <data name="RDCoreSplash_Background" xml:space="preserve">
-    <value>                                    -+-+--++--                          
-                                --+----+----------                      
-                              ++-----+-    +--+----+                    
-                             -----             +------                  
-                            -----         ----   -------------          
-                            +---          -----   +-----------+         
-                            ----          +--+   ----++ +-----          
-             +-+            ----                ----- --+----           
-            ------+          ----               -----------             
-            --------++        ---+-              -----+-™               
-           ---+ -+--------     -----             +--                    
-           +--+    ----------+------+            +---+                  
-          ----+         +--+-----+--+             +----+                
-          ----                                      -----               
-          ---+                                       ---+-              
-          ----                                        -----             
-          +---+                                        +---             
-           ----                                        ----             
-           -...                                        .--.             
-</value>
-  </data>
-  <data name="RDCore_Slogan" xml:space="preserve">
-    <value>{$VIVAT}  {$HEART}  {$CUCUMIS}</value>
   </data>
   <data name="RDCoreSplash_Foreground" xml:space="preserve">
     <value>&gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 
@@ -444,7 +416,7 @@
     <value>AUCUN POINT D'ARRÊT</value>
   </data>
   <data name="Repl_Inlays_Summary" xml:space="preserve">
-    <value>Affiche les indices du serveur de langage dans un listage - le nom du paramètre auquel chaque argument est donné, et le type d'une déclaration qui n'en indique pas - ou cesse de les afficher (INLAYS ON, INLAYS OFF).</value>
+    <value>Affiche les indices du serveur de langage dans un listage, ou cesse de les afficher (INLAYS ON, INLAYS OFF). Chacun est entre crochets là où il s'applique : le nom du paramètre auquel un argument est donné ([Prompt:]), le type d'une déclaration qui n'en indique pas ([As Variant]) et la variable d'un Next qui n'en nomme pas ([i]).</value>
   </data>
   <data name="Repl_Inlays_On" xml:space="preserve">
     <value>INDICES AFFICHÉS DANS LES LISTAGES</value>

@@ -3,7 +3,7 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A scalar variable assigned an expression of them, and a condition of them, are evaluated on payloads (IR lowering S1.2): the same values, and the same
+/// A scalar variable assigned an expression of them, and a condition of them, are evaluated on payloads: the same values, and the same
 /// errors, as the boxed evaluation - which the suite is also run with (<c>RDCORE_UNBOXED=0</c>), for these to hold both ways.
 /// </summary>
 [TestClass]
@@ -107,7 +107,7 @@ public sealed class UnboxedEvaluationTests
     public async Task ACurrencyOrADate_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
-    // a Variant that holds a scalar, as a payload of its subtype (S1.4): a plan made for what it holds, and whatever overflows widened by the boxed
+    // a Variant that holds a scalar, as a payload of its subtype: a plan made for what it holds, and whatever overflows widened by the boxed
     // evaluation as MS-VBA widens it (recorded in Excel).
     [TestMethod]
     [DataRow("Dim v As Variant ;; v = 5 ;; v = v + 1 ;; Debug.Print v & \" \" & TypeName(v)", "6 Integer", DisplayName = "a Variant Integer plus one")]
@@ -135,7 +135,7 @@ public sealed class UnboxedEvaluationTests
     public async Task AVariantHoldingAScalar_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
-    // Strings evaluated to the String they are (S1.4b): joined, assigned, compared under the module's comparison mode (recorded in Excel).
+    // Strings evaluated to the String they are: joined, assigned, compared under the module's comparison mode (recorded in Excel).
     [TestMethod]
     [DataRow("Dim s As String ;; s = \"ab\" ;; s = s & \"cd\" ;; Debug.Print s", "abcd", DisplayName = "a String joined")]
     [DataRow("Dim s As String, t As String ;; s = \"a\" ;; t = s ;; s = \"b\" ;; Debug.Print t", "a", DisplayName = "a String assigned is a copy")]
@@ -152,7 +152,7 @@ public sealed class UnboxedEvaluationTests
     private static (string Name, string Source) Class(string name, params string[] body)
         => (name, $"VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"{name}\"\r\nOption Explicit\r\n{string.Join("\r\n", body)}\r\n");
 
-    // the fields of an object held as payloads, as a local is (S1.4c): each object its own, an overflow the boxed evaluation's error.
+    // the fields of an object held as payloads, as a local is: each object its own, an overflow the boxed evaluation's error.
     [TestMethod]
     public async Task TheScalarFieldsOfAnObject_OnPayloads_AreItsOwn()
     {
@@ -176,7 +176,7 @@ public sealed class UnboxedEvaluationTests
         CollectionAssert.AreEqual(new[] { "terminated", "dropped 2" }, output.TakeLast(2).ToArray());
     }
 
-    // the variables of a module and Static locals held as payloads, resolved once for each place they are named (S1.5): a value they keep, an overflow
+    // the variables of a module and Static locals held as payloads, resolved once for each place they are named: a value they keep, an overflow
     // the boxed evaluation's error, and what an End resets them to.
     [TestMethod]
     public async Task AModuleVariableAndAStaticLocal_OnPayloads_KeepTheirValues()
@@ -228,7 +228,7 @@ public sealed class UnboxedEvaluationTests
         Assert.AreEqual("42", (await RunAsync([], program)).Last());
     }
 
-    // calls (S1.3): a scalar passed by value evaluated on payloads into the parameter's cell, a function result assigned on payloads, what a call returns
+    // calls: a scalar passed by value evaluated on payloads into the parameter's cell, a function result assigned on payloads, what a call returns
     // written to a scalar variable - and whatever would round, or raise, the boxed evaluation's (recorded in Excel).
     [TestMethod]
     [DataRow("", "Dim l As Long ;; l = Twice(21) ;; Debug.Print l", "42", DisplayName = "a Long passed and returned")]

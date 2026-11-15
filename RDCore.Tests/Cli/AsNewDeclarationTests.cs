@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>MS-VBAL §5.2.3.1.4</strong>: what a variable can be declared <c>As New</c> of - a class, one the project can create - and <strong>§2.5.1</strong>: that
 /// each automatic instantiation variable, an element of an array or a field of a record or an object as much as a variable, is never <c>Nothing</c> when it is
-/// referred to. Recorded in Excel (oracle\s19).
+/// referred to. Observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class AsNewDeclarationTests
@@ -79,12 +79,12 @@ public sealed class AsNewDeclarationTests
     }
 
     // MS-VBAL §5.2.3.1.4: VBA's type library says ErrObject can be created, and MS-VBA compiles the declaration; it raises "Class not registered" when the
-    // variable is first referred to (N26-N27, oracle\s62 X07), which NewOfAClassNotCreatedTests runs.
+    // variable is first referred to (observed in Excel), which NewOfAClassNotCreatedTests runs.
     [TestMethod]
     public async Task AVariableDeclaredAsNewOfErrObject_IsValid()
         => Assert.IsEmpty(await ErrorsOf("Dim x As New ErrObject"));
 
-    // MS-VBAL §5.2.3.1.4: a class of another project that cannot be created - its type library does not say it can (oracle\s62 X10, s63 Y02, Y08).
+    // MS-VBAL §5.2.3.1.4: a class of another project that cannot be created - its type library does not say it can (observed in Excel).
     [TestMethod]
     public async Task AVariableDeclaredAsNewOfALibrarysClass_IsValidWhenTheClassCanBeCreated()
     {

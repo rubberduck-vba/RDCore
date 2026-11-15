@@ -50,7 +50,7 @@ public sealed class ForLoopEvaluator(
     /// <summary>
     /// Evaluates the <c>start-value</c>, <c>end-value</c> or <c>step-increment</c> of a loop whose counter is declared <paramref name="counterType"/>: a
     /// <c>Single</c>, <c>Double</c> or <c>Date</c> expression is converted to it from the extended format it is computed in (MS-VBAL §5.6.9.3; MS-VBA:
-    /// <c>For l = 1 To s + 1</c>, <c>s</c> a <c>Single</c> of 16777216, counts to 16777217 - grid oracle\s42 D31).
+    /// <c>For l = 1 To s + 1</c>, <c>s</c> a <c>Single</c> of 16777216, counts to 16777217 - observed in Excel).
     /// </summary>
     /// <remarks>
     /// The start, the end and the step "are evaluated once, in order, and prior to any of the following computations" (<strong>MS-VBAL §5.4.2.3</strong>):
@@ -64,7 +64,7 @@ public sealed class ForLoopEvaluator(
     }
 
     /// <summary>
-    /// Steps the loop on payloads, when its counter holds one (IR lowering S1.2): what <see cref="Increment"/>, <see cref="AssignCounter"/> and
+    /// Steps the loop on payloads, when its counter holds one: what <see cref="Increment"/>, <see cref="AssignCounter"/> and
     /// <see cref="IsOutOfRange"/> do, with no value made of the counter.
     /// </summary>
     /// <returns><see langword="false"/> when the loop is to be stepped the way it always is.</returns>
@@ -213,7 +213,7 @@ public sealed class ForLoopEvaluator(
     /// on the raw <paramref name="value"/> that was assigned.
     /// </summary>
     /// <remarks>
-    /// The counter is assigned through the slot its name is bound to when it can be (IR lowering S0.8c); an assignment that cannot - or that fails, which
+    /// The counter is assigned through the slot its name is bound to when it can be; an assignment that cannot - or that fails, which
     /// raises its error at <paramref name="locationNode"/> - is the let-assignment operation it always was.
     /// </remarks>
     public RuntimeSemanticsEvaluationResult AssignCounter(

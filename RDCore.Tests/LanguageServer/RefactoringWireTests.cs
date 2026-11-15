@@ -59,6 +59,7 @@ public sealed class RefactoringWireTests
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
+        documents.IsOpen(Arg.Any<TextDocumentIdentifier>()).Returns(true);
         var program = new WorkspaceDocument("Main.rdc", Root, Program, version: 4);
         var uri = program.Id.Uri.ToUri();
         documents.GetAllDocuments().Returns([program]);
@@ -155,6 +156,7 @@ public sealed class RefactoringWireTests
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
+        documents.IsOpen(Arg.Any<TextDocumentIdentifier>()).Returns(true);
         var module = new WorkspaceDocument("Module1.bas", Root, source, version: 4);
         var uri = module.Id.Uri.ToUri();
         documents.GetAllDocuments().Returns([module]);
@@ -253,6 +255,7 @@ public sealed class RefactoringWireTests
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
+        documents.IsOpen(Arg.Any<TextDocumentIdentifier>()).Returns(true);
         var classModule = new WorkspaceDocument("Widget.cls", Root, widget, version: 4);
         var module = new WorkspaceDocument("Module1.bas", Root, main, version: 4);
         documents.GetAllDocuments().Returns([classModule, module]);

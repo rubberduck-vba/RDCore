@@ -8,7 +8,7 @@ namespace RDCore.Tests.Cli;
 /// expression evaluates to as the <c>Long</c> it is, and overflows (6) on any other.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed, or reported, for the same code in Excel (64-bit, en-US, oracle\s58 N07-N12).
+/// Each expected outcome is what MS-VBA printed, or reported, for the same code in Excel (64-bit, en-US).
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators")]
@@ -57,7 +57,7 @@ public sealed class LeastLongNegationTests
     public async Task AConstant_OfTheLeastLongNegated_IsTheLeastLong(string declarations, string expected)
         => await AssertPrintedInEitherEngineAsync(Program("Debug.Print K ;; Debug.Print TypeName(K)", declarations.Split(" ;; ")), expected);
 
-    // a named constant: of a Long, the Long; of a Variant, a Variant, whose negation is the Double (oracle\s60 N13-N15, A02).
+    // a named constant: of a Long, the Long; of a Variant, a Variant, whose negation is the Double (observed in Excel).
     [TestMethod]
     [DataRow("Private Const M = &H80000000", "Debug.Print -M ;; Debug.Print TypeName(-M) ;; Debug.Print -(M)", "-2147483648|Long|-2147483648|e0", DisplayName = "s60 N13 -M")]
     [DataRow("Private Const M = &H80000000", "Debug.Print -M - 1", "e6", DisplayName = "s60 N13 -M - 1")]

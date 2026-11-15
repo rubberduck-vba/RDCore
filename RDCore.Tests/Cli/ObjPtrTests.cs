@@ -3,8 +3,8 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <c>ObjPtr</c>: the address of an interface of an object in the session's memory, as <strong>MS-VBA</strong> gives it (recorded in Excel, oracle\s17 O
-/// rows) - <c>0</c> for <c>Nothing</c>, the same for as long as the object lives, one for the class, <c>Object</c> and a <c>Variant</c>, another for each
+/// <c>ObjPtr</c>: the address of an interface of an object in the session's memory, as <strong>MS-VBA</strong> gives it (observed in Excel)
+/// - <c>0</c> for <c>Nothing</c>, the same for as long as the object lives, one for the class, <c>Object</c> and a <c>Variant</c>, another for each
 /// interface the class implements and for <c>IUnknown</c>.
 /// </summary>
 [TestClass]

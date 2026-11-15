@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Values.Runtime;
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// The argument of a <c>ByRef</c> parameter that is a variable held in a cell of the caller's activation (IR lowering S1.3): the cell itself, which the
+/// The argument of a <c>ByRef</c> parameter that is a variable held in a cell of the caller's activation: the cell itself, which the
 /// parameter's slot holds too, so that the parameter is a second name for the variable (<strong>MS-VBAL §5.3.1.11</strong>) without the variable being
 /// given an address.
 /// </summary>

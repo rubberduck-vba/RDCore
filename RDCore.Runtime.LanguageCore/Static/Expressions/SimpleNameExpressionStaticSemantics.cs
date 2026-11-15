@@ -41,7 +41,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
 
             // a project, a procedural module and an enumeration only qualify the names of what they declare (MS-VBAL §5.6.12, which classifies them before
             // they are ever evaluated as an owner): by itself each is no value, variable or procedure (MS-VBA: "Expected variable or procedure, not
-            // module", "not project", "not enum type", Excel-verified, oracle\s29).
+            // module", "not project", "not enum type", observed in Excel).
             if (NameClassificationStaticSemantics.NotAValueError(result.Symbol!, expression.Location, simpleName.WrittenName) is { } notAValue)
             {
                 return StaticSemanticsEvaluationResult.Error(notAValue);
@@ -49,7 +49,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
 
             // the host's Debug object is only ever written as the statements that are its own, Debug.Print and Debug.Assert (DebugStatementNode, which no
             // simple name of it is in): anywhere else - a value, the target of a Let or a Set, the target of a With block, `Call Debug.Print(…)` - MS-VBA reads
-            // the name as a syntax error (Excel-verified, oracle\s18 D09, D11-D17).
+            // the name as a syntax error (observed in Excel).
             if (StandardLibrary.IsDebugObject(result.Symbol!))
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, expression.Location, simpleName.WrittenName));
@@ -78,8 +78,8 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     // As Long is an error, at the name (and not at the statement it is in). A name that was found as written - Left$ is a member of the library, with the
     // character in its name - was never declared with the character, and says nothing about it. What is not known yet (a type still to be inferred) cannot
     // be told apart from the character, and is not. A function of the library whose name is reserved (Len, CVar, Abs, CInt ...) takes any character, which
-    // MS-VBA ignores: Len$("abc") is 3, a Long, and CVar$(5) is 5, an Integer (recorded in Excel: oracle\s46 F18, oracle\s44 D01-D12, D16-D18), where an
-    // ordinary function of the library refuses it (Asc$, Sqr$: D14, D15).
+    // MS-VBA ignores: Len$("abc") is 3, a Long, and CVar$(5) is 5, an Integer (observed in Excel), where an
+    // ordinary function of the library refuses it (Asc$, Sqr$).
     private static VBCompileErrorInfo? TypeDeclarationCharacterMismatch(SimpleNameExpressionNode name, Symbol symbol)
     {
         if (name.TypeHint is not { Length: > 0 } hint
