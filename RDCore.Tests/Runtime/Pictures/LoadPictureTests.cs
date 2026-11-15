@@ -24,6 +24,7 @@ public sealed class LoadPictureTests
         ["pic.gif"] = Gif(7, 5),
         ["pic.jpg"] = Jpeg(9, 11),
         ["pic.png"] = Png(6, 4),
+        ["cut.png"] = Png(6, 4)[..20],
         ["three.ico"] = Icon(1, 16, 32, 48),
         ["one32.ico"] = Icon(1, 32),
         ["arrow.cur"] = Icon(2, 32),
@@ -120,6 +121,7 @@ public sealed class LoadPictureTests
     [DataRow("D & \"bmp300dpi.bmp\"", "1 265 529 True", DisplayName = "a bitmap of 300 dpi, whose resolution changes nothing")]
     [DataRow("D & \"pic.gif\"", "1 185 132 True", DisplayName = "a GIF, 7 by 5, which is a bitmap")]
     [DataRow("D & \"pic.jpg\"", "1 238 291 True", DisplayName = "a JPEG, 9 by 11, which is a bitmap")]
+    [DataRow("D & \"pic.png\"", "1 159 106 True", DisplayName = "a PNG, 6 by 4, which is a bitmap (an RD-VBA addition: MS-VBA raises 481)")]
     [DataRow("D & \"three.ico\"", "3 847 847 True", DisplayName = "an icon of 16, 32 and 48, its 32")]
     [DataRow("D & \"one32.ico\"", "3 847 847 True", DisplayName = "an icon of 32")]
     [DataRow("D & \"arrow.cur\"", "3 847 847 True", DisplayName = "a cursor, which is an icon")]
@@ -141,7 +143,7 @@ public sealed class LoadPictureTests
     [DataRow("Null", "err 13", DisplayName = "Null: 13")]
     [DataRow("D & \"text.txt\"", "err 481", DisplayName = "a text file: 481")]
     [DataRow("D & \"empty.bmp\"", "err 481", DisplayName = "an empty file: 481")]
-    [DataRow("D & \"pic.png\"", "err 481", DisplayName = "a PNG: 481")]
+    [DataRow("D & \"cut.png\"", "err 481", DisplayName = "a PNG cut short: 481")]
     [DataRow("D & \"cut.bmp\"", "err -2147418113", DisplayName = "a bitmap cut short: E_UNEXPECTED")]
     [DataRow("D & \"plain.wmf\"", "err -2147467259", DisplayName = "a metafile that is not placeable: E_FAIL")]
     [DataRow("D & \"folder.bmp\"", "err 75", DisplayName = "a folder: 75")]
@@ -282,6 +284,13 @@ public sealed class LoadPictureTests
         Printed(new[] { $"0 len {bytes.Length} {Convert.ToHexString(bytes[..16])}" }, printed);
     }
 
+    // an RD-VBA addition: a PNG is a bitmap, with a palette as a bitmap has.
+    [TestMethod]
+    public async Task APngsPalette_Is0_AndKeepsWhatIsAssigned()
+        => Printed(new[] { "0 0", "7 0" }, await RunAsync(
+            "Set p = LoadPicture(D & \"pic.png\"): Debug.Print p.hPal & \" \" & Err.Number",
+            "p.hPal = 7: Debug.Print p.hPal & \" \" & Err.Number"));
+
     [TestMethod]
     public async Task ANewStdPicture_IsSavedAsAFileOfNoBytes()
         => Printed(new[] { "0 len 0" }, await RunAsync(
@@ -325,9 +334,10 @@ public sealed class LoadPictureTests
         => Printed(new[] { "Picture" }, await RunAsync($"Set p = {picture}: Debug.Print TypeName(p)"));
 
     [TestMethod]
-    [Ignore("SavePicture of a GIF, a JPEG, an icon or a cursor needs the picture decoded: not implemented")]
+    [Ignore("SavePicture of a GIF, a JPEG, a PNG, an icon or a cursor needs the picture decoded: not implemented")]
     [DataRow("pic.gif", "len 1118 424D5E04000000000000360400002800", DisplayName = "a GIF: an 8-bit bitmap")]
     [DataRow("pic.jpg", "len 362 424D6A01000000000000360000002800", DisplayName = "a JPEG: a 24-bit bitmap")]
+    [DataRow("pic.png", "len 134 424D8600000000000000360000002800", DisplayName = "a PNG: a 24-bit bitmap, its alpha left out as a 32-bit bitmap's is")]
     [DataRow("three.ico", "len 766 0000010001002020100000000000E802", DisplayName = "an icon: one 32 by 32 image of 16 colours")]
     [DataRow("arrow.cur", "len 766 0000010001002020100000000000E802", DisplayName = "a cursor: an icon")]
     public async Task ASavedPictureOfAnotherFormat_IsWrittenAsMSVBAWritesIt(string file, string expected)
