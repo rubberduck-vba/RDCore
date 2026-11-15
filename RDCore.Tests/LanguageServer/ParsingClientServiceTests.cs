@@ -65,6 +65,21 @@ public sealed class ParsingClientServiceTests
     }
 
     [TestMethod]
+    public async Task ParseDocumentAsync_OfAModuleThatIsNoForm_KeepsTheJsonTheParserAnswered()
+    {
+        var (sut, parser, documents) = Build();
+        // told apart from what writing the same parse again gives by the space it starts with, which a reader skips.
+        var answered = new PlatformJsonEnvelope { Json = " " + SampleEnvelope.Json };
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(answered);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub"));
+
+        var result = await sut.ParseDocumentAsync(uri, CancellationToken.None);
+
+        Assert.AreEqual(answered.Json, ParserJson.Of(result));
+    }
+
+    [TestMethod]
     public async Task ParseDocumentAsync_NoWorkspaceDocumentLoaded_FailsWithoutContactingTheParser()
     {
         var (sut, parser, _) = Build();
