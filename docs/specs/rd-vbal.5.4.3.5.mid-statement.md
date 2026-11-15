@@ -34,7 +34,13 @@ result, a constant (by its name, or qualified by its project, its module or the 
 The target is a bound variable expression, which must be classified as a variable even where a `Let` to it would call a `Property Let`
 ([**MS-VBAL §5.6.16.6** Bound Variable Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/018d50ba-a3f8-48ff-affc-39bc5ac41888)).
 A property or a procedure of a class, bound early, is `VBC09333` as well, reported at the member after the dot (`.Name` in `Mid(c.Name, 1, 1) = "x"`).
-A member of an object bound late (`Object`, `Variant`) is not judged statically.
+So is a member of an object bound late (`Object`, `Variant`): it is an unbound member, which §5.6.16.6 rules out even when it would resolve to a variable.
+
+**RD-VBA follows MS-VBA:** a public variable of a class, reached through an object (`c.Field`, `.Field` in a `With` block, `Me.Field`), is `VBC09333` too.
+[**MS-VBAL §5.6.12** Member Access Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/af3a4059-3059-4e79-8aa5-685324fb266a)
+classifies it as a variable, and MS-VBA refuses it as a `Mid` target, as it makes a class's public variable a property
+([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md#a-public-variable-of-an-object)). The class's own code names it alone (`Field`), which is
+a variable. A member of a user-defined type, an element of an array and a variable of a module qualified by the module's name (`Module1.Text`) are variables.
 
 The position and the length are used as the runtime semantics uses them - as `Long` - and the value as a `String`, so each has to be Let-coercible to that
 ([**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md)).
