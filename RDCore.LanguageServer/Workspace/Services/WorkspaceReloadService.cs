@@ -169,6 +169,7 @@ internal sealed class WorkspaceReloadService(
     IServerStateProvider serverStateProvider,
     IProjectFileService projectFiles,
     IWorkspaceDocumentService documents,
+    IWorkspaceService workspace,
     IDocumentStateProvider documentStates,
     IParsingClientService parsing,
     ISymbolSyncService symbols,
@@ -647,8 +648,9 @@ internal sealed class WorkspaceReloadService(
         var before = FilesOf(project);
         var after = FilesOf(projectFiles.Project);
 
-        // what the project now lists as other files is no code, whatever it was before.
-        documents.SetOtherFiles(after.Where(file => !file.Value).Select(file => IdOf(projectFiles.Project.Uri, file.Key)));
+        // what the projects now list as other files is no code, whatever it was before: the other files of every project, since they are set as one, and a
+        // project that is not the one reloaded keeps its own.
+        documents.SetOtherFiles(workspace.OtherFilesOfTheProjects());
 
         // and what it says its document modules are: a module whose Super changed is the kind it says now, when every module is defined again.
         documents.SetDocumentModules(projectFiles.Project.Uri, projectFiles.Project.ProjectInfo.Modules.Where(module => module.Super is not null)

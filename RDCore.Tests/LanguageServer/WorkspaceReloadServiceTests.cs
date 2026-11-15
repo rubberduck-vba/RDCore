@@ -9,6 +9,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Server.Handlers.Workspace;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
@@ -45,6 +46,7 @@ public sealed class WorkspaceReloadServiceTests
     private readonly DocumentStateProvider _documentStates = new(NullLogger<DocumentStateProvider>.Instance);
     private readonly ProjectFileService _projectFiles;
     private readonly WorkspaceDocumentService _documents;
+    private readonly WorkspaceService _workspace;
     private readonly WorkspaceReloadService _sut;
 
     public WorkspaceReloadServiceTests()
@@ -62,7 +64,12 @@ public sealed class WorkspaceReloadServiceTests
         _projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, _files.Path, _files.File, new ProjectFileLoader(_files),
             () => SupportedLanguages.RDVBA);
         _documents = new WorkspaceDocumentService(_documentStates, NullLogger<WorkspaceDocumentService>.Instance, _files.Path, _files.File);
-        _sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh,
+        // the workspace of the one project the tests load: its folder is the primary one, as a language server started on it has it.
+        var projects = new WorkspaceProjects(_projectFiles);
+        projects.Initialize(Root, [Root], [Root]);
+        _workspace = new WorkspaceService(_state, NullLogger<WorkspaceService>.Instance, _files.Path, _files.File, _files.Directory, _projectFiles, _documents,
+            _documentStates, () => ProtocolSupportedLanguage.VBA, projects, new ProjectFileLoader(_files));
+        _sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _workspace, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh,
             NullLogger<WorkspaceReloadService>.Instance);
 
         _files.AddFile(Path.Combine(Root, "A.bas"), new MockFileData("Attribute VB_Name = \"A\"\r\n"));
@@ -326,7 +333,7 @@ public sealed class WorkspaceReloadServiceTests
     {
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.RuntimeEnvironment.Returns(_host);
-        return new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh, log);
+        return new WorkspaceReloadService(_state, _projectFiles, _documents, _workspace, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh, log);
     }
 
     // set when the environment host is first waited for: the work that waits for it has come as far as it can.
@@ -485,7 +492,7 @@ public sealed class WorkspaceReloadServiceTests
     {
         // no environment host at all: with nothing to wait for, the work that was left would otherwise be done.
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
-        var sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh, NullLogger<WorkspaceReloadService>.Instance);
+        var sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _workspace, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh, NullLogger<WorkspaceReloadService>.Instance);
         await LoadAsync("A.bas");
         sut.Stop();
 

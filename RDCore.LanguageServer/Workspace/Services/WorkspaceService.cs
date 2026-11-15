@@ -21,6 +21,12 @@ internal interface IWorkspaceService
     Task LoadAsync(string workspaceRoot);
 
     /// <summary>
+    /// The other files of every project loaded, from the project files as they are now: what a project lists as another file and no project lists as a
+    /// module, held by a folder of the workspace.
+    /// </summary>
+    IReadOnlyList<TextDocumentIdentifier> OtherFilesOfTheProjects();
+
+    /// <summary>
     /// Loads the workspace a client opened with several folders: the project of the first, which is the one the server runs, and the project of each of the
     /// others that is a project folder (<see cref="RDCore.SDK.Workspace.WorkspaceFolderRoles"/>). A file a project lists that no folder holds is refused
     /// (<see cref="IWorkspaceProjects.Refused"/>).
@@ -521,11 +527,17 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         logger.LogWarning("⚠️ '{file}' is listed by project '{project}' and no folder of the workspace holds it: it is refused.", relativeUri, project);
     }
 
+    public IReadOnlyList<TextDocumentIdentifier> OtherFilesOfTheProjects() => OtherFilesOf(Listing().Files);
+
+    // a file one project lists as another file and another project as a module is a module: it is code.
+    private static List<TextDocumentIdentifier> OtherFilesOf(List<Listed> listed)
+        => [.. listed.Where(entry => entry.IsOther).Select(entry => entry.Id).Except(listed.Where(entry => !entry.IsOther).Select(entry => entry.Id))];
+
     // what the projects list as other files, and what they say their document modules are, said to the document service before any of their files is loaded.
     private void SayWhatTheProjectsList(List<Listed> listed)
     {
         // what a project lists as other files is loaded and tracked, and never parsed as code: a resource file, a README.
-        documentService.SetOtherFiles(listed.Where(entry => entry.IsOther).Select(entry => entry.Id).Except(listed.Where(entry => !entry.IsOther).Select(entry => entry.Id)));
+        documentService.SetOtherFiles(OtherFilesOf(listed));
 
         // what the projects say their document modules are, before any is loaded: the first project that lists a file says it.
         foreach (var project in listed.GroupBy(entry => entry.Root))

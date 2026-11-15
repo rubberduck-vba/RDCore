@@ -83,13 +83,15 @@ public sealed class WorkspaceFolderChangesTests
             var host = Substitute.For<IRDCoreClientApp>();
             host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
             host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(ProjectReload)] });
+            host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new HostProjectReloadResult { Composed = true }));
             var orchestration = Substitute.For<IPlatformOrchestrationService>();
             orchestration.RuntimeEnvironment.Returns(host);
 
             // the change is done once the client is asked to refresh what it shows: the documents are parsed, and the symbols defined, by then.
             Refresh.When(refresh => refresh.Changed()).Do(_ => _refreshed.TrySetResult());
             Reload = new WorkspaceReloadService(
-                _state, ProjectFiles, Documents, States, Parsing, Symbols, orchestration, files.Path, Refresh, NullLogger<WorkspaceReloadService>.Instance);
+                _state, ProjectFiles, Documents, Loader, States, Parsing, Symbols, orchestration, files.Path, Refresh, NullLogger<WorkspaceReloadService>.Instance);
             Changes = new WorkspaceFolderChanges(Reload, Loader, Projects, NullLogger<WorkspaceFolderChanges>.Instance);
         }
 
@@ -122,6 +124,57 @@ public sealed class WorkspaceFolderChangesTests
         public string[] Roots => [.. Projects.Projects.Select(project => project.Root)];
 
         public string[] ToldTheClient => [.. Server.Window.ReceivedCalls().SelectMany(call => call.GetArguments()).OfType<ShowMessageParams>().Select(message => message.Message)];
+    }
+
+    private static readonly string ServiceReadme = Path.Combine(Service, "README.md");
+
+    // the workspace of Files(), where Service also lists a README as another file.
+    private static MockFileSystem FilesWithServiceReadme()
+    {
+        var files = Files();
+        files.AddFile(Path.Combine(Service, ProjectFile.FileName), new MockFileData(JsonSerializer.Serialize(new ProjectFile(Service, new RDCoreProject
+        {
+            Name = "Service",
+            Modules = [new RDCoreModule { RelativeUri = "Service.bas" }, new RDCoreModule { RelativeUri = UtilAsListed }],
+            OtherFiles = [new RDCoreFile { RelativeUri = "README.md" }],
+        }))));
+        files.AddFile(ServiceReadme, new MockFileData("# Service"));
+        return files;
+    }
+
+    // the primary project's file changes on disk (it gains a module), and the workspace is reloaded from it, as a watched .rdproj is.
+    private static async Task ReloadAfterThePrimaryProjectChangesAsync(Workspace workspace, MockFileSystem files)
+    {
+        files.AddFile(Path.Combine(Client, "Extra.bas"), new MockFileData("Attribute VB_Name = \"Extra\"\r\n"));
+        files.AddFile(Path.Combine(Client, ProjectFile.FileName), ProjectOf(Client, "Client", "Client.bas", UtilAsListed, "Extra.bas"));
+        Assert.IsNotNull(await workspace.Reload.ReloadAsync(CancellationToken.None), "the workspace is reloaded");
+        CollectionAssert.Contains(workspace.Names(Client), "Extra", "the reload applied the primary project's file");
+    }
+
+    // a reload says which documents are other files for every project at once: the other projects' are kept, not only the primary one's.
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    [DataRow(true, DisplayName = "a folder added once the server runs")]
+    [DataRow(false, DisplayName = "a folder given at initialize")]
+    public async Task AnOtherProjectsOtherFile_StaysAnOtherFile_WhenThePrimaryProjectIsReloaded(bool addedLater)
+    {
+        var files = FilesWithServiceReadme();
+        var workspace = addedLater
+            ? await new Workspace(files).LoadAsync(Client, Client, Shared)
+            : await new Workspace(files).LoadAsync(Client, Client, Shared, Service);
+        if (addedLater)
+        {
+            await workspace.ChangeAsync([Service], []);
+        }
+
+        var readme = new Uri(ServiceReadme);
+        Assert.IsTrue(workspace.Documents.TryGetDocument(readme, out _), "Service's README is loaded");
+        Assert.IsFalse(workspace.Documents.TryGetModule(readme, out _), "and is no module before the reload");
+
+        await ReloadAfterThePrimaryProjectChangesAsync(workspace, files);
+
+        Assert.IsTrue(workspace.Documents.TryGetDocument(readme, out _), "Service's README is still loaded");
+        Assert.IsFalse(workspace.Documents.TryGetModule(readme, out _), "and is still no module: the reload kept Service's other files");
     }
 
     [TestMethod]
