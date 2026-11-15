@@ -742,9 +742,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             : new ErrorHandlerState(mode, target, null, null);
 
     /// <summary>
-    /// What the <c>On Error</c> statement <paramref name="instruction"/> does (MS-VBAL §5.4.4): the activation's error handling policy set, and the Err
-    /// object cleared (§6.1.3.2.1). Compiled code does it too.
+    /// What the <c>On Error</c> statement <paramref name="instruction"/> does (MS-VBAL §5.4.4.1): the activation's error handling policy set, and the Err
+    /// object cleared (§6.1.3.2.1.1). Compiled code does it too.
     /// </summary>
+    /// <param name="session">The session whose Err object is cleared.</param>
+    /// <param name="activation">The frame whose error handling policy the statement sets.</param>
+    /// <param name="instruction">The <c>On Error</c> statement.</param>
     /// <returns><see langword="false"/> for an <c>On Error GoTo</c> whose label was not resolved, which reported its own compile error.</returns>
     internal static bool TryApplyOnError(IRuntimeSession session, CallStackFrame activation, Instruction instruction)
     {
@@ -759,8 +762,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
     /// <summary>
     /// What the <c>On Error</c> statement <paramref name="instruction"/> does to the error handling policy <paramref name="current"/> of an activation that
-    /// holds it without a frame (MS-VBAL §5.4.4), the Err object cleared as for one with a frame (§6.1.3.2.1).
+    /// holds it without a frame (MS-VBAL §5.4.4.1), the Err object cleared as for one with a frame (§6.1.3.2.1.1).
     /// </summary>
+    /// <param name="session">The session whose Err object is cleared.</param>
+    /// <param name="current">The activation's error handling policy before the statement.</param>
+    /// <param name="instruction">The <c>On Error</c> statement.</param>
+    /// <param name="policy">The policy the statement sets, or <paramref name="current"/> when it returns <see langword="false"/>.</param>
     /// <returns><see langword="false"/> for an <c>On Error GoTo</c> whose label was not resolved, which reported its own compile error.</returns>
     internal static bool TryApplyOnError(IRuntimeSession session, ErrorHandlerState current, Instruction instruction, out ErrorHandlerState policy)
     {

@@ -61,8 +61,8 @@ public sealed partial class CompiledActivation : ILightActivation
     private ScalarPayload _result;
     private bool _hasResult;
 
-    // the error handling policy its On Error statements set, which its frame is given when it is made: an error compiled code fails at is handed to the
-    // interpreter, which makes it, so an activation without one never has an error to handle.
+    // the error handling policy its On Error statements set, which its frame is given when the frame is made: an error compiled code fails at is handed to
+    // the interpreter, which makes the frame, so an activation without a frame never has an error to handle.
     private ErrorHandlerState _errorHandler = ErrorHandlerState.Disabled;
 
     // the cell of each slot held in one (CompiledBody.CellSlots), by its number: what compiled code reads and writes the variable in, and what the frame
