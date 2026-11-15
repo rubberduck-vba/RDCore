@@ -352,12 +352,24 @@ public sealed class LoadPictureTests
 
     // the length and the first 16 bytes of each saved file.
     [TestMethod]
-    [DataRow("pic.gif", "len 82 424D52000000000000003E0000002800", DisplayName = "a GIF: a 1-bit bitmap of its 7 by 5 frame, its table of 2 colors")]
     [DataRow("pic.jpg", "len 362 424D6A01000000000000360000002800", DisplayName = "a JPEG: a 24-bit bitmap")]
-    [DataRow("pic.png", "len 134 424D8600000000000000360000002800", DisplayName = "a PNG: a 24-bit bitmap, its alpha left out as a 32-bit bitmap's is")]
     [DataRow("three.ico", "len 766 0000010001002020100000000000E802", DisplayName = "an icon: one 32 by 32 image of 16 colors")]
     [DataRow("arrow.cur", "len 766 0000010001002020100000000000E802", DisplayName = "a cursor: an icon")]
     public async Task ASavedPictureOfAnotherFormat_IsWrittenAsMSVBAWritesIt(string file, string expected)
         => Printed(new[] { "0 " + expected }, await RunAsync(
             $"SavePicture LoadPicture(D & \"{file}\"), D & \"saved-{file}\": Debug.Print Err.Number & \" \" & Head(D & \"saved-{file}\")"));
+
+    // RD-VBA addition: a GIF one of whose pixels is its transparent color (this one's GIF has its color 0 transparent) is a bitmap of 32 bits per pixel under a
+    // BITMAPV5HEADER (124 bytes) that states the alpha: 14 + 124 + 7 by 5 pixels of 4 bytes, where MS-VBA writes a bitmap of its color table.
+    [TestMethod]
+    public async Task ASavedGifWithATransparentColor_IsABitmapThatKeepsTheAlpha()
+        => Printed(["0 len 278 424D16010000000000008A0000007C00"], await RunAsync(
+            "SavePicture LoadPicture(D & \"pic.gif\"), D & \"saved-pic.gif\": Debug.Print Err.Number & \" \" & Head(D & \"saved-pic.gif\")"));
+
+    // RD-VBA addition: a PNG is written as a PNG, which keeps its alpha (its signature, then its IHDR chunk), and loads back at its size; MS-VBA does not load one.
+    [TestMethod]
+    public async Task ASavedPng_IsAPng_ThatLoadsBackAtItsSize()
+        => Printed(["0 89504E470D0A1A0A0000000D49484452", "1 159 106 True"], await RunAsync(
+            "SavePicture LoadPicture(D & \"pic.png\"), D & \"saved-pic.png\": Debug.Print Err.Number & \" \" & Right(Head(D & \"saved-pic.png\"), 32)",
+            Load("D & \"saved-pic.png\"")));
 }
