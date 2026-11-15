@@ -1785,6 +1785,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return outcome;
         }
 
+        // a program that was stopped inside a call is stopped, whatever the statement that made the call failed with: the call had no answer, and what made
+        // an error of that (a conversion of its value, which says why it has none) raised nothing of the program's. No handler runs, and Err is left as it is.
+        if (session.Halt.Pending is { } halt)
+        {
+            return halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break;
+        }
+
         // an error carries the location of what raised it, and a library member cannot know where it was called from: until its call
         // site is given to it, its error says nowhere. The statement that faulted is where it was raised, as far as anything here knows,
         // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and is where

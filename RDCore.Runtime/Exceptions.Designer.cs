@@ -519,6 +519,24 @@ namespace RDCore.Runtime {
                 return ResourceManager.GetString("VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program was stopped while the object&apos;s default member &apos;{0}&apos; ran, so it returned no value..
+        /// </summary>
+        internal static string VBRuntimeInternalError_LetCoercionDefaultMemberStopped {
+            get {
+                return ResourceManager.GetString("VBRuntimeInternalError_LetCoercionDefaultMemberStopped", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The call of the object&apos;s default member &apos;{0}&apos; failed inside the platform and gave no error..
+        /// </summary>
+        internal static string VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError {
+            get {
+                return ResourceManager.GetString("VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to No semantics defined an effective type for the specified operator data types ({$OPERANDS})..
