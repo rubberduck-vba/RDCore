@@ -279,7 +279,7 @@ public sealed class UnusedDeclarationAnalyzerTests
         string[] before = ["Public Sub Main()", $"    {declaration}", $"    Debug.Print {read}", "End Sub"];
         var program = ModuleWorkspace.StandardModule("Program", before);
 
-        var fix = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), before)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), before)).Fixes?.Edits.SingleOrDefault();
 
         Assert.IsNotNull(fix);
         var edit = Assert.ContainsSingle(fix.Edits);
@@ -300,13 +300,13 @@ public sealed class UnusedDeclarationAnalyzerTests
         var name = declaration.Split(' ')[1];
         string[] lines = [.. directive.Length > 0 ? [directive] : Array.Empty<string>(), "Public Sub Main()", $"    {declaration}", $"    Debug.Print {name}", "End Sub"];
 
-        Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), lines)).Fixes?.Edit);
+        Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), lines)).Fixes?.Edits.SingleOrDefault());
     }
 
     [TestMethod]
     public async Task NoFixIsOffered_ForAFieldOfTheModule()
         => Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
-            "Private count As Long", "Public Sub Main()", "    Debug.Print count", "End Sub")).Fixes?.Edit);
+            "Private count As Long", "Public Sub Main()", "    Debug.Print count", "End Sub")).Fixes?.Edits.SingleOrDefault());
 
     #endregion
 

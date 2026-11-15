@@ -103,7 +103,7 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name))
             {
-                Fixes = FixOf(context.ParseResult, module, fact, declaration) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                Fixes = FixOf(context.ParseResult, module, fact, declaration) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
             };
         }
     }
