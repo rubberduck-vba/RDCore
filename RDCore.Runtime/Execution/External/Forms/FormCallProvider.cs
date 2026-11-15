@@ -66,6 +66,9 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (oracle\s41 L51).
     private const int FormUnloaded = unchecked((int)0x80010007);
 
+    // REGDB_E_CLASSNOTREG: a form no host can create is a class that is not registered, error 429.
+    private const int ClassNotRegistered = unchecked((int)0x80040154);
+
     /// <summary>
     /// What calls a procedure of the session's code - a form's <c>UserForm_QueryClose</c> and <c>UserForm_Terminate</c>, which <c>Unload</c> runs. Set once the
     /// pipeline has composed it, which needs this provider first.
@@ -244,6 +247,12 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         if (!forms.TryGetValue(form, out var designer))
         {
             return null;
+        }
+
+        // a Visual Basic 6.0 form is a class no form host of this platform can create (429), as a UserForm is where Microsoft Forms is not.
+        if (designer.Kind == FormDesignerKind.VisualBasic6)
+        {
+            throw new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose);
         }
 
         // from the first form on, its windows' messages wait while a program runs - what Microsoft Forms posts as it creates this one included.
