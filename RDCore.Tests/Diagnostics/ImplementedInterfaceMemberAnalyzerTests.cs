@@ -74,7 +74,7 @@ public sealed class ImplementedInterfaceMemberAnalyzerTests
 
         StringAssert.Contains(finding.Message, "'Area'");
         Assert.AreEqual(ModuleWorkspace.ClassModule("IShape", "Option Explicit", "Public Function Area() As Double", "    ' implemented by each shape", "End Function"),
-            Fixed(source, finding.Fixes!.Edit!), "the fix removes the declaration too");
+            Fixed(source, finding.Fixes!.Edits.Single()), "the fix removes the declaration too");
     }
 
     // the source with the fix's edits made, the last first so that the ranges of the others still hold.
@@ -110,7 +110,7 @@ public sealed class ImplementedInterfaceMemberAnalyzerTests
             "    Debug.Print \"shape\"",
             "    ' drawn",
             "End Sub");
-        var fix = Assert.ContainsSingle(await ShapeAsync(true, source)).Fixes?.Edit;
+        var fix = Assert.ContainsSingle(await ShapeAsync(true, source)).Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix);
         Assert.AreEqual("Remove the code from the members of 'IShape': an object created from 'IShape' itself no longer runs it", fix.Title);
 

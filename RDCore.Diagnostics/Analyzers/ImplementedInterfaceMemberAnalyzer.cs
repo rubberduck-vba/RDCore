@@ -54,7 +54,7 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
                 Fixes = edits.All(member => member is not null)
                     ? new DiagnosticFixes
                     {
-                        Edit = SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementedInterfaceMember_Fix, name), [.. edits.SelectMany(member => member!)]),
+                        Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementedInterfaceMember_Fix, name), [.. edits.SelectMany(member => member!)])],
                     }
                     : null,
             },
