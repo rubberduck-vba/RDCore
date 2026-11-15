@@ -94,8 +94,12 @@ internal sealed class DocumentDiagnosticsService(
     ISymbolSyncService symbols,
     IWorkspaceRefresh refresh,
     ILogger<DocumentDiagnosticsService> logger,
-    IEditStatusMonitor? editStatus = null) : IDocumentDiagnosticsService
+    IEditStatusMonitor? editStatus = null,
+    IDisabledDiagnostics? disabled = null) : IDocumentDiagnosticsService
 {
+    // the codes disabled for the workspace's documents, which the providers are sent: none when nothing says.
+    private IReadOnlySet<RDCoreDiagnosticCode> Disabled => disabled?.Codes ?? new HashSet<RDCoreDiagnosticCode>();
+
     public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         var providers = DiagnosticsProviders();
@@ -112,7 +116,7 @@ internal sealed class DocumentDiagnosticsService(
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
         var phase = PhaseNow(AnalysisPhase.All);
         var semantics = await AnalyzeInHostAsync(SymbolUri.ModuleNameOf(documentUri), parseResult, phase, token);
-        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase));
+        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
 
         return (Aggregate(reports), providers.Length);
@@ -198,7 +202,7 @@ internal sealed class DocumentDiagnosticsService(
         // name is never asked for, since the host may hold a module by that name that is another. A document that is no file is the client's alone, and none of the host's.
         var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
         var semantics = isHostModule ? await SemanticsOfAsync(moduleName, phase, token) : null;
-        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
+        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
 
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
 
@@ -222,10 +226,10 @@ internal sealed class DocumentDiagnosticsService(
     private AnalysisPhase PhaseNow(AnalysisPhase phase) => editStatus?.Current.Suspended == true ? phase & ~AnalysisPhase.Runtime : phase;
 
     // RDC20001: each edit of the module the program that waits does not have, where the edited declaration is now - an edit of the module as a whole, or of a
-    // declaration that is gone, on its first line.
+    // declaration that is gone, on its first line. None when the code is disabled.
     private IEnumerable<Diagnostic> EditsNotApplied(WorkspaceDocument document, string moduleName)
     {
-        if (editStatus is null)
+        if (editStatus is null || Disabled.Contains(EditNotApplied))
         {
             yield break;
         }

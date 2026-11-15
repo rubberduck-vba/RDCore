@@ -13,7 +13,7 @@ rdc import <path>
 ```
 
 `<path>` is the `.vbp`, or a folder that holds one. The `.rdproj` is written next to the `.vbp`, which is left as it is. The `.rdproj` records the
-`.vbp` it was made of (`SourceProject`).
+`.vbp` it was made of (`SourceProject`), which makes the workspace a VB6 one for an editor that does not name the language itself.
 
 |From the `.vbp`|In the `.rdproj`|
 |---|---|

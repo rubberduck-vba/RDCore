@@ -22,6 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class UnmatchedEventHandlerAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.UnmatchedEventHandler.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration is { Role: DeclarationRole.UnmatchedEventHandler, References.Total: 0 })

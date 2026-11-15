@@ -117,8 +117,29 @@ public sealed class RuntimeFactsExposureTests
     {
         var access = Access(await FactsOfAsync("ByVal c As Collection", "Dim x As Variant", "x = c(1)"));
 
-        Assert.AreEqual(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember, access.Flags);
+        Assert.AreEqual(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+            access.Flags);
         Assert.AreEqual("Item", access.Member, "the code does not name it: the class does");
+    }
+
+    // a class whose default member takes an argument, and can be assigned.
+    private static readonly (string Name, string Source) Box = ("Box", ModuleWorkspace.ClassModule("Box", "Option Explicit", "Private m As Long",
+        "Public Property Get Item(ByVal k As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = m", "End Property",
+        "Public Property Let Item(ByVal k As Variant, ByVal v As Long)", "m = v", "End Property"));
+
+    // an argument list given to an object that is assigned goes to its default member, as a read of it does, and is stated where the code writes it.
+    [TestMethod]
+    [DataRow("b(1) = 5", MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+        4, DisplayName = "the object")]
+    [DataRow("b.Item(1) = 5", MemberAccessOperationSemanticFlags.Explicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+        6, DisplayName = "the member named")]
+    public async Task AnArgumentListGivenToAnObjectThatIsAssigned_IsAnAccessOfItsDefaultMember(string assignment, MemberAccessOperationSemanticFlags expected, int end)
+    {
+        var access = Access(await FactsOfAsync([Box], "", "Dim b As New Box", assignment));
+
+        Assert.AreEqual(expected, access.Flags);
+        Assert.AreEqual("Item", access.Member);
+        Assert.AreEqual((4, 0, 4, end), (access.Location.Range.Start.Line, access.Location.Range.Start.Character, access.Location.Range.End.Line, access.Location.Range.End.Character));
     }
 
     // a class whose default member is a property the code can assign.
@@ -181,7 +202,8 @@ public sealed class RuntimeFactsExposureTests
         var facts = await FactsOfAsync("", "With New Collection", "    .Add 1", "End With");
 
         var access = Access(facts);
-        Assert.AreEqual(MemberAccessOperationSemanticFlags.Explicit | MemberAccessOperationSemanticFlags.WithBlockVariable, access.Flags);
+        Assert.AreEqual(MemberAccessOperationSemanticFlags.Explicit | MemberAccessOperationSemanticFlags.WithBlockVariable | MemberAccessOperationSemanticFlags.ArgumentList,
+            access.Flags);
         Assert.IsTrue(access.IsValueKnown, "a new object is known");
     }
 

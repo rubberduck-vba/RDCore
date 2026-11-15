@@ -128,13 +128,27 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         public bool TryWriteRecord(VBTypedValue value, bool isVariant, out int written)
         {
             var start = Stream.Position;
-            var done = RecordDataFormat.TryWrite(Stream, value, Mode, isVariant, out written);
-            if (done && written <= PositionUnit)
+            if (Mode is not VBFileMode.Random)
             {
+                return RecordDataFormat.TryWrite(Stream, value, Mode, isVariant, out written);
+            }
+
+            // a record longer than the channel's records, of 128 bytes when it was opened with no Len, is not written at all, which Put then raises 59
+            // for (MS-VBA, recorded in Excel).
+            using var record = new MemoryStream();
+            if (!RecordDataFormat.TryWrite(record, value, Mode, isVariant, out written))
+            {
+                return false;
+            }
+
+            if (written <= PositionUnit)
+            {
+                record.WriteTo(Stream);
+                Stream.Flush();
                 NextRecord(start);
             }
 
-            return done;
+            return true;
         }
 
         public bool TryReadRecord(VBType declaredType, int currentLength, out VBTypedValue? value)
@@ -149,11 +163,18 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
             return Read(start, RecordDataFormat.TryReadInto(Stream, userDefinedType, Mode));
         }
 
-        // a record of a Random channel is past the end of the file when the file ends before the record does, whatever the variable read of it: EOF is
-        // True after a Get of the last record of a file that ends inside it, and False after one that ends with it (MS-VBA, recorded in Excel).
+        public bool TryReadRecordInto(VBArrayValue array)
+        {
+            var start = Stream.Position;
+            return Read(start, RecordDataFormat.TryReadInto(Stream, array, Mode));
+        }
+
+        // a read past the end of the file reads zeros and moves past them (RecordDataFormat), which leaves the position past the end. A record of a
+        // Random channel is past the end of the file when the file ends before the record does, whatever the variable read of it: EOF is True after a
+        // Get of the last record of a file that ends inside it, and False after one that ends with it (MS-VBA, recorded in Excel).
         private bool Read(long start, bool read)
         {
-            IsPastEndOfRecords = !read || (Mode is VBFileMode.Random && start + PositionUnit > Stream.Length);
+            IsPastEndOfRecords = !read || Stream.Position > Stream.Length || (Mode is VBFileMode.Random && start + PositionUnit > Stream.Length);
             if (read)
             {
                 NextRecord(start);

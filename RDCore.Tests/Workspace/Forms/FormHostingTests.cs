@@ -59,7 +59,7 @@ public sealed class FormHostingTests
     }
 
     // MVVM's ExampleView - its designer, AmountBox and all - with no code behind it: the header and the attributes of the module, and nothing of MVVM.
-    private static (string Name, string Source, FormDescriptor Designer) ExampleView(params string[] code)
+    internal static (string Name, string Source, FormDescriptor Designer) ExampleView(params string[] code)
     {
         var frm = Encoding.UTF8.GetString(Fixture("ExampleView.frm"));
         var lines = frm.Split("\r\n");

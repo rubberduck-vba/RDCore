@@ -46,8 +46,14 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         var facts = new ExpressionFactCollector();
-        var errors = Evaluate(resolved with { Facts = facts }, block, options, kind);
-        return new(procedure, errors) { Expressions = facts.ToImmutable(), IsFullyAnalyzed = errors.IsEmpty && ExpressionCoverage.IsCovered(block, options, facts) };
+        var arguments = new ArgumentFactCollector();
+        var errors = Evaluate(resolved with { Facts = facts, ArgumentFacts = arguments }, block, options, kind);
+        return new(procedure, errors)
+        {
+            Expressions = facts.ToImmutable(),
+            IsFullyAnalyzed = errors.IsEmpty && ExpressionCoverage.IsCovered(block, options, facts),
+            Arguments = arguments.ToImmutable(),
+        };
     }
 
     private static ImmutableArray<VBCompileErrorInfo> Run(StaticEvaluationContext context, StatementBlock block, Walk walk)
@@ -252,8 +258,8 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
-        // an array is no value Debug.Print can write, written `f` or `f()`: a type mismatch when it compiles (MS-VBA, observed in Excel).
-        // Its items are evaluated as any statement's are, after.
+        // an array is no value Debug.Print can write, written `f` or `f()`: a type mismatch when it compiles (MS-VBA, Excel-verified, oracle\s53 E02, E03, F02,
+        // F03). Its items are evaluated as any statement's are, after.
         if (statement is DebugPrintStatementNode debugPrint && !walk.Structural
             && debugPrint.Items.FirstOrDefault(item => item.Value is { } printed
                 && ExpressionStaticSemanticsEvaluator.Evaluate(context, printed) is { IsSuccess: true, Result: VBArrayType }) is { Value: { } printedArray })
@@ -276,8 +282,8 @@ public static class StatementStaticSemanticsEvaluator
             MarkWritten(context, assignment.Target);
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
 
-            // what a Set statement assigns is an object, which a project, a module or an enumeration is not: a type mismatch (MS-VBA, observed in Excel),
-            // rather than what the name is classified as.
+            // what a Set statement assigns is an object, which a project, a module or an enumeration is not: a type mismatch (MS-VBA, Excel-verified,
+            // oracle\s29 C03, C04, O20), rather than what the name is classified as.
             if (assignment.Kind == AssignmentKind.Set && NameClassificationStaticSemantics.IsNotAValue(assignment.Value, valueResult.ErrorInfo as VBCompileErrorInfo))
             {
                 valueResult = StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, assignment.Value.Location,
@@ -317,14 +323,9 @@ public static class StatementStaticSemanticsEvaluator
                 return;
             }
 
-            if (assignment.Kind == AssignmentKind.Set)
-            {
-                MarkSetThroughACall(context, assignment.Target);
-            }
-
             // a resizable array is assigned an array, or a Variant that may hold one (or a String, the data of a Byte array, §5.5.1.2.6); a number, a
-            // String, a Boolean or a Date is never one, which MS-VBA refuses before the coercion of it is considered (observed in Excel:
-            // "Can't assign to array"; a Byte() is assigned a String).
+            // String, a Boolean or a Date is never one, which MS-VBA refuses before the coercion of it is considered (Excel-verified, oracle\findings-labels
+            // A03, A04, A06, R02, oracle\s44 G01-G08, G10: "Can't assign to array"; G09 assigns a Byte() a String).
             if (isLet && targetResult.IsSuccess && targetResult.Result is VBArrayType { ItemType: var itemType } && assignment.Target is SimpleNameExpressionNode arrayName
                 && valueResult.IsSuccess && valueResult.Result is VBNumericType or VBBooleanType or VBDateType or VBStringType
                 && !(valueResult.Result is VBStringType && itemType is VBByteType))
@@ -438,8 +439,8 @@ public static class StatementStaticSemanticsEvaluator
                         walk.Errors.Add(refused);
                     }
 
-                    // the type a ReDim states is a type expression as a declaration's is (MS-VBAL §5.6.16.7): a module or a project is no type (MS-VBA, observed
-                    // in Excel). A ReDim that declares its array states the type of a declaration, which is checked as one.
+                    // the type a ReDim states is a type expression as a declaration's is (MS-VBAL §5.6.16.7): a module or a project is no type (MS-VBA, Excel-
+                    // verified, oracle\s29 D03, D09). A ReDim that declares its array states the type of a declaration, which is checked as one.
                     if (redim.AsType is { FixedLength: null } statedType && !DeclaresItsArray(context, redim)
                         && NoTypeErrorOf(context, statedType) is { } notAType)
                     {
@@ -450,7 +451,7 @@ public static class StatementStaticSemanticsEvaluator
                     if (redimensionedSymbol is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol)
                     {
                         // a constant - the module's, another's, the library's (vbCrLf), a member of an enumeration - is the name the ReDim matches, and no array
-                        // (MS-VBA: "Expected array", observed in Excel), rather than a constant that is assigned.
+                        // (MS-VBA: "Expected array", Excel-verified, oracle\s29 E01, E03, E11, E15), rather than a constant that is assigned.
                         walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, redim.Target.Location,
                             string.Format(Exceptions.VBCompileError_RedimOfAConstant_Verbose, redimensionedSymbol.Name)));
                     }
@@ -459,7 +460,7 @@ public static class StatementStaticSemanticsEvaluator
                         && array.TryGetProperty(SymbolProperties.ArrayBounds, out var fixedBounds) && !fixedBounds.IsDefaultOrEmpty)
                     {
                         // an array declared with fixed dimensions keeps them, this module's or another's, bare or qualified (MS-VBA: "Array already
-                        // dimensioned", observed in Excel).
+                        // dimensioned", Excel-verified, oracle\s29 E04, E14).
                         walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ArrayAlreadyDimensioned, redim.Target.Location, array.Name));
                     }
                     else if (redimensioned.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
@@ -476,7 +477,7 @@ public static class StatementStaticSemanticsEvaluator
                     {
                         // MS-VBAL §5.4.3.3: a ReDim of an array declared as one gives it its dimensions, not another element type - and an array declared As New
                         // is one of automatic instantiation variables, which one that is not declared so is not (MS-VBA: "Can't change data types of array
-                        // elements", observed in Excel). Its As clause may be As New, as MS-VBA has it, where the specification says it
+                        // elements", Excel-verified, oracle\s19 N18, N33, N35). Its As clause may be As New, as MS-VBA has it, where the specification says it
                         // MUST NOT (RD-VBAL §5.4.3.3).
                         walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.CantChangeDataTypesOfArrayElements, redim.Target.Location,
                             string.Format(Exceptions.VBCompileError_CantChangeDataTypesOfArrayElements_Verbose, redim.Name, itemType.Name,
@@ -514,7 +515,7 @@ public static class StatementStaticSemanticsEvaluator
             // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
             if (statement is CallStatementNode callStatement)
             {
-                if (NotAProcedureError(context, callStatement) is { } notAProcedure)
+                if ((NotAProcedureError(context, callStatement) ?? PropertyCalledError(context, callStatement)) is { } notAProcedure)
                 {
                     walk.Errors.Add(notAProcedure);
                 }
@@ -525,16 +526,11 @@ public static class StatementStaticSemanticsEvaluator
                 {
                     walk.Errors.Add(byValError);
                 }
-                else
-                {
-                    ByValArgumentStaticSemantics.MarkRedundant(context, callStatement.Callee, callStatement.Arguments, calleeType);
-                }
 
                 // the arguments of the statement may be taken by reference like those of a call written as an expression, unless the callee is an array.
                 if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
                 {
                     ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Callee, callStatement.Arguments);
-                    ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, callStatement.Callee, callStatement.Arguments);
                 }
 
                 // a ParamArray is no variable a ByRef parameter can be bound to (MS-VBAL §5.3.1.11), and an object given to a parameter that expects a
@@ -605,7 +601,6 @@ public static class StatementStaticSemanticsEvaluator
                 break;
             case ForEachStatementNode forEachStatement:
                 EvaluateLoopBody(context, forEachStatement.Body, walk, isForLoop: true, forEachStatement.ControlExpression);
-                MarkCollectionSetToNothing(context, forEachStatement);
                 break;
             case SelectCaseStatementNode selectCase:
                 foreach (var caseExpressionBlock in selectCase.CaseExpressionBlocks)
@@ -631,7 +626,7 @@ public static class StatementStaticSemanticsEvaluator
     }
 
     // MS-VBAL §5.4.2.21: a With block is about an object, a record or a Variant, whose members a with-member-access refers to. MS-VBA refuses any other value,
-    // a project, a module or an enumeration included (observed in Excel); Nothing is an object's value.
+    // a project, a module or an enumeration included (Excel-verified, oracle\s29 C20, C33, O21, W1-W3, W9, Y8, Y10); Nothing is an object's value.
     private static StaticSemanticsEvaluationResult WithTarget(ExpressionNode target, StaticSemanticsEvaluationResult result)
     {
         if (NameClassificationStaticSemantics.IsNotAValue(target, result.ErrorInfo as VBCompileErrorInfo))
@@ -650,7 +645,7 @@ public static class StatementStaticSemanticsEvaluator
 
     // MS-VBAL §5.4.2.4: what a For Each loop iterates is an array or an object, written as a name, a member or a call: a literal, an operator's result and
     // anything in parentheses are a syntax error, and a value of any other type, a record, a project, a module or an enumeration a compile error of its own
-    // (MS-VBA, observed in Excel).
+    // (MS-VBA, Excel-verified, oracle\s29 C21, C34, O22, W4-W7, Y1-Y7).
     private static StaticSemanticsEvaluationResult ForEachSource(ExpressionNode source, StaticSemanticsEvaluationResult result)
     {
         if (source is LiteralExpressionNode or VBUnaryOperatorExpressionNode or VBBinaryOperatorExpressionNode or TypeOfIsExpressionNode)
@@ -671,8 +666,8 @@ public static class StatementStaticSemanticsEvaluator
             : result;
     }
 
-    // MS-VBAL §5.4.2.1: what a call statement calls is a procedure; a variable or a constant is none. MS-VBA says which by where it is declared (observed
-    // in Excel), with Call or without: "Expected Sub, Function, or Property" for one of the procedure - a parameter
+    // MS-VBAL §5.4.2.1: what a call statement calls is a procedure; a variable or a constant is none. MS-VBA says which by where it is declared (Excel-
+    // verified, oracle\s12 J12, oracle\s21 E01-E21), with Call or without: "Expected Sub, Function, or Property" for one of the procedure - a parameter
     // too - and "Expected procedure, not variable" for one of a module, bare or qualified. Without Call, a variable of an object is called on its default
     // member, which is valid; a Variant is no object, and is the error too.
     private static VBCompileErrorInfo? NotAProcedureError(StaticEvaluationContext context, CallStatementNode call)
@@ -697,6 +692,54 @@ public static class StatementStaticSemanticsEvaluator
             ? VBCompileErrorInfo.For(VBCompileErrorId.ExpectedSubFunctionOrProperty, call.Callee.Location, name)
             : VBCompileErrorInfo.For(VBCompileErrorId.ExpectedProcedureNotVariable, call.Callee.Location, name);
     }
+
+    // MS-VBAL §5.4.2.1: a call statement calls a subroutine or a function, and a property is neither. MS-VBA refuses one bound early, with Call or without, with
+    // arguments or without: "Invalid use of property" (recorded in Excel). One bound late is run-time error 450. With Call, an argument list the property cannot
+    // take indexes the object it returns, on its default member (MS-VBAL §5.6.13), which is what the statement calls.
+    private static VBCompileErrorInfo? PropertyCalledError(StaticEvaluationContext context, CallStatementNode call)
+    {
+        var indexed = call.IsExplicitCall ? call.Callee as IndexExpressionNode : null;
+        var callee = indexed?.Callee ?? call.Callee;
+        if (PropertyNamedBy(context, callee) is not { } property
+            || indexed is not null && !IndexExpressionNode.IsEmptyArgumentList(indexed.Arguments) && !OwnParametersOf(property).Any())
+        {
+            return null;
+        }
+
+        return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, callee.Location, property.Name);
+    }
+
+    private static VBTypeMemberSymbol? PropertyNamedBy(StaticEvaluationContext context, ExpressionNode callee)
+    {
+        Symbol? symbol = callee switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access
+                when ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, owner) is { IsSuccess: true, Result: VBClassType ownerClass }
+                => PropertyOf(context, ownerClass, access),
+            // a member of the target of the enclosing With block (MS-VBAL §5.6.15).
+            MemberAccessExpressionNode { Owner: null } access when context.EnclosingWithTargetType is VBClassType withTarget => PropertyOf(context, withTarget, access),
+            _ => null,
+        };
+
+        return symbol is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? (VBTypeMemberSymbol)symbol : null;
+    }
+
+    private static VBTypeMemberSymbol? PropertyOf(StaticEvaluationContext context, VBClassType owner, MemberAccessExpressionNode access)
+        => Expressions.MemberAccessExpressionStaticSemantics.CurrentMembersOf(context, owner).FirstOrDefault(member
+            => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                && member is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
+
+    // the parameters a call gives arguments to: a member of a class has an implicit Me at parameter 0, which is the object the call is on.
+    private static IEnumerable<VBParameterSymbol> OwnParametersOf(VBTypeMemberSymbol member)
+        => (member switch
+        {
+            VBReturningMemberSymbol returning => returning.Parameters,
+            VBProcedureMemberSymbol procedure => procedure.Parameters,
+            _ => [],
+        }).Where(parameter => !(parameter.Name == Tokens.Me && parameter.ParameterKind == ParameterKind.ImplicitByRef));
 
     // the variables a file statement reads into (MS-VBAL §5.4.5): every variable of an Input #, the variable of a Line Input # and of a Get #, which is its last
     // operand, after the file number and the record number, written or not.
@@ -809,9 +852,6 @@ public static class StatementStaticSemanticsEvaluator
                 $"Event '{declared.Name}' takes {(required == parameters.Length ? required.ToString() : $"{required} to {parameters.Length}")} argument(s), and {arguments.Length} were given."));
             return;
         }
-
-        // the handlers are given a copy of a public variable of an object named as its member, as a procedure called is.
-        ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, parameters, arguments);
 
         for (var i = 0; i < Math.Min(arguments.Length, parameters.Length); i++)
         {
@@ -1066,7 +1106,7 @@ public static class StatementStaticSemanticsEvaluator
     // MS-VBAL §5.4.3.3: a ReDim of a name that matches nothing declares its array. Where declarations are implicit, a name used before its first ReDim was
     // declared by that use, and the ReDim re-dimensions it (the symbol pass, RDC11022). Under Option Explicit no use declares anything, and the ReDim
     // declares the array from where it is: a name used before it - written, read, on a line that never runs - is "Variable not defined" there, and the
-    // ReDim is valid (MS-VBA, observed in Excel). The symbols declare the ReDim's array for the whole procedure, so the
+    // ReDim is valid (MS-VBA, Excel-verified, oracle\findings-labels cases-redim4 E01). The symbols declare the ReDim's array for the whole procedure, so the
     // names used before are found here, by where they are written.
     // A name in the bounds of a declared array (`Dim b(n)`) is not looked for: what MS-VBA reports of one used before its ReDim is not measured yet.
     private static void FindNamesUsedBeforeTheirReDim(StaticEvaluationContext context, StatementBlock block, Walk walk)
@@ -1161,15 +1201,15 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         // the default instance of a class can be the target of a Set, as it is in MS-VBA (RD-VBAL §5.2.4.1.2), but not an extensible class's - a document
-        // module, `ThisWorkbook`, `Sheet1` - which is a property of the host that extends it, and which a Set cannot assign (MS-VBA, observed in Excel:
-        // "Invalid use of property", whatever is assigned). `Debug` is no target at all: its name is a syntax error (SimpleNameExpressionStaticSemantics).
+        // module, `ThisWorkbook`, `Sheet1` - which is a property of the host that extends it, and which a Set cannot assign (MS-VBA, Excel-verified,
+        // oracle\s18: "Invalid use of property", whatever is assigned). `Debug` is no target at all: its name is a syntax error (SimpleNameExpressionStaticSemantics).
         if (isSet && DefaultInstanceNamedBy(context, assignment.Target) is { } instance && instance.ClassModule.GetProperty(SymbolProperties.Extensible))
         {
             return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, location, instance.Name);
         }
 
         // a Sub of an object or of a module, named through it, has no value to assign through, with arguments or without, by a Let or a Set (MS-VBAL §5.6.2.1;
-        // MS-VBA, observed in Excel: "Expected Function or variable"). MS-VBA compiles a Sub named by its bare name.
+        // MS-VBA, Excel-verified, oracle\s44 E04, E10, F02, F03, F08, F09: "Expected Function or variable"). MS-VBA compiles a Sub named by its bare name (F10).
         var reached = assignment.Target is IndexExpressionNode { Callee: var indexed } ? indexed : assignment.Target;
         if (target is VBVoidType && reached is MemberAccessExpressionNode { Member: var sub }
             && ObjectValueStaticSemantics.MemberOfCallee(context, reached) is VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol))
@@ -1178,8 +1218,8 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         // a function of an object, named as the target with no argument, is called as one given arguments is (`c.Count = 3`): a Let of one that returns neither
-        // a Variant nor an object, as below; a Set of one is an invalid use of the property, and with arguments a type mismatch (MS-VBA, observed in
-        // Excel).
+        // a Variant nor an object, as below; a Set of one is an invalid use of the property, and with arguments a type mismatch (MS-VBA, Excel-verified,
+        // oracle\s44 E03, F01, F05, F07).
         if (reached is MemberAccessExpressionNode { Owner: { } owner } && context.Resolver.NamespaceOf(owner, context.Scope.Uri) is null
             && ObjectValueStaticSemantics.MemberOfCallee(context, reached) is VBFunctionMemberSymbol { ResolvedType: not (VBVariantType or VBObjectType or VBClassType or VBUnknownType) } called)
         {
@@ -1273,8 +1313,8 @@ public static class StatementStaticSemanticsEvaluator
         if (target is SimpleNameExpressionNode name)
         {
             // whichever accessor the name resolves to, the property is all of them: of the module's own, or of another module of the workspace (MS-VBA,
-            // observed in Excel). A library's property named by its bare name outside its module is called, as MS-VBA compiles
-            // `Set Now = Nothing`; a form's control, named in the form, is the form's own.
+            // Excel-verified, oracle\s44 W03). A library's property named by its bare name outside its module is called, as MS-VBA compiles
+            // `Set Now = Nothing` (s28 W5); a form's control, named in the form, is the form's own.
             var module = context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?.Uri;
             if (context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is not VBTypeMemberSymbol { } property
                 || property is not IVBPropertyMemberSymbol
@@ -1293,7 +1333,7 @@ public static class StatementStaticSemanticsEvaluator
             && context.Resolver.NamespaceOf(qualified, context.Scope.Uri) is { } qualifier)
         {
             // a property of a standard module named through the module - `Set Program.Items = Nothing` - is the property its bare name is, from anywhere
-            // (MS-VBA, observed in Excel): its accessors are the module's members of the name.
+            // (MS-VBA, Excel-verified, oracle\s44 V01-V04): its accessors are the module's members of the name.
             if (context.Resolver.ResolveMember(qualifier, moduleAccess.Member, context.Scope.Uri).Symbol is not VBTypeMemberSymbol { } property
                 || property is not IVBPropertyMemberSymbol
                 || property.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri)
@@ -1331,63 +1371,9 @@ public static class StatementStaticSemanticsEvaluator
         return members;
     }
 
-    // a Set to Nothing of the variable the loop walks, inside the loop, which RD-VBA leaves as it is while the loop runs (ForEachCollectionStaticSemantics):
-    // the fact is the Set's target, marked once the body has recorded it.
-    private static void MarkCollectionSetToNothing(StaticEvaluationContext context, ForEachStatementNode loop)
-    {
-        if (context.Facts is not { } facts)
-        {
-            return;
-        }
-
-        foreach (var set in ForEachCollectionStaticSemantics.SetsToNothingOfItsCollection(loop))
-        {
-            if (facts.TryGet(set.Target.Identity, out var fact))
-            {
-                facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.CollectionSetToNothingInItsOwnLoop });
-            }
-        }
-    }
-
-    // MS-VBAL §5.4.3.9: a function, or a property that has no Property Set, named as the target of a Set outside its own body is called, and what it returns
-    // is Set through its default member. MS-VBA compiles it, and a call of a class whose default member has no Property Set fails whenever it runs: error 438
-    // (observed in Excel), which its declared type alone says. A call of another type that is no object is a compile error already; an
-    // Object or a Variant can return an object whose default member has one, or no object at all (error 424), which only its value
-    // says. The fact is the callee's, for an analyzer to report what the language leaves to the run time.
-    private static void MarkSetThroughACall(StaticEvaluationContext context, ExpressionNode target)
-    {
-        var callee = target is IndexExpressionNode { Callee: var called } ? called : target;
-        if (context.Facts is not { } facts
-            // a variable of the module is a VBReturningMemberSymbol too: what is called is a function, or a Property Get
-            || ObjectValueStaticSemantics.MemberOfCallee(context, callee) is not VBReturningMemberSymbol { } member
-            || member is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-            || member.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri
-            || member is VBPropertyGetMemberSymbol && HasAPropertySet(context, callee, member))
-        {
-            return;
-        }
-
-        if (member.ResolvedType is VBClassType returned && !SetsThroughWhatItReturns(context, returned) && facts.TryGet(callee.Identity, out var fact))
-        {
-            facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.SetHasNoDefaultMemberToSet });
-        }
-    }
-
-    // whether the property a target names has a Property Set, which a Set of it invokes: among what its module declares of the name, or its class.
-    private static bool HasAPropertySet(StaticEvaluationContext context, ExpressionNode target, VBTypeMemberSymbol property)
-    {
-        IEnumerable<Symbol> named = target is MemberAccessExpressionNode { Owner: { } owner } access
-            && ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, owner).Result is VBClassType { Symbol: var snapshot }
-            ? (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
-                .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))
-            : context.Scope.SelfAndAncestors().SelectMany(scope => scope.DeclaredAs(property.Name))
-                .Where(member => member.ParentUri.AbsoluteUri == property.ParentUri.AbsoluteUri);
-        return named.Any(member => member is VBPropertySetMemberSymbol);
-    }
-
     // a Set of a property that has no Property Set is a Set of the default member of what its Property Get returns (MS-VBA, Excel-measured): an object of a
-    // class whose default member has a Property Set takes it, and what an Object or a Variant property returns is only known when it
-    // runs; an object of a class whose default member has none has nothing to Set ("Invalid use of property").
+    // class whose default member has a Property Set takes it (oracle\s31 D04, D08), and what an Object or a Variant property returns is only known when it
+    // runs (D07, s28 W4); an object of a class whose default member has none has nothing to Set (s30 C32, C35, s31 D09, D10: "Invalid use of property").
     private static bool SetsThroughWhatItReturns(StaticEvaluationContext context, VBType returned) => returned switch
     {
         VBObjectType or VBVariantType => true,

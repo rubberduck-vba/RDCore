@@ -24,10 +24,12 @@ internal sealed class RunCommandOptions
     public bool Unattended { get; set; }
 }
 
-// rdc run [path] [-- args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
+// rdc run [options] [path] [args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
 internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IErrorDetailsRecorder errorDetails,
     TextWriter? output = null, TextWriter? error = null, IConsoleKeys? keys = null) : ICliCommand
 {
+    private const string UnattendedSwitch = "--unattended";
+
     private TextWriter Output => output ?? global::System.Console.Out;
     private TextWriter Error => error ?? global::System.Console.Error;
 
@@ -42,9 +44,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
 
     public async Task<int> ExecuteAsync(IReadOnlyList<string> args, CancellationToken token)
     {
-        // what follows -- is the program's, and not rdc's.
-        var separator = args.ToList().IndexOf("--");
-        var own = separator < 0 ? args : args.Take(separator).ToList();
+        var (own, arguments) = RunCommandLine.Split(args);
         var parsed = Parser.Default.ParseArguments<RunCommandOptions>(own);
         if (parsed.Errors.Any())
         {
@@ -85,7 +85,10 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
             return ProgramRunner.Refused;
         }
 
-        IReadOnlyList<string> arguments = separator < 0 ? [] : [.. args.Skip(separator + 1)];
-        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, arguments, errorDetails, Output, Error, options.Unattended, token);
+        // --unattended is the program's to know as well, as it is a built program's: it is first on the program's command line, once.
+        IReadOnlyList<string> programArguments = options.Unattended && !arguments.Contains(UnattendedSwitch, StringComparer.Ordinal)
+            ? [UnattendedSwitch, .. arguments]
+            : arguments;
+        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, programArguments, errorDetails, Output, Error, options.Unattended, token);
     }
 }

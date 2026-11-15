@@ -22,6 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class UnderscoreInPublicClassMemberAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.UnderscoreInPublicClassMember.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => context is { Semantics: { Class: not null } semantics, ParseResult.SyntaxTree: { } module }
             ? semantics.Declarations

@@ -139,7 +139,7 @@ public static class ReferenceQuery
             ? reference with
             {
                 ArgumentOf = argument.Call,
-                MayBePassedByRef = !argument.IsByVal && MayBePassedByRef(context, occurrence, argument),
+                MayBePassedByRef = !argument.IsByVal && MayBePassedByRef(context, index, occurrence, expression, argument),
             }
             : reference;
     }
@@ -177,17 +177,22 @@ public static class ReferenceQuery
         return new Argument(parent!, callee, position, name, isByVal);
     }
 
-    // whether the call may write to what the argument names: the static pass flags it passed, and no copy of an object's variable, and the parameter it is
+    // whether the call may write to what the argument names: the static pass flags it passed, it is not a copy of an object's variable, and the parameter it is
     // given to, when the procedure called is known, is not ByVal.
-    private static bool MayBePassedByRef(RenameContext context, NameOccurrence occurrence, Argument argument)
+    private static bool MayBePassedByRef(RenameContext context, ModuleIndex index, NameOccurrence occurrence, ExpressionNode expression, Argument argument)
     {
-        if (occurrence.Fact is not { } fact || !fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument)
-            || (fact.Flags & (ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy | ValueExpressionSemanticFlags.ObjectVariablePassedLateAsACopy)) != 0)
+        if (occurrence.Fact is not { } fact || !fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument))
         {
             return false;
         }
 
-        var evaluation = new StaticEvaluationContext(context.Resolver, occurrence.Scope, Environment: context.Environment);
+        var evaluation = WithBlocksOf(index, expression).Aggregate(new StaticEvaluationContext(context.Resolver, occurrence.Scope, Environment: context.Environment),
+            (outer, with) => outer with { EnclosingWithTargetType = ExpressionStaticSemanticsEvaluator.Evaluate(outer, with.WithExpression).Result });
+        if (ObjectVariableArgumentStaticSemantics.IsPassedAsACopy(evaluation, argument.Callee, argument.Position, argument.Name, expression))
+        {
+            return false;
+        }
+
         if (ObjectValueStaticSemantics.ParametersOfCallee(evaluation, argument.Callee) is not { } declared)
         {
             return true;
@@ -197,6 +202,21 @@ public static class ReferenceQuery
         var parameters = declared.Where(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef)).ToImmutableArray();
         return ObjectVariableArgumentStaticSemantics.ParameterOf(parameters, argument.Position, argument.Name) is not { } parameter
             || parameter.ParameterKind is not ParameterKind.ExplicitByVal;
+    }
+
+    // the With blocks a node is in, from the outermost: the object of the innermost is what a member written with no owner is a member of (MS-VBAL §5.6.15).
+    private static IEnumerable<WithStatementNode> WithBlocksOf(ModuleIndex index, SyntaxNode node)
+    {
+        var blocks = new Stack<WithStatementNode>();
+        for (var parent = index.ParentOf(node); parent is not null; parent = index.ParentOf(parent))
+        {
+            if (parent is WithStatementNode with)
+            {
+                blocks.Push(with);
+            }
+        }
+
+        return blocks;
     }
 
     // a whole argument of a call: the call, what it calls, the argument's position in what is written and the parameter it names, and whether it is ByVal.

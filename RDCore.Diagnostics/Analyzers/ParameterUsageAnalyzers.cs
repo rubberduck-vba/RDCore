@@ -18,6 +18,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ParameterNotUsed.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics })
@@ -53,6 +55,8 @@ internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
 /// </remarks>
 internal sealed class AssignedByValParameterAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.AssignedByValParameter.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics })

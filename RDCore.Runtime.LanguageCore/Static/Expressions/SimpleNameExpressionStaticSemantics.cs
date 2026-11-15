@@ -100,13 +100,6 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     private static bool IsReservedFunctionOfTheLibrary(SimpleNameExpressionNode name, Symbol symbol)
         => ReservedNameStaticSemantics.IsReservedName(name.IdentifierName) && RDCore.SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(symbol);
 
-    // MS-VBAL §5.6.10
-    // invalid by the specification, and MS-VBA ignores the character.
-    internal static bool IgnoresTypeCharacter(SimpleNameExpressionNode name, Symbol symbol)
-        => name.TypeHint is { Length: > 0 } hint && !string.Equals(symbol.Name, name.WrittenName, StringComparison.OrdinalIgnoreCase)
-            && IsReservedFunctionOfTheLibrary(name, symbol) && symbol is ITypedSymbol { ResolvedType: var declared } && declared is not VBUnknownType
-            && IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) && !hinted.Equals(declared);
-
     internal static VBCompileErrorInfo GetResolutionErrorInfo(
         ExpressionNode expression, string name, VBCompileErrorId errorId, ImmutableArray<Symbol> candidates)
         => VBCompileErrorInfo.For(errorId, expression.Location,

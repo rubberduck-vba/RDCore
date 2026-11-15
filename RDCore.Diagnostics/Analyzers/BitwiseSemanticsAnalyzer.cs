@@ -15,6 +15,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class BitwiseSemanticsAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.BitwiseOperator.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

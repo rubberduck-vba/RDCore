@@ -234,7 +234,7 @@ public sealed class LibraryIdentityTests
     {
         var text = LibraryJson.Write(new LibraryDescription { Name = "VB", DependsOn = ["stdole", new LibraryIdentity("DAO", DaoCompat, 3, 5)] });
 
-        StringAssert.Contains(text, "\"formatVersion\": 2");
+        StringAssert.Contains(text, $"\"formatVersion\": {LibraryJson.CurrentFormatVersion}");
         StringAssert.Contains(text, "\"stdole\"");
         StringAssert.Contains(text, "\"guid\": \"{00025E04-0000-0000-C000-000000000046}\"");
         CollectionAssert.AreEqual(

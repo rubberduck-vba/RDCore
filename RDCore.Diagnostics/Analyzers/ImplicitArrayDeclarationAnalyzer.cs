@@ -16,6 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ImplicitArrayDeclarationAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitArrayDeclaration.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration.DeclaredBy is LocalDeclarationKind.ReDim)

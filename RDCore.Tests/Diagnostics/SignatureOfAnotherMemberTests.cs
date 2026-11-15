@@ -111,7 +111,7 @@ public sealed class SignatureOfAnotherMemberTests
     [TestMethod]
     public async Task AnImplicitByRef_IsNotReported_InTheSignatureOfAnImplementationOrAHandler()
     {
-        var findings = Findings(new ImplicitByRefModifierAnalyzer(), Square, await ClassModelAsync(), "Square.cls");
+        var findings = Findings(ImplicitByRef(), Square, await ClassModelAsync(), "Square.cls");
 
         CollectionAssert.AreEqual(new[] { "Private Sub Own(n As Integer)" }, findings, string.Join("\n", findings));
     }
@@ -124,7 +124,7 @@ public sealed class SignatureOfAnotherMemberTests
             "Private Sub UserForm_Initialize(n As Integer)\r\nEnd Sub\r\n");
 
         CollectionAssert.AreEqual(new[] { "Private Sub UserForm_Initialize(n As Integer)" }, Findings(new IntegerDataTypeAnalyzer(), form, model, "Form1.frm"));
-        CollectionAssert.AreEqual(new[] { "Private Sub UserForm_Initialize(n As Integer)" }, Findings(new ImplicitByRefModifierAnalyzer(), form, model, "Form1.frm"));
+        CollectionAssert.AreEqual(new[] { "Private Sub UserForm_Initialize(n As Integer)" }, Findings(ImplicitByRef(), form, model, "Form1.frm"));
     }
 
     [TestMethod]
@@ -133,6 +133,9 @@ public sealed class SignatureOfAnotherMemberTests
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Square.cls"));
         var parsed = new ModuleParser().Parse(uri, Square);
 
-        Assert.HasCount(3, new ImplicitByRefModifierAnalyzer().Analyze(new ModuleAnalysisContext(uri, parsed, null)).ToArray(), "nothing says which procedure handles what");
+        Assert.HasCount(3, ImplicitByRef().Analyze(new ModuleAnalysisContext(uri, parsed, null)).ToArray(), "nothing says which procedure handles what");
     }
+
+    // under the default convention, which writes ByRef.
+    private static ImplicitByRefModifierAnalyzer ImplicitByRef() => new(Microsoft.Extensions.Options.Options.Create(new DiagnosticsOptions()));
 }

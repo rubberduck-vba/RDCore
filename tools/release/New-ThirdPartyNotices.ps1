@@ -15,8 +15,9 @@
 #   Antlr4.Runtime-4.6.6*.txt  tunnelvisionlabs/antlr4cs v4.6.6 (3f15cfb): LICENSE.txt, THIRD-PARTY-NOTICES.txt
 #   Testably.Abstractions.FileSystem.Interface-10.3.0.txt
 #                              Testably/Testably.Abstractions core/v10.3.0 (9b967ee, the commit its nuspec names): LICENSE
-#   dotnet-runtime-*.txt       dotnet/dotnet v10.0.11 (e2f47b0), src/runtime: LICENSE.TXT, THIRD-PARTY-NOTICES.TXT
-#                              (the same texts Microsoft.Bcl.AsyncInterfaces 7.0.0 and the 10.0.11 packages ship)
+#   dotnet-runtime-*.txt       dotnet/dotnet v11.0.0 (297acf9), src/runtime: LICENSE.TXT, THIRD-PARTY-NOTICES.TXT
+#                              (the LICENSE.TXT Microsoft.Bcl.AsyncInterfaces 7.0.0 ships, and the THIRD-PARTY-NOTICES.TXT
+#                              the 11.0.0 packages ship)
 #
 # -DataFile also writes the same data as JSON: each package with the assemblies it ships, each text with the packages it
 # applies to, and the application host's texts. rdc build writes a built program's THIRD-PARTY-NOTICES.txt from it, for
@@ -56,7 +57,7 @@ $Overrides = @{
 # dotnet/runtime's own texts: its license names ".NET Foundation and Contributors", not the nuspecs' "(c) Microsoft
 # Corporation". from 10.0 its packages are built in the dotnet/dotnet VMR (src/runtime) and their nuspecs name that.
 $DotnetRuntime = @{
-    Origin = "dotnet/dotnet v10.0.11 (e2f47b0), src/runtime"
+    Origin = "dotnet/dotnet v11.0.0 (297acf9), src/runtime"
     LicenseFile = "dotnet-runtime-LICENSE.txt"; NoticeFile = "dotnet-runtime-THIRD-PARTY-NOTICES.txt"
     Repository = '^https://github\.com/dotnet/(runtime|dotnet)(\.git)?/?$'
     ProjectUrl = "https://github.com/dotnet/runtime"; Copyright = "Copyright (c) .NET Foundation and Contributors"
@@ -551,7 +552,7 @@ if ($Executables.Count) {
         $hostId, $hostVersion = $key.Split(' ', 2)
         $hostPackage = [pscustomobject]@{ Id = $hostId; Version = $hostVersion }
         # the NuGet host packs carry dotnet/runtime's LICENSE.TXT and THIRD-PARTY-NOTICES.TXT; the SDK's copies don't.
-        # the vendored ones go with whatever version matched, since release.yml's SDK floats (10.0.x); keying them to
+        # the vendored ones go with whatever version matched, since release.yml's SDK floats (11.0.x); keying them to
         # the exact version would stop every servicing release. the source line names the version they're from.
         Add-Section -Kind "license" -Title "MIT" -Text (Read-Text (Join-Path $LicensesDir $DotnetRuntime.LicenseFile)) -Source "tools/release/licenses/$($DotnetRuntime.LicenseFile), from $($DotnetRuntime.Origin)" -Package $hostPackage
         Add-Section -Kind "notice" -Title "THIRD-PARTY-NOTICES.TXT" -Text (Read-Text (Join-Path $LicensesDir $DotnetRuntime.NoticeFile)) -Source "tools/release/licenses/$($DotnetRuntime.NoticeFile), from $($DotnetRuntime.Origin)" -Package $hostPackage

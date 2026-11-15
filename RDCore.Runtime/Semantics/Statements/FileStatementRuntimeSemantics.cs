@@ -477,6 +477,15 @@ public sealed record class FileStatementRuntimeSemantics(
                 : Failed(VBRuntimeErrorId.InputPastEndOfFile, statement, $"reading into {symbol!.Name}");
         }
 
+        // an array is read into in place too, as many elements as its bounds give: a fixed-size array, and a resizable one of a Binary channel. A
+        // resizable array of a Random channel is sized to the bounds its record gives, and assigned (MS-VBA, recorded in Excel).
+        if (declaredType is VBFixedSizeArrayType || (declaredType is VBArrayType && record.Channel.Mode is VBFileMode.Binary))
+        {
+            return (result ?? declaredType.CreateValue(bound!)) is VBArrayValue array && record.Channel.TryReadRecordInto(array)
+                ? RuntimeExecutionOutcome.Next
+                : Failed(VBRuntimeErrorId.InputPastEndOfFile, statement, $"reading into {symbol!.Name}");
+        }
+
         // a Binary-mode String is as long as the variable already is, so what it currently holds is part of
         // deciding how much of the file to read.
         var currentLength = (result?.RuntimeValue.BoxedValue ?? bound!.Value.BoxedValue) is string text ? text.Length : 0;

@@ -30,21 +30,20 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         }
 
         // MS-VBAL §3.3.5.2: the Empty and Null literals have a declared type of Variant, which is valid to Let-coerce to an array; the value each holds is
-        // not, and raises 13 when it runs (MS-VBA, observed in Excel). The fact is for an analyzer to report.
+        // not, and raises 13 when it runs (MS-VBA, recorded in Excel).
         if (sourceType is VBEmptyType or VBNullType && destinationType is VBArrayType)
         {
-            if (context.Facts is { } facts && facts.TryGet(expression.Identity, out var fact))
-            {
-                facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.EmptyLetToArray });
-            }
-
             sourceType = VBVariantType.TypeInfo;
+        }
+
+        if (destinationType is VBVariantType)
+        {
+            ObjectValueStaticSemantics.MarkLetCoerced(context.Facts, expression);
         }
 
         // an object of a class that has no default member has no value to give a Variant either: MS-VBA compiles it, and raises 438 when it runs (RD-VBAL 5.5.1.1).
         if (sourceType is VBClassType { DefaultMember: null } && destinationType is VBVariantType)
         {
-            ObjectValueStaticSemantics.MarkNoDefaultMember(context.Facts, expression);
             return StaticSemanticsEvaluationResult.Success(destinationType);
         }
 
@@ -60,7 +59,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             sourceType = value.Result!;
         }
 
-        // a record a Variant can't hold, or an array of them, is refused with what MS-VBA says of it (observed in Excel), rather than as a
+        // a record a Variant can't hold, or an array of them, is refused with what MS-VBA says of it (recorded in Excel: oracle\s56 C07, D13), rather than as a
         // type mismatch.
         if (RecordOf(sourceType) is { } record && destinationType is VBVariantType)
         {
@@ -101,7 +100,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
 
         // MS-VBAL §5.5.1.1 (below its table) refuses to let-coerce a LongLong implicitly to anything but a LongLong or a Variant. MS-VBA refuses only what
         // is narrower than it - Byte, Integer, Long (an Enum is one, §5.2.3.4), Currency - and lets Double, Single, String, Boolean and Date have it
-        // (observed in Excel); RD-VBA does what MS-VBA does. A 64-bit LongPtr is a LongLong (§2.2), and a 32-bit one a Long.
+        // (Excel-verified); RD-VBA does what MS-VBA does (author's ruling, 2026-10-22). A 64-bit LongPtr is a LongLong (§2.2), and a 32-bit one a Long.
         VBLongLongType or VBLongPtrType_x64
             when destination is VBByteType or VBIntegerType or VBLongType or VBEnumType or VBCurrencyType or VBLongPtrType_x86 => true,
 

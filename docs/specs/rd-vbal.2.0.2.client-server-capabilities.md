@@ -65,6 +65,8 @@ The server applies it before it builds anything from the request, and what the c
 setting (`--language` on its command line, which is how a server that a client spawns is told, and how the language server tells the servers it starts).
 A language the platform does not serve is logged and ignored.
 
+A client that names no language leaves it to the workspace's project file. The language server reads the primary project's `.rdproj` before it loads any source file or library, and a project imported from a `.vbp` (`SourceProject`, [**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)) is VB6 ([`SupportedLanguages.OfProject`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.SupportedLanguages.html)). The servers it starts are told that language. Any other project leaves the server's own setting as it is.
+
 ## 2.0.2.1.2 The language of the user interface
 
 What a server says (the messages of its diagnostics, why a rename is refused, the titles of its code actions, its hovers) is said in the language the

@@ -17,6 +17,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class SuspiciousPredeclaredInstanceAccessAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.SuspiciousPredeclaredInstanceAccess.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context is not { Semantics: { Class: { } flags } semantics } || !flags.HasFlag(ClassModuleSemanticFlags.DefaultInstance))

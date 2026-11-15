@@ -90,6 +90,18 @@ public static partial class ValueConversions
         // number it is, which a LongLong past 2^53 is not as a Double.
         IIntegralNumericType when WholeValueOf(source) is { } whole => FromWhole(whole, destination),
 
+        IFixedPointNumericType when FloatingOf(source, destination) is { } floating => ValueConversionResult.Success(floating),
+
+        // a Decimal with decimal places is made a whole number of the Double it makes, by Banker's rounding, and one without them as the whole number it is
+        // (observed in Excel): CLng(CDec("2.50000000000000000000000001")) is 2, and CLngLng(CDec("1234567890123456789.4")) is 1234567890123457024. A
+        // Currency is rounded as the decimal number it is, below. That Double is a LongLong only below 2^62 in magnitude: CLngLng(CDec("4611686018427387903.5"))
+        // overflows, where CLngLng of the Double 2^62 does not.
+        VBDecimalType when destination is IIntegralNumericType && source is VBDecimalValue { Value.Scale: > 0 } decimalValue
+            => Ranged(decimalValue.AsDouble, destination)
+                && (destination is not VBLongLongType || decimalValue.AsDouble is >= -LongLongOfADecimalBound and < LongLongOfADecimalBound)
+                ? ValueConversionResult.Success(destination.CreateValue(VBNumericType.BankersRounding(decimalValue)))
+                : Overflow,
+
         // a Currency or a Decimal is converted as the decimal number it is, which has digits a Double does not.
         IFixedPointNumericType when FixedValueOf(source) is { } fixedPoint => FromFixed(fixedPoint, destination),
 
@@ -101,15 +113,15 @@ public static partial class ValueConversions
                 : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
 
         // MS-VBAL §2.4: an infinity and a NaN are values of a Single and of a Double, and one is the other's as it is (Single inf -> Double, no error;
-        // observed in Excel). Of any other type it is no value: an overflow, below.
+        // recorded in Excel, grid oracle\s16 F20). Of any other type it is no value: an overflow, below.
         IFloatingPointNumericType when destination is VBSingleType or VBDoubleType && !double.IsFinite(((VBNumericTypedValue)source).AsDouble)
             => ValueConversionResult.Success(destination.CreateValue(((VBNumericTypedValue)source).AsDouble)),
 
         // a Single made a Decimal is its value to 7 significant digits, ties to even, as MS-VBA has it: CDec(CSng(0.1)) is 0.1, and a Single of 16777217
-        // is 16777220 - where a Double keeps the 15 digits a Double's conversion does (observed in Excel).
+        // is 16777220. A Double keeps 15 digits, as the type's own conversion below does (observed in Excel).
         VBSingleType when destination is VBDecimalType
             => Ranged(((VBSingleValue)source).Value, destination)
-                ? ValueConversionResult.Success(new VBDecimalValue((decimal)((VBSingleValue)source).Value))
+                ? ValueConversionResult.Success(new VBDecimalValue(VBDecimalType.FromSingle(((VBSingleValue)source).Value)))
                 : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
 
         // Double -> Single, Single -> Currency, and so on.
@@ -160,7 +172,7 @@ public static partial class ValueConversions
     };
 
     // a decimal number to a numeric type: for an integral type, it is rounded to a whole number by Banker's rounding, and that is the number that must be
-    // within the range (a Currency of -32768.5 is the Integer -32768, observed in Excel).
+    // within the range (a Currency of -32768.5 is the Integer -32768, recorded in Excel: oracle\s58 K02).
     private static ValueConversionResult FromFixed(decimal value, VBNumericType destination) => destination switch
     {
         IIntegralNumericType when WholeRangeOf(destination) is var (lowest, highest) && Math.Round(value, MidpointRounding.ToEven) is var whole
@@ -171,6 +183,9 @@ public static partial class ValueConversions
     };
 
     private static ValueConversionResult Overflow => ValueConversionResult.Failure(VBRuntimeErrorId.Overflow);
+
+    // 2^62: the magnitude from which the Double a Decimal with decimal places makes is no LongLong (observed in Excel).
+    private const double LongLongOfADecimalBound = 4611686018427387904d;
 
     // the smallest and largest whole numbers of an integral type.
     private static (long Lowest, long Highest) WholeRangeOf(VBNumericType integral) => integral switch
@@ -202,6 +217,17 @@ public static partial class ValueConversions
     {
         VBCurrencyValue currency => currency.Value.Value,
         VBDecimalValue decimalValue => decimalValue.Value,
+        _ => null,
+    };
+
+    // a fixed-point value made a Single or a Double, as MS-VBA makes it: a Decimal's Double is rounded twice, and its Single is that Double rounded; a
+    // Currency is rounded once to either (observed in Excel). Every Currency and Decimal is within the range of a Single. Null for any other destination.
+    private static VBNumericTypedValue? FloatingOf(VBTypedValue value, VBNumericType destination) => (value, destination) switch
+    {
+        (VBDecimalValue decimalValue, VBDoubleType) => new VBDoubleValue(VBDecimalType.ToDouble(decimalValue.Value)),
+        (VBDecimalValue decimalValue, VBSingleType) => new VBSingleValue(VBDecimalType.ToSingle(decimalValue.Value)),
+        (VBCurrencyValue currency, VBDoubleType) => new VBDoubleValue(VBCurrencyType.ToDouble(currency.Value)),
+        (VBCurrencyValue currency, VBSingleType) => new VBSingleValue(VBCurrencyType.ToSingle(currency.Value)),
         _ => null,
     };
 

@@ -12,6 +12,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 internal sealed class ImplicitConstantTypeAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitConstantType.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Descendants()
             .OfType<ConstantDeclarationNode>()

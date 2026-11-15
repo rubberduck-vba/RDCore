@@ -75,6 +75,10 @@ internal static class LanguageServerServices
             .AddSingleton<IRenameService, RenameService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IExtractMethodService, RDCore.LanguageServer.Refactoring.ExtractMethodService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
+            // the codes disabled for the workspace's documents: the user's, which change while the server runs, and the workspace's.
+            .AddSingleton<IDisabledDiagnostics>(provider => new DisabledDiagnostics(
+                provider.GetRequiredService<IOptions<SdkAppOptions>>(), provider.GetRequiredService<ILiveSettings>(), provider.GetRequiredService<IWorkspaceRefresh>(),
+                () => provider.GetRequiredService<IWorkspaceDocumentService>().WorkspaceRoot, provider.GetService<IWorkspaceSettings>()))
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
             .AddSingleton<IWorkspaceRefresh>(_ => new WorkspaceRefresh(WorkspaceRefresh.Burst))
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()

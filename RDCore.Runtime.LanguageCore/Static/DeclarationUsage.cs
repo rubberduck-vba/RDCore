@@ -69,7 +69,7 @@ public static class DeclarationUsage
                 // a parameter is a local of its procedure that no statement declares.
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
                 Hides = hides?.Invoke(symbol),
-                AutoInstantiationAlwaysFails = AutoInstantiationAlwaysFails(symbol),
+                AutoInstantiates = ClassFacts.AutoInstantiatedClassOf(symbol)?.SemanticId,
             });
         }
 
@@ -140,13 +140,6 @@ public static class DeclarationUsage
         return references;
     }
 
-    // a variable, or an array whose elements are, declared As New of a class whose objects are never created (Dim e As New ErrObject).
-    private static bool AutoInstantiationAlwaysFails(Symbol symbol)
-        => symbol.GetProperty(SymbolProperties.AutoInstantiated)
-            && symbol is ITypedSymbol { ResolvedType: var type }
-            && (type is VBArrayType array ? array.ItemType : type) is VBClassType { Symbol: var created }
-            && created.GetProperty(SymbolProperties.CreationAlwaysFails);
-
     // a member that a form's designer declares on its class is declared by no text of the module. Its parameters are those of the form object's member, or of
     // the control library class's member, that it stands for (the value of a Property Let Width, named Width), and no code of the module declares them.
     public static IEnumerable<Symbol> DeclaredBy(IEnumerable<VBTypeMemberSymbol> members)
@@ -198,7 +191,9 @@ public static class DeclarationUsage
     private static AccessModifier AccessOf(Symbol symbol)
         => symbol is AccessibleTypedSymbol accessible ? accessible.AccessModifier : AccessModifier.Private;
 
-    private static bool IsImplicit(Symbol symbol) => symbol is VBLocalVariableSymbol { DeclaredBy: var kind } && kind.IsImplicit();
+    // a local that no statement declares, or a variable of the module that a name declares by being written (SymbolBuilder.BuildImplicitModuleVariable).
+    private static bool IsImplicit(Symbol symbol) => symbol is VBLocalVariableSymbol { DeclaredBy: var kind } && kind.IsImplicit()
+        || symbol.GetProperty(SymbolProperties.ImplicitlyDeclared);
 
     private static SourceLocation LocationOf(Symbol symbol)
         => new(symbol.ParentUri, symbol switch

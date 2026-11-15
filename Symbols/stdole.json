@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 3,
   "name": "stdole",
   "description": "OLE Automation",
   "origin": {
@@ -708,6 +708,64 @@
           "name": "Height",
           "kind": "propertyGet",
           "type": "Long"
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "StdFunctions",
+      "description": "Functions for Standard OLE Objects",
+      "members": [
+        {
+          "name": "LoadPicture",
+          "type": "StdPicture",
+          "description": "Loads a picture from a file",
+          "parameters": [
+            {
+              "name": "filename",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "widthDesired",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            },
+            {
+              "name": "heightDesired",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            },
+            {
+              "name": "flags",
+              "type": "LoadPictureConstants",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "name": "SavePicture",
+          "description": "Saves a picture to a file",
+          "parameters": [
+            {
+              "name": "Picture",
+              "type": "StdPicture",
+              "isByVal": true
+            },
+            {
+              "name": "filename",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
         }
       ]
     }

@@ -1,4 +1,6 @@
-﻿using RDCore.SDK.Model;
+﻿using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
@@ -86,6 +88,21 @@ internal static class UnusedDeclarations
             ForEachStatementNode { ControlExpression: SimpleNameExpressionNode control } => string.Equals(control.IdentifierName, name, StringComparison.OrdinalIgnoreCase),
             _ => false,
         });
+
+    /// <summary>
+    /// The fix that removes a declaration with the lines of its statement. <see langword="null"/> when the statement declares another name too, or when
+    /// something else is written on its lines, such as a comment, a label or another statement.
+    /// </summary>
+    /// <param name="parse">The parse of the module.</param>
+    /// <param name="declaration">The node that declares the name.</param>
+    /// <param name="title">The title of the fix.</param>
+    public static EditFix? RemovalOf(ModuleParseResult parse, SyntaxNode declaration, string title)
+        => parse.SyntaxTree is { } module
+            && module.Descendants().Prepend(module).SelectMany(node => node.SiblingLists()).SelectMany(DeclarationStatements.In)
+                .FirstOrDefault(statement => statement.Contains(declaration)) is [var only]
+            && LineEdits.WholeLinesOf(parse, only) is { } lines
+            ? SyntaxEdits.Fix(title, SyntaxEdits.Remove(lines))
+            : null;
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start.CompareTo(position) <= 0 && position.CompareTo(range.End) <= 0;
 }

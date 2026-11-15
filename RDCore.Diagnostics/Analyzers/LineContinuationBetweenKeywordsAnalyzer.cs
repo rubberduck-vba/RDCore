@@ -16,6 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class LineContinuationBetweenKeywordsAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.LineContinuationBetweenKeywords.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         LineContinuationTriviaNode? first = null;
@@ -54,11 +56,14 @@ internal sealed class LineContinuationBetweenKeywordsAnalyzer : IModuleAnalyzer
         {
             Fixes = new DiagnosticFixes
             {
-                Edit = new EditFix
-                {
-                    Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.LineContinuationBetweenKeywords_Fix, first.Keyword!),
-                    Edits = [new TextEdit { Range = range.ToLsp(), NewText = " " }],
-                },
+                Edits =
+                [
+                    new EditFix
+                    {
+                        Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.LineContinuationBetweenKeywords_Fix, first.Keyword!),
+                        Edits = [new TextEdit { Range = range.ToLsp(), NewText = " " }],
+                    },
+                ],
             },
         };
     }

@@ -18,12 +18,13 @@ own ([`SdkAppOptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SD
 |Choice|One of the names of the setting's values (`Server.TraceLevel Warning`).|
 |Text|Any text, to the end of the line.|
 |List of texts|Texts separated by commas (`Platform.Extensions.Allowed RDCore.Diagnostics, Other`).|
+|List of diagnostic codes|Codes separated by commas, without regard to case (`Analysis.DisabledDiagnostics RDC01001, RDC01002`). A code that cannot be disabled is no value of the setting ([Disabled Diagnostics](#disabled-diagnostics)).|
 
 When a change of a setting takes effect is part of the setting ([`SettingAttribute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SettingAttribute.html)):
 
 |Reach|Takes effect|Examples|
 |---|---|---|
-|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Formatting.*`, `Diagnostics.*`|
+|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Formatting.*`, `Diagnostics.*`, `Analysis.DisabledDiagnostics`|
 |`NextStart`|When the component that reads it starts, or the next session does.|`Environment.*`, `Workspace.*`, `CLI.*`, `Platform.Extensions.Allowed`|
 |`Deployment`|Never through the platform: only the deployed configuration sets it.|`ServerApp.Component`, `Platform.Transport.*`, `Server.ClientProcessId`|
 
@@ -132,8 +133,28 @@ A live setting is set on the object the component reads its settings off, in pla
 |`Server.WireErrorDetail`|For the next record forwarded to the client.|
 |`Diagnostics.*`|For the next module the diagnostics extension analyzes. A client that pulls its diagnostics is asked to pull them again (`workspace/diagnostic/refresh`).|
 |`Formatting.*`|For the next line or range the formatter formats; they are read as the formatter arrives ([Formatting](#formatting)).|
+|`Analysis.DisabledDiagnostics`|For the next document the language server sends a provider to analyze. A client that pulls its diagnostics is asked to pull them again ([Disabled Diagnostics](#disabled-diagnostics)).|
 
 `rdc config` writes the user's settings without a running platform to tell: what it sets takes effect when the platform next starts, a live setting included.
+
+## Disabled Diagnostics
+
+`Analysis.DisabledDiagnostics` lists the codes whose diagnostics are not reported
+([`SdkAnalysisOptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SdkAnalysisOptions.html)). User help is on
+[Disabling a Diagnostic](../disabling-diagnostics.md).
+
+- A code of the platform's analyzers (`RDC`) or of an extension's can be disabled. A code of the language's own errors (`VBC`, `VBR`, `VBA`) cannot, and is not
+  read from the list.
+- The language server sends the disabled codes with each document it asks a provider to analyze (`DiagnoseDocumentPayload.DisabledCodes`). An analyzer whose
+  every code is disabled is not run, and a finding of a disabled code is dropped
+  ([`ModuleAnalyzerHost`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.ModuleAnalyzerHost.html)). A diagnostic
+  the language server raises itself is not reported when its code is disabled either.
+- A diagnostic whose code can be disabled is offered a quick fix that adds its code to the user's list, after its other fixes. The language server asks the
+  client to make the change (`rdcore/settings/listValue`), as a client owns its user's settings: only a client that expects that request is offered the fix.
+  The shell makes it as `CONFIG` would.
+
+> [!NOTE]
+> **Not implemented.** A workspace has no list of its own: a request to change a workspace's list is declined.
 
 ## Formatting
 

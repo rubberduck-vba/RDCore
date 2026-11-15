@@ -271,14 +271,15 @@ public sealed class PutAndGetStatementTests
     }
 
     [TestMethod]
-    public void Get_PastTheEndOfTheFile_IsInputPastEndOfFile()
+    public void Get_PastTheEndOfTheFile_ReadsZerosForTheBytesTheFileDoesNotHave()
     {
-        var (_, outcome, _) = Run([0x01], [("N", VBLongType.TypeInfo)],
+        // no error: MS-VBA reads a zero for each byte past the end (recorded in Excel).
+        var (_, outcome, values) = Run([0x01], [("N", VBLongType.TypeInfo)],
             $"Open \"{Path}\" For Binary As #1",
             "Get #1, 1, N");
 
-        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        Assert.AreEqual((int)VBRuntimeErrorId.InputPastEndOfFile, outcome.ErrorInfo!.ErrorId);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(1, Convert.ToInt32(values["N"]));
     }
 
     [TestMethod]

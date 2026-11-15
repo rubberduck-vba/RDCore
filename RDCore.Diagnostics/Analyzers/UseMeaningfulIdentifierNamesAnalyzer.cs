@@ -19,6 +19,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <param name="options">The settings of the extension.</param>
 internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsOptions> options) : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.UseMeaningfulIdentifierNames.ToCode()];
+
     /// <summary>
     /// The least number of characters a name has.
     /// </summary>

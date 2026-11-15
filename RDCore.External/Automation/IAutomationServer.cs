@@ -123,6 +123,31 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, System.Globalization.CultureInfo culture);
 
     /// <summary>
+    /// Calls a member of an object by its name, with arguments that are named: <c>x.Find(What:="a")</c> of an object no library declares the class of.
+    /// </summary>
+    /// <param name="target">The handle of the object.</param>
+    /// <param name="member">The name of the member.</param>
+    /// <param name="invocation">How the member is reached.</param>
+    /// <param name="arguments">
+    /// The arguments that are not named, then the named ones in the order of <paramref name="names"/>, then a value being assigned. An argument that is passed
+    /// by reference and that the server wrote to holds what it wrote when this returns.
+    /// </param>
+    /// <param name="byReference">Whether each argument is passed by reference; the same length as <paramref name="arguments"/>.</param>
+    /// <param name="names">The names of the arguments that are named; none for a call that names none.</param>
+    /// <param name="culture">The locale the call is made in, as for the call without names.</param>
+    /// <returns>What the member returned: <see langword="null"/> for a member that returns nothing, or an <c>Empty</c>.</returns>
+    /// <exception cref="AutomationException">
+    /// The member does not exist, would not accept the arguments, or failed. A server that cannot be given names fails with error 446 (<c>0x800A01BE</c>),
+    /// as an object that does not support named arguments does.
+    /// </exception>
+    object? Invoke(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names,
+        System.Globalization.CultureInfo culture)
+        => names.Count == 0
+            ? Invoke(target, member, invocation, arguments, byReference, culture)
+            : throw new AutomationException(unchecked((int)0x800A01BE), $"'{member}' cannot be given named arguments here.");
+
+    /// <summary>
     /// Gets the name a server gives the class of an object, qualified by the library that declares it (<c>Excel._Worksheet</c>), if it gives one.
     /// </summary>
     /// <remarks>

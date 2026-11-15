@@ -17,6 +17,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class VariantStringThatIsNoNumberRankedAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.VariantStringThatIsNoNumberRanked.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

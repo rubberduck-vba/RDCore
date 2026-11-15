@@ -410,6 +410,8 @@
   href: rdc00114.md
 - name: "RDC00115: Implicit result local"
   href: rdc00115.md
+- name: "RDC00116: Implicit For step"
+  href: rdc00116.md
 - name: "RDC00117: Implicit constant type"
   href: rdc00117.md
 - name: "RDC00119: Implicit default member access"
@@ -442,6 +444,10 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00209: Boolean assigned in If…Else"
+  href: rdc00209.md
+- name: "RDC00210: Stop statement"
+  href: rdc00210.md
 - name: "RDC00211: On Error GoTo -1"
   href: rdc00211.md
 - name: "RDC00212: Unrestored On Error Resume Next"
@@ -452,6 +458,8 @@
   href: rdc00214.md
 - name: "RDC00215: Self-assigned declaration"
   href: rdc00215.md
+- name: "RDC00218: IsMissing of a Variant that is not Optional"
+  href: rdc00218.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"
@@ -472,6 +480,14 @@
   href: rdc00310.md
 - name: "RDC00311: Early binding opportunity"
   href: rdc00311.md
+- name: "RDC00312: Empty string literal"
+  href: rdc00312.md
+- name: "RDC00313: Redundant Step 1"
+  href: rdc00313.md
+- name: "RDC00314: Redundant ByRef modifier"
+  href: rdc00314.md
+- name: "RDC00315: Redundant module option"
+  href: rdc00315.md
 - name: "RDC00405: Implementations should be private"
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"
@@ -486,12 +502,20 @@
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
   href: rdc01002.md
+- name: "RDC01003: Empty If block"
+  href: rdc01003.md
+- name: "RDC01004: Empty code block"
+  href: rdc01004.md
 - name: "RDC01005: Hosted document code"
   href: rdc01005.md
 - name: "RDC01006: Unsupported document module"
   href: rdc01006.md
 - name: "RDC01007: Host library not referenced"
   href: rdc01007.md
+- name: "RDC01009: Empty procedure"
+  href: rdc01009.md
+- name: "RDC01010: Empty module"
+  href: rdc01010.md
 - name: "RDC01011: Variable not used"
   href: rdc01011.md
 - name: "RDC01012: Variable not assigned"
@@ -564,5 +588,15 @@
   href: rdc11037.md
 - name: "RDC11039: Function called whatever the IIf condition"
   href: rdc11039.md
+- name: "RDC11043: Object assigned with Let to a Variant property"
+  href: rdc11043.md
+- name: "RDC11044: LSet of a record that holds a variable-length String"
+  href: rdc11044.md
+- name: "RDC11045: Let through a default member with no Property Let"
+  href: rdc11045.md
+- name: "RDC11046: Let through a Variant property or function"
+  href: rdc11046.md
+- name: "RDC11047: Object assigned with Let to an object property"
+  href: rdc11047.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md

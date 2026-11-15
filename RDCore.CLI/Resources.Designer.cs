@@ -196,6 +196,15 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to run by the interpreter as a support call: {0}.
+        /// </summary>
+        public static string Compilation_SupportCalls {
+            get {
+                return ResourceManager.GetString("Compilation_SupportCalls", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Times the interpreter on a workspace, or on the built-in corpus: parse, load, sweep, then each Bench* case..
         /// </summary>
         public static string Bench_Summary {
@@ -960,6 +969,15 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Help_Summary", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A numbered line in an open block (If, Select Case, a loop, With) opens the next line on its number plus 10, with the closers under it. Tab takes the number; once the block has a statement, Tab takes its closer and enters the line..
+        /// </summary>
+        public static string Repl_Help_Blocks {
+            get {
+                return ResourceManager.GetString("Repl_Help_Blocks", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Type HELP for a list of commands..
@@ -1300,6 +1318,15 @@ namespace RDCore.CLI {
         public static string Repl_UndefinedModule {
             get {
                 return ResourceManager.GetString("Repl_UndefinedModule", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No line number is free for {0} before line {1}..
+        /// </summary>
+        public static string Repl_BlockNoRoom {
+            get {
+                return ResourceManager.GetString("Repl_BlockNoRoom", resourceCulture);
             }
         }
 

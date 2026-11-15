@@ -124,10 +124,10 @@
     <value>Le résultat de cette opération est obtenu en utilisant une arithmétique sur la représentation binaire (en bits) des opérandes. Ceci peut produire des résultats surprenants si on s'attendait ici à une logique '{0}' conventionnelle. Si l'opération binaire n'est pas intentionnelle, elle pourrait cacher un bug.</value>
   </data>
   <data name="EmptyCodeBlock_Message" xml:space="preserve">
-    <value>Bloc de code vide inutile; implémenter un corps, ou en considérer la suppression.</value>
+    <value>Ce bloc {0} n&apos;a aucune instruction.</value>
   </data>
   <data name="EmptyIfBlock_Message" xml:space="preserve">
-    <value>Bloc conditionnel vide; inverser l'expression de la condition en permettrait la simplification.</value>
+    <value>Cette branche {0} n&apos;a aucune instruction : elle ne fait rien quand sa condition vaut True.</value>
   </data>
   <data name="EnumerationOverArray_Message" xml:space="preserve">
     <value>L'énumération d'un tableau est inefficace et serait plus performante en utilisant plutôt une structure `For...Next` et un accès indiciel.</value>
@@ -198,6 +198,18 @@
   <data name="ImplicitResultLocal_Fix" xml:space="preserve">
     <value>Déclarer une variable locale pour la valeur de retour de '{0}'</value>
   </data>
+  <data name="ImplicitByRefModifier_Fix" xml:space="preserve">
+    <value>Écrire ByRef pour '{0}'</value>
+  </data>
+  <data name="ImplicitPublicMember_Fix" xml:space="preserve">
+    <value>Écrire Public pour '{0}'</value>
+  </data>
+  <data name="ImplicitVariantDeclaration_Fix" xml:space="preserve">
+    <value>Déclarer '{0}' As Variant</value>
+  </data>
+  <data name="ImplicitDeclarationsEnabled_Fix" xml:space="preserve">
+    <value>Écrire Option Explicit, et un Dim pour chaque variable implicite</value>
+  </data>
   <data name="ImplicitVariantReturnType_Message" xml:space="preserve">
     <value>'{0}' retourne implicitement un Variant. Indiquez son type de retour avec une clause As (As Variant, si c'est voulu).</value>
   </data>
@@ -219,6 +231,18 @@
   <data name="MultipleDeclarations_Message" xml:space="preserve">
     <value>Une seule instruction fait plusieurs déclarations, et chacune a besoin de son propre type: dans Dim a, b As Long, seule b est un Long. Déclarez chacune sur sa propre ligne.</value>
   </data>
+  <data name="ModuleScopeDimDeclaration_Fix" xml:space="preserve">
+    <value>Écrire Private au lieu de Dim</value>
+  </data>
+  <data name="MultipleDeclarations_Fix" xml:space="preserve">
+    <value>Déclarer chaque nom sur sa propre ligne</value>
+  </data>
+  <data name="MultilineParameterDeclaration_Fix" xml:space="preserve">
+    <value>Écrire '{0}' sur une seule ligne</value>
+  </data>
+  <data name="MisleadingByRefParameter_Fix" xml:space="preserve">
+    <value>Écrire ByVal pour '{0}'</value>
+  </data>
   <data name="NotAllPathsReturnValue_Message" xml:space="preserve">
     <value>Au moins un chemin d'exécution de '{0}' n'assigne pas sa valeur de retour: sur ce chemin, l'appelant reçoit la valeur par défaut du type (0, une chaîne vide, Empty ou Nothing).</value>
   </data>
@@ -233,6 +257,30 @@
   </data>
   <data name="IsMissingAlwaysFalse_HasADefault" xml:space="preserve">
     <value>doté d'une valeur par défaut</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_NotAParameter_Message" xml:space="preserve">
+    <value>IsMissing({0}) est toujours False : '{0}' est {1}, qui ne contient jamais la valeur Missing. IsMissing indique si un paramètre Variant n'a reçu aucun argument.</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_AVariableNotAVariant" xml:space="preserve">
+    <value>une variable autre qu'un Variant</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_AConstant" xml:space="preserve">
+    <value>une constante</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_Message" xml:space="preserve">
+    <value>IsMissing({0}) n'indique pas si un argument a été omis : '{0}' est {1}, qui ne contient la valeur Missing que si on la lui donne depuis un paramètre Optional dont l'argument a été omis. Pour vérifier si un argument a été omis, déclarez le paramètre Optional.</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_RequiredParameter" xml:space="preserve">
+    <value>un paramètre Variant obligatoire</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_Variable" xml:space="preserve">
+    <value>une variable Variant</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_Fix" xml:space="preserve">
+    <value>Déclarer le paramètre '{0}' Optional, ce qui permet à un appel de l'omettre</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_Fix" xml:space="preserve">
+    <value>Remplacer 'IsMissing({0})' par False</value>
   </data>
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' masque '{1}': dans cette procédure, le nom désigne '{0}', et '{1}' partout ailleurs. Donnez à '{0}' un nom bien à lui.</value>
@@ -260,6 +308,36 @@
   </data>
   <data name="RedundantByValArgument_Message" xml:space="preserve">
     <value>Le paramètre est ByVal: ByVal écrit devant son argument ne change rien.</value>
+  </data>
+  <data name="ObsoleteCallStatement_Fix" xml:space="preserve">
+    <value>Retirer Call, et les parenthèses autour des arguments</value>
+  </data>
+  <data name="ObsoleteCommentSyntax_Fix" xml:space="preserve">
+    <value>Écrire ' au lieu de Rem</value>
+  </data>
+  <data name="ObsoleteErrorSyntax_Fix" xml:space="preserve">
+    <value>Lever l'erreur avec Err.Raise</value>
+  </data>
+  <data name="ObsoleteGlobalModifier_Fix" xml:space="preserve">
+    <value>Écrire Public au lieu de Global</value>
+  </data>
+  <data name="ObsoleteLetStatement_Fix" xml:space="preserve">
+    <value>Retirer Let</value>
+  </data>
+  <data name="ObsoleteTypeHint_DeclarationFix" xml:space="preserve">
+    <value>Déclarer '{0}' As {1}</value>
+  </data>
+  <data name="ObsoleteTypeHint_ReferenceFix" xml:space="preserve">
+    <value>Écrire '{0}' sans son caractère de déclaration de type</value>
+  </data>
+  <data name="ObsoleteWhileWend_Fix" xml:space="preserve">
+    <value>Écrire Do While...Loop</value>
+  </data>
+  <data name="ObsoleteOnLocalErrorStatement_Fix" xml:space="preserve">
+    <value>Retirer Local</value>
+  </data>
+  <data name="RedundantByValArgument_Fix" xml:space="preserve">
+    <value>Retirer ByVal</value>
   </data>
   <data name="EarlyBindingOpportunity_Message" xml:space="preserve">
     <value>'{0}' est la classe {1}.{2}, d'une bibliothèque référencée: déclarez l'objet As {1}.{2} et créez-le avec New, et ses membres seront liés à la compilation.</value>
@@ -354,6 +432,9 @@
   <data name="HostLibraryNotReferenced_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est le code d&apos;un document de {1}, et le projet ne référence pas la bibliothèque {2} : les membres de {1} ne sont pas des noms de son code. Ajoutez une référence à {2}.</value>
   </data>
+  <data name="HostLibraryNotReferenced_Fix" xml:space="preserve">
+    <value>Référencer la bibliothèque {0}</value>
+  </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est un module de document, où MS-VBAL dit qu&apos;une directive Implements ne peut pas figurer : MS-VBA compile &apos;Implements {1}&apos; tout de même, et RD-VBA aussi.</value>
   </data>
@@ -381,6 +462,18 @@
   <data name="CollectionSetToNothingInItsOwnLoop_Message" xml:space="preserve">
     <value>&apos;{0}&apos; n&apos;est pas mis à Nothing ici : la boucle For Each qui le parcourt tient l&apos;objet jusqu&apos;à ce qu&apos;elle prenne fin. MS-VBA libère ici une Collection : elle est détruite, avec les membres que la boucle n&apos;a pas atteints, et la boucle prend fin. Quittez la boucle avec Exit For, puis mettez &apos;{0}&apos; à Nothing.</value>
   </data>
+  <data name="LetToADefaultMemberWithNoPropertyLet_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est assigné par son membre par défaut, qui n&apos;a pas de Property Let. MS-VBA ne compile pas cette assignation. Nommez le membre auquel la valeur est assignée.</value>
+  </data>
+  <data name="LetThroughAVariantGet_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est une Property Get déclarée Variant, sans Property Let. MS-VBAL prévoit ici l&apos;erreur 451. RD-VBA, comme MS-VBA, assigne la valeur au membre par défaut de l&apos;objet que &apos;{0}&apos; retourne, et lève l&apos;erreur 424 si elle ne retourne aucun objet. Assignez ce membre de l&apos;objet par son nom.</value>
+  </data>
+  <data name="LetThroughAVariantFunction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est une fonction déclarée Variant. MS-VBAL prévoit ici l&apos;erreur 450. RD-VBA, comme MS-VBA, assigne la valeur au membre par défaut de l&apos;objet que &apos;{0}&apos; retourne, et lève l&apos;erreur 424 si elle ne retourne aucun objet. Assignez ce membre de l&apos;objet par son nom.</value>
+  </data>
+  <data name="ObjectLetToVariantProperty_Message" xml:space="preserve">
+    <value>La propriété &apos;{0}&apos; reçoit l&apos;objet lui-même, comme dans MS-VBA, là où MS-VBAL §5.4.3.8 passe la valeur de son membre par défaut. Nommez le membre par défaut pour passer sa valeur.</value>
+  </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
   </data>
@@ -405,6 +498,9 @@
   <data name="IIfSideEffect_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est appelée quelle que soit la condition : IIf évalue son TruePart et son FalsePart avant de choisir l&apos;un des deux.</value>
   </data>
+  <data name="ObjectLetToObjectProperty_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; reçoit l&apos;objet lui-même : MS-VBA passe un objet assigné par Let à une propriété dont la valeur est un objet comme le ferait un Set, là où MS-VBAL §5.5.1.1 fait de l&apos;assignation une incompatibilité de type. Assignez-le avec Set.</value>
+  </data>
   <data name="VariableNotUsed_Message" xml:space="preserve">
     <value>La variable &apos;{0}&apos; n&apos;est jamais utilisée.</value>
   </data>
@@ -422,6 +518,12 @@
   </data>
   <data name="ConstantNotUsed_Message" xml:space="preserve">
     <value>La constante &apos;{0}&apos; n&apos;est jamais utilisée.</value>
+  </data>
+  <data name="ConstantNotUsed_Fix" xml:space="preserve">
+    <value>Supprimer la déclaration de &apos;{0}&apos;</value>
+  </data>
+  <data name="VariableNotUsed_Fix" xml:space="preserve">
+    <value>Supprimer la déclaration de &apos;{0}&apos;</value>
   </data>
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Aucun saut ne mène à l&apos;étiquette de ligne &apos;{0}&apos;.</value>
@@ -476,5 +578,65 @@
   </data>
   <data name="NameRefusedByMSVBA_Message" xml:space="preserve">
     <value>MS-VBA refuse &apos;{0}&apos; comme nom de cette déclaration, ce que MS-VBAL §3.3.5.2 permet : RD-VBA le compile, et MS-VBA ne compile pas le module. Donnez-lui un autre nom pour garder le module compatible avec MS-VBA.</value>
+  </data>
+  <data name="LSetOfARecordWithAString_Message" xml:space="preserve">
+    <value>LSet copie un enregistrement qui contient un champ String de longueur variable : MS-VBAL §5.4.3.6 le permet, et MS-VBA le refuse (erreur de compilation : incompatibilité de type).</value>
+  </data>
+  <data name="EmptyElseBlock_Fix" xml:space="preserve">
+    <value>Supprimer le Else vide</value>
+  </data>
+  <data name="EmptyIfBlock_Fix" xml:space="preserve">
+    <value>Supprimer le If vide</value>
+  </data>
+  <data name="EmptyProcedure_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; n&apos;a aucune instruction : l&apos;appeler ne fait rien.</value>
+  </data>
+  <data name="EmptyModule_Message" xml:space="preserve">
+    <value>Le module &apos;{0}&apos; ne déclare rien.</value>
+  </data>
+  <data name="EmptyStringLiteral_Message" xml:space="preserve">
+    <value>&quot;&quot; est une String sans aucun caractère : vbNullString dit la même chose par son nom.</value>
+  </data>
+  <data name="EmptyStringLiteral_Fix" xml:space="preserve">
+    <value>Remplacer &quot;&quot; par vbNullString</value>
+  </data>
+  <data name="ImplicitForStep_Message" xml:space="preserve">
+    <value>Cette boucle For n&apos;indique aucun Step : Step 1 dit que le compteur augmente de 1.</value>
+  </data>
+  <data name="ImplicitForStep_Fix" xml:space="preserve">
+    <value>Écrire Step 1</value>
+  </data>
+  <data name="RedundantStepOne_Message" xml:space="preserve">
+    <value>Step 1 est ce que fait une boucle For sans Step.</value>
+  </data>
+  <data name="RedundantStepOne_Fix" xml:space="preserve">
+    <value>Supprimer Step 1</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_Message" xml:space="preserve">
+    <value>Chaque branche affecte un littéral Boolean à &apos;{0}&apos; : lui affecter la condition, ou Not la condition, dit la même chose.</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
+    <value>Affecter la condition à &apos;{0}&apos;</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_NegatedFix" xml:space="preserve">
+    <value>Affecter Not la condition à &apos;{0}&apos;</value>
+  </data>
+  <data name="StopStatement_Message" xml:space="preserve">
+    <value>Stop suspend le programme ici, comme le fait un point d&apos;arrêt.</value>
+  </data>
+  <data name="StopStatement_Fix" xml:space="preserve">
+    <value>Supprimer le Stop : le programme ne s&apos;arrête plus ici</value>
+  </data>
+  <data name="RedundantByRefModifier_Message" xml:space="preserve">
+    <value>Le paramètre &apos;{0}&apos; est passé par référence avec ou sans ByRef.</value>
+  </data>
+  <data name="RedundantByRefModifier_Fix" xml:space="preserve">
+    <value>Retirer ByRef de &apos;{0}&apos;</value>
+  </data>
+  <data name="RedundantModuleOption_Message" xml:space="preserve">
+    <value>{0} est ce qu&apos;a un module qui n&apos;indique aucune option de ce genre.</value>
+  </data>
+  <data name="RedundantModuleOption_Fix" xml:space="preserve">
+    <value>Supprimer {0}</value>
   </data>
 </root>

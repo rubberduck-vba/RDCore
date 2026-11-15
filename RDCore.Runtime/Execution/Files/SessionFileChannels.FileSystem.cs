@@ -412,6 +412,77 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
+    public RDCoreDiagnosticCode? TryReadAll(string path, out byte[] bytes)
+    {
+        bytes = [];
+        if (path.Length == 0)
+        {
+            return VBRuntimeErrorId.FileNotFound.ToCode();
+        }
+
+        if (Resolve(ref path) is { } unavailable)
+        {
+            return unavailable;
+        }
+
+        if (HasWildcard(path))
+        {
+            return VBRuntimeErrorId.BadFileNameOrNumber.ToCode();
+        }
+
+        if (fileSystem.Directory.Exists(path))
+        {
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
+        }
+
+        if (!fileSystem.File.Exists(path))
+        {
+            return ParentExists(path) ? VBRuntimeErrorId.FileNotFound.ToCode() : VBRuntimeErrorId.PathNotFound.ToCode();
+        }
+
+        byte[] read = [];
+        var error = Attempt(() => read = fileSystem.File.ReadAllBytes(path));
+        bytes = read;
+        return error;
+    }
+
+    /// <inheritdoc/>
+    public RDCoreDiagnosticCode? TryWriteAll(string path, byte[] bytes)
+    {
+        if (path.Length == 0)
+        {
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
+        }
+
+        if (Resolve(ref path) is { } unavailable)
+        {
+            return unavailable;
+        }
+
+        if (HasWildcard(path))
+        {
+            return VBRuntimeErrorId.BadFileNameOrNumber.ToCode();
+        }
+
+        if (fileSystem.Directory.Exists(path))
+        {
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
+        }
+
+        if (!ParentExists(path))
+        {
+            return VBRuntimeErrorId.PathNotFound.ToCode();
+        }
+
+        // shared as a channel opens a file: one the program has open is written too, unless its channel locked it.
+        return Attempt(() =>
+        {
+            using var stream = fileSystem.FileStream.New(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            stream.Write(bytes);
+        });
+    }
+
+    /// <inheritdoc/>
     public RDCoreDiagnosticCode? TryGetLastWriteTime(string path, out DateTime modified)
     {
         modified = default;

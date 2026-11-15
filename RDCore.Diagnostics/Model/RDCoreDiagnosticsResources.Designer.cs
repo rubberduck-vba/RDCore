@@ -106,22 +106,33 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
+        ///   Looks up a localized string similar to LSet copies a record that holds a variable-length String: MS-VBAL §5.4.3.6 allows it, and MS-VBA refuses it (Compile error: Type mismatch)..
+        /// </summary>
+        public static string LSetOfARecordWithAString_Message {
+            get {
+                return ResourceManager.GetString("LSetOfARecordWithAString_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This {0} block has no statement..
         /// </summary>
         public static string EmptyCodeBlock_Message {
             get {
                 return ResourceManager.GetString("EmptyCodeBlock_Message", resourceCulture);
             }
         }
+
         
         /// <summary>
-        ///   Looks up a localized string similar to Empty If block; consider reversing the conditional expression..
+        ///   Looks up a localized string similar to This {0} branch has no statement: it does nothing when its condition is True..
         /// </summary>
         public static string EmptyIfBlock_Message {
             get {
                 return ResourceManager.GetString("EmptyIfBlock_Message", resourceCulture);
             }
         }
+
         
         /// <summary>
         ///   Looks up a localized string similar to Array enumeration is inefficient and would perform better with a `For...Next` construct instead, with indexed (subscript) item access..
@@ -293,6 +304,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplicitResultLocal_Fix", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write ByRef for &apos;{0}&apos;.
+        /// </summary>
+        public static string ImplicitByRefModifier_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitByRefModifier_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Public for &apos;{0}&apos;.
+        /// </summary>
+        public static string ImplicitPublicMember_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitPublicMember_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare &apos;{0}&apos; As Variant.
+        /// </summary>
+        public static string ImplicitVariantDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitVariantDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Option Explicit, and a Dim for each implicit variable.
+        /// </summary>
+        public static string ImplicitDeclarationsEnabled_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitDeclarationsEnabled_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended)..
@@ -365,6 +412,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("MultipleDeclarations_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Private in place of Dim.
+        /// </summary>
+        public static string ModuleScopeDimDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("ModuleScopeDimDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare each name on a line of its own.
+        /// </summary>
+        public static string MultipleDeclarations_Fix {
+            get {
+                return ResourceManager.GetString("MultipleDeclarations_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;{0}&apos; on one line.
+        /// </summary>
+        public static string MultilineParameterDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("MultilineParameterDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write ByVal for &apos;{0}&apos;.
+        /// </summary>
+        public static string MisleadingByRefParameter_Fix {
+            get {
+                return ResourceManager.GetString("MisleadingByRefParameter_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to At least one code path of &apos;{0}&apos; does not assign its return value: on that path, the caller gets the default value of the type (0, an empty string, Empty or Nothing)..
@@ -408,6 +491,78 @@ namespace RDCore.Diagnostics.Model {
         public static string IsMissingAlwaysFalse_HasADefault {
             get {
                 return ResourceManager.GetString("IsMissingAlwaysFalse_HasADefault", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to IsMissing({0}) is always False: &apos;{0}&apos; is {1}, which never holds the Missing value. IsMissing tells whether a Variant parameter was given no argument..
+        /// </summary>
+        public static string IsMissingAlwaysFalse_NotAParameter_Message {
+            get {
+                return ResourceManager.GetString("IsMissingAlwaysFalse_NotAParameter_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to a variable that is not a Variant.
+        /// </summary>
+        public static string IsMissingAlwaysFalse_AVariableNotAVariant {
+            get {
+                return ResourceManager.GetString("IsMissingAlwaysFalse_AVariableNotAVariant", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to a constant.
+        /// </summary>
+        public static string IsMissingAlwaysFalse_AConstant {
+            get {
+                return ResourceManager.GetString("IsMissingAlwaysFalse_AConstant", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to IsMissing({0}) does not tell whether an argument was omitted: &apos;{0}&apos; is {1}, which holds the Missing value only when it is given one from an Optional parameter whose argument was omitted. To test for an omitted argument, declare the parameter Optional..
+        /// </summary>
+        public static string IsMissingOfAVariantThatIsNotOptional_Message {
+            get {
+                return ResourceManager.GetString("IsMissingOfAVariantThatIsNotOptional_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to a required Variant parameter.
+        /// </summary>
+        public static string IsMissingOfAVariantThatIsNotOptional_RequiredParameter {
+            get {
+                return ResourceManager.GetString("IsMissingOfAVariantThatIsNotOptional_RequiredParameter", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to a Variant variable.
+        /// </summary>
+        public static string IsMissingOfAVariantThatIsNotOptional_Variable {
+            get {
+                return ResourceManager.GetString("IsMissingOfAVariantThatIsNotOptional_Variable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare the parameter &apos;{0}&apos; Optional, which lets a call omit it.
+        /// </summary>
+        public static string IsMissingOfAVariantThatIsNotOptional_Fix {
+            get {
+                return ResourceManager.GetString("IsMissingOfAVariantThatIsNotOptional_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Replace &apos;IsMissing({0})&apos; with False.
+        /// </summary>
+        public static string IsMissingAlwaysFalse_Fix {
+            get {
+                return ResourceManager.GetString("IsMissingAlwaysFalse_Fix", resourceCulture);
             }
         }
 
@@ -534,6 +689,96 @@ namespace RDCore.Diagnostics.Model {
         public static string RedundantByValArgument_Message {
             get {
                 return ResourceManager.GetString("RedundantByValArgument_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove Call, and the parentheses around the arguments.
+        /// </summary>
+        public static string ObsoleteCallStatement_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteCallStatement_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos; in place of Rem.
+        /// </summary>
+        public static string ObsoleteCommentSyntax_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteCommentSyntax_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Raise the error with Err.Raise.
+        /// </summary>
+        public static string ObsoleteErrorSyntax_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteErrorSyntax_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Public in place of Global.
+        /// </summary>
+        public static string ObsoleteGlobalModifier_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteGlobalModifier_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove Let.
+        /// </summary>
+        public static string ObsoleteLetStatement_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteLetStatement_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare &apos;{0}&apos; As {1}.
+        /// </summary>
+        public static string ObsoleteTypeHint_DeclarationFix {
+            get {
+                return ResourceManager.GetString("ObsoleteTypeHint_DeclarationFix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;{0}&apos; without its type-declaration character.
+        /// </summary>
+        public static string ObsoleteTypeHint_ReferenceFix {
+            get {
+                return ResourceManager.GetString("ObsoleteTypeHint_ReferenceFix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Do While...Loop.
+        /// </summary>
+        public static string ObsoleteWhileWend_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteWhileWend_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove Local.
+        /// </summary>
+        public static string ObsoleteOnLocalErrorStatement_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteOnLocalErrorStatement_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove ByVal.
+        /// </summary>
+        public static string RedundantByValArgument_Fix {
+            get {
+                return ResourceManager.GetString("RedundantByValArgument_Fix", resourceCulture);
             }
         }
 
@@ -850,6 +1095,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("HostLibraryNotReferenced_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Reference the {0} library.
+        /// </summary>
+        public static string HostLibraryNotReferenced_Fix {
+            get {
+                return ResourceManager.GetString("HostLibraryNotReferenced_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA..
@@ -902,6 +1156,51 @@ namespace RDCore.Diagnostics.Model {
         public static string IIfSideEffect_Message {
             get {
                 return ResourceManager.GetString("IIfSideEffect_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is assigned through its default member, which has no Property Let. MS-VBA does not compile this assignment. Name the member the value is assigned to..
+        /// </summary>
+        public static string LetToADefaultMemberWithNoPropertyLet_Message {
+            get {
+                return ResourceManager.GetString("LetToADefaultMemberWithNoPropertyLet_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is given the object itself: MS-VBA passes an object Let-assigned to a property whose value is an object as a Set would, where MS-VBAL §5.5.1.1 makes the assignment a type mismatch. Assign it with Set..
+        /// </summary>
+        public static string ObjectLetToObjectProperty_Message {
+            get {
+                return ResourceManager.GetString("ObjectLetToObjectProperty_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a Property Get declared Variant, with no Property Let. MS-VBAL specifies error 451 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name..
+        /// </summary>
+        public static string LetThroughAVariantGet_Message {
+            get {
+                return ResourceManager.GetString("LetThroughAVariantGet_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a function declared Variant. MS-VBAL specifies error 450 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name..
+        /// </summary>
+        public static string LetThroughAVariantFunction_Message {
+            get {
+                return ResourceManager.GetString("LetThroughAVariantFunction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Property &apos;{0}&apos; receives the object itself, as in MS-VBA, where MS-VBAL §5.4.3.8 passes the value of its default member. Name the default member to pass its value..
+        /// </summary>
+        public static string ObjectLetToVariantProperty_Message {
+            get {
+                return ResourceManager.GetString("ObjectLetToVariantProperty_Message", resourceCulture);
             }
         }
 
@@ -1001,6 +1300,24 @@ namespace RDCore.Diagnostics.Model {
         public static string ConstantNotUsed_Message {
             get {
                 return ResourceManager.GetString("ConstantNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the declaration of &apos;{0}&apos;.
+        /// </summary>
+        public static string ConstantNotUsed_Fix {
+            get {
+                return ResourceManager.GetString("ConstantNotUsed_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the declaration of &apos;{0}&apos;.
+        /// </summary>
+        public static string VariableNotUsed_Fix {
+            get {
+                return ResourceManager.GetString("VariableNotUsed_Fix", resourceCulture);
             }
         }
 
@@ -1127,5 +1444,176 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("UnderscoreInPublicClassMember_Message", resourceCulture);
             }
         }
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the empty Else.
+        /// </summary>
+        public static string EmptyElseBlock_Fix {
+            get {
+                return ResourceManager.GetString("EmptyElseBlock_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This For loop states no Step: Step 1 says that the counter goes up by 1..
+        /// </summary>
+        public static string ImplicitForStep_Message {
+            get {
+                return ResourceManager.GetString("ImplicitForStep_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the empty If.
+        /// </summary>
+        public static string EmptyIfBlock_Fix {
+            get {
+                return ResourceManager.GetString("EmptyIfBlock_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Step 1 is what a For loop with no Step does..
+        /// </summary>
+        public static string RedundantStepOne_Message {
+            get {
+                return ResourceManager.GetString("RedundantStepOne_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has no statement: calling it does nothing..
+        /// </summary>
+        public static string EmptyProcedure_Message {
+            get {
+                return ResourceManager.GetString("EmptyProcedure_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Each branch assigns a Boolean literal to &apos;{0}&apos;: assigning it the condition, or Not the condition, says the same..
+        /// </summary>
+        public static string BooleanAssignedInIfElse_Message {
+            get {
+                return ResourceManager.GetString("BooleanAssignedInIfElse_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Module &apos;{0}&apos; declares nothing..
+        /// </summary>
+        public static string EmptyModule_Message {
+            get {
+                return ResourceManager.GetString("EmptyModule_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Stop suspends the program here, as a breakpoint does..
+        /// </summary>
+        public static string StopStatement_Message {
+            get {
+                return ResourceManager.GetString("StopStatement_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;&quot; is a String of no characters: vbNullString says the same by name..
+        /// </summary>
+        public static string EmptyStringLiteral_Message {
+            get {
+                return ResourceManager.GetString("EmptyStringLiteral_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by reference with or without ByRef..
+        /// </summary>
+        public static string RedundantByRefModifier_Message {
+            get {
+                return ResourceManager.GetString("RedundantByRefModifier_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Replace &quot;&quot; with vbNullString.
+        /// </summary>
+        public static string EmptyStringLiteral_Fix {
+            get {
+                return ResourceManager.GetString("EmptyStringLiteral_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is what a module that states no such option has..
+        /// </summary>
+        public static string RedundantModuleOption_Message {
+            get {
+                return ResourceManager.GetString("RedundantModuleOption_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Assign the condition to &apos;{0}&apos;.
+        /// </summary>
+        public static string BooleanAssignedInIfElse_Fix {
+            get {
+                return ResourceManager.GetString("BooleanAssignedInIfElse_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Assign Not the condition to &apos;{0}&apos;.
+        /// </summary>
+        public static string BooleanAssignedInIfElse_NegatedFix {
+            get {
+                return ResourceManager.GetString("BooleanAssignedInIfElse_NegatedFix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Step 1.
+        /// </summary>
+        public static string ImplicitForStep_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitForStep_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove Step 1.
+        /// </summary>
+        public static string RedundantStepOne_Fix {
+            get {
+                return ResourceManager.GetString("RedundantStepOne_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the Stop: the program no longer breaks here.
+        /// </summary>
+        public static string StopStatement_Fix {
+            get {
+                return ResourceManager.GetString("StopStatement_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove ByRef from &apos;{0}&apos;.
+        /// </summary>
+        public static string RedundantByRefModifier_Fix {
+            get {
+                return ResourceManager.GetString("RedundantByRefModifier_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove {0}.
+        /// </summary>
+        public static string RedundantModuleOption_Fix {
+            get {
+                return ResourceManager.GetString("RedundantModuleOption_Fix", resourceCulture);
+            }
+        }
+
     }
 }

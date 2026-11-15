@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.LanguageServer.Server.Handlers.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.Commands;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
@@ -48,12 +49,9 @@ internal sealed class ImportProjectCommand(
     ILogger<ImportProjectCommand> logger,
     IWorkspaceProjects? workspaceProjects = null) : IServerCommand
 {
-    /// <summary>The name a client asks for the command by.</summary>
-    public const string CommandName = "rdcore.importProject";
-
     private const string VbpExtension = ".vbp";
 
-    public string Name => CommandName;
+    public string Name => ServerCommands.ImportProject;
 
     public async Task<JToken?> ExecuteAsync(JArray? arguments, IServerCommandContext context, CancellationToken token)
     {

@@ -38,16 +38,16 @@ public sealed class StdLibClassAttribute(string? name = null) : Attribute
     public bool IsCreatable { get; init; } = true;
 
     /// <summary>
-    /// Whether creating an object of this class always fails, though <see cref="IsCreatable"/> says
-    /// <c>New</c> of it is valid.
+    /// Whether no server is registered for this class, though <see cref="IsCreatable"/> says <c>New</c>
+    /// of it is valid: creating an object of it fails.
     /// </summary>
     /// <remarks>
     /// MS-VBA's type library says the <c>ErrObject</c> class can be created, so <c>New ErrObject</c>
     /// compiles; no server creates one, and the program raises run-time error -2147221164 <em>Class not
-    /// registered</em> where it is created (observed in Excel). The one
-    /// object of the class is the one the <c>Err</c> function returns.
+    /// registered</em> where it is created (recorded in Excel). The one object of the class is the one the
+    /// <c>Err</c> function returns.
     /// </remarks>
-    public bool CreationAlwaysFails { get; init; }
+    public bool Unregistered { get; init; }
 
     /// <summary>
     /// The programmatic identifier the class answers to in <c>CreateObject</c> (<c>VBScript.RegExp</c>), if it has one: the name of a COM class the platform
@@ -59,7 +59,7 @@ public sealed class StdLibClassAttribute(string? name = null) : Attribute
 
     /// <summary>
     /// What <c>TypeName</c> says of an object of the class, when it is not the class's name: the VBA library's <c>UserForms</c> collection is an object whose class
-    /// MS-VBA names nothing, and <c>TypeName(UserForms)</c> is <c>Object</c> (observed in Excel).
+    /// MS-VBA names nothing, and <c>TypeName(UserForms)</c> is <c>Object</c> (Excel-measured, <c>oracle\s41</c> U01).
     /// </summary>
     public string? TypeName { get; init; }
 }

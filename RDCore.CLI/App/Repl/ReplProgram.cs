@@ -399,6 +399,17 @@ public sealed class ReplProgram
     }
 
     /// <summary>
+    /// The buffer's lines in number order, as they are stored: a parse of the program's blocks reads them, and the program is not indented for it.
+    /// </summary>
+    public IReadOnlyList<(int Number, string Statement)> Statements()
+    {
+        lock (_gate)
+        {
+            return [.. _lines.Select(line => (line.Key, line.Value))];
+        }
+    }
+
+    /// <summary>
     /// The buffer's lines in number order, optionally narrowed to a range.
     /// </summary>
     /// <param name="from">The first line number to include, or <c>null</c> for the start of the buffer.</param>

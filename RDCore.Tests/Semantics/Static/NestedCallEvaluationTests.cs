@@ -93,7 +93,7 @@ public sealed class NestedCallEvaluationTests
         => Assert.AreEqual(LookupsOfTheInnermostArgument(1), LookupsOfTheInnermostArgument(depth), $"x is looked up as often in {depth} calls as in one");
 
     // how many times the static pass of `x = Abs(Abs(...Abs(n)...)) + 1`, Abs written depth times, looks up n, recording the facts and the bindings of the
-    // expressions: the pass looks at Abs's argument again for the type of the call, and at each operand of the addition for whether it overflows.
+    // expressions: the pass looks at Abs's argument again for the type of the call.
     private static int RecordedLookupsOfTheInnermostArgument(int depth)
     {
         var expression = string.Concat(Enumerable.Repeat("Abs(", depth)) + "n" + new string(')', depth) + " + 1";
@@ -112,8 +112,7 @@ public sealed class NestedCallEvaluationTests
             context: new StaticEvaluationContext(resolver, composition.ScopeTree.ScopeFor(run.Uri), Bindings: bindings));
 
         Assert.IsTrue(model.CompileErrors.IsEmpty, string.Join("; ", model.CompileErrors.Select(error => error.Description)));
-        Assert.IsTrue(model.Expressions.Values.Any(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.OverflowsWhereVariantWidens)),
-            "the addition is looked at for whether it overflows");
+        Assert.IsTrue(model.Expressions.Count > depth, "the facts of the expressions are recorded");
         Assert.IsTrue(bindings.Bound.Count > depth, "the expressions are bound");
         return resolver.Lookups.GetValueOrDefault("n");
     }
