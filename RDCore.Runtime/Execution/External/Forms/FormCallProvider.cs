@@ -240,7 +240,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     /// <summary>
     /// The error of a <c>New</c> of the form class <paramref name="classModule"/>, made at <paramref name="site"/>, when no form host can create its form: error
     /// 429, which the program can trap, before the object is made or its <c>Initialize</c> runs. <see langword="null"/> for a form a host can create, whose form
-    /// is made when the program first needs it, and for a class that is no form's.
+    /// is made when the program first needs it, and for a class of no form.
     /// </summary>
     /// <param name="classModule">The class of the object to create.</param>
     /// <param name="site">Where the <c>New</c> is written.</param>
