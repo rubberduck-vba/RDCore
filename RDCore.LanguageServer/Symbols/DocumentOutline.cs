@@ -9,6 +9,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -35,6 +36,30 @@ internal static class DocumentOutline
     public static async Task<DocumentSymbol?> OfAsync(
         WorkspaceDocument document, IParsingClientService parsing, ISymbolResolver resolver, SdkAppOptions options, CancellationToken token)
     {
+        if (await SymbolsOfAsync(document, parsing, resolver, options, token) is not { } declared)
+        {
+            return null;
+        }
+
+        var moduleKind = declared.Type.IsClass() ? SymbolKindExt.Class : SymbolKindExt.Module;
+        var (moduleRange, moduleSelectionRange) = ModuleRangesOf(declared.Tree);
+
+        var outline = DocumentSymbolProjector.Project(declared.Module, declared.Name, moduleKind, moduleRange, moduleSelectionRange, declared.Symbols);
+        return BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath()) ? InProgramText(outline) : outline;
+    }
+
+    /// <summary>
+    /// The module a document is, and the symbols of what it declares, as an outline has them: implicit declarations included.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="parsing">What parses it, with the text it holds.</param>
+    /// <param name="resolver">What resolves the types its declarations name.</param>
+    /// <param name="options">The options of the server: the language, which says the scope of an implicit declaration.</param>
+    /// <param name="token">A token that cancels the parse.</param>
+    /// <returns>The module and its symbols, in the module's text; <see langword="null"/> for a document with no syntax tree at all.</returns>
+    public static async Task<DeclaredSymbols?> SymbolsOfAsync(
+        WorkspaceDocument document, IParsingClientService parsing, ISymbolResolver resolver, SdkAppOptions options, CancellationToken token)
+    {
         var parseResult = await parsing.ParseDocumentAsync(document.Id.Uri.ToUri(), token);
         if (parseResult.SyntaxTree is not { } module)
         {
@@ -45,16 +70,22 @@ internal static class DocumentOutline
         var moduleName = module.GetDeclaredName() ?? ModuleName.FromFileName(document.RelativePath);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var moduleType = ParsingClientService.ModuleTypeOf(document);
-        var moduleKind = moduleType.IsClass() ? SymbolKindExt.Class : SymbolKindExt.Module;
 
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, resolver,
             withImplicitDeclarations: true, options.Workspace.SupportedLanguage.ImplicitDeclarationScope).ProvideSymbols();
-        var (moduleRange, moduleSelectionRange) = ModuleRangesOf(module);
-
-        var outline = DocumentSymbolProjector.Project(moduleUri, moduleName, moduleKind, moduleRange, moduleSelectionRange, symbols);
-        return BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath()) ? InProgramText(outline) : outline;
+        return new DeclaredSymbols(moduleUri, moduleName, moduleType, module, [.. symbols]);
     }
+
+    /// <summary>
+    /// A module, and the symbols of what it declares.
+    /// </summary>
+    /// <param name="Module">The module's address (<see cref="SymbolUri.Module"/>).</param>
+    /// <param name="Name">The module's name.</param>
+    /// <param name="Type">What module it is.</param>
+    /// <param name="Tree">Its syntax tree.</param>
+    /// <param name="Symbols">The symbols of its declarations, and of its members' declarations.</param>
+    internal sealed record class DeclaredSymbols(Uri Module, string Name, ModuleType Type, ModuleNode Tree, IReadOnlyList<Symbol> Symbols);
 
     // a program is parsed as the body of a module whose header it does not have: its ranges are moved to its lines.
     private static DocumentSymbol InProgramText(DocumentSymbol symbol) => new()

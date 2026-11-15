@@ -73,6 +73,7 @@ internal static class LanguageServerServices
             .AddSingleton(_ => new RDCore.Symbols.WorkspaceCompositionCache())
             .AddSingleton<ICompletionService, CompletionService>()
             .AddSingleton<IRenameService, RenameService>()
+            .AddSingleton<RDCore.LanguageServer.Symbols.ISemanticsDescriptionService, RDCore.LanguageServer.Symbols.SemanticsDescriptionService>()
             // the tools an assistant calls (rdcore/tools/*): each reads what the handler of the same LSP request reads.
             .AddSingleton<IWorkspaceSymbolSearch, WorkspaceSymbolSearch>()
             .AddSingleton<RDCore.LanguageServer.Assistant.AssistantDocuments>()
@@ -80,6 +81,8 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.FindSymbolTool>()
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.ReferencesTool>()
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.DefinitionTool>()
+            .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.DescribeAtTool>()
+            .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.OutlineTool>()
             .AddSingleton(provider => new RDCore.SDK.Server.Assistant.AssistantToolCatalog(provider.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>()))
             .AddSingleton<RDCore.LanguageServer.Refactoring.IExtractMethodService, RDCore.LanguageServer.Refactoring.ExtractMethodService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()

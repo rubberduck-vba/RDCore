@@ -169,5 +169,71 @@ namespace RDCore.LanguageServer.Assistant {
                 return ResourceManager.GetString("NotAdvertised", resourceCulture);
             }
         }
+
+        internal static string DescribeAt_Title {
+            get {
+                return ResourceManager.GetString("DescribeAt_Title", resourceCulture);
+            }
+        }
+
+        internal static string DescribeAt_Description {
+            get {
+                return ResourceManager.GetString("DescribeAt_Description", resourceCulture);
+            }
+        }
+
+        internal static string Outline_Title {
+            get {
+                return ResourceManager.GetString("Outline_Title", resourceCulture);
+            }
+        }
+
+        internal static string Outline_Description {
+            get {
+                return ResourceManager.GetString("Outline_Description", resourceCulture);
+            }
+        }
+
+        internal static string NothingDescribed {
+            get {
+                return ResourceManager.GetString("NothingDescribed", resourceCulture);
+            }
+        }
+
+        internal static string DefinedAt {
+            get {
+                return ResourceManager.GetString("DefinedAt", resourceCulture);
+            }
+        }
+
+        internal static string ExpressionOfType {
+            get {
+                return ResourceManager.GetString("ExpressionOfType", resourceCulture);
+            }
+        }
+
+        internal static string Expression {
+            get {
+                return ResourceManager.GetString("Expression", resourceCulture);
+            }
+        }
+
+        internal static string ConstantValue {
+            get {
+                return ResourceManager.GetString("ConstantValue", resourceCulture);
+            }
+        }
+
+        internal static string NoOutline {
+            get {
+                return ResourceManager.GetString("NoOutline", resourceCulture);
+            }
+        }
+
+        internal static string DeclaresNothing {
+            get {
+                return ResourceManager.GetString("DeclaresNothing", resourceCulture);
+            }
+        }
     }
 }
