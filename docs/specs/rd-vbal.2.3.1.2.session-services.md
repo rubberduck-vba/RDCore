@@ -317,6 +317,3 @@ The **RDCore** implementations (⚖️ GPLv3) of the session services are intend
 RD-VBA normally executes on a single thread, but the RD-VBA runtime implementation is not _inherently_
 single-threaded. Whether an RD-VBA _environment host_ supports the concurrent execution of RD-VBA execution
 threads is _host-dependent_.
-
----
-> ⏮️ [**RD-VBAL §2.3.1.1** Execution Session](rd-vbal.2.3.1.1.execution-session.md) | ⏭️ [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)
