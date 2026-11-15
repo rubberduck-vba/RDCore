@@ -282,8 +282,8 @@ The interpreter does the rest on its own:
 Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If F(A) > 0 Then` or `G(F(A))`, when the statement is one of these:
 
 - a `Let` of a scalar variable of the procedure or of the function's result;
-- a `Let` of a `Variant` variable of the procedure (`V = 1 + F(2)`, `V = 1 + G.Size`), which is given what the value evaluates to, a `Long` of those
-  two (**MS-VBAL §5.5.1.2.12**). The value is evaluated once. When the interpreter runs the `Let` after the call, because an operation raises an error
+- a `Let` of a `Variant` variable of the procedure (`V = 1 + F(2)`, `V = 1 + G.Size`), which is given what the value evaluates to, of its own type
+  (**MS-VBAL §5.5.1.2.12**): a `Long` when `F` and `Size` return one. The value is evaluated once. When the interpreter runs the `Let` after the call, because an operation raises an error
   or because the `Variant` holds an object, it is given what was evaluated, and the call is not made again;
 - a call statement;
 - the condition of an `If`, an `ElseIf` or a loop;

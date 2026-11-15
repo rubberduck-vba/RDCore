@@ -21,8 +21,8 @@ internal sealed partial class ProcedureAnalysis
     private StatementNode? _nesting;
 
     // a Let of a scalar or Variant variable of the activation or of the function result variable, a call statement, or a condition of an If or a loop,
-    // that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode); and so is every other
-    // instruction, as it always is.
+    // that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode). Every other
+    // instruction is translated as any instruction is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);
