@@ -53,6 +53,13 @@ Served as VB6, a project has two libraries it does not list as references, as in
 
 A form's controls are names of its module. A control of a control array is named with its index: `Command1(0)`.
 
+A menu array has `Count`, `LBound` and `UBound`. `Load mnuRecent(3)` adds the element of index 3, and `Unload mnuRecent(3)` takes out an element the
+program loaded. They raise what VB6 raises: 360 for an element that is loaded already, 340 for an index no element has, 362 for an element of the form's
+file, and 361 for a menu item that is in no array.
+
+> [!NOTE]
+> **Not implemented.** `For Each` over a control array, and the arrays of controls other than menus, raise 438.
+
 ---
 ## Running a VB6 project
 
