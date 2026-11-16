@@ -7,7 +7,8 @@ internal sealed partial class ProcedureEmitter
 {
     // the value evaluated, of the variable's kind - one the evaluation declines fails the instruction, which the interpreter makes from its start - then
     // written in the cell of the public variable (CompiledActivation.TryLetMemberField): one compiled code does not write (no object, an object of another
-    // class, a debugger observing it) is the interpreter's statement alone, which evaluates the value again, and compiled code goes on after it.
+    // class, a debugger observing it) is the interpreter's statement alone, which evaluates the value again, and compiled code goes on after it; after a
+    // call inside the value, it is given what was evaluated (Fail), and the call is not made again.
     private void EmitMemberFieldLet(MemberFieldLetStep let)
     {
         var kind = let.Value.Kind;
@@ -39,7 +40,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(let.WithAt is null
             ? nameof(CompiledActivation.TryLetMemberField)
             : nameof(CompiledActivation.TryLetMemberFieldOfWith))!);
-        _il.Emit(OpCodes.Brfalse, RecoverAt(let.Offset));
+        _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(let.Offset)));
     }
 
     // the value evaluated - one the evaluation on payloads declines is the interpreter's statement alone, from its start, nothing of it done - then the member

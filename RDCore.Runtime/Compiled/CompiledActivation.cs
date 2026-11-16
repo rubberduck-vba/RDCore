@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -1530,7 +1531,7 @@ public sealed partial class CompiledActivation : ILightActivation
         for (var i = 0; i < _body.Selects.Count; i++)
         {
             var select = _body.Selects[i];
-            if (pc > select.Opener && pc < select.End && !TryReadSelector(frame, select, out _))
+            if (pc > select.Opener && pc < select.End && !(select.IsText ? TryReadTextSelector(frame, select, out _) : TryReadSelector(frame, select, out _)))
             {
                 return false;
             }
@@ -1541,6 +1542,36 @@ public sealed partial class CompiledActivation : ILightActivation
 
     private static bool TryReadSelector(CallStackFrame frame, CompiledSelect select, out ScalarPayload selector)
         => frame.TryGetSelectorPayload(select.Opener, out selector) && ScalarKinds.Of(selector.Type) == select.Kind;
+
+    // a String selector, as the interpreter stashes it (ProcedureExecutor.ExecuteSelect): the String value it evaluated, whose text compiled code compares.
+    private static bool TryReadTextSelector(CallStackFrame frame, CompiledSelect select, out string? text)
+    {
+        if (frame.TryGetBlockState(select.Opener, out var held) && held is VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> value })
+        {
+            text = value.StoredValue;
+            return true;
+        }
+
+        text = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Writes the selector of the <c>Select Case</c> numbered <paramref name="select"/>, of a <c>String</c> selector, into the frame, as the interpreter
+    /// stashes one: the String value of its text (<c>CallStackFrame.SetBlockState</c>).
+    /// </summary>
+    /// <param name="select">The number of the <c>Select Case</c>.</param>
+    /// <param name="text">The text of its selector; <see langword="null"/> for <c>vbNullString</c>.</param>
+    public void SpillTextSelector(int select, string? text)
+        => Frame.SetBlockState(_body.Selects[select].Opener, text is null ? VBStringValue.VBNullString : new VBStringValue(text));
+
+    /// <summary>
+    /// The selector of the <c>Select Case</c> numbered <paramref name="select"/>, of a <c>String</c> selector, read back from the frame.
+    /// </summary>
+    /// <param name="select">The number of the <c>Select Case</c>.</param>
+    /// <param name="selector">The text of its selector, when it was evaluated.</param>
+    /// <returns>Whether it was evaluated, to a String whose text compiled code reads.</returns>
+    public bool ReloadTextSelector(int select, out string? selector) => TryReadTextSelector(Frame, _body.Selects[select], out selector);
 
     /// <summary>
     /// Writes the selector of the <c>Select Case</c> numbered <paramref name="select"/> into the frame, as the interpreter stashes a selector evaluated on
@@ -1879,9 +1910,10 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 internal sealed record class CompiledForLoop(int Opener, Symbol Counter, ExpressionNode Control, ScalarKind Kind);
 
 /// <summary>
-/// A <c>Select Case</c> of a scalar selector, of a compiled body (MS-VBAL §5.4.2.10).
+/// A <c>Select Case</c> of a scalar selector or of a <c>String</c> one, of a compiled body (MS-VBAL §5.4.2.10).
 /// </summary>
 /// <param name="Opener">The offset of its <c>Select</c>, which its selector is stashed by.</param>
 /// <param name="End">The offset right past its block.</param>
-/// <param name="Kind">The kind of its selector.</param>
-internal sealed record class CompiledSelect(int Opener, int End, ScalarKind Kind);
+/// <param name="Kind">The kind of a scalar selector; <c>default</c> for a String one, which is compared as text.</param>
+/// <param name="IsText">Whether its selector is a String of variable length, which the frame holds as the interpreter stashes it, a value.</param>
+internal sealed record class CompiledSelect(int Opener, int End, ScalarKind Kind, bool IsText = false);

@@ -253,15 +253,16 @@ public sealed class CompiledBlockTests
             "    Report Quit",
             "End Function"), "Quit", recoveries: 3, classes: Noisy);
 
-    // a Select Case of a String selector, and its Cases, are the interpreter's; the loop around it is compiled code's.
+    // a Select Case of a fixed-length String selector, and its Cases, are the interpreter's, and so is the Let of the String (three Selects, five Cases and
+    // three Lets); the loop around them is compiled code's.
     [TestMethod]
-    public async Task ASelectOfAString_IsSteppedByTheInterpreter()
+    public async Task ASelectOfAFixedLengthString_IsSteppedByTheInterpreter()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Named()",
             "End Sub",
             "Private Function Named() As Long",
-            "    Dim S As String, I As Long",
+            "    Dim S As String * 1, I As Long",
             "    For I = 1 To 3",
             "        S = Chr$(96 + I)",
             "        Select Case S",
@@ -271,7 +272,7 @@ public sealed class CompiledBlockTests
             "                Named = Named + 10",
             "        End Select",
             "    Next",
-            "End Function"), "Named", recoveries: 8);
+            "End Function"), "Named", recoveries: 11);
 
     // a Case of a value that is no scalar is compared by the interpreter, with the selector compiled code gave the frame; the other Cases are compiled code's.
     [TestMethod]

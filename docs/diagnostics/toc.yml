@@ -458,6 +458,8 @@
   href: rdc00214.md
 - name: "RDC00215: Self-assigned declaration"
   href: rdc00215.md
+- name: "RDC00216: Function result discarded"
+  href: rdc00216.md
 - name: "RDC00218: IsMissing of a Variant that is not Optional"
   href: rdc00218.md
 - name: "RDC00302: Obsolete Call statement"
@@ -498,6 +500,8 @@
   href: rdc00409.md
 - name: "RDC00410: Default instance in its own class"
   href: rdc00410.md
+- name: "RDC00411: Code in a class implemented as an interface"
+  href: rdc00411.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
@@ -530,6 +534,8 @@
   href: rdc01016.md
 - name: "RDC01017: Write-only property"
   href: rdc01017.md
+- name: "RDC01018: Keyword used as a member name"
+  href: rdc01018.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"
@@ -588,6 +594,12 @@
   href: rdc11037.md
 - name: "RDC11039: Function called whatever the IIf condition"
   href: rdc11039.md
+- name: "RDC11040: Str of a number between -1 and 1"
+  href: rdc11040.md
+- name: "RDC11041: Str of an Error value"
+  href: rdc11041.md
+- name: "RDC11042: Write # of a number between -1 and 1"
+  href: rdc11042.md
 - name: "RDC11043: Object assigned with Let to a Variant property"
   href: rdc11043.md
 - name: "RDC11044: LSet of a record that holds a variable-length String"

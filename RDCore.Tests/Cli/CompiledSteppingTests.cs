@@ -170,7 +170,7 @@ public sealed class CompiledSteppingTests
             "    Next",
             "End Function"), "Counted", recoveries: 0);
 
-    // a For whose end is not compiled code's (a String given to a call inside a call): the interpreter opens the loop and steps it, and the body is
+    // a For whose end is not compiled code's (an operator compiled code does not do, ^): the interpreter opens the loop and steps it, and the body is
     // compiled.
     [TestMethod]
     public async Task AForTheInterpreterOpens_IsSteppedByItToo_AroundACompiledBody()
@@ -180,7 +180,7 @@ public sealed class CompiledSteppingTests
             "End Sub",
             "Private Function Summed(ByVal S As String) As Long",
             "    Dim I As Long",
-            "    For I = 1 To Len(UCase$(S))",
+            "    For I = 1 To Len(S) ^ 1",
             "        Summed = Summed + I",
             "    Next",
             "End Function"), "Summed", recoveries: 5);
@@ -220,8 +220,8 @@ public sealed class CompiledSteppingTests
         CollectionAssert.AreEqual(new[] { 5, 5 }, stepped.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(), "the For, counted from 0");
     }
 
-    // an error the interpreter raises in a statement it runs alone (a String given to a call inside a call), with no handler: the caller's handler catches
-    // it, as it does the interpreter's.
+    // an error the interpreter raises in a statement it runs alone (an operator compiled code does not do, ^), with no handler: the caller's handler
+    // catches it, as it does the interpreter's.
     [TestMethod]
     public async Task AnErrorInAStatementTheInterpreterRuns_GoesToTheCaller()
         => await AssertAlikeAsync(Program(
@@ -237,7 +237,7 @@ public sealed class CompiledSteppingTests
             "    For I = 1 To 2",
             "        Failing = Failing + I",
             "    Next",
-            "    Failing = Failing + CLng(UCase$(S))",
+            "    Failing = Failing + CLng(S) ^ 1",
             "End Function"), "Failing", recoveries: 0);
 
     [TestMethod]

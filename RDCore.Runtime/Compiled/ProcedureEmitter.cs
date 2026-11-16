@@ -77,8 +77,9 @@ internal sealed partial class ProcedureEmitter
     // instruction the interpreter runs alone.
     private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
 
-    // a Select Case's selector, and the same two flags: whether its Select ever ran, and whether the frame has what it last gave the selector.
-    private sealed record class SelectLocals(LocalBuilder Selector, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
+    // a Select Case's selector, and the same two flags: whether its Select ever ran, and whether the frame has what it last gave the selector. The selector
+    // of a String one is its text.
+    private sealed record class SelectLocals(LocalBuilder Selector, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind, bool IsText);
 
     private readonly List<SelectLocals> _selects = [];
 
@@ -229,7 +230,8 @@ internal sealed partial class ProcedureEmitter
 
         foreach (var select in _analysis.Selects)
         {
-            _selects.Add(new SelectLocals(_il.DeclareLocal(ClrTypeOf(select.Kind)), _il.DeclareLocal(typeof(bool)), _il.DeclareLocal(typeof(bool)), select.Kind));
+            _selects.Add(new SelectLocals(_il.DeclareLocal(select.IsText ? typeof(string) : ClrTypeOf(select.Kind)), _il.DeclareLocal(typeof(bool)),
+                _il.DeclareLocal(typeof(bool)), select.Kind, select.IsText));
         }
 
         for (var offset = 0; offset <= _analysis.Length; offset++)
@@ -507,6 +509,20 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // a String selector, evaluated once to its text in the local of the Select. Where compiled code cannot evaluate it, the interpreter runs the
+            // Select alone, and compiled code reads back the selector it stashed.
+            case TextSelectStep textSelect:
+            {
+                var locals = _selects[textSelect.Select];
+                _il.Emit(OpCodes.Ldloc, EmitTextInto(textSelect.Selector, RecoverAt(textSelect.Offset)));
+                _il.Emit(OpCodes.Stloc, locals.Selector);
+                _il.Emit(OpCodes.Ldc_I4_1);
+                _il.Emit(OpCodes.Stloc, locals.Opened);
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Stloc, locals.Spilled);
+                break;
+            }
+
             case CaseStep caseStep:
                 EmitCase(caseStep);
                 break;
@@ -548,6 +564,25 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // a String or Null written into the Variant's cell; over an object, an array or a record, or a text compiled code reads nothing of, the
+            // interpreter runs the Let alone, and compiled code goes on after it.
+            case VariantTextLetStep textLet:
+            {
+                var failure = RecoverAt(textLet.Offset);
+                var text = EmitTextInto(textLet.Value, failure);
+                _il.Emit(OpCodes.Ldloc, _variants[textLet.Slot]);
+                _il.Emit(OpCodes.Ldloc, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.WriteText))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+
+            case VariantNullLetStep nullLet:
+                _il.Emit(OpCodes.Ldloc, _variants[nullLet.Slot]);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.WriteNull))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(nullLet.Offset));
+                break;
+
             // the result of a function of the Variant type, assigned where its frame holds it: one the interpreter's assignment would let go of an object
             // to, the interpreter runs alone, and compiled code goes on after it.
             case VariantResultLetStep resultLet:
@@ -580,6 +615,10 @@ internal sealed partial class ProcedureEmitter
 
             case VariantFieldLetStep variantFieldLet:
                 EmitVariantFieldLet(variantFieldLet);
+                break;
+
+            case FieldTextLetStep fieldTextLet:
+                EmitFieldTextLet(fieldTextLet);
                 break;
 
             case TextAppendStep textAppend:
@@ -740,10 +779,14 @@ internal sealed partial class ProcedureEmitter
         var matched = _il.DefineLabel();
         foreach (var clause in caseStep.Clauses)
         {
-            EmitCompare(clause.Lower, failure);
+            EmitClause(clause.Lower, failure);
             if (clause.Upper is { } upper)
             {
-                EmitCompare(upper, failure);
+                // the comparison of the start is held in a local while the end's is made, which goes to failure with nothing on the stack.
+                var above = _il.DeclareLocal(typeof(bool));
+                _il.Emit(OpCodes.Stloc, above);
+                EmitClause(upper, failure);
+                _il.Emit(OpCodes.Ldloc, above);
                 _il.Emit(OpCodes.And);
             }
 
@@ -752,6 +795,18 @@ internal sealed partial class ProcedureEmitter
 
         _il.Emit(OpCodes.Br, _instructions[caseStep.Else]);
         _il.MarkLabel(matched);
+    }
+
+    // a comparison of a clause, its bool left on the stack: of a scalar selector, or of the text of a String one.
+    private void EmitClause(PayloadNode compared, Label failure)
+    {
+        if (compared is TextCompareNode text)
+        {
+            EmitTextCompare(text, failure);
+            return;
+        }
+
+        EmitCompare((CompareNode)compared, failure);
     }
 
     // the instruction at offset run by the interpreter alone (CompiledActivation.Recover). When it falls through to the next instruction, nothing changed
@@ -1506,8 +1561,8 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
             _il.Emit(OpCodes.Ldloca, select.Selector);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(select.Kind)
-                ? nameof(CompiledActivation.ReloadSelectorIntegral)
+            _il.Emit(OpCodes.Call, Activation.GetMethod(select.IsText ? nameof(CompiledActivation.ReloadTextSelector)
+                : ScalarKinds.IsIntegral(select.Kind) ? nameof(CompiledActivation.ReloadSelectorIntegral)
                 : nameof(CompiledActivation.ReloadSelectorFloating))!);
             _il.Emit(OpCodes.Dup);
             _il.Emit(OpCodes.Stloc, select.Opened);
@@ -1601,8 +1656,16 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brtrue, closed);
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
-            LoadAsBoth(select.Selector, select.Kind);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillSelector))!);
+            if (select.IsText)
+            {
+                _il.Emit(OpCodes.Ldloc, select.Selector);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillTextSelector))!);
+            }
+            else
+            {
+                LoadAsBoth(select.Selector, select.Kind);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillSelector))!);
+            }
             _il.Emit(OpCodes.Ldc_I4_1);
             _il.Emit(OpCodes.Stloc, select.Spilled);
             _il.MarkLabel(closed);
@@ -2097,12 +2160,17 @@ internal sealed partial class ProcedureEmitter
         VariantBinaryNode binary => MakesACall(binary.Left) || MakesACall(binary.Right),
         VariantUnaryNode unary => MakesACall(unary.Operand),
         LibraryVariantNode library => library.Arguments.Any(MakesACall),
+        VariantElementNode element => element.Subscripts.Any(MakesACall),
         _ => false,
     };
 
+    // an element read calls what its subscripts call, and a member of what a call returns makes that call.
     private static bool MakesACall(PayloadNode node) => node switch
     {
         CallNode => true,
+        ElementNode element => element.Subscripts.Any(MakesACall),
+        MemberFieldNode { ReceiverCall: not null } => true,
+        ObjectArgumentNode { Call: not null } => true,
         LibraryCallNode library => library.Syntax >= 0 || library.Arguments.Any(MakesACall),
         KnownNode known => MakesACall(known.Value),
         UnvariantNode unvariant => MakesACall(unvariant.Value),

@@ -548,6 +548,15 @@ public static class StatementStaticSemanticsEvaluator
                 {
                     explicitFacts.Record(explicitCallee with { Flags = explicitCallee.Flags | ValueExpressionSemanticFlags.ExplicitCallKeyword });
                 }
+
+                // MS-VBAL §5.4.2.1: a Function called as a statement returns a value that nothing uses. A Property Get is classified as a property, which
+                // no call statement can call. With the Call keyword, the arguments are part of the callee (`Call Work(1)`).
+                var called = callStatement.Callee is IndexExpressionNode withArguments ? withArguments.Callee : callStatement.Callee;
+                if (context.Facts is { } discardFacts && discardFacts.TryGet(callStatement.Callee.Identity, out var discarding)
+                    && ExpressionStaticSemanticsEvaluator.ProcedureNamedBy(context, called) is VBFunctionMemberSymbol)
+                {
+                    discardFacts.Record(discarding with { Flags = discarding.Flags | ValueExpressionSemanticFlags.ResultDiscarded });
+                }
             }
         }
 

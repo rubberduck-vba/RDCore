@@ -61,6 +61,7 @@ public enum RDCoreDiagnosticId
     LineContinuationBetweenKeywords = 213, // [RD2:LineContinuationBetweenKeywordsInspection] End _ / If: a line continuation between the words of a keyword
     ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
     SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
+    FunctionReturnValueDiscarded = 216, // [RD2:FunctionReturnValueDiscardedInspection] a Function of the project called as a statement: the value it returns is discarded
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
 
     ObsoleteCallingConvention = 301,
@@ -88,6 +89,7 @@ public enum RDCoreDiagnosticId
     UnderscoreInPublicClassMember = 408, // a public member of a class named with an underscore: no class can implement the class
     EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public variable of a class module, which any code can assign
     SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
+    ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,
@@ -108,6 +110,7 @@ public enum RDCoreDiagnosticId
     ConstantNotUsed = 1015, // a constant of a procedure nothing refers to
     LineLabelNotUsed = 1016, // a line label nothing jumps to
     WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
+    KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,
@@ -147,6 +150,9 @@ public enum RDCoreDiagnosticId
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
     IIfSideEffect = 11039, // [RD2:IIfSideEffectInspection] IIf(c, Compute(1), 2): a Function or Property Get in the TruePart or FalsePart runs whatever the condition
+    StrOfAFraction = 11040, // Str(0.5): MS-VBA writes " .5", with no zero before the point; MS-VBAL writes the let-coercion's " 0.5"
+    StrOfAnErrorValue = 11041, // Str(CVErr(5)): MS-VBA raises 13; MS-VBAL writes "Error 5"
+    WriteOfAFraction = 11042, // Write #1, 0.5: MS-VBA writes .5, with no zero before the point; MS-VBAL writes the let-coercion's 0.5
     ObjectLetToVariantProperty = 11043, // c.Item = o, Property Let Item(v As Variant): MS-VBA passes the object; MS-VBAL §5.4.3.8 passes its default member's value
     LSetOfARecordWithAString = 11044, // LSet a = b, a or b a record with a variable-length String: MS-VBAL allows it; MS-VBA: Compile error: Type mismatch
     LetToADefaultMemberWithNoPropertyLet = 11045, // os = 5, os's default member a Property Get or a Function with no Property Let: MS-VBAL compiles it, MS-VBA refuses it

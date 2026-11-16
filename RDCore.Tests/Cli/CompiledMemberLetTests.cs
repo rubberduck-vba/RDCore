@@ -84,8 +84,8 @@ public sealed class CompiledMemberLetTests
             "    Filled = Filled * 1000 + P.Sum",
             "End Function"), "55030", ("Filled", 0, 0));
 
-    // a Property Let called with the value let-coerced to the type of its parameter: a Double rounded to even, which compiled code does not round and the
-    // interpreter's assignment does, and a Boolean as -1, which compiled code's call converts. The Set is a support call.
+    // a Property Let called with the value let-coerced to the type of its parameter: a Double rounded to even, and a Boolean as -1, each converted by
+    // compiled code's call. The Set is a support call.
     [TestMethod]
     public async Task APropertyLet_IsCalledWithTheValueLetCoercedToItsParameter()
         => await AssertRunAsync(Program(

@@ -182,8 +182,8 @@ public sealed class CompiledStringArgumentTests
             "End Sub"), "Caught", recoveries: 2);
 
     // a Variant holding a String, and a Boolean, given to a String parameter by value: each is let-coerced to a String, which the interpreter does, making
-    // the call. V = "ab", a String assigned to a Variant, and the two calls are the interpreter's: 3. A whole number is given its digits by compiled code
-    // (CompiledStringResultTests).
+    // the call. The two calls are the interpreter's: 2; V = "ab", a String assigned to a Variant, is compiled code's (CompiledVariantTextLetTests). A whole
+    // number is given its digits by compiled code (CompiledStringResultTests).
     [TestMethod]
     public async Task AVariantAndABooleanGivenToAString_AreTheInterpretersToCoerce()
     {
@@ -205,7 +205,7 @@ public sealed class CompiledStringArgumentTests
             "Private Function Size(ByVal S As String) As Long",
             "    If S = \"ab\" Then Size = 2 Else If S = \"True\" Then Size = 4",
             "End Function");
-        var result = await AssertAlikeAsync(program, "Given", recoveries: 3);
+        var result = await AssertAlikeAsync(program, "Given", recoveries: 2);
 
         AssertCallsAreStepped(program, result, "= Size(");
     }

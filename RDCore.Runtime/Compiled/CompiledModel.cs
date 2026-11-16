@@ -178,7 +178,7 @@ internal sealed record class ResultNode(ScalarKind Kind) : PayloadNode(Kind);
 // a literal, or a constant folded.
 internal sealed record class ConstantNode(ScalarKind Kind, long Integral, double Floating) : PayloadNode(Kind);
 
-// PayloadOperations.Convert: an exact conversion.
+// PayloadOperations.Convert: an exact conversion, or a floating-point number's to an integer type, by Banker's rounding.
 internal sealed record class ConvertNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
 
 // PayloadOperations.Add, Subtract, Multiply, IntegerDivide, Modulo, of an integral kind.
@@ -231,6 +231,10 @@ internal sealed record class VariantValueNode(int Slot) : VariantNode;
 // an expression of Strings given by value to a Variant parameter of a function of the standard library: a Variant holding the String, as the interpreter
 // gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
 internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
+
+// an expression of Strings given by value to a String parameter of a function of the standard library: its text, as the interpreter gives it
+// (CompiledActivation.StringArgument). Only a library call's argument is one.
+internal sealed record class StringArgumentNode(TextNode Text) : VariantNode;
 
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
@@ -338,6 +342,13 @@ internal abstract record class CompiledStep(int Offset);
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
 
+// a Let of a String to a Variant variable of the activation: the text written into its cell, which then holds a String, when the cell holds no object,
+// array or record.
+internal sealed record class VariantTextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
+
+// a Let of Null to a Variant variable of the activation: its cell then holds Null, when it holds no object, array or record.
+internal sealed record class VariantNullLetStep(int Offset, int Slot) : CompiledStep(Offset);
+
 // a Let of the function result variable of a function of the Variant type: the payload assigned where its frame holds it, as the interpreter assigns it
 // (CompiledActivation.TryAssignResultVariant) - unless what it held was an object only it held, which the interpreter's assignment destroys.
 internal sealed record class VariantResultLetStep(int Offset, VariantNode Value) : CompiledStep(Offset);
@@ -400,15 +411,22 @@ internal sealed record class SteppedStep(int Offset) : CompiledStep(Offset);
 // a Select Case of a scalar selector (MS-VBAL §5.4.2.10): the selector evaluated once, into the local of the Select (Select, of CompiledBody.Selects).
 internal sealed record class SelectStep(int Offset, int Select, PayloadNode Selector) : CompiledStep(Offset);
 
-// a Case header of a Select Case of a scalar selector: its clauses compared in order, the first that matches falling through into its block; none, going to
-// Else - the next Case, the Case Else, or past the Select.
+// a Select Case of a String selector of variable length (MS-VBAL §5.4.2.10): the text evaluated once, into the local of the Select.
+internal sealed record class TextSelectStep(int Offset, int Select, TextNode Selector) : CompiledStep(Offset);
+
+// a Case header of a Select Case compiled code compares: its clauses compared in order, the first that matches falling through into its block; none, going
+// to Else: the next Case, the Case Else, or past the Select.
 internal sealed record class CaseStep(int Offset, IReadOnlyList<CaseClause> Clauses, int Else) : CompiledStep(Offset);
 
-// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made.
-internal sealed record class CaseClause(CompareNode Lower, CompareNode? Upper = null);
+// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made. Each is a CompareNode of a scalar
+// selector, or a TextCompareNode of a String one.
+internal sealed record class CaseClause(PayloadNode Lower, PayloadNode? Upper = null);
 
 // the selector of a Select Case of a scalar selector, as its SelectStep evaluated it.
 internal sealed record class SelectorNode(int Select, ScalarKind Kind) : PayloadNode(Kind);
+
+// the selector of a Select Case of a String selector, as its TextSelectStep evaluated it.
+internal sealed record class TextSelectorNode(int Select) : TextNode;
 
 // the argument of a parameter passed by reference that is a variable of the activation of the parameter's kind (MS-VBAL §5.3.1.11): the cell it is held
 // in, which the parameter is a second name for. Only an argument of a call.

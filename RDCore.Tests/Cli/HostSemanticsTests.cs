@@ -63,6 +63,29 @@ public sealed class HostSemanticsTests
     }
 
     [TestMethod]
+    public async Task ADeclarationThatAnExcludedBranchNames_HasNoCount_ItCanBeUsedInAnotherConfiguration()
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync([], Program(
+            "Option Explicit",
+            "#Const FEATURE = 0",
+            "Private mOnlyThere As Long",
+            "Private mHere As Long",
+            "Private mUnused As Long",
+            "Public Sub Main()",
+            "#If FEATURE Then",
+            "    Debug.Print mOnlyThere",
+            "#Else",
+            "    Debug.Print mHere",
+            "#End If",
+            "End Sub"));
+
+        var declarations = payload.Modules.Single().Declarations.ToDictionary(declaration => declaration.Name, declaration => declaration.References);
+        Assert.IsNull(declarations["mOnlyThere"], "a variable that only the excluded branch reads");
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), declarations["mHere"], "the live branch's read is counted");
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), declarations["mUnused"], "a name no branch writes is counted in a module with an excluded branch");
+    }
+
+    [TestMethod]
     [DataRow("vba", "Option Explicit", true)]
     [DataRow("vba", "", false)]
     [DataRow("vb6", "", false)]

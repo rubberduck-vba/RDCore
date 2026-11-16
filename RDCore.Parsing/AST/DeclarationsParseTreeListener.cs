@@ -2373,7 +2373,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             // never did, so the same literal disagreed between the two passes depending on the host's
             // culture (e.g. "#1-Jan-2020#" fails to parse entirely under a non-English locale whose
             // month abbreviations differ, instead of the invariant English ones MS-VBAL mandates).
-            if (DateTime.TryParse(dateLiteral.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.None, out var rawValue))
+            // MS-VBAL §3.3.3: a literal with no date is a time of 1899/12/30, which is what ToOADate makes of a time on no date (NoCurrentDateDefault).
+            if (DateTime.TryParse(dateLiteral.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var rawValue))
             {
                 OnExpression(new LiteralExpressionNode(
                     GetCurrentNodeId(),
