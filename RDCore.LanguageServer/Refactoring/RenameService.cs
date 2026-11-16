@@ -138,7 +138,40 @@ internal sealed class RenameService(
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }
 
-        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen };
+        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf };
+    }
+
+    // the edit of the project file of the workspace's project of a name, where its text writes the name; none when the file cannot be read, or writes no name.
+    private TextDocumentEdit? ProjectFileEditOf(string project, string newName)
+    {
+        if (workspaceProjects.Projects.FirstOrDefault(candidate => string.Equals(candidate.Project.ProjectInfo.Name, project, StringComparison.OrdinalIgnoreCase)) is not { } owner)
+        {
+            return null;
+        }
+
+        var path = Path.Combine(owner.Root, ProjectFile.FileName);
+        string text;
+        try
+        {
+            text = File.ReadAllText(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "📁 The project file {Path} could not be read: the project is renamed in its code only.", path);
+            return null;
+        }
+
+        return ProjectFile.NameRangeIn(text) is { } range
+            ? new TextDocumentEdit
+            {
+                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.FromFileSystemPath(path) },
+                Edits = new TextEditContainer(new TextEdit
+                {
+                    Range = new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character),
+                    NewText = newName,
+                }),
+            }
+            : null;
     }
 
     private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
@@ -216,6 +249,9 @@ internal sealed class RenameWorkspace
 
     // whether the client has the document open, and so knows its version: an edit of a document it has not opened names no version.
     internal Func<TextDocumentIdentifier, bool> IsOpen { get; init; } = static _ => true;
+
+    // the edit of the project file of the workspace's project of a name (the project, its new name), where the file writes the name; none by default.
+    internal Func<string, string, TextDocumentEdit?> ProjectFileEdit { get; init; } = static (_, _) => null;
 
     // the project a module of a document is in, which its names resolve in.
     private ProjectPart PartOf(DocumentModule module) => _parts.First(part => part.Modules.Any(candidate => ReferenceEquals(candidate, module)));
@@ -343,7 +379,7 @@ internal sealed class RenameWorkspace
         }
 
         // a project is renamed in its project file too, where the file writes its name (ProjectFile.NameRangeIn).
-        if (plan.Project is { } project && ProjectFileEditOf(project, newName) is { } projectFile)
+        if (plan.Project is { } project && ProjectFileEdit(project, newName) is { } projectFile)
         {
             changes = changes.Append(new WorkspaceEditDocumentChange(projectFile));
         }
@@ -376,39 +412,6 @@ internal sealed class RenameWorkspace
             NewUri = Sibling(module.Document.Id.Uri, newName + Path.GetExtension(path)),
             Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
         };
-    }
-
-    // the edit of the project file of the workspace's project of a name, where its text writes the name; none when the file cannot be read, or writes no name.
-    private TextDocumentEdit? ProjectFileEditOf(string project, string newName)
-    {
-        if (workspaceProjects.Projects.FirstOrDefault(candidate => string.Equals(candidate.Project.ProjectInfo.Name, project, StringComparison.OrdinalIgnoreCase)) is not { } owner)
-        {
-            return null;
-        }
-
-        var path = Path.Combine(owner.Root, ProjectFile.FileName);
-        string text;
-        try
-        {
-            text = File.ReadAllText(path);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            logger.LogWarning(exception, "📁 The project file {Path} could not be read: the project is renamed in its code only.", path);
-            return null;
-        }
-
-        return ProjectFile.NameRangeIn(text) is { } range
-            ? new TextDocumentEdit
-            {
-                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.FromFileSystemPath(path) },
-                Edits = new TextEditContainer(new TextEdit
-                {
-                    Range = new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character),
-                    NewText = newName,
-                }),
-            }
-            : null;
     }
 
     // the binary file of a designer's file, by the extension of each (a form's .frx, a user control's .ctx), when the designer's text names it as the file of
