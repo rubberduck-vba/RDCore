@@ -2,6 +2,7 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using System.Runtime.CompilerServices;
 
@@ -66,6 +67,41 @@ public static class VariantOperations
     }
 
     /// <summary>
+    /// <c>IsEmpty</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.4): whether it holds <c>Empty</c>. A Variant that holds a value of
+    /// a scalar type, a <c>String</c>, <c>Null</c> or an error does not.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="empty">Whether the Variant holds <c>Empty</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
+    /// <c>IsEmpty</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool IsEmpty(object? cell, out bool empty)
+    {
+        empty = false;
+        if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant)
+        {
+            return false;
+        }
+
+        if (variant.TryRead(out _))
+        {
+            return true;
+        }
+
+        switch (variant.Value)
+        {
+            case VBRuntimeVariantValue { WrappedValue: VBEmptyValue }:
+                empty = true;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: VBStringValue or VBNullValue or VBErrorValue }:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
     /// What the Variant held in <paramref name="cell"/> holds, given by value to a <c>Variant</c> parameter of a function of the standard library as the
     /// interpreter gives it (MS-VBAL §5.3.1.11): a value of a scalar type, <c>Empty</c>, <c>Null</c>, a <c>String</c>, an error (<c>Missing</c> among
     /// them) or an object. It is what the Variant holds when it is read: an assignment to the Variant after it gives the Variant another value and leaves
@@ -98,6 +134,38 @@ public static class VariantOperations
     /// <returns>Whether the payload was assigned: when not, the interpreter runs the assignment.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Write(object? cell, VariantPayload value) => WritePayload(cell, value.Value);
+
+    /// <summary>
+    /// Let-assigns the <c>String</c> <paramref name="text"/> to the Variant held in <paramref name="cell"/>, which then holds a copy of it
+    /// (<strong>MS-VBAL §5.5.1.2.12</strong>), as the interpreter's assignment makes it: not over an object, an array or a record, which the assignment lets
+    /// go of; nor into a Variant its frame holds in no Variant's cell (<see cref="Read"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="text">The text assigned; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>Whether the text was assigned: when not, the interpreter runs the assignment.</returns>
+    public static bool WriteText(object? cell, string? text)
+        => Store(cell, new VBRuntimeVariantValue(VBStringType.TypeInfo.VarType(), new VBStringValue(text!)));
+
+    /// <summary>
+    /// Let-assigns <c>Null</c> to the Variant held in <paramref name="cell"/>, which then holds it (<strong>MS-VBAL §5.5.1.2.12</strong>), as the
+    /// interpreter's assignment makes it: not over an object, an array or a record; nor into a Variant its frame holds in no Variant's cell.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <returns>Whether <c>Null</c> was assigned: when not, the interpreter runs the assignment.</returns>
+    public static bool WriteNull(object? cell) => Store(cell, new VBRuntimeVariantValue(VBNullType.TypeInfo.VarType(), new VBNullValue()));
+
+    // a String or Null, stored in the Variant's cell when it holds no object, array or record (VariantCell.HoldsNoObject), as the interpreter's
+    // assignment stores it.
+    private static bool Store(object? cell, VBRuntimeVariantValue value)
+    {
+        if (cell is null || !Unsafe.As<VariantCell>(cell).HoldsNoObject)
+        {
+            return false;
+        }
+
+        Unsafe.As<VariantCell>(cell).Store(value, isKnown: true);
+        return true;
+    }
 
     /// <summary>
     /// A binary operation of <paramref name="left"/> and <paramref name="right"/>, planned for their subtypes (MS-VBAL §5.6.9).

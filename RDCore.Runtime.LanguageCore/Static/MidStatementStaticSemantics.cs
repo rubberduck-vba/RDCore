@@ -6,7 +6,7 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-// MS-VBAL §5.4.3.5, §5.5.1.1
+// MS-VBAL §5.4.3.5, §5.5.1.1, §5.6.16.6
 public static class MidStatementStaticSemantics
 {
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(StaticEvaluationContext context, MidStatementNode mid)
@@ -14,7 +14,7 @@ public static class MidStatementStaticSemantics
         var checks = new StatementOperandChecks(context);
 
         var targetType = checks.TypeOf(mid.Target);
-        checks.RequireVariable(mid.Target, "The target of a Mid statement", "5.4.3.5");
+        checks.RequireBoundVariable(mid.Target, "The target of a Mid statement", "5.6.16.6");
         checks.RequireStringOrVariant(mid.Target, targetType, "The target of a Mid statement");
 
         checks.RequireLetCoercible(mid.Start, checks.TypeOf(mid.Start), VBLongType.TypeInfo);

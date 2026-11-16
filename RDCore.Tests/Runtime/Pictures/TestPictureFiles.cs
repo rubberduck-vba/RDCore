@@ -82,6 +82,24 @@ internal static class TestPictureFiles
         return bytes;
     }
 
+    // an icon (type 1) or a cursor (type 2) of one image that is stored as a PNG of the given side, as an icon of Windows Vista stores its largest image; a side
+    // of 256 is 0 in the directory.
+    public static byte[] PngIcon(short type, int side)
+    {
+        var image = Png(side, side);
+        var bytes = new byte[22 + image.Length];
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(2), type);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(4), 1);
+        var entry = bytes.AsSpan(6);
+        entry[0] = entry[1] = (byte)(side == 256 ? 0 : side);
+        BinaryPrimitives.WriteInt16LittleEndian(entry[4..], 1);
+        BinaryPrimitives.WriteInt16LittleEndian(entry[6..], 32);
+        BinaryPrimitives.WriteInt32LittleEndian(entry[8..], image.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(entry[12..], 22);
+        image.CopyTo(bytes, 22);
+        return bytes;
+    }
+
     private static byte[] IconImage(int side)
     {
         var mask = (side + 31) / 32 * 4;

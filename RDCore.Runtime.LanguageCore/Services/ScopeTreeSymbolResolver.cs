@@ -44,16 +44,28 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     // each resolution is the tree's: a variable read a million times is resolved once.
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
         => _valueResolutions.GetOrAdd(new ValueResolutionKey(name, scope, handle.AbsoluteUri),
-            static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle), (Resolver: this, Name: name, Handle: handle));
+            static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle, null), (Resolver: this, Name: name, Handle: handle));
 
-    private SymbolResolutionResult ResolveValueOnce(string name, Uri handle)
+    // MS-VBAL §5.6.10: what the name of a declaration means from where it is looked up, had that declaration not been made (the other accessors of a property
+    // are the same declaration). It is not kept: it is asked once for each declaration, of a tree that holds the declaration.
+    public SymbolResolutionResult ResolveValueWithout(Symbol declared, Uri handle)
+        => ResolveValueOnce(declared.Name, handle, candidate => candidate.SemanticId == declared.SemanticId || IsAccessorOfTheSameProperty(candidate, declared));
+
+    private static bool IsAccessorOfTheSameProperty(Symbol candidate, Symbol declared)
+        => candidate is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol
+            && declared is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol
+            && string.Equals(candidate.Name, declared.Name, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(candidate.ParentUri.AbsoluteUri, declared.ParentUri.AbsoluteUri, StringComparison.Ordinal);
+
+    private SymbolResolutionResult ResolveValueOnce(string name, Uri handle, Func<Symbol, bool>? isLeftOut)
     {
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
+        IEnumerable<Symbol> DeclaredAs(LexicalScope lexicalScope) => isLeftOut is null ? lexicalScope.DeclaredAs(name) : lexicalScope.DeclaredAs(name).Where(symbol => !isLeftOut(symbol));
 
         // the procedure and the enclosing module: the tree's own order, innermost first.
         foreach (var lexicalScope in origin.TakeWhile(lexicalScope => lexicalScope.Kind is not (LexicalScopeKind.Project or LexicalScopeKind.Global)))
         {
-            if (SelectTier(lexicalScope, ValuesOverEnums(lexicalScope.DeclaredAs(name).Where(IsValueDeclaration))) is { } result)
+            if (SelectTier(lexicalScope, ValuesOverEnums(DeclaredAs(lexicalScope).Where(IsValueDeclaration))) is { } result)
             {
                 return result;
             }
@@ -84,7 +96,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         foreach (var (tier, isCandidate) in tiers)
         {
-            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(tier.DeclaredAs(name).Where(isCandidate))) is { } result)
+            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(DeclaredAs(tier).Where(isCandidate))) is { } result)
             {
                 return result;
             }

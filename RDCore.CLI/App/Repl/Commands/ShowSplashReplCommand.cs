@@ -9,7 +9,7 @@ internal sealed class ShowSplashReplCommand(ReplSplash splash) : IReplCommand
 
     public IReadOnlyList<string> Aliases => [];
 
-    public string Summary => "Shows the splash screen.";
+    public string Summary => Resources.Repl_Splash_Summary;
 
     public Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {

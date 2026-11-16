@@ -19,7 +19,7 @@ namespace RDCore.Runtime.Compiled;
 // (Arrays), and an element of it is found in the array that cell holds, each time it is read or written, as the interpreter's evaluation on payloads finds
 // it (RuntimeExpressionEvaluator.ElementCellOf): a subscript let-coerced to a Long, an element of a scalar kind read and written in the cell the array holds
 // it in. What isn't found - a subscript outside its dimension - is the interpreter's, which raises error 9. LBound and UBound read the array's bounds; a
-// ReDim and an Erase of an array of a scalar kind are the interpreter's statements, run as support calls.
+// ReDim and an Erase of an array variable, and the Let of one to a Variant, are the runtime's statements, run as support calls.
 internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
@@ -161,6 +161,16 @@ internal sealed partial class ProcedureAnalysis
 
     private bool IsVariantElement(BoundNode node) => ElementOf(node) is { } index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };
 
+    private const string IsEmptyFunction = "IStdInformationModule.IsEmpty/1";
+
+    // whether node is a Variant compiled code reads in its cell: a Variant of the activation, or an element of an array of Variants.
+    private bool IsVariantInItsCell(BoundNode node)
+        => node is BoundVariable variable && VariantSlotOf(variable) is not null || node is BoundIndex or BoundMember && IsVariantElement(node);
+
+    // that Variant, as IsVariantInItsCell finds it.
+    private VariantNode? VariantInItsCell(BoundNode node)
+        => node is BoundVariable variable && VariantSlotOf(variable) is { } slot ? new VariantSlotNode(slot) : VariantElement(ElementOf(node)!);
+
     // an element of an array of Variants, read in the Variant's cell the array holds it in: Dynamic's BoundIndex.
     private VariantNode? VariantElement(BoundIndex index)
         => Subscripts(index) is { } subscripts ? new VariantElementNode(ArrayOf(index.Callee)!.Slot, subscripts) : null;
@@ -258,30 +268,32 @@ internal sealed partial class ProcedureAnalysis
     private PayloadNode? ElementTypeOf(BoundTypeOf typeOf, BoundIndex index)
         => Subscripts(index) is { } subscripts ? new ElementTypeOfNode(new ObjectElementNode(ArrayOf(index.Callee)!.Slot, subscripts), ClassNumberOf(typeOf.Class)) : null;
 
-    // a ReDim of an array of a scalar kind of the activation whose bounds are payloads - which call nothing, so that nothing the statement does but the array
-    // is compiled code's to read back - or an Erase of such arrays (MS-VBAL §5.4.3.3-4): the interpreter's statement, run as a support call. An array of
-    // Variants or objects is the interpreter's to step: what it lets go of may terminate an object.
+    // a ReDim, with Preserve or without, of an array variable of the activation whose bounds are payloads - which call nothing, so that nothing the statement
+    // does but the array is compiled code's to read back - or an Erase of such arrays (MS-VBAL §5.4.3.3-4): the runtime's statement, run as a support call.
+    // What an array of Variants, of objects or of records lets go of may terminate an object (ArrayStatementStep.Releases).
     private CompiledStep? ArrayStatementOf(Instruction instruction)
     {
         switch (instruction.Node)
         {
             case RedimDeclarationNode { Target: SimpleNameExpressionNode, Bounds: var bounds } redim
-                when ArrayOf(Bind(redim.Target)) is { Class: ElementClass.Scalar } array && ArePayloads(bounds):
-                return new ArrayStatementStep(instruction.Offset, [array.Slot]);
+                when ArrayOf(Bind(redim.Target)) is { Slot: >= 0 } array && ArePayloads(bounds):
+                return new ArrayStatementStep(instruction.Offset, [array.Slot], Releases: array.Class is not ElementClass.Scalar);
 
             case KeywordStatementNode { Token: Tokens.Erase } erase:
                 var erased = new List<int>();
+                var releases = false;
                 foreach (var input in erase.Inputs.OfType<ExpressionNode>())
                 {
-                    if (input is not SimpleNameExpressionNode || ArrayOf(Bind(input)) is not { Class: ElementClass.Scalar } named)
+                    if (input is not SimpleNameExpressionNode || ArrayOf(Bind(input)) is not { Slot: >= 0 } named)
                     {
                         return null;
                     }
 
                     erased.Add(named.Slot);
+                    releases |= named.Class is not ElementClass.Scalar;
                 }
 
-                return erased.Count > 0 ? new ArrayStatementStep(instruction.Offset, erased) : null;
+                return erased.Count > 0 ? new ArrayStatementStep(instruction.Offset, erased, releases) : null;
 
             default:
                 return null;

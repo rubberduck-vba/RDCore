@@ -67,8 +67,12 @@ internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
         _ => NamesMSVBARefusesButAsATypeMember.Contains(name),
     };
 
+    // whether a name written without brackets, of an Enum member or of a member of a user-defined type, is reported here.
+    internal static bool ReportsMember(string name, bool enumMember)
+        => enumMember ? EnumMemberNamesTheSpecificationReserves.Contains(name) || IsRefusedByMSVBA(name, Kind.EnumMember) : IsRefusedByMSVBA(name, Kind.TypeMember);
+
     // the brackets are no part of the name the tree keeps, and are written around it; a type-declaration character (Long&) is one character more.
-    private static bool IsBracketed(string name, SourceRange written)
+    internal static bool IsBracketed(string name, SourceRange written)
         => written.Start.Line == written.End.Line && written.End.Character - written.Start.Character >= name.Length + 2;
 
     private static AnalyzerFinding Finding(RDCoreDiagnosticId id, SourceRange range, string message, string name)

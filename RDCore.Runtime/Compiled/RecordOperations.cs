@@ -20,8 +20,8 @@ namespace RDCore.Runtime.Compiled;
 /// into it (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>), and a Let of one of its fields writes the field's cell.
 /// </para>
 /// <para>
-/// What it does not read or write (a holder that holds no record, a field that holds no payload of its type, a <c>Variant</c> field over an object) is the
-/// interpreter's: each operation returns <see langword="false"/>, and the interpreter runs the statement.
+/// What it does not read or write (a holder that holds no record, a field that holds no payload of its type or no known text, a <c>Variant</c> field
+/// over an object) is the interpreter's: each operation returns <see langword="false"/>, and the interpreter runs the statement.
 /// </para>
 /// </remarks>
 public static class RecordOperations
@@ -111,6 +111,44 @@ public static class RecordOperations
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? ObjectField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index)?.Handle;
+
+    /// <summary>
+    /// The text the <c>String</c> field of variable length at <paramref name="index"/> of <paramref name="record"/> holds, as the interpreter reads it
+    /// (<c>RuntimeExpressionEvaluator.EvaluateInstanceField</c>).
+    /// </summary>
+    /// <param name="record">The record, as its cell holds it.</param>
+    /// <param name="index">The field's place among the record's fields.</param>
+    /// <param name="text">The text read; <see langword="null"/> for <c>vbNullString</c>, which reads as the zero-length string.</param>
+    /// <returns>
+    /// <see langword="false"/> when there is no such record, or the field holds no known text: the interpreter runs the statement.
+    /// </returns>
+    public static bool ReadText(object? record, int index, out string? text)
+    {
+        if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> held } field
+            && field is not VBFixedStringValue)
+        {
+            text = held.StoredValue;
+            return true;
+        }
+
+        text = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Let-assigns <paramref name="text"/> to the <c>String</c> field of variable length at <paramref name="index"/> of <paramref name="record"/>
+    /// (MS-VBAL §5.4.3.8): the field holds the String it is assigned, as it is, written in the field's cell, which a <c>ByRef</c> parameter given the field
+    /// is bound to, as <c>AssignField</c> writes it (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>).
+    /// </summary>
+    /// <param name="record">The record, as its cell holds it.</param>
+    /// <param name="index">The field's place among the record's fields.</param>
+    /// <param name="text">The text assigned; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when there is no such record, or the field holds no String of variable length: the interpreter runs the statement.
+    /// </returns>
+    public static bool WriteText(object? record, int index, string? text)
+        => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is VBStringValue and not VBFixedStringValue
+            && held.TryLetFieldAt(index, new VBStringValue(new ValueBindingHandle(new VBRuntimeValue<string>(text!))));
 
     /// <summary>
     /// The array the array field at <paramref name="index"/> of <paramref name="record"/> is: the record stores the array itself, in no cell of its own,

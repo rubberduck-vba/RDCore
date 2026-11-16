@@ -389,14 +389,11 @@ public sealed class BenchCommandTests
         StringAssert.Contains(interpreted, ": I (line ");
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal)), "compiled");
 
-        // a member of an object is called by compiled code, and the Set that gives the variable an object made with New is a support call the interpreter
-        // runs: nothing of the procedure is stepped, and the report says the Set is a support call, and where.
+        // a member of an object is called by compiled code, and so is the Set that gives the variable an object made with New: the interpreter runs nothing
+        // of the procedure, and the report says nothing is run by it.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "compiled");
-        Assert.IsFalse(objectCall.Contains("run by the interpreter: ", StringComparison.Ordinal), objectCall);
-        var made = Array.IndexOf(Cases.Split("\r\n"), "    Set T = New Tally") + 1;
-        StringAssert.Contains(objectCall, "run by the interpreter as a support call: ");
-        StringAssert.Contains(objectCall, $"(line {made})");
+        Assert.IsFalse(objectCall.Contains("run by the interpreter", StringComparison.Ordinal), objectCall);
 
         // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
@@ -418,8 +415,8 @@ public sealed class BenchCommandTests
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
     }
 
-    // a Set of an object made with New, and a call of a member of an Object, bound late, are statements the interpreter runs for compiled code: the
-    // report says so of each, and where, and steps nothing.
+    // a call of a member of an Object, bound late, is a statement the interpreter runs for compiled code: the report says so of each, and where, and steps
+    // nothing. The Set of an object made with New is compiled code's, and the report says nothing of it.
     [TestMethod]
     public async Task TheCompilationReport_SaysWhichStatementsAreSupportCalls_AndWhere()
     {
@@ -432,6 +429,7 @@ public sealed class BenchCommandTests
             "        Set G = New Gadget",
             "        Set O = G",
             "        O.Grow I",
+            "        O.Grow",
             "    Next",
             "End Sub",
         ];
@@ -450,10 +448,12 @@ public sealed class BenchCommandTests
         Assert.IsFalse(calls.Contains("run by the interpreter: ", StringComparison.Ordinal), calls);
         StringAssert.Contains(calls, "run by the interpreter as a support call: ");
         var source = Module("Calling", calling).Split("\r\n");
-        foreach (var statement in new[] { "        Set G = New Gadget", "        O.Grow I" })
+        foreach (var statement in new[] { "        O.Grow I", "        O.Grow" })
         {
             StringAssert.Contains(calls, $"(line {Array.IndexOf(source, statement) + 1})", statement);
         }
+
+        Assert.IsFalse(calls.Contains($"(line {Array.IndexOf(source, "        Set G = New Gadget") + 1})", StringComparison.Ordinal), calls);
     }
 
     // an Enum, a Type, a Const and a field are members of a module that are no procedure: the report says nothing of them - of an Enum a Property Get is

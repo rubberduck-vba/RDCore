@@ -178,7 +178,7 @@ internal sealed record class ResultNode(ScalarKind Kind) : PayloadNode(Kind);
 // a literal, or a constant folded.
 internal sealed record class ConstantNode(ScalarKind Kind, long Integral, double Floating) : PayloadNode(Kind);
 
-// PayloadOperations.Convert: an exact conversion.
+// PayloadOperations.Convert: an exact conversion, or a floating-point number's to an integer type, by Banker's rounding.
 internal sealed record class ConvertNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
 
 // PayloadOperations.Add, Subtract, Multiply, IntegerDivide, Modulo, of an integral kind.
@@ -232,6 +232,10 @@ internal sealed record class VariantValueNode(int Slot) : VariantNode;
 // gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
 internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
 
+// an expression of Strings given by value to a String parameter of a function of the standard library: its text, as the interpreter gives it
+// (CompiledActivation.StringArgument). Only a library call's argument is one.
+internal sealed record class StringArgumentNode(TextNode Text) : VariantNode;
+
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
 
@@ -250,6 +254,11 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
+
+// IsEmpty of a Variant read in its cell, a Variant of the activation (VariantSlotNode) or an element of an array of Variants (VariantElementNode): whether
+// it holds Empty (MS-VBAL §6.1.2.7.1.4), as the cell says (VariantOperations.IsEmpty). Of a Variant the cell says nothing of (an object, an array), it
+// is what the call of the standard library's function returns (Library), or the interpreter's when there is no such call.
+internal sealed record class VariantIsEmptyNode(VariantNode Variant, LibraryCallNode? Library) : PayloadNode(ScalarKind.Boolean);
 
 // left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing). An
 // operand that is the default instance of a class (LeftMade, RightMade) is compared only once it holds an object (ObjectOperations.HoldsAnObject).
@@ -316,6 +325,11 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
+// the argument of an optional Variant parameter the call leaves out (CompiledCallee.Parameters, null): what the interpreter gives it
+// (RuntimeExpressionEvaluator.OmittedArgument), the default the parameter declares or Missing, of the parameter of the procedure the call invokes, given as
+// the call is made (CompiledActivation.SetOmitted). Only an argument of a call; its Kind is not read.
+internal sealed record class OmittedArgumentNode() : PayloadNode(default(ScalarKind));
+
 // an object parameter of a procedure a compiled body calls: the argument's expression, where an error Set-coercing what it gives is raised, and the
 // parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to. An optional parameter the call leaves out has no
 // argument: it is given the default value of its type, Nothing, as the interpreter gives it (RuntimeExpressionEvaluator.OmittedArgument).
@@ -327,6 +341,13 @@ internal abstract record class CompiledStep(int Offset);
 // a Let of a Variant variable of the activation: the payload written into its cell, of its own subtype - when the cell holds no object,
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
+
+// a Let of a String to a Variant variable of the activation: the text written into its cell, which then holds a String, when the cell holds no object,
+// array or record.
+internal sealed record class VariantTextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
+
+// a Let of Null to a Variant variable of the activation: its cell then holds Null, when it holds no object, array or record.
+internal sealed record class VariantNullLetStep(int Offset, int Slot) : CompiledStep(Offset);
 
 // a Let of the function result variable of a function of the Variant type: the payload assigned where its frame holds it, as the interpreter assigns it
 // (CompiledActivation.TryAssignResultVariant) - unless what it held was an object only it held, which the interpreter's assignment destroys.
@@ -390,15 +411,22 @@ internal sealed record class SteppedStep(int Offset) : CompiledStep(Offset);
 // a Select Case of a scalar selector (MS-VBAL §5.4.2.10): the selector evaluated once, into the local of the Select (Select, of CompiledBody.Selects).
 internal sealed record class SelectStep(int Offset, int Select, PayloadNode Selector) : CompiledStep(Offset);
 
-// a Case header of a Select Case of a scalar selector: its clauses compared in order, the first that matches falling through into its block; none, going to
-// Else - the next Case, the Case Else, or past the Select.
+// a Select Case of a String selector of variable length (MS-VBAL §5.4.2.10): the text evaluated once, into the local of the Select.
+internal sealed record class TextSelectStep(int Offset, int Select, TextNode Selector) : CompiledStep(Offset);
+
+// a Case header of a Select Case compiled code compares: its clauses compared in order, the first that matches falling through into its block; none, going
+// to Else: the next Case, the Case Else, or past the Select.
 internal sealed record class CaseStep(int Offset, IReadOnlyList<CaseClause> Clauses, int Else) : CompiledStep(Offset);
 
-// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made.
-internal sealed record class CaseClause(CompareNode Lower, CompareNode? Upper = null);
+// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made. Each is a CompareNode of a scalar
+// selector, or a TextCompareNode of a String one.
+internal sealed record class CaseClause(PayloadNode Lower, PayloadNode? Upper = null);
 
 // the selector of a Select Case of a scalar selector, as its SelectStep evaluated it.
 internal sealed record class SelectorNode(int Select, ScalarKind Kind) : PayloadNode(Kind);
+
+// the selector of a Select Case of a String selector, as its TextSelectStep evaluated it.
+internal sealed record class TextSelectorNode(int Select) : TextNode;
 
 // the argument of a parameter passed by reference that is a variable of the activation of the parameter's kind (MS-VBAL §5.3.1.11): the cell it is held
 // in, which the parameter is a second name for. Only an argument of a call.
@@ -479,8 +507,9 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
-/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), and for an object, whose argument is the object or the variable's address
-/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>).
+/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
+/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), and for an optional <c>Variant</c> the call leaves out
+/// (<see cref="OmittedArgumentNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -519,6 +548,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// Empty when the call has no object parameter.
     /// </summary>
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
+
+    /// <summary>
+    /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default
+    /// <see cref="Procedure"/> declares for it, and a <c>Variant</c> one, whose <see cref="Parameters"/> kind is <see langword="null"/>, what the
+    /// interpreter gives the parameter of the member the call invokes (<see cref="OmittedArgumentNode"/>). Empty when the call leaves out none.
+    /// </summary>
+    public IReadOnlyList<bool> Omitted { get; init; } = [];
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;

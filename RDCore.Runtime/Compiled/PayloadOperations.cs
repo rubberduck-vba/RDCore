@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Compiled;
@@ -68,13 +69,13 @@ public enum LogicalOperator
 
 /// <summary>
 /// The operations of payloads of an integer type, a <c>Boolean</c> or a <c>Currency</c>, their comparisons, and the exact conversions of a payload from one
-/// scalar type to another: one static method per operation, told the type it operates in, that says what it did
-/// (<see cref="PayloadStatus"/>). The interpreter's evaluation on payloads and compiled code both call them, so the two are one implementation.
+/// scalar type to another, with a floating-point number's to an integer type: one static method per operation, told the type it operates in, that says what
+/// it did (<see cref="PayloadStatus"/>). The interpreter's evaluation on payloads and compiled code both call them, so the two are one implementation.
 /// </summary>
 /// <remarks>
 /// The operations are those of <strong>MS-VBAL §5.6.9.3</strong> in the type's own width, checked: a result that does not fit is an overflow, and an integer
-/// division or a modulo by zero a division by zero. An operation the boxed evaluation does by rounding - a <c>Currency</c> product that is no whole number of
-/// ten-thousandths, a conversion that is not exact - declines.
+/// division or a modulo by zero a division by zero. An operation the boxed evaluation does by rounding declines: a <c>Currency</c> product that is not a
+/// whole number of ten-thousandths, or a conversion that is not exact, other than a floating-point number's to an integer type.
 /// </remarks>
 public static class PayloadOperations
 {
@@ -289,9 +290,14 @@ public static class PayloadOperations
     };
 
     /// <summary>
-    /// A payload of <paramref name="from"/> converted to <paramref name="to"/>, when the conversion is exact - what a value of one scalar type is in another,
-    /// with no rounding to decide: an integer in the range of an integer type, an integer as a floating-point value, a <c>Date</c> as its serial, any number
-    /// as a <c>Boolean</c>. Anything else is the boxed coercion's (<strong>MS-VBAL §5.5.1.2.1</strong>), which rounds, and declines.
+    /// A payload of <paramref name="from"/> converted to <paramref name="to"/> (<strong>MS-VBAL §5.5.1.2.1</strong>), in two cases:
+    /// <list type="bullet">
+    /// <item><description>the conversion is exact, with no rounding to decide: an integer in the range of an integer type, an integer as a floating-point
+    /// value, a <c>Date</c> as its serial, any number as a <c>Boolean</c>;</description></item>
+    /// <item><description>a <c>Single</c> or a <c>Double</c> made an integer by Banker's rounding (<strong>§5.5.1.2.1.1</strong>), which overflows past
+    /// the range of the type.</description></item>
+    /// </list>
+    /// Anything else is the boxed coercion's, which rounds, and declines.
     /// </summary>
     /// <param name="from">The kind of the payload.</param>
     /// <param name="integral">The payload of an integral kind.</param>
@@ -335,6 +341,19 @@ public static class PayloadOperations
         if (to is ScalarKind.Currency)
         {
             return ToCurrency(from, integral, floating, out resultIntegral);
+        }
+
+        // MS-VBAL §5.5.1.2.1: a Single or a Double is an integer by Banker's rounding (§5.5.1.2.1.1) when it is finite and the whole number it rounds to is in
+        // the range of the type, and otherwise an overflow, as the boxed coercion converts it (VBNumericType.IsWithinRange, then BankersRounding).
+        if (from is ScalarKind.Single or ScalarKind.Double && to is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong)
+        {
+            if (!VBNumericType.IsWithinRange(floating, (VBNumericType)ScalarKinds.TypeOf(to)))
+            {
+                return PayloadStatus.Overflow;
+            }
+
+            resultIntegral = (long)VBNumericType.BankersRounding(floating);
+            return PayloadStatus.Ok;
         }
 
         if (isIntegral)

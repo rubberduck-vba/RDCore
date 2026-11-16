@@ -140,6 +140,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.LineContinuationBetweenKeywords, 213),
         (RDCoreDiagnosticId.ProcedureCanBeWrittenAsFunction, 214),
         (RDCoreDiagnosticId.SelfAssignedDeclaration, 215),
+        (RDCoreDiagnosticId.FunctionReturnValueDiscarded, 216),
         (RDCoreDiagnosticId.IsMissingOfAVariantThatIsNotOptional, 218),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),
         (RDCoreDiagnosticId.ObsoleteCommentSyntax, 303),
@@ -160,6 +161,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.UnderscoreInPublicClassMember, 408),
         (RDCoreDiagnosticId.EncapsulatePublicField, 409),
         (RDCoreDiagnosticId.SuspiciousPredeclaredInstanceAccess, 410),
+        (RDCoreDiagnosticId.ImplementedInterfaceMember, 411),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
         (RDCoreDiagnosticId.EmptyIfBlock, 1003),
@@ -190,6 +192,8 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.IIfSideEffect, 11039),
         (RDCoreDiagnosticId.ObjectLetToVariantProperty, 11043),
         (RDCoreDiagnosticId.ObjectLetToObjectProperty, 11047),
+        (RDCoreDiagnosticId.NoEntryPoint, 30001),
+        (RDCoreDiagnosticId.AmbiguousEntryPoint, 30002),
     ];
 
     [TestMethod]

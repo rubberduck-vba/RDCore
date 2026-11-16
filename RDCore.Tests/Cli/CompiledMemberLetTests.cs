@@ -84,8 +84,8 @@ public sealed class CompiledMemberLetTests
             "    Filled = Filled * 1000 + P.Sum",
             "End Function"), "55030", ("Filled", 0, 0));
 
-    // a Property Let called with the value let-coerced to the type of its parameter: a Double rounded to even, which compiled code does not round and the
-    // interpreter's assignment does, and a Boolean as -1, which compiled code's call converts. The Set is a support call.
+    // a Property Let called with the value let-coerced to the type of its parameter: a Double rounded to even, and a Boolean as -1, each converted by
+    // compiled code's call. The Set is a support call.
     [TestMethod]
     public async Task APropertyLet_IsCalledWithTheValueLetCoercedToItsParameter()
         => await AssertRunAsync(Program(
@@ -217,7 +217,8 @@ public sealed class CompiledMemberLetTests
             "End Function"), "1/2,2/4,x=1;x=2;", ("Linked", 2, 0));
 
     // the variable a With block was given Set to another object inside the block: what the block's statements Set is of the object the block holds, not of
-    // the variable's, as in MS-VBA. The recovery is the With; the End With is compiled code's, Kept holding the object.
+    // the variable's, as in MS-VBA. The recoveries are the With, and the Sets of P in passes 2 and 3, which destroy the object of the pass before (the
+    // interpreter's, with the new object compiled code made known); the End With is compiled code's, Kept holding the object.
     [TestMethod]
     public async Task ASetInAWithBlock_IsOfTheObjectTheBlockHolds()
         => await AssertRunAsync(Program(
@@ -242,7 +243,7 @@ public sealed class CompiledMemberLetTests
             "        Next",
             "        Set Kept = .Self",
             "    End With",
-            "End Sub"), "3 False 7", ("Rebound", 1, 0));
+            "End Sub"), "3 False 7", ("Rebound", 3, 0));
 
     // a member of the object of a With block called late-bound, as a support call: the call is made on the object the block holds. The recoveries are the
     // With and the read of the late-bound member; the End With is compiled code's, the variable still holding the object.

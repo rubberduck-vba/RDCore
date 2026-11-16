@@ -139,8 +139,9 @@ internal sealed partial class ProcedureAnalysis
 
     // whether compiled code converts the value to the kind of the parameter without declining, whatever value of its declared type it is, short of one out of
     // the parameter's range, which is an error the interpreter raises (PayloadOperations.Convert): a value of that kind; an integer or a Boolean, to any
-    // kind (a LongLong to a Single excepted); a Single or a Double, to a Single, a Double or a Boolean. What it would decline (a floating-point number to an
-    // integer type, which the interpreter rounds, a Currency, a Variant, a Date) it hands the interpreter to assign, as any member's (MemberLetStep). An object parameter's value is Set-coerced, and declines nothing.
+    // kind (a LongLong to a Single excepted); a Single or a Double, to a Single, a Double, a Boolean or an integer type, which it rounds as the interpreter
+    // does (MS-VBAL §5.5.1.2.1). What it would decline (a Currency, a Variant, a Date) it hands the interpreter to assign, as any member's (MemberLetStep).
+    // An object parameter's value is Set-coerced, and declines nothing.
     private bool ConvertsWithoutDeclining(ExpressionNode value, VBParameterSymbol parameter)
     {
         if (IsObjectType(parameter.ResolvedType))
@@ -157,7 +158,8 @@ internal sealed partial class ProcedureAnalysis
         return from == to
             || from is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.Boolean
             || from is ScalarKind.LongLong && to is not ScalarKind.Single
-            || from is ScalarKind.Single or ScalarKind.Double && to is ScalarKind.Single or ScalarKind.Double or ScalarKind.Boolean;
+            || from is ScalarKind.Single or ScalarKind.Double
+                && to is ScalarKind.Single or ScalarKind.Double or ScalarKind.Boolean or ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong;
     }
 
     // the class the object a member is assigned of is declared as: of the object variable, or of the target of the enclosing With block, as the binder
