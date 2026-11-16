@@ -1193,6 +1193,48 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "Integer 1" }, Output(done));
     }
 
+    // a class whose member says a word its private member gives it, called by name, on Me.
+    private static string SayingClass(string word) => ModuleWorkspace.ClassModule("D",
+        "Option Explicit",
+        "Public Function Says() As String",
+        "    Says = Word",
+        "End Function",
+        "Private Function Word() As String",
+        $"    Word = \"{word}\"",
+        "End Function");
+
+    // an object whose members were called before its class was edited, while the program waits, is called as the class is defined from then on: through
+    // a variable, a With block, and on Me.
+    [TestMethod]
+    public async Task AnObjectCalledBeforeItsClassWasEditedWhileTheProgramWaits_IsCalledAsTheClassIsEdited()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public X As D",
+            "Public Sub Main()",
+            "    Set X = New D",
+            "    Dim I As Long",
+            "    For I = 1 To 2",
+            "        Debug.Print X.Says",
+            "        With X",
+            "            Debug.Print .Says",
+            "        End With",
+            "        If I = 1 Then Stop",
+            "    Next",
+            "End Sub");
+        ExecuteResult? done = null;
+        await ModuleWorkspace.InspectAsync([("D", SayingClass("before"))], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "before", "before" }, Output(stopped));
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["D"], ("D", ModuleType.ClassModule, SayingClass("after")), ("Program", ModuleType.StdModule, program));
+            done = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, done!.Outcome, done.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "after", "after" }, Output(done));
+    }
+
     // the object a variable of a class holds, the variable retyped while the program waits, is still held: its Class_Terminate does not run, and the edit
     // taken back, the program goes on with it.
     [TestMethod]
