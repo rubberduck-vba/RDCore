@@ -34,6 +34,11 @@ public sealed class BuildCommandTests
     private static readonly string Runtime = Path.Combine(Platform, "RDCore.CLI");
     private static readonly string Host = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.win-x64", "10.0.11",
         "runtimes", "win-x64", "native", "apphost.exe");
+    // a macOS runtime's host is a Mach-O, which rdc build signs: the host of the Microsoft.NETCore.App.Host.osx-arm64 package, which the tests' project
+    // copies beside them.
+    private static readonly string MacHost = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.osx-arm64", "11.0.0",
+        "runtimes", "osx-arm64", "native", "apphost");
+    private static readonly Lazy<byte[]> AppleSiliconHost = new(() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Cli", "Data", "osx-arm64", "apphost")));
     private static readonly string Output = Path.Combine(Path.GetTempPath(), "rdcore-build-out");
 
     private static string Module(string name, params string[] body) => $"Attribute VB_Name = \"{name}\"\r\nOption Explicit\r\n{string.Join("\r\n", body)}\r\n";
@@ -80,6 +85,8 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net11.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
+        fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(MacHost)!);
+        fileSystem.File.WriteAllBytes(MacHost, AppleSiliconHost.Value);
 
         // the package the support is built on, and one of rdc's that no program runs on; the platform's notices, as its release writes them.
         fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.SDK.dll"), SdkAssembly.Value);
@@ -144,7 +151,7 @@ public sealed class BuildCommandTests
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
-            _ => hasHost ? Host : null, settings is null ? null : Options.Create(settings)), messages);
+            runtime => !hasHost ? null : MacOSSignature.IsNeeded(runtime) ? MacHost : Host, settings is null ? null : Options.Create(settings)), messages);
     }
 
     [TestMethod]
@@ -191,6 +198,21 @@ public sealed class BuildCommandTests
         Assert.AreEqual(fileSystem.File.ReadAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json")), fileSystem.File.ReadAllText(Path.Combine(Output, "Hello.runtimeconfig.json")));
         CollectionAssert.AreEqual(AppHost.Patch(FakeHost, "Hello.dll"), fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.exe")));
         Assert.Contains(message => message.Kind == MessageKind.Information && message.Text.Contains("3 ", StringComparison.Ordinal), messages);
+    }
+
+    // the host of the runtime built for, whatever the runtime the build runs on: on a Mac, the runtime a build is for by default is a macOS one.
+    [TestMethod]
+    public async Task AWorkspaceBuiltForMacOS_HasTheHostOfItsRuntime_PatchedAndSigned()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        var (command, messages) = Command(fileSystem);
+
+        var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "osx-arm64"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
+        CollectionAssert.AreEqual(MacOSSignature.Sign(AppHost.Patch(AppleSiliconHost.Value, "Hello.dll"), "Hello"),
+            fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello")));
     }
 
     [TestMethod]
