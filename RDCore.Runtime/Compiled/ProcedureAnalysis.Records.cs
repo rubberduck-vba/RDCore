@@ -17,9 +17,10 @@ namespace RDCore.Runtime.Compiled;
 /// reads and writes its fields there (<see cref="RecordOperations"/>). A record that is a field compiled code reaches - <c>this</c> of a class's
 /// <c>Private this As TState</c>, a record of a standard module - is held by the cell Me or the session holds it in, found where the interpreter finds it
 /// (<see cref="Fields"/>), and its fields read and written there alike: a field of a scalar type, read as a payload of its kind and let-assigned one; a
-/// <c>Variant</c> field, read and let-assigned as a Variant variable is; an object field, held in its own cell, which compiled code compares, tests and Sets
-/// there as it does an object variable's (<see cref="ObjectFieldOf"/>). A field of a record that is a record itself is a field too, through it. What is any
-/// other type (a <c>String</c>, an array, an enumeration) the interpreter reads and writes, and runs each statement that does.
+/// <c>Variant</c> field, read and let-assigned as a Variant variable is; a <c>String</c> field of variable length, read and let-assigned the text as a String
+/// variable is; an object field, held in its own cell, which compiled code compares, tests and Sets there as it does an object variable's
+/// (<see cref="ObjectFieldOf"/>). A field of a record that is a record itself is a field too, through it. What is any other type (a fixed-length
+/// <c>String</c>, an array, an enumeration) the interpreter reads and writes, and runs each statement that does.
 /// </remarks>
 internal sealed partial class ProcedureAnalysis
 {
@@ -148,6 +149,12 @@ internal sealed partial class ProcedureAnalysis
         if (type is VBVariantType)
         {
             return Dynamic(Bind(assignment.Value)) is { } variant ? new VariantFieldLetStep(offset, path, variant) : null;
+        }
+
+        // a String of variable length is assigned the text as it is, as a String variable is (TextLetStep).
+        if (IsText(type))
+        {
+            return Text(Bind(assignment.Value)) is { } text ? new FieldTextLetStep(offset, path, text) : null;
         }
 
         if (ScalarKinds.Of(type) is not { } kind)

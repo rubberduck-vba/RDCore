@@ -43,7 +43,8 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         if (host is not null)
         {
             executable = fileSystem.Path.Combine(folder, AppHost.ExecutableName(program, runtime));
-            fileSystem.File.WriteAllBytes(executable, AppHost.Patch(fileSystem.File.ReadAllBytes(host), dll));
+            var patched = AppHost.Patch(fileSystem.File.ReadAllBytes(host), dll);
+            fileSystem.File.WriteAllBytes(executable, MacOSSignature.IsNeeded(runtime) ? MacOSSignature.Sign(patched, fileSystem.Path.GetFileName(executable)) : patched);
             if (!OperatingSystem.IsWindows() && fileSystem is FileSystem)
             {
                 File.SetUnixFileMode(executable, File.GetUnixFileMode(executable) | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);

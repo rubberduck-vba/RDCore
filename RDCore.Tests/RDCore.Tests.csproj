@@ -43,6 +43,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- the macOS on Apple Silicon host, which only a Mac's SDK has: the tests of the signature of rdc build's macOS executables sign a real one on every OS -->
+    <PackageDownload Include="Microsoft.NETCore.App.Host.osx-arm64" Version="[11.0.0]" />
+    <None Include="$(NuGetPackageRoot)microsoft.netcore.app.host.osx-arm64/11.0.0/runtimes/osx-arm64/native/apphost" Link="Cli\Data\osx-arm64\apphost"
+          CopyToOutputDirectory="PreserveNewest" Condition="'$(NuGetPackageRoot)' != ''" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 

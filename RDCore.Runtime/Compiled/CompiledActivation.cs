@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -443,6 +444,30 @@ public sealed partial class CompiledActivation : ILightActivation
     public void SetText(int index, string? text) => SetReference(index, new VBRuntimeValue<string>(text!));
 
     /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of an optional <c>Variant</c> parameter the call leaves
+    /// out: what the interpreter gives it (<c>RuntimeExpressionEvaluator.OmittedArgument</c>, MS-VBAL §5.3.1.11), the default the parameter declares or
+    /// <c>Missing</c>. The parameter is the one of the member the call invokes, which <see cref="CanCallMember"/> found for a call of a member of an object.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list, after its <c>Me</c>.</param>
+    /// <param name="callee">The number of the call among the body's callees.</param>
+    /// <returns>
+    /// Whether the argument was given; <see langword="false"/> when making the default raises an error, which the interpreter raises as it makes the call.
+    /// </returns>
+    public bool SetOmitted(int index, int callee)
+    {
+        var called = _body.Callees[callee];
+        var parameters = RuntimeProcedureInvoker.GetParameters(called.Site is not null || called.CallsOwnMember ? _member! : called.Procedure);
+        var first = parameters is [{ Name: SDK.Model.Tokens.Me }, ..] ? 1 : 0;
+        if (_executor.Expressions.OmittedArgument(_session, parameters[first + index]) is not { IsSuccess: true, Result: { } omitted })
+        {
+            return false;
+        }
+
+        SetReference(index, omitted.RuntimeValue);
+        return true;
+    }
+
+    /// <summary>
     /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter passed by reference given
     /// a <c>String</c> variable of the activation: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The variable has one address
     /// from then on, whichever name it is read by, so <c>VarPtr</c> of the parameter is <c>VarPtr</c> of the variable; its cell is bound at the address,
@@ -593,11 +618,16 @@ public sealed partial class CompiledActivation : ILightActivation
         for (var i = 0; i < called.Parameters.Count; i++)
         {
             var parameter = parameters[i + 1];
-            // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject).
+            var omitted = i < called.Omitted.Count && called.Omitted[i];
+            var passed = i < called.ObjectParameters.Count ? called.ObjectParameters[i] : null;
+            // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject). A Variant the call
+            // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted). A scalar the call leaves out is given the
+            // default the member it was bound to declares, which is this member's: an implemented member declares the defaults of the interface member
+            // (MS-VBAL §5.3.1.9), and one that does not is refused before the program runs.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
                 || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
-                || called.Parameters[i] is null
-                    && (i >= called.ObjectParameters.Count || called.ObjectParameters[i] is not { } passed || !passed.Type.Equals(parameter.ResolvedType)))
+                || called.Parameters[i] is null && (passed is not null ? !passed.Type.Equals(parameter.ResolvedType)
+                    : !omitted || parameter.ResolvedType is not SDK.Model.Types.VBVariantType))
             {
                 return false;
             }
@@ -1501,7 +1531,7 @@ public sealed partial class CompiledActivation : ILightActivation
         for (var i = 0; i < _body.Selects.Count; i++)
         {
             var select = _body.Selects[i];
-            if (pc > select.Opener && pc < select.End && !TryReadSelector(frame, select, out _))
+            if (pc > select.Opener && pc < select.End && !(select.IsText ? TryReadTextSelector(frame, select, out _) : TryReadSelector(frame, select, out _)))
             {
                 return false;
             }
@@ -1512,6 +1542,36 @@ public sealed partial class CompiledActivation : ILightActivation
 
     private static bool TryReadSelector(CallStackFrame frame, CompiledSelect select, out ScalarPayload selector)
         => frame.TryGetSelectorPayload(select.Opener, out selector) && ScalarKinds.Of(selector.Type) == select.Kind;
+
+    // a String selector, as the interpreter stashes it (ProcedureExecutor.ExecuteSelect): the String value it evaluated, whose text compiled code compares.
+    private static bool TryReadTextSelector(CallStackFrame frame, CompiledSelect select, out string? text)
+    {
+        if (frame.TryGetBlockState(select.Opener, out var held) && held is VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> value })
+        {
+            text = value.StoredValue;
+            return true;
+        }
+
+        text = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Writes the selector of the <c>Select Case</c> numbered <paramref name="select"/>, of a <c>String</c> selector, into the frame, as the interpreter
+    /// stashes one: the String value of its text (<c>CallStackFrame.SetBlockState</c>).
+    /// </summary>
+    /// <param name="select">The number of the <c>Select Case</c>.</param>
+    /// <param name="text">The text of its selector; <see langword="null"/> for <c>vbNullString</c>.</param>
+    public void SpillTextSelector(int select, string? text)
+        => Frame.SetBlockState(_body.Selects[select].Opener, text is null ? VBStringValue.VBNullString : new VBStringValue(text));
+
+    /// <summary>
+    /// The selector of the <c>Select Case</c> numbered <paramref name="select"/>, of a <c>String</c> selector, read back from the frame.
+    /// </summary>
+    /// <param name="select">The number of the <c>Select Case</c>.</param>
+    /// <param name="selector">The text of its selector, when it was evaluated.</param>
+    /// <returns>Whether it was evaluated, to a String whose text compiled code reads.</returns>
+    public bool ReloadTextSelector(int select, out string? selector) => TryReadTextSelector(Frame, _body.Selects[select], out selector);
 
     /// <summary>
     /// Writes the selector of the <c>Select Case</c> numbered <paramref name="select"/> into the frame, as the interpreter stashes a selector evaluated on
@@ -1750,6 +1810,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
 
     /// <summary>
+    /// The <c>New</c> expressions whose objects the body makes, by the number compiled code knows each by (<see cref="ProcedureAnalysis.News"/>).
+    /// </summary>
+    public IReadOnlyList<LanguageCore.Binding.BoundNew> News { get; init; } = [];
+
+    /// <summary>
     /// The public variables of objects the body reads, by the number compiled code knows each by (<see cref="ProcedureAnalysis.MemberFields"/>).
     /// </summary>
     public IReadOnlyList<CompiledMemberField> MemberFields { get; init; } = [];
@@ -1845,9 +1910,10 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 internal sealed record class CompiledForLoop(int Opener, Symbol Counter, ExpressionNode Control, ScalarKind Kind);
 
 /// <summary>
-/// A <c>Select Case</c> of a scalar selector, of a compiled body (MS-VBAL §5.4.2.10).
+/// A <c>Select Case</c> of a scalar selector or of a <c>String</c> one, of a compiled body (MS-VBAL §5.4.2.10).
 /// </summary>
 /// <param name="Opener">The offset of its <c>Select</c>, which its selector is stashed by.</param>
 /// <param name="End">The offset right past its block.</param>
-/// <param name="Kind">The kind of its selector.</param>
-internal sealed record class CompiledSelect(int Opener, int End, ScalarKind Kind);
+/// <param name="Kind">The kind of a scalar selector; <c>default</c> for a String one, which is compared as text.</param>
+/// <param name="IsText">Whether its selector is a String of variable length, which the frame holds as the interpreter stashes it, a value.</param>
+internal sealed record class CompiledSelect(int Opener, int End, ScalarKind Kind, bool IsText = false);

@@ -9,8 +9,6 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Model.Source;
-using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Extensibility.Diagnostics;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
@@ -110,11 +108,7 @@ internal sealed class IsMissingOfAVariantThatIsNotOptionalAnalyzer : IModuleAnal
             return null;
         }
 
-        var start = parameters[index].Location.Range.Start;
-        return new EditFix
-        {
-            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.IsMissingOfAVariantThatIsNotOptional_Fix, name),
-            Edits = [new TextEdit { Range = new SourceRange(start, start).ToLsp(), NewText = "Optional " }],
-        };
+        return SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.IsMissingOfAVariantThatIsNotOptional_Fix, name),
+            SyntaxEdits.Insert(parameters[index].Location.Range.Start, "Optional "));
     }
 }

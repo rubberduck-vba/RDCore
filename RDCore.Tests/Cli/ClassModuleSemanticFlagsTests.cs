@@ -7,7 +7,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// What the semantic analysis states about a class module (<see cref="ClassModuleSemanticFlags"/>): whether the class has a default instance (<strong>MS-VBAL
 /// §5.2.4.1.2</strong>), and whether its objects hold state - variables declared at module level, which have object extent (<strong>§5.2.3.1</strong>). A
-/// default instance that holds none is the usual factory; one that does keeps what its members assign, where every module can reach it.
+/// default instance that holds none is the usual factory; one that does keeps what its members assign, where every module can reach it. A class that another
+/// class of the project names in its <c>Implements</c> directive is implemented (<strong>§5.2.4.2</strong>).
 /// </summary>
 [TestClass]
 public sealed class ClassModuleSemanticFlagsTests
@@ -64,6 +65,42 @@ public sealed class ClassModuleSemanticFlagsTests
             "Public Function Tick() As Long", "    Static n As Long", "    n = n + 1", "    Tick = n", "End Function")));
 
         Assert.AreEqual(ClassModuleSemanticFlags.DefaultInstance | ClassModuleSemanticFlags.Stateful, model?.Class);
+    }
+
+    private static readonly (string, string) Shape = ("IShape", ClassModule("IShape", "Option Explicit", "Public Function Area() As Double", "End Function"));
+
+    [TestMethod]
+    public async Task AClassThatAnotherClassImplements_IsImplemented()
+    {
+        var model = await ModelOfAsync("IShape", Shape, ("Square", ClassModule("Square",
+            "Option Explicit",
+            "Implements IShape",
+            "Private Function IShape_Area() As Double", "    IShape_Area = 4", "End Function")));
+
+        Assert.AreEqual(ClassModuleSemanticFlags.Implemented, model?.Class);
+    }
+
+    [TestMethod]
+    public async Task AClassThatImplementsAnother_IsNotItselfImplemented()
+    {
+        var model = await ModelOfAsync("Square", Shape, ("Square", ClassModule("Square",
+            "Option Explicit",
+            "Implements IShape",
+            "Private Function IShape_Area() As Double", "End Function")));
+
+        Assert.AreEqual(ClassModuleSemanticFlags.None, model?.Class);
+    }
+
+    // what the Implements directive names is known from the declarations, whether or not the code of the module that writes it compiles.
+    [TestMethod]
+    public async Task AClassImplementedByAModuleWhoseCodeDoesNotCompile_IsImplemented()
+    {
+        var model = await ModelOfAsync("IShape", Shape, ("Square", ClassModule("Square",
+            "Option Explicit",
+            "Implements IShape",
+            "Private Function IShape_Area() As Double", "    undeclared = 1", "End Function")));
+
+        Assert.AreEqual(ClassModuleSemanticFlags.Implemented, model?.Class);
     }
 
     [TestMethod]

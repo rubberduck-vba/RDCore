@@ -375,8 +375,8 @@ public sealed class CompiledArrayTests
             "End Function"), "Copied", recoveries: 7, expected: "1,10,77,s|5,99,20,t");
 
     // a Variant assigned to an element of an array of a scalar type, holding a String: compiled code declines it, as it does a Variant's Let to a variable,
-    // and the interpreter runs the Let (let-coercing "5"); with no handler, the procedure goes on in compiled code after it, each time round. A Variant
-    // holding a number is compiled code's own.
+    // and the interpreter runs the Let (let-coercing "5"); with no handler, the procedure goes on in compiled code after it, each time round: 3. A Variant
+    // holding a number is compiled code's own, and so is V = "5" (CompiledVariantTextLetTests).
     [TestMethod]
     public async Task AVariantAssignedToAnElement_ThatCompiledCodeDeclines_IsTheInterpretersLet()
         => await AssertAlikeAsync(Program(
@@ -397,7 +397,7 @@ public sealed class CompiledArrayTests
             "    For I = 1 To 3",
             "        Assigned = Assigned * 10 + A(I)",
             "    Next",
-            "End Function"), "Assigned", recoveries: 1 + 3);
+            "End Function"), "Assigned", recoveries: 3);
 
     // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
     // the interpreter's to read, and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 3 statements
