@@ -35,8 +35,8 @@ public sealed class CompiledSelectCaseTests
             "    Next",
             "End Function"), "Sorted", recoveries: 0);
 
-    // the end of a To range a variable compiled code may not convert to the selector's type exactly, a Long to an Integer: compiled, the comparison of the
-    // start held while the end's is made.
+    // the end of a To range is a variable that compiled code may not convert exactly to the selector's type (a Long, for an Integer selector): the
+    // range is compiled, and the comparison of the start is held while the end's is made.
     [TestMethod]
     public async Task ARangeWhoseEndMayNotConvert_IsCompiled()
         => await AssertAlikeAsync(Program(

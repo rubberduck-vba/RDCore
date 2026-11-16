@@ -93,7 +93,8 @@ public sealed class CompiledTextSelectCaseTests
             "    End Select",
             "End Function"), "Picked", recoveries: 3);
 
-    // the end of a To range a String variable, whose text compiled code reads: compiled, the comparison of the start held while the end's is made.
+    // the end of a To range is a String variable, whose text compiled code reads: the range is compiled, and the comparison of the start is held while
+    // the end's is made.
     [TestMethod]
     public async Task ARangeWhoseEndIsAVariable_IsCompiled()
     {
