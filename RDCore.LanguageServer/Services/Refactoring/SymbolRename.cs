@@ -404,6 +404,7 @@ public static class SymbolRename
             }
         }
 
+        // the project, or a library it references: each library is a project symbol too, named after the library.
         return own is not null && context.Resolver.ResolveValue(newName, ScopeKind.Local, own.Uri).Symbol is VBProjectSymbol named
             ? ConflictWith(newName, named)
             : null;
