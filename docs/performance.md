@@ -133,11 +133,18 @@ calls decides how long the code takes.
 
 ## How the figures are measured
 
-- **The reference run.** On the reference machine, MS-VBA and RD-VBA run the corpus in three alternated rounds, MS-VBA first in each round. Each case runs
-  seven times a round (five for Excel automation), and the figure is the fastest run. The reference run is repeated when the corpus changes.
+- **The reference run.** On the reference machine, MS-VBA and RD-VBA run the corpus in five alternated rounds (MS-VBA first in the first four, RD-VBA
+  first in the fifth), and the Excel automation cases in three rounds, MS-VBA first. Each case runs seven times a round (five for Excel automation), and
+  the figure is the fastest run. The reference run is repeated when the corpus changes.
 - **On every merge.** A Windows build machine runs the corpus in three alternated rounds with two builds of `rdc`: the merged one, and the one the
   reference run used. A case's RD-VBA time is the reference run's, scaled by how the merged build compares with the reference build on that machine.
-  Comparing the two builds on one machine keeps that machine's own speed out of the figure.
+  Comparing the two builds on one machine keeps that machine's own speed out of the figure. The figures file (`bench.json`, on the `badges` branch)
+  names that machine's processor.
+- **Each run starts from a collected heap.** Before each timed run, `rdc bench` collects the heap, so whether a garbage collection falls inside a run
+  depends only on what that run allocates and keeps. The time of a collection inside a run is part of the figure.
+- **Allocation.** For each case, `rdc bench` also gives what its fastest run allocated and the garbage collections of each generation made while it ran
+  (the `allocated` and `gc 0/1/2` columns). On every merge they are recorded beside the times in the figures file, for the merged build. They do not
+  depend on the machine's speed. The badges give the ratio only.
 - **Resolution.** `rdc bench` gives times to a tenth of a millisecond, so a case that takes under a millisecond is good to about ±0.05 ms.
 
 ## Writing code that runs well
