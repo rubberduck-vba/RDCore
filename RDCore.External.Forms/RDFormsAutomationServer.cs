@@ -180,8 +180,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return component.Index is { } index ? (short)index : throw FormFailure(FormError.ObjectNotAnArray);
             }
 
-            // a control's container is not a property of its class either: the form, a Frame or a PictureBox, read as its object and placed with Set. A Timer, a
-            // menu and a form have none (438), and neither has an assignment without Set.
+            // a control's container is not a property of its class either: the form, a Frame or a PictureBox, read as its object and placed with Set.
+            // A Timer, a menu and a form have none (438), and an assignment without Set is 438 too.
             if (component.Class.HasContainer && component.Class.Property(member) is null
                 && string.Equals(member, ContainerMember, StringComparison.OrdinalIgnoreCase))
             {
