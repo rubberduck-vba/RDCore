@@ -147,6 +147,9 @@ public enum RDCoreDiagnosticId
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
     IIfSideEffect = 11039, // [RD2:IIfSideEffectInspection] IIf(c, Compute(1), 2): a Function or Property Get in the TruePart or FalsePart runs whatever the condition
+    StrOfAFraction = 11040, // Str(0.5): MS-VBA writes " .5", with no zero before the point; MS-VBAL writes the let-coercion's " 0.5"
+    StrOfAnErrorValue = 11041, // Str(CVErr(5)): MS-VBA raises 13; MS-VBAL writes "Error 5"
+    WriteOfAFraction = 11042, // Write #1, 0.5: MS-VBA writes .5, with no zero before the point; MS-VBAL writes the let-coercion's 0.5
     ObjectLetToVariantProperty = 11043, // c.Item = o, Property Let Item(v As Variant): MS-VBA passes the object; MS-VBAL §5.4.3.8 passes its default member's value
     LSetOfARecordWithAString = 11044, // LSet a = b, a or b a record with a variable-length String: MS-VBAL allows it; MS-VBA: Compile error: Type mismatch
     LetToADefaultMemberWithNoPropertyLet = 11045, // os = 5, os's default member a Property Get or a Function with no Property Let: MS-VBAL compiles it, MS-VBA refuses it

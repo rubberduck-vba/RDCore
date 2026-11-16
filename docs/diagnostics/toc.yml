@@ -588,6 +588,12 @@
   href: rdc11037.md
 - name: "RDC11039: Function called whatever the IIf condition"
   href: rdc11039.md
+- name: "RDC11040: Str of a number between -1 and 1"
+  href: rdc11040.md
+- name: "RDC11041: Str of an Error value"
+  href: rdc11041.md
+- name: "RDC11042: Write # of a number between -1 and 1"
+  href: rdc11042.md
 - name: "RDC11043: Object assigned with Let to a Variant property"
   href: rdc11043.md
 - name: "RDC11044: LSet of a record that holds a variable-length String"
