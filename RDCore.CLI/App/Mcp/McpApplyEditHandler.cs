@@ -18,7 +18,8 @@ internal sealed class McpApplyEditHandler(WorkspaceEditFiles files, ILanguageCli
         {
             client.Workspace.DidChangeWatchedFiles(new DidChangeWatchedFilesParams
             {
-                Changes = new Container<FileEvent>(result.Written.Select(path => new FileEvent { Uri = DocumentUri.FromFileSystemPath(path), Type = FileChangeType.Changed })),
+                Changes = new Container<FileEvent>(result.Written.Select(path
+                    => new FileEvent { Uri = DocumentUri.FromFileSystemPath(path), Type = FileChangeType.Changed })),
             });
         }
 
