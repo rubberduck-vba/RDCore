@@ -29,6 +29,9 @@ internal sealed class ReplSplash(IConsoleMessageWriter writer)
                 case SplashPart.Slogan:
                     writer.WriteSlogan(line.Text.Length - line.Text.TrimStart().Length);
                     break;
+                case SplashPart.Version:
+                    console.WriteLine([new ReplTextRun(line.Text, ReplTextStyle.Plain)]);
+                    break;
                 case SplashPart.CopyrightNotice:
                     writer.WriteLegalNotice();
                     break;
