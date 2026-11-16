@@ -419,7 +419,7 @@ A standard or class module is renamed where its name means it, the same way, its
 - in the `Implements` directives of the classes that implement it (**MS-VBAL §5.2.4.2**);
 - in the procedures that implement its members, whose names start with its name (`IShape_Draw`, **MS-VBAL §5.3.1.9**). Only that part is renamed, where each is declared and called.
 
-The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, or of a project (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
+The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, of the project, or of a library the project references (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
 
 The module's file is renamed with it when the file has the module's name (`Helpers.bas`), after its text is edited (**LSP 3.17** `RenameFile`), and only when no file of the new name exists there already. A client that does not rename files (`workspace.workspaceEdit.resourceOperations`) is sent the rest of the edit. The module is named by its `VB_Name` attribute, so its file keeps its old name. A client that renames the file says so (`workspace/didRenameFiles`), and the server writes the project file.
 
