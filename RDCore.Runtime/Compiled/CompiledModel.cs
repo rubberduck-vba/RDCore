@@ -390,15 +390,22 @@ internal sealed record class SteppedStep(int Offset) : CompiledStep(Offset);
 // a Select Case of a scalar selector (MS-VBAL §5.4.2.10): the selector evaluated once, into the local of the Select (Select, of CompiledBody.Selects).
 internal sealed record class SelectStep(int Offset, int Select, PayloadNode Selector) : CompiledStep(Offset);
 
-// a Case header of a Select Case of a scalar selector: its clauses compared in order, the first that matches falling through into its block; none, going to
-// Else - the next Case, the Case Else, or past the Select.
+// a Select Case of a String selector of variable length (MS-VBAL §5.4.2.10): the text evaluated once, into the local of the Select.
+internal sealed record class TextSelectStep(int Offset, int Select, TextNode Selector) : CompiledStep(Offset);
+
+// a Case header of a Select Case compiled code compares: its clauses compared in order, the first that matches falling through into its block; none, going
+// to Else - the next Case, the Case Else, or past the Select.
 internal sealed record class CaseStep(int Offset, IReadOnlyList<CaseClause> Clauses, int Else) : CompiledStep(Offset);
 
-// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made.
-internal sealed record class CaseClause(CompareNode Lower, CompareNode? Upper = null);
+// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made. Each is a CompareNode of a scalar
+// selector, or a TextCompareNode of a String one.
+internal sealed record class CaseClause(PayloadNode Lower, PayloadNode? Upper = null);
 
 // the selector of a Select Case of a scalar selector, as its SelectStep evaluated it.
 internal sealed record class SelectorNode(int Select, ScalarKind Kind) : PayloadNode(Kind);
+
+// the selector of a Select Case of a String selector, as its TextSelectStep evaluated it.
+internal sealed record class TextSelectorNode(int Select) : TextNode;
 
 // the argument of a parameter passed by reference that is a variable of the activation of the parameter's kind (MS-VBAL §5.3.1.11): the cell it is held
 // in, which the parameter is a second name for. Only an argument of a call.

@@ -20,9 +20,9 @@ internal sealed partial class ProcedureAnalysis
     // it is in that statement (KnownOperands.IndexOf), for the interpreter to be given when the instruction is handed to it after a call.
     private StatementNode? _nesting;
 
-    // a Let of a scalar variable of the activation or of the function result variable, a call statement, or a condition of an If or a loop, that calls a
-    // function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode); and so is every other instruction, as
-    // it always is.
+    // a Let of a scalar variable of the activation or of the function result variable, a call statement, a condition of an If or a loop, the bounds of a
+    // For, or the selector of a Select Case, that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode,
+    // KnownNode); and so is every other instruction, as it always is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);
@@ -84,6 +84,9 @@ internal sealed partial class ProcedureAnalysis
             { Kind: InstructionKind.ForOpener, Node: ForStatementNode forStatement }
                 => Calls(Bind(forStatement.StartExpression)) || Calls(Bind(forStatement.EndExpression))
                 || forStatement.StepExpression is { } step && Calls(Bind(step)),
+            // the selector of a Select Case, evaluated once (MS-VBAL §5.4.2.10). The values of a Case are not among the nodes of
+            // its statement (KnownOperands.IndexOf), so a Case that calls is the interpreter's.
+            { Kind: InstructionKind.Select, Node: SelectCaseStatementNode selectCase } => Calls(Bind(selectCase.ControlExpression)),
             _ => false,
         };
 
@@ -211,6 +214,7 @@ internal sealed partial class ProcedureAnalysis
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
+        SelectStep select => Admits(select.Selector),
         _ => false,
     };
 
@@ -328,6 +332,7 @@ internal sealed partial class ProcedureAnalysis
         BranchStep branch => [branch.Condition],
         LoopBackStep loop => [loop.Condition],
         ForOpenStep open => [open.Start, open.End, open.Step],
+        SelectStep select => [select.Selector],
         _ => [],
     };
 

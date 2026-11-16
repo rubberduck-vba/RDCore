@@ -77,8 +77,9 @@ internal sealed partial class ProcedureEmitter
     // instruction the interpreter runs alone.
     private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
 
-    // a Select Case's selector, and the same two flags: whether its Select ever ran, and whether the frame has what it last gave the selector.
-    private sealed record class SelectLocals(LocalBuilder Selector, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
+    // a Select Case's selector, and the same two flags: whether its Select ever ran, and whether the frame has what it last gave the selector. The selector
+    // of a String one is its text.
+    private sealed record class SelectLocals(LocalBuilder Selector, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind, bool IsText);
 
     private readonly List<SelectLocals> _selects = [];
 
@@ -229,7 +230,8 @@ internal sealed partial class ProcedureEmitter
 
         foreach (var select in _analysis.Selects)
         {
-            _selects.Add(new SelectLocals(_il.DeclareLocal(ClrTypeOf(select.Kind)), _il.DeclareLocal(typeof(bool)), _il.DeclareLocal(typeof(bool)), select.Kind));
+            _selects.Add(new SelectLocals(_il.DeclareLocal(select.IsText ? typeof(string) : ClrTypeOf(select.Kind)), _il.DeclareLocal(typeof(bool)),
+                _il.DeclareLocal(typeof(bool)), select.Kind, select.IsText));
         }
 
         for (var offset = 0; offset <= _analysis.Length; offset++)
@@ -498,6 +500,19 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // the text, evaluated once: one compiled code reads none of, the interpreter's Select alone, whose selector compiled code then reads back.
+            case TextSelectStep textSelect:
+            {
+                var locals = _selects[textSelect.Select];
+                _il.Emit(OpCodes.Ldloc, EmitTextInto(textSelect.Selector, RecoverAt(textSelect.Offset)));
+                _il.Emit(OpCodes.Stloc, locals.Selector);
+                _il.Emit(OpCodes.Ldc_I4_1);
+                _il.Emit(OpCodes.Stloc, locals.Opened);
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Stloc, locals.Spilled);
+                break;
+            }
+
             case CaseStep caseStep:
                 EmitCase(caseStep);
                 break;
@@ -730,10 +745,10 @@ internal sealed partial class ProcedureEmitter
         var matched = _il.DefineLabel();
         foreach (var clause in caseStep.Clauses)
         {
-            EmitCompare(clause.Lower, failure);
+            EmitClause(clause.Lower, failure);
             if (clause.Upper is { } upper)
             {
-                EmitCompare(upper, failure);
+                EmitClause(upper, failure);
                 _il.Emit(OpCodes.And);
             }
 
@@ -742,6 +757,18 @@ internal sealed partial class ProcedureEmitter
 
         _il.Emit(OpCodes.Br, _instructions[caseStep.Else]);
         _il.MarkLabel(matched);
+    }
+
+    // a comparison of a clause, its bool left on the stack: of a scalar selector, or of the text of a String one.
+    private void EmitClause(PayloadNode compared, Label failure)
+    {
+        if (compared is TextCompareNode text)
+        {
+            EmitTextCompare(text, failure);
+            return;
+        }
+
+        EmitCompare((CompareNode)compared, failure);
     }
 
     // the instruction at offset run by the interpreter alone (CompiledActivation.Recover). When it falls through to the next instruction, nothing changed
@@ -1485,8 +1512,8 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
             _il.Emit(OpCodes.Ldloca, select.Selector);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(select.Kind)
-                ? nameof(CompiledActivation.ReloadSelectorIntegral)
+            _il.Emit(OpCodes.Call, Activation.GetMethod(select.IsText ? nameof(CompiledActivation.ReloadTextSelector)
+                : ScalarKinds.IsIntegral(select.Kind) ? nameof(CompiledActivation.ReloadSelectorIntegral)
                 : nameof(CompiledActivation.ReloadSelectorFloating))!);
             _il.Emit(OpCodes.Dup);
             _il.Emit(OpCodes.Stloc, select.Opened);
@@ -1580,8 +1607,16 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brtrue, closed);
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
-            LoadAsBoth(select.Selector, select.Kind);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillSelector))!);
+            if (select.IsText)
+            {
+                _il.Emit(OpCodes.Ldloc, select.Selector);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillTextSelector))!);
+            }
+            else
+            {
+                LoadAsBoth(select.Selector, select.Kind);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillSelector))!);
+            }
             _il.Emit(OpCodes.Ldc_I4_1);
             _il.Emit(OpCodes.Stloc, select.Spilled);
             _il.MarkLabel(closed);

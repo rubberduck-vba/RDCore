@@ -278,7 +278,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         Append(string.Join(',', analysis.CellSlots));
         Append(string.Join(',', analysis.SlotSymbols.OrderBy(slot => slot.Key).Select(slot => $"{slot.Key}:{slot.Value.SemanticId}")));
         Append(string.Join(',', analysis.Loops.Select(loop => $"{loop.Opener}:{loop.Kind}")));
-        Append(string.Join(',', analysis.Selects.Select(select => $"{select.Opener}:{select.End}:{select.Kind}")));
+        Append(string.Join(',', analysis.Selects.Select(select => $"{select.Opener}:{select.End}:{select.Kind}:{select.IsText}")));
         foreach (var step in analysis.Steps)
         {
             Append(step);
