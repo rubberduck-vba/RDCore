@@ -13,7 +13,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <c>workspace/applyEdit</c> under <c>rdc mcp</c>: the edit is written to the file in its own encoding, and the language server is told which files changed
-/// before it is answered; an edit that is refused writes nothing and tells nothing.
+/// before it is answered; an edit that is refused writes nothing, and the server is told of no change.
 /// </summary>
 [TestClass]
 public sealed class McpApplyEditHandlerTests
