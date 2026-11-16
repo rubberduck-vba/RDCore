@@ -26,7 +26,7 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
         }
 
         var where = locate?.Invoke(first.Module, first.Range.Start) ?? $"{SymbolUri.ModuleNameOf(first.Module)} {first.Range.Start.Line + 1}:{first.Range.Start.Character + 1}";
-        return RefactoringTitles.ReferencesIncomplete(Symbol.Name, where, culture);
+        return SymbolTexts.ReferencesIncomplete(Symbol.Name, where, culture);
     }
 }
 
