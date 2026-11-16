@@ -68,9 +68,22 @@ public sealed class ConversionPlannerTests
     [TestMethod]
     public void ADestinationNoRuleIsFor_IsATypeMismatch()
     {
-        var root = new Uri("file://rdcore-test");
         Assert.IsTrue(ConversionPlanner.ForValue(VBLongType.TypeInfo, new VBFixedSizeArrayType(VBLongType.TypeInfo)).IsTypeMismatch);
-        Assert.IsTrue(ConversionPlanner.ForValue(VBLongType.TypeInfo, new VBClassType(new VBClassModuleSymbol(root, root, "Widget"), [])).IsTypeMismatch);
+    }
+
+    // MS-VBAL §5.5.1.2.13: a value other than an object is let-coerced to a class as to Object, whose rule raises error 424; an object keeps its own rule and
+    // the class.
+    [TestMethod]
+    public void AValueOtherThanAnObject_IsLetCoercedToAClass_AsToObject()
+    {
+        var root = new Uri("file://rdcore-test");
+        var widget = new VBClassType(new VBClassModuleSymbol(root, root, "Widget"), []);
+
+        var scalar = ConversionPlanner.ForValue(VBLongType.TypeInfo, widget);
+        var instance = ConversionPlanner.ForValue(VBObjectType.TypeInfo, widget);
+
+        Assert.AreEqual((ConversionRule.Object, (VBType)VBObjectType.TypeInfo), (scalar.Rule, scalar.Destination));
+        Assert.AreEqual((ConversionRule.FromObject, (VBType)widget), (instance.Rule, instance.Destination));
     }
 
     [TestMethod]
