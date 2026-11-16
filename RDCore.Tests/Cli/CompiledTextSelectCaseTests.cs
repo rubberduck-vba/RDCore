@@ -71,8 +71,8 @@ public sealed class CompiledTextSelectCaseTests
             "    Twice = R & S",
             "End Function"), "Twice", recoveries: 0, expected: "ABbBBb"));
 
-    // a value that is no String nor a whole number - a Double, which the let-coercion writes in the regional settings of the session - is compared by the
-    // interpreter, each time its Case is reached ("1.5", "q" and "w": three recoveries), given the selector compiled code evaluated; the Case after it is
+    // a value that is neither a String nor a whole number - a Double, which the let-coercion writes in the regional settings of the session - is compared by
+    // the interpreter, each time its Case is reached ("1.5", "q" and "w": three recoveries), given the selector compiled code evaluated; the Case after it is
     // compiled code's again, comparing the selector it reads back.
     [TestMethod]
     public async Task AValueCompiledCodeDoesNotWriteAsText_IsComparedByTheInterpreter()
