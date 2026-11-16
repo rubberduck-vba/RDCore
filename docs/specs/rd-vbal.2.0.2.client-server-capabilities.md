@@ -409,7 +409,7 @@ The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed 
 A `Type` or an `Enum` is renamed where its name means it: its declaration, its `As` clauses (**MS-VBAL §5.6.16.7**), and where it qualifies a member of the `Enum` (`Color.Red`). A variable or a procedure with the same name is a value, and keeps its name. The new name follows **MS-VBAL §5.2.3.3** and **§5.2.3.4**:
 
 - a `Private` `Type` or `Enum` is named as no other `Type` or `Enum` of its module;
-- a `Public` one is named as no `Public` `Type` or `Enum` of its project, no module of the project, and no project.
+- a `Public` one is named as no `Public` `Type` or `Enum` of its project, no module of the project, no project and no library it references.
 
 Where it qualifies a member of the `Enum`, the new name must mean no value, or the member would be read from that value.
 
@@ -419,7 +419,7 @@ A standard or class module is renamed where its name means it, the same way, its
 - in the `Implements` directives of the classes that implement it (**MS-VBAL §5.2.4.2**);
 - in the procedures that implement its members, whose names start with its name (`IShape_Draw`, **MS-VBAL §5.3.1.9**). Only that part is renamed, where each is declared and called.
 
-The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, or of a project (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
+The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, of the project, or of a library the project references (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
 
 A procedure named after what it implements or handles (**MS-VBAL §5.3.1.8**, **§5.3.1.9**) is renamed with it. Only the part of its name that is the renamed symbol's changes, where the procedure is declared and called:
 
