@@ -154,6 +154,9 @@ The executable is made of the .NET application host for the program's runtime. `
 it uses the one in an installed .NET SDK. Where neither has it, the program is built without an executable; run with `dotnet <name>.dll`, it makes no
 call to the outside world.
 
+The executable of a program built for macOS (`osx-x64`, `osx-arm64`) is signed ad hoc, as the .NET SDK signs an application's: a Mac with Apple silicon
+runs no executable that is not signed. The signature has no certificate: it is not a Developer ID signature.
+
 The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
 reads them from there, wherever the folder is.
 

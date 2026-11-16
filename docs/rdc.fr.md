@@ -160,6 +160,9 @@ L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. 
 _runtime_, il prend celui d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
 `dotnet <nom>.dll`, il n'appelle pas le monde extérieur.
 
+L'exécutable d'un programme construit pour macOS (`osx-x64`, `osx-arm64`) est signé ad hoc, comme le SDK .NET signe celui d'une application : un Mac
+doté d'une puce Apple n'exécute aucun exécutable qui n'est pas signé. La signature n'a pas de certificat : ce n'est pas une signature Developer ID.
+
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.
 
