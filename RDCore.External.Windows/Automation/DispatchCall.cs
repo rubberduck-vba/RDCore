@@ -225,10 +225,12 @@ internal static class DispatchCall
                 return null;
             }
 
+            // a wrapper of its own, let go of at once: the runtime's shared wrapper of an object is found by its address, and can be one that another apartment
+            // made for an object that was at that address, and that the end of that apartment let go of.
             Guid described;
+            var info = (ITypeInfo)Marshal.GetUniqueObjectForIUnknown(typeInfo);
             try
             {
-                var info = (ITypeInfo)Marshal.GetObjectForIUnknown(typeInfo);
                 info.GetTypeAttr(out var attributes);
                 try
                 {
@@ -241,6 +243,7 @@ internal static class DispatchCall
             }
             finally
             {
+                _ = Marshal.FinalReleaseComObject(info);
                 _ = Marshal.Release(typeInfo);
             }
 
