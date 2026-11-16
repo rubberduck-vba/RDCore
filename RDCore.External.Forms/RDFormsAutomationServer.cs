@@ -324,7 +324,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     }
 
     // Set of a font shares it: the control draws it, and a change through any reference is the control's (measured in VB6). Nothing is 380, and the font stays. A
-    // value that is no object, as a Let of a font gives its default member, is the font's name.
+    // String or a number, which a Let of a font gives as its default member, sets the font's name.
     private static void AssignFont(RDFormsForm form, ComponentInstance component, PropertyDefinition property, object? value, CultureInfo culture)
     {
         switch (value)
