@@ -52,7 +52,7 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
     public string ToPlainText(CultureInfo? culture = null)
         => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
 
-    private string? AdditionOf(CultureInfo? culture) => AdditionTo is null ? null : RefactoringTitles.LibraryAddition(AdditionTo, culture);
+    private string? AdditionOf(CultureInfo? culture) => AdditionTo is null ? null : SymbolTexts.LibraryAddition(AdditionTo, culture);
 
     private string? ArrayOf(CultureInfo? culture) => ControlArrayOf is null ? null : SymbolTexts.ControlArrayOf(ControlArrayOf, culture);
 

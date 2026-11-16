@@ -505,7 +505,7 @@ public sealed class VisualBasicFormLanguageTests
     {
         var items = await CompletionItemsAtAsync(FormWithLabelAndList("Private Sub Fill()", "    Label1.|", "End Sub"));
 
-        StringAssert.StartsWith(items.First(item => item.Label == "Opacity").Documentation?.String, RefactoringTitles.LibraryAddition("VB"));
-        Assert.DoesNotContain(RefactoringTitles.LibraryAddition("VB"), items.First(item => item.Label == "Caption").Documentation?.String ?? string.Empty);
+        StringAssert.StartsWith(items.First(item => item.Label == "Opacity").Documentation?.String, SymbolTexts.LibraryAddition("VB"));
+        Assert.DoesNotContain(SymbolTexts.LibraryAddition("VB"), items.First(item => item.Label == "Caption").Documentation?.String ?? string.Empty);
     }
 }
