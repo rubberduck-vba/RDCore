@@ -483,6 +483,13 @@ internal sealed class BenchRunner(
 
             // a pipeline per run, as the host composes one per request: its cancellation is the run's.
             var pipeline = RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errorDetails, token, outside: provider.Outside);
+
+            // every run starts from a collected heap, so a collection inside it depends on what the run allocates and keeps, not on the runs and
+            // cases before it.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
             var stopwatch = Stopwatch.StartNew();
             var result = await provider.Execution.RunAsync(pipeline, entryPoint, debug: false, token);
             stopwatch.Stop();
