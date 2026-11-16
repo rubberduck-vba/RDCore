@@ -18,14 +18,14 @@ namespace RDCore.Runtime.Compiled;
 /// </summary>
 /// <remarks>
 /// A <c>ReDim</c> stores another array in the same cell, and an element is found in the array the variable holds now. Compiled code keeps the array a
-/// variable holds (<see cref="KnownArray"/>) only while nothing it runs can give the variable another array, and gives it to these operations as the
-/// holder. After anything else (the interpreter running an instruction, a call, a statement that stores an array), it finds the array in the cell again.
+/// variable holds, with its shape (<see cref="KeptArray"/>), only while nothing it runs can give the variable another array, and finds an element in it
+/// by the operations named Kept. After anything else (the interpreter running an instruction, a call, a statement that stores an array), it finds the array in the cell again.
 /// </remarks>
 public static class ArrayOperations
 {
     /// <summary>
-    /// The array held in <paramref name="holder"/>, found as the other operations of this class find it. Compiled code keeps it while the variable
-    /// cannot be given another array, and gives it to those operations as their holder.
+    /// The array held in <paramref name="holder"/>, found as the other operations of this class find it. What compiled code keeps, with its shape, while the
+    /// variable cannot be given another array (<see cref="KeptArray"/>).
     /// </summary>
     /// <param name="holder">The cell of the array variable, the array field, or the cell of the <c>Variant</c> that holds the array.</param>
     /// <returns>
@@ -46,14 +46,7 @@ public static class ArrayOperations
     /// variable's: what <see cref="VariantOperations.Read"/> and the others read and write.
     /// </summary>
     public static object? VariantElement(object? holder, int rank, long first, long second, long third)
-        => ElementOf(holder, rank, first, second, third) switch
-        {
-            VariantCell cell => cell,
-
-            // an element of a param array given a Variant variable refers to it, and is read and written as the variable is: in its cell.
-            VariantReferenceBindingHandle { DeclaredType: VBVariantType, Variable: VariantCell variable } => variable,
-            _ => null,
-        };
+        => VariantCellOf(ElementOf(holder, rank, first, second, third));
 
     /// <summary>
     /// The cell of an element of an array of objects (<see cref="ScalarElement"/>), whose reference <see cref="ObjectOperations"/> reads: <c>Nothing</c>, of an
@@ -61,6 +54,55 @@ public static class ArrayOperations
     /// </summary>
     public static object? ObjectElement(object? holder, int rank, long first, long second, long third)
         => ElementOf(holder, rank, first, second, third);
+
+    /// <summary>
+    /// The cell of an element of an array compiled code keeps (<see cref="KeptArray"/>), as <see cref="ScalarElement"/> finds it in the array held in
+    /// <paramref name="holder"/>: the array is found in the holder the first time, and kept with its shape until compiled code lets go of it.
+    /// </summary>
+    /// <param name="kept">The array compiled code keeps, with its shape; none until an element is found in it.</param>
+    /// <param name="holder">What holds the array, as <see cref="ScalarElement"/> is given it.</param>
+    /// <param name="kind">The kind of the payload the cell holds.</param>
+    /// <param name="rank">How many of the subscripts there are.</param>
+    /// <param name="first">The first subscript.</param>
+    /// <param name="second">The second subscript, when there is one.</param>
+    /// <param name="third">The third subscript, when there is one.</param>
+    public static object? KeptScalarElement(ref KeptArray kept, object? holder, ScalarKind kind, int rank, long first, long second, long third)
+        => kept.CellAt(holder, rank, first, second, third) is ScalarCell cell && kept.KindOf(cell.Type) == kind ? cell : null;
+
+    /// <summary>
+    /// The cell of an element of an array of <c>Variant</c>s compiled code keeps, as <see cref="VariantElement"/> finds it (<see cref="KeptScalarElement"/>).
+    /// </summary>
+    /// <inheritdoc cref="KeptScalarElement" path="/param"/>
+    public static object? KeptVariantElement(ref KeptArray kept, object? holder, int rank, long first, long second, long third)
+        => VariantCellOf(kept.CellAt(holder, rank, first, second, third));
+
+    /// <summary>
+    /// The cell of an element of an array of objects compiled code keeps, as <see cref="ObjectElement"/> finds it (<see cref="KeptScalarElement"/>).
+    /// </summary>
+    /// <inheritdoc cref="KeptScalarElement" path="/param"/>
+    public static object? KeptObjectElement(ref KeptArray kept, object? holder, int rank, long first, long second, long third)
+        => kept.CellAt(holder, rank, first, second, third);
+
+    /// <summary>
+    /// <c>LBound</c> or <c>UBound</c> of a dimension of an array compiled code keeps, as <see cref="Bound"/> reads it (<see cref="KeptScalarElement"/>).
+    /// </summary>
+    /// <param name="kept">The array compiled code keeps, with its shape.</param>
+    /// <param name="holder">What holds the array.</param>
+    /// <param name="upper">Whether it is the upper bound.</param>
+    /// <param name="dimension">The dimension, counted from 1.</param>
+    /// <param name="bound">The bound.</param>
+    /// <returns><see langword="false"/> when it is the interpreter's, as <see cref="Bound"/> says.</returns>
+    public static bool KeptBound(ref KeptArray kept, object? holder, bool upper, long dimension, out long bound)
+        => kept.TryBound(holder, upper, dimension, out bound);
+
+    // an element of an array of Variants, in the cell compiled code reads a Variant in: its own, or the variable's a param array element refers to, which is
+    // read and written as the variable is.
+    private static object? VariantCellOf(IBindingHandle? element) => element switch
+    {
+        VariantCell cell => cell,
+        VariantReferenceBindingHandle { DeclaredType: VBVariantType, Variable: VariantCell variable } => variable,
+        _ => null,
+    };
 
     /// <summary>
     /// <c>LBound</c> (<paramref name="upper"/> <see langword="false"/>) or <c>UBound</c> of the dimension <paramref name="dimension"/>, counted from 1, of the
