@@ -232,6 +232,10 @@ internal sealed record class VariantValueNode(int Slot) : VariantNode;
 // gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
 internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
 
+// an expression of Strings given by value to a String parameter of a function of the standard library: its text, as the interpreter gives it
+// (CompiledActivation.StringArgument). Only a library call's argument is one.
+internal sealed record class StringArgumentNode(TextNode Text) : VariantNode;
+
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
 

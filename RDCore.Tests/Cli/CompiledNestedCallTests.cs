@@ -213,7 +213,7 @@ public sealed class CompiledNestedCallTests
             "    Outer = t",
             "End Function",
             "Private Function Parsed(ByVal x As Long) As Long",
-            "    Parsed = CLng(Val(CStr(x)))",
+            "    Parsed = CLng(StrReverse(StrReverse(CStr(x))))",
             "End Function");
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
         var compiled = await RunAsync(program, VBExecutionEngine.Compiled);

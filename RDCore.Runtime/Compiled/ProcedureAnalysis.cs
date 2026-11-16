@@ -1315,10 +1315,13 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), an element of an
-    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant.
+    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant, called with its arguments or named
+    // with none (Now, VBA.DateTime.Time).
     private bool IsVariant(BoundNode node)
         => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType }
-            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called);
+            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called)
+            || node is BoundName { Symbol: var named } && IsVariantLibrary(named)
+            || node is BoundQualifiedName { Member: var qualified } && IsVariantLibrary(qualified);
 
     private static bool IsExtended(BoundNode node) => RuntimeExpressionEvaluator.ExtendedTypeOf(node) is not null;
 
@@ -1528,7 +1531,13 @@ internal sealed partial class ProcedureAnalysis
 
             // a function of the standard library that returns a Variant (ProcedureAnalysis.Libraries.cs).
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):
-                return LibraryVariantOf(call, library);
+                return LibraryVariantOf(call, library, call.BoundArguments);
+
+            case BoundQualifiedName { Member: VBTypeMemberSymbol library } qualified when IsVariantLibrary(library):
+                return LibraryVariantOf(qualified, library, ImmutableArray<BoundArgument>.Empty);
+
+            case BoundName { Symbol: VBTypeMemberSymbol library } name when IsVariantLibrary(library):
+                return LibraryVariantOf(name, library, ImmutableArray<BoundArgument>.Empty);
 
             default:
                 return Payload(node) is { } payload ? new VariantOfNode(payload) : null;

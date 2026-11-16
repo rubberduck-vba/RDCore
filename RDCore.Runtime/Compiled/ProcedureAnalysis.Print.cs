@@ -90,11 +90,27 @@ internal sealed partial class ProcedureAnalysis
         StdLibSymbolReader.ExternalTargetOf(typeof(IStdStringsModule), typeof(IStdStringsModule).GetMethod(nameof(IStdStringsModule.Replace))!),
     ];
 
-    // the functions of the library that return a String and take Variants or scalars, which compiled code calls with its arguments as it calls a function
-    // that returns a Variant (LibraryArgumentsOf): CStr (MS-VBAL §6.1.2.3.1.12).
+    // the functions of the library that return a String, or a Variant that holds one, and take Variants or scalars, which compiled code calls with its
+    // arguments as it calls a function that returns a Variant (LibraryArgumentsOf): CStr (MS-VBAL §6.1.2.3.1.12), TypeName of what is not an object
+    // (§6.1.2.7.1.12), Format (§6.1.2.11.1.8), LCase (§6.1.2.11.1.17), Left (§6.1.2.11.1.19), LTrim, RTrim and Trim (§6.1.2.11.1.23), Mid (§6.1.2.11.1.25),
+    // Right (§6.1.2.11.1.30) and UCase (§6.1.2.11.1.41), each with its $ form. A Variant one that returns Null, which no String holds, is the
+    // interpreter's call (CompiledActivation.TryCallLibraryVariantText).
     private static readonly string[] VariantTextLibraryFunctions =
     [
         StdLibSymbolReader.ExternalTargetOf(typeof(IStdConversionModule), typeof(IStdConversionModule).GetMethod(nameof(IStdConversionModule.CStr))!),
+        TypeNameFunction,
+        .. new[]
+        {
+            nameof(IStdStringsModule.Format), nameof(IStdStringsModule.FormatString),
+            nameof(IStdStringsModule.LCase), nameof(IStdStringsModule.LCaseString),
+            nameof(IStdStringsModule.Left), nameof(IStdStringsModule.LeftString),
+            nameof(IStdStringsModule.LTrim), nameof(IStdStringsModule.LTrimString),
+            nameof(IStdStringsModule.RTrim), nameof(IStdStringsModule.RTrimString),
+            nameof(IStdStringsModule.Trim), nameof(IStdStringsModule.TrimString),
+            nameof(IStdStringsModule.Mid), nameof(IStdStringsModule.MidString),
+            nameof(IStdStringsModule.Right), nameof(IStdStringsModule.RightString),
+            nameof(IStdStringsModule.UCase), nameof(IStdStringsModule.UCaseString),
+        }.Select(name => StdLibSymbolReader.ExternalTargetOf(typeof(IStdStringsModule), typeof(IStdStringsModule).GetMethod(name)!)),
     ];
 
     private static bool IsVariantTextLibrary(Symbol symbol)
@@ -122,9 +138,15 @@ internal sealed partial class ProcedureAnalysis
             && Array.IndexOf(TextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
 
     // TypeName of an object variable of the activation, of Me, or of Nothing (MS-VBAL §6.1.2.7.1.12): the library's function names it when compiled code
-    // calls it. Any other argument, and a call inside an instruction that calls inside an expression, is the interpreter's.
+    // calls it. Any other argument is given as a call of VariantTextLibraryFunctions gives it, and a call inside an instruction that calls inside an
+    // expression is the interpreter's.
     private TextNode? TypeNameOf(BoundCall call)
     {
+        if (_nesting is null && call.BoundArguments is [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } value }] && !TryObjectArgument(value, out _))
+        {
+            return LibraryVariantTextOf(call);
+        }
+
         if (_nesting is not null || call.BoundArguments is not [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } named }]
             || !TryObjectArgument(named, out var slot) || call.Procedure is not VBTypeMemberSymbol function)
         {
