@@ -525,6 +525,9 @@
   <data name="AssignedByValParameter_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change.</value>
   </data>
+  <data name="AssignedByValParameter_Fix" xml:space="preserve">
+    <value>Copy &apos;{0}&apos; into a local variable &apos;{1}&apos;, and use it in place of the parameter</value>
+  </data>
   <data name="ConstantNotUsed_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; is never used.</value>
   </data>

@@ -1322,6 +1322,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Copy &apos;{0}&apos; into a local variable &apos;{1}&apos;, and use it in place of the parameter.
+        /// </summary>
+        public static string AssignedByValParameter_Fix {
+            get {
+                return ResourceManager.GetString("AssignedByValParameter_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Constant &apos;{0}&apos; is never used..
         /// </summary>
         public static string ConstantNotUsed_Message {
