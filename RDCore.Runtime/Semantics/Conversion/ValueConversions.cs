@@ -275,7 +275,7 @@ public static partial class ValueConversions
 
     private const NumberStyles DigitStyles = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
 
-    // for a caller that does not want the value (IsNumber), a number of at most 28 characters with no exponent is Written without being read: a Decimal
+    // for a caller that does not want the value (IsNumber), a number of at most 28 characters with no exponent is written without being read: a Decimal
     // holds it and a Double reads it, whatever its digits are.
     private static NumberRead ReadNumber(string? text, RegionalSettings regional, out ulong bits, out decimal writtenValue, out double scaledValue,
         bool wantsValue = true)
