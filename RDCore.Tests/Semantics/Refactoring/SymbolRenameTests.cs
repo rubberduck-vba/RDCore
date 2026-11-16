@@ -765,12 +765,16 @@ public sealed class SymbolRenameTests
     public void AFormWithNoVBName_GainsIt_AfterItsDesignerAndTheBlocksOfItsControls()
     {
         string[] designer = ["VERSION 5.00", "Begin VB.Form Picker", "   Caption = \"Pick\"", "   Begin VB.CommandButton Ok", "      Caption = \"OK\"", "   End", "End"];
-        var context = Compose(("Picker", Lines([.. designer, "Public Sub Go()", "End Sub"])), ("Main", Module("Main", "Public Sub One()", "    Picker.Go", "End Sub")));
+        // a form's file declares its default instance (MS-VBAL §5.2.4.1.2), which Picker.Go uses; its VB_Name goes first of the attributes.
+        const string predeclared = "Attribute VB_PredeclaredId = True";
+        var context = Compose(
+            ("Picker", Lines([.. designer, predeclared, "Public Sub Go()", "End Sub"])),
+            ("Main", Module("Main", "Public Sub One()", "    Picker.Go", "End Sub")));
 
         var plan = Rename(context, "Main", "Picker.Go", "Picker", "Chooser");
 
         Assert.AreEqual(
-            Lines([.. designer.Select(line => line.Replace("VB.Form Picker", "VB.Form Chooser", StringComparison.Ordinal)), "Attribute VB_Name = \"Chooser\"", "Public Sub Go()", "End Sub"]),
+            Lines([.. designer.Select(line => line.Replace("VB.Form Picker", "VB.Form Chooser", StringComparison.Ordinal)), "Attribute VB_Name = \"Chooser\"", predeclared, "Public Sub Go()", "End Sub"]),
             Renamed(context, plan, "Picker"));
     }
 
