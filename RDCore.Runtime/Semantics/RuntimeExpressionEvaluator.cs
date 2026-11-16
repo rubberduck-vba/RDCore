@@ -581,8 +581,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private readonly HashSet<SemanticId> _foldingConstants = [];
 
     /// <summary>
-    /// Reduces <paramref name="constantExpression"/> — the constant expression declared by
-    /// <paramref name="owner"/> — to its value, once each time its module is loaded.
+    /// Reduces <paramref name="constantExpression"/>, the constant expression declared by
+    /// <paramref name="owner"/>, to its value, once each time its module is loaded.
     /// </summary>
     /// <param name="session">The session the expression resolves its own names against.</param>
     /// <param name="owner">The symbol that declares it: a <c>Const</c>, or a parameter with a default.</param>
