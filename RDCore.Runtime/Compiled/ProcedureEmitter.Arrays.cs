@@ -134,7 +134,7 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the element a Let writes, found before a value that calls nothing is evaluated, which nothing can observe (MS-VBAL §5.4.3.8 evaluates the value
+    // the element a Let writes, found before a value that calls nothing is evaluated, as the interpreter finds it (MS-VBAL §5.4.3.8 evaluates the value
     // first, as a value that calls is: ElementLetStep), while the value is: the same element read in the value, at subscripts that are the same expressions,
     // is that cell. Nothing between finds another: the value calls nothing (pure), so no variable a subscript reads changes, and the array is the one the
     // holder holds. Subscripts are compared as the nodes they are; one made of a list (an element in a subscript) is never
@@ -169,8 +169,9 @@ internal sealed partial class ProcedureEmitter
         {
             // the value evaluated, then the element's cell found and the value written into it (MS-VBAL §5.4.3.8), as the interpreter evaluates the value
             // before it finds the element (AssignValue): after a call inside the value, the subscripts are read as the call left them. A value that calls
-            // nothing is evaluated once the cell is found, which nothing can observe, so that the same element read in it is that cell (EmitFoundIn). A
-            // value that reads a Variant declines what compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
+            // nothing is evaluated once the cell is found, so that the same element read in it is that cell (EmitFoundIn): after the calls of the subscripts,
+            // which the interpreter makes before it reads what the value reads. A value that reads a Variant declines what compiled code does not evaluate, as
+            // a variable's Let does (FailureOf): the interpreter runs the Let.
             case ElementLetStep let:
             {
                 Operand value;
