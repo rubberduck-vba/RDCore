@@ -564,6 +564,25 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // a String or Null written into the Variant's cell; over an object, an array or a record, or a text compiled code reads nothing of, the
+            // interpreter runs the Let alone, and compiled code goes on after it.
+            case VariantTextLetStep textLet:
+            {
+                var failure = RecoverAt(textLet.Offset);
+                var text = EmitTextInto(textLet.Value, failure);
+                _il.Emit(OpCodes.Ldloc, _variants[textLet.Slot]);
+                _il.Emit(OpCodes.Ldloc, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.WriteText))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+
+            case VariantNullLetStep nullLet:
+                _il.Emit(OpCodes.Ldloc, _variants[nullLet.Slot]);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.WriteNull))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(nullLet.Offset));
+                break;
+
             // the result of a function of the Variant type, assigned where its frame holds it: one the interpreter's assignment would let go of an object
             // to, the interpreter runs alone, and compiled code goes on after it.
             case VariantResultLetStep resultLet:
