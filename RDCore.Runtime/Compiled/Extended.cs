@@ -24,7 +24,7 @@ namespace RDCore.Runtime.Compiled;
 /// add up to it exactly (Knuth's two-sum, the fused multiply-add). Its value is that sum rounded to the 64 bits of the extended format, and stored as a
 /// <c>Double</c> or a <c>Date</c> it is rounded a second time, to 53 bits: that gives the nearest <c>Double</c> unless the first rounding lands on a
 /// midpoint between two <c>Double</c>s, which the second rounds to even. So it is stored as the nearest <c>Double</c> when the result is farther from such
-/// a midpoint than the first rounding can move it, and that <c>Double</c> is a normal number whose neighbours are as far from it on either side (no power
+/// a midpoint than the first rounding can move it, and that <c>Double</c> is a normal number whose neighbors are as far from it on either side (no power
 /// of two); any other store, and anything computed from it, goes through the extended format.
 /// </para>
 /// <para>

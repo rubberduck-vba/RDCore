@@ -149,7 +149,8 @@ public sealed class ExtendedTests
             yield return (sign * nearest, sign * (random.Next(2) == 0 ? 1 : -1) * (unit / 2 + distance));
         }
 
-        // i * j = 2^51 + 2^bits * r2 + 2^(51 - bits) * r1 + r1 * r2: within 2^-26 to 2^-9 of a half unit, through the band where the 64-bit rounding lands on it.
+        // i * j = 2^51 + 2^bits * r2 + 2^(51 - bits) * r1 + r1 * r2: within 2^-26 to 2^-9 of a half unit, through the band where the 64-bit
+        // rounding lands on it.
         for (var i = 0; i < 4000; i++)
         {
             var bits = random.Next(20, 32);
