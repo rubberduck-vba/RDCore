@@ -259,19 +259,25 @@ if (Test-Path -LiteralPath $LogsPath -PathType Container) {
 }
 
 # (f) rdc build makes a program's executable of the .NET application host, which a machine with only the .NET runtime does not have: rdc ships the one of
-# the tree's RID beside it, as the SDK's pack has it (RDCore.CLI.csproj), with the placeholder for the program's assembly still in it. a portable tree
-# ("any") ships the one of the system that built it.
-if ($Manifest -and $Manifest.hostService -and $Manifest.rid -and $Manifest.rid -cne "any" -and (Test-RelativePath $Manifest.hostService)) {
-    $rid = $Manifest.rid
-    $hostFile = if ($rid -like "win*") { "apphost.exe" } else { "apphost" }
-    $pack = Join-Path $Root (Split-Path $Manifest.hostService -Parent) "apphost/packs/Microsoft.NETCore.App.Host.$rid"
-    $hosts = @(if (Test-Path -LiteralPath $pack -PathType Container) {
-        Get-ChildItem -LiteralPath $pack -Directory | ForEach-Object { Join-Path $_.FullName "runtimes/$rid/native/$hostFile" } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
-    })
-    if ($hosts.Count -ne 1) {
-        Add-Failure "$(Get-RelativePath $pack) has $($hosts.Count) application host(s) for $rid, expected one: rdc build makes no executable without it."
-    }
-    else {
+# each runtime the platform is published for (PlatformRuntimeIdentifiers in Directory.Build.props) beside it, as the SDK's packs have them
+# (RDCore.CLI.csproj), with the placeholder for the program's assembly still in it; and the one of the tree's RID, when it is not among them. a portable
+# tree ("any") ships the host of the system that built it, which is one of them.
+if ($Manifest -and $Manifest.hostService -and (Test-RelativePath $Manifest.hostService)) {
+    $props = [xml](Get-Content -LiteralPath (Join-Path $PSScriptRoot "../../Directory.Build.props") -Raw)
+    $rids = @(@($props.Project.PropertyGroup | ForEach-Object { $_.PlatformRuntimeIdentifiers } | Where-Object { $_ }) -join ";" -split ";" | Where-Object { $_ })
+    if (-not $rids.Count) { Add-Failure "Directory.Build.props names no PlatformRuntimeIdentifiers: the application hosts rdc ships are not checked." }
+    if ($Manifest.rid -and $Manifest.rid -cne "any" -and $rids -cnotcontains $Manifest.rid) { $rids += $Manifest.rid }
+    foreach ($rid in $rids) {
+        $hostFile = if ($rid -like "win*") { "apphost.exe" } else { "apphost" }
+        $pack = Join-Path $Root (Split-Path $Manifest.hostService -Parent) "apphost/packs/Microsoft.NETCore.App.Host.$rid"
+        $hosts = @(if (Test-Path -LiteralPath $pack -PathType Container) {
+            Get-ChildItem -LiteralPath $pack -Directory | ForEach-Object { Join-Path $_.FullName "runtimes/$rid/native/$hostFile" } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+        })
+        if ($hosts.Count -ne 1) {
+            Add-Failure "$(Get-RelativePath $pack) has $($hosts.Count) application host(s) for $rid, expected one: rdc build makes no executable for $rid without it."
+            continue
+        }
+
         # the hex SHA-256 of "foobar" (AppHost.Placeholder)
         $placeholder = "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2"
         $text = [Text.Encoding]::Latin1.GetString([IO.File]::ReadAllBytes($hosts[0]))
