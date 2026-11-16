@@ -87,19 +87,22 @@ public sealed partial class CompiledActivation : ILightActivation
     {
         (_session, _list, _executor, _context, _body, _invoker, _procedure) = (session, list, executor, context, body, invoker, procedure);
         _halt = session.Halt;
+        (_sessionHalt, _table) = (session.Halt as SessionHalt, (session.Symbols as SessionSymbols)?.Table);
         _stack = session.CallStack as RuntimeCallStack;
         _cells = body.CellSlots.Count == 0 ? [] : new object?[body.CellSlots.Count];
         _ownsCell = body.CellSlots.Count == 0 ? [] : new bool[body.CellSlots.Count];
         Begin();
     }
 
-    // what every activation begins with, one made again too (EnterDirectly).
-    private void Begin()
+    // what every activation begins with, one made again too (EnterDirectly): the session's symbols as they are now, which a call made directly is given by
+    // the activation that makes it, which found them unchanged (MayEnterDirectly).
+    private void Begin(ScopeTree? scopes = null)
     {
         Array.Clear(_cells);
         Array.Clear(_ownsCell);
         (_entered, _instance, _me) = (null, null, null);
-        _scopes = _session.Symbols.Scopes;
+        _scopes = scopes ?? _session.Symbols.Scopes;
+        _directAt = -1;
         (_pc, _call, _library, _hasResult, _failed, _unspilled) = (0, -1, -1, false, null, false);
         _errorHandler = ErrorHandlerState.Disabled;
         _knowns?.Clear();
@@ -770,10 +773,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>The callee's activation, which its entry is called with; <see langword="null"/> when the call is to be made through the invoker.</returns>
     public CompiledActivation? EnterDirectly(int pc, int callee)
     {
-        if (_body.Directs[callee] is not { Body: { } body } direct || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _halt.WantsInterpreter
-            || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
-            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
-            || !ReferenceEquals(_invoker.BodyOf(direct.Procedure), direct.List))
+        if (_body.Directs[callee] is not { Body: { } body } direct || !MayEnterDirectly() || !IsCurrent(direct))
         {
             return null;
         }
@@ -801,7 +801,7 @@ public sealed partial class CompiledActivation : ILightActivation
                 && ReferenceEquals(spare._body, body) && ReferenceEquals(spare._invoker, _invoker))
             {
                 spare._frame = null;
-                spare.Begin();
+                spare.Begin(_scopes);
                 activation = spare;
             }
             else
@@ -816,6 +816,7 @@ public sealed partial class CompiledActivation : ILightActivation
             }
         }
 
+        activation.EnteredBy(this);
         _body.CountDirectCall();
         _suspensionsBeforeCall = Suspensions;
         return activation;
@@ -841,9 +842,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>The member's activation, which its entry is called with; <see langword="null"/> when the call is to be made through its binding.</returns>
     public CompiledActivation? EnterMemberDirectly(int pc, int callee)
     {
-        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
-            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
-            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
+        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !MayEnterDirectly()
             || EntryOf(_body.Callees[callee], member) is not { } entry)
         {
             return null;
@@ -862,7 +861,7 @@ public sealed partial class CompiledActivation : ILightActivation
                 && ReferenceEquals(spare._body, entry.Body) && ReferenceEquals(spare._invoker, _invoker))
             {
                 spare._frame = null;
-                spare.Begin();
+                spare.Begin(_scopes);
                 activation = spare;
             }
             else
@@ -888,6 +887,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
+        activation.EnteredBy(this);
         (_member, _receiver, _memberInstance, _memberEntry) = (null, null, null, entry.Entry);
         _body.CountDirectCall();
         _suspensionsBeforeCall = Suspensions;
@@ -908,7 +908,7 @@ public sealed partial class CompiledActivation : ILightActivation
     // is the workspace's to run - its binding is this invoker's.
     private MemberEntry? EntryOf(CompiledCallee called, VBTypeMemberSymbol member)
     {
-        if (called.Entered is { } entered && ReferenceEquals(entered.Member, member) && ReferenceEquals(_invoker.BodyOf(member), entered.List))
+        if (called.Entered is { } entered && ReferenceEquals(entered.Member, member) && IsCurrent(entered))
         {
             return entered;
         }
@@ -923,7 +923,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
-        entered = new MemberEntry(member, list, body, method.MethodHandle.GetFunctionPointer(), new RuntimeEvaluationContext(member.Uri));
+        entered = new MemberEntry(member, list, body, method.MethodHandle.GetFunctionPointer(), new RuntimeEvaluationContext(member.Uri)) { Image = _invoker.Image };
         called.Entered = entered;
         return entered;
     }
@@ -1045,6 +1045,84 @@ public sealed partial class CompiledActivation : ILightActivation
     // another call than the one compiled.
     private ScopeTree _scopes = null!;
 
+    // what says, as one number, whether anything a call made directly depends on changed: what the interpreter is wanted for, the session's symbols, and
+    // the engine (CompiledExecution.EngineEpoch).
+    private readonly SessionHalt? _sessionHalt;
+    private readonly SymbolTable? _table;
+
+    // the number (DirectEntryEpoch) at which the activation last found that it makes the calls compiled code makes directly, and goes on after them: its
+    // symbols not defined again since it began, the interpreter not wanted, no analysis made, and the session's engine the compiled one. -1 when it has not,
+    // or when the session's halt or symbols are not ones that number their changes. A call made directly is made at the same number (EnteredBy).
+    private long _directAt = -1;
+
+    // the numbers only grow, so their sum is the same only while none changed.
+    private long DirectEntryEpoch
+        => _sessionHalt is { } halt && _table is { } table ? (long)halt.Epoch + table.Version + CompiledExecution.EngineEpoch : -1;
+
+    // whether calls are made directly now (EnterDirectly, EnterMemberDirectly): an error that cannot be trapped, or the run cancelled, is looked at each
+    // time, since compiled code is to stop at once for either; the rest only when the number of what they depend on changed (DirectEntryEpoch), which it is
+    // read before, so a change made while they are looked at is looked at again.
+    private bool MayEnterDirectly()
+    {
+        if (_session.Errors.Untrappable is not null || _executor.IsCancellationPending)
+        {
+            return false;
+        }
+
+        var epoch = DirectEntryEpoch;
+        if (epoch >= 0 && epoch == _directAt)
+        {
+            return true;
+        }
+
+        if (!ReferenceEquals(_session.Symbols.Scopes, _scopes) || _halt.WantsInterpreter || _executor.Observation is not null
+            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled)
+        {
+            return false;
+        }
+
+        _directAt = epoch;
+        return true;
+    }
+
+    // an activation of a call this one made directly is made where this one found that it makes them: on the same session, by the same executor, at the
+    // same number, with the symbols this one began with (Begin).
+    private void EnteredBy(CompiledActivation caller) => _directAt = caller._directAt;
+
+    // whether the body a call made directly enters is the one the invoker runs: its procedures as they are now, which a module loaded again replaces
+    // (RuntimeProcedureInvoker.Image), are the ones it was found in.
+    private bool IsCurrent(DirectCall direct)
+    {
+        if (_invoker.Image is { } image && ReferenceEquals(direct.Image, image))
+        {
+            return true;
+        }
+
+        if (!ReferenceEquals(_invoker.BodyOf(direct.Procedure), direct.List))
+        {
+            return false;
+        }
+
+        direct.Image = _invoker.Image;
+        return true;
+    }
+
+    private bool IsCurrent(MemberEntry entered)
+    {
+        if (_invoker.Image is { } image && ReferenceEquals(entered.Image, image))
+        {
+            return true;
+        }
+
+        if (!ReferenceEquals(_invoker.BodyOf(entered.Member), entered.List))
+        {
+            return false;
+        }
+
+        entered.Image = _invoker.Image;
+        return true;
+    }
+
     /// <summary>
     /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
     /// the procedure was edited while the program waited in the callee, and the activation goes on in its edited body (<see cref="CallStackFrame.HasPendingRebase"/>);
@@ -1059,8 +1137,10 @@ public sealed partial class CompiledActivation : ILightActivation
     /// An activation without a frame has no edit to go on in: the program waited in none, since what looks at the stack while it waits gives every activation
     /// its frame (<see cref="RuntimeCallStack.MaterializeLights"/>).
     /// </remarks>
-    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _session.Errors.Untrappable is not null || _frame is { HasPendingRebase: true }
-        || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _executor.IsCancellationPending;
+    // the interpreter wanted and the symbols defined again are looked at only when the number of what they depend on changed since the activation last found
+    // neither (MayEnterDirectly).
+    public bool WantsInterpreterAfterCall => _session.Errors.Untrappable is not null || _frame is { HasPendingRebase: true } || _executor.IsCancellationPending
+        || (DirectEntryEpoch is var epoch && (epoch < 0 || epoch != _directAt) && (_halt.WantsInterpreter || !ReferenceEquals(_session.Symbols.Scopes, _scopes)));
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
