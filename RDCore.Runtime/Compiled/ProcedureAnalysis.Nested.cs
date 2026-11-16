@@ -225,7 +225,7 @@ internal sealed partial class ProcedureAnalysis
     private CallStep? BareCallOf(VBTypeMemberSymbol function, int offset, ScalarKind? kind, ExpressionNode named, bool assigns = false, bool returnsObject = false)
     {
         var read = kind is not null || assigns || returnsObject;
-        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null)
+        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null || IsDeclared(function))
         {
             return null;
         }

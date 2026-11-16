@@ -795,6 +795,11 @@ internal sealed partial class ProcedureAnalysis
     /// <summary>The procedures the body calls, by the number its call steps know each by.</summary>
     public List<CompiledCallee> Callees { get; } = [];
 
+    // a procedure declared with Declare, which only the interpreter calls (DeclaredProcedureProvider: the external host, the ANSI copy of a String and
+    // its write-back, Err.LastDllError): no call step makes it. Its call statement is a support call, and a statement that calls it in an expression is
+    // stepped, so the procedure goes on compiled after it.
+    private static bool IsDeclared(VBTypeMemberSymbol procedure) => procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol;
+
     // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind, none a Variant, and given an
     // argument of its kind, or a String given Strings (TextArgumentOf); of a function returning resultKind when what it returns is read, and of a scalar
     // kind when it is not - what it returns is let go of as a temporary of the statement, which compiled code holds none of. A parameter passed by
@@ -807,7 +812,7 @@ internal sealed partial class ProcedureAnalysis
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
             || procedure.GetProperty(SymbolProperties.Library) is not null || procedure.GetProperty(SymbolProperties.ExternalTarget) is not null
-            || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
+            || IsDeclared(procedure) || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
         {
             return null;
         }
