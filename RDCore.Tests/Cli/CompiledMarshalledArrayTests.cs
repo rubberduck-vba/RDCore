@@ -11,7 +11,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// An array a server returns, as Excel returns the values of a block of cells (<c>Range.Value</c>): an array of <c>Variant</c>s, with the bounds it has, which
 /// compiled code reads and writes an element of as it does an element of an array the program makes. The server here is a fake that holds plain arrays, of
-/// the shapes Excel gives - two dimensions numbered from 1, a value or nothing in each cell - so what is under test is the runtime's side of it, on any
+/// the shapes Excel gives (two dimensions numbered from 1, a value or nothing in each cell), so what is under test is the runtime's side of it, on any
 /// platform.
 /// </summary>
 [TestClass]
