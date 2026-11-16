@@ -31,7 +31,13 @@ operation with a `Variant` operand is worked out for the type of the value the `
 its own type (MS-VBAL §5.5.1.2.12). When the `Variant` holds anything else (`Empty`, `Null`, a `String`, an object, an array), or the operation would
 overflow its type, the interpreter runs that statement on its own and compiled code goes on after it. That is where the interpreter widens an `Integer`
 that overflows to a `Long`, and where a `Variant` that held an object lets go of it. A `Variant` holding a `Single` or a `Double` assigned to a variable
-of an integer type is the interpreter's too, whole or not: it rounds the value (MS-VBAL §5.5.1.2.1).
+of an integer type is rounded as any `Single` or `Double` is (see below).
+
+A `Single` or a `Double` assigned to a variable of an integer type, or given to a parameter of one, is rounded to the nearest whole number, ties to even
+(MS-VBAL §5.5.1.2.1, §5.5.1.2.1.1): `L = 2.5` makes `L` 2 and `L = 3.5` makes it 4, as the interpreter rounds them. The range of the type is checked on
+the whole number the value rounds to, so an `Integer` can be given 32767.4 and -32768.5. A value past the range is given to the interpreter, which raises
+error 6 (Overflow). The operands of `\`, `Mod`, the logical operators, and the value of a `Case` compared with a selector of an integer type are rounded
+the same way.
 
 When a procedure is compiled, the compiler also guesses the type each of its `Variant`s holds. The guess comes from what the procedure assigns the
 `Variant` and from the type a `For` loop of a `Variant` counter counts in. For `S = 0#` and then `S = S + I` with `I` an `Integer`, it guesses `Double`. An
@@ -225,9 +231,9 @@ A `Let` or `Set` of a property of one of the procedure's object variables, or of
 declared as, or the one implementing it when the object's class implements that class as an interface, with the value as its last argument. The value is
 passed as a value, even to a parameter declared `ByRef`: what the property procedure writes to its parameter is not written to the variable the value was
 read from. While the property procedure runs, its caller is located at the statement. Compiled code makes this call only for a value it converts to the
-parameter's type without rounding: a value of the parameter's type, an integer or a `Boolean` (except a `LongLong` given to a `Single`), or a `Single` or
-`Double` given to a `Single`, a `Double` or a `Boolean`. Any other value (a `Double` given to a `Long`, a `Currency`, a `Variant`, a `Date`), a member of
-`Me`, and a public field are assigned by the interpreter, as above.
+parameter's type itself: a value of the parameter's type, an integer or a `Boolean` (except a `LongLong` given to a `Single`), or a `Single` or `Double`
+given to a `Single`, a `Double`, a `Boolean` or an integer type, which it rounds (above). Any other value (a `Currency`, a `Variant`, a `Date`), a member
+of `Me`, and a public field are assigned by the interpreter, as above.
 
 Compiled code also calls a member of the object of a `With` block (`.Add 1`, `N = .Total()`, `If .IsSunken Then`) as it calls a member of an object
 variable (see Objects, above), inside an expression too (see Calls inside an expression, below). The `With` statement is the interpreter's: it evaluates
@@ -426,7 +432,7 @@ selector, which is compared at its exact value. When a value cannot be converted
 `Case`, as it does when an operation declines (below). A `Long` too large for an `Integer` selector is one; so is every `Double` compared with a `Single`
 selector, `4#` included, since only a `Single` converts exactly to a `Double` and not the other way. The interpreter runs a `Case` whose value is no scalar,
 such as a `String`, on its own, with the selector compiled code evaluated. When compiled code declines the selector itself as it evaluates it (an operation
-that declines, such as `D \ 1` with `D` a `Double`), the interpreter runs the rest of the activation, from the `Select Case`.
+that declines, such as `C * C` with `C` a `Currency` of 1.0001), the interpreter runs the rest of the activation, from the `Select Case`.
 
 The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With`, and its `End With` when letting go of
 the block's object destroys it, and each statement in the block that uses its object other than as compiled code does (see Members of objects and `With`
