@@ -174,12 +174,12 @@ public sealed class SemanticModelStore
             return model;
         }
 
-        var declared = new Dictionary<SemanticId, CompiledPlatforms>();
+        var declared = new Dictionary<SemanticId, (CompiledPlatforms All, ImmutableArray<CompiledPlatforms> ByStatement)>();
         foreach (var fact in models.Values.SelectMany(module => module.Declarations))
         {
             if (fact.CompiledOn is { } compiledOn)
             {
-                declared.TryAdd(fact.Symbol, compiledOn);
+                declared.TryAdd(fact.Symbol, (compiledOn, fact.StatementsCompiledOn));
             }
         }
 
@@ -196,8 +196,9 @@ public sealed class SemanticModelStore
                     .Where(entry => entry.Value.Binding is { } binding && declared.ContainsKey(binding))
                     .Select(entry => (entry.Key, Fact: entry.Value, Call: platforms.At(entry.Value.Location.Range.Start)))
                     .Where(call => call.Call is not null)
+                    .Select(call => (call.Key, call.Fact, call.Call, Declared: declared[call.Fact.Binding!.Value]))
                     .Select(call => KeyValuePair.Create(call.Key,
-                        call.Fact with { NativeCall = new NativeCallPlatforms(call.Call!.Value, declared[call.Fact.Binding!.Value]) }))
+                        call.Fact with { NativeCall = new NativeCallPlatforms(call.Call!.Value, call.Declared.All, call.Declared.ByStatement) }))
                     .ToList();
                 return calls.Count == 0 ? procedure : procedure with { Expressions = procedure.Expressions.SetItems(calls) };
             })],

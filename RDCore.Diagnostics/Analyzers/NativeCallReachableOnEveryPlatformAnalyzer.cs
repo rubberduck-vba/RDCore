@@ -18,8 +18,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// <para>
 /// No library is on every platform: a <c>Declare</c> that no <c>#If</c> on the platform constants (<c>Win32</c>, <c>Win64</c>, <c>Mac</c>, <c>Linux</c>,
-/// <c>Linux64</c>) makes dead calls its library on a platform that does not have it, where the call raises run-time error 53 or 453. The host states where
-/// each is compiled, every platform considered and not only the one it runs on (<see cref="DeclarationFactDto.CompiledOn"/>,
+/// <c>Linux64</c>) makes dead calls its library on a platform that does not have it, where the call raises run-time error 53 or 453. A procedure written
+/// once in each branch of a <c>#If</c> on them is declared on every platform, each by the statement of its own branch, and is not one. The host states where
+/// each statement and each call is compiled, every platform considered and not only the one it runs on (<see cref="DeclarationFactDto.StatementsCompiledOn"/>,
 /// <see cref="ExpressionFactDto.NativeCall"/>).
 /// </para>
 /// <para>
@@ -43,15 +44,34 @@ internal sealed class NativeCallReachableOnEveryPlatformAnalyzer : IModuleAnalyz
 
         var code = RDCoreDiagnosticId.NativeCallReachableOnEveryPlatform.ToCode();
         var module = context.ParseResult.SyntaxTree;
-        foreach (var declaration in semantics.Declarations.Where(declaration => declaration.CompiledOn is CompiledPlatforms.All))
+        // a procedure written once in each branch of a #If is declared on every platform by statements that are each on some: it is a statement compiled on
+        // every platform that calls its one library whatever the platform.
+        foreach (var declaration in semantics.Declarations)
         {
-            var statement = module?.Children.OfType<ExternalMemberDeclarationNode>().FirstOrDefault(node =>
-                string.Equals(node.Name, declaration.Name, StringComparison.OrdinalIgnoreCase) && Contains(node.SourceLocation.Range, declaration.Location.Range.Start));
-            yield return new AnalyzerFinding(code, declaration.Location.Range, DiagnosticSeverity.Warning,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.NativeCallReachableOnEveryPlatform_Message, declaration.Name))
+            if (declaration.StatementsCompiledOn is not { } compiled || !compiled.Contains(CompiledPlatforms.All))
             {
-                Fixes = statement is null || module is null ? null : FixOf(module, statement),
-            };
+                continue;
+            }
+
+            var message = AnalyzerMessages.Format(RDCoreDiagnosticsResources.NativeCallReachableOnEveryPlatform_Message, declaration.Name);
+            var statements = module?.Children.OfType<ExternalMemberDeclarationNode>()
+                .Where(node => string.Equals(node.Name, declaration.Name, StringComparison.OrdinalIgnoreCase)).ToList() ?? [];
+            if (module is null || statements.Count != compiled.Length)
+            {
+                yield return new AnalyzerFinding(code, declaration.Location.Range, DiagnosticSeverity.Warning, message);
+                continue;
+            }
+
+            foreach (var (statement, platforms) in statements.Zip(compiled))
+            {
+                if (platforms is CompiledPlatforms.All)
+                {
+                    yield return new AnalyzerFinding(code, statement.NameRange ?? statement.SourceLocation.Range, DiagnosticSeverity.Warning, message)
+                    {
+                        Fixes = FixOf(module, statement),
+                    };
+                }
+            }
         }
 
         // a call is the name the procedure is called by: the expression around it is bound to the procedure as well, and is the same call.
@@ -64,7 +84,7 @@ internal sealed class NativeCallReachableOnEveryPlatformAnalyzer : IModuleAnalyz
                 continue;
             }
 
-            var message = platforms.Call is CompiledPlatforms.All
+            var message = platforms.Call is CompiledPlatforms.All && platforms.DeclaredByStatement.Contains(CompiledPlatforms.All)
                 ? RDCoreDiagnosticsResources.NativeCallReachableOnEveryPlatform_CallEverywhere_Message
                 : (platforms.Call & ~platforms.Declared) != CompiledPlatforms.None
                     ? RDCoreDiagnosticsResources.NativeCallReachableOnEveryPlatform_CallNotDeclared_Message

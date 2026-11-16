@@ -44,11 +44,27 @@ public sealed class NativeCallReachableOnEveryPlatformTests
         => Assert.IsEmpty(await FoundAsync(guard, Kernel32, "#End If"));
 
     [TestMethod]
-    [Ignore("a procedure declared in each branch of a #If is one: which of its statements is on every platform is a fact the SDK does not state yet")]
     public async Task ADeclareInEachBranchOfAnIfOnThePlatformConstants_IsNotOne()
         => Assert.IsEmpty(await FoundAsync(
             "#If Mac Then", "Private Declare PtrSafe Function Ticks Lib \"libc.dylib\" Alias \"clock\" () As Long",
             "#Else", "Private Declare PtrSafe Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long", "#End If"));
+
+    [TestMethod]
+    public async Task ACallOutsideAnyIf_OfADeclareInEachBranchOfAnIfOnThePlatformConstants_IsNotOne()
+        => Assert.IsEmpty(await FoundAsync(
+            "#If Mac Then", "Private Declare PtrSafe Function Ticks Lib \"libc.dylib\" Alias \"clock\" () As Long",
+            "#Else", "Private Declare PtrSafe Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long", "#End If",
+            "Public Sub Main()", "    Debug.Print Ticks()", "End Sub"));
+
+    [TestMethod]
+    public async Task ADeclareInEachBranchOfAnIfEveryPlatformMakesLiveTheFirstOf_IsOne_AtTheStatementOnEveryPlatform()
+    {
+        var found = Assert.ContainsSingle(await FoundAsync(
+            "#If VBA7 Then", "Private Declare PtrSafe Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long",
+            "#Else", "Private Declare Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long", "#End If"));
+
+        Assert.AreEqual(2, found.Range.Start.Line, "the statement of the VBA7 branch");
+    }
 
     [TestMethod]
     [DataRow("#If VBA7 Then", DisplayName = "VBA7, which every platform defines")]

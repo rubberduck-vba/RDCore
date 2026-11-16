@@ -189,7 +189,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             Declarations = DeclarationUsage.Of(
                 declared, procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
                 symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri), arguments, declarationFacts,
-                symbol => DeclaredOn(written, symbol.Name, platforms)),
+                symbol => StatementsCompiledOn(written, symbol.Name, platforms)),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
             Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
@@ -305,11 +305,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         return default;
     }
 
-    // MS-VBAL §5.2.3.5: the platforms a Declare is on, which is every platform one of its statements is compiled on - a procedure declared once in each
-    // #If branch is one procedure. Not known when a condition one of them depends on is not.
-    private static CompiledPlatforms? DeclaredOn(ModuleNode written, string name, ModulePlatforms platforms)
+    // MS-VBAL §5.2.3.5: the platforms each statement of a Declare is compiled on, in the order they are written - a procedure declared once in each #If
+    // branch is one procedure. Not known when a condition one of them depends on is not.
+    private static ImmutableArray<CompiledPlatforms>? StatementsCompiledOn(ModuleNode written, string name, ModulePlatforms platforms)
     {
-        var declaredOn = CompiledPlatforms.None;
+        var statements = ImmutableArray.CreateBuilder<CompiledPlatforms>();
         foreach (var statement in written.Children.OfType<ExternalMemberDeclarationNode>()
             .Where(statement => string.Equals(statement.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
@@ -318,10 +318,10 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                 return null;
             }
 
-            declaredOn |= compiled;
+            statements.Add(compiled);
         }
 
-        return declaredOn;
+        return statements.ToImmutable();
     }
 
     // the module as the constants compile it: each procedure with the header of its live branch, and a procedure whose every header is dead as it is written.
