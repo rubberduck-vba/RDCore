@@ -161,6 +161,11 @@ internal sealed partial class ProcedureEmitter
                 EmitMemberText(member, text, failure);
                 break;
 
+            case TextSelectorNode selector:
+                _il.Emit(OpCodes.Ldloc, _selects[selector.Select].Selector);
+                _il.Emit(OpCodes.Stloc, text);
+                break;
+
             case ErrTextNode err:
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(err.Source ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
