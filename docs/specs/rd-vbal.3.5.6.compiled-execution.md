@@ -299,6 +299,8 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
   (`P.X = F(2) + 1`), or of an element of an array (`A(I) = F(2) + 1`) (**MS-VBAL §5.4.3.8**). The value is evaluated first, then the target is
   found, as the interpreter finds it: a subscript is read as the call left it. When the target cannot be assigned after the call, because a subscript
   is out of range or the object variable holds `Nothing`, the interpreter raises the error, given what was evaluated, and the call is not made again;
+- a `Let` of an element whose subscripts call, whatever the value (`this.State(Position.X, Position.Y) = Hit`). A value that calls is evaluated
+  first, as above. A value that calls nothing is read after the subscripts and their calls, as the interpreter reads it;
 - a call statement;
 - the condition of an `If`, an `ElseIf` or a loop;
 - the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
