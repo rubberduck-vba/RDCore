@@ -18,8 +18,8 @@ namespace RDCore.Runtime.LanguageCore.Static;
 // which gives a parameter that is neither Optional nor a ParamArray nothing (§5.3.1.11): "Argument not optional" when it compiles, in any module (MS-VBA
 // and VB6, observed for a function of the library). The name of a function or a Property Get in its own body is its result (§5.6.2.1).
 // What names a procedure without taking its value is not checked here: the callee of a call, checked with its arguments; the target of an assignment
-// and an element of an Erase statement (StatementOperandChecks); the operand of AddressOf; the type of a New; a label, an event, and a variable a
-// statement writes to.
+// and an element of an Erase statement (StatementOperandChecks); the operand of AddressOf; the type of a New or of a TypeOf; the name of a member, after
+// its "." or "!"; a label, an event, and a variable a statement writes to.
 internal static class BareFunctionReferenceStaticSemantics
 {
     public static IEnumerable<VBCompileErrorInfo> Errors(StaticEvaluationContext context, StatementNode statement)
@@ -70,6 +70,13 @@ internal static class BareFunctionReferenceStaticSemantics
                     Visit(context, owner, isTaken: true, errors);
                 }
                 break;
+            // so is the name after the "!" of a dictionary access (MS-VBAL §5.6.14), which is the String the default member is given.
+            case DictionaryAccessExpressionNode dictionary:
+                if (dictionary.Owner is { } dictionaryOwner)
+                {
+                    Visit(context, dictionaryOwner, isTaken: true, errors);
+                }
+                break;
             case IndexExpressionNode index:
                 Visit(context, index.Callee, isTaken: false, errors);
                 foreach (var argument in index.Arguments)
@@ -80,7 +87,11 @@ internal static class BareFunctionReferenceStaticSemantics
             case AddressOfExpressionNode addressOf:
                 Visit(context, addressOf.Target, isTaken: false, errors);
                 break;
+            // the type a New or a TypeOf names is not evaluated.
             case NewExpressionNode:
+                break;
+            case TypeOfIsExpressionNode typeOf:
+                Visit(context, typeOf.Operand, isTaken: true, errors);
                 break;
             default:
                 foreach (var operand in expression.Inputs.OfType<ExpressionNode>())

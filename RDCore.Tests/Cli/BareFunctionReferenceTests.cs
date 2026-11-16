@@ -83,6 +83,8 @@ public sealed class BareFunctionReferenceTests
     [DataRow("Property Get PL() As Long ;; PL = 1 ;; End Property", "Debug.Print PL", "1", DisplayName = "a Property Get with no parameters")]
     [DataRow(Required, "Debug.Print F(4)", "4", DisplayName = "given its argument")]
     [DataRow(Required, "Debug.Print Left(\"ab\", 1)", "a", DisplayName = "a library function given its arguments")]
+    [DataRow("", "Dim c As New Collection ;; c.Add 1, \"Second\" ;; Debug.Print c!Second ;; With c ;; Debug.Print !Second ;; End With", "1|1",
+        DisplayName = "the name of a dictionary access, the name of a library function")]
     [DataRow("Sub Takes(ByVal p As LongPtr) ;; Debug.Print \"taken\" ;; End Sub ;; " + Required, "Takes AddressOf F", "taken", DisplayName = "AddressOf")]
     public async Task WhatNeedsNoArgument_OrWhoseValueIsNotTaken_Compiles(string declarations, string body, string printed)
     {
