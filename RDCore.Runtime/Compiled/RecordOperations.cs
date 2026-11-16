@@ -169,6 +169,40 @@ public static class RecordOperations
 
     // the field holds a value of its declared type, as the interpreter's Let makes it: a LongPtr field a LongPtr, of the payload of the type it is an alias of.
     private static bool TryWrite(object? record, int index, ScalarPayload payload)
-        => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is { } before && ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _)
-            && held.TryLetFieldAt(index, (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86 ? payload with { Type = before.TypeInfo } : payload).Typed());
+    {
+        if (record is not VBUserDefinedTypeValue held || held.StoredFieldAt(index) is not { } before || !ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _))
+        {
+            return false;
+        }
+
+        if (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86)
+        {
+            return held.TryLetFieldAt(index, (payload with { Type = before.TypeInfo }).Typed());
+        }
+
+        // a field of the payload's own type is written in its cell, as TryLetFieldAt writes a value of the field's type: the value stored there, with no value
+        // of the type made around it.
+        if (before.Handle is IKnowledgeBinding cell && before.GetType() == ValueClassOf(payload.Type) && Equals(before.TypeInfo, payload.Type))
+        {
+            cell.Store(payload.Box(), isKnown: true);
+            return true;
+        }
+
+        return held.TryLetFieldAt(index, payload.Typed());
+    }
+
+    // the class of the value of a scalar type, as the type makes one (ScalarPayload.Typed): what a field of the type holds.
+    private static Type? ValueClassOf(VBType type) => type switch
+    {
+        VBByteType => typeof(VBByteValue),
+        VBIntegerType => typeof(VBIntegerValue),
+        VBLongType => typeof(VBLongValue),
+        VBLongLongType => typeof(VBLongLongValue),
+        VBSingleType => typeof(VBSingleValue),
+        VBDoubleType => typeof(VBDoubleValue),
+        VBBooleanType => typeof(VBBooleanValue),
+        VBCurrencyType => typeof(VBCurrencyValue),
+        VBDateType => typeof(VBDateValue),
+        _ => null,
+    };
 }
