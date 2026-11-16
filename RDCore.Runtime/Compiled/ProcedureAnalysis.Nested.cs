@@ -21,8 +21,8 @@ internal sealed partial class ProcedureAnalysis
     private StatementNode? _nesting;
 
     // a Let of a scalar variable of the activation or of the function result variable, a call statement, a condition of an If or a loop, the bounds of a
-    // For, or the selector of a Select Case, that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode,
-    // KnownNode); and so is every other instruction, as it always is.
+    // For, the selector of a Select Case or the values of a Case, that calls a function inside an expression, is translated with what it reads and what it
+    // calls known (CallNode, KnownNode); and so is every other instruction, as it always is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);
@@ -84,14 +84,24 @@ internal sealed partial class ProcedureAnalysis
             { Kind: InstructionKind.ForOpener, Node: ForStatementNode forStatement }
                 => Calls(Bind(forStatement.StartExpression)) || Calls(Bind(forStatement.EndExpression))
                 || forStatement.StepExpression is { } step && Calls(Bind(step)),
-            // the selector of a Select Case, evaluated once (MS-VBAL §5.4.2.10). The values of a Case are not among the nodes of
-            // its statement (KnownOperands.IndexOf), so a Case that calls is the interpreter's.
+            // the selector of a Select Case, evaluated once (MS-VBAL §5.4.2.10); and the values of a Case, each evaluated as its clause is compared, in
+            // order, until one matches.
             { Kind: InstructionKind.Select, Node: SelectCaseStatementNode selectCase } => Calls(Bind(selectCase.ControlExpression)),
+            { Kind: InstructionKind.ConditionalBranch, Matching: not null, Node: CaseExpressionStatementNode caseBlock }
+                => caseBlock.RangeClauses.SelectMany(ValuesOf).Any(value => Calls(Bind(value))),
             _ => false,
         };
 
         return nests ? instruction.Node : null;
     }
+
+    private static IEnumerable<ExpressionNode> ValuesOf(CaseRangeClauseNode clause) => clause switch
+    {
+        CaseValueRangeClauseNode value => [value.Value],
+        CaseComparisonRangeClauseNode comparison => [comparison.Value],
+        CaseToRangeClauseNode range => [range.Start, range.End],
+        _ => [],
+    };
 
     private bool IsScalarTarget(BoundNode target) => target switch
     {
@@ -215,6 +225,7 @@ internal sealed partial class ProcedureAnalysis
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
         SelectStep select => Admits(select.Selector),
+        CaseStep caseStep => caseStep.Clauses.All(clause => Admits(clause.Lower) && (clause.Upper is not { } upper || Admits(upper))),
         _ => false,
     };
 
@@ -225,7 +236,8 @@ internal sealed partial class ProcedureAnalysis
         // an element, read once its subscripts are evaluated, calls among them.
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
-        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode => true,
+        // the selector of a Select Case is what its Select evaluated, which no call changes.
+        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or SelectorNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
         ConvertNode convert => Admits(convert.Operand),
@@ -333,6 +345,7 @@ internal sealed partial class ProcedureAnalysis
         LoopBackStep loop => [loop.Condition],
         ForOpenStep open => [open.Start, open.End, open.Step],
         SelectStep select => [select.Selector],
+        CaseStep caseStep => caseStep.Clauses.SelectMany(clause => clause.Upper is { } upper ? new[] { clause.Lower, upper } : [clause.Lower]),
         _ => [],
     };
 
