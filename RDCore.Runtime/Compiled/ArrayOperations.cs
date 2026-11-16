@@ -19,7 +19,8 @@ namespace RDCore.Runtime.Compiled;
 /// <remarks>
 /// A <c>ReDim</c> stores another array in the same cell, and an element is found in the array the variable holds now. Compiled code keeps the array a
 /// variable holds, with its shape (<see cref="KeptArray"/>), only while nothing it runs can give the variable another array, and finds an element in it
-/// by the operations named Kept. After anything else (the interpreter running an instruction, a call, a statement that stores an array), it finds the array in the cell again.
+/// by the operations whose names start with Kept. After anything else (the interpreter running an instruction, a call, a statement that stores an
+/// array), it finds the array in the cell again.
 /// </remarks>
 public static class ArrayOperations
 {

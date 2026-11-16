@@ -39,8 +39,8 @@ internal sealed partial class ProcedureEmitter
     private bool _keepsArrays = true;
 
     // what an element is found in, onto the stack, for the operation of ArrayOperations named: the array compiled code keeps (by reference) and its holder,
-    // for the operation that finds it there, whose name is Kept and the operation's; or the holder alone. A step that may give a holder another array finds
-    // each in its holder. The name of the operation to call is returned.
+    // for the operation that finds it there, whose name is the operation's prefixed with Kept; or the holder alone. A step that may give a holder another
+    // array finds each in its holder. The name of the operation to call is returned.
     private string LoadArrayFor(int array, string operation)
     {
         if (!_keepsArrays || !_knownArrays.TryGetValue(array, out var known))
