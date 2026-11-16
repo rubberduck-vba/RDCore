@@ -409,7 +409,7 @@ The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed 
 A `Type` or an `Enum` is renamed where its name means it: its declaration, its `As` clauses (**MS-VBAL §5.6.16.7**), and where it qualifies a member of the `Enum` (`Color.Red`). A variable or a procedure with the same name is a value, and keeps its name. The new name follows **MS-VBAL §5.2.3.3** and **§5.2.3.4**:
 
 - a `Private` `Type` or `Enum` is named as no other `Type` or `Enum` of its module;
-- a `Public` one is named as no `Public` `Type` or `Enum` of its project, no module of the project, and no project.
+- a `Public` one is named as no `Public` `Type` or `Enum` of its project, no module of the project, no project and no library it references.
 
 Where it qualifies a member of the `Enum`, the new name must mean no value, or the member would be read from that value.
 
