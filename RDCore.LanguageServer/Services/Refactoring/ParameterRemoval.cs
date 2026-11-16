@@ -328,7 +328,8 @@ public static class ParameterRemoval
         SimpleNameExpressionNode => bindingOf(argument) is { } binding && NameOccurrences.SymbolOf(context, binding)
             is VBParameterSymbol or VBLocalVariableSymbol or VBLocalConstantSymbol or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol
                 or VBConstantMemberSymbol or VBEnumConstMemberSymbol,
-        MemberAccessExpressionNode => bindingOf(argument) is { } binding && NameOccurrences.SymbolOf(context, binding) is VBConstantMemberSymbol or VBEnumConstMemberSymbol,
+        MemberAccessExpressionNode access => (bindingOf(access) ?? bindingOf(access.Member)) is { } binding
+            && NameOccurrences.SymbolOf(context, binding) is VBConstantMemberSymbol or VBEnumConstMemberSymbol,
         _ => false,
     };
 
@@ -402,11 +403,16 @@ public static class ParameterRemoval
 
     private static RenameEdit EditOf(Uri module, SDK.Platform.Protocol.RefactorTextEdit edit) => new(module, edit.Range, edit.NewText);
 
-    private static ImmutableArray<VBParameterSymbol> ParametersOf(Symbol symbol) => symbol switch
+    // the parameters a procedure's declaration writes, in order: a class member's implicit Me, its parameter 0, is none of them.
+    private static ImmutableArray<VBParameterSymbol> ParametersOf(Symbol symbol)
     {
-        VBReturningMemberSymbol member => member.Parameters,
-        VBProcedureMemberSymbol member => member.Parameters,
-        VBEventMemberSymbol member => member.Parameters,
-        _ => [],
-    };
+        ImmutableArray<VBParameterSymbol> parameters = symbol switch
+        {
+            VBReturningMemberSymbol member => member.Parameters,
+            VBProcedureMemberSymbol member => member.Parameters,
+            VBEventMemberSymbol member => member.Parameters,
+            _ => [],
+        };
+        return parameters is [{ Name: SDK.Model.Tokens.Me }, ..] ? parameters.RemoveAt(0) : parameters;
+    }
 }

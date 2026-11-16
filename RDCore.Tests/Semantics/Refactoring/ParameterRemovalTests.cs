@@ -169,12 +169,12 @@ public sealed class ParameterRemovalTests
     public void TheValueOfAPropertyLet_IsNotRemoved()
         => Assert.AreEqual(ParameterRemovalRefusalKind.Value, RefusalOf(Compose(("Store", Store)), "Store", "Public Property Let Value", "v As"));
 
-    private static readonly string Shape = Class("IShape", "Public Sub Draw(ByVal scale As Double)", "End Sub");
+    private static readonly string Shape = Class("IShape", "Public Sub Draw(ByVal size As Double)", "End Sub");
 
     private static readonly string Square = Class("Square", "Implements IShape", "Private Sub IShape_Draw(ByVal factor As Double)", "End Sub");
 
     [TestMethod]
-    [DataRow("IShape", "Public Sub Draw", "scale", DisplayName = "from the member of the interface")]
+    [DataRow("IShape", "Public Sub Draw", "size", DisplayName = "from the member of the interface")]
     [DataRow("Square", "Private Sub IShape_Draw", "factor", DisplayName = "from the procedure that implements it")]
     public void TheParameterOfAMemberThatIsImplemented_IsRemovedFromTheProceduresThatImplementIt(string module, string line, string text)
     {
@@ -183,7 +183,7 @@ public sealed class ParameterRemovalTests
 
         var plan = Remove(context, module, line, text);
 
-        Assert.AreEqual(Shape.Replace("ByVal scale As Double", string.Empty), Removed(context, plan, "IShape"));
+        Assert.AreEqual(Shape.Replace("ByVal size As Double", string.Empty), Removed(context, plan, "IShape"));
         Assert.AreEqual(Square.Replace("ByVal factor As Double", string.Empty), Removed(context, plan, "Square"));
         Assert.AreEqual(Module("Main", "Public Sub One()", "    Dim s As IShape", "    Set s = New Square", "    s.Draw", "End Sub"), Removed(context, plan, "Main"));
     }
@@ -193,7 +193,7 @@ public sealed class ParameterRemovalTests
     {
         var context = Compose(("IShape", Shape), ("Square", Class("Square", "Implements IShape", "Private Sub IShape_Draw(ByVal factor As Double)", "    Debug.Print factor", "End Sub")));
 
-        Assert.AreEqual(ParameterRemovalRefusalKind.Used, RefusalOf(context, "IShape", "Public Sub Draw", "scale"));
+        Assert.AreEqual(ParameterRemovalRefusalKind.Used, RefusalOf(context, "IShape", "Public Sub Draw", "size"));
     }
 
     [TestMethod]
