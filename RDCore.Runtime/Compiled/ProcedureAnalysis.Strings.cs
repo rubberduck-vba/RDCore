@@ -71,8 +71,8 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
     // TryEvaluateText, case for case: a String literal, a String variable of the activation or a String field of one of its records, parentheses, and two
-    // of them joined by & (or by +, of two Strings); and a whole number and the library's Chr$ of one, which TryEvaluateText leaves to the let-coercion
-    // and the call. Strings joined that are all literals are the text they make, joined once.
+    // of them joined by & (or by +, of two Strings); and a whole number, the library's Chr$ of one and the typed form of a function of the library, which
+    // TryEvaluateText leaves to the let-coercion and the call. Strings joined that are all literals are the text they make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -112,6 +112,10 @@ internal sealed partial class ProcedureAnalysis
             // the library's Chr$ of a whole number: any other argument is let-coerced to a Long by the interpreter's call.
             case BoundCall { Procedure: var chr, BoundArguments: [{ Value: { } code }] } when IsChrString(chr) && WholeOf(code) is { } whole:
                 return new ChrTextNode(whole);
+
+            // a function of the library whose typed form returns a String, of its arguments (ProcedureAnalysis.Intrinsics.cs): Mid$, Left$, Trim$.
+            case BoundCall typed when IntrinsicTextOf(typed) is { } formed:
+                return formed;
 
             case BoundCall typeName when IsTypeName(typeName.Procedure):
                 return TypeNameOf(typeName);

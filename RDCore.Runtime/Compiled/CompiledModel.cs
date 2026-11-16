@@ -293,6 +293,10 @@ internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
 // call does.
 internal sealed record class TypeNameTextNode(int Library, int? Slot) : TextNode;
 
+// a call of the typed form of a function of the standard library that returns a String (StdLibIntrinsicAttribute), given the payloads and texts of its
+// arguments as IntrinsicNode gives them: what the form returns.
+internal sealed record class IntrinsicTextNode(MethodInfo Method, IReadOnlyList<PayloadNode> Arguments) : TextNode;
+
 // a call of a function of the standard library that returns a String, each of whose parameters it gives an argument to is a String (Replace): the texts
 // given to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryText), and a parameter given none given what an omitted
 // argument is.

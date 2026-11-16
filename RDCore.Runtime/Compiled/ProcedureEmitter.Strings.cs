@@ -202,6 +202,10 @@ internal sealed partial class ProcedureEmitter
                 EmitTypeName(typeName, text);
                 break;
 
+            case IntrinsicTextNode typed:
+                EmitIntrinsicText(typed, text, failure);
+                break;
+
             case LibraryTextNode library:
                 EmitLibraryText(library, text, failure);
                 break;
