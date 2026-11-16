@@ -74,8 +74,8 @@ public enum LogicalOperator
 /// </summary>
 /// <remarks>
 /// The operations are those of <strong>MS-VBAL §5.6.9.3</strong> in the type's own width, checked: a result that does not fit is an overflow, and an integer
-/// division or a modulo by zero a division by zero. An operation the boxed evaluation does by rounding - a <c>Currency</c> product that is no whole number of
-/// ten-thousandths, a conversion that is not exact, other than a floating-point number's to an integer type - declines.
+/// division or a modulo by zero a division by zero. An operation the boxed evaluation does by rounding declines: a <c>Currency</c> product that is not a
+/// whole number of ten-thousandths, or a conversion that is not exact, other than a floating-point number's to an integer type.
 /// </remarks>
 public static class PayloadOperations
 {
@@ -290,10 +290,14 @@ public static class PayloadOperations
     };
 
     /// <summary>
-    /// A payload of <paramref name="from"/> converted to <paramref name="to"/> (<strong>MS-VBAL §5.5.1.2.1</strong>), when the conversion is exact - what a
-    /// value of one scalar type is in another, with no rounding to decide: an integer in the range of an integer type, an integer as a floating-point value,
-    /// a <c>Date</c> as its serial, any number as a <c>Boolean</c> - or a <c>Single</c> or a <c>Double</c> made an integer by Banker's rounding
-    /// (<strong>§5.5.1.2.1.1</strong>), which overflows past the range of the type. Anything else is the boxed coercion's, which rounds, and declines.
+    /// A payload of <paramref name="from"/> converted to <paramref name="to"/> (<strong>MS-VBAL §5.5.1.2.1</strong>), in two cases:
+    /// <list type="bullet">
+    /// <item><description>the conversion is exact, with no rounding to decide: an integer in the range of an integer type, an integer as a floating-point
+    /// value, a <c>Date</c> as its serial, any number as a <c>Boolean</c>;</description></item>
+    /// <item><description>a <c>Single</c> or a <c>Double</c> made an integer by Banker's rounding (<strong>§5.5.1.2.1.1</strong>), which overflows past
+    /// the range of the type.</description></item>
+    /// </list>
+    /// Anything else is the boxed coercion's, which rounds, and declines.
     /// </summary>
     /// <param name="from">The kind of the payload.</param>
     /// <param name="integral">The payload of an integral kind.</param>

@@ -192,8 +192,8 @@ public sealed class CompiledByRefCallTests
         }
     }
 
-    // a callee handed to the interpreter - an operation compiled code declines, a Currency product that is no whole number of ten-thousandths, which
-    // rounds - goes on writing its caller's variable, which the caller reads when the call returns: the parameter's cell is the variable's in both engines.
+    // a callee handed to the interpreter (an operation compiled code declines, a Currency product that is not a whole number of ten-thousandths, which
+    // rounds) goes on writing its caller's variable, which the caller reads when the call returns: the parameter's cell is the variable's in both engines.
     [TestMethod]
     public async Task ACalleeHandedToTheInterpreter_GoesOnWritingTheCallersVariable()
     {

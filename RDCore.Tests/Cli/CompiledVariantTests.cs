@@ -491,8 +491,8 @@ public sealed class CompiledVariantTests
             "    Counted = Counted & TypeName(I)",
             "End Function"), "Counted");
 
-    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant holding a Double to a Single, which compiled code does
-    // not convert, exact or not - and compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
+    // a statement the interpreter runs alone in the middle of a speculated loop (a Let of a Variant holding a Double to a Single, which compiled code does
+    // not convert, exact or not), and compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
     // F = V is a Double at each of the 6 passes; and the last Let joins Strings, which is the interpreter's: 7.
     [TestMethod]
     public async Task AStatementTheInterpreterRunsInASpeculatedLoop_IsGoneOnFrom()

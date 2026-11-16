@@ -10,7 +10,7 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledDoubleToIntegralTests
 {
-    // each integer type, given halves and numbers near them: a half rounds to the even neighbour, anything else to the nearest.
+    // each integer type, given halves and numbers near them: a half rounds to the even neighbor, anything else to the nearest.
     [TestMethod]
     [DataRow("Byte", DisplayName = "a Byte")]
     [DataRow("Integer", DisplayName = "an Integer")]

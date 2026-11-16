@@ -215,8 +215,8 @@ public sealed class CompiledSelectCaseTests
             "    Next",
             "End Function"), "Tolerant", recoveries: 3);
 
-    // a selector compiled code does not evaluate - a Currency product that is no whole number of ten-thousandths, which only the boxed evaluation rounds -
-    // the interpreter evaluates; it is compared where it is, the interpreter's from there on when it evaluated it boxed.
+    // a selector compiled code does not evaluate (a Currency product that is not a whole number of ten-thousandths, which only the boxed evaluation
+    // rounds) the interpreter evaluates; it is compared where it is, the interpreter's from there on when it evaluated it boxed.
     [TestMethod]
     public async Task ASelectorTheInterpreterEvaluates_IsComparedWhereItIs()
     {

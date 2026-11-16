@@ -943,7 +943,7 @@ public sealed partial class RuntimeExpressionEvaluator
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
-    // integer type, an integer as a floating-point value, a Single as a Double - and a Single or a Double made an integer by Banker's rounding, as the boxed
+    // integer type, an integer as a floating-point value, a Single as a Double; and a Single or a Double made an integer by Banker's rounding, as the boxed
     // coercion makes it (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL §5.5.1.2.1), which rounds.
     private static bool TryConvertPayload(ScalarPayload payload, VBType destination, out ScalarPayload converted)
     {
