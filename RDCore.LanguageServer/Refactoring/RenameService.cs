@@ -141,7 +141,8 @@ internal sealed class RenameService(
         return new RenameWorkspace(parts) { IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf };
     }
 
-    // the edit of the project file of the workspace's project of a name, where its text writes the name; none when the file cannot be read, or writes no name.
+    // the edit that renames the workspace's project of a name in its project file, where the text writes the name; none when the file cannot be read, or
+    // writes no name.
     private TextDocumentEdit? ProjectFileEditOf(string project, string newName)
     {
         if (workspaceProjects.Projects.FirstOrDefault(candidate => string.Equals(candidate.Project.ProjectInfo.Name, project, StringComparison.OrdinalIgnoreCase)) is not { } owner)
@@ -250,7 +251,7 @@ internal sealed class RenameWorkspace
     // whether the client has the document open, and so knows its version: an edit of a document it has not opened names no version.
     internal Func<TextDocumentIdentifier, bool> IsOpen { get; init; } = static _ => true;
 
-    // the edit of the project file of the workspace's project of a name (the project, its new name), where the file writes the name; none by default.
+    // the edit that renames the workspace's project of a name in its project file, given the project and its new name; none by default.
     internal Func<string, string, TextDocumentEdit?> ProjectFileEdit { get; init; } = static (_, _) => null;
 
     // the project a module of a document is in, which its names resolve in.
