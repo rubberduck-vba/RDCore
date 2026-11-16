@@ -893,8 +893,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
-    // an object of a class, created for a New expression: held by the statement, and initialized.
-    private static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, ExpressionNode expression, VBClassModuleSymbol classModule)
+    // an object of a class, created for a New expression: held by the statement, and initialized. Compiled code makes the object of a New it evaluates here
+    // too (CompiledActivation.New).
+    internal static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, ExpressionNode expression, VBClassModuleSymbol classModule)
     {
         var created = NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule));
 

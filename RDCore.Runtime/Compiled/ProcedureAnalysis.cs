@@ -737,6 +737,13 @@ internal sealed partial class ProcedureAnalysis
                     return slotAssigned;
                 }
 
+                // an array variable, which the Variant is given a copy of (MS-VBAL §5.5.1.2.12): the runtime's Let, which copies it, and lets go of what the
+                // Variant held (ArrayStatementStep).
+                if (assigned is BoundVariable { Variable: ITypedSymbol { ResolvedType: VBArrayType } })
+                {
+                    return new ArrayStatementStep(offset, [], Releases: true);
+                }
+
                 if (Dynamic(assigned) is not { } variantValue)
                 {
                     return null;
@@ -946,8 +953,30 @@ internal sealed partial class ProcedureAnalysis
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
         ObjectParameter?[]? objects = null;
+        bool[]? omitted = null;
         for (var i = 0; i < parameters.Length; i++)
         {
+            if (arguments[i] is { Passing: ArgumentPassing.Omitted })
+            {
+                (omitted ??= new bool[parameters.Length])[i] = true;
+            }
+
+            // an optional Variant the call leaves out is given what the interpreter gives it, the default it declares or Missing (MS-VBAL §5.3.1.11), of the
+            // parameter of the member the call invokes, as the call is made (CompiledActivation.SetOmitted). One whose default raises an error is the
+            // interpreter's to give.
+            if (parameters[i] is not ParamArrayParameterSymbol && parameters[i].ResolvedType is VBVariantType && arguments[i] is { Passing: ArgumentPassing.Omitted })
+            {
+                if (_evaluator.OmittedArgument(_session, parameters[i]) is not { IsSuccess: true })
+                {
+                    return null;
+                }
+
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(new OmittedArgumentNode());
+                continue;
+            }
+
             // an object, given the object a variable holds, Me or Nothing, or the address of an object variable of the activation. A call given an object is
             // never made through a direct entry: the invoker or the member's binding gives the object to the parameter, as the interpreter gives it
             // (CompiledActivation.SetObject), and counts it for as long as the callee runs.
@@ -1004,6 +1033,7 @@ internal sealed partial class ProcedureAnalysis
             HoldsWhatItReturns = assigns || resultKind is null && ReturnedType(procedure) is VBVariantType,
             ReturnsObject = returnsObject,
             ObjectParameters = objects ?? [],
+            Omitted = omitted ?? [],
         });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
@@ -1461,6 +1491,16 @@ internal sealed partial class ProcedureAnalysis
                     && ExtendedIntermediates.ConversionOf(converting.Procedure.GetProperty(SymbolProperties.ExternalTarget)!) is { } conversion
                     && ScalarKinds.Of(conversion) is { } convertedTo:
                 return PayloadAs(argument, convertedTo);
+
+            // IsEmpty of a Variant compiled code reads in its cell, a Variant of the activation or an element of an array of Variants, as the cell says
+            // (VariantIsEmptyNode), and of one the cell says nothing of, the call of the standard library's function; never in an instruction that calls
+            // inside an expression, whose operands are known as they were read.
+            case BoundCall { Procedure: VBTypeMemberSymbol library, BoundArguments: [{ Value: { } tested, Elements.IsDefaultOrEmpty: true }] } isEmpty
+                when _nesting is null && IsCompiledLibrary(library) && library.GetProperty(SymbolProperties.ExternalTarget) == IsEmptyFunction
+                    && IsVariantInItsCell(tested):
+                return VariantInItsCell(tested) is { } variant
+                    ? new VariantIsEmptyNode(variant, LibraryCallOf(isEmpty, library, isEmpty.BoundArguments, isEmpty.ResultType) as LibraryCallNode)
+                    : null;
 
             // a function of the standard library, called with its arguments or by its name, qualified or not (ProcedureAnalysis.Libraries.cs).
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsCompiledLibrary(library):

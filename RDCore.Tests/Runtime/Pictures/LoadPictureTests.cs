@@ -29,6 +29,8 @@ public sealed class LoadPictureTests
         ["three.ico"] = Icon(1, 16, 32, 48),
         ["one32.ico"] = Icon(1, 32),
         ["arrow.cur"] = Icon(2, 32),
+        ["png32.ico"] = PngIcon(1, 32),
+        ["png32.cur"] = PngIcon(2, 32),
         ["placeable.wmf"] = Metafile(placeable: true),
         ["plain.wmf"] = Metafile(placeable: false),
         ["frame.emf"] = EnhancedMetafile(4964, 2964),
@@ -130,6 +132,8 @@ public sealed class LoadPictureTests
     [DataRow("D & \"three.ico\"", "3 847 847 True", DisplayName = "an icon of 16, 32 and 48, its 32")]
     [DataRow("D & \"one32.ico\"", "3 847 847 True", DisplayName = "an icon of 32")]
     [DataRow("D & \"arrow.cur\"", "3 847 847 True", DisplayName = "a cursor, which is an icon")]
+    [DataRow("D & \"png32.ico\"", "3 847 847 True", DisplayName = "an icon whose image is a PNG (an RD-VBA addition: MS-VBA raises 481)")]
+    [DataRow("D & \"png32.cur\"", "3 847 847 True", DisplayName = "a cursor whose image is a PNG (an RD-VBA addition: MS-VBA raises 481)")]
     [DataRow("D & \"placeable.wmf\"", "2 2540 1270 True", DisplayName = "a placeable metafile, an inch by half an inch")]
     [DataRow("D & \"frame.emf\"", "4 4964 2964 True", DisplayName = "an enhanced metafile, its frame")]
     public async Task APictureFile_LoadsAsItsType_InHimetric(string arguments, string expected)

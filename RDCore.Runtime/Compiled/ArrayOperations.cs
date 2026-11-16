@@ -17,11 +17,22 @@ namespace RDCore.Runtime.Compiled;
 /// returns <see langword="null"/> or <see langword="false"/>, and the interpreter runs the statement, which raises the error (9) where there is one.
 /// </summary>
 /// <remarks>
-/// The array is read from the cell each time, never kept: a <c>ReDim</c> stores another array in the same cell, and an element is found in the array the
-/// variable holds now.
+/// A <c>ReDim</c> stores another array in the same cell, and an element is found in the array the variable holds now. Compiled code keeps the array a
+/// variable holds (<see cref="KnownArray"/>) only while nothing it runs can give the variable another array, and gives it to these operations as the
+/// holder. After anything else (the interpreter running an instruction, a call, a statement that stores an array), it finds the array in the cell again.
 /// </remarks>
 public static class ArrayOperations
 {
+    /// <summary>
+    /// The array held in <paramref name="holder"/>, found as the other operations of this class find it. Compiled code keeps it while the variable
+    /// cannot be given another array, and gives it to those operations as their holder.
+    /// </summary>
+    /// <param name="holder">The cell of the array variable, the array field, or the cell of the <c>Variant</c> that holds the array.</param>
+    /// <returns>
+    /// <see langword="null"/> when the holder holds no array that is known: each operation given it declines.
+    /// </returns>
+    public static VBArrayValue? KnownArray(object? holder) => KnownArrayIn(holder);
+
     /// <summary>
     /// The cell of the element at <paramref name="first"/>, <paramref name="second"/> and <paramref name="third"/> (the first <paramref name="rank"/> of them,
     /// each a <c>Long</c>) of the array held in <paramref name="holder"/>, when it is a cell that holds a payload of <paramref name="kind"/>: what

@@ -20,9 +20,9 @@ internal sealed partial class ProcedureAnalysis
     // it is in that statement (KnownOperands.IndexOf), for the interpreter to be given when the instruction is handed to it after a call.
     private StatementNode? _nesting;
 
-    // a Let of a scalar variable of the activation or of the function result variable, a call statement, or a condition of an If or a loop, that calls a
-    // function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode); and so is every other instruction, as
-    // it always is.
+    // a Let of a scalar or Variant variable of the activation or of the function result variable, a call statement, or a condition of an If or a loop,
+    // that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode). Every other
+    // instruction is translated as any instruction is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);
@@ -73,9 +73,9 @@ internal sealed partial class ProcedureAnalysis
         {
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode } assignment }
                 => IsScalarTarget(Bind(assignment.Target)) && CallsInside(Bind(assignment.Value)),
-            // a Set of an object variable, or of the function result variable, to what a call returns.
+            // a Set of an object variable, or of the function result variable, to what a call returns, or to a New, whose Initialize is a call.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
-                => Calls(Bind(assignment.Value)),
+                => Bind(assignment.Value) is var value && (value is BoundNew || Calls(value)),
             { Kind: InstructionKind.Simple, Node: CallStatementNode call }
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
@@ -90,10 +90,12 @@ internal sealed partial class ProcedureAnalysis
         return nests ? instruction.Node : null;
     }
 
+    // a scalar variable of the activation or the scalar result variable, and a Variant variable of the activation, assigned what was evaluated of it once:
+    // its Let made of the payload the evaluation gives (VariantLetStep), never speculated, which would evaluate the value again where the speculation fails.
     private bool IsScalarTarget(BoundNode target) => target switch
     {
         BoundName { Symbol: var function } => ResultKind is not null && IsOwnFunction(function),
-        BoundVariable variable => SlotOf(variable) is not null,
+        BoundVariable variable => SlotOf(variable) is not null || VariantSlotOf(variable) is not null,
         _ => false,
     };
 
@@ -112,8 +114,10 @@ internal sealed partial class ProcedureAnalysis
     private bool Calls(BoundNode? node) => node switch
     {
         null => false,
-        // a function of the standard library that keeps nothing calls nothing of the workspace: only what its arguments call.
-        BoundCall { Procedure: var library, BoundArguments: var arguments } when IsVariantLibrary(library) => arguments?.Any(argument => Calls(argument.Value)) ?? false,
+        // a function of the standard library that keeps nothing calls nothing of the workspace: only what its arguments call. The interpreter makes it again
+        // when the instruction is handed to it (LibraryCallOf).
+        BoundCall { Procedure: var library, BoundArguments: var arguments } when IsVariantLibrary(library) || KeepsNothing(library)
+            => arguments?.Any(argument => Calls(argument.Value)) ?? false,
         BoundCall => true,
         BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol),
         BoundQualifiedName { Member: var qualified } => IsCompiledLibrary(qualified),
@@ -129,6 +133,10 @@ internal sealed partial class ProcedureAnalysis
         BoundTypeOf typeOf => Calls(typeOf.Operand),
         _ => false,
     };
+
+    // whether symbol is a function of the standard library compiled code calls for a scalar (IsCompiledLibrary) that keeps nothing from call to call.
+    private static bool KeepsNothing(Symbol symbol)
+        => IsCompiledLibrary(symbol) && !CompiledLibraryFunctions[symbol.GetProperty(SymbolProperties.ExternalTarget)!];
 
     // a function of the workspace called inside an expression, as CallOf and MemberCallOf call one, by where it is in its statement: a function of a
     // standard module called with its arguments, or by its bare name when it takes none, or a function or Property Get member of an object variable of the
@@ -182,8 +190,11 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return parameters.IsEmpty
-            ? CallWith(function, parameters, [], CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject)
+        // each of its parameters Optional, left out as the interpreter binds it (MS-VBAL §5.3.1.11).
+        System.Collections.Immutable.ImmutableArray<BoundArgument> arguments
+            = parameters.IsEmpty ? [] : ArgumentMapping.Bind([.. parameters], [], static _ => null, static _ => null) ?? default;
+        return !arguments.IsDefault && arguments.Length == parameters.Length
+            ? CallWith(function, parameters, arguments, CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject)
             : null;
     }
 
@@ -206,8 +217,10 @@ internal sealed partial class ProcedureAnalysis
     {
         SupportCallStep => true,
         LetStep let => Admits(let.Value),
+        VariantLetStep let => Admits(let.Value),
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         SetStep { SourceCall: { } source } => Admits(source),
+        SetStep { SourceNew: not null } => true,
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
@@ -221,7 +234,7 @@ internal sealed partial class ProcedureAnalysis
         // an element, read once its subscripts are evaluated, calls among them.
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
-        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode => true,
+        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or OmittedArgumentNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
         ConvertNode convert => Admits(convert.Operand),
@@ -323,6 +336,7 @@ internal sealed partial class ProcedureAnalysis
     private static IEnumerable<PayloadNode> PayloadsOf(CompiledStep step) => step switch
     {
         LetStep let => [let.Value],
+        VariantLetStep let => OperandsOf(let.Value),
         CallStep call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
         SetStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
         BranchStep branch => [branch.Condition],

@@ -157,6 +157,12 @@ public enum RDCoreDiagnosticId
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits
     */
     EditNotApplied = 20001, // an edit made while the program waits that is not applied to it: picked up when it is run again, or it does not compile
+
+    /*
+     * [30000-30999]: the builder, what rdc run and rdc build refuse a workspace with (ProgramRunner, in RDCore.Runtime.Support, writes the code)
+    */
+    NoEntryPoint = 30001, // no Sub Main, the entry point the .rdproj names declared nowhere, or a Library project: the program has nowhere to start
+    AmbiguousEntryPoint = 30002, // more than one standard module declares the Sub Main, and the .rdproj names none
 }
 
 public static class RDCoreDiagnosticIds
