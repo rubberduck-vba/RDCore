@@ -353,6 +353,30 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "main:9", "other:8" }, Output(resumed));
     }
 
+    // a caller that runs compiled code goes on with the procedures it calls as they are now: a callee edited while the program waits is called edited.
+    [TestMethod]
+    [DataRow("    o = Other()", DisplayName = "what the call returns, assigned")]
+    [DataRow("    o = Other() + 0", DisplayName = "a call inside an expression")]
+    public async Task AConstantOfAProcedureTheProgramIsNotIn_Revalued_IsApplied_ToACompiledCaller(string call)
+    {
+        var program = LocalConstants.Replace(
+            Lines("    Debug.Print \"main:\" & Outer(3)", "    Debug.Print \"other:\" & Other()"),
+            Lines("    Dim m As Long", "    Dim o As Long", "    m = Outer(3)", call, "    Debug.Print \"main:\" & m", "    Debug.Print \"other:\" & o"),
+            StringComparison.Ordinal);
+        Assert.AreNotEqual(LocalConstants, program);
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
+                ("Program", ModuleType.StdModule, program.Replace("Const L As Long = 7", "Const L As Long = 8", StringComparison.Ordinal)));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "main:9", "other:8" }, Output(resumed));
+    }
+
     [TestMethod]
     public async Task AnEditOfAPropertyLetTheProgramIsIn_IsApplied_ToTheLet()
     {
