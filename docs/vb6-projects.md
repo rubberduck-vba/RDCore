@@ -68,8 +68,16 @@ what VB6 raises: 5 for an `AddItem` index outside 0 to `ListCount` and a `Remove
 outside the items, 380 for a `ListIndex` outside -1 to `ListCount` - 1, and 383 for an assignment to `ListCount`, `NewIndex` or `SelCount`. `Column` is
 an MSForms ListBox's, and raises 438.
 
+A control's `Font` is a `StdFont`, the same object on every read. A change through it changes every control that holds it, and
+`Set Text2.Font = Text1.Font` shares the font. `Text1.Font = "Arial"` sets its `Name`, its default member, and a `Set` to `Nothing` raises 380.
+`FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` and `FontUnderline` are the `Font`'s `Bold`, `Italic`, `Name`, `Size`,
+`Strikethrough` and `Underline`.
+
 > [!NOTE]
-> **Not implemented.** A control's `Container` raises 438.
+> **Not implemented.**
+> - A control's `Container` raises 438.
+> - `TypeName` of a control's `Font` is `StdFont`, where VB6 gives `Font`.
+> - A `New StdFont` cannot be given to a control's `Font`.
 
 ---
 ## Running a VB6 project

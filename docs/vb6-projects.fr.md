@@ -68,8 +68,16 @@ ajoute : `AddItem`, `RemoveItem`, `Clear`, `List(Index)`, `ItemData(Index)`, `Li
 éléments, 381 pour un indice d'`ItemData` ou de `Selected` hors des éléments, 380 pour un `ListIndex` hors de -1 à `ListCount` - 1, et 383 pour une
 affectation à `ListCount`, `NewIndex` ou `SelCount`. `Column` est un membre de la ListBox de MSForms, et lève 438.
 
+La `Font` d'un contrôle est un `StdFont`, le même objet à chaque lecture. Une modification faite par elle change chaque contrôle qui la détient, et
+`Set Text2.Font = Text1.Font` partage la police. `Text1.Font = "Arial"` en affecte le `Name`, son membre par défaut, et un `Set` à `Nothing` lève 380.
+`FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` et `FontUnderline` sont le `Bold`, l'`Italic`, le `Name`, le `Size`, le
+`Strikethrough` et l'`Underline` de la `Font`.
+
 > [!NOTE]
-> **Non implémenté.** Le `Container` d'un contrôle lève 438.
+> **Non implémenté.**
+> - Le `Container` d'un contrôle lève 438.
+> - `TypeName` de la `Font` d'un contrôle donne `StdFont`, là où VB6 donne `Font`.
+> - Un `New StdFont` ne peut pas être affecté à la `Font` d'un contrôle.
 
 ---
 ## Exécuter un projet VB6
