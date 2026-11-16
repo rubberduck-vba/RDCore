@@ -847,7 +847,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>The member's activation, which its entry is called with; <see langword="null"/> when the call is to be made through its binding.</returns>
     public CompiledActivation? EnterMemberDirectly(int pc, int callee)
     {
-        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
+        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
             || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
             || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
             || EntryOf(_body.Callees[callee], member) is not { } entry)
@@ -882,10 +882,11 @@ public sealed partial class CompiledActivation : ILightActivation
                 return null;
             }
 
-            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, new ValueBindingHandle(receiver));
-            ObjectReferences.Rebind(_session, activation._me, ObjectReferences.Held.None);
+            // the reference as the variable or the With block holds it, which the cell holds as it is: no copy of it is made.
+            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, new ValueBindingHandle(_receiver));
+            ObjectReferences.HoldIn(_session, activation._me, _memberInstance!.ObjectId);
         }
-        else if (_invoker.PushMemberActivation(member, entry.List, receiver) is { } frame)
+        else if (_invoker.PushMemberActivation(member, entry.List, (VBRuntimeValue<VBRuntimeObjectId>)_receiver) is { } frame)
         {
             activation = new CompiledActivation(_session, frame, entry.List, _executor, entry.Context, entry.Body, _invoker) { _entered = member };
         }
