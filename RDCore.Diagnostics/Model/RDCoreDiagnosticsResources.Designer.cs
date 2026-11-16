@@ -637,7 +637,16 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplementedInterfaceMember_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the code from the members of &apos;{0}&apos;: an object created from &apos;{0}&apos; itself no longer runs it.
+        /// </summary>
+        public static string ImplementedInterfaceMember_Fix {
+            get {
+                return ResourceManager.GetString("ImplementedInterfaceMember_Fix", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
         /// </summary>
