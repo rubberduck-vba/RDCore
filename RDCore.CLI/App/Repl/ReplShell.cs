@@ -70,7 +70,7 @@ internal sealed class ReplShell(
         };
         _debugger = context.Debugger;
 
-        // a handler of an event that stops while no program runs - a click on a form the shell loaded - breaks there, above the line being typed.
+        // a handler of an event that stops while no program runs (a click on a form the shell loaded) breaks there, above the line being typed.
         void OnSessionStopped(SDK.Platform.Protocol.ExecuteResult stop) => _ = SayTheSessionStopAsync(context, stop);
         if (stops is not null)
         {

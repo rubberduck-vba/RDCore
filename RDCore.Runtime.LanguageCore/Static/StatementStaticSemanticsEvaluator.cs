@@ -226,10 +226,10 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
-        // a bare Print is a statement of some languages only.
+        // a bare Print is a statement of some languages only, and the form's own Print method in a Visual Basic 6.0 form's code.
         if (statement is PrintStatementNode print)
         {
-            if (BarePrintStaticSemantics.Evaluate(print, walk.Options.Language) is { } printError)
+            if (BarePrintStaticSemantics.Evaluate(print, walk.Options.Language, walk.Options.DrawsOnMe) is { } printError)
             {
                 walk.Errors.Add(printError);
                 return;

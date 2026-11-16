@@ -108,6 +108,24 @@ internal static class RDFormsGraphics
                 PaintPicture(surface, arguments, culture);
                 return true;
 
+            case "[PRINT]" when reads && member == FormPrintMembers.Print:
+                var (items, endsLine) = PrintItems(arguments, culture);
+                if (surface is null)
+                {
+                    return true;
+                }
+
+                try
+                {
+                    surface.Print(items, endsLine);
+                }
+                catch (FormErrorException exception)
+                {
+                    throw new AutomationException(VisualBasicError | exception.Error.Number, exception.Error.Description);
+                }
+
+                return true;
+
             default:
                 return false;
         }
@@ -161,6 +179,30 @@ internal static class RDFormsGraphics
         _ => throw new AutomationException(VisualBasicError | 481, "Invalid picture"),
     };
 #pragma warning restore CA1416
+
+    // whether the output ends the line, then a kind and a value for each part (FormPrintMembers).
+    private static (IReadOnlyList<PrintItem> Items, bool EndsLine) PrintItems(object?[] arguments, CultureInfo culture)
+    {
+        if (arguments.Length % 2 != 1)
+        {
+            throw new AutomationException(BadParameterCount, "Print takes whether the output ends the line, then a kind and a value for each part.");
+        }
+
+        var endsLine = (bool)RDFormsValues.FromNeutral(arguments[0], typeof(bool), culture)!;
+        var items = new List<PrintItem>(arguments.Length / 2);
+        for (var index = 1; index < arguments.Length; index += 2)
+        {
+            var value = arguments[index + 1];
+            items.Add((FormPrintPartKind)(short)RDFormsValues.FromNeutral(arguments[index], typeof(short), culture)! switch
+            {
+                FormPrintPartKind.Text => new PrintItem.Text(value as string ?? Convert.ToString(value, culture) ?? string.Empty),
+                FormPrintPartKind.Spc => new PrintItem.Spc((int)RDFormsValues.FromNeutral(value, typeof(int), culture)!),
+                _ => new PrintItem.Tab(value is null ? null : (int)RDFormsValues.FromNeutral(value, typeof(int), culture)!),
+            });
+        }
+
+        return (items, endsLine);
+    }
 
     // a drawing with its flags, the first argument, read before anything is drawn; what the surface raises is the program's error.
     private static void Draw(IDrawingSurface? surface, object?[] arguments, CultureInfo culture, Action<IDrawingSurface, GraphicsFlags> draw)

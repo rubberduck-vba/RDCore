@@ -53,15 +53,31 @@ Servi en VB6, un projet a deux bibliothèques qu'il ne liste pas parmi ses réf�
 
 Les contrôles d'un formulaire sont des noms de son module. Un contrôle d'un groupe de contrôles est nommé avec son indice : `Command1(0)`.
 
-Un groupe de menus a `Count`, `LBound` et `UBound`, et `For Each` parcourt ses éléments dans l'ordre de leurs indices. Ses éléments partagent un
-gestionnaire de chaque événement, qui reçoit d'abord l'indice de l'élément : `Private Sub mnuRecent_Click(Index As Integer)`.
+Un groupe de contrôles, d'éléments de menu ou d'autres contrôles, a `Count`, `LBound` et `UBound`, et `For Each` parcourt ses éléments dans l'ordre de
+leurs indices. Ses éléments partagent un gestionnaire de chaque événement, qui reçoit d'abord l'indice de l'élément :
+`Private Sub mnuRecent_Click(Index As Integer)`. L'`Index` d'un élément est son indice dans le groupe; un contrôle qui n'est dans aucun groupe lève 343.
 
-`Load mnuRecent(3)` ajoute l'élément d'indice 3, et `Unload mnuRecent(3)` retire un élément que le programme a chargé. Ils lèvent ce que VB6 lève : 360
+`Load picCell(3)` ajoute l'élément d'indice 3, et `Unload picCell(3)` retire un élément que le programme a chargé. Un contrôle chargé est une copie masquée
+de l'élément de plus petit indice; un élément de menu chargé se place parmi les autres dans l'ordre de leurs indices. Ils lèvent ce que VB6 lève : 360
 pour un élément déjà chargé, 341 pour un indice négatif, 6 pour un indice supérieur à 32767, 340 pour un indice qu'aucun élément n'a, 362 pour un élément du
 fichier du formulaire, et 361 pour un élément de menu qui n'est dans aucun groupe.
 
+On atteint les éléments d'une ListBox et d'une ComboBox comme dans VB6, sur une liste du fichier du formulaire comme sur une liste que `Controls.Add`
+ajoute : `AddItem`, `RemoveItem`, `Clear`, `List(Index)`, `ItemData(Index)`, `ListIndex`, `ListCount`, `NewIndex` et `Text`, et `Selected(Index)` et
+`SelCount` pour une ListBox. Ils lèvent ce que VB6 lève : 5 pour un indice d'`AddItem` hors de 0 à `ListCount` et un indice de `RemoveItem` hors des
+éléments, 381 pour un indice d'`ItemData` ou de `Selected` hors des éléments, 380 pour un `ListIndex` hors de -1 à `ListCount` - 1, et 383 pour une
+affectation à `ListCount`, `NewIndex` ou `SelCount`. `Column` est un membre de la ListBox de MSForms, et lève 438.
+
+La `Font` d'un contrôle est un `StdFont`, le même objet à chaque lecture. Une modification faite par elle change chaque contrôle qui la détient, et
+`Set Text2.Font = Text1.Font` partage la police. `Text1.Font = "Arial"` en affecte le `Name`, son membre par défaut, et un `Set` à `Nothing` lève 380.
+`FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` et `FontUnderline` sont le `Bold`, l'`Italic`, le `Name`, le `Size`, le
+`Strikethrough` et l'`Underline` de la `Font`.
+
 > [!NOTE]
-> **Non implémenté.** Les groupes de contrôles autres que les menus lèvent 438.
+> **Non implémenté.**
+> - Le `Container` d'un contrôle lève 438.
+> - `TypeName` de la `Font` d'un contrôle donne `StdFont`, là où VB6 donne `Font`.
+> - Un `New StdFont` ne peut pas être affecté à la `Font` d'un contrôle.
 
 ---
 ## Exécuter un projet VB6

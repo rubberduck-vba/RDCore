@@ -90,8 +90,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             KeywordStatementNode { Token: Tokens.Close or Tokens.Reset } close => OnFiles(_files.ExecuteClose(session, context, close)),
             // MS-VBAL §5.4.5.8: Print to a file channel. The channel exists now; writing to one does not yet,
             // and the bare object-relative form needs an enclosing form or report, which does not either.
-            // MS-VBAL §5.4.5.8-9. The bare object-relative form needs an enclosing form or report, which does
-            // not exist; ExecutePrint reports that itself.
+            // MS-VBAL §5.4.5.8-9. The bare object-relative form prints on the Visual Basic 6.0 form whose code it is.
+            PrintStatementNode bare when PrintsOnMe(session, context, bare, out var me) => PrintOn(session, context, me!, null, bare.Items, bare),
             PrintStatementNode print => OnFiles(_files.ExecutePrint(session, context, print)),
             // MS-VBAL §5.4.5.6: Line Input # reads one line and Let-assigns it.
             KeywordStatementNode { Token: Tokens.LineInput } lineInput => OnFiles(_files.ExecuteLineInput(session, context, lineInput)),
@@ -244,34 +244,81 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     }
 
     // obj.Print calls the Print method of the object, a Visual Basic 6.0 form or PictureBox or an Access form or report, once its output list is evaluated.
-    // The platform has none of them: Nothing raises 91, and any other object has no Print method (438).
     private RuntimeExecutionOutcome ExecuteObjectPrint(IRuntimeSession session, RuntimeEvaluationContext context, ObjectPrintExpressionNode print)
     {
         var owner = _expressionEvaluator.Evaluate(session, print.Owner, context);
-        if (!owner.IsSuccess)
-        {
-            return owner.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(owner.ErrorInfo!);
-        }
+        return owner.IsSuccess ? PrintOn(session, context, owner.Result!, print.Owner, print.Items, print)
+            : owner.IsInternalError ? RuntimeExecutionOutcome.InternalError
+            : RuntimeExecutionOutcome.Error(owner.ErrorInfo!);
+    }
 
-        var evaluated = _printOutput.Collect(session, context, print.Items, out _);
+    // a Print with no file number, in a language that has no such statement, is the form's own: the code of a Visual Basic 6.0 form is the only code it loads
+    // in (BarePrintStaticSemantics).
+    private bool PrintsOnMe(IRuntimeSession session, RuntimeEvaluationContext context, PrintStatementNode print, out VBTypedValue? me)
+    {
+        me = print is { FileNumber: null } && session.Environment.Language is { HasBarePrint: false }
+            && session.Symbols.Resolver.ResolveValue(Tokens.Me, ScopeKind.Local, context.Scope).Symbol is { } symbol
+                ? new VBObjectValue(session.Symbols.Resolver.GetValue(symbol))
+                : null;
+        return me is not null;
+    }
+
+    // the object lays the output out itself, through the member its server answers (FormPrintMembers.Print). Nothing raises 91, and an object no server
+    // answers for has no Print method (438).
+    private RuntimeExecutionOutcome PrintOn(IRuntimeSession session, RuntimeEvaluationContext context, VBTypedValue owner, ExpressionNode? ownerExpression,
+        ImmutableArray<PrintOutputItemNode> items, SyntaxNode call)
+    {
+        var evaluated = _printOutput.Collect(session, context, items, out var printed);
         if (evaluated != RuntimeExecutionOutcome.Next)
         {
             return evaluated;
         }
 
-        var value = owner.Result;
+        var value = owner;
         while (value is VBVariantValue { TypedValue: var wrapped })
         {
             value = wrapped;
         }
 
-        return RuntimeExecutionOutcome.Error(value switch
+        if (value is not VBObjectValue target || target.IsNothing())
         {
-            VBObjectValue nothing when nothing.IsNothing() => VBRuntimeErrorInfo.For(
-                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, print.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose),
-            VBObjectValue => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, print.Location, "The object has no Print method."),
-            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, print.Owner.Location, "Print is a method of an object."),
-        });
+            return RuntimeExecutionOutcome.Error(value is VBObjectValue
+                ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, call.SourceLocation, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose)
+                : VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, ownerExpression?.Location ?? call.SourceLocation, "Print is a method of an object."));
+        }
+
+        var called = _expressionEvaluator.InvokeMember(session, context, target, ownerExpression, FormPrintMembers.Print, PrintArguments(call, printed), call);
+        return called.IsSuccess ? RuntimeExecutionOutcome.Next
+            : called.IsInternalError ? RuntimeExecutionOutcome.InternalError
+            : called.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod
+                ? RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, call.SourceLocation, "The object has no Print method."))
+                : RuntimeExecutionOutcome.Error(called.ErrorInfo!);
+    }
+
+    // whether the output ends the line, then the kind of each part and its text, count or column (FormPrintMembers).
+    private static ImmutableArray<ExpressionNode> PrintArguments(SyntaxNode call, PrintedOutput printed)
+    {
+        LiteralExpressionNode Literal(VBTypedValue value) => new(call.Identity, call.SourceLocation, value);
+        var arguments = ImmutableArray.CreateBuilder<ExpressionNode>(1 + 2 * printed.Parts.Length);
+        arguments.Add(Literal(new VBBooleanValue(printed.EndsLine)));
+        foreach (var part in printed.Parts)
+        {
+            var kind = part.Kind switch
+            {
+                PrintedPartKind.Text => FormPrintPartKind.Text,
+                PrintedPartKind.Spc => FormPrintPartKind.Spc,
+                _ => FormPrintPartKind.Tab,
+            };
+            arguments.Add(Literal(new VBIntegerValue((short)kind)));
+            arguments.Add(Literal(part switch
+            {
+                { Text: { } text } => new VBStringValue(text),
+                { Count: { } count } => new VBLongValue(count),
+                _ => VBEmptyValue.Empty,
+            }));
+        }
+
+        return arguments.MoveToImmutable();
     }
 
     // the parser gives the event's name as the first input, a bare name that is not an expression to evaluate, and the

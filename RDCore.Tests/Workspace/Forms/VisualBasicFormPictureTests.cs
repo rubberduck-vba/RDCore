@@ -27,7 +27,7 @@ public sealed class VisualBasicFormPictureTests
     [ClassCleanup]
     public static void DeletePictures() => Directory.Delete(Folder, recursive: true);
 
-    // Form6, with Picture1, a PictureBox, and Image1, an Image.
+    // Form6, with Picture1, a PictureBox, Image1, an Image, and Label1, a Label, whose Picture is RDForms' own.
     private const string Form6 = "VERSION 5.00\r\n"
         + "Begin VB.Form Form6 \r\n"
         + "   Caption         =   \"Form6\"\r\n"
@@ -44,6 +44,14 @@ public sealed class VisualBasicFormPictureTests
         + "      Height          =   1500\r\n"
         + "      Left            =   2400\r\n"
         + "      Top             =   120\r\n"
+        + "      Width           =   1500\r\n"
+        + "   End\r\n"
+        + "   Begin VB.Label Label1 \r\n"
+        + "      Caption         =   \"Label1\"\r\n"
+        + "      Height          =   500\r\n"
+        + "      Left            =   120\r\n"
+        + "      TabIndex        =   1\r\n"
+        + "      Top             =   2000\r\n"
         + "      Width           =   1500\r\n"
         + "   End\r\n"
         + "End\r\n"
@@ -82,6 +90,7 @@ public sealed class VisualBasicFormPictureTests
     [TestMethod]
     [DataRow("Form6.Picture1", DisplayName = "a PictureBox")]
     [DataRow("Form6.Image1", DisplayName = "an Image")]
+    [DataRow("Form6.Label1", DisplayName = "a Label")]
     [DataRow("Form6", DisplayName = "the form")]
     public async Task APictureSetToAControl_IsTheProgramsOwnPictureWhenItIsReadBack(string target)
     {
@@ -120,6 +129,7 @@ public sealed class VisualBasicFormPictureTests
     [TestMethod]
     [DataRow("Form6.Picture1", DisplayName = "a PictureBox")]
     [DataRow("Form6.Image1", DisplayName = "an Image")]
+    [DataRow("Form6.Label1", DisplayName = "a Label")]
     [DataRow("Form6", DisplayName = "the form")]
     public async Task Nothing_TakesThePictureAway(string target)
     {
@@ -138,5 +148,19 @@ public sealed class VisualBasicFormPictureTests
         var printed = await RunAsync("Set Form6.Picture1.Picture = New Collection", "Debug.Print Err.Number");
 
         CollectionAssert.AreEqual(new[] { "13" }, printed, string.Join(" | ", printed));
+    }
+
+    // a Label's Picture is RDForms' own, which the Visual Basic library does not declare: the program reads it late bound, as a Variant.
+    [TestMethod]
+    public async Task APictureReadLateBound_IsNothing_WhereThePropertyHoldsNone()
+    {
+        var printed = await RunAsync(
+            "Debug.Print TypeName(Form6.Label1.Picture) & \" \" & (Form6.Label1.Picture Is Nothing)",
+            "Set p = LoadPicture(D & \"pic.gif\")",
+            "Set Form6.Label1.Picture = p",
+            "Set Form6.Label1.Picture = Nothing",
+            "Debug.Print Err.Number & \" \" & TypeName(Form6.Label1.Picture)");
+
+        CollectionAssert.AreEqual(new[] { "Nothing True", "0 Nothing" }, printed, string.Join(" | ", printed));
     }
 }

@@ -217,9 +217,4 @@ public sealed class VisualBasicFormMenuArrayTests
         CollectionAssert.AreEqual(new[] { $"mnuRecent Click {index}", "back" }, printed.Where(line => line.StartsWith("mnu", StringComparison.Ordinal) || line == "back").ToArray(),
             string.Join(" | ", printed));
     }
-
-    [TestMethod]
-    [Ignore("an array of controls other than menus has no object in RDForms: its name raises 438")]
-    public Task Load_AddsAControlToAControlArray()
-        => AssertPrintsAsync(["2"], "Load Form3.cmd(1)", "Debug.Print Form3.cmd.Count");
 }

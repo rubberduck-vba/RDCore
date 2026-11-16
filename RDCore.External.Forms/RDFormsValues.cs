@@ -17,10 +17,17 @@ internal static class RDFormsValues
     // VB error 94, Invalid use of Null: a Null where a number is needed.
     private const int InvalidUseOfNull = unchecked((int)0x800A005E);
 
-    // an argument a program gives a method: a Single parameter takes it let-coerced to a Single (MS-VBAL §5.5.1.2), and a Variant one, or an argument past the
-    // parameters, takes it as it is, for the method to check.
-    public static FormValue ArgumentOf(object? value, MethodParameter? parameter, CultureInfo culture)
-        => string.Equals(parameter?.TypeName, "Single", StringComparison.OrdinalIgnoreCase) ? FormValue.FromSingle(SingleOf(value, culture)) : VariantOf(value);
+    // an argument a program gives a method: a Single, String or Boolean parameter takes it let-coerced to its type (MS-VBAL §5.5.1.2); a String or Boolean one
+    // takes Null as it is, which the form's window refuses with 94. An Integer or Long parameter, a Variant one, or an argument past the parameters, takes it as
+    // it is, for the method to round and check as VB6 does.
+    public static FormValue ArgumentOf(object? value, MethodParameter? parameter, CultureInfo culture) => parameter?.TypeName switch
+    {
+        "Single" => FormValue.FromSingle(SingleOf(value, culture)),
+        "String" or "Boolean" when value is DBNull => FormValue.Null,
+        "String" => FormValue.FromString((string)FromNeutral(value, typeof(string), culture)!),
+        "Boolean" => FormValue.FromBoolean((bool)FromNeutral(value, typeof(bool), culture)!),
+        _ => VariantOf(value),
+    };
 
     public static float SingleOf(object? value, CultureInfo culture)
     {
