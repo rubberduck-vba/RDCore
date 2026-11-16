@@ -53,15 +53,17 @@ Served as VB6, a project has two libraries it does not list as references, as in
 
 A form's controls are names of its module. A control of a control array is named with its index: `Command1(0)`.
 
-A menu array has `Count`, `LBound` and `UBound`, and `For Each` goes through its elements in the order of their indexes. Its elements share one handler of
-each event, which takes the index of the element first: `Private Sub mnuRecent_Click(Index As Integer)`.
+A control array, of menu items or of other controls, has `Count`, `LBound` and `UBound`, and `For Each` goes through its elements in the order of their
+indexes. Its elements share one handler of each event, which takes the index of the element first: `Private Sub mnuRecent_Click(Index As Integer)`. An
+element's `Index` is its index in the array; a control of no array raises 343 for it.
 
-`Load mnuRecent(3)` adds the element of index 3, and `Unload mnuRecent(3)` takes out an element the program loaded. They raise what VB6 raises: 360 for an
-element that is loaded already, 341 for a negative index, 6 for one above 32767, 340 for an index no element has, 362 for an element of the form's file, and
-361 for a menu item that is in no array.
+`Load picCell(3)` adds the element of index 3, and `Unload picCell(3)` takes out an element the program loaded. A loaded control is a hidden copy of the
+element of the lowest index; a loaded menu item goes among the others in the order of their indexes. They raise what VB6 raises: 360 for an element that is
+loaded already, 341 for a negative index, 6 for one above 32767, 340 for an index no element has, 362 for an element of the form's file, and 361 for a menu
+item that is in no array.
 
 > [!NOTE]
-> **Not implemented.** The arrays of controls other than menus raise 438.
+> **Not implemented.** A control's `Container` raises 438.
 
 ---
 ## Running a VB6 project

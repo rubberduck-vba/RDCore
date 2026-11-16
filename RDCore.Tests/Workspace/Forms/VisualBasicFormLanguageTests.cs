@@ -404,7 +404,6 @@ public sealed class VisualBasicFormLanguageTests
     }
 
     [TestMethod]
-    [Ignore("control arrays are not implemented in the RDForms model")]
     public async Task AControlOfAControlArray_IsReachedByItsIndex()
     {
         var printed = await RunWithRDFormsAsync("Debug.Print Form1.Command2(1).Index\r\nUnload Form1");
