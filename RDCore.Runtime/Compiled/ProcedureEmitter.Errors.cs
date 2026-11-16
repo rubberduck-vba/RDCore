@@ -9,9 +9,9 @@ internal sealed partial class ProcedureEmitter
     // whether the step being emitted raises the error an operation of it finds (RaisesErrorsIn).
     private bool _raisesErrors;
 
-    // a step whose instruction the interpreter gives a state to as it evaluates it, when it fails - a For loop its end and step (ProcedureExecutor.Unevaluated),
-    // a Select its selector - is evaluated by the interpreter on an error, as it always was: the state is what a Resume Next goes on with. Any other step's
-    // error is raised where compiled code found it.
+    // a step whose instruction the interpreter gives a state to as it evaluates it, when it fails (a For loop its end and step, ProcedureExecutor.Unevaluated;
+    // a Select its selector), is evaluated by the interpreter on an error: the state is what a Resume Next goes on with. Any other step's error is raised
+    // where compiled code found it.
     private static bool RaisesErrorsIn(CompiledStep step)
         => step is not (ForOpenStep or ForNextStep or ForEachOpenStep or ForEachNextStep or VariantForNextStep or SelectStep or TextSelectStep or CaseStep);
 
