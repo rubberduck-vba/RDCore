@@ -1,6 +1,5 @@
 using RDCore.SDK.Runtime;
 using System.Globalization;
-using System.Text;
 
 namespace RDCore.Runtime.Semantics.Conversion;
 
@@ -26,34 +25,45 @@ internal static class NumberGrammar
     /// </summary>
     /// <param name="Radix">The value of the digits of a <c>&amp;H</c> or <c>&amp;O</c> literal, unsigned: up to 32 bits is the <c>Long</c> they are (and up to
     /// 16 an <c>Integer</c>), a negative one when the high bit is set; more than that is the number they are.</param>
-    /// <param name="Digits">The digits of a decimal number, with <c>.</c> before its fraction, its sign in front: what <see cref="decimal"/> and
-    /// <see cref="double"/> read invariantly.</param>
+    /// <param name="Digits">Where the digits of a decimal number are in the buffer given to <see cref="TryRead"/>, with <c>.</c> before its fraction, its sign
+    /// in front: what <see cref="decimal"/> and <see cref="double"/> read invariantly.</param>
     /// <param name="Exponent">The power of ten the number is multiplied by, when it is written with one.</param>
-    public readonly record struct Reading(ulong? Radix, string Digits, int? Exponent);
+    public readonly record struct Reading(ulong? Radix, Range Digits, int? Exponent);
+
+    /// <summary>
+    /// The length of the buffer <see cref="TryRead"/> writes the digits of <paramref name="text"/> into: one more than the text, for the sign.
+    /// </summary>
+    /// <param name="text">The text to read.</param>
+    /// <returns>The buffer's length.</returns>
+    public static int DigitsLengthOf(ReadOnlySpan<char> text) => text.Length + 1;
 
     /// <summary>
     /// Reads <paramref name="text"/> as a number.
     /// </summary>
+    /// <param name="text">The text to read.</param>
+    /// <param name="regional">The regional settings the number is written by.</param>
+    /// <param name="digits">Where the digits of a decimal number are written, at least <see cref="DigitsLengthOf"/> long.</param>
+    /// <param name="reading">What the text reads as.</param>
     /// <returns><see langword="false"/> when it is not one; <see langword="true"/> with a <paramref name="reading"/> whose radix literal has too many
     /// digits for 64 bits is never returned: such a string is not a number either.</returns>
-    public static bool TryRead(string text, RegionalSettings regional, out Reading reading)
+    public static bool TryRead(ReadOnlySpan<char> text, RegionalSettings regional, Span<char> digits, out Reading reading)
     {
         reading = default;
         var trimmed = text.Trim();
-        return trimmed.Length > 0 && (TryReadRadix(trimmed, out reading) || TryReadDecimal(trimmed, regional, out reading));
+        return trimmed.Length > 0 && (TryReadRadix(trimmed, out reading) || TryReadDecimal(trimmed, regional, digits, out reading));
     }
 
-    private static bool TryReadRadix(string text, out Reading reading)
+    private static bool TryReadRadix(ReadOnlySpan<char> text, out Reading reading)
     {
         reading = default;
-        if (text.Length < 3 || text[0] != '&' || char.ToUpperInvariant(text[1]) is not ('H' or 'O') and var marker)
+        if (text.Length < 3 || text[0] != '&' || char.ToUpperInvariant(text[1]) is not ('H' or 'O'))
         {
             return false;
         }
 
         var isHex = char.ToUpperInvariant(text[1]) == 'H';
         ulong value = 0;
-        foreach (var c in text.AsSpan(2))
+        foreach (var c in text[2..])
         {
             var digit = isHex ? HexDigit(c) : c is >= '0' and <= '7' ? c - '0' : -1;
             var radix = isHex ? 16UL : 8UL;
@@ -65,7 +75,7 @@ internal static class NumberGrammar
             value = value * radix + (ulong)digit;
         }
 
-        reading = new Reading(value, string.Empty, null);
+        reading = new Reading(value, default, null);
         return true;
     }
 
@@ -77,7 +87,7 @@ internal static class NumberGrammar
         _ => -1,
     };
 
-    private static bool TryReadDecimal(string text, RegionalSettings regional, out Reading reading)
+    private static bool TryReadDecimal(ReadOnlySpan<char> text, RegionalSettings regional, Span<char> digits, out Reading reading)
     {
         reading = default;
         var at = 0;
@@ -108,7 +118,8 @@ internal static class NumberGrammar
             }
         }
 
-        if (signs > 1 || !TryReadMantissa(text, ref at, regional, out var digits))
+        // the digits go after the sign's place, which is filled once the sign is known: it may come after them.
+        if (signs > 1 || !TryReadMantissa(text, ref at, regional, digits[1..], out var written))
         {
             return false;
         }
@@ -151,21 +162,22 @@ internal static class NumberGrammar
             return false;
         }
 
-        reading = new Reading(null, (negative ? "-" : string.Empty) + digits, exponent);
+        digits[0] = '-';
+        reading = new Reading(null, negative ? 0..(written + 1) : 1..(written + 1), exponent);
         return true;
     }
 
-    // digits, the grouping symbol after the first of them, and the decimal symbol once: the digits, with '.' for the decimal symbol.
-    private static bool TryReadMantissa(string text, ref int at, RegionalSettings regional, out string digits)
+    // digits, the grouping symbol after the first of them, and the decimal symbol once: the digits, with '.' for the decimal symbol, and how many there are.
+    private static bool TryReadMantissa(ReadOnlySpan<char> text, ref int at, RegionalSettings regional, Span<char> digits, out int written)
     {
-        var written = new StringBuilder();
+        written = 0;
         var seenDigit = false;
         var seenDecimal = false;
         while (at < text.Length)
         {
             if (char.IsAsciiDigit(text[at]))
             {
-                written.Append(text[at++]);
+                digits[written++] = text[at++];
                 seenDigit = true;
             }
             else if (seenDigit && TryTake(text, ref at, regional.DigitGroupingSymbol))
@@ -174,7 +186,7 @@ internal static class NumberGrammar
             }
             else if (!seenDecimal && TryTake(text, ref at, regional.DecimalSymbol))
             {
-                written.Append('.');
+                digits[written++] = '.';
                 seenDecimal = true;
             }
             else
@@ -183,12 +195,11 @@ internal static class NumberGrammar
             }
         }
 
-        digits = written.ToString();
         return seenDigit;
     }
 
     // ("e" / "d") [sign] digits, with white space around its parts.
-    private static bool TryReadExponent(string text, ref int at, out int? exponent)
+    private static bool TryReadExponent(ReadOnlySpan<char> text, ref int at, out int? exponent)
     {
         exponent = null;
         var start = at;
@@ -210,7 +221,7 @@ internal static class NumberGrammar
             at++;
         }
 
-        if (at == digitsStart || !int.TryParse(text.AsSpan(digitsStart, at - digitsStart), NumberStyles.None, CultureInfo.InvariantCulture, out var power))
+        if (at == digitsStart || !int.TryParse(text[digitsStart..at], NumberStyles.None, CultureInfo.InvariantCulture, out var power))
         {
             return false;
         }
@@ -219,7 +230,7 @@ internal static class NumberGrammar
         return true;
     }
 
-    private static bool TrySign(string text, ref int at, ref bool negative)
+    private static bool TrySign(ReadOnlySpan<char> text, ref int at, ref bool negative)
     {
         if (at < text.Length && text[at] is '+' or '-')
         {
@@ -231,7 +242,7 @@ internal static class NumberGrammar
         return false;
     }
 
-    private static bool TryTake(string text, ref int at, string symbol)
+    private static bool TryTake(ReadOnlySpan<char> text, ref int at, string symbol)
     {
         if (symbol.Length > 0 && At(text, at, symbol))
         {
@@ -242,9 +253,9 @@ internal static class NumberGrammar
         return false;
     }
 
-    private static bool At(string text, int at, string symbol) => string.CompareOrdinal(text, at, symbol, 0, symbol.Length) == 0;
+    private static bool At(ReadOnlySpan<char> text, int at, string symbol) => text[at..].StartsWith(symbol, StringComparison.Ordinal);
 
-    private static void Skip(string text, ref int at)
+    private static void Skip(ReadOnlySpan<char> text, ref int at)
     {
         while (at < text.Length && char.IsWhiteSpace(text[at]))
         {

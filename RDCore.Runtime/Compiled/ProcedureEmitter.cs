@@ -1452,6 +1452,7 @@ internal sealed partial class ProcedureEmitter
         ExtendedCompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
         TemporaryNode temporary => ReadsVariant(temporary.Value),
         LibraryCallNode library => library.Arguments.Any(argument => argument is not VariantOfNode { Value: var value } || ReadsVariant(value)),
+        IntrinsicNode intrinsic => intrinsic.Arguments.Any(argument => argument is TextArgumentNode || ReadsVariant(argument)),
         _ => false,
     };
 
@@ -2116,6 +2117,9 @@ internal sealed partial class ProcedureEmitter
             case LibraryCallNode library:
                 return EmitLibraryCall(library, failure);
 
+            case IntrinsicNode intrinsic:
+                return EmitIntrinsic(intrinsic, failure);
+
             default:
                 return EmitArrayPayload(node, failure);
         }
@@ -2172,6 +2176,7 @@ internal sealed partial class ProcedureEmitter
         MemberFieldNode { ReceiverCall: not null } => true,
         ObjectArgumentNode { Call: not null } => true,
         LibraryCallNode library => library.Syntax >= 0 || library.Arguments.Any(MakesACall),
+        IntrinsicNode intrinsic => intrinsic.Arguments.Any(MakesACall),
         KnownNode known => MakesACall(known.Value),
         UnvariantNode unvariant => MakesACall(unvariant.Value),
         TruthNode truth => MakesACall(truth.Value),

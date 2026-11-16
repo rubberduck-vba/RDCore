@@ -1,5 +1,6 @@
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Source;
+using System.Reflection;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -482,6 +483,11 @@ internal sealed record class KnownNode(PayloadNode Value, int Syntax) : PayloadN
 // make it again. It is -1 in an instruction that calls nothing else inside an expression, where the call is of a function that keeps nothing from call to
 // call, which the interpreter makes again when it is handed the instruction.
 internal sealed record class LibraryCallNode(int Library, IReadOnlyList<VariantNode> Arguments, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
+
+// a call of the typed form of a function of the standard library (Method, StdLibIntrinsicAttribute), given payloads of whole numbers or Doubles and texts
+// (TextArgumentNode) for its parameters, which returns a payload of its kind (Kind). A typed form that declines hands the instruction to the interpreter, which
+// makes the call as it always does.
+internal sealed record class IntrinsicNode(MethodInfo Method, IReadOnlyList<PayloadNode> Arguments, ScalarKind Kind) : PayloadNode(Kind);
 
 // a call of a function of the standard library that returns a Variant and keeps nothing from call to call (IIf), made as a LibraryCallNode is, each of its
 // arguments evaluated first, and what it returns the Variant's payload, of its own subtype. The interpreter makes it again when it is handed the
