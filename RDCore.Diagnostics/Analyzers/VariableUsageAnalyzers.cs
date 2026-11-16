@@ -64,9 +64,10 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
 /// its declared type (<strong>MS-VBAL §5.2.3.1.4</strong>).
 /// </summary>
 /// <remarks>
-/// An array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a type that is no intrinsic value type (an object, a user-defined
-/// type) are left out: such a variable is given what it holds otherwise than by an assignment. The host counts the references of a local and of a
-/// <c>Private</c> variable of the module.
+/// A dynamic array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a class or a user-defined type are left out: such a variable is
+/// given what it holds otherwise than by an assignment (<c>As New</c>, its members). A variable declared <c>As Object</c> is judged: it is <c>Nothing</c> until
+/// a <c>Set</c> assigns it. A fixed-size array is judged: an assignment of one of its elements is a write of the array. The host counts the references of a
+/// local and of a <c>Private</c> variable of the module.
 /// </remarks>
 internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
 {
@@ -79,17 +80,30 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
             yield break;
         }
 
-        var redimensioned = module.Descendants().OfType<RedimDeclarationNode>()
-            .Select(redim => redim.Target is SimpleNameExpressionNode name ? name.IdentifierName : null)
-            .OfType<string>()
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // the variables a ReDim names, by the symbol its target is bound to: a variable of another procedure with the same name is another variable. A target
+        // that is bound to nothing leaves out every variable of its name.
+        var facts = semantics.Procedures.SelectMany(procedure => procedure.Expressions).DistinctBy(fact => fact.Node).ToDictionary(fact => fact.Node);
+        var givenOtherwise = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var redimensionedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var redim in module.Descendants().OfType<RedimDeclarationNode>())
+        {
+            if (facts.TryGetValue(redim.Target.Identity, out var target) && target.Binding is { } binding)
+            {
+                givenOtherwise.Add(binding.ToString());
+            }
+            else if (redim.Target is SimpleNameExpressionNode name)
+            {
+                redimensionedNames.Add(name.IdentifierName);
+            }
+        }
 
         foreach (var (fact, _) in UnusedDeclarations.Counted(semantics, DeclarationKind.Variable)
-            .Where(counted => counted.References is { Writes: 0, PassedAsArguments: 0, Reads: > 0 } && !redimensioned.Contains(counted.Fact.Name)))
+            .Where(counted => counted.References is { Writes: 0, PassedAsArguments: 0, Reads: > 0 }
+                && !givenOtherwise.Contains(counted.Fact.Symbol.ToString()) && !redimensionedNames.Contains(counted.Fact.Name)))
         {
             if (UnusedDeclarations.DeclarationOf<VariableDeclarationNode>(module, fact, node => node.NameRange ?? node.SourceLocation.Range) is not { IsWithEvents: false } declaration
-                || declaration.Children.OfType<ArrayBoundsNode>().Any()
-                || !IsOfAnIntrinsicValueType(declaration))
+                || declaration.Children.OfType<ArrayBoundsNode>().Any(bounds => bounds.IsResizable)
+                || !IsOfAnIntrinsicType(declaration))
             {
                 continue;
             }
@@ -102,11 +116,11 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
         }
     }
 
-    // no As clause, or one that names an intrinsic type other than Object, unqualified or of the VBA library.
-    private static bool IsOfAnIntrinsicValueType(VariableDeclarationNode declaration)
+    // no As clause, or one that names an intrinsic type, Object included, unqualified or of the VBA library: no user-defined type has such a name. A class
+    // cannot be told from a user-defined type by its name alone, so neither is judged.
+    private static bool IsOfAnIntrinsicType(VariableDeclarationNode declaration)
         => declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is not { } asType
             || !asType.IsArrayDef
                 && (asType.QualifierName is null || string.Equals(asType.QualifierName, "VBA", StringComparison.OrdinalIgnoreCase))
-                && IntrinsicVBTypes.IsIntrinsic(asType.TypeName)
-                && !string.Equals(asType.TypeName, VBTypeNames.VBObject, StringComparison.OrdinalIgnoreCase);
+                && IntrinsicVBTypes.IsIntrinsic(asType.TypeName);
 }
