@@ -22,8 +22,8 @@ internal static class ProgramRunner
     // no entry point, or code that does not load.
     public const int Refused = 2;
 
-    // the builder's codes (RDCoreDiagnosticId, in RDCore.Diagnostics, which a program does not ship), each refusal's on its line: the documentation of the code
-    // is where the reader goes from it.
+    // the builder's codes (RDCoreDiagnosticId, in RDCore.Diagnostics, which a program does not ship): each refusal ends with its code, which names the page
+    // that documents it.
     public static readonly RDCoreDiagnosticCode NoEntryPoint = new(RDCoreDiagnosticCode.CorePrefix, 30001);
 
     public static readonly RDCoreDiagnosticCode AmbiguousEntryPoint = new(RDCoreDiagnosticCode.CorePrefix, 30002);
