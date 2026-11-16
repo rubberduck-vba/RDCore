@@ -65,19 +65,116 @@ public sealed class ExtendedTests
         {
             foreach (var (token, compiled) in Operations)
             {
-                var result = compiled(Extended.OfFloating(left), Extended.OfFloating(right));
-                var expected = ExtendedIntermediates.Operate(token, ExtendedIntermediates.Widened(new ScalarPayload(VBDoubleType.TypeInfo, 0, left), VBDoubleType.TypeInfo),
-                    ExtendedIntermediates.Widened(new ScalarPayload(VBDoubleType.TypeInfo, 0, right), VBDoubleType.TypeInfo), VBDoubleType.TypeInfo);
-
-                foreach (var kind in FloatingKinds)
-                {
-                    AssertStoredAlike(expected, kind, Extended.ToFloating(result, kind, out var stored), stored, $"{left:R} {token} {right:R} as {kind}");
-                }
-
-                AssertStoredIntegralAlike(expected, Extended.ToIntegral(result, ScalarKind.Long, out var integral), integral, $"{left:R} {token} {right:R} as Long");
-                AssertComparedAlike(result, expected, $"{left:R} {token} {right:R} > 0");
+                AssertOperatedAlike(compiled(Extended.OfFloating(left), Extended.OfFloating(right)), Operated(token, Widened(left), Widened(right)),
+                    $"{left:R} {token} {right:R}");
             }
         }
+    }
+
+    [TestMethod]
+    public void AnInexactSumOrProductNearAMidpoint_IsStoredAsTheExtendedFormatRoundsItTwice()
+    {
+        // the rows where the 64-bit rounding lands on a midpoint between two Doubles, which the store rounds to even, away from the nearest Double.
+        var roundedTwice = new Dictionary<string, int> { [Tokens.AdditionOp] = 0, [Tokens.SubtractionOp] = 0, [Tokens.MultiplicationOp] = 0 };
+        foreach (var (left, right) in NearMidpoints())
+        {
+            foreach (var (token, compiled) in Operations.Where(operation => roundedTwice.ContainsKey(operation.Token)))
+            {
+                var expected = Operated(token, Widened(left), Widened(right));
+                AssertOperatedAlike(compiled(Extended.OfFloating(left), Extended.OfFloating(right)), expected, $"{left:R} {token} {right:R}");
+
+                var nearest = token switch { Tokens.AdditionOp => left + right, Tokens.SubtractionOp => left - right, _ => left * right };
+                if (double.IsFinite(nearest) && BitConverter.DoubleToInt64Bits(expected.Value.ToDouble(out _)) != BitConverter.DoubleToInt64Bits(nearest))
+                {
+                    roundedTwice[token]++;
+                }
+            }
+        }
+
+        foreach (var (token, count) in roundedTwice)
+        {
+            Assert.IsTrue(count > 100, $"{token}: {count} rows rounded twice");
+        }
+    }
+
+    [TestMethod]
+    public void AnInexactResult_IsWidenedAsTheOperationRoundsIt()
+    {
+        var random = new Random(20261116);
+        var operands = Pairs().Take(Edges.Length * Edges.Length + 2000).Concat(NearMidpoints().Where(_ => random.Next(8) == 0));
+        foreach (var (left, right) in operands)
+        {
+            foreach (var (token, compiled) in Operations)
+            {
+                var result = compiled(Extended.OfFloating(left), Extended.OfFloating(right));
+                var expected = Operated(token, Widened(left), Widened(right));
+                var what = $"({left:R} {token} {right:R})";
+                Assert.AreEqual(expected.Value, result.AsWide(ScalarKind.Double).Value, what);
+                Assert.AreEqual(expected.Pending, result.AsWide(ScalarKind.Double).Pending, what);
+
+                AssertOperatedAlike(Extended.Negate(result), ExtendedIntermediates.Negate(expected, VBDoubleType.TypeInfo), $"-{what}");
+                foreach (var function in new[] { "IStdConversionModule.Int/1", "IStdConversionModule.CDbl/1" })
+                {
+                    AssertOperatedAlike(Extended.Apply(function, result), ExtendedIntermediates.Apply(function, expected)!.Value, $"{function} {what}");
+                }
+
+                foreach (var next in new[] { 0.1, 3, -1e-5, 36526 })
+                {
+                    foreach (var (nextToken, nextCompiled) in Operations)
+                    {
+                        AssertOperatedAlike(nextCompiled(result, Extended.OfFloating(next)), Operated(nextToken, expected, Widened(next)), $"{what} {nextToken} {next:R}");
+                    }
+                }
+            }
+        }
+    }
+
+    // sums whose exact value lies near a midpoint between two Doubles, at magnitudes of every kind (a Date's serial among them), from a unit's 2^-2 to 2^-53
+    // away; and products of two Doubles 1 + i * 2^-52 and 1 + j * 2^-52 whose i * j is near 2^51 (the product's half unit), scaled by powers of two.
+    private static IEnumerable<(double Left, double Right)> NearMidpoints()
+    {
+        var random = new Random(20261116);
+        for (var i = 0; i < 4000; i++)
+        {
+            var nearest = random.Next(3) switch
+            {
+                0 => 36526 + random.NextDouble() * 10000,
+                1 => random.NextDouble() * 1e6,
+                _ => (1 + random.NextDouble()) * Math.Pow(2, random.Next(-960, 1020)),
+            };
+
+            var unit = Math.BitIncrement(nearest) - nearest;
+            var distance = Math.ScaleB(unit, -random.Next(2, 54)) * random.Next(-1, 2);
+            var sign = random.Next(2) == 0 ? 1 : -1;
+            yield return (sign * nearest, sign * (random.Next(2) == 0 ? 1 : -1) * (unit / 2 + distance));
+        }
+
+        // i * j = 2^51 + 2^bits * r2 + 2^(51 - bits) * r1 + r1 * r2: within 2^-26 to 2^-9 of a half unit, through the band where the 64-bit rounding lands on it.
+        for (var i = 0; i < 4000; i++)
+        {
+            var bits = random.Next(20, 32);
+            var spread = 1 << random.Next(0, 17);
+            var left = 1 + Math.ScaleB((1L << bits) + random.Next(-spread, spread + 1), -52);
+            var right = 1 + Math.ScaleB((1L << (51 - bits)) + random.Next(-spread, spread + 1), -52);
+            var scale = random.Next(3) == 0 ? (0, 15) : (random.Next(-450, 450), random.Next(-450, 450));
+            yield return (Math.ScaleB(left, scale.Item1) * (random.Next(2) == 0 ? 1 : -1), Math.ScaleB(right, scale.Item2) * (random.Next(2) == 0 ? 1 : -1));
+        }
+    }
+
+    private static WideValue Widened(double value) => ExtendedIntermediates.Widened(new ScalarPayload(VBDoubleType.TypeInfo, 0, value), VBDoubleType.TypeInfo);
+
+    private static WideValue Operated(string token, WideValue left, WideValue right) => ExtendedIntermediates.Operate(token, left, right, VBDoubleType.TypeInfo);
+
+    // stored in each floating-point kind and in a Long, and compared, as the interpreter's extended value is.
+    private static void AssertOperatedAlike(Extended result, WideValue expected, string what)
+    {
+        foreach (var kind in FloatingKinds)
+        {
+            AssertStoredAlike(expected, kind, Extended.ToFloating(result, kind, out var stored), stored, $"{what} as {kind}");
+        }
+
+        AssertStoredIntegralAlike(expected, Extended.ToIntegral(result, ScalarKind.Long, out var integral), integral, $"{what} as Long");
+        AssertComparedAlike(result, expected, $"{what} > 0");
     }
 
     [TestMethod]
