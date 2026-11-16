@@ -22,7 +22,7 @@ internal sealed partial class ProcedureAnalysis
 
     // a Let of a scalar variable of the activation or of the function result variable, a call statement, a condition of an If or a loop, the bounds of a
     // For, the selector of a Select Case or the values of a Case, that calls a function inside an expression, is translated with what it reads and what it
-    // calls known (CallNode, KnownNode); and so is every other instruction, as it always is.
+    // calls known (CallNode, KnownNode). Every other instruction is translated as any instruction is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);

@@ -286,8 +286,11 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
 - the condition of an `If`, an `ElseIf` or a loop;
 - the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
   given the start (MS-VBAL §5.4.2.3). Each is the value it had when it was evaluated: `For I = A To Bump(A)` starts at what `A` held before the call;
-- the selector of a `Select Case` (`Select Case F(2) + 1`, `Select Case G.Size`), which is evaluated once (MS-VBAL §5.4.2.10). A call in a value of a
-  `Case` (`Case F(0)`) is the interpreter's: it runs the `Case` on its own, with the selector compiled code evaluated.
+- the selector of a `Select Case` (`Select Case F(2) + 1`, `Select Case G.Size`), which is evaluated once (MS-VBAL §5.4.2.10);
+- a value of a `Case` of a scalar selector (`Case F(0)`, `Case 1 To G.Size`). The values are evaluated as their clauses are compared, in order, until one
+  matches, so a call in a later clause is not made. Both ends of a `To` range are evaluated (MS-VBAL §5.4.2.10). An error after a call in a value hands
+  the `Case` to the interpreter, which is given what compiled code called and does not call it again. A `Case` of a `String` selector whose values call
+  is the interpreter's (see below).
 
 A function given no argument and called by its name alone is called this way too, and so is a `Property Get` of one of the procedure's object
 variables (`X = C.Count + 1`), of `Me` (`X = Count + 1`), of the default instance of a class, or of the object of a `With` block (`X = .Count + 1`). The function itself may be
@@ -414,8 +417,8 @@ evaluates it (an operation that declines, such as `D \ 1` with `D` a `Double`), 
 A `Select Case` of a `String` of variable length evaluates the selector once, to its text. Each value of a `Case` is let-coerced to `String` and compared
 with it under the module's `Option Compare` ([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)). Compiled code compares a `String`
 value, and a whole number as its digits. Any other value, such as a `Double`, which the let-coercion writes in the session's regional settings, is the
-interpreter's: it runs that `Case` on its own, with the selector compiled code evaluated. Two `String`s compared (`Select Case L = R`) are a `Boolean`
-selector, which is a scalar.
+interpreter's: it runs that `Case` on its own, with the selector compiled code evaluated. So is a `Case` whose values call a function. Two `String`s
+compared (`Select Case L = R`) are a `Boolean` selector, which is a scalar.
 
 The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With`, and its `End With` when letting go of
 the block's object destroys it, and each statement in the block that uses its object other than as compiled code does (see Members of objects and `With`
