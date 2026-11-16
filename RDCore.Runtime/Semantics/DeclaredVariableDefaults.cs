@@ -54,6 +54,16 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
         }
 
         var type = ((ITypedSymbol)variable).ResolvedType;
+
+        // a field of a scalar type holds its value as a payload, in a cell of its own, as a local does (CallStackFrame.CellFor): compiled code reads and
+        // writes the payload there, and a Let of the field writes the cell where it is (VBUserDefinedTypeValue.TryLetFieldAt), the cell a ByRef parameter
+        // given the field is bound to.
+        if (variable is VBUserDefinedTypeFieldSymbol && UnboxedEvaluation.IsEnabled && ScalarPayload.IsScalar(type)
+            && ScalarCell.TryCreate(type, type.DefaultValue.RuntimeValue, out var cell))
+        {
+            return type.CreateValue(cell!);
+        }
+
         if (type is VBUserDefinedType declaredRecord)
         {
             // each field starts as a variable declared as it is: a fixed-size array field with the dimensions its declaration gives it. The fields are the
