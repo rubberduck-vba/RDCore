@@ -16,7 +16,7 @@ public sealed class VisualBasicFormPaintPictureTests
     private static readonly string Folder = Path.Combine(Path.GetTempPath(), $"rdcore-vb-paint-picture-{Guid.NewGuid():N}");
 
     // a 24-bit bitmap of 20 x 20 pixels in four quadrants: &H563412 at the top left, &H3264C8 at the top right, &HFFFF at the bottom left and &HFF8000
-    // at the bottom right, as VB colours.
+    // at the bottom right, as VB colors.
     private static byte[] Quadrants()
     {
         const int side = 20;
@@ -151,7 +151,7 @@ public sealed class VisualBasicFormPaintPictureTests
         CollectionAssert.AreEqual(new[] { "0", expected }, printed);
     }
 
-    // A late-bound call raises 13 for a value other than an object, as VB6 does.
+    // a late-bound call raises 13 for a value other than an object, as VB6 does.
     [TestMethod]
     [DataRow("vStr", "13", DisplayName = "late-bound, a Variant holding a String is 13")]
     [DataRow("vLng", "13", DisplayName = "late-bound, a Variant holding a number is 13")]

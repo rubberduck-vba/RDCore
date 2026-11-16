@@ -7,8 +7,8 @@ using System.Globalization;
 namespace RDCore.External.Forms.RDForms;
 
 // what a Visual Basic 6.0 form or PictureBox draws with: the methods its graphics statements call (Line, Circle, PSet, Scale, with GraphicsFlags first), Cls,
-// Point, PaintPicture, CurrentX and CurrentY, on the component's RDForms surface. Coordinates are in the component's scale, which the surface reads them in. A component
-// that is not shown has no surface yet: it draws nothing, Point reads -1 there, and CurrentX and CurrentY read 0.
+// Point, PaintPicture, CurrentX and CurrentY, on the component's RDForms surface. Coordinates are in the component's scale, which the surface reads them
+// in. A component that is not shown has no surface yet: it draws nothing, Point reads -1 there, and CurrentX and CurrentY read 0.
 internal static class RDFormsGraphics
 {
     private const int BadParameterCount = unchecked((int)0x8002000E);
@@ -134,8 +134,8 @@ internal static class RDFormsGraphics
     // vbSrcCopy, the opcode PaintPicture draws with when it is given none.
     private const int SourceCopy = 0xCC0020;
 
-    // PaintPicture's picture, x1 and y1, then width1, height1, x2, y2, width2, height2 and the opcode, any of which can be left out. As VB6 does, the numbers are
-    // read before the picture: a size of "x" is error 13 even where the picture is Nothing.
+    // PaintPicture's picture, x1 and y1, then width1, height1, x2, y2, width2, height2 and the opcode, any of which can be left out. As VB6 does, the
+    // numbers are read before the picture: a size of "x" is error 13 even where the picture is Nothing.
     private static void PaintPicture(IDrawingSurface? surface, object?[] arguments, CultureInfo culture)
     {
         if (arguments.Length is < 3 or > 10 || arguments.Take(3).Any(argument => argument is System.Reflection.Missing))

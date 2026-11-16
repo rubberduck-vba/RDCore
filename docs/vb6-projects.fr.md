@@ -73,8 +73,14 @@ La `Font` d'un contrôle est un `StdFont`, le même objet à chaque lecture. Une
 `FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` et `FontUnderline` sont le `Bold`, l'`Italic`, le `Name`, le `Size`, le
 `Strikethrough` et l'`Underline` de la `Font`.
 
+Une feuille et un PictureBox dessinent avec `Cls`, `Line`, `Circle`, `PSet`, `Point`, `PaintPicture`, `Scale`, `CurrentX` et `CurrentY`, dans leur
+propre échelle. `PaintPicture` dessine une image du programme, comme celle que donne `LoadPicture`, ou la `Picture` d'un autre contrôle. Il lève ce que
+VB6 lève : 91 pour `Nothing` et, en liaison tardive, 13 pour une valeur qui n'est pas un objet et 481 pour un objet qui n'est pas une image.
+
 > [!NOTE]
 > **Non implémenté.**
+> - Une feuille ou un PictureBox qui n'est pas affiché ne dessine rien, et son `Point` donne -1, quel que soit son `AutoRedraw`. VB6 dessine sur
+>   celui dont l'`AutoRedraw` est True.
 > - Le `Container` d'un contrôle lève 438.
 > - `TypeName` de la `Font` d'un contrôle donne `StdFont`, là où VB6 donne `Font`.
 > - Un `New StdFont` ne peut pas être affecté à la `Font` d'un contrôle.
