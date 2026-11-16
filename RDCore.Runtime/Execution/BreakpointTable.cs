@@ -25,6 +25,11 @@ public sealed class BreakpointTable : IInstructionBreakpointTable
     /// <inheritdoc/>
     public bool HasAny => !_lines.IsEmpty;
 
+    /// <summary>
+    /// How many times the breakpoints were set or cleared.
+    /// </summary>
+    internal int Version => Volatile.Read(ref _version);
+
     /// <inheritdoc/>
     public void Set(string module, IReadOnlyCollection<RuntimeBreakpoint> breakpoints)
     {
