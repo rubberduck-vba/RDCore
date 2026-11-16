@@ -1,0 +1,302 @@
+{
+  "reference": {
+    "commit": "3cab50abb215275380f7fb2d33fb30cb70eb243f",
+    "date": "2026-11-15",
+    "excel": "16.0 build 20527 (64-bit)",
+    "os": "Windows 11 x64",
+    "cores": 12,
+    "method": "alternated rounds on one machine: 5 for the corpus (MS-VBA first in rounds 1 to 4, RD-VBA first in round 5), 3 for Excel automation (MS-VBA first); 7 runs a case (5 for Excel automation), fastest run"
+  },
+  "cases": {
+    "Arrays.BenchArrayFillAndSum": {
+      "msvba": 0.865,
+      "rdvba": 6.3
+    },
+    "Arrays.BenchVariantArray2D": {
+      "msvba": 1.494,
+      "rdvba": 20.1
+    },
+    "Arrays.BenchVariantHeldArray2D": {
+      "msvba": 3.391,
+      "rdvba": 35.8
+    },
+    "Calls.BenchRecursion": {
+      "msvba": 12.489,
+      "rdvba": 21.0
+    },
+    "Calls.BenchProcedureCalls": {
+      "msvba": 5.087,
+      "rdvba": 9.4
+    },
+    "Calls.BenchByRefCalls": {
+      "msvba": 6.457,
+      "rdvba": 11.0
+    },
+    "Calls.BenchClassMemberCalls": {
+      "msvba": 9.051,
+      "rdvba": 33.6
+    },
+    "Calls.BenchInterfaceMemberCalls": {
+      "msvba": 9.329,
+      "rdvba": 30.4
+    },
+    "Calls.BenchStandardLibraryCalls": {
+      "msvba": 6.753,
+      "rdvba": 418.5
+    },
+    "Calls.BenchFactoryCalls": {
+      "msvba": 144.277,
+      "rdvba": 1249.2
+    },
+    "Calls.BenchDefaultInstanceCalls": {
+      "msvba": 15.264,
+      "rdvba": 26.3
+    },
+    "Calls.BenchSiblingCalls": {
+      "msvba": 21.04,
+      "rdvba": 60.3
+    },
+    "Numeric.BenchLongCounterDoubleSum": {
+      "msvba": 17.077,
+      "rdvba": 3.4
+    },
+    "Numeric.BenchDoubleSum": {
+      "msvba": 19.686,
+      "rdvba": 4.3
+    },
+    "Numeric.BenchLongArithmetic": {
+      "msvba": 15.803,
+      "rdvba": 4.4
+    },
+    "Numeric.BenchVariantSum": {
+      "msvba": 16.786,
+      "rdvba": 18.9
+    },
+    "Numeric.BenchCurrencyAndDate": {
+      "msvba": 20.98,
+      "rdvba": 83.3
+    },
+    "Numeric.BenchVariantTypedMix": {
+      "msvba": 24.218,
+      "rdvba": 4.8
+    },
+    "Slots.BenchWideActivations": {
+      "msvba": 7.06,
+      "rdvba": 8.2
+    },
+    "Slots.BenchModuleVariableLoop": {
+      "msvba": 0.92,
+      "rdvba": 0.6
+    },
+    "Slots.BenchLocalVariableLoop": {
+      "msvba": 0.913,
+      "rdvba": 0.4
+    },
+    "Slots.BenchStaticVariableLoop": {
+      "msvba": 1.002,
+      "rdvba": 0.5
+    },
+    "Slots.BenchCurrencySum": {
+      "msvba": 0.502,
+      "rdvba": 0.3
+    },
+    "Slots.BenchBooleanFlag": {
+      "msvba": 1.348,
+      "rdvba": 0.3
+    },
+    "Statements.BenchSetAssignment": {
+      "msvba": 1.421,
+      "rdvba": 1.7
+    },
+    "Statements.BenchMemberAssignment": {
+      "msvba": 2.641,
+      "rdvba": 22.7
+    },
+    "Statements.BenchRecordFieldAssignment": {
+      "msvba": 0.409,
+      "rdvba": 4.6
+    },
+    "Statements.BenchSelectCase": {
+      "msvba": 2.131,
+      "rdvba": 0.6
+    },
+    "Statements.BenchConditions": {
+      "msvba": 3.096,
+      "rdvba": 0.6
+    },
+    "Statements.BenchMidStatement": {
+      "msvba": 1.256,
+      "rdvba": 81.3
+    },
+    "Statements.BenchOnErrorResumeNext": {
+      "msvba": 12.605,
+      "rdvba": 41.0
+    },
+    "Strings.BenchStringAssignment": {
+      "msvba": 3.196,
+      "rdvba": 1.0
+    },
+    "Strings.BenchStringConcatenation": {
+      "msvba": 1.317,
+      "rdvba": 0.3
+    },
+    "Strings.BenchStringComparison": {
+      "msvba": 6.496,
+      "rdvba": 6.3
+    },
+    "Strings.BenchStringBuilding": {
+      "msvba": 6.177,
+      "rdvba": 1.8
+    },
+    "Strings.BenchStringArguments": {
+      "msvba": 122.513,
+      "rdvba": 211.4
+    },
+    "StdLib.BenchCLng": {
+      "msvba": 0.703,
+      "rdvba": 30.5
+    },
+    "StdLib.BenchCDbl": {
+      "msvba": 1.507,
+      "rdvba": 28.6
+    },
+    "StdLib.BenchCStr": {
+      "msvba": 5.401,
+      "rdvba": 22.7
+    },
+    "StdLib.BenchVal": {
+      "msvba": 8.409,
+      "rdvba": 149.9
+    },
+    "StdLib.BenchLen": {
+      "msvba": 0.537,
+      "rdvba": 27.6
+    },
+    "StdLib.BenchLeft": {
+      "msvba": 4.134,
+      "rdvba": 129.1
+    },
+    "StdLib.BenchMidFunction": {
+      "msvba": 5.234,
+      "rdvba": 171.2
+    },
+    "StdLib.BenchInStr": {
+      "msvba": 2.198,
+      "rdvba": 182.3
+    },
+    "StdLib.BenchReplace": {
+      "msvba": 40.388,
+      "rdvba": 72.6
+    },
+    "StdLib.BenchTrim": {
+      "msvba": 4.18,
+      "rdvba": 126.4
+    },
+    "StdLib.BenchUCase": {
+      "msvba": 5.961,
+      "rdvba": 118.5
+    },
+    "StdLib.BenchStrComp": {
+      "msvba": 11.939,
+      "rdvba": 201.8
+    },
+    "StdLib.BenchAsc": {
+      "msvba": 2.234,
+      "rdvba": 112.0
+    },
+    "StdLib.BenchChr": {
+      "msvba": 4.432,
+      "rdvba": 20.1
+    },
+    "StdLib.BenchFormat": {
+      "msvba": 72.184,
+      "rdvba": 225.0
+    },
+    "StdLib.BenchIsNumeric": {
+      "msvba": 6.089,
+      "rdvba": 47.3
+    },
+    "StdLib.BenchIsEmpty": {
+      "msvba": 1.283,
+      "rdvba": 19.8
+    },
+    "StdLib.BenchVarType": {
+      "msvba": 1.32,
+      "rdvba": 16.7
+    },
+    "StdLib.BenchTypeName": {
+      "msvba": 4.687,
+      "rdvba": 119.1
+    },
+    "StdLib.BenchAbs": {
+      "msvba": 0.831,
+      "rdvba": 26.7
+    },
+    "StdLib.BenchRound": {
+      "msvba": 5.992,
+      "rdvba": 43.2
+    },
+    "StdLib.BenchSqr": {
+      "msvba": 3.048,
+      "rdvba": 22.0
+    },
+    "StdLib.BenchInt": {
+      "msvba": 1.984,
+      "rdvba": 38.8
+    },
+    "StdLib.BenchDateAdd": {
+      "msvba": 67.47,
+      "rdvba": 150.6
+    },
+    "StdLib.BenchYear": {
+      "msvba": 7.62,
+      "rdvba": 36.6
+    },
+    "StdLib.BenchNow": {
+      "msvba": 11.829,
+      "rdvba": 87.8
+    },
+    "StdLib.BenchUBound": {
+      "msvba": 0.628,
+      "rdvba": 1.8
+    }
+  },
+  "excel": {
+    "Excel.Block1000x10.Read": {
+      "msvba": 1.117,
+      "rdvba": 45.746
+    },
+    "Excel.Block1000x10.Pass": {
+      "msvba": 0.98,
+      "rdvba": 168.882
+    },
+    "Excel.Block1000x10.Write": {
+      "msvba": 79.819,
+      "rdvba": 120.648
+    },
+    "Excel.Block1000x10.Total": {
+      "msvba": 81.968,
+      "rdvba": 361.88
+    },
+    "Excel.CellByCell1000x10.Total": {
+      "msvba": 389.84,
+      "rdvba": 82798.045
+    },
+    "Excel.Block100000x10.Read": {
+      "msvba": 106.016,
+      "rdvba": 3552.548
+    },
+    "Excel.Block100000x10.Pass": {
+      "msvba": 92.068,
+      "rdvba": 4868.713
+    },
+    "Excel.Block100000x10.Write": {
+      "msvba": 8529.014,
+      "rdvba": 13466.644
+    },
+    "Excel.Block100000x10.Total": {
+      "msvba": 8763.312,
+      "rdvba": 22754.564
+    }
+  }
+}
