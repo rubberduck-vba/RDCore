@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
+using RDCore.SDK.Server;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Server.Handlers.Workspace;
@@ -18,17 +19,36 @@ namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 /// one that does not sends the notification all the same, and is served the same way.
 /// </para>
 /// <para>
-/// The notification is answered at once, and the workspace is made what the files are as long as that takes.
+/// The notification is handled as it arrives, beside the requests that run, and the workspace is made what the files are as long as that takes. A request
+/// about a document waits until every change the client said of before it is read (<see cref="IncomingDocumentChanges.FileChangeRead"/>).
 /// </para>
 /// </remarks>
+[HandledOnArrival]
 internal sealed class ProjectFileWatchHandler(
     IWatchedFileChanges changes,
-    ILanguageServerFacade server) : DidChangeWatchedFilesHandlerBase
+    ILanguageServerFacade server,
+    IncomingDocumentChanges incoming) : DidChangeWatchedFilesHandlerBase
 {
     public override Task<Unit> Handle(DidChangeWatchedFilesParams request, CancellationToken cancellationToken)
     {
-        _ = changes.ChangedAsync([.. request.Changes], server);
+        _ = ReadAsync([.. request.Changes]);
         return Unit.Task;
+    }
+
+    // every change the client named is read once the workspace is what the files are, or could not be made so: one it leaves alone too.
+    private async Task ReadAsync(IReadOnlyList<FileEvent> files)
+    {
+        try
+        {
+            await changes.ChangedAsync(files, server);
+        }
+        finally
+        {
+            foreach (var file in files)
+            {
+                incoming.FileChangeRead(file.Uri.ToUri());
+            }
+        }
     }
 
     protected override DidChangeWatchedFilesRegistrationOptions CreateRegistrationOptions(DidChangeWatchedFilesCapability capability, ClientCapabilities clientCapabilities)
