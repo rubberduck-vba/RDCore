@@ -477,7 +477,8 @@ internal sealed class BenchRunner(
     private async Task<BenchCase> RunCaseAsync(EnvironmentSessionProvider provider, string name, VBTypeMemberSymbol entryPoint, int runs, CancellationToken token)
     {
         var times = new List<TimeSpan>(runs);
-        for (var run = 0; run < runs; run++)
+        // run -1 is untimed: it warms up what the case calls before the timed runs.
+        for (var run = -1; run < runs; run++)
         {
             token.ThrowIfCancellationRequested();
 
@@ -500,7 +501,10 @@ internal sealed class BenchRunner(
                 return new BenchCase(name, times, error);
             }
 
-            times.Add(stopwatch.Elapsed);
+            if (run >= 0)
+            {
+                times.Add(stopwatch.Elapsed);
+            }
         }
 
         return new BenchCase(name, times);
