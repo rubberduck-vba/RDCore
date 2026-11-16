@@ -3,8 +3,8 @@ using System.Reflection.Emit;
 namespace RDCore.Runtime.Compiled;
 
 // arrays. Each array parameter or variable compiled code reads is a local holding the cell its frame holds it in, fetched at the entry
-// and again wherever every variable is read back (EmitReload); an element is found in the array that cell holds - kept from one access to the next while
-// nothing can give the variable another array (KeepsArrays) - and one that isn't found - a subscript outside its dimension - is the interpreter's, at the
+// and again wherever every variable is read back (EmitReload); an element is found in the array that cell holds (kept from one access to the next while
+// nothing can give the variable another array: KeepsArrays), and one that is not found (a subscript outside its dimension) is the interpreter's, at the
 // instruction, which raises error 9.
 internal sealed partial class ProcedureEmitter
 {
@@ -134,10 +134,11 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the element a Let writes, found before its value is evaluated (MS-VBAL §5.4.3.8), while the value is: the same element read in the value, at subscripts
-    // that are the same expressions, is that cell. Nothing between finds another: the value calls nothing (pure), so no variable a subscript reads changes,
-    // and the array is the one the holder holds. Subscripts are compared as the nodes they are; one made of a list (an element in a subscript) is never
-    // the same, and its element is found again.
+    // the element a Let writes, when its value calls nothing: the cell is found first and the value evaluated after it, which nothing can observe, where
+    // MS-VBAL §5.4.3.8 evaluates the value first (as ElementLetStep does for a value that calls). The same element read in the value, at subscripts that
+    // are the same expressions, is then that cell. Nothing in between finds another array: the value calls nothing (pure), so no variable a subscript
+    // reads changes, and the holder holds the same array. Subscripts are compared as the nodes they are; one made of a list (an element in a subscript)
+    // is never the same, and its element is found again.
     private (int Array, IReadOnlyList<PayloadNode> Subscripts, LocalBuilder Cell)? _found;
 
     private T EmitFoundIn<T>(int array, IReadOnlyList<PayloadNode> subscripts, LocalBuilder cell, bool pure, Func<T> emitValue)
@@ -166,13 +167,25 @@ internal sealed partial class ProcedureEmitter
     {
         switch (step)
         {
-            // the element's cell found, then the value evaluated and written into it: neither does anything the interpreter would see, when either fails. A
+            // the value evaluated, then the element's cell found and the value written into it (MS-VBAL §5.4.3.8), as the interpreter evaluates the value
+            // before it finds the element (AssignValue): after a call inside the value, the subscripts are read as the call left them. A value that calls
+            // nothing is evaluated once the cell is found, which nothing can observe, so that the same element read in it is that cell (EmitFoundIn). A
             // value that reads a Variant declines what compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
             case ElementLetStep let:
             {
-                var cell = EmitElementCell(let.Element, FailureAt(let.Offset));
-                var value = EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, !MakesACall(let.Value),
-                    () => EmitPayload(let.Value, FailureOf(let.Value, let.Offset)));
+                Operand value;
+                LocalBuilder cell;
+                if (MakesACall(let.Value))
+                {
+                    value = EmitPayload(let.Value, FailureOf(let.Value, let.Offset));
+                    cell = EmitElementCell(let.Element, FailureAt(let.Offset));
+                }
+                else
+                {
+                    cell = EmitElementCell(let.Element, FailureAt(let.Offset));
+                    value = EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, pure: true, () => EmitPayload(let.Value, FailureOf(let.Value, let.Offset)));
+                }
+
                 _il.Emit(OpCodes.Ldloc, cell);
                 Load(value, let.Element.Kind);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(let.Element.Kind) ? nameof(CompiledActivation.WriteIntegral) : nameof(CompiledActivation.WriteFloating))!);
@@ -180,21 +193,32 @@ internal sealed partial class ProcedureEmitter
             }
 
             // what the Variant element holds decides what its Let is, as a Variant variable's does (VariantLetStep): one the evaluation on payloads declines
-            // - of a String, over an object - the interpreter runs alone, and compiled code goes on after it.
+            // (of a String, over an object) the interpreter runs alone, and compiled code goes on after it. The value and the element are evaluated in the
+            // order of an element of a scalar type.
             case VariantElementLetStep let:
             {
                 var failure = RecoverAt(let.Offset);
-                var cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
                 var value = _il.DeclareLocal(typeof(VariantPayload));
-                EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, !MakesACall(let.Value), () =>
+                LocalBuilder cell;
+                if (MakesACall(let.Value))
                 {
                     EmitVariantInto(let.Value, value, failure);
-                    return 0;
-                });
+                    cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
+                }
+                else
+                {
+                    cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
+                    EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, pure: true, () =>
+                    {
+                        EmitVariantInto(let.Value, value, failure);
+                        return 0;
+                    });
+                }
+
                 _il.Emit(OpCodes.Ldloc, cell);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
             }
 
@@ -236,7 +260,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, cell);
                 _il.Emit(OpCodes.Ldloca, read);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(element.Kind) ? nameof(CompiledActivation.ReadIntegral) : nameof(CompiledActivation.ReadFloating))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 return new Operand(read, 0, 0);
             }
 
@@ -370,7 +394,8 @@ internal sealed partial class ProcedureEmitter
     private LocalBuilder EmitElementCell(ElementNode element, Label failure)
         => EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.ScalarElement), element.Kind, failure);
 
-    // the cell ArrayOperations' find gives of the element at the subscripts, each evaluated first; none goes to failure, unless orNone keeps it.
+    // the cell ArrayOperations' find gives of the element at the subscripts, each evaluated first; none goes to failure, unless orNone keeps it. After a call
+    // inside the instruction, the interpreter is given what was evaluated (Fail), and the call is not made again.
     private LocalBuilder EmitElementCellOf(int array, IReadOnlyList<PayloadNode> elementSubscripts, string find, ScalarKind? kind, Label failure, bool orNone = false)
     {
         if (_found is { } found && found.Array == array && found.Subscripts.SequenceEqual(elementSubscripts))
@@ -409,7 +434,7 @@ internal sealed partial class ProcedureEmitter
         if (!orNone)
         {
             _il.Emit(OpCodes.Ldloc, cell);
-            _il.Emit(OpCodes.Brfalse, failure);
+            _il.Emit(OpCodes.Brfalse, Fail(failure));
         }
 
         return cell;

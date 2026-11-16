@@ -86,7 +86,8 @@ internal sealed partial class ProcedureEmitter
         return new Operand(read, 0, 0);
     }
 
-    // a Let of a field of a scalar type: the value evaluated first, as the interpreter evaluates it before the record (AssignField), then written.
+    // a Let of a field of a scalar type: the value evaluated first, as the interpreter evaluates it before the record (AssignField), then written. After a
+    // call inside the value, a Let the interpreter runs is given what was evaluated (Fail): the call is not made again.
     private void EmitFieldLet(FieldLetStep let)
     {
         var failure = FailureAt(let.Offset);
@@ -95,7 +96,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, (int)let.Value.Kind);
         Load(value, let.Value.Kind);
         _il.Emit(OpCodes.Call, Records.GetMethod(ScalarKinds.IsIntegral(let.Value.Kind) ? nameof(RecordOperations.WriteIntegral) : nameof(RecordOperations.WriteFloating))!);
-        _il.Emit(OpCodes.Brfalse, failure);
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
     // a Variant field, read into result; one that holds no payload goes to failure.
@@ -169,6 +170,6 @@ internal sealed partial class ProcedureEmitter
         LoadRecordOf(let.Field);
         _il.Emit(OpCodes.Ldloc, value);
         _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.WriteVariant))!);
-        _il.Emit(OpCodes.Brfalse, failure);
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 }
