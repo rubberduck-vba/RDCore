@@ -131,6 +131,12 @@ public interface IFormHost
     bool IsAvailable { get; }
 
     /// <summary>
+    /// Whether this host creates the forms a Visual Basic 6.0 designer wrote. Where it does not, such a form is a class that is not registered: the
+    /// <c>New</c> of its class, and any use of its default instance that makes its form, raise 429. <see langword="false"/> unless the host says otherwise.
+    /// </summary>
+    bool HostsVisualBasic6Forms => false;
+
+    /// <summary>
     /// Creates a form from its definition, in a window that is not shown yet.
     /// </summary>
     /// <param name="form">The form.</param>

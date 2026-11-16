@@ -101,6 +101,8 @@ public sealed class VisualBasicFormLifecycleTests
 
         public bool IsAvailable => forms.IsAvailable;
 
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
         public object Create(RDCore.External.Forms.FormDefinition form)
         {
             var created = forms.Create(form);

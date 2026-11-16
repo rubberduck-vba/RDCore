@@ -158,7 +158,12 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     }
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
-    public AutomationStatusResult Status(AutomationStatusParams request) => new() { IsAvailable = platform.IsAvailable, IsFormHostAvailable = _forms.IsAvailable };
+    public AutomationStatusResult Status(AutomationStatusParams request) => new()
+    {
+        IsAvailable = platform.IsAvailable,
+        IsFormHostAvailable = _forms.IsAvailable,
+        HostsVisualBasic6Forms = _forms.HostsVisualBasic6Forms,
+    };
 
     /// <summary>Answers <see cref="ExternalProtocol.FormCreate"/>.</summary>
     public AutomationObjectResult CreateForm(FormCreateParams request)

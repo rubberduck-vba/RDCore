@@ -150,6 +150,8 @@ public sealed class VisualBasicFormMenuArrayTests
     {
         public bool IsAvailable => forms.IsAvailable;
 
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
         public object Create(RDCore.External.Forms.FormDefinition form) => forms.Create(form);
 
         public void Show(object form, bool modal, object? owner = null)

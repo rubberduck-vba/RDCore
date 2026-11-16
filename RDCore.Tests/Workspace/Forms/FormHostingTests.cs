@@ -583,6 +583,8 @@ public sealed class FormHostingTests
     {
         public bool IsAvailable => forms.IsAvailable;
 
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
         public object Create(RDCore.External.Forms.FormDefinition form)
         {
             starting();

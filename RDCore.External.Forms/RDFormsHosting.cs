@@ -101,6 +101,8 @@ public static class RDFormsHosting
     {
         public bool IsAvailable => visualBasic is not null || microsoftForms.IsAvailable;
 
+        public bool HostsVisualBasic6Forms => visualBasic is not null;
+
         public object Create(FormDefinition form) => form.Kind == FormDesignerKind.VisualBasic6
             ? ((IFormHost?)visualBasic ?? UnavailableFormHost.Instance).Create(form)
             : microsoftForms.Create(form);

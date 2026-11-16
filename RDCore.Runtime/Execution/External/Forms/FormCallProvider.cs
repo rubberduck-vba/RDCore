@@ -345,8 +345,8 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose), site, $"New {classModule.Name}", creating: true))
             : null;
 
-    // a Visual Basic 6.0 form is a class no form host of this platform can create (429), as a UserForm is where Microsoft Forms is not.
-    private static bool CanBeHosted(FormDescriptor designer) => designer.Kind != FormDesignerKind.VisualBasic6;
+    // a Visual Basic 6.0 form is a class that is not registered (429) where the form host does not host one, as a UserForm is where Microsoft Forms is not.
+    private bool CanBeHosted(FormDescriptor designer) => designer.Kind != FormDesignerKind.VisualBasic6 || outside.Forms.HostsVisualBasic6Forms;
 
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
     private object? FormOf(VBRuntimeObjectId identity, string form, ExternalCallRequest request)

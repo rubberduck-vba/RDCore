@@ -41,6 +41,9 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
+    public bool HostsVisualBasic6Forms => true;
+
+    /// <inheritdoc/>
     public object Create(FormDefinition form)
     {
         if (form.Kind != FormDesignerKind.VisualBasic6)

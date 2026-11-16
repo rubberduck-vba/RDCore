@@ -1,6 +1,8 @@
 using RDCore.External.Automation;
 using RDCore.External.Forms;
 using RDCore.External.Forms.RDForms;
+using RDCore.External.Hosting;
+using RDCore.External.Protocol;
 using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
 using System.Reflection;
@@ -615,5 +617,20 @@ public sealed class RDFormsFormHostTests
         var failure = Assert.ThrowsExactly<AutomationException>(() => forms.Create(VisualBasicForm()));
 
         Assert.AreEqual(unchecked((int)0x80040154), failure.HResult);
+    }
+
+    // what an external host tells its environment host, which raises 429 at the New of a Visual Basic 6.0 form's class where nothing hosts its form.
+    [TestMethod]
+    [DataRow(VisualBasicFormsHost.RDForms, true, DisplayName = "RDForms hosts them")]
+    [DataRow(VisualBasicFormsHost.Off, false, DisplayName = "RDForms turned off")]
+    public void AnExternalHost_SaysWhetherItHostsVisualBasicForms(VisualBasicFormsHost host, bool hosts)
+    {
+        var (automation, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance,
+            new FormsOptions { VB = host, Headless = true });
+
+        var status = new ExternalAutomationService(automation, forms).Status(new AutomationStatusParams());
+
+        Assert.AreEqual(hosts, forms.HostsVisualBasic6Forms);
+        Assert.AreEqual(hosts, status.HostsVisualBasic6Forms);
     }
 }
