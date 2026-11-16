@@ -2049,7 +2049,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (BindArguments(session, context, parameters, argumentNodes, out var arguments, out var argumentsKnown, borrowed,
                     external: external, cellReferences: InvokerOf(procedure) is not null, boundArguments: boundArguments,
                     anyByAddress: !external && procedure.GetProperty(SymbolProperties.ExternalTarget) is not null,
-                    dispatchedThrough: DispatchedThrough(procedure, reachedThrough))
+                    dispatchedThrough: DispatchedThrough(procedure, reachedThrough),
+                    lateBound: reachedThrough is not null && DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType)
                 is { } bindingError)
             {
                 return bindingError;
@@ -2232,11 +2233,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// For a member of an object of the standard library, the expression the object was reached through: when it is declared <c>Object</c> or
     /// <c>Variant</c>, the call is MS-VBA's late-bound one, through the object's <c>IDispatch</c> (<see cref="AsDispatched"/>).
     /// </param>
+    /// <param name="lateBound">
+    /// Whether the member is reached through an expression declared <c>Object</c> or <c>Variant</c>, whatever its object is: a value other than an object,
+    /// given to a parameter of a class or <c>Object</c>, is then a type mismatch.
+    /// </param>
     /// <returns>The error that stopped the binding, or <see langword="null"/> when every argument was bound.</returns>
     private RuntimeSemanticsEvaluationResult? BindArguments(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters,
         ImmutableArray<ExpressionNode> argumentNodes, out IRuntimeValue[] arguments, out bool isKnown, List<MemoryAddress> borrowed, bool external = false,
-        bool cellReferences = false, ImmutableArray<BoundArgument>? boundArguments = null, bool anyByAddress = false, ExpressionNode? dispatchedThrough = null)
+        bool cellReferences = false, ImmutableArray<BoundArgument>? boundArguments = null, bool anyByAddress = false, ExpressionNode? dispatchedThrough = null,
+        bool lateBound = false)
     {
         arguments = [];
         isKnown = true;
@@ -2449,7 +2455,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
             if (!coercionResult.IsSuccess)
             {
-                return RuntimeSemanticsEvaluationResult.Error(AsDispatched(session, context, dispatchedThrough, coercionResult.ErrorInfo!));
+                // reached late bound, a value other than an object given to a parameter of a class or Object is a type mismatch, as the IDispatch the call
+                // goes through makes it, and not error 424; the member is not entered (observed in VB6: a class's method and PaintPicture's picture).
+                var error = coercionResult.ErrorInfo!;
+                return RuntimeSemanticsEvaluationResult.Error(
+                    lateBound && error.ErrorId == (int)VBRuntimeErrorId.ObjectRequired && parameter.ResolvedType is VBObjectType or VBClassType
+                        && HeldObject(argumentResult.Value.Result) is null
+                        ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, error.Location, error.Verbose)
+                        : AsDispatched(session, context, dispatchedThrough, error));
             }
 
             // an array coerced to an array parameter is a fresh copy nothing has bound yet, so it has no
