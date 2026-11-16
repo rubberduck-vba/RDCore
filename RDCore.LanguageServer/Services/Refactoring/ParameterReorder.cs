@@ -89,7 +89,7 @@ public sealed record class ParameterReorderPlan(ImmutableArray<RenameEdit> Edits
 }
 
 // MS-VBAL §5.3.1.5, §5.6.13.1: the parameters of a procedure are written in another order, and the arguments passed by position in every call to it with
-// them. An argument passed by name stays where it is written, unless an argument passed by position now comes after its parameter: it is then passed by
+// them. An argument passed by name stays where it is written, unless its parameter moves before one whose argument is passed by position: it is then passed by
 // position. The procedures whose parameters are the procedure's change with it.
 public static class ParameterReorder
 {

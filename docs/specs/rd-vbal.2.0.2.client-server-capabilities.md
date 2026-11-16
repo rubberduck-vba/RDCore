@@ -527,7 +527,7 @@ Names that match alike come by name. An empty query matches every symbol. At mos
 
 ### `textDocument/codeAction`
 
-The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename`, `refactor.extract.method`, `refactor.extract.gosub`, `refactor.rewrite.removeParameter`, `refactor.rewrite.reorderParameters` and `source.rdcore.importProject`. A client that asks for some kinds only (`context.only`) is answered those and the kinds under them. An extraction and a conversion of a `GoSub` routine are the actions that can be resolved (`resolveProvider = true`, `codeAction/resolve`); every other action is complete as it is answered. A client that shows an action it cannot take (`codeAction.disabledSupport`) is also answered a refused extraction or conversion, with the refusal as its `disabled.reason`; one whose range holds nothing to refactor (no statement to extract, no `GoSub` routine at the position) is not answered.
+The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename`, `refactor.extract.method`, `refactor.extract.gosub`, `refactor.rewrite.removeParameter`, `refactor.rewrite.reorderParameters` and `source.rdcore.importProject`. A client that asks for some kinds only (`context.only`) is answered those and the kinds under them. An extraction and a conversion of a `GoSub` routine are the actions that can be resolved (`resolveProvider = true`, `codeAction/resolve`); every other action is complete as it is answered. A client that shows an action it cannot take (`codeAction.disabledSupport`) is also answered a refused extraction, conversion, removal of a parameter or reordering of parameters, with the refusal as its `disabled.reason`; one whose range holds nothing to refactor (no statement to extract, no `GoSub` routine at the position) is not answered.
 
 An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
 
@@ -538,9 +538,9 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rub
 |A rename of each name the range declares, or of the name at the position of an empty range|`refactor.rename`|Its `command` is `rdcore.rename`.|
 |An import of each VB6 project (`.vbp`) of the workspace's folder, when it has no `.rdproj`|`source.rdcore.importProject`|Its `command` is `rdcore.importProject`, with the URI of the `.vbp`. Offered in every document.|
 |An extraction of the statements of a selection as a procedure, when nothing refuses it|`refactor.extract.method`|For a client that expects [`Refactoring`](#rdcorerefactorprepare-rdcorerefactorcheckidentifier-and-rdcorerefactorapply), its `command` is `rdcore.refactor`. For any other, offered only when it changes nothing the user would have to accept: its `edit` is made with the defaults and verified. A client that resolves an action's `edit` (`dataSupport`, and `edit` among `resolveSupport.properties`) is offered the action without its `edit`, which is made when the client resolves the action; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to select the statements again.|
-|A removal of the parameter declared at the start of the range ([below](#removing-a-parameter))|`refactor.rewrite.removeParameter`|Its `edit` removes the parameter. A refused one is offered disabled, with why, to a client that shows it so.|
+|A removal of the parameter declared at the start of the range ([below](#removing-a-parameter))|`refactor.rewrite.removeParameter`|Its `edit` removes the parameter. A refused one is offered disabled, as above.|
 |A removal of a parameter that fixes a diagnostic|`quickfix`, preferred|The same `edit`. Offered only when the removal can be made.|
-|A reordering of the parameters of the procedure named at the start of the range, or whose parameter is declared there, when it has two or more ([below](#reordering-parameters))|`refactor.rewrite.reorderParameters`|Offered only to a client that expects [`Refactoring`](#rdcorerefactorprepare-rdcorerefactorcheckidentifier-and-rdcorerefactorapply): its `command` is `rdcore.refactor`. A refused one is offered disabled, with why, to a client that shows it so.|
+|A reordering of the parameters of the procedure named at the start of the range, or whose parameter is declared there, when it has two or more ([below](#reordering-parameters))|`refactor.rewrite.reorderParameters`|Offered only to a client that expects [`Refactoring`](#rdcorerefactorprepare-rdcorerefactorcheckidentifier-and-rdcorerefactorapply): its `command` is `rdcore.refactor`. A refused one is offered disabled, as above.|
 |A conversion of a `GoSub` routine to a procedure, when nothing refuses it (an `On…GoSub` of the routine in a single-line `If` does): at a position on its label, on a `GoSub` that names it or on one of its `Return`s, and for a selection whose extraction is refused for a `GoSub` to the routine or one of its `Return`s|`refactor.extract.gosub`|As an extraction: `rdcore.refactor` for a client that expects `Refactoring`, the `edit` with the defaults for any other, resolved the same way. One resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to ask for the conversion again.|
 
 `rdcore.rename` ([`RefactoringCommands.Rename`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
@@ -555,7 +555,7 @@ The interactive shell asks for them with `DUCKY`, for its program as the documen
 
 #### Removing a parameter
 
-A parameter is removed from its declaration, and its argument from every call that passes it, by position or by name (**MS-VBAL §5.3.1.5**, §5.6.13.1). An omitted argument stays omitted (`F a, , c` without `a` is `F , c`), and a call left with no argument loses its parentheses (`Call F(a)` becomes `Call F`). With it, the parameter is removed:
+A parameter is removed from its declaration, and its argument from every call that passes it, by position or by name (**MS-VBAL §5.3.1.5**, **§5.6.13.1**). An omitted argument stays omitted (`F a, , c` without `a` is `F , c`), and a call left with no argument loses its parentheses (`Call F(a)` becomes `Call F`). With it, the parameter is removed:
 
 - from every accessor of a property (`Get`, `Let`, `Set`), whose value stays last (**MS-VBAL §5.3.1.7**);
 - from the procedures that implement a member of a class that other classes implement (`IShape_Draw`, **MS-VBAL §5.3.1.9**), where a removal can start too.
@@ -573,13 +573,13 @@ A parameter is removed from its declaration, and its argument from every call th
 
 #### Reordering parameters
 
-The parameters of a procedure are written in the order the user puts them in, and so are the arguments that every call passes by position (**MS-VBAL §5.3.1.5**, §5.6.13.1). The procedures that change with it are those of a removal: the accessors of a property, whose value stays last, and the procedures that implement a member of a class that other classes implement.
+The parameters of a procedure are written in the order the user puts them in, and so are the arguments that every call passes by position (**MS-VBAL §5.3.1.5**, **§5.6.13.1**). The procedures that change with it are those of a removal: the accessors of a property, whose value stays last, and the procedures that implement a member of a class that other classes implement.
 
-- An argument passed by name stays where it is written. When an argument passed by position comes after its parameter, it is passed by position instead: `F 1, b:=2` with `b` first is `F 2, 1`.
+- An argument passed by name stays where it is written, unless its parameter moves before one whose argument is passed by position: it is then passed by position too. `F 1, b:=2` with `b` first is `F 2, 1`.
 - An omitted argument stays omitted where its parameter goes: `F 1` with `a` last of three parameters is `F , , 1`.
 - The arguments that a `ParamArray` takes stay after the others.
 
-Its choice is a `List` of the parameters (`parameters`), each item a parameter by its name, labelled with its declaration.
+Its choice is a `List` of the parameters (`parameters`), each item a parameter by its name, labeled with its declaration.
 
 |Refused|Because|
 |---|---|
