@@ -502,9 +502,6 @@ public static class SymbolRename
     // module of it, no project and no library.
     private static RenameRefusal? TypeConflictOf(RenameContext context, Symbol type, string newName)
     {
-        static bool IsUserType(Symbol symbol) => symbol is VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
-        static bool IsPublic(Symbol symbol) => symbol is VBTypeMemberSymbol { AccessModifier: not AccessModifier.Private };
-
         var declaring = NameOccurrences.ModuleOf(type.Uri);
         if (context.ScopeTree.TryGetScope(declaring, out var own)
             && own.DeclaredAs(newName).FirstOrDefault(other => IsUserType(other) && other.SemanticId != type.SemanticId) is { } sibling)
@@ -537,6 +534,10 @@ public static class SymbolRename
             ? ConflictWith(newName, named)
             : null;
     }
+
+    private static bool IsUserType(Symbol symbol) => symbol is VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
+
+    private static bool IsPublic(Symbol symbol) => symbol is VBTypeMemberSymbol { AccessModifier: not AccessModifier.Private };
 
     private static string ProjectOf(Uri module) => new UriBuilder(module) { Fragment = string.Empty }.Uri.AbsoluteUri;
 
@@ -933,12 +934,22 @@ public static class SymbolRename
     private static bool IsOwnProject(Symbol symbol) => symbol is VBProjectSymbol && symbol.GetProperty(SymbolProperties.Library) is null;
 
     // MS-VBAL §5.6.12: the workspace's project is renamed where its name qualifies a module or a type (Billing.Tools.Go), and in its project file. The new
-    // name is not that of a module of the project, nor of a library it references, which the same qualifier would mean.
+    // name is not that of a module of the project, nor of a library it references, which the same qualifier would mean. MS-VBAL §5.2.3.3, §5.2.3.4: nor is it
+    // that of a Public Type or Enum of the project.
     private static RenamePlan PlanProject(RenameContext context, Symbol project, string newName)
     {
         if (context.Modules.FirstOrDefault(module => string.Equals(SymbolUri.ModuleNameOf(module.Module), newName, StringComparison.OrdinalIgnoreCase)) is { } named)
         {
             return Refused(new(RenameRefusalKind.Conflict, newName, SymbolUri.ModuleNameOf(named.Module), named.Module, default));
+        }
+
+        foreach (var module in context.Modules)
+        {
+            if (context.ScopeTree.TryGetScope(module.Module, out var scope)
+                && scope.DeclaredAs(newName).FirstOrDefault(other => IsUserType(other) && IsPublic(other)) is { } type)
+            {
+                return Refused(ConflictWith(newName, type));
+            }
         }
 
         if (context.Modules.FirstOrDefault() is { } any

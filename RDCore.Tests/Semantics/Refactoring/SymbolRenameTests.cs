@@ -1355,4 +1355,27 @@ public sealed class SymbolRenameTests
 
         Assert.AreEqual(RenameRefusalKind.Conflict, plan.Refusal?.Kind);
     }
+
+    [TestMethod]
+    [DataRow("Public Enum Size", "    Small = 1", "End Enum", DisplayName = "a Public Enum")]
+    [DataRow("Public Type Size", "    Width As Long", "End Type", DisplayName = "a Public Type")]
+    public void AProject_IsNotRenamedTo_TheNameOfAPublicTypeOfIt(string declaration, string member, string end)
+    {
+        // MS-VBAL §5.2.3.3, §5.2.3.4: no Public Type or Enum is named as a project.
+        var context = ComposeReferencing([], [.. Qualified, ("Shapes", Module("Shapes", declaration, member, end))], projectName: "Billing");
+
+        var plan = Rename(context, "Main", "Billing.Tools.Go", "Billing", "Size");
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, plan.Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void AProject_IsRenamedTo_TheNameOfAPrivateTypeOfIt()
+    {
+        var context = ComposeReferencing([], [.. Qualified, ("Shapes", Module("Shapes", "Private Enum Size", "    Small = 1", "End Enum"))], projectName: "Billing");
+
+        var plan = Rename(context, "Main", "Billing.Tools.Go", "Billing", "Size");
+
+        Assert.IsNull(plan.Refusal, plan.Refusal?.ToString());
+    }
 }
