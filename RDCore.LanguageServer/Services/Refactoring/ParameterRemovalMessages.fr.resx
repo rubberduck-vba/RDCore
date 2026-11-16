@@ -32,7 +32,7 @@
     <value>« {0} » est la valeur qu'assigne « {1} » : un Property Let ou un Property Set la prend toujours.</value>
   </data>
   <data name="RemoveParameter_Event" xml:space="preserve">
-    <value>« {0} » est un paramètre de l'événement « {1} » : supprimer le paramètre d'un événement n'est pas encore pris en charge.</value>
+    <value>« {0} » est un paramètre de l'événement « {1} » : supprimer le paramètre d'un événement n'est pas pris en charge.</value>
   </data>
   <data name="RemoveParameter_Handler" xml:space="preserve">
     <value>« {0} » gère un événement et prend les paramètres de l'événement : il les garde.</value>
