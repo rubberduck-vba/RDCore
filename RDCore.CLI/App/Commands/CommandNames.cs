@@ -12,4 +12,5 @@ internal static class CommandNames
     public static (string Name, string Alias) ConfigCommand = ("config", "configure");
     public static (string Name, string Alias) ImportProjectCommand = ("import", "i");
     public const string InstallCommand = "install";
+    public static (string Name, string Alias) SplashCommand = ("splash", "s");
 }

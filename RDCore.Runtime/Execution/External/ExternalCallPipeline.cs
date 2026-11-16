@@ -45,11 +45,15 @@ public sealed record class ExternalCallPipeline(
     /// Anything that wants to see calls before they happen, beyond the platform's own policy — which is
     /// always first, so that nothing an extension does can let through what an administrator refused.
     /// </param>
+    /// <param name="implementations">
+    /// The providers among <paramref name="providers"/> that are the platform's own implementation of a library, whose calls the policy over automation lets through.
+    /// </param>
     public static ExternalCallPipeline For(
         IRuntimeSession session,
         IEnumerable<IExternalCallProvider> providers,
-        IEnumerable<IExternalCallInterceptor>? interceptors = null)
-        => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(), .. interceptors ?? []], [.. providers]);
+        IEnumerable<IExternalCallInterceptor>? interceptors = null,
+        IEnumerable<IExternalCallProvider>? implementations = null)
+        => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(implementations), .. interceptors ?? []], [.. providers]);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
@@ -135,8 +139,9 @@ public sealed record class ExternalCallPipeline(
         return Providers.FirstOrDefault(provider => provider.CanDispatch(request)) as StdLibDispatcher;
     }
 
-    // nothing here can run it. For a library import that is "the library call could not be made", which is
-    // what error 48 says; for anything else the platform simply has not got it.
+    // nothing here can run it. For a library import that is "the library call could not be made", which is what error 48 says, and for a member of a
+    // library's class it is 429. Any other member is the standard library's, whose provider every session has: a call of one that reaches none is a fault
+    // of the platform's, an internal error.
     private static RuntimeSemanticsEvaluationResult Unreachable(ExternalCallRequest request)
         => RuntimeSemanticsEvaluationResult.Error(request switch
         {
@@ -145,7 +150,7 @@ public sealed record class ExternalCallPipeline(
             // 429 is what VBA reports for a class it cannot get an object of, and the same for a member of one it cannot reach.
             { IsAutomation: true } => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ActiveXComponentCantCreateObject, request.CallSite,
                 $"{request.Describe()} could not be made: this platform has no automation servers."),
-            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
+            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, request.CallSite,
                 $"{request.Describe()} could not be called: nothing here can reach it."),
         });
 }

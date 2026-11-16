@@ -7,7 +7,7 @@ namespace RDCore.Tests.Model.Values;
 /// <summary>
 /// <see cref="Float80"/> against an exact reference: each operand is the rational it encodes, each result that rational's operation rounded to nearest,
 /// ties to even, in the format - so every operation is checked for being correctly rounded, on operands of full 64-bit significands, subnormals and both
-/// ends of the range. The values MS-VBA gives are recorded in Excel (grid <c>oracle\s42</c>).
+/// ends of the range. The values MS-VBA gives are observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class Float80Tests
@@ -185,7 +185,7 @@ public sealed class Float80Tests
     }
 
     // a result whose 64 kept bits are all ones and round up: the carry makes it the next power of two. 1 - x for an x under half the unit of the last bit
-    // under 1 is 1 (grid oracle\s43: MS-VBA's Rate iterates through (1 + r)^115 - 1 with (1 + r)^115 of 1.9E-20).
+    // under 1 is 1 (observed in Excel: MS-VBA's Rate iterates through (1 + r)^115 - 1 with (1 + r)^115 of 1.9E-20).
     [TestMethod]
     [DataRow(1.8879052018214916E-20)]
     [DataRow(1E-20)]
@@ -293,7 +293,7 @@ public sealed class Float80Tests
     [TestMethod]
     public void AValueJustOverAHalf_RoundsToTheNextInteger()
     {
-        // 2.5 + 2^-60 is no tie in 64 bits (grid oracle\s42 C14: MS-VBA assigns it to a Long as 3).
+        // 2.5 + 2^-60 is no tie in 64 bits (observed in Excel: MS-VBA assigns it to a Long as 3).
         var x = Float80.Add(Float80.FromDouble(2.5), Float80.FromDouble(Math.Pow(2, -60)), out _);
         Assert.IsTrue(x.RoundToIntegral(MidpointRounding.ToEven).TryToInt64(out var value));
         Assert.AreEqual(3L, value);
@@ -359,7 +359,7 @@ public sealed class Float80Tests
         Assert.IsTrue(Float80.Compare(Float80.NegativeInfinity, Float80.FromDouble(-1E+308)) < 0);
     }
 
-    // the values MS-VBA computes (grid oracle\s42): what an evaluation in Double gives otherwise is in the comment.
+    // the values MS-VBA computes (observed in Excel): what an evaluation in Double gives otherwise is in the comment.
     [TestMethod]
     public void AnIntermediatePastADouble_IsAValue()
     {

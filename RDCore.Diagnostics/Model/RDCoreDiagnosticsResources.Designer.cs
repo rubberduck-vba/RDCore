@@ -873,6 +873,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has no consonant, and is unlikely to say what it is. Give it a name that does..
+        /// </summary>
+        public static string UseMeaningfulIdentifierNames_NoConsonant_Message {
+            get {
+                return ResourceManager.GetString("UseMeaningfulIdentifierNames_NoConsonant_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; has no vowel, and is unlikely to be a word. Give it a name that says what it is..
         /// </summary>
         public static string UseMeaningfulIdentifierNames_NoVowel_Message {

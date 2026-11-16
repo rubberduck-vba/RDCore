@@ -107,10 +107,11 @@ public sealed class DeepExpressionRefactoringTests
     {
         var context = Workspace();
 
-        IReadOnlyList<ParameterHint> hints = [];
-        var thrown = SmallStack.Run(() => hints = ParameterHints.In(context, Main, new SourceRange(new(0, 0), new(Lines.Length, 0))));
+        IReadOnlyList<SourceInlayHint> hints = [];
+        var arguments = new RDCore.SDK.Server.Configuration.SdkInlayHintOptions { BlockEnds = false, NextVariables = false, ImplicitModifiers = false, ImplicitTypes = false };
+        var thrown = SmallStack.Run(() => hints = InlayHints.In(context, Main, new SourceRange(new(0, 0), new(Lines.Length, 0)), arguments));
 
         Assert.IsNull(thrown, thrown?.ToString());
-        Assert.AreEqual("amount", Assert.ContainsSingle(hints).Name);
+        Assert.AreEqual("[amount:]", Assert.ContainsSingle(hints).Label);
     }
 }

@@ -140,6 +140,36 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         _ = _host.DidNotReceive().SendRequestAsync<HostEntryPointsParams, HostEntryPointsResult>(Arg.Any<HostEntryPointsParams>(), Arg.Any<CancellationToken>());
     }
 
+    // a debug adapter's client names no language: the project file's is taken, as a language server takes it, and the host is started with it - a project
+    // imported from a .vbp runs as Visual Basic 6.0, with the VB library, and any other as the server's own.
+    [TestMethod]
+    [DataRow("NavalBattle.vbp", "vb6", DisplayName = "a project imported from a .vbp, with no language set, is VB6 as the host is started")]
+    [DataRow(null, "vba", DisplayName = "a project that was not imported stays RD-VBA")]
+    public async Task TheLanguageTheHostIsStartedWith_IsTheProjectFiles(string? sourceProject, string expected)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-debug-language");
+        var fs = new System.IO.Abstractions.TestingHelpers.MockFileSystem(new Dictionary<string, System.IO.Abstractions.TestingHelpers.MockFileData>
+        {
+            [Path.Combine(root, ProjectFile.FileName)] = new(System.Text.Json.JsonSerializer.Serialize(new ProjectFile(root, new RDCoreProject
+            {
+                Name = "NavalBattle",
+                SourceProject = sourceProject,
+                Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }],
+            }))),
+            [Path.Combine(root, "Module1.bas")] = new("Attribute VB_Name = \"Module1\"\r\n"),
+        });
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = root } });
+        string? started = null;
+        _host.When(host => host.RunAsync(Arg.Any<IServiceProvider>(), Arg.Any<string[]>())).Do(_ => started = options.Value.Workspace.Language);
+        var workspace = new PlatformDebugWorkspace(Substitute.For<IServiceProvider>(), Substitute.For<IServerStateProvider>(), _orchestration,
+            WorkspaceLanguageTests.Service(fs, () => options.Value.Workspace.SupportedLanguage), _documents, _parsing, _symbols, _reload, fs, options,
+            NullLogger<PlatformDebugWorkspace>.Instance);
+
+        await workspace.OpenAsync(CancellationToken.None);
+
+        Assert.AreEqual(expected, started, "the language the host was started with");
+    }
+
     private async Task<PlatformDebugWorkspace> OpenedAsync()
     {
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = _root } });

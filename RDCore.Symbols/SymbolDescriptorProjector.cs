@@ -112,8 +112,7 @@ public static class SymbolDescriptorProjector
     // null for a symbol kind this descriptor tree has no shape for (a procedure-local, for one) —
     // callers must treat that as "skip this symbol", not an error: a local can legitimately reach here
     // if it's ever wrongly parented to the module itself rather than to its owning procedure, and one
-    // stray symbol must not crash the whole module's projection (adversarial review PRs #208-224,
-    // item 7 — the top-level call site here wasn't covered by #209's guard on the child path below).
+    // stray symbol must not crash the whole module's projection.
     private static SymbolDescriptorKind? KindOf(Symbol symbol) => symbol switch
     {
         // most specific first: externals subclass Function/Procedure, and Property Let/Set subclass Procedure.
@@ -220,11 +219,14 @@ public static class SymbolDescriptorProjector
 
         // a local reaches the projector two ways: on its own procedure's Locals, and as a child of it
         // in the flat symbol stream (by ParentUri). Which of the two a given provider populates is its
-        // own business, so read both and let the name settle a duplicate.
-        var locals = declared.OfType<VBLocalVariableSymbol>()
-            .Concat(children.OfType<VBLocalVariableSymbol>())
+        // own business, so read both and let the site settle a duplicate. A name declared in more than one
+        // branch of a #If block travels once for each branch, what each other branch declares beside it
+        // (WorkspaceSymbol.Alternatives): the host keeps the one of the live branch.
+        var locals = declared.Concat(children)
+            .SelectMany(local => AlternativesOf(local).Prepend(local))
+            .OfType<VBLocalVariableSymbol>()
             .Where(local => local is not VBParameterSymbol)
-            .DistinctBy(local => local.Name, StringComparer.OrdinalIgnoreCase)
+            .DistinctBy(local => (local.Name.ToUpperInvariant(), local.Range))
             .ToArray();
 
         if (locals.Length == 0)
@@ -269,9 +271,9 @@ public static class SymbolDescriptorProjector
             _ => [],
         };
 
-        var constants = declared.Concat(symbol is VBConstantMemberSymbol ? [] : children)
+        var constants = declared.Concat(symbol is VBConstantMemberSymbol ? [] : children.SelectMany(local => AlternativesOf(local).Prepend(local)))
             .Where(constant => constant is VBConstantMemberSymbol or VBLocalConstantSymbol)
-            .DistinctBy(constant => constant.Name, StringComparer.OrdinalIgnoreCase)
+            .DistinctBy(constant => (constant.Name.ToUpperInvariant(), (constant as WorkspaceSymbol)?.Range))
             .ToArray();
 
         if (constants.Length == 0)

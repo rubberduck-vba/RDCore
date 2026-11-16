@@ -16,6 +16,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -499,10 +500,10 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual(1, result.Diagnostics.Count);
     }
 
-    private IRDCoreClientApp HostThatProvidesSemantics(string json)
+    private IRDCoreClientApp HostThatProvidesSemantics(string json, params string[] alsoProvided)
     {
         var host = Substitute.For<IRDCoreClientApp>();
-        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(SemanticAnalysis)] });
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(SemanticAnalysis), .. alsoProvided] });
         host.SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(Arg.Any<HostSemanticsParams>(), Arg.Any<CancellationToken>())
             .Returns(new HostSemanticsResult { Json = json });
         _orchestration.RuntimeEnvironment.Returns(host);
@@ -550,6 +551,64 @@ public sealed class DocumentDiagnosticsServiceTests
         var result = await Sut().GetAsync(untitled.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
         Assert.AreEqual(1, result.Diagnostics.Count);
+        Assert.IsNull(PayloadSentTo(provider).Semantics);
+        await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(default!, default);
+    }
+
+    private static readonly string OtherRoot = Path.Combine(Path.GetTempPath(), "rdcore-diag-other");
+
+    // the module of a document is asked for by its address: the host holds a module of each project, and two may have one name.
+    [TestMethod]
+    public async Task AModuleOfThePrimaryProject_IsAskedForByItsAddressUnderThePrimaryRoot()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        _documents.WorkspaceRoot.Returns(Root);
+        ParseYields();
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])), nameof(ProjectAnalysis));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        var expected = SymbolUri.Module(Root, "Mod1").AbsoluteUri;
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleUri != null && request.ModuleUri.AbsoluteUri == expected), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AModuleOfAnotherProject_IsAskedForByItsAddressUnderItsRoot_AndWhatTheHostFoundIsHandedToTheProvider()
+    {
+        var document = new WorkspaceDocument("Mod1.bas", OtherRoot, "Public Sub Foo()\r\nEnd Sub");
+        WorkspaceHas(document);
+        _documents.WorkspaceRoot.Returns(Root);
+        ParseYields();
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(SymbolUri.Module(OtherRoot, "Mod1"), true, [], [], [])])),
+            nameof(ProjectAnalysis));
+        var provider = Provider("RDCore.Diagnostics", 1);
+        ProvidersAre(provider);
+
+        await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        var expected = SymbolUri.Module(OtherRoot, "Mod1").AbsoluteUri;
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleUri != null && request.ModuleUri.AbsoluteUri == expected), Arg.Any<CancellationToken>());
+        Assert.IsNotNull(PayloadSentTo(provider).Semantics);
+    }
+
+    // a host that analyzes no other project holds none of its modules, and one of the name it holds is another.
+    [TestMethod]
+    public async Task WithoutProjectAnalysis_AModuleOfAnotherProject_IsNotAskedFor()
+    {
+        var document = new WorkspaceDocument("Mod1.bas", OtherRoot, "Public Sub Foo()\r\nEnd Sub");
+        WorkspaceHas(document);
+        _documents.WorkspaceRoot.Returns(Root);
+        ParseYields();
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        var provider = Provider("RDCore.Diagnostics", 1);
+        ProvidersAre(provider);
+
+        await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
         Assert.IsNull(PayloadSentTo(provider).Semantics);
         await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(default!, default);
     }

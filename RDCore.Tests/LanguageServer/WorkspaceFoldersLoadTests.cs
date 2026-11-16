@@ -94,7 +94,7 @@ public sealed class WorkspaceFoldersLoadTests
             orchestration.RuntimeEnvironment.Returns(host);
 
             var reload = new WorkspaceReloadService(
-                running, ProjectFiles, Documents, States, parsing, Substitute.For<ISymbolSyncService>(), orchestration, fileSystem.Path, Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
+                running, ProjectFiles, Documents, Workspace, States, parsing, Substitute.For<ISymbolSyncService>(), orchestration, fileSystem.Path, Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
             Reload = reload;
             return new WorkspaceFileOperationService(
                 reload, fileSystem.Path, fileSystem.File, fileSystem.Directory, () => SupportedLanguages.RDVBA, Projects, writer, Documents, States,

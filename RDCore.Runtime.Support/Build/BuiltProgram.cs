@@ -24,19 +24,22 @@ namespace RDCore.Runtime.Support.Build;
 internal sealed record class BuiltEnvironment(
     bool Is64Bit, int Lcid, int AnsiCodePage, bool SupportsOptionCompareDatabase, OptionCompare DatabaseCompare, VBErlLineNumbering ErlLineNumbering,
     bool AllowDllImports, bool AllowAutomation, bool LegacyRegistrySettings, VBBuildConfiguration Configuration, bool ReleaseDropsDebugStatements,
-    VBErlAfterErrClear ErlAfterErrClear, VBOperatingSystem OperatingSystem)
+    VBErlAfterErrClear ErlAfterErrClear, VBOperatingSystem OperatingSystem, string? Language = null)
 {
+    // Language: the identifier of the language the program was built in, which decides its libraries where it runs as where it was built. A program built
+    // before it was recorded has none, and runs in RD-VBA, as it was built.
     public static BuiltEnvironment Of(IRuntimeEnvironmentProfile environment) => new(
         environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
         environment.ErlLineNumbering, environment.AllowDllImports, environment.AllowAutomation, environment.LegacyRegistrySettings, environment.Configuration,
-        environment.ReleaseDropsDebugStatements, environment.ErlAfterErrClear, environment.OperatingSystem);
+        environment.ReleaseDropsDebugStatements, environment.ErlAfterErrClear, environment.OperatingSystem, environment.Language.Id);
 
     // the procedures of a built program run compiled. Not serialized: the profile's encoding is no JSON.
     [System.Text.Json.Serialization.JsonIgnore]
     public RuntimeEnvironmentProfile Profile => new(
         Is64Bit, Lcid, AnsiCodePage, SupportsOptionCompareDatabase, DatabaseCompare, ErlLineNumbering, AllowDllImports, AllowAutomation: AllowAutomation,
         LegacyRegistrySettings: LegacyRegistrySettings, ExecutionEngine: VBExecutionEngine.Compiled, Configuration: Configuration,
-        ReleaseDropsDebugStatements: ReleaseDropsDebugStatements, ErlAfterErrClear: ErlAfterErrClear, OperatingSystem: OperatingSystem);
+        ReleaseDropsDebugStatements: ReleaseDropsDebugStatements, ErlAfterErrClear: ErlAfterErrClear, OperatingSystem: OperatingSystem,
+        SourceLanguage: SupportedLanguages.TryGet(Language, out var language) ? language : null);
 }
 
 // a module of the project as the build read it: its name and its kind, which its source says and which the program cannot read where it runs.
@@ -44,10 +47,11 @@ internal sealed record class BuiltModule(string RelativeUri, string Name, Module
 
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
 // runs, so that it runs with no parser and no resolver, and with no source: Modules are what the build read of each. Root is what the identities of its
-// symbols are relative to.
+// symbols are relative to. NativeDialogs: whether the program shows the machine's own dialogs where it has them, as the settings said when it was built
+// (ProgramDialogs); an image that does not say asks at the console.
 internal sealed record class BuiltProgramImage(
     RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions,
-    IReadOnlyList<BuiltModule> Modules)
+    IReadOnlyList<BuiltModule> Modules, bool NativeDialogs = false)
 {
     public const string ResourceName = "RDCore.Program.json";
 }
@@ -124,9 +128,9 @@ public static class BuiltProgram
         var fileSystem = new FileSystem();
         using var provider = new EnvironmentSessionProvider(image.Environment.Profile, fileSystem, NullLogger<EnvironmentSessionProvider>.Instance,
             libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
-            DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
+            DialogsOf(image.NativeDialogs, keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
-        var define = new DefineSymbolsHandler(provider, errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(provider, new ProjectAnalysisSessions(image.Environment.Profile, fileSystem, NullLogger<ProjectAnalysisSessions>.Instance), errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
         {
             var defined = await define.Handle(definition, token);
@@ -149,10 +153,11 @@ public static class BuiltProgram
         return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended, token);
     }
 
-    // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as rdc run and the shell ask them. A terminal that is not
-    // redirected, and whose TERM names a terminal other than "dumb", understands ANSI escape sequences.
-    private static ConsoleUserInteraction? DialogsOf(IConsoleKeys? keys, TextWriter output)
-        => OperatingSystem.IsWindows() ? null
+    // the dialogs of the program: asked at the console, as rdc run and the shell ask them, on every operating system; the machine's own where it has them,
+    // when the program was built to show them (native). A terminal that is not redirected, and whose TERM names a terminal other than "dumb", understands
+    // ANSI escape sequences.
+    private static ConsoleUserInteraction? DialogsOf(bool native, IConsoleKeys? keys, TextWriter output)
+        => ProgramDialogs.ShowsNative(native) ? null
             : keys is not null ? new ConsoleUserInteraction(keys, output)
             : ConsoleUserInteraction.OfTheConsole(new SystemConsoleKeys(),
                 ansi: !global::System.Console.IsOutputRedirected && Environment.GetEnvironmentVariable("TERM") is { Length: > 0 } and not "dumb");

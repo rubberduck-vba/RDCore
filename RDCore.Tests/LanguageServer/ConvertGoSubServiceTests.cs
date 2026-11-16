@@ -256,7 +256,7 @@ public sealed class ConvertGoSubServiceTests
     [TestMethod]
     public async Task AConversionResolved_ForAnotherVersionOfTheDocument_IsRefused_AsAConversion()
     {
-        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(),
+        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), new MoveMemberService(_rename, _parsing),
             Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>(), new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
         var offered = new OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction
         {
@@ -311,7 +311,7 @@ public sealed class ConvertGoSubServiceTests
     {
         var capabilities = Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>();
         capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(dialog);
-        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), capabilities,
+        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), new MoveMemberService(_rename, _parsing), capabilities,
             new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
         ((OmniSharp.Extensions.LanguageServer.Protocol.IRegistration<OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeActionRegistrationOptions,
             OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability>)handler)

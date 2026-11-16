@@ -12,7 +12,7 @@ using RDCore.SDK.Workspace;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// The server's own watch of the workspace's files (#255): only for a client that does not watch them, never when the setting says so; the workspace's project
+/// The server's own watch of the workspace's files: only for a client that does not watch them, never when the setting says so; the workspace's project
 /// file and the source files under its root, not what a dot folder holds; and the events of a moment said together, once.
 /// </summary>
 [TestClass]

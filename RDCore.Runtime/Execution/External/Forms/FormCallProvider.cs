@@ -5,6 +5,7 @@ using RDCore.Runtime.Execution.External.Automation;
 using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
@@ -63,8 +64,11 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
     private static string GlobalKey(string member) => StdLibSymbolReader.ExternalTargetOf(typeof(IStdGlobalClass), typeof(IStdGlobalClass).GetMethod(member)!);
 
-    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (oracle\s41 L51).
+    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (observed in Excel).
     private const int FormUnloaded = unchecked((int)0x80010007);
+
+    // REGDB_E_CLASSNOTREG: a form no host can create is a class that is not registered, error 429.
+    private const int ClassNotRegistered = unchecked((int)0x80040154);
 
     /// <summary>
     /// What calls a procedure of the session's code - a form's <c>UserForm_QueryClose</c> and <c>UserForm_Terminate</c>, which <c>Unload</c> runs. Set once the
@@ -72,7 +76,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     /// </summary>
     public ICallableBindingFactory? Bindings { get; set; }
 
-    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, oracle\s41 C06, C10): Microsoft
+    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, observed in Excel): Microsoft
     // Forms itself would remove it.
     private const string RemoveKey = FormDesigner.MSFormsLibrary + ".Controls.Remove/method";
 
@@ -110,7 +114,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
         try
         {
-            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (oracle\s41 L15, L51, L52).
+            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (observed in Excel).
             if (SessionForms.Of(session).IsUnloaded(identity))
             {
                 throw new AutomationException(FormUnloaded, $"the form '{form}' was unloaded.");
@@ -195,7 +199,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     }
 
     // Load, which the reference to its argument has done already, and Unload: QueryClose (vbFormCode), which can cancel it; then Terminate, the form's window,
-    // and its default instance, which the next reference makes again (oracle\s41 L10-L19).
+    // and its default instance, which the next reference makes again (observed in Excel).
     private RuntimeSemanticsEvaluationResult LoadOrUnload(ExternalCallRequest request, IRuntimeSymbolResolver resolver, bool unload)
     {
         if (FormArgument(request, resolver) is not { } identity)
@@ -233,6 +237,22 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             : null;
     }
 
+    /// <summary>
+    /// The error of a <c>New</c> of the form class <paramref name="classModule"/>, made at <paramref name="site"/>, when no form host can create its form: error
+    /// 429, which the program can trap, before the object is made or its <c>Initialize</c> runs. <see langword="null"/> for a form a host can create, whose form
+    /// is made when the program first needs it, and for a class of no form.
+    /// </summary>
+    /// <param name="classModule">The class of the object to create.</param>
+    /// <param name="site">Where the <c>New</c> is written.</param>
+    internal RuntimeSemanticsEvaluationResult? CreationFailure(VBClassModuleSymbol classModule, SourceLocation site)
+        => forms.TryGetValue(classModule.Name, out var designer) && !CanBeHosted(designer)
+            ? RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(
+                new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose), site, $"New {classModule.Name}", creating: true))
+            : null;
+
+    // a Visual Basic 6.0 form is a class no form host of this platform can create (429), as a UserForm is where Microsoft Forms is not.
+    private static bool CanBeHosted(FormDescriptor designer) => designer.Kind != FormDesignerKind.VisualBasic6;
+
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
     private object? FormOf(VBRuntimeObjectId identity, string form, ExternalCallRequest request)
     {
@@ -244,6 +264,11 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         if (!forms.TryGetValue(form, out var designer))
         {
             return null;
+        }
+
+        if (!CanBeHosted(designer))
+        {
+            throw new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose);
         }
 
         // from the first form on, its windows' messages wait while a program runs - what Microsoft Forms posts as it creates this one included.

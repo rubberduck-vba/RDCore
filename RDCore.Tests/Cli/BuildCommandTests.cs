@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
+using RDCore.CLI;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Commands;
@@ -126,8 +128,11 @@ public sealed class BuildCommandTests
         },
     });
 
+    private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, AppOptions settings)
+        => Command(fileSystem, settings: settings, hasHost: true);
+
     private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true,
-        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null)
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null, AppOptions? settings = null)
     {
         var messages = new List<(MessageKind, string)>();
         var writer = Substitute.For<IConsoleMessageWriter>();
@@ -139,7 +144,7 @@ public sealed class BuildCommandTests
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
-            _ => hasHost ? Host : null), messages);
+            _ => hasHost ? Host : null, settings is null ? null : Options.Create(settings)), messages);
     }
 
     [TestMethod]
@@ -559,14 +564,22 @@ public sealed class BuildCommandTests
     private static Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, ScriptedKeys keys, params string[] args)
         => RunAsync(fileSystem, new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty), keys, args);
 
+    private static Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, ScriptedKeys keys, AppOptions settings, params string[] args)
+        => RunAsync(fileSystem, new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty), keys, settings, args);
+
+    private static Task<(int Exit, string[] Output, string Error)> RunAsync(
+        MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, params string[] args)
+        => RunAsync(fileSystem, libraries, keys, new AppOptions(), args);
+
     // the console's keys are the test's: a script piped to rdc, which the dialogs read a line at a time.
     private static async Task<(int Exit, string[] Output, string Error)> RunAsync(
-        MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, params string[] args)
+        MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, AppOptions settings, params string[] args)
     {
         var output = new StringWriter();
         var error = new StringWriter();
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance, libraries);
-        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error, keys);
+        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error, keys,
+            Options.Create(settings));
         var exit = await command.ExecuteAsync(args, CancellationToken.None);
         return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(), error.ToString());
     }
@@ -589,6 +602,54 @@ public sealed class BuildCommandTests
             """);
         var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
         return await RunAsync(fileSystem, shipped, Root);
+    }
+
+    // a program that names a class of the VB library, which a Visual Basic 6.0 project has and an RD-VBA one does not, in a project imported from sourceProject.
+    private static async Task<(int Exit, string[] Output, string Error)> RunImportedAsync(string? sourceProject)
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()", "    Dim t As VB.Timer", "    Debug.Print \"ran\"", "End Sub")));
+        var source = sourceProject is null ? string.Empty : $", \"SourceProject\": \"{sourceProject}\"";
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), $$"""
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ]{{source}} } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        return await RunAsync(fileSystem, shipped, Root);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAProjectImportedFromAVbp_RunsItAsVisualBasic6()
+    {
+        var (exit, output, error) = await RunImportedAsync("Probe.vbp");
+
+        Assert.AreEqual(0, exit, error);
+        CollectionAssert.AreEqual(new[] { "ran" }, output, error);
+    }
+
+    [TestMethod]
+    public async Task TheBuiltProgram_OfAProjectImportedFromAVbp_RunsAsVisualBasic6()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()", "    Dim t As VB.Timer", "    Debug.Print \"ran\"", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { "ran" }, built.Output, built.Error);
+    }
+
+    [TestMethod]
+    [DataRow(null, DisplayName = "a project that was not imported")]
+    [DataRow("Probe.xlsm", DisplayName = "a project imported from anything but a .vbp")]
+    public async Task Run_OfAnyOtherProject_RunsItInTheLanguageOfTheSetting(string? sourceProject)
+    {
+        var (exit, _, error) = await RunImportedAsync(sourceProject);
+
+        Assert.AreEqual(ProgramRunner.Refused, exit);
+        StringAssert.Contains(error, "VB.Timer");
     }
 
     // the workspace is no folder of the disk the program runs on: the form's designer, its companion file with it, is what the build read, and the form the
@@ -746,10 +807,10 @@ public sealed class BuildCommandTests
         "    Debug.Print \"again: \" & MsgBox(\"Play again?\", vbYesNo)",
         "End Sub");
 
-    // off Windows, the dialogs of a run are asked at the console, as the shell asks them: the text typed is the InputBox's, and the button named the MsgBox's.
+    // the dialogs of a run are asked at the console, as the shell asks them, on every operating system: the text typed is the InputBox's, and the button
+    // named the MsgBox's.
     [TestMethod]
-    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    public async Task Run_AsksItsDialogsAtTheConsole_ElsewhereThanOnWindows()
+    public async Task Run_AsksItsDialogsAtTheConsole()
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
@@ -762,10 +823,67 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // a program rdc builds asks its dialogs as rdc run does: off Windows, at the console.
+    // a machine with no dialogs of its own asks at the console, whatever the settings ask for.
     [TestMethod]
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    public async Task TheBuiltProgram_AsksItsDialogsAtTheConsole_ElsewhereThanOnWindows()
+    public async Task Run_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
+    {
+        var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
+
+        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, new AppOptions { NativeDialogs = true }, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        Assert.IsTrue(run.Output.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
+        CollectionAssert.AreEqual(new[] { "name: Ducky", $"again: {(int)VBMsgBoxResult.VBNo}" },
+            run.Output.Where(line => line.StartsWith("name: ", StringComparison.Ordinal) || line.StartsWith("again: ", StringComparison.Ordinal)).ToArray(),
+            string.Join(" | ", run.Output));
+    }
+
+    // the program keeps what the settings said of the machine's own dialogs when it was built: none unless they asked for them.
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task TheBuiltProgram_ShowsNativeDialogsOnlyWhenTheSettingsAskedForThem(bool native)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", AsksAndAsksAgain));
+        var (command, messages) = Command(fileSystem, new AppOptions { NativeDialogs = native });
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
+
+            Assert.AreEqual(native, BuiltProgram.ImageOf(assembly).NativeDialogs);
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    // the machine's own dialogs are Windows', shown only when the settings ask for them; a machine that has none asks at the console.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void TheMachinesOwnDialogs_AreShownOnWindowsWhenAskedFor()
+    {
+        Assert.IsTrue(ProgramDialogs.ShowsNative(native: true));
+        Assert.IsFalse(ProgramDialogs.ShowsNative(native: false));
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public void TheMachinesOwnDialogs_AreNeverShownElsewhereThanOnWindows()
+    {
+        Assert.IsFalse(ProgramDialogs.ShowsNative(native: true));
+        Assert.IsFalse(ProgramDialogs.ShowsNative(native: false));
+    }
+
+    // a program rdc builds asks its dialogs as rdc run does: at the console, on every operating system.
+    [TestMethod]
+    public async Task TheBuiltProgram_AsksItsDialogsAtTheConsole()
     {
         CompiledExecutionTests.RequirePayloads();
         var fileSystem = Files(("Program.bas", AsksAndAsksAgain));

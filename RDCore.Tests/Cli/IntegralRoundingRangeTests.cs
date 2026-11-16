@@ -8,7 +8,7 @@ namespace RDCore.Tests.Cli;
 /// rounds to is the one that must be within the type's range - by a C* function and by an implicit Let-coercion alike, in either engine.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA printed for the same code in Excel (64-bit, en-US, oracle\s58 K01, K02), or follows from it where a row says so.
+/// Each expected outcome is what MS-VBA printed for the same code in Excel (64-bit, en-US), or follows from it where a row says so.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.5.1.2.1 Let-coercion between numeric types")]

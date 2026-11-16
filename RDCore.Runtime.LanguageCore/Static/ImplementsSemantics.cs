@@ -1,4 +1,5 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -207,6 +208,27 @@ public static class ImplementsSemantics
             _ => [Shape.PropertyGet, Shape.PropertyLet],
         };
     }
+
+    // the kinds of the declarations that implement a member of an interface: what RequiredShapes says, as declarations are written.
+    internal static IEnumerable<MemberKind> RequiredKindsOf(VBTypeMemberSymbol member) => RequiredShapes(member).Select(shape => shape switch
+    {
+        Shape.Sub => MemberKind.Procedure,
+        Shape.Function => MemberKind.Function,
+        Shape.PropertyGet => MemberKind.PropertyGet,
+        Shape.PropertyLet => MemberKind.PropertyLet,
+        _ => MemberKind.PropertySet,
+    });
+
+    // the kind of declaration a member of a class is, as declarations are written; null for a variable, an event, a constant or a type.
+    internal static MemberKind? KindOf(VBTypeMemberSymbol member) => ShapeOf(member) switch
+    {
+        Shape.Sub => MemberKind.Procedure,
+        Shape.Function => MemberKind.Function,
+        Shape.PropertyGet => MemberKind.PropertyGet,
+        Shape.PropertyLet => MemberKind.PropertyLet,
+        Shape.PropertySet => MemberKind.PropertySet,
+        _ => null,
+    };
 
     private static string Describe(Shape shape) => shape switch
     {

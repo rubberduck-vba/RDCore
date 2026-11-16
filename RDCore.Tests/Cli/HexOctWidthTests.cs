@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// MS-VBA writes <c>Hex</c> and <c>Oct</c> of a negative number in the width of its type - an <c>Integer</c> and a <c>Boolean</c> in 16 bits, a
 /// <c>Long</c> in 32, a <c>LongLong</c> in 64 - and of any other type Let-coerced to a <c>LongLong</c>, in 64; where MS-VBAL §6.1.2.3.1.17 picks the
-/// width by the value. Every expected line was recorded in Excel, 64-bit (grid <c>oracle\s43</c> X01-X16).
+/// width by the value. Every expected line was observed in Excel, 64-bit.
 /// </summary>
 [TestClass]
 public sealed class HexOctWidthTests

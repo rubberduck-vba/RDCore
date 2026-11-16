@@ -42,19 +42,19 @@ namespace RDCore.Runtime.Compiled;
 /// assigned whole; a function called as a statement returns a scalar.
 /// </para>
 /// <para>
-/// It does the <c>On Error</c> statements, <c>GoSub</c> and <c>Return</c> too (IR lowering S2.4), and has the interpreter run a <c>Resume</c>, an
+/// It does the <c>On Error</c> statements, <c>GoSub</c> and <c>Return</c> too, and has the interpreter run a <c>Resume</c>, an
 /// <c>Error</c> statement, an <c>On...GoTo</c> and an <c>On...GoSub</c> alone; the activation goes on compiled where the instruction left it. In a body
 /// with an <c>On Error</c> statement, so does an instruction that fails: the interpreter runs it alone and gives its error the activation's handler.
 /// </para>
 /// <para>
-/// Any other instruction compiled code does not do, the interpreter runs alone the same way (IR lowering S2.5a), with the reason recorded
+/// Any other instruction compiled code does not do, the interpreter runs alone the same way, with the reason recorded
 /// (<see cref="Stepped"/>): a statement, a condition, a <c>GoTo</c>, a <c>For</c> that is not compiled code's. So does a procedure of a class, whose
 /// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
 /// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's, but for a Variant's (below). A body none of whose instructions that do
 /// something are compiled code's is kept in the interpreter.
 /// </para>
 /// <para>
-/// The interpreter steps a block whose state the frame holds too (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it
+/// The interpreter steps a block whose state the frame holds too: a <c>With</c> and its <c>End With</c>, and each statement in it
 /// that uses its object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar, or that compiled code does not
 /// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> holds is let go of where an <c>Exit For</c> leaves it (<see cref="LeavesForEach"/>).
 /// </para>
@@ -79,11 +79,11 @@ namespace RDCore.Runtime.Compiled;
 /// is another (<c>ProcedureAnalysis.FieldKinds.cs</c>).
 /// </para>
 /// <para>
-/// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
+/// A <c>Select Case</c> of a scalar selector is compiled code's: the selector is evaluated once into a local, and each <c>Case</c>
 /// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>).
 /// </para>
 /// <para>
-/// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation (IR lowering S2.3c),
+/// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation,
 /// which the frame holds too: the cell of a parameter is its caller's variable (MS-VBAL §5.3.1.11), and what the interpreter, a debugger or a frame made
 /// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
 /// </para>
@@ -271,7 +271,7 @@ internal sealed partial class ProcedureAnalysis
                 ? SupportCallOf(instruction, before)
                 : AnalyzeInstruction(instruction);
 
-            // what compiled code does not do of an instruction the interpreter can run alone, the interpreter does (IR lowering S2.5a): the reasons are
+            // what compiled code does not do of an instruction the interpreter can run alone, the interpreter does: the reasons are
             // the instruction's, and not the procedure's.
             if (step is null && IsStepped(instruction))
             {
@@ -389,7 +389,7 @@ internal sealed partial class ProcedureAnalysis
 
     /// <summary>
     /// What the interpreter runs alone of a compiled procedure, and why: each instruction compiled code does not do, which is no reason for the procedure to
-    /// be interpreted (IR lowering S2.5a).
+    /// be interpreted.
     /// </summary>
     public IReadOnlyList<Ineligibility> Stepped => _stepped;
 
@@ -428,7 +428,7 @@ internal sealed partial class ProcedureAnalysis
             return false;
         }
 
-        // a member of a class is called on an object, Me (MS-VBAL §5.6.11), which its frame holds: what reads it, the interpreter runs (IR lowering S2.5a).
+        // a member of a class is called on an object, Me (MS-VBAL §5.6.11), which its frame holds: what reads it, the interpreter runs.
         var parameters = RuntimeProcedureInvoker.GetParameters(_procedure);
         for (var i = 0; i < parameters.Length; i++)
         {

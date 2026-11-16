@@ -109,6 +109,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             KeywordStatementNode { Token: Tokens.RaiseEvent } raise => ExecuteRaiseEvent(session, context, raise),
             // RD-VBAL: Circle, Line, PSet and Scale are methods of an object that can be drawn on.
             GraphicsMethodStatementNode graphics => ExecuteGraphics(session, context, graphics),
+            // the Print method of an object (Form1.Print): Debug.Print is its own statement.
+            CallStatementNode { Callee: ObjectPrintExpressionNode print } => ExecuteObjectPrint(session, context, print),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };
@@ -143,6 +145,37 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
             VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, graphics.SourceLocation,
             $"The object has no {graphics.Token} method: the platform has no surface to draw on."));
+    }
+
+    // obj.Print calls the Print method of the object, a Visual Basic 6.0 form or PictureBox or an Access form or report, once its output list is evaluated.
+    // The platform has none of them: Nothing raises 91, and any other object has no Print method (438).
+    private RuntimeExecutionOutcome ExecuteObjectPrint(IRuntimeSession session, RuntimeEvaluationContext context, ObjectPrintExpressionNode print)
+    {
+        var owner = _expressionEvaluator.Evaluate(session, print.Owner, context);
+        if (!owner.IsSuccess)
+        {
+            return owner.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(owner.ErrorInfo!);
+        }
+
+        var evaluated = _printOutput.Collect(session, context, print.Items, out _);
+        if (evaluated != RuntimeExecutionOutcome.Next)
+        {
+            return evaluated;
+        }
+
+        var value = owner.Result;
+        while (value is VBVariantValue { TypedValue: var wrapped })
+        {
+            value = wrapped;
+        }
+
+        return RuntimeExecutionOutcome.Error(value switch
+        {
+            VBObjectValue nothing when nothing.IsNothing() => VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, print.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose),
+            VBObjectValue => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, print.Location, "The object has no Print method."),
+            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, print.Owner.Location, "Print is a method of an object."),
+        });
     }
 
     // the parser gives the event's name as the first input, a bare name that is not an expression to evaluate, and the
@@ -182,8 +215,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     // The two shapes differ in where the arguments are. `Call Foo(1, 2)` carries them inside the
     // Callee's own IndexExpressionNode, so evaluating the Callee is the whole call. The bare
     // `Foo 1, 2` has no parenthesized lExpression equivalent in the grammar, so its arguments are the
-    // statement's own (see CallStatementNode) and the call is made from here - which is what S9a left
-    // undone, on the ordinary VBA call form.
+    // statement's own (see CallStatementNode) and the call is made from here, on the ordinary VBA call
+    // form.
     private RuntimeExecutionOutcome ExecuteCall(IRuntimeSession session, RuntimeEvaluationContext context, CallStatementNode call)
     {
         var result = _expressionEvaluator.EvaluateCallStatement(session, context, call);
@@ -198,8 +231,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     // they read share with it.
     private RuntimeExecutionOutcome ExecuteLetAssignment(IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment)
     {
-        // a scalar variable, or the result of a function of a scalar type, assigned an expression of them is assigned on payloads (IR lowering S1.2,
-        // S1.3), which make no value of the expression.
+        // a scalar variable, or the result of a function of a scalar type, assigned an expression of them is assigned on payloads,
+        // which make no value of the expression.
         if (_expressionEvaluator.TryAssignUnboxed(session, assignment.Target, assignment.Value, context))
         {
             return RuntimeExecutionOutcome.Next;
@@ -231,7 +264,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     /// <returns>How the statement ended.</returns>
     internal RuntimeExecutionOutcome AssignValue(IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment, VBTypedValue value)
     {
-        // what a call returned, a scalar, is written to a scalar variable as its payload (S1.3).
+        // what a call returned, a scalar, is written to a scalar variable as its payload.
         if (_expressionEvaluator.TryAssignValueUnboxed(session, assignment.Target, value, context))
         {
             return RuntimeExecutionOutcome.Next;
@@ -239,7 +272,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
 
         var outcome = _assignments.Assign(session, context, assignment, assignment.Target, assignment.Value, value);
 
-        // a Double past the range of a Single, assigned to one, overflows - and leaves the Single infinite (MS-VBA, grid oracle\s16 D02, F07).
+        // a Double past the range of a Single, assigned to one, overflows - and leaves the Single infinite (MS-VBA, observed in Excel).
         if (outcome is { Kind: RuntimeExecutionOutcomeKind.Error, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow } && value is VBDoubleValue { Value: var wide }
             && double.IsFinite(wide))
         {
@@ -252,7 +285,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     // MS-VBA assigns what IEEE 754 arithmetic made of an operation that raised an error - an infinity, a NaN - to the Single or Double variable the
     // operation is assigned to, then raises it: `s = s * 10` leaves s infinite, `d = 0 / 0` a NaN. MS-VBAL §5.6.9.3.5 says so of a division of operands
     // declared Double; MS-VBA does it for any Single or Double arithmetic, and for a Double let-coerced to a Single. A variable of any other type - a
-    // Variant, a Long, a Currency - is left as it was (recorded in Excel, grid oracle\s16 D01-D09, F01-F15). The error is raised either way.
+    // Variant, a Long, a Currency - is left as it was (observed in Excel). The error is raised either way.
     private void AssignFloatingPointValue(IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment, VBNumericTypedValue ieee)
     {
         VBTypedValue? assigned = _expressionEvaluator.DeclaredTypeOf(session, assignment.Target, context) switch
@@ -314,7 +347,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
                 : elementValue.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(elementValue.ErrorInfo!);
         }
 
-        // a variable is bound once, and written through the slot it is bound to (IR lowering S0.11); a variable named through its module, and a
+        // a variable is bound once, and written through the slot it is bound to; a variable named through its module, and a
         // function's result, are resolved.
         var bound = qualified is null ? _expressionEvaluator.BoundVariableOf(session, assignment.Target, context) : null;
         var targetSymbol = qualified ?? bound?.Variable ?? (assignment.Target is SimpleNameExpressionNode simpleName
@@ -338,9 +371,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         var declared = referenced ?? target.ResolvedType;
 
         // MS-VBAL §5.4.3.9: a function named outside its own body is called, and what it returns is Set-assigned through its default member - and so is a
-        // property of a module that has no Property Set (MS-VBA, oracle\s28 W4, W5: `Set Now = Nothing` is error 424). The value is Set-coerced to what the
-        // default member's Property Set takes, and not to what the function returns: `Set One = New Collection` sets One's default member to the collection
-        // (oracle\s31 D01, D04).
+        // property of a module that has no Property Set (MS-VBA, observed in Excel: `Set Now = Nothing` is error 424). The value is Set-coerced to what the
+        // default member's Property Set takes, and not to what the function returns: `Set One = New Collection` sets One's default member to the collection.
         var isOwnResult = target is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && ((Symbol)target).Uri.AbsoluteUri == context.Scope.AbsoluteUri;
         if (!isOwnResult
             && (target is VBFunctionMemberSymbol
@@ -352,7 +384,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         }
 
         // MS-VBAL §5.4.3.9: a property is Set by invoking its Property Set with the value - one of a standard module on nothing, from anywhere, by its bare
-        // name or through its module (MS-VBA, oracle\s44 W01); one of a class, from the class's own code, on the object whose code it is. It has no storage of
+        // name or through its module (MS-VBA, observed in Excel); one of a class, from the class's own code, on the object whose code it is. It has no storage of
         // its own for the value to be written to.
         if (!isOwnResult && target is IVBPropertyMemberSymbol && ((Symbol)target).Uri.AbsoluteUri != context.Scope.AbsoluteUri
             && (target as VBPropertySetMemberSymbol ?? session.Symbols.MembersOf(((Symbol)target).ParentUri).OfType<VBPropertySetMemberSymbol>()

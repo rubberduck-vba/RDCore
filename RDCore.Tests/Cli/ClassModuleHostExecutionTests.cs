@@ -88,7 +88,7 @@ public sealed class ClassModuleHostExecutionTests
         var resolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, parsed.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver());
 
-        var define = new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var module in parsed)
         {
             var symbols = new SyntaxTreeSymbolProvider(

@@ -48,6 +48,8 @@ using RDCore.SDK.Platform.Components;
 [assembly: ProvidesCorePlatformClientCapability<DefineSymbols>]
 // it composes its session from the project file, and does so again when the project file changes:
 [assembly: ProvidesCorePlatformClientCapability<ProjectReload>]
+// and it analyzes the other projects of the workspace, each in a session of its own that runs nothing:
+[assembly: ProvidesCorePlatformClientCapability<ProjectAnalysis>]
 // the environment host owns the runtime session, so it answers for its state:
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
@@ -166,6 +168,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
             .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
+            .AddSingleton<ReplSplash>()
             .AddSingleton<ShowSplashReplCommand>()
             .AddSingleton<ShowMemoryReplCommand>()
             // the interactive shell and everything it acts on:
@@ -304,6 +307,10 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
         await themes.InitializeAsync(CancellationToken.None);
         frame.Apply(themes.Theme.ShellBackground, themes.Theme.ShellForeground);
     }
+
+    // the shell's own splash, with its title art and in the theme's colours, in place of the platform's plain one: the one splash the shell starts with.
+    protected override void ShowSplash(IServiceProvider provider, IReadOnlyList<string> args)
+        => provider.GetRequiredService<ReplSplash>().Write(provider.GetRequiredService<IReplConsole>());
 
     /// <summary>
     /// Runs the interactive shell for the lifetime of the connection.
@@ -461,6 +468,18 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
     protected override async Task BeforeAppStartAsync(IServiceProvider provider)
         => await provider.GetRequiredService<IAppThemeService>().InitializeAsync(CancellationToken.None);
 
+    // rdc splash writes the splash as its output, whether or not that output is a console: the platform's at the start would be the same splash twice.
+    protected override void ShowSplash(IServiceProvider provider, IReadOnlyList<string> args)
+    {
+        if (args is [var verb, ..] && (string.Equals(verb, CommandNames.SplashCommand.Name, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(verb, CommandNames.SplashCommand.Alias, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        base.ShowSplash(provider, args);
+    }
+
     protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
 
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
@@ -483,6 +502,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, BuildCommand>()
             .AddSingleton<ICliCommand, RunCommand>()
             .AddSingleton<ICliCommand, InstallCommand>()
+            .AddSingleton<ICliCommand, SplashCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
             .AddSingleton<ConfigCommand>()
@@ -572,7 +592,8 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
                     Desktop = MachinePlatform.Desktop,
                 };
             })
-            .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
+            .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>()
+            .AddSingleton<IProjectAnalysisSessions, ProjectAnalysisSessions>();
     }
 
     protected override string? LogFileName => "RDCore.EnvironmentHost.log";
@@ -598,6 +619,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<HostEntryPointsHandler>()
             .WithHandler<HostDiscardHandler>()
             .WithHandler<HostProjectReloadHandler>()
+            .WithHandler<HostProjectAnalyzeHandler>()
+            .WithHandler<HostProjectReleaseHandler>()
             .WithHandler<HostDebugResumeHandler>()
             .WithHandler<HostDebugPauseHandler>()
             .WithHandler<HostDebugGotoHandler>()
@@ -618,6 +641,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
     protected override void ConfigureServices(IServiceCollection services)
         => services
             .AddSingleton(sessionProvider)
+            .AddSingleton(_ => ExternalServices.GetRequiredService<IProjectAnalysisSessions>())
             .AddSingleton(projectFileLoader)
             .AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>())
             .AddSingleton(_ => ExternalServices.GetRequiredService<IErrorDetailsRecorder>());

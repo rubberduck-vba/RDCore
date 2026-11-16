@@ -27,14 +27,15 @@ internal static class UnusedDeclarations
             .Select(declaration => (declaration, declaration.References!.Value));
 
     /// <summary>
-    /// The node of the syntax tree that declares a name where the host says it is declared.
+    /// The node of the syntax tree that declares a name where the host says it is declared; <see langword="null"/> for a declaration no source of the module
+    /// holds, which the host places nowhere (an empty range): a member a form's designer declares on the form's class.
     /// </summary>
     /// <typeparam name="TNode">The kind of declaration.</typeparam>
     /// <param name="module">The syntax tree of the module.</param>
     /// <param name="fact">What the host says of the declaration.</param>
     /// <param name="rangeOf">Where a node declares its name.</param>
     public static TNode? DeclarationOf<TNode>(ModuleNode module, DeclarationFactDto fact, Func<TNode, SourceRange> rangeOf) where TNode : SyntaxNode
-        => module.Descendants().OfType<TNode>().FirstOrDefault(node => Contains(rangeOf(node), fact.Location.Range.Start));
+        => fact.Location.Range.IsEmpty ? null : module.Descendants().OfType<TNode>().FirstOrDefault(node => Contains(rangeOf(node), fact.Location.Range.Start));
 
     /// <summary>
     /// The parameter declaration of the syntax tree a parameter fact is of: the host places a parameter at the whole declaration, with its <c>ByVal</c> and its

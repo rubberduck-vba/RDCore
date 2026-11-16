@@ -25,6 +25,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Assistant\AssistantToolTexts.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>AssistantToolTexts.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Assistant\AssistantToolTexts.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>AssistantToolTexts.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <Compile Update="Debugging\DebuggerMessages.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

@@ -27,13 +27,24 @@ namespace RDCore.Runtime.Support.Host.Handlers;
 /// type names are resolved against the intrinsic types and the standard library's own declared types; a
 /// name that does not resolve stays <c>VBUnknownType</c> and is reported back.
 /// </summary>
+/// <remarks>
+/// A module of a project the host does not run is defined in that project's analysis session (<see cref="IProjectAnalysisSessions"/>), which the request's
+/// <see cref="DefineSymbolsParams.WorkspaceRoot"/> names; every other module is defined in the runtime session.
+/// </remarks>
 internal sealed class DefineSymbolsHandler(
     IEnvironmentSessionProvider sessionProvider,
+    IProjectAnalysisSessions analyses,
     IErrorDetailsRecorder errorDetails,
     ILogger<DefineSymbolsHandler> logger) : RDCoreRequestHandler<DefineSymbolsParams, DefineSymbolsResult>
 {
     protected override Task<DefineSymbolsResult> HandleAsync(DefineSymbolsParams request, CancellationToken token)
     {
+        // a project that is analyzed and not run: no program runs in its session, and what is defined in it is defined at once.
+        if (request.WorkspaceRoot is { } root && analyses.TryGet(root, out var analysis))
+        {
+            return Task.FromResult(Define(new Target(analysis.Session, analysis.Image, IsRun: false), request));
+        }
+
         if (!sessionProvider.IsComposed)
         {
             logger.LogWarning(
@@ -46,25 +57,34 @@ internal sealed class DefineSymbolsHandler(
         // the order the requests came in, the latest of each module and phase.
         // only a request that carries the module's parse loads its code, and says what is wrong with it: one of symbols alone leaves a failure as it is.
         var session = sessionProvider.Session;
+        var target = new Target(session, sessionProvider.Image, IsRun: true);
         var loadsCode = !request.DeclareTypesOnly && request.ParseResultJson.Length > 0;
         var result = HeldDefinitions.Define(session, $"{request.ModuleName}|{request.DeclareTypesOnly}|{request.CodeOnly}", request.ModuleName,
-            loadsCode ? defined => [.. defined.CodeErrors] : null, () => Define(session, request), () => [.. Define(session, request).CodeErrors]);
+            loadsCode ? defined => [.. defined.CodeErrors] : null, () => Define(target, request), () => [.. Define(target, request).CodeErrors]);
 
         // told once it is made: a statement typed at a stop from now on is given what the code as edited declares.
         ProgramEdits.Edited(session);
         return Task.FromResult(result);
     }
 
-    private DefineSymbolsResult Define(IRuntimeSession session, DefineSymbolsParams request)
+    // the session a module is defined in, and its code; only the runtime session's program runs, and reaches outside the platform.
+    private sealed record class Target(IRuntimeSession Session, ProgramImage Image, bool IsRun);
+
+    private DefineSymbolsResult Define(Target target, DefineSymbolsParams request)
     {
-        DefineClientModule(session, request);
+        var session = target.Session;
+        if (target.IsRun)
+        {
+            DefineClientModule(session, request);
+        }
+
         ApplyDirectives(session, request);
 
         var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
         if (!request.CodeOnly)
         {
-            var isDead = DeadBranchesOf(session, request);
+            var isDead = DeadBranchesOf(target, request);
             // the three phases (DefineSymbolsParams.DeclareTypesOnly): the module's types are declared - its user-defined types and enumerations - so that
             // every declaration that names one is bound to a type that exists. Everything a request carries is read before anything of it is defined, which
             // is why the types are a request of their own: a request that binds declares its own types first, which the declare phase already did for a
@@ -96,11 +116,11 @@ internal sealed class DefineSymbolsHandler(
         }
 
         // the module's procedures get their code now that everything they are keyed by is defined.
-        var loadErrors = LoadCode(session, request);
+        var loadErrors = LoadCode(target, request);
 
         // a module that declares a function of a native library can call it as soon as it runs, and what makes the call is got ready now - in an environment that
         // lets a program make one at all.
-        if (session.Environment.AllowDllImports && !request.DeclareTypesOnly
+        if (target.IsRun && session.Environment.AllowDllImports && !request.DeclareTypesOnly
             && request.Symbols.Any(symbol => symbol.Kind is SymbolDescriptorKind.ExternalProcedure or SymbolDescriptorKind.ExternalFunction))
         {
             sessionProvider.Outside.Libraries.Prepare();
@@ -130,8 +150,9 @@ internal sealed class DefineSymbolsHandler(
 
     // MS-VBAL §3.4: what the module's directives make dead, evaluated with the session's constants and the module's own - the request's directives, when it
     // sends them; null when it does not, and every declaration is defined as the first branch writes it.
-    private Func<SourcePosition, bool>? DeadBranchesOf(IRuntimeSession session, DefineSymbolsParams request)
+    private Func<SourcePosition, bool>? DeadBranchesOf(Target target, DefineSymbolsParams request)
     {
+        var session = target.Session;
         if (request.PrecompilerTriviaJson.Length == 0)
         {
             return null;
@@ -149,7 +170,7 @@ internal sealed class DefineSymbolsHandler(
             var trivia = PlatformJson.Deserialize<ImmutableArray<RDCore.SDK.Model.AST.Abstract.SyntaxNode>>(request.PrecompilerTriviaJson);
             var ranges = trivia.IsDefaultOrEmpty
                 ? []
-                : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, sessionProvider.Image, errorDetails).Expressions,
+                : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, target.Image, errorDetails).Expressions,
                     new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
             cached = (request.PrecompilerTriviaJson, constants, ranges);
             evaluated[key] = cached;
@@ -266,21 +287,30 @@ internal sealed class DefineSymbolsHandler(
     // what fuses with what: a procedure's headers whatever their kind, and otherwise a symbol of the same type.
     private static string KindOf(Symbol symbol) => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol ? "procedure" : symbol.GetType().Name;
 
-    // MS-VBAL §3.4, §5.6.10: the locals of a procedure, with what a name declares that the module declares only in #If branches: declared where each of
-    // those is dead, and not otherwise (SymbolProperties.UnlessLive). Without the directives, every branch is read as live.
+    // MS-VBAL §3.4, §5.6.10: the locals of a procedure that the live code declares. A Dim, a Static or a Const of a dead branch is not compiled, and declares
+    // nothing; what a name declares that the module or the procedure declares only in #If branches is declared where each of those is dead, and not
+    // otherwise (SymbolProperties.UnlessLive). Without the directives, every branch is read as live.
     private static Symbol WithLiveLocals(Symbol symbol, Func<SourcePosition, bool>? isDead)
     {
         static bool IsConditional(BoundTypedSymbol local) => !local.GetProperty(SymbolProperties.UnlessLive).IsDefaultOrEmpty;
-        bool IsDeclared(BoundTypedSymbol local) => !IsConditional(local) || isDead is not null && local.GetProperty(SymbolProperties.UnlessLive).All(isDead);
+        static bool IsDeclaredByAStatement(BoundTypedSymbol local) => local is VBLocalVariableSymbol { DeclaredBy: LocalDeclarationKind.Dim } or VBLocalConstantSymbol;
+        bool IsDeclared(BoundTypedSymbol local) => IsConditional(local)
+            ? isDead is not null && local.GetProperty(SymbolProperties.UnlessLive).All(isDead)
+            : isDead is null || !IsDeclaredByAStatement(local) || !isDead(local.Range.Start);
 
-        // what is declared is then declared whatever the branches are: the scope of the procedure has it.
+        // what is declared is then declared whatever the branches are: the scope of the procedure has it. A name declared in more than one branch arrives
+        // once for each, and is declared once: by the first of them that is declared.
         ImmutableArray<BoundTypedSymbol> Live(ImmutableArray<BoundTypedSymbol> locals)
-            => [.. locals.Where(IsDeclared).Select(local => IsConditional(local) ? (BoundTypedSymbol)local.With(SymbolProperties.UnlessLive, []) : local)];
+            => [.. locals.Where(IsDeclared).DistinctBy(local => local.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(local => IsConditional(local) ? (BoundTypedSymbol)local.With(SymbolProperties.UnlessLive, []) : local)];
+
+        bool IsAsDeclared(ImmutableArray<BoundTypedSymbol> locals)
+            => locals.All(local => !IsConditional(local) && IsDeclared(local)) && locals.DistinctBy(local => local.Name, StringComparer.OrdinalIgnoreCase).Count() == locals.Length;
 
         return symbol switch
         {
-            VBProcedureMemberSymbol procedure when procedure.Locals.Any(IsConditional) => procedure with { Locals = Live(procedure.Locals) },
-            VBReturningMemberSymbol returning when returning.Locals.Any(IsConditional) => returning with { Locals = Live(returning.Locals) },
+            VBProcedureMemberSymbol procedure when !IsAsDeclared(procedure.Locals) => procedure with { Locals = Live(procedure.Locals) },
+            VBReturningMemberSymbol returning when !IsAsDeclared(returning.Locals) => returning with { Locals = Live(returning.Locals) },
             _ => symbol,
         };
     }
@@ -297,8 +327,9 @@ internal sealed class DefineSymbolsHandler(
             : live;
     }
 
-    private ImmutableArray<string> LoadCode(IRuntimeSession session, DefineSymbolsParams request)
+    private ImmutableArray<string> LoadCode(Target target, DefineSymbolsParams request)
     {
+        var session = target.Session;
         if (request.ParseResultJson.Length == 0
             || PlatformJson.Deserialize<ModuleParseResult>(request.ParseResultJson) is not { } parseResult
             || !session.Symbols.TryGetModule(request.ModuleName, out var module))
@@ -306,12 +337,13 @@ internal sealed class DefineSymbolsHandler(
             return [];
         }
 
-        return Load(session, request.ModuleName, module, parseResult);
+        return Load(target, request.ModuleName, module, parseResult);
     }
 
-    private ImmutableArray<string> Load(IRuntimeSession session, string name, VBModuleSymbol module, ModuleParseResult parseResult)
+    private ImmutableArray<string> Load(Target target, string name, VBModuleSymbol module, ModuleParseResult parseResult)
     {
-        var errors = new ModuleLoader(session, sessionProvider.Image, errorDetails).Load(module, parseResult);
+        var session = target.Session;
+        var errors = new ModuleLoader(target.Session, target.Image, errorDetails).Load(module, parseResult);
 
         // a module is loaded again at every edit of it: what a load failed with is said once, as long as the next fails with the same, and so is that it loads again.
         switch (LoadFailuresBySession.GetOrCreateValue(session).Record(name, errors))

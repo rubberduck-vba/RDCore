@@ -123,6 +123,57 @@ public sealed class UnusedDeclarationAnalyzerTests
     public void WithNoSemantics_NoVariableIsCounted()
         => Assert.IsEmpty(WithoutSemantics(new VariableNotUsedAnalyzer(), "Public Sub Main()", "    Dim unused As Long", "End Sub"));
 
+    // MS-VBAL §3.4: the code of a branch that is not live is not compiled, its declarations no more than its statements. The live branch is code like any.
+    [TestMethod]
+    [TestCategory("MS-VBAL 3.4 Conditional Compilation")]
+    public async Task AVariableDeclaredInABranchThatIsNotLive_IsNotDeclared_AndOneOfTheLiveBranchIsCounted()
+    {
+        var findings = await ProgramAsync(new VariableNotUsedAnalyzer(),
+            "Option Explicit",
+            "#Const DEV = 1",
+            "Public Sub Main()",
+            "#If DEV Then",
+            "    Dim assigned As Long",
+            "    assigned = 1",
+            "    Dim unused As Long",
+            "#Else",
+            "    Dim startTime As Single",
+            "    startTime = Timer",
+            "    Dim elapsed As Single",
+            "    elapsed = Timer - startTime",
+            "    Dim never As Long",
+            "#End If",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 5, 7 }, Lines(findings), string.Join("; ", findings.Select(finding => finding.Message)));
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 3.4 Conditional Compilation")]
+    public async Task AVariableDeclaredInEachBranch_IsDeclaredOnce_ByTheLiveBranch()
+    {
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "#Const DEV = 0",
+            "Public Sub Main()",
+            "#If DEV Then",
+            "    Dim n As String",
+            "#Else",
+            "    Dim n As Long",
+            "    n = 1",
+            "    Debug.Print n",
+            "#End If",
+            "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], program);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+
+        var declared = model.Declarations.Where(declaration => declaration.Name == "n").ToArray();
+
+        Assert.AreEqual(1, declared.Length, string.Join(", ", model.Declarations.Select(declaration => $"{declaration.Name} L{declaration.Location.Range.Start.Line}")));
+        Assert.AreEqual(7, declared[0].Location.Range.Start.Line);
+        Assert.IsEmpty(Run(new VariableNotUsedAnalyzer(), program, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"))));
+    }
+
     #endregion
 
     #region RDC01012 a variable never assigned
@@ -246,6 +297,40 @@ public sealed class UnusedDeclarationAnalyzerTests
 
         Assert.HasCount(1, findings, "only the Private procedure: not a handler, not a Public member that may be in an interface");
         StringAssert.Contains(findings[0].Message, "'mode'");
+    }
+
+    [TestMethod]
+    public async Task ThePropertyThatImplementsAnInterfaceMember_DoesNotChooseItsSignature_FromItsGetOn()
+    {
+        // a property's declaration is its first accessor, a Get here. Its Let still implements the interface, so its value is the interface member's and is
+        // not reported, whether that member is a property (Tag) or a variable (Label): only Other's value is.
+        var settings = ModuleWorkspace.ClassModule("ISettings", "Public Label As String",
+            "Public Property Get Tag() As Variant", "End Property", "Public Property Let Tag(ByVal value As Variant)", "End Property");
+        string[] lines =
+        [
+            "Option Explicit",
+            "Implements ISettings",
+            "Private Property Get ISettings_Label() As String",
+            "End Property",
+            "Private Property Let ISettings_Label(ByVal value As String)",
+            "End Property",
+            "Private Property Get ISettings_Tag() As Variant",
+            "End Property",
+            "Private Property Let ISettings_Tag(ByVal value As Variant)",
+            "End Property",
+            "Private Property Get Other() As Long",
+            "End Property",
+            "Private Property Let Other(ByVal value As Long)",
+            "End Property",
+        ];
+        var source = ModuleWorkspace.ClassModule("Settings", lines);
+        var payload = await ModuleWorkspace.SemanticsAsync([("ISettings", settings), ("Settings", source)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub"));
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Settings");
+
+        var findings = Run(new ParameterNotUsedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Settings.cls")));
+
+        Assert.HasCount(1, findings, "only the property that implements nothing: " + string.Join("; ", findings.Select(finding => $"{finding.Range.Start.Line}: {finding.Message}")));
+        Assert.AreEqual(17, findings[0].Range.Start.Line);
     }
 
     #endregion

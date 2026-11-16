@@ -13,7 +13,7 @@ public enum IneligibilityKind
 
     /// <summary>
     /// A <c>ParamArray</c> parameter: its elements are the caller's variables, passed by reference, which compiled code holds none of. A scalar parameter
-    /// passed by reference is compiled (IR lowering S2.3c).
+    /// passed by reference is compiled.
     /// </summary>
     ParameterByReference,
 
@@ -138,7 +138,7 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
 
     /// <summary>
     /// What the interpreter runs of a compiled procedure, one instruction at a time, and why: each instruction compiled code does not do yet, which it hands
-    /// to the interpreter alone, going on where the interpreter leaves the activation (IR lowering S2.5a). Empty for a procedure that is not compiled.
+    /// to the interpreter alone, going on where the interpreter leaves the activation. Empty for a procedure that is not compiled.
     /// </summary>
     public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
 
@@ -550,10 +550,23 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 
     /// <summary>
+    /// The class of the object the call was last made on, and the member an object of that class invokes for it (<see cref="CompiledActivation.CanCallMember"/>):
+    /// found once for the class, and again only for an object of another one.
+    /// </summary>
+    public InvokedMember? Invoked { get; set; }
+
+    /// <summary>
     /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
     /// </summary>
     public MemberEntry? Entered { get; set; }
 }
+
+/// <summary>
+/// The member an object of <paramref name="Class"/> invokes for a call of a member of an object (<see cref="CompiledCallee.Invoked"/>).
+/// </summary>
+/// <param name="Class">The class of the object.</param>
+/// <param name="Member">The member it invokes.</param>
+internal sealed record class InvokedMember(SDK.Model.Symbols.VBClassModuleSymbol Class, SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member);
 
 /// <summary>
 /// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
@@ -625,7 +638,7 @@ internal sealed record class CompiledField(int Slot, SDK.Model.Symbols.Abstract.
 }
 
 /// <summary>
-/// A call compiled code makes of a procedure that is compiled too (IR lowering S2.3b): the callee's typed entry, which the caller's IL calls with the
+/// A call compiled code makes of a procedure that is compiled too: the callee's typed entry, which the caller's IL calls with the
 /// arguments as they are, and what its activation is made of.
 /// </summary>
 /// <remarks>

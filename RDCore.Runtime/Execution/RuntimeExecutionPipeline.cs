@@ -244,6 +244,7 @@ public sealed class RuntimeExecutionPipeline
         var world = outside ?? ExternalWorld.None;
         var servers = new AutomationCallProvider(session, world.Automation);
         var forms = new FormCallProvider(session, world, servers, bodies is ProgramImage image ? image.Forms : NoForms);
+        var pictures = new PictureCallProvider(session);
         var external = analysis
             ? new ExternalCallPipeline(session, observation is null ? [] : [new AssumedCallInterceptor(observation)], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
             // a member a form's designer declares is the form host's, which calls the members of the form object itself through the servers' provider.
@@ -254,16 +255,24 @@ public sealed class RuntimeExecutionPipeline
                     // the image keeps what the designers of its forms declare; bodies that are only bodies have no forms.
                     forms,
                     // stdole's pictures are the platform's own, which no server holds.
-                    new PictureCallProvider(session),
+                    pictures,
                     servers,
                     StdLibDispatcher.For(session, outside, cancellation),
                     // the shlwapi function that connects an object of the program's own to a server's events is the session's to run, not the native library's.
                     new ConnectionPointCallProvider(session, world.Automation),
                     new DeclaredProcedureProvider(session, world.Libraries),
-                ]);
+                ],
+                // a library the platform implements does not count as automation: an environment that allows none still has stdole's pictures.
+                implementations: [pictures]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         // Unload runs a form's QueryClose and Terminate, which are code the bindings call: the last edge of that cycle too.
         forms.Bindings = bindings;
+        // a New of a form's class asks the form host whether its form can be made, and a program that runs asks this pipeline's; an analysis makes no form.
+        if (!analysis)
+        {
+            SessionForms.Of(session).CreatesWith(forms);
+        }
+
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;
         expressions.AssumesVariables = mode is PipelineMode.Sweep;

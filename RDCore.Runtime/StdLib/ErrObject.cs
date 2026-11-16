@@ -46,7 +46,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         // the source is the error's, which the session's error state takes from it when it is raised: given none and keeping none, the project's.
         var raisedSource = Text(source) ?? State.Source;
         State.HelpFile = Text(helpFile) ?? State.HelpFile;
-        // a help context of 0 is none: the error's own, as a run-time error has (Err.Raise 5, , , , 0 is 1000005, recorded in Excel: oracle\s58 H03, H06).
+        // a help context of 0 is none: the error's own, as a run-time error has (Err.Raise 5, , , , 0 is 1000005, observed in Excel).
         var context = Number(helpContext) is { } given
             ? given != 0 ? given : SessionErrorState.HelpContextOf(errorNumber)
             : State.HasError ? State.HelpContext : SessionErrorState.HelpContextOf(errorNumber);

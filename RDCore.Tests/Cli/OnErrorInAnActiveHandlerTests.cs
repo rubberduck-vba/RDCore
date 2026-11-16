@@ -8,7 +8,7 @@ namespace RDCore.Tests.Cli;
 /// and the error being handled can still be resumed. <c>On Error GoTo -1</c> ends the error being handled, and the label is the handler again.
 /// </summary>
 /// <remarks>
-/// Each expected line is what MS-VBA printed for the same code, in Excel (64-bit, en-US, oracle\s53). <c>Inner</c>'s handler <c>H</c> runs each case's
+/// Each expected line is what MS-VBA printed for the same code, in Excel (64-bit, en-US). <c>Inner</c>'s handler <c>H</c> runs each case's
 /// statements after <c>Err.Raise 5</c>; its body goes on with <c>Err.Raise 7</c> if it is resumed. <c>Outer</c> calls it under a handler of its own.
 /// </remarks>
 [TestClass]

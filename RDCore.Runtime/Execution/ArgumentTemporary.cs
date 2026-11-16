@@ -11,8 +11,8 @@ namespace RDCore.Runtime.Execution;
 /// it (<see cref="ISessionObjects.PushTemporary"/>): the address is freed when the statement is over (<see cref="ObjectReferences.ReleaseTemporaries"/>).
 /// </summary>
 /// <remarks>
-/// As in <strong>MS-VBA</strong>, two temporaries of one statement are at two addresses: <c>VarPtr(1) = VarPtr(1)</c> is <c>False</c> (recorded in Excel,
-/// oracle\s17 V14). It holds no value of its own - what is at the address does - so a statement that lets go of it lets go of no object.
+/// As in <strong>MS-VBA</strong>, two temporaries of one statement are at two addresses: <c>VarPtr(1) = VarPtr(1)</c> is <c>False</c> (observed in Excel).
+/// It holds no value of its own - what is at the address does - so a statement that lets go of it lets go of no object.
 /// </remarks>
 /// <param name="Address">The address of the temporary.</param>
 internal sealed record class ArgumentTemporary(MemoryAddress Address) : IBindingHandle
