@@ -394,7 +394,7 @@ internal sealed record class SelectStep(int Offset, int Select, PayloadNode Sele
 internal sealed record class TextSelectStep(int Offset, int Select, TextNode Selector) : CompiledStep(Offset);
 
 // a Case header of a Select Case compiled code compares: its clauses compared in order, the first that matches falling through into its block; none, going
-// to Else - the next Case, the Case Else, or past the Select.
+// to Else: the next Case, the Case Else, or past the Select.
 internal sealed record class CaseStep(int Offset, IReadOnlyList<CaseClause> Clauses, int Else) : CompiledStep(Offset);
 
 // a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made. Each is a CompareNode of a scalar

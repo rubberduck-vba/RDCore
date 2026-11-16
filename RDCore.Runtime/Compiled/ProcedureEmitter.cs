@@ -500,7 +500,8 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
-            // the text, evaluated once: one compiled code reads none of, the interpreter's Select alone, whose selector compiled code then reads back.
+            // a String selector, evaluated once to its text in the local of the Select. Where compiled code cannot evaluate it, the interpreter runs the
+            // Select alone, and compiled code reads back the selector it stashed.
             case TextSelectStep textSelect:
             {
                 var locals = _selects[textSelect.Select];

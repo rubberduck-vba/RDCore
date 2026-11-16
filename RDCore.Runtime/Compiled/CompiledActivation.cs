@@ -1880,6 +1880,6 @@ internal sealed record class CompiledForLoop(int Opener, Symbol Counter, Express
 /// </summary>
 /// <param name="Opener">The offset of its <c>Select</c>, which its selector is stashed by.</param>
 /// <param name="End">The offset right past its block.</param>
-/// <param name="Kind">The kind of its selector; of a String one, none it is compared in.</param>
+/// <param name="Kind">The kind of a scalar selector; <c>default</c> for a String one, which is compared as text.</param>
 /// <param name="IsText">Whether its selector is a String of variable length, which the frame holds as the interpreter stashes it, a value.</param>
 internal sealed record class CompiledSelect(int Opener, int End, ScalarKind Kind, bool IsText = false);

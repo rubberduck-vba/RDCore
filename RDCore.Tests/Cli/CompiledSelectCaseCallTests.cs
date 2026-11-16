@@ -5,9 +5,9 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A call in the selector of a <c>Select Case</c>, or in a value of a <c>Case</c>, made by compiled code: the selector is evaluated once, and the values of
-/// a <c>Case</c> as its clauses are compared, in order, until one matches (MS-VBAL §5.4.2.10). An error after a call is the interpreter's, given what
-/// compiled code evaluated: the call is not made again. A program runs the same either way.
+/// A call in the selector of a <c>Select Case</c>, made by compiled code: the selector is evaluated once each time the <c>Select</c> runs
+/// (MS-VBAL §5.4.2.10). A <c>Case</c> whose values call is the interpreter's, which compares its clauses in order until one matches. An error after a
+/// call is the interpreter's, given what compiled code evaluated: the call is not made again. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledSelectCaseCallTests
@@ -37,7 +37,7 @@ public sealed class CompiledSelectCaseCallTests
     private static void AssertNoneStepped(CompilationResult result)
         => Assert.IsEmpty(result.Stepped, string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
 
-    // the selector a call in an operation: compiled, and the call made once each time the Select runs.
+    // the selector, a call in an operation: compiled, and the call made once each time the Select runs.
     [TestMethod]
     public async Task ASelectorThatCallsAFunction_IsCompiled_AndCalledOnce()
     {
@@ -63,7 +63,7 @@ public sealed class CompiledSelectCaseCallTests
         AssertNoneStepped(result);
     }
 
-    // the selector a Property Get of an object: compiled, and called once each time the Select runs.
+    // the selector, a Property Get of an object: compiled, and called once each time the Select runs.
     [TestMethod]
     public async Task ASelectorThatCallsAMemberOfAnObject_IsCompiled_AndCalledOnce()
     {
