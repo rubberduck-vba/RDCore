@@ -14,7 +14,7 @@ namespace RDCore.Tests.External;
 [SupportedOSPlatform("windows")]
 public sealed class DispatchCallTests
 {
-    // IDispatch, as far as its type information.
+    // IDispatch, declared only as far as its type information: its first two members.
     [ComImport]
     [Guid("00020400-0000-0000-C000-000000000046")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -29,7 +29,7 @@ public sealed class DispatchCallTests
 
     // the runtime keeps one wrapper of a COM object for the whole process, found by the object's address, which another apartment can be given for an object
     // made at that address once the first is gone; when an apartment ends, the wrappers made on it are let go of. A wrapper of the type information that the
-    // call left behind is one that a call on another apartment could be given, and find let go of.
+    // call left behind is one that a call on another apartment could be given, and find already let go of.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ACall_LeavesNoWrapperOfTheTypeInformationOfItsObject()
