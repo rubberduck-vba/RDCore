@@ -42,7 +42,8 @@ namespace RDCore.Tests.Workspace.Forms;
 [TestClass]
 public sealed class VisualBasicFormLanguageTests
 {
-    // the libraries that ship (RDForms' VB, then Symbols/*.json): a VB6 project that lists none references VBRUN and VB, and one may list Microsoft Forms besides.
+    // the libraries that ship (RDForms' VB, then Symbols/*.json): a VB6 project that lists none references VBRUN and VB, and one may list Microsoft
+    // Forms besides.
     private static ModuleWorkspace.WorkspaceLibraries Libraries(params string[] listed)
         => new(listed, RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform);
 
