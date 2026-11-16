@@ -575,12 +575,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         _ => null,
     };
 
-    private readonly Dictionary<SemanticId, VBTypedValue> _foldedConstants = [];
+    // each constant's value, with the expression it was folded from: a module loaded again while the program waits declares the constant anew, by the same
+    // identity, and an edit may have given it another value, which is folded once in its turn.
+    private readonly Dictionary<SemanticId, (ExpressionNode Expression, VBTypedValue Value)> _foldedConstants = [];
     private readonly HashSet<SemanticId> _foldingConstants = [];
 
     /// <summary>
     /// Reduces <paramref name="constantExpression"/> — the constant expression declared by
-    /// <paramref name="owner"/> — to its value, once for the whole run.
+    /// <paramref name="owner"/> — to its value, once each time its module is loaded.
     /// </summary>
     /// <param name="session">The session the expression resolves its own names against.</param>
     /// <param name="owner">The symbol that declares it: a <c>Const</c>, or a parameter with a default.</param>
@@ -813,9 +815,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private RuntimeSemanticsEvaluationResult FoldConstant(IRuntimeSession session, RuntimeEvaluationContext context, Symbol constant, ExpressionNode value)
     {
         var id = constant.SemanticId;
-        if (_foldedConstants.TryGetValue(id, out var folded))
+        if (_foldedConstants.TryGetValue(id, out var folded) && ReferenceEquals(folded.Expression, value))
         {
-            return RuntimeSemanticsEvaluationResult.Success(folded);
+            return RuntimeSemanticsEvaluationResult.Success(folded.Value);
         }
 
         // a constant expression may name another constant, so folding one can fold others; a cycle
@@ -845,7 +847,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             if (result.IsSuccess)
             {
-                _foldedConstants[id] = result.Result!;
+                _foldedConstants[id] = (value, result.Result!);
             }
             return result;
         }
