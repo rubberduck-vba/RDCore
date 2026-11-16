@@ -6,7 +6,8 @@ namespace RDCore.Runtime.Compiled;
 // texts of its arguments, as a method of the runtime.
 internal sealed partial class ProcedureEmitter
 {
-    // the arguments evaluated into locals, a whole number as a long and a Double as a double; then the call. A form that returns a bool and its result in an
+    // the arguments evaluated into locals of the parameters' types (a whole number is held as a long, which an argument that widens narrows from with no
+    // loss); then the call. A form that returns a bool and its result in an
     // out parameter declines with false, which goes to failure: the interpreter makes the call. What it returns is held as a payload of its kind.
     private Operand EmitIntrinsic(IntrinsicNode node, Label failure)
     {
@@ -24,9 +25,18 @@ internal sealed partial class ProcedureEmitter
             var operand = EmitPayload(payload, failure);
             var argument = _il.DeclareLocal(parameters[i].ParameterType);
             Load(operand, payload.Kind);
-            if (parameters[i].ParameterType == typeof(double) && ScalarKinds.IsIntegral(payload.Kind))
+            var type = parameters[i].ParameterType;
+            if (type == typeof(double) && ScalarKinds.IsIntegral(payload.Kind))
             {
                 _il.Emit(OpCodes.Conv_R8);
+            }
+            else if (type == typeof(int))
+            {
+                _il.Emit(OpCodes.Conv_I4);
+            }
+            else if (type == typeof(short))
+            {
+                _il.Emit(OpCodes.Conv_I2);
             }
 
             _il.Emit(OpCodes.Stloc, argument);

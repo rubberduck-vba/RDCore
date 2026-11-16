@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
 using System.Reflection;
@@ -20,56 +21,91 @@ namespace RDCore.Runtime.Compiled;
 // type (MS-VBAL §6.1.2.3.1), as compiled code let-coerces it.
 internal sealed partial class ProcedureAnalysis
 {
+    // a typed form, and for each of its parameters whether the function declares it of a type of its own, which an argument is let-coerced to, rather
+    // than a Variant, which keeps the argument's type.
+    private readonly record struct IntrinsicForm(MethodInfo Method, ImmutableArray<bool> Coerced);
+
     // the typed forms of the library's functions, by the function each is of: the methods of the implementations of the library's modules that carry the
     // attribute.
-    private static readonly ImmutableDictionary<string, ImmutableArray<MethodInfo>> Intrinsics = typeof(StdStrings).Assembly.GetTypes()
+    private static readonly ImmutableDictionary<string, ImmutableArray<IntrinsicForm>> Intrinsics = typeof(StdStrings).Assembly.GetTypes()
         .Where(type => type.Namespace == typeof(StdStrings).Namespace)
         .SelectMany(type => type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
         .Select(method => (Method: method, Intrinsic: method.GetCustomAttribute<StdLibIntrinsicAttribute>()))
         .Where(marked => marked.Intrinsic is not null)
+        .Select(marked => (marked.Method, Declaration: marked.Intrinsic!.Module.GetMethod(marked.Intrinsic.Member)!, marked.Intrinsic.Module))
         .GroupBy(
-            marked => StdLibSymbolReader.ExternalTargetOf(marked.Intrinsic!.Module, marked.Intrinsic.Module.GetMethod(marked.Intrinsic.Member)!),
-            marked => marked.Method)
+            marked => StdLibSymbolReader.ExternalTargetOf(marked.Module, marked.Declaration),
+            marked => new IntrinsicForm(marked.Method,
+                [.. marked.Declaration.GetParameters().Select(parameter => parameter.ParameterType != typeof(VBVariantValue))]))
         .ToImmutableDictionary(group => group.Key, group => group.ToImmutableArray(), StringComparer.Ordinal);
 
     // a call of a function of the library that has a typed form of the types of its arguments, outside an instruction that calls inside an expression: the
     // call of that form. None when the function has none of those types; nothing is refused then, and the call is made as any other.
     private IntrinsicNode? IntrinsicOf(BoundNode node)
     {
-        if (_nesting is not null || node is not BoundCall { Procedure: var function, BoundArguments: { } arguments }
+        // Abs, Int or Fix of an extended intermediate is itself one, computed on its 80 bits (Extended): never a typed form, which is given the argument
+        // stored.
+        if (_nesting is not null || IsExtended(node) || node is not BoundCall { Procedure: var function, BoundArguments: { } arguments }
             || !StandardLibrary.IsLibraryMember(function) || function.GetProperty(SymbolProperties.ExternalTarget) is not { } target
             || !Intrinsics.TryGetValue(target, out var methods))
         {
             return null;
         }
 
-        foreach (var method in methods)
+        foreach (var form in methods)
         {
-            if (ResultKindOf(method) is { } kind && IntrinsicArgumentsOf(method, arguments) is { } values)
+            if (ResultKindOf(form.Method) is { } kind && IntrinsicArgumentsOf(form, arguments) is { } values)
             {
-                return new IntrinsicNode(method, values, kind);
+                return new IntrinsicNode(form.Method, values, kind);
             }
         }
 
         return null;
     }
 
-    // what a typed form returns, of a payload's kind: an int is a Long, a double a Double, whether it is returned or given back in an out parameter.
+    // what a typed form returns, of a payload's kind, whether it is returned or given back in an out parameter.
     private static ScalarKind? ResultKindOf(MethodInfo method)
     {
         var parameters = method.GetParameters();
         var returned = method.ReturnType == typeof(bool) && parameters is [.., { IsOut: true } result]
             ? result.ParameterType.GetElementType()
             : method.ReturnType;
-        return returned == typeof(int) ? ScalarKind.Long : returned == typeof(double) ? ScalarKind.Double : null;
+        return KindOf(returned);
     }
 
-    // the arguments of a call given to a typed form, when each is of the type of its parameter: a String's text for a string; a whole number for a long; a
-    // Double for a double. Each argument is given, by value: the form has no optional parameter.
-    private List<PayloadNode>? IntrinsicArgumentsOf(MethodInfo method, ImmutableArray<BoundArgument> arguments)
+    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double.
+    private static ScalarKind? KindOf(Type? type)
+        => type == typeof(short) ? ScalarKind.Integer
+            : type == typeof(int) ? ScalarKind.Long
+            : type == typeof(long) ? ScalarKind.LongLong
+            : type == typeof(double) ? ScalarKind.Double
+            : null;
+
+    // whether an argument of kind given is let-coerced to a parameter of kind taken with no loss: a whole number to a wider one, or to a Double.
+    private static bool Widens(ScalarKind given, ScalarKind taken) => taken switch
     {
-        var parameters = method.GetParameters().Where(parameter => !parameter.IsOut).ToArray();
-        if (arguments.Length != parameters.Length)
+        ScalarKind.Double => given is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong,
+        ScalarKind.LongLong => given is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long,
+        ScalarKind.Long => given is ScalarKind.Byte or ScalarKind.Integer,
+        ScalarKind.Integer => given is ScalarKind.Byte,
+        _ => false,
+    };
+
+    // the arguments of a call given to a typed form, when each is of the type of its parameter: a String's text for a string, a payload of the parameter's
+    // kind for a number. A parameter the function declares of a type of its own also takes a number that widens to it, as the call would let-coerce it; one
+    // it declares a Variant takes only its own kind, its type being what the function returns. Each argument is given, by value: the form has no optional
+    // parameter, and a function with one has a form for each number of arguments it takes.
+    private List<PayloadNode>? IntrinsicArgumentsOf(IntrinsicForm form, ImmutableArray<BoundArgument> arguments)
+    {
+        // arguments left out at the end are dropped, as a call of the library's binding drops them (LibraryArgumentsOf): Round(D) is the form of one.
+        var count = arguments.Length;
+        while (count > 0 && arguments[count - 1].Passing is ArgumentPassing.Omitted)
+        {
+            count--;
+        }
+
+        var parameters = form.Method.GetParameters().Where(parameter => !parameter.IsOut).ToArray();
+        if (count != parameters.Length || form.Coerced.Length < parameters.Length)
         {
             return null;
         }
@@ -94,8 +130,10 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            var expected = type == typeof(long) ? IsWhole(declared) : type == typeof(double) && declared is VBDoubleType;
-            if (!expected || IsVariant(value) || IsExtended(value) || Payload(value) is not { } payload)
+            // an extended intermediate is given as the call holds it: stored as the expression's type from its 80 bits, which raises what it raises there
+            // (StoreNode), then given as any value of that type.
+            if (KindOf(type) is not { } taken || ScalarKinds.Of(declared) is not { } given || given != taken && !(form.Coerced[i] && Widens(given, taken))
+                || IsVariant(value) || (IsExtended(value) ? PayloadAs(value, given) : Payload(value)) is not { } payload)
             {
                 return null;
             }
@@ -115,6 +153,8 @@ internal sealed partial class ProcedureAnalysis
     private VBType? DeclaredTypeOf(BoundNode value) => _evaluator.DeclaredTypeOf(_session, value.Expression, new RuntimeEvaluationContext(_procedure.Uri));
 
     private static bool IsWhole(VBType declared) => declared is VBByteType or VBIntegerType or VBLongType or VBLongLongType;
+
+    private static bool IsWholeKind(ScalarKind kind) => kind is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong;
 
     // the library's CStr (IStdConversionModule.CStr), by the member the library declares it as.
     private static readonly string CStrFunction
@@ -140,15 +180,16 @@ internal sealed partial class ProcedureAnalysis
         nameof(IStdConversionModule.CByte), nameof(IStdConversionModule.CInt), nameof(IStdConversionModule.CLng), nameof(IStdConversionModule.CLngLng),
         nameof(IStdConversionModule.CSng), nameof(IStdConversionModule.CDbl), nameof(IStdConversionModule.CCur));
 
-    // a conversion to a numeric type of a whole number, or of a value of that type: the value let-coerced to it, as compiled code let-coerces a payload
-    // (Converted), which declines a whole number out of the type's range. None for any other call, and nothing is refused then.
+    // a conversion to a numeric type of a whole number, of a Single or a Double to an integral type, or of a value of that type: the value let-coerced to
+    // it, as compiled code let-coerces a payload (Converted): a whole number out of the type's range declines, and a Single or a Double is rounded half to
+    // even, one out of the range being an overflow (MS-VBAL §5.5.1.2.1). None for any other call, and nothing is refused then.
     private PayloadNode? ConversionOf(BoundCall call)
     {
         if (_nesting is not null || call.Procedure is not VBTypeMemberSymbol function || SoleArgumentOf(call) is not { } argument
             || !IsCompiledLibrary(function) || !NumericConversions.Contains(function.Name) || ScalarKinds.Of(ReturnedType(function)) is not { } to
             || IsVariant(argument) || IsExtended(argument) || DeclaredTypeOf(argument) is not { } declared
             || ScalarKinds.Of(declared) is not { } from
-            || from != to && from is not (ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong)
+            || from != to && !IsWholeKind(from) && !(from is ScalarKind.Single or ScalarKind.Double && IsWholeKind(to))
             || Payload(argument) is not { } payload)
         {
             return null;
