@@ -69,8 +69,8 @@ public sealed partial class CompiledActivation
         var called = _body.Callees[callee];
         if (_executor.Observation is not null || !Frame.TryGetBlockState(opener, out var held)
             || (held is VBVariantValue { TypedValue: var inner } ? inner : held) is not VBObjectValue target || target.IsNothing()
-            || !_session.Symbols.TryGetInstance(target.Value, out var instance)
-            || MemberOf(called, instance.ClassModule) is not { } member || !Takes(called, member))
+            || !TryGetInstance(target.Value, out var instance)
+            || MemberOf(called, instance) is not { } member || !Takes(called, member))
         {
             return false;
         }

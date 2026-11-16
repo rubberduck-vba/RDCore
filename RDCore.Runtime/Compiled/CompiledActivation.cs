@@ -545,8 +545,8 @@ public sealed partial class CompiledActivation : ILightActivation
         (_member, _receiver, _memberInstance) = (null, null, null);
         var called = _body.Callees[callee];
         if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
-            || !_session.Symbols.TryGetInstance(instance, out var target)
-            || MemberOf(called, target.ClassModule) is not { } member || !Takes(called, member))
+            || !TryGetInstance(instance, out var target)
+            || MemberOf(called, target) is not { } member || !Takes(called, member))
         {
             return false;
         }
@@ -555,17 +555,31 @@ public sealed partial class CompiledActivation : ILightActivation
         return true;
     }
 
+    // the instance of the object a member is called on: the one the activation is on when it is called on Me, which the activation holds, as it holds Me.
+    private bool TryGetInstance(VBRuntimeObjectId instance, [NotNullWhen(true)] out IObjectInstance? target)
+    {
+        if (_instance is { } me && me.ObjectId.Equals(instance))
+        {
+            target = me;
+            return true;
+        }
+
+        return _session.Symbols.TryGetInstance(instance, out target);
+    }
+
     // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
     // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
     // one implementing it, of a class that implements that class as an interface. A member of the class whose code runs, named bare, has no site: it is
-    // called on Me, which is of that class. What an object of a class invokes is the same at every call, so the call keeps the last class's (Invoked).
-    private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
+    // called on Me, which is of that class, and whose class is not looked up. What an object of a class invokes is the same at every call, so the call keeps
+    // the last class's (Invoked).
+    private VBTypeMemberSymbol? MemberOf(CompiledCallee called, IObjectInstance target)
     {
         if (called.Site is null)
         {
             return called.Procedure;
         }
 
+        var actual = target.ClassModule;
         if (called.Invoked is { } invoked && ReferenceEquals(invoked.Class, actual))
         {
             return invoked.Member;

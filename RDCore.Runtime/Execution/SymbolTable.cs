@@ -148,8 +148,23 @@ internal sealed class SymbolTable
     {
         _scopeTree = null;
         _modules = null;
-        return TableFor(scope).TryAdd(SymbolIdentity.Of(symbol), symbol);
+        var added = TableFor(scope).TryAdd(SymbolIdentity.Of(symbol), symbol);
+        if (added)
+        {
+            Version++;
+        }
+
+        return added;
     }
+
+    /// <summary>
+    /// The number of changes made to the table: a symbol added, removed, or defined again in place.
+    /// </summary>
+    /// <remarks>
+    /// What is found in the table while the number holds is what was found when it was read, so whatever is found by a lookup can be kept against it
+    /// (<see cref="ObjectInstance.ClassModule"/>). A copy (<see cref="Snapshot"/>) counts its own changes, from none.
+    /// </remarks>
+    public int Version { get; private set; }
 
     /// <summary>
     /// Removes the declaration <paramref name="symbol"/> is from the tier its scope belongs to.
@@ -162,6 +177,7 @@ internal sealed class SymbolTable
         {
             _scopeTree = null;
             _modules = null;
+            Version++;
         }
 
         return removed;
@@ -181,6 +197,7 @@ internal sealed class SymbolTable
         TableFor(scope)[SymbolIdentity.Of(symbol)] = symbol;
         _scopeTree = null;
         _modules = null;
+        Version++;
     }
 
     // one bucket per RD-VBAL §2.3.1.2 heap tier; every scope maps onto exactly one.

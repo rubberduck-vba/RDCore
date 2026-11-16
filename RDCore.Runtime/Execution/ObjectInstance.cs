@@ -36,11 +36,32 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
 
     public VBRuntimeObjectId ObjectId => objectId;
 
-    // a class the table does not declare - the library's, a late-bound server's - is the one the object was created as.
+    // a class the table does not declare - the library's, a late-bound server's - is the one the object was created as. What the table declares is found
+    // again only once the table changed (SymbolTable.Version): a member is called on the object far more often than a module is defined.
     public VBClassModuleSymbol ClassModule
-        => _table is not null && _table.TryGet(classModule, classModule.ScopeKind, out var current) && current is VBClassModuleSymbol declared
-            ? declared
-            : classModule;
+    {
+        get
+        {
+            if (_table is null)
+            {
+                return classModule;
+            }
+
+            if (_declaredClass is { } known && known.Version == _table.Version)
+            {
+                return known.Class;
+            }
+
+            var found = _table.TryGet(classModule, classModule.ScopeKind, out var current) && current is VBClassModuleSymbol declared ? declared : classModule;
+            _declaredClass = new DeclaredClass(_table.Version, found);
+            return found;
+        }
+    }
+
+    // the class the table declared when it was at a version, kept together so a thread that reads them while another replaces them reads a pair.
+    private sealed record class DeclaredClass(int Version, VBClassModuleSymbol Class);
+
+    private DeclaredClass? _declaredClass;
 
     /// <inheritdoc/>
     public IReadOnlyCollection<Symbol> StaticLocals => _staticLocals;
