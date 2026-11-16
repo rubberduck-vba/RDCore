@@ -5,9 +5,9 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A Let of an element whose subscripts call a function (<c>this.State(Position.X, Position.Y) = Hit</c>) is compiled (MS-VBAL §5.4.3.8): each call made
-/// once, in the order the interpreter makes them, a value that calls nothing read after the subscripts. Where the interpreter runs the Let after a call (a subscript
-/// out of range), it is given what was evaluated, and the call is not made again; and so is a Variant's Let whose value reads an element at a subscript
-/// that calls.
+/// once, in the order the interpreter makes them, a value that calls nothing read after the subscripts. Where the interpreter runs the Let after a call
+/// (a subscript out of range), it is given what was evaluated, and the call is not made again; and so is a Variant's Let whose value reads an element at
+/// a subscript that calls.
 /// </summary>
 [TestClass]
 public sealed class CompiledNestedSubscriptCallTests

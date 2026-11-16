@@ -105,8 +105,8 @@ internal sealed partial class ProcedureAnalysis
         };
     }
 
-    // whether a subscript of the element a Let assigns calls (`this.State(Position.X, Position.Y) = Hit`): made after the value is evaluated, as the
-    // interpreter makes it.
+    // whether a subscript of the element a Let assigns calls (`this.State(Position.X, Position.Y) = Hit`): made after a value that calls is evaluated,
+    // and before a value that calls nothing is read, as the interpreter makes it.
     private bool SubscriptsCall(ExpressionNode target)
         => target is IndexExpressionNode && (FieldElementOf(Bind(target)) ?? Bind(target)) is BoundIndex index && index.Arguments.Any(Calls);
 
