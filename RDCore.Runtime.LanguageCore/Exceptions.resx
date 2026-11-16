@@ -333,6 +333,9 @@
   <data name="VBCompileError_DefaultMemberTakesArguments_Verbose" xml:space="preserve">
     <value>A value of {0} is what its default member '{1}' returns, which takes an argument that a value read from the object does not give it.</value>
   </data>
+  <data name="VBCompileError_NamedWithoutItsArguments_Verbose" xml:space="preserve">
+    <value>'{0}' is named without an argument list, which calls it with no arguments; its parameter '{1}' is not optional.</value>
+  </data>
   <data name="VBCompileError_DefaultMemberReturnsAnObject_Verbose" xml:space="preserve">
     <value>A value of {0} is what its default member '{1}' returns, which is an object and not a value of a declared type.</value>
   </data>
