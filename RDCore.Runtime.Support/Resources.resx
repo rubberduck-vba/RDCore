@@ -255,6 +255,16 @@
   <data name="Build_AmbiguousEntryPoint" xml:space="preserve">
     <value>More than one module declares a Sub Main, so the program has more than one place to start: {0}.</value>
   </data>
+  <data name="Build_NamedEntryPointNotFound" xml:space="preserve">
+    <value>No standard module declares {0}, the entry point the project's build section names: the program has nowhere to start.</value>
+  </data>
+  <data name="Build_LibraryNotRun" xml:space="preserve">
+    <value>The project is a library (its build section's outputType), which is not run: it has no entry point.</value>
+  </data>
+  <data name="Build_Refusal" xml:space="preserve">
+    <value>{0} ({1})</value>
+    <comment>Why a program does not run or is not built, on standard error. {0}: the reason; {1}: its diagnostic code (RDC30001).</comment>
+  </data>
   <data name="Run_RuntimeError" xml:space="preserve">
     <value>{0} '{1}': {2} ({3})</value>
     <comment>The unhandled error that stopped a program, on standard error. {0}: the error's title (Run-time error); {1}: its VBA number; {2}: its description; {3}: its diagnostic code.</comment>
