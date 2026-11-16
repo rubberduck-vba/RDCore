@@ -3,8 +3,8 @@ using System.Reflection.Emit;
 namespace RDCore.Runtime.Compiled;
 
 // arrays. Each array parameter or variable compiled code reads is a local holding the cell its frame holds it in, fetched at the entry
-// and again wherever every variable is read back (EmitReload); an element is found in the array that cell holds - kept from one access to the next while
-// nothing can give the variable another array (KeepsArrays) - and one that isn't found - a subscript outside its dimension - is the interpreter's, at the
+// and again wherever every variable is read back (EmitReload); an element is found in the array that cell holds (kept from one access to the next while
+// nothing can give the variable another array: KeepsArrays), and one that is not found (a subscript outside its dimension) is the interpreter's, at the
 // instruction, which raises error 9.
 internal sealed partial class ProcedureEmitter
 {
@@ -134,11 +134,11 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the element a Let writes, found before a value that calls nothing is evaluated, as the interpreter finds it (MS-VBAL §5.4.3.8 evaluates the value
-    // first, as a value that calls is: ElementLetStep), while the value is: the same element read in the value, at subscripts that are the same expressions,
-    // is that cell. Nothing between finds another: the value calls nothing (pure), so no variable a subscript reads changes, and the array is the one the
-    // holder holds. Subscripts are compared as the nodes they are; one made of a list (an element in a subscript) is never
-    // the same, and its element is found again.
+    // the element a Let writes, when its value calls nothing: the cell is found first and the value evaluated after it, after the calls of the subscripts,
+    // as the interpreter evaluates them, where MS-VBAL §5.4.3.8 evaluates the value first (as ElementLetStep does for a value that calls). The same element
+    // read in the value, at subscripts that are the same expressions, is then that cell. Nothing in between finds another array: the value calls nothing
+    // (pure), so no variable a subscript reads changes, and the holder holds the same array. Subscripts are compared as the nodes they are; one made of a
+    // list (an element in a subscript) is never the same, and its element is found again.
     private (int Array, IReadOnlyList<PayloadNode> Subscripts, LocalBuilder Cell)? _found;
 
     private T EmitFoundIn<T>(int array, IReadOnlyList<PayloadNode> subscripts, LocalBuilder cell, bool pure, Func<T> emitValue)
