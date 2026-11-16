@@ -568,7 +568,7 @@ if ($Executables.Count) {
 # third-party source compiled into an RDCore assembly, which no deps.json lists: each with the component whose assembly it is in, and its license.
 #   Microsoft.NET.HostModel/MachO  dotnet/runtime v10.0.0, src/installer/managed/Microsoft.NET.HostModel/MachO (and the two exceptions of
 #                                  AppHost/AppHostExceptions.cs it throws), in RDCore.CLI/App/Build/MachO with its MIT headers: the managed signer
-#                                  rdc build gives its macOS executables their ad-hoc signature with. its LICENSE.TXT is the vendored one, byte for byte.
+#                                  that gives the macOS executables of rdc build their ad-hoc signature. the LICENSE.TXT is dotnet/runtime's, byte for byte.
 $SourceRows = [Collections.Generic.List[object]]::new()
 $CompiledSource = @(
     [pscustomobject]@{ Id = "Microsoft.NET.HostModel/MachO"; Version = "10.0.0"; Component = "RDCore.CLI"; Origin = "dotnet/runtime v10.0.0" }

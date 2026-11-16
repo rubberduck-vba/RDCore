@@ -13,7 +13,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// The executable <c>rdc build</c> writes for macOS carries an ad-hoc code signature, without which Apple Silicon does not run it: one whose code directory
 /// has the hash of each page the file has before it, which the file's <c>LC_CODE_SIGNATURE</c> command points at, inside its <c>__LINKEDIT</c> segment.
-/// The file is read here as macOS reads it, by its layout, apart from the signer that wrote it.
+/// The file is read here as macOS reads it, by its layout, without the signer that wrote it.
 /// </summary>
 [TestClass]
 public sealed class MacOSSignatureTests
