@@ -251,18 +251,130 @@ public sealed class UnusedDeclarationAnalyzerTests
     }
 
     [TestMethod]
-    public async Task AnArray_AnObject_AndAReDim_AreGivenWhatTheyHoldOtherwise()
+    public async Task ADynamicArray_AnObject_AndAReDim_AreGivenWhatTheyHoldOtherwise()
         => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
             "Option Explicit",
             "Public Sub Main()",
-            "    Dim values(2) As Long",
-            "    Debug.Print values(0)",
+            "    Dim values() As Long",
+            "    Debug.Print UBound(values)",
             "    Dim items As Collection",
             "    Debug.Print items Is Nothing",
             "    Dim resized As Variant",
             "    ReDim resized(2)",
             "    Debug.Print resized(0)",
             "End Sub"));
+
+    [TestMethod]
+    [DataRow("    o.MoveNext", DisplayName = "a member call")]
+    [DataRow("    Debug.Print o Is Nothing", DisplayName = "an Is test")]
+    [DataRow("    Dim other As Object\r\n    Set other = o\r\n    Debug.Print other Is Nothing", DisplayName = "a Set from it")]
+    public async Task AnObjectVariableThatNoSetAssigns_IsNotAssigned(string read)
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit", "Public Sub Main()", "    Dim o As Object", read, "End Sub"));
+
+        Assert.AreEqual(RDCoreDiagnosticId.VariableNotAssigned, finding.Id);
+        StringAssert.Contains(finding.Message, "'o'");
+    }
+
+    [TestMethod]
+    public async Task AFixedArrayNoElementOfWhichIsWritten_IsNotAssigned()
+        => StringAssert.Contains(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim totals(1 To 12) As Currency",
+            "    Debug.Print totals(1)",
+            "End Sub")).Message, "'totals'");
+
+    [TestMethod]
+    [DataRow("    totals(3) = 5", DisplayName = "an element assigned")]
+    [DataRow("    Fill totals(3)", DisplayName = "an element passed ByRef")]
+    public async Task AFixedArrayAnElementOfWhichIsWritten_IsAssigned(string write)
+        => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim totals(1 To 12) As Currency",
+            write,
+            "    Debug.Print totals(3)",
+            "End Sub",
+            "Private Sub Fill(ByRef value As Currency)",
+            "    value = 1",
+            "End Sub"));
+
+    [TestMethod]
+    public async Task AReDimOfAnotherProcedure_DoesNotLeaveOutAVariableOfTheSameName()
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim n As Long",
+            "    Debug.Print n",
+            "End Sub",
+            "Public Sub Resize()",
+            "    Dim n() As Long",
+            "    ReDim n(3)",
+            "    Debug.Print n(0)",
+            "End Sub"));
+
+        // the n of Resize is an array, and left out whatever its ReDim: the finding is Main's.
+        StringAssert.Contains(finding.Message, "'n'");
+    }
+
+    [TestMethod]
+    public async Task AnObjectVariableThatASetAssigns_IsAssigned()
+        => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit", "Public Sub Main()", "    Dim o As Object", "    Set o = New Collection", "    Debug.Print o.Count", "End Sub"));
+
+    [TestMethod]
+    [DataRow("    Dim o As Object", "    Debug.Print o Is Nothing", DisplayName = "an object, which only a Set assigns")]
+    [DataRow("    Dim totals(1 To 12) As Currency", "    Debug.Print totals(1)", DisplayName = "a fixed-size array")]
+    public async Task NoFixIsOffered_ForAnObjectOrAnArray(string declaration, string read)
+        => Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit", "Public Sub Main()", declaration, read, "End Sub")).Fixes?.Edits.SingleOrDefault());
+
+    [TestMethod]
+    [DataRow("Dim n As Long", "n = 0", "0", DisplayName = "a Long")]
+    [DataRow("Dim n As Date", "n = #12:00:00 AM#", "0", DisplayName = "a Date")]
+    [DataRow("Dim n As String", "n = vbNullString", "0", DisplayName = "a String, which StrPtr tells from an empty one")]
+    [DataRow("Dim n As Boolean", "n = False", "False", DisplayName = "a Boolean")]
+    [DataRow("Dim n", "n = Empty", "True", DisplayName = "a Variant")]
+    [DataRow("Dim n&", "n = 0", "0", DisplayName = "a type character")]
+    [DataRow("Static n As Long", "n = 0", "0", DisplayName = "a Static local")]
+    public async Task TheFix_AssignsTheDefaultValueAfterTheDeclaration_AndTheProgramPrintsTheSame(string declaration, string assignment, string printed)
+    {
+        // a Date prints in the session's regional settings; its serial number does not.
+        var read = declaration.Contains("String") ? "StrPtr(n)" : declaration.Contains("Date") ? "CDbl(n)" : declaration == "Dim n" ? "IsEmpty(n)" : "n";
+        string[] before = ["Public Sub Main()", $"    {declaration}", $"    Debug.Print {read}", "End Sub"];
+        var program = ModuleWorkspace.StandardModule("Program", before);
+
+        var fix = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), before)).Fixes?.Edits.SingleOrDefault();
+
+        Assert.IsNotNull(fix);
+        var edit = Assert.ContainsSingle(fix.Edits);
+        Assert.AreEqual(new Position(3, 0), edit.Range.Start, "on the line after the declaration");
+        Assert.AreEqual($"    {assignment}\r\n", edit.NewText);
+        var lines = program.Split("\r\n").ToList();
+        lines.Insert(3, $"    {assignment}");
+        var fixedProgram = string.Join("\r\n", lines);
+        CollectionAssert.AreEqual(new[] { printed }, await ModuleWorkspace.RunAsync([], program), "before the fix");
+        CollectionAssert.AreEqual(new[] { printed }, await ModuleWorkspace.RunAsync([], fixedProgram), "after the fix");
+    }
+
+    [TestMethod]
+    [DataRow("Dim s As String * 3", DisplayName = "a fixed-length string, whose default is null characters")]
+    [DataRow("Dim n", "DefLng A-Z", DisplayName = "no As clause where a DefType statement may type it")]
+    public async Task NoFixIsOffered_WhereTheDefaultHasNoLiteral(string declaration, string directive = "")
+    {
+        var name = declaration.Split(' ')[1];
+        string[] lines = [.. directive.Length > 0 ? [directive] : Array.Empty<string>(), "Public Sub Main()", $"    {declaration}", $"    Debug.Print {name}", "End Sub"];
+
+        Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), lines)).Fixes?.Edits.SingleOrDefault());
+    }
+
+    [TestMethod]
+    public async Task NoFixIsOffered_ForAFieldOfTheModule()
+        => Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Private count As Long", "Public Sub Main()", "    Debug.Print count", "End Sub")).Fixes?.Edits.SingleOrDefault());
 
     #endregion
 
@@ -351,6 +463,68 @@ public sealed class UnusedDeclarationAnalyzerTests
         CollectionAssert.AreEqual(new[] { 2 }, Lines(findings));
         AssertAre(findings, RDCoreDiagnosticId.AssignedByValParameter, DiagnosticSeverity.Information);
         StringAssert.Contains(findings[0].Message, "'copy'");
+    }
+
+    // the module with every edit of the fix made, the last one first.
+    private static string WithEdits(string program, EditFix fix)
+    {
+        var lines = program.Split("\r\n");
+        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
+        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
+        {
+            program = program[..OffsetOf(edit.Range.Start)] + edit.NewText + program[OffsetOf(edit.Range.End)..];
+        }
+
+        return program;
+    }
+
+    private static async Task AssertLocalCopyAsync(string[] before, string[] after, string title)
+    {
+        var program = ModuleWorkspace.StandardModule("Program", before);
+        var fix = Assert.ContainsSingle(await ProgramAsync(new AssignedByValParameterAnalyzer(), before)).Fixes?.Edits.SingleOrDefault();
+        Assert.IsNotNull(fix);
+        Assert.AreEqual(title, fix.Title);
+
+        var fixedProgram = WithEdits(program, fix);
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", after), fixedProgram);
+        Assert.IsEmpty(await ProgramAsync(new AssignedByValParameterAnalyzer(), after), "the parameter is no longer assigned");
+        CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
+    }
+
+    [TestMethod]
+    public async Task TheFix_CopiesTheParameterIntoALocal_AndUsesIt()
+        => await AssertLocalCopyAsync(
+            ["Public Sub Main()", "    Debug.Print Twice(3)", "End Sub",
+             "Public Function Twice(ByVal n As Long) As Long", "    n = n * 2", "    Twice = n", "End Function"],
+            ["Public Sub Main()", "    Debug.Print Twice(3)", "End Sub",
+             "Public Function Twice(ByVal n As Long) As Long", "    Dim localN As Long", "    localN = n", "    localN = localN * 2", "    Twice = localN", "End Function"],
+            "Copy 'n' into a local variable 'localN', and use it in place of the parameter");
+
+    [TestMethod]
+    public async Task TheFix_CopiesAnObjectWithSet()
+        => await AssertLocalCopyAsync(
+            ["Public Sub Main()", "    Dim c As New Collection", "    c.Add 1", "    Show c", "End Sub",
+             "Public Sub Show(ByVal items As Collection)", "    Debug.Print items.Count", "    Set items = Nothing", "    Debug.Print items Is Nothing", "End Sub"],
+            ["Public Sub Main()", "    Dim c As New Collection", "    c.Add 1", "    Show c", "End Sub",
+             "Public Sub Show(ByVal items As Collection)", "    Dim localItems As Collection", "    Set localItems = items", "    Debug.Print localItems.Count",
+             "    Set localItems = Nothing", "    Debug.Print localItems Is Nothing", "End Sub"],
+            "Copy 'items' into a local variable 'localItems', and use it in place of the parameter");
+
+    [TestMethod]
+    public async Task TheFix_CopiesAVariant_AsWhatItHolds()
+        => await AssertLocalCopyAsync(
+            ["Public Sub Main()", "    Bump 41", "End Sub",
+             "Public Sub Bump(ByVal v)", "    v = v + 1", "    Debug.Print v", "End Sub"],
+            ["Public Sub Main()", "    Bump 41", "End Sub",
+             "Public Sub Bump(ByVal v)", "    Dim localV As Variant", "    If IsObject(v) Then Set localV = v Else localV = v", "    localV = localV + 1", "    Debug.Print localV", "End Sub"],
+            "Copy 'v' into a local variable 'localV', and use it in place of the parameter");
+
+    [TestMethod]
+    public async Task NoCopyIsOffered_ForAOneLineProcedure()
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new AssignedByValParameterAnalyzer(), "Public Sub Work(ByVal n As Long): n = 1: End Sub"));
+
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault());
     }
 
     #endregion
@@ -511,6 +685,67 @@ public sealed class UnusedDeclarationAnalyzerTests
 
         CollectionAssert.AreEqual(new[] { 1, 5 }, Lines(findings), "Size once, and Width; not Height, which has a Get, nor a Private property");
         AssertAre(findings, RDCoreDiagnosticId.WriteOnlyProperty, DiagnosticSeverity.Information);
+    }
+
+    // the module with every edit of the fix made, the last one first.
+    private static string WithGetter(string module, EditFix fix)
+    {
+        var lines = module.Split("\r\n");
+        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
+        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
+        {
+            module = module[..OffsetOf(edit.Range.Start)] + edit.NewText + module[OffsetOf(edit.Range.End)..];
+        }
+
+        return module;
+    }
+
+    [TestMethod]
+    public async Task TheFix_AddsAGetThatReturnsWhatTheLetIsGiven()
+    {
+        string[] before = ["Option Explicit", "Private mWidth As Long", "Public Property Let Size(ByVal value As Long)", "    mWidth = value * 2", "End Property",
+            "Public Property Get Width() As Long", "    Width = mWidth", "End Property"];
+        var fix = Assert.ContainsSingle(await ClassAsync(new WriteOnlyPropertyAnalyzer(), "Shape", before)).Fixes?.Edits.SingleOrDefault();
+        Assert.IsNotNull(fix);
+        Assert.AreEqual("Add a Property Get 'Size' that returns the value the Let keeps in 'mSize'", fix.Title);
+
+        var shape = ModuleWorkspace.ClassModule("Shape", before);
+        var fixedShape = WithGetter(shape, fix);
+        Assert.AreEqual(ModuleWorkspace.ClassModule("Shape",
+            "Option Explicit", "Private mWidth As Long", "Private mSize As Long", "", "Public Property Let Size(ByVal value As Long)", "    mSize = value", "    mWidth = value * 2",
+            "End Property", "", "Public Property Get Size() As Long", "    Size = mSize", "End Property",
+            "Public Property Get Width() As Long", "    Width = mWidth", "End Property"), fixedShape);
+
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim s As New Shape", "    s.Size = 21", "    Debug.Print s.Width", "End Sub");
+        CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([("Shape", shape)], program), await ModuleWorkspace.RunAsync([("Shape", fixedShape)], program), "the program prints the same");
+        CollectionAssert.AreEqual(new[] { "21" },
+            await ModuleWorkspace.RunAsync([("Shape", fixedShape)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim s As New Shape", "    s.Size = 21", "    Debug.Print s.Size", "End Sub")),
+            "the Get returns what the Let was given");
+    }
+
+    [TestMethod]
+    public async Task NoGetIsAdded_ForAPropertyWithASet_OrWithNoSemantics()
+    {
+        var withSet = Assert.ContainsSingle(await ClassAsync(new WriteOnlyPropertyAnalyzer(), "Holder",
+            "Public Property Let Item(ByVal value As Variant)", "End Property", "Public Property Set Item(ByVal value As Object)", "End Property"));
+        var withoutSemantics = Assert.ContainsSingle(WithoutSemantics(new WriteOnlyPropertyAnalyzer(), "Public Property Let Size(ByVal value As Long)", "End Property"));
+
+        Assert.IsNull(withSet.Fixes?.Edits.SingleOrDefault(), "the variable would keep the object alive");
+        Assert.IsNull(withoutSemantics.Fixes?.Edits.SingleOrDefault(), "whether another module implements the class is not known");
+    }
+
+    [TestMethod]
+    public async Task NoGetIsAdded_ToAClassThatAnotherClassImplements()
+    {
+        var shape = ModuleWorkspace.ClassModule("IShape", "Public Property Let Size(ByVal value As Long)", "End Property");
+        var square = ModuleWorkspace.ClassModule("Square",
+            "Implements IShape", "Private Property Let IShape_Size(ByVal value As Long)", "End Property");
+        var payload = await ModuleWorkspace.SemanticsAsync([("IShape", shape), ("Square", square)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub"));
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "IShape");
+
+        var finding = Assert.ContainsSingle(Run(new WriteOnlyPropertyAnalyzer(), shape, model, new Uri(Path.Combine(ModuleWorkspace.Root, "IShape.cls"))));
+
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault(), "a Get in the interface is a member that Square does not implement");
     }
 
     #endregion

@@ -423,4 +423,179 @@ public sealed class CompiledLibraryCallTests
             "        Parsed = Parsed + CDbl(S)",
             "    Next",
             "End Function"), [], lcid: 1036);
+
+    // MS-VBAL §6.1.2.11.1.19, .23, .25, .30, .17 and .41: Left, Mid, Right, the trims and the cases of a String variable, a literal and a Variant, each in its
+    // $ form, of Strings, joined into a String the procedure writes, and in its Variant form, assigned to a String; Mid with no length.
+    [TestMethod]
+    public async Task AStringFunction_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Cut(\"  RD-VBA  \", \"Ducky\", 2)",
+            "End Sub",
+            "Private Function Cut(ByVal P As String, ByVal V As Variant, ByVal N As Long) As String",
+            "    Dim I As Long, S As String, W As String, R As String",
+            "    S = Trim$(P)",
+            "    For I = 1 To N",
+            "        R = R & Left$(S, I) & \"|\" & Mid$(S, 2, 3) & \"|\" & Right$(S, I) & \"|\" & Mid$(S, 4) & \"|\" & Left$(P & S, 3)",
+            "        R = R & \"[\" & LTrim$(P) & \"][\" & RTrim$(P) & \"]\" & UCase$(S) & LCase$(S) & UCase$(P) & LCase$(\"ABC\") & \";\"",
+            "        W = Left(V, 2)",
+            "        R = R & W",
+            "        W = Mid(S, 4)",
+            "        R = R & W",
+            "        W = RTrim(P)",
+            "        R = R & W",
+            "        W = Trim(P)",
+            "        R = R & W",
+            "        W = LCase(S)",
+            "        R = R & W",
+            "        W = UCase(V)",
+            "        R = R & W",
+            "    Next",
+            "    Cut = R",
+            "End Function"), [("Cut", 0)]);
+
+    // a Variant function of Null returns Null, which no String holds: the interpreter is given the call, and raises 94 (Invalid use of Null) as it assigns
+    // it. Resume Next goes on to the next pass.
+    [TestMethod]
+    public async Task AStringFunctionOfNull_IsTheInterpretersCall()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Cut(Null), Cut(\"abc\")",
+            "End Sub",
+            "Private Function Cut(ByVal V As Variant) As String",
+            "    Dim I As Long, S As String",
+            "    On Error Resume Next",
+            "    For I = 1 To 2",
+            "        S = Left(V, 2)",
+            "        Cut = Cut & S & Err.Number",
+            "    Next",
+            "End Function"), []);
+
+    // MS-VBAL §6.1.2.11.1.8 and §6.1.2.7.1.12: Format$ and Format of a Double, with a format and with none, in the session's regional settings, and
+    // TypeName of a Double, a String, Empty, Null and a Variant holding an object.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    public async Task FormatOrTypeNameOfAValue_IsCalledByCompiledCode(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Written(2, Null, New Collection)",
+            "End Sub",
+            "Private Function Written(ByVal N As Long, ByVal U As Variant, ByVal O As Variant) As String",
+            "    Dim I As Long, D As Double, V As Variant, E As Variant, W As String, R As String",
+            "    For I = 1 To N",
+            "        D = I * 1234.5678",
+            "        V = D",
+            "        R = R & Format$(D, \"0.00\") & \"|\" & Format$(D) & \"|\" & Format$(V, \"#,##0.0\") & \"|\"",
+            "        W = Format(D)",
+            "        R = R & W & TypeName(V) & TypeName(\"x\") & TypeName(E) & TypeName(U) & TypeName(O) & \";\"",
+            "    Next",
+            "    Written = R",
+            "End Function"), [("Written", 0)], lcid: lcid);
+
+    // MS-VBAL §6.1.2.11.1.14 and §6.1.2.11.1.36: InStr from the start and from a position, found and not, and StrComp, each given no Compare argument,
+    // which is then the module's Option Compare (Binary here), or vbTextCompare. Null given to InStr returns Null, the interpreter's call.
+    [TestMethod]
+    public async Task InStrOrStrComp_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Found(\"rd-VBA, rd-vba\", \"VBA\", 2)",
+            "End Sub",
+            "Private Function Found(ByVal S As String, ByVal V As Variant, ByVal N As Long) As Long",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Found = Found * 10 + InStr(S, \"V\") + InStr(4, S, \"vba\") * 100 + InStr(S, \"x\") + InStr(S, V) * 1000",
+            "        Found = Found + StrComp(S, \"rd-vba, rd-vba\") * 10000 + StrComp(S, \"RD-VBA, RD-VBA\", vbTextCompare) * 100000 + StrComp(\"a\", S)",
+            "    Next",
+            "End Function"), [("Found", 0)]);
+
+    // MS-VBAL §6.1.2.11: a Compare argument left out is the Option Compare of the calling module: Text here, so "b" is found in "ABC", and "abc" and "ABC"
+    // compare equal.
+    [TestMethod]
+    public async Task InStrOrStrComp_WithNoCompare_ComparesAsTheModuleSays()
+        => await AssertAlikeAsync(Program(
+            "Option Compare Text",
+            "Public Sub Main()",
+            "    Debug.Print Found(\"ABC\", 2)",
+            "End Sub",
+            "Private Function Found(ByVal S As String, ByVal N As Long) As Long",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Found = Found * 10 + InStr(S, \"b\") + StrComp(S, \"abc\") * 100 + StrComp(S, \"abd\", vbBinaryCompare) * 1000",
+            "    Next",
+            "End Function"), [("Found", 0)]);
+
+    // MS-VBAL §6.1.2.3.1.21, §6.1.2.11.1.1 and §6.1.2.11.1.3: Val of a String variable, a literal and Strings joined, which reads a period as the decimal
+    // separator in any locale, and Asc and AscW of the first character. Asc of an empty String raises 5 at the statement, the interpreter's.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    public async Task ValOrAscOfAString_IsCalledByCompiledCode(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Read(\"12.5kg\", 2)",
+            "    Debug.Print Asc(Blank())",
+            "End Sub",
+            "Private Function Blank() As String",
+            "End Function",
+            "Private Function Read(ByVal S As String, ByVal N As Long) As Double",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Read = Read * 10 + Val(S) + Val(\"&H1F\") + Val(S & \"3\") + Asc(S) + AscW(\"é\") / 1000",
+            "    Next",
+            "End Function"), [("Read", 0)], lcid: lcid);
+
+    // functions of the standard library that keep nothing, side by side in an expression and one given what another returns as a String, call nothing of the
+    // workspace: the statement is compiled as one that calls nothing inside it.
+    [TestMethod]
+    public async Task LibraryCallsSideBySide_AreCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Summed(12)",
+            "End Sub",
+            "Private Function Summed(ByVal N As Long) As Long",
+            "    Dim I As Long, L As Long",
+            "    For I = 1 To N",
+            "        L = L + Len(CStr(I)) + CLng(I) + Len(Left$(CStr(I * 11), 1)) * 100 + CLng(Val(Mid$(CStr(I), 1, 1))) * 1000",
+            "    Next",
+            "    Summed = L",
+            "End Function"), [("Summed", 0)]);
+
+    // MS-VBAL §6.1.2.4.2.2 to §6.1.2.4.2.5: Now, Date, Time and Timer, named with no arguments, qualified or not, each a reading of the session's clock:
+    // what the procedure writes is of their types and of how they relate, which is the same on each run.
+    [TestMethod]
+    public async Task AClockReading_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Read(2)",
+            "End Sub",
+            "Private Function Read(ByVal N As Long) As Long",
+            "    Dim I As Long, T As Date, D As Date, H As Date, S As Single",
+            "    For I = 1 To N",
+            "        T = Now",
+            "        D = Date",
+            "        H = VBA.DateTime.Time",
+            "        S = Timer",
+            "        Read = Read * 1000 - (D <= T) - (H < 1) * 2 - (CDbl(D) = Int(CDbl(D))) * 4 - (S >= 0) * 8 - (S < 86401) * 16 + VarType(Now) * 32 + VarType(Date) * 64",
+            "    Next",
+            "End Function"), [("Read", 0)]);
+
+    // MS-VBAL §6.1.2.4.1.1: DateAdd of days and months to a Date, which the procedure adds up as Dates; an interval it does not know raises 5 at the
+    // statement, the interpreter's call.
+    [TestMethod]
+    public async Task DateAdd_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Format$(Added(3), \"yyyy-mm-dd\")",
+            "    Debug.Print DateAdd(\"zz\", 1, Added(1))",
+            "End Sub",
+            "Private Function Added(ByVal N As Long) As Date",
+            "    Dim I As Long, T As Date",
+            "    T = DateSerial(2026, 1, 31)",
+            "    For I = 1 To N",
+            "        T = DateAdd(\"d\", I, T)",
+            "        T = DateAdd(\"m\", 1, T)",
+            "    Next",
+            "    Added = T",
+            "End Function"), [("Added", 0)]);
 }

@@ -232,6 +232,7 @@ public sealed class VisualBasicFormLanguageTests
     [DataRow("Private Sub Command1_Change()", "Command1_Change", DisplayName = "an event the control's class does not have")]
     [DataRow("Private Sub UserForm_Initialize()", "UserForm_Initialize", DisplayName = "a UserForm's handler")]
     [DataRow("Private Sub Form1_Load()", "Form1_Load", DisplayName = "by the form's own name")]
+    [DataRow("Private Sub Class_Initialize()", "Class_Initialize", DisplayName = "the class lifecycle's, which a form's class does not run")]
     public async Task AProcedureThatOnlyBeginsLikeAHandler_IsAProcedureLikeAnyOther(string declaration, string name)
         => Assert.AreEqual(DeclarationRole.None, await RoleOfAsync(name, Form(declaration, "End Sub")));
 

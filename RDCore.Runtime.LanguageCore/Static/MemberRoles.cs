@@ -12,12 +12,36 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-// MS-VBAL §5.3.1.8, §5.3.1.9
+// MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10
 public static class MemberRoles
 {
-    public static IReadOnlyDictionary<SemanticId, DeclarationRole> Of(VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer)
+    public static IReadOnlyDictionary<SemanticId, DeclarationRole> Of(
+        VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer, DocumentModuleFact? document = null)
     {
         var roles = new Dictionary<SemanticId, DeclarationRole>();
+
+        // the language raises a class's Initialize and Terminate events, which a subroutine with no parameters handles; a form's are the UserForm's, below,
+        // and its Class_Initialize and Class_Terminate never run.
+        if (designer is null)
+        {
+            foreach (var handled in (string[])[ClassLifecycleInterface.InitializeName, ClassLifecycleInterface.TerminateName])
+            {
+                foreach (var handler in module.Members.Where(member => ClassModuleEventSemantics.Matches(member, [])
+                    && string.Equals(member.Name, $"{ClassLifecycleInterface.InterfaceName}_{handled}", StringComparison.OrdinalIgnoreCase)))
+                {
+                    roles.TryAdd(handler.SemanticId, DeclarationRole.EventHandler);
+                }
+            }
+        }
+
+        // a document module handles the events of its host's class by procedures named for that class, as a form does its own.
+        if (document is { HandlerPrefix: { } documentPrefix })
+        {
+            foreach (var handled in document.HostEvents)
+            {
+                Mark(module, $"{documentPrefix}{handled}", DeclarationRole.EventHandler, roles);
+            }
+        }
 
         foreach (var name in module.ImplementedInterfaceNames)
         {
