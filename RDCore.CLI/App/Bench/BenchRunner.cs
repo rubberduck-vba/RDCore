@@ -513,8 +513,7 @@ internal sealed class BenchRunner(
     {
         var times = new List<TimeSpan>(runs);
         var costs = new List<BenchRunCost>(runs);
-        // run -1 is untimed: it warms up what the case calls before the timed runs.
-        for (var run = -1; run < runs; run++)
+        for (var run = 0; run < runs; run++)
         {
             token.ThrowIfCancellationRequested();
 
@@ -541,11 +540,8 @@ internal sealed class BenchRunner(
                 return new BenchCase(name, times, error, costs);
             }
 
-            if (run >= 0)
-            {
-                times.Add(stopwatch.Elapsed);
-                costs.Add(cost);
-            }
+            times.Add(stopwatch.Elapsed);
+            costs.Add(cost);
         }
 
         return new BenchCase(name, times, Costs: costs);
