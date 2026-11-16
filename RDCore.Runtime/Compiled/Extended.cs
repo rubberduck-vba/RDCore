@@ -103,7 +103,7 @@ public readonly struct Extended
     {
         if (left._isDouble && right._isDouble)
         {
-            // Knuth's two-sum: the error of the rounded sum, which is exact when it is zero. It is no number only when one of its operations overflowed.
+            // Knuth's two-sum: the error of the rounded sum, which is exact when it is zero. It is not a number only when one of its operations overflowed.
             var sum = left._double + right._double;
             var virtualRight = sum - left._double;
             var error = (left._double - (sum - virtualRight)) + (right._double - virtualRight);
@@ -271,11 +271,11 @@ public readonly struct Extended
         return Converted(value, kind, out _, out result);
     }
 
-    // whether nearest + error - the Double nearest an operation's result, and its error - rounded to the 64 bits of the extended format, then to a Double, is
-    // nearest. The Doubles either side of nearest are a unit u from it, and the midpoints a half unit; the result is within a half unit of nearest, and the
-    // first rounding moves it by u / 2^12 at most. So a result more than twice that from the midpoint (|error| < u/2 - u/2^11) is rounded to a value on
-    // nearest's side of it, which the second rounding takes to nearest. A power of two has a unit under it half the one over it, and is told apart; so are
-    // values whose half unit is no normal Double, and those whose rounding to 64 bits may reach past the greatest Double.
+    // whether the sum of nearest (the Double nearest an operation's result) and its error, rounded to the 64 bits of the extended format and then to a
+    // Double, is nearest. The Doubles either side of nearest are a unit u from it, and the midpoints a half unit; the result is within a half unit of
+    // nearest, and the first rounding moves it by u / 2^12 at most. So a result more than twice that from the midpoint (|error| < u/2 - u/2^11) is rounded
+    // to a value on nearest's side of it, which the second rounding takes to nearest. A power of two has a unit under it half the one over it, and is told
+    // apart; so are values whose half unit is not a normal Double, and those whose rounding to 64 bits may reach past the greatest Double.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsStoredAsNearest(double nearest, double error)
     {
