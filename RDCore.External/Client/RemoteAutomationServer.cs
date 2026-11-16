@@ -130,7 +130,8 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     // as for the servers: an external host that cannot be started is not a machine with no forms, and the program that shows one is told it could not be started.
     bool Forms.IFormHost.IsAvailable => !_host.TryConnect(out var incarnation) || incarnation!.IsFormHostAvailable;
 
-    // and the New of a Visual Basic 6.0 form's class is let through to the form's creation, which says so.
+    // and so is a host that hosts Visual Basic 6.0 forms: the New of such a form's class goes on to the form's creation, which says the host could not be
+    // started.
     bool Forms.IFormHost.HostsVisualBasic6Forms => !_host.TryConnect(out var incarnation) || incarnation!.HostsVisualBasic6Forms;
 
     /// <inheritdoc/>
