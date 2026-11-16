@@ -108,6 +108,7 @@ public enum RDCoreDiagnosticId
     ConstantNotUsed = 1015, // a constant of a procedure nothing refers to
     LineLabelNotUsed = 1016, // a line label nothing jumps to
     WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
+    KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,

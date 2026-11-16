@@ -537,6 +537,9 @@
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Nothing jumps to line label &apos;{0}&apos;.</value>
   </data>
+  <data name="KeywordUsedAsMemberName_Message" xml:space="preserve">
+    <value>Member &apos;{0}&apos; is named with a keyword of the language: code that uses it reads like the keyword. Give it a name that is not one.</value>
+  </data>
   <data name="WriteOnlyProperty_Message" xml:space="preserve">
     <value>Property &apos;{0}&apos; has no Property Get: it can be assigned and never read.</value>
   </data>

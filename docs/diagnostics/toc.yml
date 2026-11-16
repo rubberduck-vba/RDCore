@@ -530,6 +530,8 @@
   href: rdc01016.md
 - name: "RDC01017: Write-only property"
   href: rdc01017.md
+- name: "RDC01018: Keyword used as a member name"
+  href: rdc01018.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"

@@ -101,6 +101,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC01015`](../diagnostics/rdc01015.md)|Constant not used|Information|the host's reference counts of a constant: no read, no argument; a `Public` constant has no count|
 |[`RDC01016`](../diagnostics/rdc01016.md)|Line label not used|Information|the syntax tree: a `LineLabelNode` that no `GoTo`, `GoSub`, `Resume` or `On Error GoTo` of its procedure names; line numbers are not reported|
 |[`RDC01017`](../diagnostics/rdc01017.md)|Write-only property|Information|the syntax tree: a `Public`, `Global` or implicitly public `Property Let`/`Set` with no `Property Get` of its name; once per name|
+|[`RDC01018`](../diagnostics/rdc01018.md)|Keyword used as a member name|Information|the names the syntax tree declares: an Enum member or a member of a user-defined type that `VBIdentifier.IsReserved`, in brackets or not; a name `RDC11033` or `RDC11034` reports is left to them|
 |[`RDC11005`](../diagnostics/rdc11005.md)|Bitwise operator|Hint|`ProcedureSemanticModel.Runtime`: `LogicalOperatorSemanticFlags.IsBitwiseSemantics` of the `LogicalOperatorFact`s|
 |[`RDC11006`](../diagnostics/rdc11006.md)|Ambiguous concatenation|Information|`ProcedureSemanticModel.Runtime`: `ArithmeticOperatorSemanticFlags.VBStringEffectiveType` of the `ArithmeticOperatorFact`s of `+`|
 |[`RDC11011`](../diagnostics/rdc11011.md)|Variant number compared with a Variant String|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantStringNumericException` of the `ComparisonOperatorFact`s|
