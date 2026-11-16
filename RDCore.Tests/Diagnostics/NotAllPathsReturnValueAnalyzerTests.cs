@@ -110,8 +110,8 @@ public sealed class NotAllPathsReturnValueAnalyzerTests
     [TestMethod]
     public async Task AnEmptyPrivateFunctionOfAClassThatAModuleImplements_IsInNoInterface()
         => StringAssert.Contains(
-            Assert.ContainsSingle(await FindInClassAsync(true, "Public Function Area() As Long", "End Function", "Private Function Scale() As Long", "End Function")).Message,
-            "'Scale'");
+            Assert.ContainsSingle(await FindInClassAsync(true, "Public Function Area() As Long", "End Function", "Private Function Factor() As Long", "End Function")).Message,
+            "'Factor'");
 
     [TestMethod]
     public async Task WithNoFactsFromTheHost_TheAnalyzerWillNotGuess()
