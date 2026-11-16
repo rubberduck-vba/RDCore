@@ -37,7 +37,7 @@ A `Single` or a `Double` assigned to a variable of an integer type, or given to 
 (MS-VBAL §5.5.1.2.1, §5.5.1.2.1.1): `L = 2.5` makes `L` 2 and `L = 3.5` makes it 4, as the interpreter rounds them. The range of the type is checked on
 the whole number the value rounds to, so an `Integer` can be given 32767.4 and -32768.5. A value past the range is given to the interpreter, which raises
 error 6 (Overflow). The operands of `\`, `Mod`, the logical operators, and the value of a `Case` compared with a selector of an integer type are rounded
-the same way.
+the same way ([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md#the-value-of-a-clause-is-converted-to-the-selectors-type)).
 
 When a procedure is compiled, the compiler also guesses the type each of its `Variant`s holds. The guess comes from what the procedure assigns the
 `Variant` and from the type a `For` loop of a `Variant` counter counts in. For `S = 0#` and then `S = S + I` with `I` an `Integer`, it guesses `Double`. An
