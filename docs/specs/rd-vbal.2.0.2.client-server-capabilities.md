@@ -465,7 +465,7 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The new name is one that MS-VBAL §5.2.3.3 or §5.2.3.4 does not allow for a `Type` or an `Enum`|Two types, or a type and a module, would have one name.|
 |The symbol is a module, and the new name is one MS-VBAL §4.2 does not allow: longer than 31 characters, or the name of another module, a `Public` type or a project|Two modules, or a module and a type, would have one name.|
 |The symbol is a document module|Its document names it, and would not be renamed with it.|
-|The symbol is the workspace's project, and the new name is that of one of its modules, of a `Public` `Type` or `Enum` of it, or of a project it references|A qualifier with the new name would mean the module or the other project. No `Public` `Type` or `Enum` is named as a project (**MS-VBAL §5.2.3.3**, **§5.2.3.4**).|
+|The symbol is the workspace's project, and the new name is that of one of its modules, of a project it references, or of a `Public` `Type` or `Enum` of the project or of one it references|A qualifier with the new name would mean the module or the other project. No `Public` `Type` or `Enum` is named as a project (**MS-VBAL §5.2.3.3**, **§5.2.3.4**).|
 |The symbol is a form's control|Its designer names it, and would not be renamed with it.|
 |The symbol is a procedure that handles an event of its own class or form (`Class_Initialize`, `UserForm_Click`) or of a control, or a procedure of a document module|It is named after the event it handles.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|

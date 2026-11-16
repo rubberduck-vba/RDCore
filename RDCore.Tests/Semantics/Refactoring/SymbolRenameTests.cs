@@ -1370,6 +1370,18 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
+    public void AProject_IsNotRenamedTo_TheNameOfAPublicTypeOfALibraryItReferences()
+    {
+        // MS-VBAL §5.2.3.4: VbMsgBoxStyle is a Public Enum of the standard library.
+        var standardLibrary = new LibrarySymbolProvider(Root, ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols();
+        var context = ComposeReferencing([.. standardLibrary], Qualified, projectName: "Billing");
+
+        var plan = Rename(context, "Main", "Billing.Tools.Go", "Billing", "VbMsgBoxStyle");
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, plan.Refusal?.Kind);
+    }
+
+    [TestMethod]
     public void AProject_IsRenamedTo_TheNameOfAPrivateTypeOfIt()
     {
         var context = ComposeReferencing([], [.. Qualified, ("Shapes", Module("Shapes", "Private Enum Size", "    Small = 1", "End Enum"))], projectName: "Billing");

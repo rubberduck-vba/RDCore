@@ -935,7 +935,7 @@ public static class SymbolRename
 
     // MS-VBAL §5.6.12: the workspace's project is renamed where its name qualifies a module or a type (Billing.Tools.Go), and in its project file. The new
     // name is not that of a module of the project, nor of a library it references, which the same qualifier would mean. MS-VBAL §5.2.3.3, §5.2.3.4: nor is it
-    // that of a Public Type or Enum of the project.
+    // that of a Public Type or Enum of the project or of a library it references.
     private static RenamePlan PlanProject(RenameContext context, Symbol project, string newName)
     {
         if (context.Modules.FirstOrDefault(module => string.Equals(SymbolUri.ModuleNameOf(module.Module), newName, StringComparison.OrdinalIgnoreCase)) is { } named)
@@ -952,10 +952,18 @@ public static class SymbolRename
             }
         }
 
-        if (context.Modules.FirstOrDefault() is { } any
-            && context.Resolver.ResolveValue(newName, ScopeKind.Local, any.Module).Symbol is VBProjectSymbol library)
+        if (context.Modules.FirstOrDefault() is { } any)
         {
-            return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(library), any.Module, default));
+            if (context.Resolver.ResolveValue(newName, ScopeKind.Local, any.Module).Symbol is VBProjectSymbol library)
+            {
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(library), any.Module, default));
+            }
+
+            // the type a module of the project means by the name: one of a library it references, the project's own being found above.
+            if (context.Resolver.ResolveType(newName, ScopeKind.Local, any.Module).Symbol is { } referenced && IsUserType(referenced) && IsPublic(referenced))
+            {
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(referenced), any.Module, default));
+            }
         }
 
         var qualifiers = NameOccurrences.Find(context, project.Name, context.Modules).Occurrences
