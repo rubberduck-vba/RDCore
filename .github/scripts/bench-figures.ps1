@@ -1,9 +1,10 @@
 # The figures of the bench job: from the reports of bench-rounds.ps1 and the MS-VBA reference run (RDCore.CLI/Bench/Reference/msvba.json), each case's
 # ratio of RD-VBA's time to MS-VBA's, live: the reference run's ratio, scaled by how the merged commit's fastest run compares with the reference commit's on
-# this machine (ratio = rdvba / msvba * merged / reference). Writes a shields.io endpoint file per case (bench-<case>.json), the median and the worst of
-# each group (bench-<group>-median.json, bench-<group>-worst.json), and bench.json with every figure. The Excel automation cases are the reference run's
-# own figures: no Excel runs here. A case added since the reference run has its time on this machine and no ratio, and is in no group's figures; a case
-# the merged commit no longer has is left out. A case that failed, or a report with no case in it, fails the script.
+# this machine (ratio = rdvba / msvba * merged / reference). Writes a shields.io endpoint file per case (bench-<case>.json), the fastest case, the median
+# and the slowest case of each group (bench-<group>-best.json, bench-<group>-median.json, bench-<group>-worst.json), and bench.json with every figure. The
+# Excel automation cases are the reference run's own figures: no Excel runs here. A case added since the reference run has its time on this machine and no
+# ratio, and is in no group's figures; a case the merged commit no longer has is left out. A case that failed, or a report with no case in it, fails the
+# script.
 param(
     [Parameter(Mandatory)][string]$Runs,
     [Parameter(Mandatory)][string]$ReferenceData,
@@ -95,14 +96,24 @@ function Get-Median([double[]]$values) {
     ($sorted[$middle - 1] + $sorted[$middle]) / 2
 }
 
-# the median and the worst of a group's cases, as two badges and a row of bench.json.
+# a case in a group's badge: its ratio and its name, without the module and the Bench prefix.
+function Format-GroupCase([object]$case) {
+    "$(Format-Ratio $case.ratio) $(($case.name -split '\.', 2)[1] -replace '^Bench', '')"
+}
+
+# the fastest case, the median and the slowest case of a group, as three badges and a row of bench.json. Cases of the same ratio go by name.
 function Add-Group([string]$title, [string]$slug, [object[]]$cases, [string]$label) {
     $median = Get-Median ($cases | ForEach-Object ratio)
-    $worst = $cases | Sort-Object ratio -Descending | Select-Object -First 1
-    $worstName = ($worst.name -split '\.', 2)[1] -replace '^Bench', ''
+    $ranked = @($cases | Sort-Object ratio, name)
+    $best = $ranked[0]
+    $worst = $ranked[-1]
+    Write-Badge "bench-$slug-best" $label (Format-GroupCase $best) (Get-Color $best.ratio)
     Write-Badge "bench-$slug-median" $label (Format-Ratio $median) (Get-Color $median)
-    Write-Badge "bench-$slug-worst" $label "$(Format-Ratio $worst.ratio) $worstName" (Get-Color $worst.ratio)
-    [ordered]@{ name = $title; cases = $cases.Count; median = [Math]::Round($median, 2); worst = [ordered]@{ case = $worst.name; ratio = $worst.ratio } }
+    Write-Badge "bench-$slug-worst" $label (Format-GroupCase $worst) (Get-Color $worst.ratio)
+    [ordered]@{
+        name = $title; cases = $cases.Count; best = [ordered]@{ case = $best.name; ratio = $best.ratio }; median = [Math]::Round($median, 2)
+        worst = [ordered]@{ case = $worst.name; ratio = $worst.ratio }
+    }
 }
 
 $data = Get-Content -Raw -Path $ReferenceData | ConvertFrom-Json
@@ -166,4 +177,6 @@ $figures = [ordered]@{
     cases = $cases + $excel
 }
 $figures | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $Out 'bench.json') -Encoding utf8NoBOM
-$summary | ForEach-Object { Write-Host ("{0,-20} {1,3} cases  median {2,6}  worst {3} {4}" -f $_.name, $_.cases, $_.median, $_.worst.ratio, $_.worst.case) }
+$summary | ForEach-Object {
+    Write-Host ("{0,-24} {1,3} cases  fastest {2} {3}  median {4,6}  slowest {5} {6}" -f $_.name, $_.cases, $_.best.ratio, $_.best.case, $_.median, $_.worst.ratio, $_.worst.case)
+}
