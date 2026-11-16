@@ -182,8 +182,9 @@ internal sealed record class ConstantNode(ScalarKind Kind, long Integral, double
 // PayloadOperations.Convert: an exact conversion, or a floating-point number's to an integer type, by Banker's rounding.
 internal sealed record class ConvertNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
 
-// PayloadOperations.Add, Subtract, Multiply, IntegerDivide, Modulo, of an integral kind.
-internal sealed record class IntegralNode(string Token, PayloadNode Left, PayloadNode Right, ScalarKind Kind) : PayloadNode(Kind);
+// PayloadOperations.Add, Subtract, Multiply, IntegerDivide, Modulo, of an integral kind; Site is the number of the operation's expression among the body's
+// (ProcedureAnalysis.ArithmeticSites), where the error the operation raises is raised.
+internal sealed record class IntegralNode(string Token, PayloadNode Left, PayloadNode Right, ScalarKind Kind, int Site) : PayloadNode(Kind);
 
 // PayloadOperations.Logical.
 internal sealed record class LogicalNode(LogicalOperator Operator, PayloadNode Left, PayloadNode Right, ScalarKind Kind) : PayloadNode(Kind);
@@ -197,8 +198,9 @@ internal sealed record class NotNode(PayloadNode Operand, ScalarKind Kind) : Pay
 // PayloadOperations.Negate; of a constant expression, PayloadOperations.NegateConstant.
 internal sealed record class NegateNode(PayloadNode Operand, ScalarKind Kind, bool OfAConstantExpression = false) : PayloadNode(Kind);
 
-// an extended intermediate converted to a kind: Extended.ToFloating, Extended.ToIntegral.
-internal sealed record class StoreNode(ExtendedNode Value, ScalarKind Kind) : PayloadNode(Kind);
+// an extended intermediate converted to a kind: Extended.ToFloating, Extended.ToIntegral; Site is the number of its expression among the body's
+// (ProcedureAnalysis.ArithmeticSites), where the error the conversion raises is raised.
+internal sealed record class StoreNode(ExtendedNode Value, ScalarKind Kind, int Site) : PayloadNode(Kind);
 
 // Extended.Compare, of a floating-point effective type: a Boolean.
 internal sealed record class ExtendedCompareNode(ComparisonOperator Operator, ExtendedNode Left, ExtendedNode Right, ScalarKind Effective) : PayloadNode(ScalarKind.Boolean);

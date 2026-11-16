@@ -1927,6 +1927,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public IReadOnlyList<CompiledMemberField> MemberFields { get; init; } = [];
 
     /// <summary>
+    /// Where each integral operation of the body is written, by the number compiled code knows it by (<see cref="ProcedureAnalysis.ArithmeticSites"/>).
+    /// </summary>
+    public IReadOnlyList<SDK.Model.Source.SourceLocation> ArithmeticSites { get; init; } = [];
+
+    /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -
     /// under that mode every instruction boundary is one. It is chosen from the body's name, how many activations of it came before, and the seed
     /// (<see cref="CompiledExecution.WalkBackSeed"/>), so that a run can be replayed whatever else runs beside it; and from 1 to 3,969 (a 5-bit count
@@ -1989,6 +1994,16 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long Recoveries => Interlocked.Read(ref _recovered);
 
     internal void CountRecovered() => Interlocked.Increment(ref _recovered);
+
+    private long _raised;
+
+    /// <summary>
+    /// How many errors an operation compiled code evaluated found and gave to the interpreter, which did not evaluate the instruction again to find them
+    /// (<see cref="CompiledActivation.RaiseArithmetic"/>).
+    /// </summary>
+    public long RaisedErrors => Interlocked.Read(ref _raised);
+
+    internal void CountRaised() => Interlocked.Increment(ref _raised);
 
     private readonly TaskCompletionSource _looked = new(TaskCreationOptions.RunContinuationsAsynchronously);
 

@@ -320,7 +320,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         {
             Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
             Classes = analysis.Classes, News = analysis.News, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
-            Libraries = analysis.Libraries,
+            Libraries = analysis.Libraries, ArithmeticSites = analysis.ArithmeticSites,
         };
 
         // a call the body makes of itself is of the body just made.
