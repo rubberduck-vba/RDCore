@@ -20,6 +20,14 @@ namespace RDCore.Runtime.Compiled;
 /// <c>Double</c> holds exactly, is computed in the extended format (<see cref="Float80"/>), and so is everything computed from it.
 /// </para>
 /// <para>
+/// A sum, a difference or a product of two of them that is not exact is kept as the <c>Double</c> nearest it and the error of that <c>Double</c>, which
+/// add up to it exactly (Knuth's two-sum, the fused multiply-add). Its value is that sum rounded to the 64 bits of the extended format, and stored as a
+/// <c>Double</c> or a <c>Date</c> it is rounded a second time, to 53 bits: that gives the nearest <c>Double</c> unless the first rounding lands on a
+/// midpoint between two <c>Double</c>s, which the second rounds to even. So it is stored as the nearest <c>Double</c> when the result is farther from such
+/// a midpoint than the first rounding can move it, and that <c>Double</c> is a normal number whose neighbors are as far from it on either side (no power
+/// of two); any other store, and anything computed from it, goes through the extended format.
+/// </para>
+/// <para>
 /// The exceptions the operations signal are pending until the value is stored, as they are of an x87's: storing it then raises the error they are.
 /// </para>
 /// </remarks>
@@ -31,7 +39,16 @@ public readonly struct Extended
     // 2^53: every integer of this magnitude or less is a Double.
     private const long GreatestExactInteger = 1L << 53;
 
+    // the biased exponents of the Doubles a sum of the nearest Double and its error is stored as without the extended format: 2^-968 (whose half unit is
+    // a normal Double) to under 2^1023.
+    private const int LeastStoredExponent = 55;
+    private const int GreatestStoredExponent = 2045;
+
+    private const long FractionBits = (1L << 52) - 1;
+
+    // a value is one of three: a Double exactly (_isDouble); the sum of a Double and its error, which is not zero (_low); or a value of the extended format.
     private readonly double _double;
+    private readonly double _low;
     private readonly Float80 _value;
     private readonly bool _isDouble;
     private readonly FloatingPointExceptions _pending;
@@ -43,14 +60,24 @@ public readonly struct Extended
         _pending = pending;
     }
 
+    private Extended(double nearest, double error, FloatingPointExceptions pending)
+    {
+        _double = nearest;
+        _low = error;
+        _pending = pending;
+    }
+
     private Extended(Float80 value, FloatingPointExceptions pending)
     {
         _value = value;
         _pending = pending;
     }
 
-    // the value, in the extended format.
-    private Float80 Wide => _isDouble ? Float80.FromDouble(_double) : _value;
+    // the value, in the extended format: the sum of a Double and its error rounded to 64 bits, as the operation that gave them would have.
+    private Float80 Wide => _isDouble ? Float80.FromDouble(_double) : _low != 0 ? WideSum(_double, _low) : _value;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static Float80 WideSum(double nearest, double error) => Float80.Add(Float80.FromDouble(nearest), Float80.FromDouble(error), out _);
 
     /// <summary>
     /// The value of a payload of an integral kind, exactly: a <c>Currency</c> is its ten-thousandths divided by 10,000, rounded once.
@@ -76,13 +103,13 @@ public readonly struct Extended
     {
         if (left._isDouble && right._isDouble)
         {
-            // Knuth's two-sum: the error of the rounded sum, which is exact when it is zero.
+            // Knuth's two-sum: the error of the rounded sum, which is exact when it is zero. It is not a number only when one of its operations overflowed.
             var sum = left._double + right._double;
             var virtualRight = sum - left._double;
             var error = (left._double - (sum - virtualRight)) + (right._double - virtualRight);
-            if (error == 0 && double.IsFinite(sum))
+            if (double.IsFinite(sum) && double.IsFinite(error))
             {
-                return new Extended(sum, left._pending | right._pending);
+                return error == 0 ? new Extended(sum, left._pending | right._pending) : new Extended(sum, error, left._pending | right._pending);
             }
         }
 
@@ -95,14 +122,15 @@ public readonly struct Extended
     {
         if (left._isDouble && right._isDouble)
         {
-            // the two-sum of left and -right, which is the difference exactly.
+            // the two-sum of left and -right: the rounded difference and its error.
             var negated = -right._double;
             var difference = left._double + negated;
             var virtualRight = difference - left._double;
             var error = (left._double - (difference - virtualRight)) + (negated - virtualRight);
-            if (error == 0 && double.IsFinite(difference))
+            if (double.IsFinite(difference) && double.IsFinite(error))
             {
-                return new Extended(difference, left._pending | right._pending);
+                return error == 0 ? new Extended(difference, left._pending | right._pending)
+                    : new Extended(difference, error, left._pending | right._pending);
             }
         }
 
@@ -116,10 +144,11 @@ public readonly struct Extended
         if (left._isDouble && right._isDouble)
         {
             var product = left._double * right._double;
-            if (product == 0 ? left._double == 0 || right._double == 0
-                : double.IsFinite(product) && Math.Abs(product) >= LeastCheckedMagnitude && Math.FusedMultiplyAdd(left._double, right._double, -product) == 0)
+            if (product == 0 ? left._double == 0 || right._double == 0 : double.IsFinite(product) && Math.Abs(product) >= LeastCheckedMagnitude)
             {
-                return new Extended(product, left._pending | right._pending);
+                // the error of the rounded product, exactly: a Double at this magnitude.
+                var error = product == 0 ? 0 : Math.FusedMultiplyAdd(left._double, right._double, -product);
+                return error == 0 ? new Extended(product, left._pending | right._pending) : new Extended(product, error, left._pending | right._pending);
             }
         }
 
@@ -182,7 +211,9 @@ public readonly struct Extended
     /// <summary><c>-operand</c>, which signals nothing.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Extended Negate(Extended operand)
-        => operand._isDouble ? new Extended(-operand._double, operand._pending) : new Extended(operand._value.Negate(), operand._pending);
+        => operand._isDouble ? new Extended(-operand._double, operand._pending)
+            : operand._low != 0 ? new Extended(-operand._double, -operand._low, operand._pending)
+            : new Extended(operand._value.Negate(), operand._pending);
 
     /// <summary>
     /// <c>Abs</c>, <c>Int</c>, <c>Fix</c>, <c>CDbl</c> or <c>CSng</c> of an extended value, computed on its 80 bits as MS-VBA computes them
@@ -221,7 +252,8 @@ public readonly struct Extended
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PayloadStatus ToFloating(Extended value, ScalarKind kind, out double result)
     {
-        if (value._isDouble && value._pending is FloatingPointExceptions.None)
+        if (value._pending is FloatingPointExceptions.None
+            && (value._isDouble || value._low != 0 && kind is not ScalarKind.Single && IsStoredAsNearest(value._double, value._low)))
         {
             result = value._double;
             switch (kind)
@@ -237,6 +269,26 @@ public readonly struct Extended
         }
 
         return Converted(value, kind, out _, out result);
+    }
+
+    // whether the sum of nearest (the Double nearest an operation's result) and its error, rounded to the 64 bits of the extended format and then to a
+    // Double, is nearest. The Doubles either side of nearest are a unit u from it, and the midpoints a half unit; the result is within a half unit of
+    // nearest, and the first rounding moves it by u / 2^12 at most. So a result more than twice that from the midpoint (|error| < u/2 - u/2^11) is rounded
+    // to a value on nearest's side of it, which the second rounding takes to nearest. A power of two has a unit under it half the one over it, and is told
+    // apart; so are values whose half unit is not a normal Double, and those whose rounding to 64 bits may reach past the greatest Double.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsStoredAsNearest(double nearest, double error)
+    {
+        var bits = BitConverter.DoubleToInt64Bits(nearest) & long.MaxValue;
+        var exponent = (int)(bits >> 52);
+        if (exponent is < LeastStoredExponent or > GreatestStoredExponent || (bits & FractionBits) == 0)
+        {
+            return false;
+        }
+
+        // half a unit of nearest, 2^(exponent - 1076): a Double whose biased exponent is exponent - 53, and its product with 1 - 2^-10 exact.
+        var halfUnit = BitConverter.Int64BitsToDouble((long)(exponent - 53) << 52);
+        return Math.Abs(error) < halfUnit * (1 - 1.0 / 1024);
     }
 
     /// <summary>
