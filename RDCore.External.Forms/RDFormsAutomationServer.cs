@@ -98,6 +98,15 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return Invoke(assigned, DefaultMemberName, invocation, arguments, byReference, culture);
             }
 
+            // a property the form's window answers, whose value its control holds, or which takes arguments: a ListBox's ListIndex and List(Index). It comes
+            // before the model's property of the same name (a ListBox's List), which is the designer's.
+            if (component.Class.Method(member) is { IsProperty: true } answered)
+            {
+                return invocation is AutomationInvocation.Let or AutomationInvocation.Set
+                    ? AssignThroughWindow(handle, answered, arguments, culture)
+                    : Call(handle, answered, arguments, culture);
+            }
+
             if (RDFormsGraphics.TryInvoke(component, member, invocation, arguments, culture, out var drawn))
             {
                 return drawn;
@@ -169,26 +178,54 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     }
 
     // a method runs on the form's window, which checks the arguments as VB6 does and raises what the method raises. An argument left out is none, and one for a
-    // typed parameter is let-coerced to its type first, as a typed parameter's argument is before the call.
+    // typed parameter is let-coerced to its type first, as a typed parameter's argument is before the call. A property the window answers is read the same way,
+    // and returns its value.
     private static object? Call(RDFormsObject handle, MethodDefinition method, object?[] arguments, CultureInfo culture)
     {
-        var given = new FormValue?[arguments.Length];
-        for (var index = 0; index < arguments.Length; index++)
-        {
-            given[index] = arguments[index] is System.Reflection.Missing
-                ? null
-                : RDFormsValues.ArgumentOf(arguments[index], index < method.Parameters.Count ? method.Parameters[index] : null, culture);
-        }
-
+        var given = ArgumentsOf(method, arguments, arguments.Length, culture);
         try
         {
-            _ = handle.Form.Window.Invoke(handle.Component, method, given, handle.Form.Unit);
+            var result = handle.Form.Window.Invoke(handle.Component, method, given, handle.Form.Unit);
+            return RDFormsValues.ToNeutral(result, handle.Form.HandleOf);
+        }
+        catch (FormErrorException exception)
+        {
+            throw FormFailure(exception.Error);
+        }
+    }
+
+    // a property the form's window answers, assigned: its arguments come first, and the value last, let-coerced to the property's type (List(0) = 5 assigns "5").
+    private static object? AssignThroughWindow(RDFormsObject handle, MethodDefinition property, object?[] arguments, CultureInfo culture)
+    {
+        if (arguments.Length == 0)
+        {
+            throw new AutomationException(BadParameterCount, $"{handle}.{property.Name} is assigned no value.");
+        }
+
+        var given = ArgumentsOf(property, arguments, arguments.Length - 1, culture);
+        var value = RDFormsValues.ArgumentOf(arguments[^1], property.Value, culture);
+        try
+        {
+            handle.Form.Window.Assign(handle.Component, property, given, value);
             return null;
         }
         catch (FormErrorException exception)
         {
             throw FormFailure(exception.Error);
         }
+    }
+
+    private static FormValue?[] ArgumentsOf(MethodDefinition method, object?[] arguments, int count, CultureInfo culture)
+    {
+        var given = new FormValue?[count];
+        for (var index = 0; index < count; index++)
+        {
+            given[index] = arguments[index] is System.Reflection.Missing
+                ? null
+                : RDFormsValues.ArgumentOf(arguments[index], index < method.Parameters.Count ? method.Parameters[index] : null, culture);
+        }
+
+        return given;
     }
 
     // VB's PopupMenu Menu, [Flags], [X], [Y], [BoldCommand]: the form's window pops up the menu's items, and the call waits, as a modal Show does, until the menu
