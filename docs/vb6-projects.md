@@ -73,9 +73,13 @@ A control's `Font` is a `StdFont`, the same object on every read. A change throu
 `FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` and `FontUnderline` are the `Font`'s `Bold`, `Italic`, `Name`, `Size`,
 `Strikethrough` and `Underline`.
 
+A control's `Container` is the form, Frame or PictureBox that holds it. `Set Command1.Container = Frame1` moves the control, with what it holds, into
+another container of the same form. It keeps its place in pixels, and its `Left` and `Top` read in the new container's scale. `Nothing`, a control that
+holds none, the control itself, a control it holds, and another form or its controls raise 425. A Timer has no `Container`, and an assignment without
+`Set` raises 438.
+
 > [!NOTE]
 > **Not implemented.**
-> - A control's `Container` raises 438.
 > - `TypeName` of a control's `Font` is `StdFont`, where VB6 gives `Font`.
 > - A `New StdFont` cannot be given to a control's `Font`.
 
