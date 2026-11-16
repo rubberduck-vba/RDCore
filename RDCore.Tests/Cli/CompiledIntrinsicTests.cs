@@ -177,4 +177,128 @@ public sealed class CompiledIntrinsicTests
             "        Tally = L * 2",
             "    End If",
             "End Function"), [("Tally", 0)], lcid);
+
+    // MS-VBAL §6.1.2.3.1 and §5.5.1.2.1: a conversion of a Double to an integral type is the Double let-coerced, rounded half to even (2.5 is 2, 3.5 is 4,
+    // -2.5 is -2). One out of the type's range raises 6 (Overflow): the interpreter's, given the statement.
+    [TestMethod]
+    public async Task AConversionOfADouble_IsItsLetCoercion()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Rounded(12), Overflowed()",
+            "End Sub",
+            "Private Function Rounded(ByVal N As Long) As Double",
+            "    Dim I As Long, D As Double, R As Double",
+            "    For I = -N To N",
+            "        D = I / 4 + 0.5",
+            "        R = R + CLng(D) + CInt(D) * 10 + CLngLng(D) * 100",
+            "        If D >= 0 Then R = R + CByte(D) * 1000",
+            "    Next",
+            "    Rounded = R",
+            "End Function",
+            "Private Function Overflowed() As Long",
+            "    Dim D As Double, K As Integer",
+            "    On Error Resume Next",
+            "    D = 40000.5",
+            "    K = CInt(D)",
+            "    Overflowed = Err.Number + K",
+            "End Function"), [("Rounded", 0), ("Overflowed", 1)]);
+
+    // MS-VBAL §6.1.2.10.1.1: Abs of an Integer, a Long and a Double is of the same type. The smallest Long and the smallest Integer have no absolute value of
+    // their types and raise 6 (Overflow): the interpreter's, given the statement, which Resume Next goes on after.
+    [TestMethod]
+    public async Task AbsOfANumber_IsItsTypedForm()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Absolute(5), Least(), LeastInteger()",
+            "End Sub",
+            "Private Function Absolute(ByVal N As Long) As Double",
+            "    Dim I As Long, K As Integer, D As Double, R As Double",
+            "    For I = -N To N",
+            "        K = I * 100",
+            "        D = I / 4",
+            "        R = R + Abs(-I) + Abs(K) * 10 + Abs(D) * 1000 + Abs(I - 2) * 10000",
+            "    Next",
+            "    Absolute = R",
+            "End Function",
+            "Private Function Least() As Long",
+            "    Dim L As Long",
+            "    On Error Resume Next",
+            "    L = -2147483647",
+            "    L = Abs(L - 1)",
+            "    Least = Err.Number + L",
+            "End Function",
+            "Private Function LeastInteger() As Long",
+            "    Dim K As Integer",
+            "    On Error Resume Next",
+            "    K = -32767",
+            "    K = Abs(K - 1)",
+            "    LeastInteger = Err.Number + K",
+            "End Function"), [("Absolute", 0), ("Least", 1), ("LeastInteger", 1)]);
+
+    // MS-VBAL §6.1.2.3.1.18 and §6.1.2.3.1.16: Int and Fix of a Double, which agree but for a negative fraction.
+    [TestMethod]
+    public async Task IntAndFixOfADouble_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Whole(6)",
+            "End Sub",
+            "Private Function Whole(ByVal N As Long) As Double",
+            "    Dim I As Long, D As Double, R As Double",
+            "    For I = -N To N",
+            "        D = I / 4 + 0.1",
+            "        R = R + Int(D) * 1000 + Fix(D) + Int(-D) * 10 + Fix(-D) * 100",
+            "    Next",
+            "    Whole = R",
+            "End Function"), [("Whole", 0)]);
+
+    // MS-VBAL §6.1.2.10.1.10: Sqr of a Double, and of a Long or an Integer let-coerced to Double, as Sqr declares its parameter. A negative number has no
+    // square root and raises 5 (Invalid procedure call or argument): the interpreter's.
+    [TestMethod]
+    public async Task SqrOfANumber_IsItsTypedForm()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Roots(8), Negative()",
+            "End Sub",
+            "Private Function Roots(ByVal N As Long) As Double",
+            "    Dim I As Long, K As Integer, D As Double, R As Double",
+            "    For I = 0 To N",
+            "        K = I * 3",
+            "        D = I * 2.25",
+            "        R = R + Sqr(I) + Sqr(K) * 10 + Sqr(D) * 100",
+            "    Next",
+            "    Roots = R",
+            "End Function",
+            "Private Function Negative() As Long",
+            "    Dim D As Double",
+            "    On Error Resume Next",
+            "    D = Sqr(-1)",
+            "    Negative = Err.Number",
+            "End Function"), [("Roots", 0), ("Negative", 1)]);
+
+    // MS-VBAL §6.1.2.10.1.7: Round of a Double to a number of digits, given as an Integer the call let-coerces to Long, and to none; a tie goes to the even
+    // number as the scaled Double is (2.675 is a little under it). Round of a quotient or a product is of its intermediate stored as a Double. Fewer than
+    // no digits raise 5: the interpreter's.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    public async Task RoundOfADouble_IsItsTypedForm(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Rounded(8), FewerThanNone()",
+            "End Sub",
+            "Private Function Rounded(ByVal N As Long) As Double",
+            "    Dim I As Long, D As Double, H As Double, R As Double",
+            "    For I = -N To N",
+            "        D = I / 8 + 0.005",
+            "        H = I / 2",
+            "        R = R + Round(D, 2) * 1000 + Round(D) + Round(H) * 10 + Round(I / 2) * 100 + Round(D * 3, 1) * 10000",
+            "    Next",
+            "    Rounded = R + Round(2.675, 2) + Round(2.5) + Round(3.5) * 10",
+            "End Function",
+            "Private Function FewerThanNone() As Long",
+            "    Dim D As Double",
+            "    On Error Resume Next",
+            "    D = Round(1.5, -1)",
+            "    FewerThanNone = Err.Number",
+            "End Function"), [("Rounded", 0), ("FewerThanNone", 1)], lcid);
 }

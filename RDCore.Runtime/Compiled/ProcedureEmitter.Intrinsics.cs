@@ -7,9 +7,9 @@ namespace RDCore.Runtime.Compiled;
 // texts of its arguments, as a method of the runtime.
 internal sealed partial class ProcedureEmitter
 {
-    // the arguments evaluated into locals, a whole number as a long and a Double as a double, and the activation's session for a form that reads it; then the
-    // call. A form that returns a bool and its result in an out parameter declines with false, which goes to failure: the interpreter makes the call. What it
-    // returns is held as a payload of its kind, a bool as a Boolean's -1 or 0.
+    // the arguments evaluated into locals of the parameters' types (a whole number is held as a long, which an argument that widens narrows from with no
+    // loss), and the activation's session for a form that reads it; then the call. A form that returns a bool and its result in an out parameter declines
+    // with false, which goes to failure: the interpreter makes the call. What it returns is held as a payload of its kind, a bool as a Boolean's -1 or 0.
     private Operand EmitIntrinsic(IntrinsicNode node, Label failure)
     {
         var parameters = node.Method.GetParameters();
@@ -17,25 +17,34 @@ internal sealed partial class ProcedureEmitter
         var given = 0;
         foreach (var parameter in parameters.Where(parameter => !parameter.IsOut))
         {
-            if (parameter.ParameterType == typeof(IRuntimeSession))
+            var type = parameter.ParameterType;
+            if (type == typeof(IRuntimeSession))
             {
                 arguments.Add(null);
                 continue;
             }
 
-            if (node.Arguments[given++] is TextArgumentNode { Value: var text })
+            var payload = node.Arguments[given++];
+            if (payload is TextArgumentNode { Value: var text })
             {
                 arguments.Add(EmitTextInto(text, failure));
                 continue;
             }
 
-            var payload = node.Arguments[given - 1];
             var operand = EmitPayload(payload, failure);
-            var argument = _il.DeclareLocal(parameter.ParameterType);
+            var argument = _il.DeclareLocal(type);
             Load(operand, payload.Kind);
-            if (parameter.ParameterType == typeof(double) && ScalarKinds.IsIntegral(payload.Kind))
+            if (type == typeof(double) && ScalarKinds.IsIntegral(payload.Kind))
             {
                 _il.Emit(OpCodes.Conv_R8);
+            }
+            else if (type == typeof(int))
+            {
+                _il.Emit(OpCodes.Conv_I4);
+            }
+            else if (type == typeof(short))
+            {
+                _il.Emit(OpCodes.Conv_I2);
             }
 
             _il.Emit(OpCodes.Stloc, argument);

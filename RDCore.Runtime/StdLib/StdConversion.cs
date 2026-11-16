@@ -276,6 +276,22 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
 
     private static double Round(double value, bool floor) => floor ? Math.Floor(value) : Math.Truncate(value);
 
+    /// <summary>
+    /// A Double rounded down to the next whole number, as <see cref="Int"/> returns it (<strong>MS-VBAL §6.1.2.3.1.18</strong>): a Double.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>The greatest whole number less than or equal to it.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Int))]
+    public static double FloorOf(double number) => Round(number, floor: true);
+
+    /// <summary>
+    /// A Double with its fraction dropped, as <see cref="Fix"/> returns it (<strong>MS-VBAL §6.1.2.3.1.16</strong>): a Double.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>Its whole part.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Fix))]
+    public static double TruncationOf(double number) => Round(number, floor: false);
+
     private static decimal Round(decimal value, bool floor) => floor ? Math.Floor(value) : Math.Truncate(value);
 
     /// <inheritdoc/>

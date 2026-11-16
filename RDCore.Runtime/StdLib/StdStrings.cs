@@ -1660,7 +1660,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return InVariant(VBNullValue.Null);
         }
 
-        if (left.TrailingByte is null && right.TrailingByte is null && OrderOf(session, left.Value, right.Value, (long)compare, out var order))
+        if (left.TrailingByte is null && right.TrailingByte is null && OrderOf(session, left.Value, right.Value, (int)compare, out var order))
         {
             return InVariant(new VBIntegerValue(order));
         }
@@ -1686,9 +1686,9 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <returns><see langword="false"/> for a Compare that is not <c>vbBinaryCompare</c>, <c>vbTextCompare</c> or the identifier of a locale, which
     /// <see cref="StrComp"/> raises error 5 for.</returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(StrComp))]
-    public static bool OrderOf(IRuntimeSession session, string? string1, string? string2, [StdLibOptionCompare] long compare, out short result)
+    public static bool OrderOf(IRuntimeSession session, string? string1, string? string2, [StdLibOptionCompare] int compare, out short result)
     {
-        if (compare is < int.MinValue or > int.MaxValue || !TryRulesIn(session, (VBCompareMethod)compare, takesDatabaseCompare: false, out var rules))
+        if (!TryRulesIn(session, (VBCompareMethod)compare, takesDatabaseCompare: false, out var rules))
         {
             result = 0;
             return false;
