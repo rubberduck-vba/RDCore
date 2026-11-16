@@ -251,7 +251,7 @@ internal static class ObjectReferences
     /// </summary>
     /// <param name="session">The session whose object it is.</param>
     /// <param name="cell">The cell, which holds the reference itself (not a Variant or a box that holds it).</param>
-    /// <param name="instance">The object it refers to; <c>Nothing</c> is held by no cell.</param>
+    /// <param name="instance">The object it refers to. For <c>Nothing</c>, no object is held and nothing is recorded.</param>
     public static void HoldIn(IRuntimeSession session, IBindingHandle cell, VBRuntimeObjectId instance)
     {
         if (!instance.Equals(NothingId))
