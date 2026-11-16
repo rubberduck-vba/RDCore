@@ -137,11 +137,10 @@ public sealed class CompiledVariantTests
             "    If B = False Then Flipped = V",
             "End Function"), "Flipped", recoveries: 0);
 
-    // a Variant let-assigned to a scalar variable is converted to its type as any payload is: an integral one by compiled code, a floating-point one to an
-    // integral type by the interpreter, which rounds, running that statement alone - compiled code goes on after it. L = V converts the Integer 6;
-    // L + V is the Double 8.5, which the interpreter converts: 1.
+    // a Variant let-assigned to a scalar variable is converted to its type as any payload is: an integral one as it is, a floating-point one to an integral
+    // type rounded to even (MS-VBAL §5.5.1.2.1.1), as the interpreter rounds it. L = V converts the Integer 6; L + V is the Double 8.5, which is 8.
     [TestMethod]
-    public async Task AVariantAssignedToALong_ThatIsNoInteger_IsRoundedByTheInterpreter()
+    public async Task AVariantAssignedToALong_ThatIsNoInteger_IsRoundedToEven()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Rounded()",
@@ -154,7 +153,7 @@ public sealed class CompiledVariantTests
             "    V = 2.5",
             "    L = L + V",
             "    Rounded = L",
-            "End Function"), "Rounded", recoveries: 1);
+            "End Function"), "Rounded", recoveries: 0, expected: "| 8 |");
 
     // a loop condition reading a Variant that is Empty, which compiled code does not compare: the interpreter runs the Do statement alone, and the loop
     // goes on compiled once the Variant holds a number. Empty is read twice: by the first test of the condition, and by the first S + 3: 2.
@@ -492,9 +491,9 @@ public sealed class CompiledVariantTests
             "    Counted = Counted & TypeName(I)",
             "End Function"), "Counted");
 
-    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant holding a Double to a Long, which compiled code does
-    // not convert, whole or not - and compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
-    // L = L + V is a Double at each of the 6 passes, the 7 of the fourth among them; and the last Let joins Strings, which is the interpreter's: 7.
+    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant holding a Double to a Single, which compiled code does
+    // not convert, exact or not - and compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
+    // F = V is a Double at each of the 6 passes; and the last Let joins Strings, which is the interpreter's: 7.
     [TestMethod]
     public async Task AStatementTheInterpreterRunsInASpeculatedLoop_IsGoneOnFrom()
         => await AssertAlikeAsync(Program(
@@ -504,13 +503,15 @@ public sealed class CompiledVariantTests
             "Private Function Rounded() As String",
             "    Dim I As Long",
             "    Dim L As Long",
+            "    Dim F As Single",
             "    Dim V As Variant",
             "    V = 0",
             "    For I = 1 To 6",
             "        V = V + 0.75",
             "        L = L + V",
+            "        F = V",
             "    Next",
-            "    Rounded = L & \" \" & V & \" \" & TypeName(V)",
+            "    Rounded = L & \" \" & V & \" \" & TypeName(V) & \" \" & F",
             "End Function"), "Rounded", recoveries: 7);
 
     // a Variant counter stepped by a Double, in a loop whose body compiled code runs whole: each Next steps it as the loop decided at its For, from the

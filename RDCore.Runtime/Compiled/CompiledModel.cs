@@ -178,7 +178,7 @@ internal sealed record class ResultNode(ScalarKind Kind) : PayloadNode(Kind);
 // a literal, or a constant folded.
 internal sealed record class ConstantNode(ScalarKind Kind, long Integral, double Floating) : PayloadNode(Kind);
 
-// PayloadOperations.Convert: an exact conversion.
+// PayloadOperations.Convert: an exact conversion, or a floating-point number's to an integer type, by Banker's rounding.
 internal sealed record class ConvertNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
 
 // PayloadOperations.Add, Subtract, Multiply, IntegerDivide, Modulo, of an integral kind.

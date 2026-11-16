@@ -665,12 +665,13 @@ public sealed partial class RuntimeExpressionEvaluator
         => TryOperateUnary(OperationPlanner.ForValue(token, operand.Type), operand, ofAConstantExpression, out result);
 
     /// <summary>
-    /// A payload let-coerced to <paramref name="destination"/> when the conversion is exact, as an expression evaluated on payloads is.
+    /// A payload let-coerced to <paramref name="destination"/> when the conversion is exact, or a floating-point number's to an integer type
+    /// (<strong>MS-VBAL §5.5.1.2.1</strong>), as an expression evaluated on payloads is.
     /// </summary>
     /// <param name="payload">The payload converted.</param>
     /// <param name="destination">The type it is converted to.</param>
     /// <param name="converted">The converted payload.</param>
-    /// <returns>Whether the conversion is exact.</returns>
+    /// <returns>Whether the conversion was made on the payload.</returns>
     internal static bool TryConvertExactly(ScalarPayload payload, VBType destination, out ScalarPayload converted)
         => TryConvertPayload(payload, destination, out converted);
 
@@ -942,8 +943,8 @@ public sealed partial class RuntimeExpressionEvaluator
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
-    // integer type, an integer as a floating-point value, a Single as a Double (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL
-    // §5.5.1.2.1), which rounds.
+    // integer type, an integer as a floating-point value, a Single as a Double - and a Single or a Double made an integer by Banker's rounding, as the boxed
+    // coercion makes it (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL §5.5.1.2.1), which rounds.
     private static bool TryConvertPayload(ScalarPayload payload, VBType destination, out ScalarPayload converted)
     {
         converted = payload;

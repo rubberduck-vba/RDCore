@@ -192,8 +192,8 @@ public sealed class CompiledByRefCallTests
         }
     }
 
-    // a callee handed to the interpreter - an operation compiled code declines, a Double let-coerced to a Long, which rounds - goes on writing its caller's
-    // variable, which the caller reads when the call returns: the parameter's cell is the variable's in both engines.
+    // a callee handed to the interpreter - an operation compiled code declines, a Currency product that is no whole number of ten-thousandths, which
+    // rounds - goes on writing its caller's variable, which the caller reads when the call returns: the parameter's cell is the variable's in both engines.
     [TestMethod]
     public async Task ACalleeHandedToTheInterpreter_GoesOnWritingTheCallersVariable()
     {
@@ -208,13 +208,14 @@ public sealed class CompiledByRefCallTests
             "    Go = n * 10",
             "End Function",
             "Private Sub Halve(ByRef x As Long)",
-            "    Dim d As Double",
-            "    d = x / 2",
-            "    x = d",
+            "    Dim c As Currency",
+            "    c = 1.0001@",
+            "    c = c * c",
+            "    x = x \\ 2",
             "    x = x + 1",
             "End Sub"), provider => BodyOf(provider, "Halve").WalkBacks);
 
-        // 5 / 2 = 2.5, rounded to even: 2; then 3.
+        // 5 \ 2 = 2; then 3.
         StringAssert.Contains(observed, "| 30 |");
         Assert.IsGreaterThanOrEqualTo(1L, walkedBack);
     }
