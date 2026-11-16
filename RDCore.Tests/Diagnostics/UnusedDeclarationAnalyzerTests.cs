@@ -636,5 +636,66 @@ public sealed class UnusedDeclarationAnalyzerTests
         AssertAre(findings, RDCoreDiagnosticId.WriteOnlyProperty, DiagnosticSeverity.Information);
     }
 
+    // the module with every edit of the fix made, the last one first.
+    private static string WithGetter(string module, EditFix fix)
+    {
+        var lines = module.Split("\r\n");
+        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
+        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
+        {
+            module = module[..OffsetOf(edit.Range.Start)] + edit.NewText + module[OffsetOf(edit.Range.End)..];
+        }
+
+        return module;
+    }
+
+    [TestMethod]
+    public async Task TheFix_AddsAGetThatReturnsWhatTheLetIsGiven()
+    {
+        string[] before = ["Option Explicit", "Private mWidth As Long", "Public Property Let Size(ByVal value As Long)", "    mWidth = value * 2", "End Property",
+            "Public Property Get Width() As Long", "    Width = mWidth", "End Property"];
+        var fix = Assert.ContainsSingle(await ClassAsync(new WriteOnlyPropertyAnalyzer(), "Shape", before)).Fixes?.Edits.SingleOrDefault();
+        Assert.IsNotNull(fix);
+        Assert.AreEqual("Add a Property Get 'Size' that returns the value the Let keeps in 'mSize'", fix.Title);
+
+        var shape = ModuleWorkspace.ClassModule("Shape", before);
+        var fixedShape = WithGetter(shape, fix);
+        Assert.AreEqual(ModuleWorkspace.ClassModule("Shape",
+            "Option Explicit", "Private mWidth As Long", "Private mSize As Long", "", "Public Property Let Size(ByVal value As Long)", "    mSize = value", "    mWidth = value * 2",
+            "End Property", "", "Public Property Get Size() As Long", "    Size = mSize", "End Property",
+            "Public Property Get Width() As Long", "    Width = mWidth", "End Property"), fixedShape);
+
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim s As New Shape", "    s.Size = 21", "    Debug.Print s.Width", "End Sub");
+        CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([("Shape", shape)], program), await ModuleWorkspace.RunAsync([("Shape", fixedShape)], program), "the program prints the same");
+        CollectionAssert.AreEqual(new[] { "21" },
+            await ModuleWorkspace.RunAsync([("Shape", fixedShape)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim s As New Shape", "    s.Size = 21", "    Debug.Print s.Size", "End Sub")),
+            "the Get returns what the Let was given");
+    }
+
+    [TestMethod]
+    public async Task NoGetIsAdded_ForAPropertyWithASet_OrWithNoSemantics()
+    {
+        var withSet = Assert.ContainsSingle(await ClassAsync(new WriteOnlyPropertyAnalyzer(), "Holder",
+            "Public Property Let Item(ByVal value As Variant)", "End Property", "Public Property Set Item(ByVal value As Object)", "End Property"));
+        var withoutSemantics = Assert.ContainsSingle(WithoutSemantics(new WriteOnlyPropertyAnalyzer(), "Public Property Let Size(ByVal value As Long)", "End Property"));
+
+        Assert.IsNull(withSet.Fixes?.Edits.SingleOrDefault(), "the variable would keep the object alive");
+        Assert.IsNull(withoutSemantics.Fixes?.Edits.SingleOrDefault(), "whether another module implements the class is not known");
+    }
+
+    [TestMethod]
+    public async Task NoGetIsAdded_ToAClassThatAnotherClassImplements()
+    {
+        var shape = ModuleWorkspace.ClassModule("IShape", "Public Property Let Size(ByVal value As Long)", "End Property");
+        var square = ModuleWorkspace.ClassModule("Square",
+            "Implements IShape", "Private Property Let IShape_Size(ByVal value As Long)", "End Property");
+        var payload = await ModuleWorkspace.SemanticsAsync([("IShape", shape), ("Square", square)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub"));
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "IShape");
+
+        var finding = Assert.ContainsSingle(Run(new WriteOnlyPropertyAnalyzer(), shape, model, new Uri(Path.Combine(ModuleWorkspace.Root, "IShape.cls"))));
+
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault(), "a Get in the interface is a member that Square does not implement");
+    }
+
     #endregion
 }

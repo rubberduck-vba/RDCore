@@ -504,6 +504,9 @@
   <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
     <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
   </data>
+  <data name="ImplementedInterfaceMember_Message" xml:space="preserve">
+    <value>Class &apos;{0}&apos; is implemented as an interface, and its member &apos;{1}&apos; has code: a class that implements it does not run that code.</value>
+  </data>
   <data name="IIfSideEffect_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one.</value>
   </data>
@@ -662,5 +665,8 @@
   </data>
   <data name="WriteOfAFraction_Message" xml:space="preserve">
     <value>&apos;{0} #&apos; writes a number between -1 and 1 with no zero before the decimal point in MS-VBA (.5), where MS-VBAL §5.4.5.9 writes 0.5.</value>
+  </data>
+  <data name="WriteOnlyProperty_Fix" xml:space="preserve">
+    <value>Add a Property Get &apos;{0}&apos; that returns the value the Let keeps in &apos;{1}&apos;</value>
   </data>
 </root>

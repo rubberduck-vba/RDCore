@@ -630,6 +630,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Class &apos;{0}&apos; is implemented as an interface, and its member &apos;{1}&apos; has code: a class that implements it does not run that code..
+        /// </summary>
+        public static string ImplementedInterfaceMember_Message {
+            get {
+                return ResourceManager.GetString("ImplementedInterfaceMember_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
         /// </summary>
         public static string LineContinuationBetweenKeywords_Message {
@@ -1660,7 +1669,6 @@ namespace RDCore.Diagnostics.Model {
             }
         }
 
-
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; of a number between -1 and 1 writes no zero before the decimal point in MS-VBA (&quot; .5&quot;), where MS-VBAL §6.1.2.3.1.20 writes &quot; 0.5&quot;..
         /// </summary>
@@ -1685,6 +1693,15 @@ namespace RDCore.Diagnostics.Model {
         public static string WriteOfAFraction_Message {
             get {
                 return ResourceManager.GetString("WriteOfAFraction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Add a Property Get &apos;{0}&apos; that returns the value the Let keeps in &apos;{1}&apos;.
+        /// </summary>
+        public static string WriteOnlyProperty_Fix {
+            get {
+                return ResourceManager.GetString("WriteOnlyProperty_Fix", resourceCulture);
             }
         }
     }

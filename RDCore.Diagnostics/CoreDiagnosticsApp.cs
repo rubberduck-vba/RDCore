@@ -154,6 +154,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, UnmatchedEventHandlerAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EncapsulatePublicFieldAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousPredeclaredInstanceAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ImplementedInterfaceMemberAnalyzer>();
 
         // what RD-VBA does not host: the code of a host's document, which is analyzed and does not run.
         services.AddSingleton<IModuleAnalyzer, HostedDocumentCodeAnalyzer>();

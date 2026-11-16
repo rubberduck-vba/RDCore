@@ -160,6 +160,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.UnderscoreInPublicClassMember, 408),
         (RDCoreDiagnosticId.EncapsulatePublicField, 409),
         (RDCoreDiagnosticId.SuspiciousPredeclaredInstanceAccess, 410),
+        (RDCoreDiagnosticId.ImplementedInterfaceMember, 411),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
         (RDCoreDiagnosticId.EmptyIfBlock, 1003),
