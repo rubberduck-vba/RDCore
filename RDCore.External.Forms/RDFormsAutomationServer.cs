@@ -325,8 +325,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         }
     }
 
-    // an item's picture, as the program reads it: its own picture, while the item has what it was given; Nothing for none. One the item has from the form's file
-    // cannot be given to a program yet, as a picture property's cannot.
+    // an item's picture, as the program reads it: its own picture, while the item has what it was given; Nothing for none. One the item has from the
+    // form's file is not given to a program, as a picture property's is not.
     private static object? ItemPicture(RDFormsObject handle, MethodDefinition property, FormValue result)
     {
         var stored = result.AsObject() as byte[];
