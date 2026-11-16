@@ -108,9 +108,9 @@ The libraries a project loads are the library descriptions the platform's packag
 of the platform (`PlatformLibraries`, `ReferencedLibraries.Load`). The RDForms package describes `VB`: VB6.OLB's export, with
 each member RDForms adds to it marked as an addition
 ([`MemberDescription.IsAddition`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Libraries.MemberDescription.html)),
-which completion and hover say. The folder describes every other library. Each description states the identifier and version of the type library it was made from (`origin`),
-and the libraries it depends on (`dependsOn`), each by its name and the identifier and version of the type library it
-was built against.
+which completion and hover say. The folder describes every other library. Each description states the identifier and
+version of the type library it was made from (`origin`), and the libraries it depends on (`dependsOn`), each by its name
+and the identifier and version of the type library it was built against.
 
 |A reference or a dependency that gives|Is the library|
 |---|---|
