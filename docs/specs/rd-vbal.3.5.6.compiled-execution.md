@@ -89,8 +89,8 @@ it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `L
 (`F = G(N)`, `S = Me.ToString`) is compiled as the `Let` of a call to a `Variant` is (see Variant function results, above).
 
 A `Let` of such a `String`, or of `Null`, to a `Variant` variable of the procedure is compiled too: the `Variant` then holds a copy of the `String`, or
-`Null` (MS-VBAL §5.5.1.2.12). `V = "x"`, `V = "a" & S` and `U = Null` assign what they assign in the interpreter. A `Variant` that holds an object is
-the interpreter's to assign, since the assignment lets go of the object, and compiled code goes on after the statement.
+`Null` (MS-VBAL §5.5.1.2.12). `V = "x"`, `V = "a" & S` and `U = Null` assign what they assign in the interpreter. A `Variant` that holds an object, an
+array or a record is the interpreter's to assign, since the assignment lets go of what it holds, and compiled code goes on after the statement.
 
 Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
 parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`

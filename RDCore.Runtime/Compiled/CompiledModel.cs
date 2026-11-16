@@ -338,10 +338,11 @@ internal abstract record class CompiledStep(int Offset);
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
 
-// a Let of a String to a Variant variable of the activation: the text written into its cell, which then holds a String - when the cell holds no object.
+// a Let of a String to a Variant variable of the activation: the text written into its cell, which then holds a String, when the cell holds no object,
+// array or record.
 internal sealed record class VariantTextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
 
-// a Let of Null to a Variant variable of the activation: its cell then holds Null - when it holds no object.
+// a Let of Null to a Variant variable of the activation: its cell then holds Null, when it holds no object, array or record.
 internal sealed record class VariantNullLetStep(int Offset, int Slot) : CompiledStep(Offset);
 
 // a Let of the function result variable of a function of the Variant type: the payload assigned where its frame holds it, as the interpreter assigns it

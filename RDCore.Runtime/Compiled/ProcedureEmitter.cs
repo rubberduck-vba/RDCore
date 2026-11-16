@@ -548,8 +548,8 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
-            // a String or Null written into the Variant's cell; over an object, or a text compiled code reads nothing of, the interpreter runs the Let alone,
-            // and compiled code goes on after it.
+            // a String or Null written into the Variant's cell; over an object, an array or a record, or a text compiled code reads nothing of, the
+            // interpreter runs the Let alone, and compiled code goes on after it.
             case VariantTextLetStep textLet:
             {
                 var failure = RecoverAt(textLet.Offset);

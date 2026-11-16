@@ -154,7 +154,8 @@ public static class VariantOperations
     /// <returns>Whether <c>Null</c> was assigned: when not, the interpreter runs the assignment.</returns>
     public static bool WriteNull(object? cell) => Store(cell, new VBRuntimeVariantValue(VBNullType.TypeInfo.VarType(), new VBNullValue()));
 
-    // a String or Null, stored in the Variant's cell when it holds no object, as the interpreter's assignment stores it.
+    // a String or Null, stored in the Variant's cell when it holds no object, array or record (VariantCell.HoldsNoObject), as the interpreter's
+    // assignment stores it.
     private static bool Store(object? cell, VBRuntimeVariantValue value)
     {
         if (cell is null || !Unsafe.As<VariantCell>(cell).HoldsNoObject)
