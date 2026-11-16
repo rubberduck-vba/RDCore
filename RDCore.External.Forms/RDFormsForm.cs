@@ -27,8 +27,8 @@ internal sealed class RDFormsForm : IComponentEventSink
 {
     private readonly Dictionary<ComponentInstance, RDFormsObject> _handles = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ComponentInstance, IAutomationEventSink> _sinks = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<FormMenuArray, RDFormsMenuArray> _menuArrays = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<FormMenuArray, IAutomationEventSink> _arraySinks = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<object, RDFormsArray> _arrays = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<object, IAutomationEventSink> _arraySinks = new(ReferenceEqualityComparer.Instance);
     private DispatcherFrame? _modal;
 
     public RDFormsForm(Model.FormDefinition model, CodeUnit unit)
@@ -66,18 +66,19 @@ internal sealed class RDFormsForm : IComponentEventSink
         return handle;
     }
 
-    // the handle of one of the form's menu arrays, where it has one of that name.
-    public RDFormsMenuArray? MenuArrayOf(string name)
+    // the handle of one of the form's control arrays, of menu items or of other controls, where it has one of that name.
+    public RDFormsArray? ArrayOf(string name)
     {
-        if (FormMenu.Of(Model.Root).ArrayOf(name) is not { } array)
+        object? array = FormMenu.Of(Model.Root).ArrayOf(name) ?? (object?)Model.ArrayOf(name);
+        if (array is null)
         {
             return null;
         }
 
-        if (!_menuArrays.TryGetValue(array, out var handle))
+        if (!_arrays.TryGetValue(array, out var handle))
         {
-            handle = new RDFormsMenuArray(this, array);
-            _menuArrays[array] = handle;
+            handle = array is FormMenuArray menus ? new RDFormsMenuArray(this, menus) : new RDFormsControlArray(this, (FormControlArray)array);
+            _arrays[array] = handle;
         }
 
         return handle;
@@ -87,10 +88,10 @@ internal sealed class RDFormsForm : IComponentEventSink
 
     public void Unadvise(ComponentInstance source) => _sinks.Remove(source);
 
-    // where the events of a menu array's elements go, those a program loads included: each with its element's index first.
-    public void Advise(FormMenuArray source, IAutomationEventSink sink) => _arraySinks[source] = sink;
+    // where the events of an array's elements go, those a program loads included: each with its element's index first.
+    public void Advise(RDFormsArray source, IAutomationEventSink sink) => _arraySinks[source.Source] = sink;
 
-    public void Unadvise(FormMenuArray source) => _arraySinks.Remove(source);
+    public void Unadvise(RDFormsArray source) => _arraySinks.Remove(source.Source);
 
     // shown with the owner form's window as its owner when it has one: only a window not shown yet takes an owner, and only one that is another form's window, shown
     // (Avalonia's Show refuses a closed owner and the window itself). A form owned is placed over its owner, and closed with it (UnloadMode vbFormOwner).
@@ -170,12 +171,13 @@ internal sealed class RDFormsForm : IComponentEventSink
     // control reads back.
     public void Raise(ComponentInstance source, EventDefinition definition, FormValue[] arguments)
     {
-        // an element of a menu array raises its events to the array's sink, with its index before the event's own arguments, as VB6 calls the array's handler.
+        // an element of an array raises its events to the array's sink, with its index before the event's own arguments, as VB6 calls the array's handler.
         var first = 0;
         object? element = null;
         if (!_sinks.TryGetValue(source, out var sink))
         {
-            if (source is not { Index: { } index } || source.Class != VBClasses.Menu || FormMenuItem.Of(source).Array is not { } array
+            if (source is not { Index: { } index }
+                || (source.Class == VBClasses.Menu ? FormMenuItem.Of(source).Array : (object?)Model.ArrayOf(source.Name)) is not { } array
                 || !_arraySinks.TryGetValue(array, out sink))
             {
                 return;

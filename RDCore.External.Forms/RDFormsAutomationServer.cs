@@ -26,6 +26,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private const string PopupMenuMember = "PopupMenu";
     private const string ControlsMember = "Controls";
     private const string NameMember = "Name";
+    private const string IndexMember = "Index";
     private const string DefaultMemberName = "_Default";
     private const string DefaultMemberDispatchName = "[DISPID=0]";
 
@@ -50,7 +51,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// Whether an object is one of this server's: a form, or one of its controls.
     /// </summary>
     /// <param name="handle">The handle of the object.</param>
-    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator or RDFormsMenuArray;
+    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator or RDFormsArray;
 
     /// <inheritdoc/>
     public bool IsAvailable => true;
@@ -70,12 +71,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             });
         }
 
-        if (target is RDFormsMenuArray menuArray)
+        if (target is RDFormsArray array)
         {
             return RDFormsUI.Run(() =>
             {
-                Alive(menuArray.Form.Handle);
-                return RDFormsMenuArrayMembers.Invoke(menuArray, member, invocation, arguments, culture);
+                Alive(array.Form.Handle);
+                return RDFormsArrayMembers.Invoke(array, member, invocation, arguments, culture);
             });
         }
 
@@ -137,6 +138,14 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return component.Name;
             }
 
+            // an element's index in its array is not a property of its class either: the file gives it, and Load the one it loads. A control of no array has
+            // none (343).
+            if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && arguments.Length == 0
+                && string.Equals(member, IndexMember, StringComparison.OrdinalIgnoreCase) && component.Class.Property(member) is null)
+            {
+                return component.Index is { } index ? (short)index : throw FormFailure(FormError.ObjectNotAnArray);
+            }
+
             // the form's collection of its controls, which a control of its file cannot be named for; given arguments, its default member: Controls(0) is
             // Controls.Item(0).
             if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm
@@ -151,10 +160,10 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return control;
             }
 
-            // a menu array, given arguments, is its default member, as a late-bound call reaches an element (f.mnuRecent(2)) in one call.
-            if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm && handle.Form.MenuArrayOf(member) is { } indexed)
+            // an array, given arguments, is its default member, as a late-bound call reaches an element (f.mnuRecent(2), f.picCell(0)) in one call.
+            if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm && handle.Form.ArrayOf(member) is { } indexed)
             {
-                return RDFormsMenuArrayMembers.Invoke(indexed, DefaultMemberDispatchName, invocation, arguments, culture);
+                return RDFormsArrayMembers.Invoke(indexed, DefaultMemberDispatchName, invocation, arguments, culture);
             }
 
             if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm
@@ -240,12 +249,11 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private static AutomationException NotAMenu(RDFormsObject handle)
         => new(VisualBasicError | 5, $"{handle}.{PopupMenuMember}: the argument is not a menu of the form.");
 
-    // a control of the form, by its name: a control that is an element of an array is reached through the array, which its name alone names. A menu array has a handle;
-    // an array of any other control has none, and its name is unknown (438).
+    // a control of the form, by its name: a control that is an element of an array is reached through the array, which its name alone names.
     private static object? Control(RDFormsObject handle, string name)
         => !handle.IsForm ? null
             : handle.Form.Model.Find(name) is { } control && !ReferenceEquals(control, handle.Component) ? handle.Form.HandleOf(control)
-            : handle.Form.MenuArrayOf(name);
+            : handle.Form.ArrayOf(name);
 
     // the model holds a component's position and size in pixels: the program reads and writes them in its form's unit.
     private static object? Read(ComponentInstance component, PropertyDefinition property, CodeUnit unit)
@@ -284,12 +292,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
     /// <inheritdoc/>
     public string? ClassNameOf(object target)
-        // the Controls collection and a menu array are not of a library's class: a late-bound Object.
-        => target is RDFormsControls or RDFormsMenuArray ? null : HandleOf(target).Component.Class.TypeName;
+        // the Controls collection and a control array are not of a library's class: a late-bound Object.
+        => target is RDFormsControls or RDFormsArray ? null : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
-        => target is RDFormsControls or RDFormsMenuArray
+        => target is RDFormsControls or RDFormsArray
             ? null
             : string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
                 ? string.Equals(HandleOf(target).Component.Class.ClassName, className, StringComparison.OrdinalIgnoreCase)
@@ -315,10 +323,10 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// <inheritdoc/>
     public void Advise(object source, IAutomationEventSink sink)
     {
-        // a menu array raises the events of its elements, each with the element's index first.
-        if (source is RDFormsMenuArray array)
+        // an array raises the events of its elements, each with the element's index first.
+        if (source is RDFormsArray array)
         {
-            RDFormsUI.Run(() => array.Form.Advise(array.Array, sink));
+            RDFormsUI.Run(() => array.Form.Advise(array, sink));
             return;
         }
 
@@ -329,9 +337,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// <inheritdoc/>
     public void Unadvise(object source)
     {
-        if (source is RDFormsMenuArray array)
+        if (source is RDFormsArray array)
         {
-            RDFormsUI.Run(() => array.Form.Unadvise(array.Array));
+            RDFormsUI.Run(() => array.Form.Unadvise(array));
             return;
         }
 
