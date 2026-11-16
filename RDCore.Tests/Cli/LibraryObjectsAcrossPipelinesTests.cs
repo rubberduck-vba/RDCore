@@ -9,7 +9,7 @@ using RDCore.SDK.Platform.Protocol;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The objects of the standard library's classes - a <c>Collection</c>, a <c>RegExp</c> - as a session holds them across the pipelines composed on it: one
+/// The objects of the standard library's classes (a <c>Collection</c>, a <c>RegExp</c>) as a session holds them across the pipelines composed on it: one
 /// for each run, and one for each statement run while a program waits. What such an object holds is the session's, read by every pipeline, and let go of
 /// once when the object is destroyed, whichever pipeline destroys it.
 /// </summary>

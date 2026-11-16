@@ -350,7 +350,9 @@ internal sealed class SessionObjects : ISessionObjects
 
     public void OnDestroying(Action<VBRuntimeObjectId> release) => _destroying.Add(release);
 
-    /// <summary>How many handlers let go of what a destroyed object holds (<see cref="OnDestroying"/>).</summary>
+    /// <summary>
+    /// How many handlers let go of what a destroyed object holds (<see cref="OnDestroying"/>).
+    /// </summary>
     internal int DestroyingHandlerCount => _destroying.Count;
 
     public void NotifyDestroying(VBRuntimeObjectId instance)
