@@ -305,7 +305,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         return default;
     }
 
-    // MS-VBAL §5.2.3.5: the platforms each statement of a Declare is compiled on, in the order they are written - a procedure declared once in each #If
+    // MS-VBAL §5.2.3.5: the platforms each statement of a Declare is compiled on, in the order they are written: a procedure declared once in each #If
     // branch is one procedure. Not known when a condition one of them depends on is not.
     private static ImmutableArray<CompiledPlatforms>? StatementsCompiledOn(ModuleNode written, string name, ModulePlatforms platforms)
     {
