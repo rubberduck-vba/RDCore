@@ -365,6 +365,24 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
     private static int RecordLength(VBUserDefinedTypeLayout layout, bool inMemory) => inMemory ? layout.Size : layout.UnpaddedSize;
 
+    /// <summary>
+    /// <c>Len</c> of a <c>String</c> held as text, which has no byte past its characters (<strong>MS-VBAL §6.1.2.11.1.22</strong>): what
+    /// <see cref="Len"/> returns for it. Compiled code calls it in place of <see cref="Len"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The number of characters of the text.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Len))]
+    public static int LengthOf(string? text) => text?.Length ?? 0;
+
+    /// <summary>
+    /// <c>LenB</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.11.1.22</strong>): two bytes a character, what <see cref="LenB"/> returns for
+    /// it. Compiled code calls it in place of <see cref="LenB"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The number of bytes of the text.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(LenB))]
+    public static int ByteLengthOf(string? text) => 2 * LengthOf(text);
+
     // a Variant's own TypeInfo mirrors what it wraps while the instance stays a VBVariantValue, so measuring
     // one has to see the wrapped value - "if the variable name is a Variant, Len/LenB treats it the same as a
     // String and always returns the number of characters it contains".
