@@ -246,6 +246,21 @@ internal static class ObjectReferences
     }
 
     /// <summary>
+    /// Records that <paramref name="cell"/>, a new cell that held nothing, holds <paramref name="instance"/>: what <see cref="Rebind"/> records of a cell
+    /// written with a reference to an object, which it holds directly.
+    /// </summary>
+    /// <param name="session">The session whose object it is.</param>
+    /// <param name="cell">The cell, which holds the reference itself (not a Variant or a box that holds it).</param>
+    /// <param name="instance">The object it refers to. For <c>Nothing</c>, no object is held and nothing is recorded.</param>
+    public static void HoldIn(IRuntimeSession session, IBindingHandle cell, VBRuntimeObjectId instance)
+    {
+        if (!instance.Equals(NothingId))
+        {
+            session.Objects.AddRef(instance, cell);
+        }
+    }
+
+    /// <summary>
     /// Lets go of what <paramref name="held"/> says was held, because the cells that held it ceased to exist, or now hold something else.
     /// </summary>
     /// <param name="session">The session whose objects they are.</param>

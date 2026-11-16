@@ -90,6 +90,137 @@ public sealed class CompiledErrorHandlingTests
             "    Next",
             "End Function"), "Total", recoveries: 3);
 
+    // MS-VBAL §5.6.9.3.6: a \ or a Mod by 0 raises error 11; MS-VBAL §5.6.9.3.2, §5.6.9.3.4: a sum or a product an Integer does not hold raises error 6.
+    // Each is raised where compiled code found it, and the interpreter is given it without evaluating the statement again.
+    [TestMethod]
+    public async Task AnIntegralOperationThatFails_RaisesItsErrorFromCompiledCode()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Failing()",
+            "End Sub",
+            "Private Function Failing() As String",
+            "    On Error Resume Next",
+            "    Dim I As Long",
+            "    Dim Q As Long",
+            "    Dim N As Integer",
+            "    Dim Divisions As Long",
+            "    Dim Overflows As Long",
+            "    N = 1",
+            "    For I = 1 To 30",
+            "        Err.Clear",
+            "        Q = 100 \\ (I Mod 10)",
+            "        If Err.Number = 11 Then Divisions = Divisions + 1",
+            "        Err.Clear",
+            "        N = N * 2",
+            "        If Err.Number = 6 Then Overflows = Overflows + 1",
+            "    Next",
+            "    Failing = \"e11=\" & Divisions & \" e6=\" & Overflows & \" q=\" & Q & \" n=\" & N",
+            "End Function"), "Failing", recoveries: 19, expected: "e11=3 e6=16 q=11 n=16384");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(19, result.Body!.RaisedErrors, "Failing's errors raised from compiled code");
+        }
+    }
+
+    // MS-VBAL §5.6.9.3.5: a / by 0 raises error 11; a Single product past the range of a Single, error 6. A Single or Double variable is assigned what
+    // IEEE 754 arithmetic made of it first, an infinity, and a Long is left as it was (StatementRuntimeSemanticsProvider.AssignFloatingPointValue). Of the
+    // 7 instructions the interpreter runs alone, 5 are the errors; the Let of 3E+38 to the Single and a comparison of an infinity are the other 2, which
+    // compiled code declines to evaluate.
+    [TestMethod]
+    public async Task AFloatingPointOperationThatFails_AssignsWhatIeeeMadeOfIt_AndRaisesItsErrorFromCompiledCode()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Floating()",
+            "End Sub",
+            "Private Function Floating() As String",
+            "    On Error Resume Next",
+            "    Dim I As Long",
+            "    Dim D As Double",
+            "    Dim S As Single",
+            "    Dim L As Long",
+            "    Dim Errors As Long",
+            "    Dim Raised As Long",
+            "    Dim Infinite As Long",
+            "    For I = 1 To 20",
+            "        Err.Clear",
+            "        D = 10 / (I Mod 10)",
+            "        If Err.Number = 11 Then Errors = Errors + 1",
+            "    Next",
+            "    Err.Clear",
+            "    D = 10 / (I - I)",
+            "    If Err.Number = 11 Then Raised = Raised + 1",
+            "    If D > 1E+308 Then Infinite = Infinite + 1",
+            "    Err.Clear",
+            "    S = 3E+38",
+            "    S = S * 10",
+            "    If Err.Number = 6 Then Raised = Raised + 1",
+            "    If S > 3E+38 Then Infinite = Infinite + 1",
+            "    Err.Clear",
+            "    L = 5",
+            "    L = L / (I - I)",
+            "    If Err.Number = 11 Then Raised = Raised + 1",
+            "    Floating = Errors & \" \" & Raised & \" \" & Infinite & \" \" & L",
+            "End Function"), "Floating", recoveries: 7, expected: "2 3 2 5");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(5, result.Body!.RaisedErrors, "Floating's errors raised from compiled code");
+        }
+    }
+
+    // a statement that calls before the operation fails: the call is made once, and the error raised where the operation is.
+    [TestMethod]
+    public async Task AnIntegralOperationThatFailsAfterACall_MakesTheCallOnce()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Private Calls As Long",
+            "Public Sub Main()",
+            "    Debug.Print Failing() & \" \" & Calls",
+            "End Sub",
+            "Private Function Counted(ByVal K As Long) As Long",
+            "    Calls = Calls + 1",
+            "    Counted = K",
+            "End Function",
+            "Private Function Failing() As Long",
+            "    On Error Resume Next",
+            "    Dim I As Long",
+            "    For I = 1 To 4",
+            "        Failing = Failing + Counted(I) \\ (I Mod 2)",
+            "    Next",
+            "End Function"), "Failing", recoveries: 2, expected: "4 4");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(2, result.Body!.RaisedErrors, "Failing's errors raised from compiled code");
+        }
+    }
+
+    // the error is the one the operator raises: its number, its description, the line it is on (Erl, the line of the document by default). The handler's
+    // line, of Err.Description and Erl, is the interpreter's too: 2 errors, and the handler run twice.
+    [TestMethod]
+    public async Task AnIntegralOperationThatFails_IsTheErrorTheHandlerIsGiven()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Caught(0)",
+            "    Debug.Print Caught(32767)",
+            "End Sub",
+            "Private Function Caught(ByVal K As Integer) As String",
+            "    On Error GoTo Failed",
+            "    Dim N As Integer",
+            "    N = 7 Mod K",
+            "    N = K + 1",
+            "    Caught = \"none\"",
+            "    Exit Function",
+            "Failed:",
+            "    Caught = Err.Number & \" \" & Err.Description & \" \" & Erl",
+            "End Function"), "Caught", recoveries: 4, expected: "11 Division by zero 8 ; 6 Overflow 9");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(2, result.Body!.RaisedErrors, "Caught's errors raised from compiled code");
+        }
+    }
+
     [TestMethod]
     public async Task AnErrorOnErrorGoToCatches_RunsTheHandlerCompiled_AndResumeNextGoesOnAfterIt()
         => await AssertAlikeAsync(Program(
