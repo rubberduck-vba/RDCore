@@ -19,8 +19,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <para>
 /// The declaration of a variable, a constant, a parameter or a function that is written with one is reported where its name is written. So is a reference to a name
 /// that the host vouches is bound to a declaration of the project (<see cref="ExpressionFactDto.Binding"/>), of this module or of another, since the declaration is
-/// what is changed to get rid of it: a simple name (<c>gCount%</c>), or the name of a member access (<c>Globals.gCount%</c>), reported where the member's name is
-/// written.
+/// what is changed to get rid of it: a simple name (<c>gCount%</c>), or the name of a member access (<c>Globals.gCount%</c>), reported where the member's
+/// name is written.
 /// </para>
 /// <para>
 /// A reference to a member of a library (<see cref="ValueExpressionSemanticFlags.BoundToLibrary"/>), such as <c>Mid$</c> or <c>Error$</c> of the standard library,
