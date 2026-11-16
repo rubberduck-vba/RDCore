@@ -3,8 +3,9 @@ using System.Reflection.Emit;
 namespace RDCore.Runtime.Compiled;
 
 // arrays. Each array parameter or variable compiled code reads is a local holding the cell its frame holds it in, fetched at the entry
-// and again wherever every variable is read back (EmitReload); an element is found in the array that cell holds each time it is read or written, and one
-// that isn't found - a subscript outside its dimension - is the interpreter's, at the instruction, which raises error 9.
+// and again wherever every variable is read back (EmitReload); an element is found in the array that cell holds - kept from one access to the next while
+// nothing can give the variable another array (KeepsArrays) - and one that isn't found - a subscript outside its dimension - is the interpreter's, at the
+// instruction, which raises error 9.
 internal sealed partial class ProcedureEmitter
 {
     private static readonly Type ArraySupport = typeof(ArrayOperations);
@@ -12,13 +13,76 @@ internal sealed partial class ProcedureEmitter
     // the array slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _arrays = [];
 
+    // the array each array slot, and each Variant that holds one, holds, as compiled code keeps it (ArrayOperations.KnownArray): none until an element is
+    // found in it, and none again after anything that may give the holder another array (KeepsArrays) and wherever every variable is read back. An array
+    // field of a record is found through its record each time.
+    private readonly Dictionary<int, LocalBuilder> _knownArrays = [];
+
     private void DeclareArrays()
     {
         foreach (var array in _analysis.Arrays)
         {
             _arrays[array.Slot] = _il.DeclareLocal(typeof(object));
+            _knownArrays[array.Slot] = _il.DeclareLocal(typeof(object));
+        }
+
+        for (var i = 0; i < _analysis.HeldArrays.Count; i++)
+        {
+            if (_analysis.HeldArrays[i].Variant is not null)
+            {
+                _knownArrays[~i] = _il.DeclareLocal(typeof(object));
+            }
         }
     }
+
+    // whether the step being emitted keeps the arrays it finds (KeepsArrays).
+    private bool _keepsArrays = true;
+
+    // the array an element is found in, onto the stack: the one compiled code keeps, or else the one the holder holds now, kept. A step that may give a
+    // holder another array finds each in its holder.
+    private void LoadKnownArray(int array)
+    {
+        if (!_keepsArrays || !_knownArrays.TryGetValue(array, out var known))
+        {
+            LoadArrayHolder(array);
+            return;
+        }
+
+        var kept = _il.DefineLabel();
+        _il.Emit(OpCodes.Ldloc, known);
+        _il.Emit(OpCodes.Brtrue, kept);
+        LoadArrayHolder(array);
+        _il.Emit(OpCodes.Call, ArraySupport.GetMethod(nameof(ArrayOperations.KnownArray))!);
+        _il.Emit(OpCodes.Stloc, known);
+        _il.MarkLabel(kept);
+        _il.Emit(OpCodes.Ldloc, known);
+    }
+
+    // every array compiled code keeps, let go of: each is found in its holder again.
+    private void EmitForgetArrays()
+    {
+        foreach (var known in _knownArrays.Values)
+        {
+            _il.Emit(OpCodes.Ldnull);
+            _il.Emit(OpCodes.Stloc, known);
+        }
+    }
+
+    // whether nothing a step does can give an array slot or a Variant another array: a Let of a scalar or of an element, a condition, a jump that leaves no
+    // For Each, a For and its Next, none of which calls anything. Such a step keeps the arrays kept before it, and the ones it finds. What fails in one, the
+    // interpreter runs, after which every variable is read back (EmitReload), and no array is kept.
+    private bool KeepsArrays(CompiledStep step) => step switch
+    {
+        LetStep let => !MakesACall(let.Value),
+        ElementLetStep let => !MakesACall(let.Value),
+        VariantElementLetStep let => !MakesACall(let.Value),
+        BranchStep branch => !MakesACall(branch.Condition),
+        LoopBackStep loop => !MakesACall(loop.Condition),
+        JumpStep jump => !_analysis.LeavesForEach(jump.Offset, jump.Target),
+        ForOpenStep open => !MakesACall(open.Start) && !MakesACall(open.End) && !MakesACall(open.Step),
+        ForNextStep => true,
+        _ => false,
+    };
 
     // each array's cell, as the frame holds it: none, for one the frame holds no array in yet, whose elements compiled code then finds none of.
     private void EmitArrayEntry()
@@ -27,6 +91,8 @@ internal sealed partial class ProcedureEmitter
         {
             EmitArrayCellOf(slot);
         }
+
+        EmitForgetArrays();
     }
 
     // each array's cell, found again: what the interpreter ran may have bound the slot to another.
@@ -68,6 +134,27 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
+    // the element a Let writes, found before a value that calls nothing is evaluated, which nothing can observe (MS-VBAL §5.4.3.8 evaluates the value
+    // first, as a value that calls is: ElementLetStep), while the value is: the same element read in the value, at subscripts that are the same expressions,
+    // is that cell. Nothing between finds another: the value calls nothing (pure), so no variable a subscript reads changes, and the array is the one the
+    // holder holds. Subscripts are compared as the nodes they are; one made of a list (an element in a subscript) is never
+    // the same, and its element is found again.
+    private (int Array, IReadOnlyList<PayloadNode> Subscripts, LocalBuilder Cell)? _found;
+
+    private T EmitFoundIn<T>(int array, IReadOnlyList<PayloadNode> subscripts, LocalBuilder cell, bool pure, Func<T> emitValue)
+    {
+        var outer = _found;
+        _found = pure ? (array, subscripts, cell) : null;
+        try
+        {
+            return emitValue();
+        }
+        finally
+        {
+            _found = outer;
+        }
+    }
+
     private void EmitArrayCellOf(int slot)
     {
         _il.Emit(OpCodes.Ldarg_0);
@@ -80,13 +167,25 @@ internal sealed partial class ProcedureEmitter
     {
         switch (step)
         {
-            // the value evaluated, then the element's cell found and the value written into it, as the interpreter evaluates the value before it finds the
-            // element (AssignValue): after a call inside the value, the subscripts are read as the call left them. A value that reads a Variant declines what
-            // compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
+            // the value evaluated, then the element's cell found and the value written into it (MS-VBAL §5.4.3.8), as the interpreter evaluates the value
+            // before it finds the element (AssignValue): after a call inside the value, the subscripts are read as the call left them. A value that calls
+            // nothing is evaluated once the cell is found, which nothing can observe, so that the same element read in it is that cell (EmitFoundIn). A
+            // value that reads a Variant declines what compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
             case ElementLetStep let:
             {
-                var value = EmitPayload(let.Value, FailureOf(let.Value, let.Offset));
-                var cell = EmitElementCell(let.Element, FailureAt(let.Offset));
+                Operand value;
+                LocalBuilder cell;
+                if (MakesACall(let.Value))
+                {
+                    value = EmitPayload(let.Value, FailureOf(let.Value, let.Offset));
+                    cell = EmitElementCell(let.Element, FailureAt(let.Offset));
+                }
+                else
+                {
+                    cell = EmitElementCell(let.Element, FailureAt(let.Offset));
+                    value = EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, pure: true, () => EmitPayload(let.Value, FailureOf(let.Value, let.Offset)));
+                }
+
                 _il.Emit(OpCodes.Ldloc, cell);
                 Load(value, let.Element.Kind);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(let.Element.Kind) ? nameof(CompiledActivation.WriteIntegral) : nameof(CompiledActivation.WriteFloating))!);
@@ -94,14 +193,28 @@ internal sealed partial class ProcedureEmitter
             }
 
             // what the Variant element holds decides what its Let is, as a Variant variable's does (VariantLetStep): one the evaluation on payloads declines
-            // (of a String, over an object) the interpreter runs alone, and compiled code goes on after it. The value is evaluated before the element is
-            // found, as for an element of a scalar type.
+            // (of a String, over an object) the interpreter runs alone, and compiled code goes on after it. The value and the element are evaluated in the
+            // order of an element of a scalar type.
             case VariantElementLetStep let:
             {
                 var failure = RecoverAt(let.Offset);
                 var value = _il.DeclareLocal(typeof(VariantPayload));
-                EmitVariantInto(let.Value, value, failure);
-                var cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
+                LocalBuilder cell;
+                if (MakesACall(let.Value))
+                {
+                    EmitVariantInto(let.Value, value, failure);
+                    cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
+                }
+                else
+                {
+                    cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
+                    EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, pure: true, () =>
+                    {
+                        EmitVariantInto(let.Value, value, failure);
+                        return 0;
+                    });
+                }
+
                 _il.Emit(OpCodes.Ldloc, cell);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
@@ -110,13 +223,20 @@ internal sealed partial class ProcedureEmitter
             }
 
             // the statement run by the interpreter, every variable written into the frame its bounds are read from; the error it raises is given to the
-            // activation's handler as a call's is (CallFailedAt), the statement not run again. The cell of each array is found again after it.
+            // activation's handler as a call's is (CallFailedAt), the statement not run again. The cell of each array is found again after it; after one
+            // that may have let go of an object, every variable is read back, as after a call (EmitReadBackAfterStatement), which finds each array's too.
             case ArrayStatementStep statement:
                 EmitSpill();
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Ldc_I4, statement.Offset);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RunArrayStatement))!);
                 _il.Emit(OpCodes.Brfalse, CallFailedAt(statement.Offset));
+                if (statement.Releases)
+                {
+                    EmitReadBackAfterStatement(statement.Offset);
+                    break;
+                }
+
                 foreach (var slot in statement.Arrays)
                 {
                     EmitArrayCellOf(slot);
@@ -196,6 +316,35 @@ internal sealed partial class ProcedureEmitter
                 return AsBoolean();
             }
 
+            // IsEmpty of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls, or the interpreter.
+            case VariantIsEmptyNode isEmpty:
+            {
+                var empty = _il.DeclareLocal(typeof(bool));
+                var result = _il.DeclareLocal(typeof(long));
+                var called = _il.DefineLabel();
+                var done = _il.DefineLabel();
+                _il.Emit(OpCodes.Ldloc, isEmpty.Variant is VariantElementNode element
+                    ? EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure)
+                    : _variants[((VariantSlotNode)isEmpty.Variant).Slot]);
+                _il.Emit(OpCodes.Ldloca, empty);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.IsEmpty))!);
+                _il.Emit(OpCodes.Brfalse, isEmpty.Library is null ? failure : called);
+                _il.Emit(OpCodes.Ldloc, empty);
+                _il.Emit(OpCodes.Neg);
+                _il.Emit(OpCodes.Conv_I8);
+                _il.Emit(OpCodes.Stloc, result);
+                _il.Emit(OpCodes.Br, done);
+                _il.MarkLabel(called);
+                if (isEmpty.Library is { } library)
+                {
+                    Load(EmitLibraryCall(library, failure), ScalarKind.Boolean);
+                    _il.Emit(OpCodes.Stloc, result);
+                }
+
+                _il.MarkLabel(done);
+                return new Operand(result, 0, 0);
+            }
+
             default:
                 throw new InvalidOperationException($"No IL for {node.GetType().Name}.");
         }
@@ -249,6 +398,11 @@ internal sealed partial class ProcedureEmitter
     // inside the instruction, the interpreter is given what was evaluated (Fail), and the call is not made again.
     private LocalBuilder EmitElementCellOf(int array, IReadOnlyList<PayloadNode> elementSubscripts, string find, ScalarKind? kind, Label failure, bool orNone = false)
     {
+        if (_found is { } found && found.Array == array && found.Subscripts.SequenceEqual(elementSubscripts))
+        {
+            return found.Cell;
+        }
+
         var subscripts = new Operand[elementSubscripts.Count];
         for (var i = 0; i < subscripts.Length; i++)
         {
@@ -256,7 +410,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         var cell = _il.DeclareLocal(typeof(object));
-        LoadArrayHolder(array);
+        LoadKnownArray(array);
         if (kind is { } scalar)
         {
             _il.Emit(OpCodes.Ldc_I4, (int)scalar);

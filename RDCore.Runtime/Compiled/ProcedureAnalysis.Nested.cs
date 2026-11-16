@@ -128,8 +128,10 @@ internal sealed partial class ProcedureAnalysis
     private bool Calls(BoundNode? node) => node switch
     {
         null => false,
-        // a function of the standard library that keeps nothing calls nothing of the workspace: only what its arguments call.
-        BoundCall { Procedure: var library, BoundArguments: var arguments } when IsVariantLibrary(library) => arguments?.Any(argument => Calls(argument.Value)) ?? false,
+        // a function of the standard library that keeps nothing calls nothing of the workspace: only what its arguments call. The interpreter makes it again
+        // when the instruction is handed to it (LibraryCallOf).
+        BoundCall { Procedure: var library, BoundArguments: var arguments } when IsVariantLibrary(library) || KeepsNothing(library)
+            => arguments?.Any(argument => Calls(argument.Value)) ?? false,
         BoundCall => true,
         BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol),
         BoundQualifiedName { Member: var qualified } => IsCompiledLibrary(qualified),
@@ -145,6 +147,10 @@ internal sealed partial class ProcedureAnalysis
         BoundTypeOf typeOf => Calls(typeOf.Operand),
         _ => false,
     };
+
+    // whether symbol is a function of the standard library compiled code calls for a scalar (IsCompiledLibrary) that keeps nothing from call to call.
+    private static bool KeepsNothing(Symbol symbol)
+        => IsCompiledLibrary(symbol) && !CompiledLibraryFunctions[symbol.GetProperty(SymbolProperties.ExternalTarget)!];
 
     // a function of the workspace called inside an expression, as CallOf and MemberCallOf call one, by where it is in its statement: a function of a
     // standard module called with its arguments, or by its bare name when it takes none, or a function or Property Get member of an object variable of the

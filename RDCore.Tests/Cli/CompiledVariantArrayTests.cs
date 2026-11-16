@@ -69,7 +69,7 @@ public sealed class CompiledVariantArrayTests
             "End Function"), [], "| 56712 |", ("Summed", 0));
 
     // the bounds of an array of Longs a Variant holds are read in compiled code; an element of it, held in a Long's cell, is no Variant's, and is the
-    // interpreter's to read. So is the assignment of the whole array.
+    // interpreter's to read. The assignment of the whole array is the runtime's Let, run from compiled code.
     [TestMethod]
     public async Task AVariantHoldingAnArrayOfLongs_ItsBoundsAreReadInCompiledCode()
         => await AssertCompiledAsync(Program(
@@ -81,7 +81,7 @@ public sealed class CompiledVariantArrayTests
             "    ReDim A(2 To 5)",
             "    V = A",
             "    Spread = UBound(V) * 10 + LBound(V, 1)",
-            "End Function"), [], "| 52 |", ["ForeignVariable A"], ("Spread", 1, 0));
+            "End Function"), [], "| 52 |", ("Spread", 0));
 
     // LBound of a Variant that holds no array is error 13, the interpreter's (MS-VBAL §3.3.5.2).
     [TestMethod]

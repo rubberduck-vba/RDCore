@@ -16,7 +16,13 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, support.Offset);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RunStatement))!);
         _il.Emit(OpCodes.Brfalse, CallFailedAt(support.Offset));
+        EmitReadBackAfterStatement(support.Offset);
+    }
 
+    // every variable read back after the statement at offset, which the interpreter ran as a call: one that is not read back leaves the activation to the
+    // interpreter from after the statement, and so does the interpreter wanted then.
+    private void EmitReadBackAfterStatement(int offset)
+    {
         // asked as after a call, which the random failed accesses fail the first read-back after a wait by, whatever the seed.
         var read = _il.DefineLabel();
         var unread = _il.DefineLabel();
@@ -26,13 +32,13 @@ internal sealed partial class ProcedureEmitter
         EmitReload(unread);
         _il.Emit(OpCodes.Br, read);
         _il.MarkLabel(unread);
-        _il.Emit(OpCodes.Ldc_I4, support.Offset + 1);
+        _il.Emit(OpCodes.Ldc_I4, offset + 1);
         _il.Emit(OpCodes.Stloc, _pc);
         _il.Emit(OpCodes.Br, _unread);
         _il.MarkLabel(read);
 
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WantsInterpreterAfterCall))!.GetMethod!);
-        _il.Emit(OpCodes.Brtrue, WalkBackAt(support.Offset + 1));
+        _il.Emit(OpCodes.Brtrue, WalkBackAt(offset + 1));
     }
 }
