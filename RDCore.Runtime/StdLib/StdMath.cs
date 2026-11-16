@@ -160,7 +160,8 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
     [StdLibIntrinsic(typeof(IStdMathModule), nameof(Abs))]
     public static double AbsOf(double number) => Math.Abs(number);
 
-    // the absolute value of a whole number of a type whose smallest value is least, which has none of the type; a Byte has no such value.
+    // the absolute value of a whole number of a type whose smallest value is least: that value has no absolute value of the type, and fails. A Byte has
+    // no such value.
     private static bool TryAbsOfWhole(long whole, long least, out long absolute)
     {
         absolute = whole < 0 && whole != least ? -whole : whole;
@@ -332,7 +333,7 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
     /// <param name="digits">The number of digits after the decimal.</param>
     /// <param name="rounded">The number rounded.</param>
     /// <returns>
-    /// <see langword="false"/> for fewer than no digits, or more than a Double is rounded to: <see cref="Round"/> raises error 5.
+    /// <see langword="false"/> for a negative number of digits, or more than a Double is rounded to: <see cref="Round"/> raises error 5.
     /// </returns>
     [StdLibIntrinsic(typeof(IStdMathModule), nameof(Round))]
     public static bool RoundOf(double number, int digits, out double rounded)
