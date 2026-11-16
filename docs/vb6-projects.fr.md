@@ -75,8 +75,8 @@ La `Font` d'un contrôle est un `StdFont`, le même objet à chaque lecture. Une
 
 Le `Container` d'un contrôle est la feuille, le Frame ou le PictureBox qui le détient. `Set Command1.Container = Frame1` déplace le contrôle, avec ce qu'il
 détient, dans un autre conteneur de la même feuille. Il garde sa place en pixels, et son `Left` et son `Top` se lisent dans l'échelle du nouveau conteneur.
-`Nothing`, un contrôle qui n'en détient aucun, le contrôle lui-même, un contrôle qu'il détient, et une autre feuille ou ses contrôles lèvent 425. Un Timer
-n'a pas de `Container`, et une affectation sans `Set` lève 438.
+`Nothing`, un contrôle qui n'en détient pas d'autres (un TextBox), le contrôle lui-même, un contrôle qu'il détient, et une autre feuille ou ses
+contrôles lèvent 425. Un Timer n'a pas de `Container` (438), et une affectation sans `Set` lève 438.
 
 > [!NOTE]
 > **Non implémenté.**
