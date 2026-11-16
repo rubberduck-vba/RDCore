@@ -443,7 +443,8 @@ public sealed partial class RuntimeExpressionEvaluator
     private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
         => _memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual) ? site.Member : ImplementationFound(bound, actual);
 
-    // the member found and kept for the access: apart from the lookup, which then captures nothing and allocates nothing.
+    // the member found for the access, and kept for it. It is a method of its own so that ImplementationOf, where the member is kept already, captures
+    // nothing and allocates nothing.
     private VBTypeMemberSymbol? ImplementationFound(BoundMember bound, VBClassModuleSymbol actual)
     {
         // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
