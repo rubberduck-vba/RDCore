@@ -13,8 +13,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// That a code path does not assign the return value is a fact of the procedure (<see cref="ReturnValueFact"/>), found by following the code paths of its body, which
-/// the analyzer reads: it does not look at the syntax tree. The procedure is not reported when the fact is not stated. Nor is one whose body has no statement, which is
-/// how a member of an interface is written, when it is a <c>Public</c> member of a class that may be an interface (<see cref="UnusedDeclarations.MayBeAnInterface"/>).
+/// the analyzer reads: it does not look at the syntax tree. The procedure is not reported when the fact is not stated. Nor is one whose body has no
+/// statement, which is how a member of an interface is written, when it is a <c>Public</c> member of a class that may be an interface
+/// (<see cref="UnusedDeclarations.MayBeAnInterface"/>).
 /// </remarks>
 internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
 {

@@ -18,10 +18,11 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <para>
 /// A public member of a class module is a member of its interface (<strong>MS-VBAL §5.2.4</strong>), which another class module can implement: a class written to be an
 /// interface declares its members with no statement, and that is what it is for. Such a member is not judged in a class that may be an interface
-/// (<see cref="UnusedDeclarations.MayBeAnInterface"/>): one that a module of the project implements, or one that is exposed to the projects that reference this
-/// one. A private or friend member is in no interface, and one that implements a member of another interface or handles an event is no member of an interface either:
-/// those are judged, as is every procedure of a standard module, and every member of a class that is neither implemented nor exposed. What the module is, is a fact
-/// the host vouches for, so the analyzer that is not given it has nothing to say.
+/// (<see cref="UnusedDeclarations.MayBeAnInterface"/>): one that a module of the project implements, or one that is exposed to the projects that
+/// reference this one. A private or friend member is in no interface, and one that implements a member of another interface or handles an event is no
+/// member of an interface either: those are judged, as is every procedure of a standard module, and every member of a class that is neither implemented
+/// nor exposed. What kind of module it is, and whether its class is implemented or exposed, are facts the host vouches for, so the analyzer that is not
+/// given them has nothing to say.
 /// </para>
 /// </remarks>
 internal sealed class EmptyProcedureAnalyzer : IModuleAnalyzer

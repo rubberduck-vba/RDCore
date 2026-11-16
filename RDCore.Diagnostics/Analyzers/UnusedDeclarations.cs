@@ -62,8 +62,8 @@ internal static class UnusedDeclarations
     /// <summary>
     /// Whether the <c>Public</c> members of a class module may be the members of an interface, which a module that implements it declares as they are
     /// (<strong>MS-VBAL §5.2.4.2</strong>): a module of the project implements the class (<see cref="ClassModuleSemanticFlags.Implemented"/>), or the class is
-    /// exposed, and a project that references this one may (<see cref="ClassModuleSemanticFlags.Exposed"/>, <strong>MS-VBAL §5.2.4.1.1</strong>). A class
-    /// that is neither has no implementation anywhere. <see langword="false"/> for a module that is not a class module.
+    /// exposed, and a project that references this one may implement it (<see cref="ClassModuleSemanticFlags.Exposed"/>,
+    /// <strong>MS-VBAL §5.2.4.1.1</strong>). A class that is neither has no implementation anywhere. <see langword="false"/> for a module that is not a class module.
     /// </summary>
     /// <param name="semantics">The host's model of the module.</param>
     public static bool MayBeAnInterface(ModuleSemanticsDto semantics)
