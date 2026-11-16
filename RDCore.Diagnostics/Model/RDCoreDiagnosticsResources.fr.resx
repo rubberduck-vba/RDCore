@@ -294,6 +294,9 @@
   <data name="ImplementedInterfaceMember_Fix" xml:space="preserve">
     <value>Retirer le code des membres de &apos;{0}&apos; : un objet créé à partir de &apos;{0}&apos; lui-même ne l&apos;exécute plus</value>
   </data>
+  <data name="FunctionReturnValueDiscarded_Message" xml:space="preserve">
+    <value>La fonction &apos;{0}&apos; est appelée comme une instruction : la valeur qu&apos;elle renvoie est perdue.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>Le mot-clé Rem est obsolète: un commentaire commence par une apostrophe (').</value>
   </data>

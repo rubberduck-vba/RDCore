@@ -140,6 +140,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.LineContinuationBetweenKeywords, 213),
         (RDCoreDiagnosticId.ProcedureCanBeWrittenAsFunction, 214),
         (RDCoreDiagnosticId.SelfAssignedDeclaration, 215),
+        (RDCoreDiagnosticId.FunctionReturnValueDiscarded, 216),
         (RDCoreDiagnosticId.IsMissingOfAVariantThatIsNotOptional, 218),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),
         (RDCoreDiagnosticId.ObsoleteCommentSyntax, 303),

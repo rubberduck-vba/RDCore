@@ -64,6 +64,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, LineContinuationBetweenKeywordsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureCanBeWrittenAsFunctionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SelfAssignedDeclarationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, FunctionReturnValueDiscardedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitNarrowingConversionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BitwiseSemanticsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AmbiguousConcatenationAnalyzer>();

@@ -65,13 +65,14 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00213`](../diagnostics/rdc00213.md)|Line continuation between keywords|Information|the trivia of the parse: `LineContinuationTriviaNode.Keyword`|
 |[`RDC00214`](../diagnostics/rdc00214.md)|Procedure can be written as a function|Information|the syntax tree: a `Sub` with one `ByRef` parameter that is no `ParamArray`; the host's reference counts of that parameter: written; not a `Declare`, an implementation, a handler, or a `Public` member of a class module|
 |[`RDC00215`](../diagnostics/rdc00215.md)|Self-assigned declaration|Hint|the syntax tree: `AsTypeExpressionNode.AsAutoObject` of a variable declaration|
+|[`RDC00216`](../diagnostics/rdc00216.md)|Function result discarded|Hint|`ExpressionFactDto.Flags`: `ResultDiscarded` without `BoundToLibrary`, on a call whose name is classified `Function`|
 |[`RDC00218`](../diagnostics/rdc00218.md)|IsMissing of a Variant that is not Optional|Warning|the syntax tree: an `IsMissing` call of one name, bound to the library's `IsMissing` (`ExpressionFact.Binding`, `ValueExpressionSemanticFlags.BoundToLibrary`), whose `ExpressionFact.DeclaredType` is `Variant`: a parameter whose `ParameterDeclarationNode` (`DeclarationFact.Location`) is neither `Optional` nor a `ParamArray`, or any other name whose `ExpressionFact.Classification` is `Variable`|
 |[`RDC00302`](../diagnostics/rdc00302.md)|Obsolete Call statement|Hint|`ValueExpressionSemanticFlags.ExplicitCallKeyword`|
 |[`RDC00303`](../diagnostics/rdc00303.md)|Obsolete comment syntax|Information|`ModuleSemanticModel.Language` (`SupportedLanguage.UsesClassicBasicSyntax`), and the comments of the syntax tree|
 |[`RDC00304`](../diagnostics/rdc00304.md)|Obsolete error syntax|Information|`ModuleSemanticModel.Language`, and the syntax tree: an `Error` statement|
 |[`RDC00305`](../diagnostics/rdc00305.md)|Obsolete Global modifier|Information|the syntax tree: `AccessModifier.Global`|
 |[`RDC00306`](../diagnostics/rdc00306.md)|Obsolete Let statement|Information|the syntax tree: `AssignmentKind.ExplicitLet`|
-|[`RDC00307`](../diagnostics/rdc00307.md)|Obsolete type hint|Information|the syntax tree: the type hints of declarations; `ExpressionFact.Binding` of the references|
+|[`RDC00307`](../diagnostics/rdc00307.md)|Obsolete type hint|Information|the syntax tree: the type hints of declarations; `ExpressionFact.Binding` of the references, bound to the project (no `ValueExpressionSemanticFlags.BoundToLibrary`)|
 |[`RDC00308`](../diagnostics/rdc00308.md)|Obsolete While…Wend|Information|the syntax tree: a `WhileWendStatementNode`|
 |[`RDC00309`](../diagnostics/rdc00309.md)|Obsolete On Local Error statement|Information|the syntax tree: `OnErrorGoToStatementNode.IsLocal`|
 |[`RDC00310`](../diagnostics/rdc00310.md)|Redundant ByVal argument|Hint|the syntax tree: a `ByVal` argument with no compile error; its `ArgumentFact`: `Mechanism` `ExplicitByVal`, not a `ParamArray`, and a `ParameterType` other than the unknown type (`As Any`)|
