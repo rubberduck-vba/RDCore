@@ -86,7 +86,7 @@ public sealed class ProgramDebugAdapterTests
             var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), new WireTap.Stream(toClient.Writer.AsStream(), _wire)), Adapter);
             Client = await DebugAdapterClient.From(options =>
             {
-                options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
+                options.WithInput(toClient.Reader.AsStream()).WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(toServer.Writer.AsStream())));
                 options.LinesStartAt1 = linesStartAt1;
                 options.ColumnsStartAt1 = linesStartAt1;
                 options.OnInvalidated(Arrived);
