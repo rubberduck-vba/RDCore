@@ -190,6 +190,8 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.IIfSideEffect, 11039),
         (RDCoreDiagnosticId.ObjectLetToVariantProperty, 11043),
         (RDCoreDiagnosticId.ObjectLetToObjectProperty, 11047),
+        (RDCoreDiagnosticId.NoEntryPoint, 30001),
+        (RDCoreDiagnosticId.AmbiguousEntryPoint, 30002),
     ];
 
     [TestMethod]

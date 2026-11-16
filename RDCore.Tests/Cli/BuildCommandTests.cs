@@ -7,6 +7,7 @@ using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
+using RDCore.Diagnostics;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
@@ -1255,7 +1256,8 @@ public sealed class BuildCommandTests
         var run = await RunAsync(fileSystem, Root);
 
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
-        Assert.AreNotEqual(string.Empty, run.Error);
+        Assert.Contains(RDCore.Runtime.Support.Resources.Build_NoEntryPoint, run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
     }
 
     [TestMethod]
@@ -1268,6 +1270,25 @@ public sealed class BuildCommandTests
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
         Assert.Contains("One", run.Error);
         Assert.Contains("Two", run.Error);
+        Assert.Contains("(RDC30002)", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Build_OfAWorkspaceWithoutSubMain_IsRefused_WithItsCode()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub NotMain()", "End Sub")));
+        var (command, messages) = Command(fileSystem);
+
+        Assert.AreEqual(1, await command.ExecuteAsync([Root, "--output", Output], CancellationToken.None));
+
+        Assert.Contains(message => message.Kind == MessageKind.Error && message.Text.Contains("(RDC30001)", StringComparison.Ordinal), messages);
+    }
+
+    [TestMethod]
+    public void TheBuildersCodes_AreTheCodesTheDiagnosticsDocument()
+    {
+        Assert.AreEqual(RDCoreDiagnosticId.NoEntryPoint.ToDiagnosticCode(), ProgramRunner.NoEntryPoint.ToString());
+        Assert.AreEqual(RDCoreDiagnosticId.AmbiguousEntryPoint.ToDiagnosticCode(), ProgramRunner.AmbiguousEntryPoint.ToString());
     }
 
     [TestMethod]
@@ -1316,7 +1337,19 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
         Assert.IsEmpty(run.Output);
-        Assert.AreNotEqual(string.Empty, run.Error);
+        Assert.Contains(RDCore.Runtime.Support.Resources.Build_LibraryNotRun, run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAnEntryPointTheBuildSectionNames_ThatNoModuleDeclares_ExitsWith2_NamingIt()
+    {
+        var run = await RunAsync(TwoMains("""{ "entryPoint": "Two.Start" }"""), Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit);
+        Assert.IsEmpty(run.Output);
+        Assert.Contains("Two.Start", run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
     }
 
     [TestMethod]

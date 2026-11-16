@@ -136,6 +136,8 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11046`](../diagnostics/rdc11046.md)|Let through a Variant property or function|Warning|the syntax tree's `Let` assignments, and the `ExpressionFact` of the target's callee: a function, or a property with a `Property Get` and no `Property Let` (`Accessors`), declared `Variant`, and bound to a member other than the procedure the `Let` is in|
 |[`RDC11047`](../diagnostics/rdc11047.md)|Object assigned with Let to an object property|Warning|the syntax tree's `Let` assignments and `ExpressionFactDto`: the property the target names, bound outside the procedure the `Let` is in, with a `LetValueTypeKind` of `Class` or `Object`; and the value's: a `TypeKind` of `Class` or `Object`, not an array|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
+|[`RDC30001`](../diagnostics/rdc30001.md)|No entry point|Error|`rdc run` and `rdc build`, on standard error: `ProgramEntryPoint.Of` resolves none (`NotFound`, `Library`)|
+|[`RDC30002`](../diagnostics/rdc30002.md)|More than one entry point|Error|`rdc run` and `rdc build`, on standard error: `ProgramEntryPoint.Of` resolves several (`Ambiguous`, its `Candidates` named)|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same
 extension, from the same model. Likewise, a run-time error that evaluating the code finds an instruction raises *whenever it runs* (`RuntimeFacts.Errors`) is reported
