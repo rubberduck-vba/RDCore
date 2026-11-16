@@ -512,6 +512,8 @@
   href: rdc01006.md
 - name: "RDC01007: Host library not referenced"
   href: rdc01007.md
+- name: "RDC01008: Native call reachable on every platform"
+  href: rdc01008.md
 - name: "RDC01009: Empty procedure"
   href: rdc01009.md
 - name: "RDC01010: Empty module"

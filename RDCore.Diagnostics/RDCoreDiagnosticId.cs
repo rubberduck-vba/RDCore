@@ -99,6 +99,7 @@ public enum RDCoreDiagnosticId
     HostedDocumentCode = 1005, // a document module (.rdproj Super): the code of a host's document, which RD-VBA does not host; and a name of one in another module
     UnsupportedDocumentModule = 1006, // a document module of a host RD-VBA does not know, or a .doccls the project says nothing of
     HostLibraryNotReferenced = 1007, // a document module of a known host whose library the project does not reference
+    NativeCallReachableOnEveryPlatform = 1008, // a Declare that no platform #If makes dead, and a call of one compiled where it is not declared, or everywhere
     EmptyProcedure = 1009, // a procedure with no statement
     EmptyModule = 1010, // a module that declares nothing
     VariableNotUsed = 1011, // a variable whose value nothing reads

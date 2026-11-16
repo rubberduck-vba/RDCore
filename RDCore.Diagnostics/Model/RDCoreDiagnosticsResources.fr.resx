@@ -438,6 +438,18 @@
   <data name="HostLibraryNotReferenced_Fix" xml:space="preserve">
     <value>Référencer la bibliothèque {0}</value>
   </data>
+  <data name="NativeCallReachableOnEveryPlatform_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est déclarée sur toutes les plateformes, et aucune bibliothèque n&apos;est sur toutes les plateformes : un appel de celle-ci là où sa bibliothèque n&apos;est pas lève l&apos;erreur d&apos;exécution 53. Écrivez-la dans un #If sur les constantes de plateforme.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_CallEverywhere_Message" xml:space="preserve">
+    <value>Cet appel de &apos;{0}&apos; est compilé sur toutes les plateformes, et aucune bibliothèque n&apos;est sur toutes les plateformes. Écrivez-le dans un #If sur les constantes de plateforme.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_CallNotDeclared_Message" xml:space="preserve">
+    <value>Cet appel de &apos;{0}&apos; est compilé sur une plateforme où &apos;{0}&apos; n&apos;est pas déclarée, et n&apos;y désigne rien. Écrivez-le dans un #If sur les constantes de plateforme qui la déclarent.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_Fix" xml:space="preserve">
+    <value>Écrire l&apos;instruction Declare dans #If {0} Then</value>
+  </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est un module de document, où MS-VBAL dit qu&apos;une directive Implements ne peut pas figurer : MS-VBA compile &apos;Implements {1}&apos; tout de même, et RD-VBA aussi.</value>
   </data>

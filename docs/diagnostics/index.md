@@ -310,6 +310,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01005](rdc01005.md)|Hosted document code|The code of an Excel, Word or Access document, which RD-VBA does not host: move it into a class that automates the application|
 |[RDC01006](rdc01006.md)|Unsupported document module|A document of a host RD-VBA does not know, or a `.doccls` the project says nothing of|
 |[RDC01007](rdc01007.md)|Host library not referenced|A document module whose host's library the project does not reference|
+|[RDC01008](rdc01008.md)|Native call reachable on every platform|A `Declare` that no `#If` on the platform constants guards, and a call of one compiled where it is not declared|
 |[RDC01009](rdc01009.md)|Empty procedure|A procedure with no statement|
 |[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|

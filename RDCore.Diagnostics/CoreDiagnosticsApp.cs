@@ -160,6 +160,8 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ImplementsInDocumentModuleAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UseMeaningfulIdentifierNamesAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, HungarianNotationAnalyzer>();
+        // what calls a library that is not on every platform, wherever it runs.
+        services.AddSingleton<IModuleAnalyzer, NativeCallReachableOnEveryPlatformAnalyzer>();
 
         // what has nothing in it: a block, a procedure, a module.
         services.AddSingleton<IModuleAnalyzer, EmptyIfBlockAnalyzer>();

@@ -438,6 +438,18 @@
   <data name="HostLibraryNotReferenced_Fix" xml:space="preserve">
     <value>Reference the {0} library</value>
   </data>
+  <data name="NativeCallReachableOnEveryPlatform_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is declared on every platform, and no library is on every platform: a call of it where its library is not raises run-time error 53. Write it in a #If on the platform constants.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_CallEverywhere_Message" xml:space="preserve">
+    <value>This call of &apos;{0}&apos; is compiled on every platform, and no library is on every platform. Write it in a #If on the platform constants.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_CallNotDeclared_Message" xml:space="preserve">
+    <value>This call of &apos;{0}&apos; is compiled on a platform &apos;{0}&apos; is not declared on, where it refers to nothing. Write it in a #If on the platform constants that declare it.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_Fix" xml:space="preserve">
+    <value>Write the Declare statement in #If {0} Then</value>
+  </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA.</value>
   </data>
