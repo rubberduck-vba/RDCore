@@ -104,6 +104,35 @@ public sealed class CompiledVariantArrayStatementTests
             "    Resized = UBound(A) * 10 + LBound(A)",
             "End Function"), Probes, "abTcTd 11", ("Resized", 0));
 
+    // each element of an array of Variants, declared, sized by a ReDim, grown by a ReDim Preserve or erased, starts as Empty; written over, it holds what is
+    // written, and an object it held is let go of, terminated in the statement that writes over it. That statement is the interpreter's (one recovery): a
+    // number compiled code writes goes in a Variant's cell only where it holds no object.
+    [TestMethod]
+    public async Task AnElementOfAnArrayOfVariants_StartsAsEmpty_AndHoldsWhatIsWrittenOverIt()
+        => await AssertCompiledAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Started()",
+            "End Sub",
+            "Private Function Started() As Long",
+            "    Dim A(1 To 3) As Variant, B() As Variant, I As Long",
+            "    ReDim B(0 To 1, 1 To 2)",
+            "    For I = 1 To 3",
+            "        If IsEmpty(A(I)) Then Started = Started + 1",
+            "    Next",
+            "    If IsEmpty(B(1, 2)) Then Started = Started + 10",
+            "    A(1) = 5",
+            "    Set A(2) = New Probe",
+            "    Debug.Print \"a\";",
+            "    A(2) = A(1) * 2",
+            "    Debug.Print \"b\";",
+            "    ReDim Preserve B(0 To 1, 1 To 3)",
+            "    If IsEmpty(B(0, 3)) And Not IsEmpty(A(2)) Then Started = Started + 100",
+            "    B(0, 3) = 1.5",
+            "    Erase A",
+            "    If IsEmpty(A(1)) And IsEmpty(A(2)) Then Started = Started + 1000",
+            "    Started = Started * 10 + B(0, 3) * 2",
+            "End Function"), Probes, "aTb 11133", ("Started", 1));
+
     // the Let of an array to a Variant gives it a copy (MS-VBAL §5.5.1.2.12), and lets go of the object the Variant held, which is terminated there.
     [TestMethod]
     public async Task TheLetOfAnArrayToAVariant_CopiesItAndLetsGoOfWhatTheVariantHeld()
