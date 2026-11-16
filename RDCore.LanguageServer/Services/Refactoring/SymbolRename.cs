@@ -524,6 +524,7 @@ public static class SymbolRename
             }
         }
 
+        // the project, or a library it references: each library is a project symbol too, named after the library.
         return own is not null && context.Resolver.ResolveValue(newName, ScopeKind.Local, own.Uri).Symbol is VBProjectSymbol named
             ? ConflictWith(newName, named)
             : null;
@@ -765,6 +766,7 @@ public static class SymbolRename
             }
         }
 
+        // the project, or a library it references: each library is a project symbol too, named after the library.
         var meant = context.ScopeTree.TryGetScope(declaring, out var own) ? context.Resolver.ResolveValue(newName, ScopeKind.Local, own.Uri).Symbol : null;
         if (meant is VBProjectSymbol
             || NameOccurrences.SymbolOf(context, new SemanticId(module.ParentUri)) is VBProjectSymbol { Name: var name } && string.Equals(name, newName, StringComparison.OrdinalIgnoreCase))

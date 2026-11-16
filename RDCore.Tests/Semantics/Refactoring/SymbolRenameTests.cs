@@ -723,6 +723,18 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
+    [DataRow(StandardLibrary.LibraryName, DisplayName = "the standard library")]
+    [DataRow("Host", DisplayName = "a referenced library")]
+    public void AModule_IsNotRenamedToTheNameOfALibraryItsProjectReferences(string newName)
+    {
+        // MS-VBAL §4.2: a module is not named after a project its project references.
+        var context = ComposeWithHost(("Tools", Module("Tools", "Public Sub Go()", "End Sub")), ("Main", Module("Main", "Public Sub One()", "    Tools.Go", "End Sub")));
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Tools.Go", "Tools"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, newName).Refusal?.Kind);
+    }
+
+    [TestMethod]
     public void AModule_IsNotRenamedToANameLongerThanAModuleNameCanBe()
     {
         // MS-VBAL §4.2: at most 31 characters.
@@ -862,6 +874,19 @@ public sealed class SymbolRenameTests
             ("Other", Module("Other", "Public Enum Size", "    Small", "End Enum")));
 
         var preparation = SymbolRename.Prepare(context, ModuleUri(module), At(context, module, "Public Type Point", "Point"));
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, newName).Refusal?.Kind);
+    }
+
+    [TestMethod]
+    [DataRow(StandardLibrary.LibraryName, DisplayName = "the standard library")]
+    [DataRow("Host", DisplayName = "a referenced library")]
+    public void APublicType_IsNotRenamedToTheNameOfALibraryItsProjectReferences(string newName)
+    {
+        // MS-VBAL §5.2.3.3, §5.2.3.4: no project or library of the environment.
+        var context = ComposeWithHost(("Main", Module("Main", "Public Type Point", "    X As Long", "End Type")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Public Type Point", "Point"));
 
         Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, newName).Refusal?.Kind);
     }
