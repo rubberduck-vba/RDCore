@@ -216,13 +216,14 @@ internal static class CloserToUsage
     }
 
     // what moving the declaration with a keyword changes: a variable of a class module loses its object extent, and one of a standard module its value
-    // between calls when it is declared with Dim in a procedure that is not Static.
+    // between calls when it is declared with Dim in a procedure that is not Static. A variable of a class module is a field of the instance scope.
     public static CloserToUsageNotice? ChangeOf(CloserToUsageTarget target, CloserToUsageKeyword keyword)
     {
         var keeps = keyword is CloserToUsageKeyword.Static || target.Procedure.IsStatic;
         return target.Variable switch
         {
-            VBInstanceFieldVariableMemberSymbol when keeps => new(null, target.Variable.Name, target.Procedure.Name, CloserToUsageChangeKind.ModuleExtent),
+            VBModuleFieldVariableMemberSymbol { Scope: ScopeKind.Instance } or VBInstanceFieldVariableMemberSymbol when keeps
+                => new(null, target.Variable.Name, target.Procedure.Name, CloserToUsageChangeKind.ModuleExtent),
             VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol when !keeps => new(null, target.Variable.Name, target.Procedure.Name, CloserToUsageChangeKind.NotKept),
             _ => null,
         };

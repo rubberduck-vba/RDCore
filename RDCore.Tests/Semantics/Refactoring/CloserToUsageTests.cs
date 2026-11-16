@@ -3,6 +3,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
@@ -56,11 +57,11 @@ public sealed class CloserToUsageTests
     private const string Counter = "Private count As Long\r\n\r\nPublic Sub Tick()\r\n    Debug.Print \"tick\"\r\n    count = count + 1\r\nEnd Sub\r\n";
 
     [TestMethod]
-    [DataRow(CloserToUsageKeyword.Static, "Static", DisplayName = "Static, the default")]
-    [DataRow(CloserToUsageKeyword.Dim, "Dim", DisplayName = "Dim")]
-    public void AVariableOfTheModule_GoesIntoTheProcedureThatUsesIt_BeforeItsFirstUse(CloserToUsageKeyword keyword, string written)
+    [DataRow(nameof(CloserToUsageKeyword.Static), "Static", DisplayName = "Static, the default")]
+    [DataRow(nameof(CloserToUsageKeyword.Dim), "Dim", DisplayName = "Dim")]
+    public void AVariableOfTheModule_GoesIntoTheProcedureThatUsesIt_BeforeItsFirstUse(string keyword, string written)
     {
-        var text = Moved(Header + Counter, "count", keyword);
+        var text = Moved(Header + Counter, "count", Enum.Parse<CloserToUsageKeyword>(keyword));
 
         Assert.AreEqual(Header + "\r\nPublic Sub Tick()\r\n    Debug.Print \"tick\"\r\n    " + written + " count As Long\r\n    count = count + 1\r\nEnd Sub\r\n", text);
     }
@@ -122,13 +123,13 @@ public sealed class CloserToUsageTests
     }
 
     [TestMethod]
-    [DataRow("Public count As Long\r\n\r\nPublic Sub Tick()\r\n    count = 1\r\nEnd Sub\r\n", "count", CloserToUsageRefusalKind.NotPrivate, DisplayName = "a Public variable of the module")]
-    [DataRow("Private count As Long\r\n\r\nPublic Sub A()\r\n    count = 1\r\nEnd Sub\r\n\r\nPublic Sub B()\r\n    count = 2\r\nEnd Sub\r\n", "count", CloserToUsageRefusalKind.SeveralProcedures, DisplayName = "used by two procedures")]
-    [DataRow("Private count As Long\r\n\r\nPublic Sub Tick()\r\nEnd Sub\r\n", "count", CloserToUsageRefusalKind.NotUsed, DisplayName = "used by nothing")]
-    [DataRow("Public Sub F()\r\n    Dim a As Long\r\n    Dim b As Long\r\n    a = 1\r\nEnd Sub\r\n", "a As", CloserToUsageRefusalKind.AlreadyClose, DisplayName = "only declarations before its first use")]
-    [DataRow("Private Sub Tick()\r\nEnd Sub\r\n", "Tick", CloserToUsageRefusalKind.NotAVariable, DisplayName = "a procedure")]
-    [DataRow("Private count As Long: Private other As Long\r\n\r\nPublic Sub Tick()\r\n    count = 1\r\n    other = 1\r\nEnd Sub\r\n", "count", CloserToUsageRefusalKind.SharesItsLine, DisplayName = "a statement that shares its line")]
-    public void ADeclarationThatCannotMove_IsRefused(string body, string marker, CloserToUsageRefusalKind kind)
+    [DataRow("Public count As Long\r\n\r\nPublic Sub Tick()\r\n    count = 1\r\nEnd Sub\r\n", "count", nameof(CloserToUsageRefusalKind.NotPrivate), DisplayName = "a Public variable of the module")]
+    [DataRow("Private count As Long\r\n\r\nPublic Sub A()\r\n    count = 1\r\nEnd Sub\r\n\r\nPublic Sub B()\r\n    count = 2\r\nEnd Sub\r\n", "count", nameof(CloserToUsageRefusalKind.SeveralProcedures), DisplayName = "used by two procedures")]
+    [DataRow("Private count As Long\r\n\r\nPublic Sub Tick()\r\nEnd Sub\r\n", "count", nameof(CloserToUsageRefusalKind.NotUsed), DisplayName = "used by nothing")]
+    [DataRow("Public Sub F()\r\n    Dim a As Long\r\n    Dim b As Long\r\n    a = 1\r\nEnd Sub\r\n", "a As", nameof(CloserToUsageRefusalKind.AlreadyClose), DisplayName = "only declarations before its first use")]
+    [DataRow("Private Sub Tick()\r\nEnd Sub\r\n", "Tick", nameof(CloserToUsageRefusalKind.NotAVariable), DisplayName = "a procedure")]
+    [DataRow("Private count As Long: Private other As Long\r\n\r\nPublic Sub Tick()\r\n    count = 1\r\n    other = 1\r\nEnd Sub\r\n", "count", nameof(CloserToUsageRefusalKind.SharesItsLine), DisplayName = "a statement that shares its line")]
+    public void ADeclarationThatCannotMove_IsRefused(string body, string marker, string kind)
     {
         var workspace = Compose(Header + body);
         var (target, refusal) = Prepare(workspace, marker);
@@ -137,7 +138,7 @@ public sealed class CloserToUsageTests
             (_, refusal) = CloserToUsage.Plan(workspace.Source.Source, workspace.Parse, target, CloserToUsageKeyword.Static);
         }
 
-        Assert.AreEqual(kind, refusal?.Kind);
+        Assert.AreEqual(Enum.Parse<CloserToUsageRefusalKind>(kind), refusal?.Kind);
     }
 
     [TestMethod]
