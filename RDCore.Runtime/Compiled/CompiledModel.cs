@@ -614,7 +614,7 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
     nint Entry, Semantics.RuntimeEvaluationContext Context)
 {
     /// <summary>
-    /// The procedures of the program the member's body was last found the invoker's in (<c>RuntimeProcedureInvoker.Image</c>).
+    /// The procedures of the program in which the member's body was last found to be the invoker's (<c>RuntimeProcedureInvoker.Image</c>).
     /// </summary>
     public object? Image { get; set; }
 }
@@ -699,8 +699,8 @@ internal sealed class DirectCall(System.Reflection.MethodInfo Entry, SDK.Model.S
     public CompiledBody? Body { get; set; }
 
     /// <summary>
-    /// The procedures of the program the callee's body was last found the invoker's in (<c>RuntimeProcedureInvoker.Image</c>): a body is shared by every
-    /// session composed over the same scopes, so it is found again in another's.
+    /// The procedures of the program in which the callee's body was last found to be the invoker's (<c>RuntimeProcedureInvoker.Image</c>). A body is
+    /// shared by every session composed over the same scopes, so it is found again in another session's program.
     /// </summary>
     public object? Image { get; set; }
 

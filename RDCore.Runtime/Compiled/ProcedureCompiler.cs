@@ -394,8 +394,8 @@ internal static class CompiledExecution
     private static void EngineChanged() => Interlocked.Increment(ref _engineChanges);
 
     /// <summary>
-    /// A number that is the same for as long as no engine was changed (<see cref="Engine"/>, <see cref="Running"/>), whichever flow changed it: compiled code
-    /// that found its engine is the compiled one compares it, instead of asking again at each call.
+    /// A number that is the same for as long as no engine was changed (<see cref="Engine"/>, <see cref="Running"/>), whichever flow changed it. Compiled code
+    /// that found its engine to be the compiled one compares this number at each call instead of asking again.
     /// </summary>
     public static int EngineEpoch => Volatile.Read(ref _engineChanges);
 

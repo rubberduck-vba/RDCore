@@ -234,8 +234,8 @@ internal sealed class SessionHalt : ISessionHalt
 
     /// <summary>
     /// A number that is the same for as long as the interpreter is wanted for the same things (<see cref="WantsInterpreter"/>): no gate given or taken, no
-    /// step asked for or taken, no breakpoint set or cleared. Compiled code that found it need not hand a call to the interpreter compares it, instead of
-    /// asking again at each call.
+    /// step asked for or taken, no breakpoint set or cleared. Compiled code that found it need not hand a call to the interpreter compares this number at
+    /// each call instead of asking again.
     /// </summary>
     internal int Epoch => Volatile.Read(ref _changes) + _breakpoints.Version;
 
