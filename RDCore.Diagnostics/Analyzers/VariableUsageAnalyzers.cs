@@ -1,11 +1,14 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -112,8 +115,63 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
                 RDCoreDiagnosticId.VariableNotAssigned.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name))
+            {
+                Fixes = FixOf(context.ParseResult, module, fact, declaration) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
+            };
         }
+    }
+
+    // the local assigned the default value of its type on a line of its own after its declaration: nothing else assigns it, so it holds that value wherever
+    // it is read, and the code does what it did. Not offered for a field of the module, which no one procedure starts with; for a fixed-length string, whose
+    // default is made of null characters; for an array or an object, which no Let of a literal assigns; nor for a declaration with no As clause or type
+    // character in a module whose DefType statements may type it.
+    private static EditFix? FixOf(ModuleParseResult parse, ModuleNode module, DeclarationFactDto fact, VariableDeclarationNode declaration)
+    {
+        if (UnusedDeclarations.ProcedureAt(module, fact.Location.Range.Start) is not { } procedure
+            || DefaultOf(declaration, module.Descendants().OfType<TypeDefDirectiveNode>().Any()) is not { } value
+            || procedure.Descendants().Prepend(procedure).FirstOrDefault(node => !node.Children.IsDefaultOrEmpty && node.Children.Contains(declaration)) is not { } parent
+            || DeclarationStatements.In(parent.Children).FirstOrDefault(declarations => declarations.Contains(declaration)) is not { } declarations)
+        {
+            return null;
+        }
+
+        var statement = DeclarationStatements.RangeOf(declarations);
+        if (statement.End.Line >= procedure.SourceLocation.Range.End.Line)
+        {
+            return null;
+        }
+
+        // the assignment is written at the indentation of the declaration.
+        var indent = new string(' ', statement.Start.Character);
+        return SyntaxEdits.Fix(
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Fix, fact.Name, value),
+            LineEdits.InsertLinesAfter(parse, statement, $"{indent}{fact.Name} = {value}"));
+    }
+
+    // the literal of the default value of the type the declaration states, with its As clause or its type character.
+    private static string? DefaultOf(VariableDeclarationNode declaration, bool hasDefType)
+    {
+        if (declaration.Children.OfType<ArrayBoundsNode>().Any())
+        {
+            return null;
+        }
+
+        if (declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is { } asType)
+        {
+            return asType.FixedLength is null
+                && !string.Equals(asType.TypeName, VBTypeNames.VBObject, StringComparison.OrdinalIgnoreCase)
+                && IntrinsicVBTypes.TryResolve(asType.TypeName, out var declared)
+                    ? IntrinsicVBTypes.DefaultLiteralOf(declared)
+                    : null;
+        }
+
+        return declaration.TypeHint switch
+        {
+            { } hint => IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? IntrinsicVBTypes.DefaultLiteralOf(hinted) : null,
+            null when !hasDefType => IntrinsicVBTypes.DefaultLiteralOf(VBVariantType.TypeInfo),
+            _ => null,
+        };
     }
 
     // no As clause, or one that names an intrinsic type, Object included, unqualified or of the VBA library: no user-defined type has such a name. A class

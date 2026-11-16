@@ -528,6 +528,9 @@
   <data name="VariableNotAssigned_Message" xml:space="preserve">
     <value>Variable &apos;{0}&apos; is read and never assigned: it always has the default value of its type.</value>
   </data>
+  <data name="VariableNotAssigned_Fix" xml:space="preserve">
+    <value>Assign &apos;{0}&apos; its default value ({1}) explicitly</value>
+  </data>
   <data name="ParameterNotUsed_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is never used.</value>
   </data>
