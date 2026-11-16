@@ -441,12 +441,11 @@ public sealed partial class RuntimeExpressionEvaluator
     // late-bound. A late-bound object held by a variable of a library's class is reached through that class, as MS-VBA binds it early: the Set that put it
     // there found it is one.
     private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
-    {
-        if (_memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual))
-        {
-            return site.Member;
-        }
+        => _memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual) ? site.Member : ImplementationFound(bound, actual);
 
+    // the member found and kept for the access: apart from the lookup, which then captures nothing and allocates nothing.
+    private VBTypeMemberSymbol? ImplementationFound(BoundMember bound, VBClassModuleSymbol actual)
+    {
         // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
         var name = bound.Access.Member.IdentifierName;
         var declared = bound.DeclaredClass!.Uri.AbsoluteUri;

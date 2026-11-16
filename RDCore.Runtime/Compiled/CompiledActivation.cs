@@ -1801,6 +1801,12 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// </summary>
     internal SessionFieldCells? SessionFields { get; set; }
 
+    /// <summary>
+    /// The public variables of objects the body's member accesses found last, by the number compiled code knows each access by (<see cref="MemberFields"/>):
+    /// each kept for the object it was found of, while no module is defined again (<see cref="MemberFieldCell"/>).
+    /// </summary>
+    internal MemberFieldCell?[]? MemberFieldCells { get; set; }
+
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
 

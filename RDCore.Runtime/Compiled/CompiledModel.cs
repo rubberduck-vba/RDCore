@@ -641,6 +641,22 @@ internal sealed record class SessionFieldCells(WeakReference<Execution.Memory.Se
 }
 
 /// <summary>
+/// The public variable of an object a member access of a body found last (<see cref="CompiledBody.MemberFieldCells"/>), and its cell: the variable the
+/// object's class has for the member, which is the same for as long as no module is defined again (the session's scope tree is the one it was), and the
+/// cell the object holds it in, which it keeps for as long as it lives. The object is known by its identity, which no other object is ever given: the cache
+/// holds no reference to it.
+/// </summary>
+/// <param name="Object">The object's identity.</param>
+/// <param name="Scopes">The session's scope tree when the variable was found.</param>
+/// <param name="Field">The variable.</param>
+/// <param name="Held">Its cell.</param>
+/// <param name="Kind">The kind of a payload cell, whose type does not change; <see langword="null"/> for any other cell.</param>
+internal sealed record class MemberFieldCell(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, SDK.Model.Symbols.ScopeTree Scopes,
+    SDK.Model.Symbols.VBProject.VBModuleFieldVariableMemberSymbol Field, SDK.Model.Values.Bindings.IBindingHandle Held, ScalarKind? Kind)
+{
+}
+
+/// <summary>
 /// Where a field compiled code reaches is held (<see cref="ProcedureAnalysis.Fields"/>): what its cell is found in, and cached by.
 /// </summary>
 internal enum FieldScope
