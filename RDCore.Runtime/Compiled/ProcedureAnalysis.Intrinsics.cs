@@ -49,8 +49,8 @@ internal sealed partial class ProcedureAnalysis
     private IntrinsicTextNode? IntrinsicTextOf(BoundNode node)
         => FormOf(node, method => ResultTypeOf(method) == typeof(string)) is (var method, var values) ? new IntrinsicTextNode(method, values) : null;
 
-    // the typed form of a call of a function of the library that returns what returns takes, and the arguments given to it, outside an instruction that
-    // calls inside an expression.
+    // the typed form of a call of a function of the library whose result type the returns predicate accepts, and the arguments given to it, outside an
+    // instruction that calls inside an expression.
     private (MethodInfo Method, List<PayloadNode> Arguments)? FormOf(BoundNode node, Func<MethodInfo, bool> returns)
     {
         // Abs, Int or Fix of an extended intermediate is itself one, computed on its 80 bits (Extended): never a typed form, which is given the argument
