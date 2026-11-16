@@ -29,8 +29,8 @@ internal static class AppHost
 
     private const string PackPrefix = "Microsoft.NETCore.App.Host.";
 
-    // the folder beside rdc that the published platform ships the host of its own runtime in, as a .NET installation lays out its packs (RDCore.CLI.csproj):
-    // a machine with only the .NET runtime has no packs folder.
+    // the folder beside rdc that the published platform ships the hosts of the runtimes it is published for in, its own among them, as a .NET installation
+    // lays out its packs (RDCore.CLI.csproj): a machine with only the .NET runtime has no packs folder.
     internal const string ShippedFolder = "apphost";
 
     // the host a program for the runtime is made of: the platform's own, then one of the packs of the .NET installation rdc runs on.

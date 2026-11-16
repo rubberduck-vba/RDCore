@@ -150,9 +150,10 @@ The program shows its dialogs as `rdc run` does, and its exit code says how it r
 A built program calls the outside world (a `Declare`d procedure, an automation server's object) as `rdc run` does, through a second process: its own
 executable, started again as its external host, which ends with it.
 
-The executable is made of the .NET application host for the program's runtime. `rdc` comes with the one for the runtime it runs on; for another runtime,
-it uses the one in an installed .NET SDK. Where neither has it, the program is built without an executable; run with `dotnet <name>.dll`, it makes no
-call to the outside world.
+The executable is made of the .NET application host for the program's runtime. `rdc` comes with the hosts for `win-x64`, `linux-x64`, `osx-x64` and
+`osx-arm64`, the runtimes the platform is published for, so it builds a program for any of them wherever it runs. For another runtime, it uses the host
+in an installed .NET SDK. Where neither has it, the program is built without an executable; run with `dotnet <name>.dll`, it makes no call to the
+outside world.
 
 The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
 reads them from there, wherever the folder is.
