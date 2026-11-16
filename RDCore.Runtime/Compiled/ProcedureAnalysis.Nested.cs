@@ -72,7 +72,7 @@ internal sealed partial class ProcedureAnalysis
         var nests = instruction switch
         {
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment }
-                => IsNestedTarget(assignment.Target) && CallsInside(Bind(assignment.Value)),
+                => IsNestedTarget(assignment.Target) && (CallsInside(Bind(assignment.Value)) || SubscriptsCall(assignment.Target)),
             // a Set of an object variable, or of the function result variable, to what a call returns, or to a New, whose Initialize is a call.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
                 => Bind(assignment.Value) is var value && (value is BoundNew || Calls(value)),
@@ -90,8 +90,9 @@ internal sealed partial class ProcedureAnalysis
         return nests ? instruction.Node : null;
     }
 
-    // what a Let that calls inside its value assigns: a variable (IsScalarTarget); a field of a record, a member of an object, or an element of an array of a
-    // scalar type or of Variants, each found once the value is evaluated, after its calls, as the interpreter finds it (MS-VBAL §5.4.3.8).
+    // what a Let that calls inside its value, or inside a subscript of its target, assigns: a variable (IsScalarTarget); a field of a record, a member of an
+    // object, or an element of an array of a scalar type or of Variants, each found once the value is evaluated, after its calls, as the interpreter finds
+    // it (MS-VBAL §5.4.3.8).
     private bool IsNestedTarget(ExpressionNode target)
     {
         var bound = Bind(target);
@@ -103,6 +104,11 @@ internal sealed partial class ProcedureAnalysis
             _ => false,
         };
     }
+
+    // whether a subscript of the element a Let assigns calls (`this.State(Position.X, Position.Y) = Hit`): made after a value that calls is evaluated,
+    // and before a value that calls nothing is read, as the interpreter makes it.
+    private bool SubscriptsCall(ExpressionNode target)
+        => target is IndexExpressionNode && (FieldElementOf(Bind(target)) ?? Bind(target)) is BoundIndex index && index.Arguments.Any(Calls);
 
     // a scalar variable of the activation or the scalar result variable, and a Variant variable of the activation, assigned what was evaluated of it once:
     // its Let made of the payload the evaluation gives (VariantLetStep), never speculated, which would evaluate the value again where the speculation fails.

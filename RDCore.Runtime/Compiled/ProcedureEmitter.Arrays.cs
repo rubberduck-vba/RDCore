@@ -134,11 +134,11 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the element a Let writes, when its value calls nothing: the cell is found first and the value evaluated after it, which nothing can observe, where
-    // MS-VBAL §5.4.3.8 evaluates the value first (as ElementLetStep does for a value that calls). The same element read in the value, at subscripts that
-    // are the same expressions, is then that cell. Nothing in between finds another array: the value calls nothing (pure), so no variable a subscript
-    // reads changes, and the holder holds the same array. Subscripts are compared as the nodes they are; one made of a list (an element in a subscript)
-    // is never the same, and its element is found again.
+    // the element a Let writes, when its value calls nothing: the cell is found first and the value evaluated after it, after the calls of the subscripts,
+    // as the interpreter evaluates them, where MS-VBAL §5.4.3.8 evaluates the value first (as ElementLetStep does for a value that calls). The same element
+    // read in the value, at subscripts that are the same expressions, is then that cell. Nothing in between finds another array: the value calls nothing
+    // (pure), so no variable a subscript reads changes, and the holder holds the same array. Subscripts are compared as the nodes they are; one made of a
+    // list (an element in a subscript) is never the same, and its element is found again.
     private (int Array, IReadOnlyList<PayloadNode> Subscripts, LocalBuilder Cell)? _found;
 
     private T EmitFoundIn<T>(int array, IReadOnlyList<PayloadNode> subscripts, LocalBuilder cell, bool pure, Func<T> emitValue)
@@ -169,8 +169,9 @@ internal sealed partial class ProcedureEmitter
         {
             // the value evaluated, then the element's cell found and the value written into it (MS-VBAL §5.4.3.8), as the interpreter evaluates the value
             // before it finds the element (AssignValue): after a call inside the value, the subscripts are read as the call left them. A value that calls
-            // nothing is evaluated once the cell is found, which nothing can observe, so that the same element read in it is that cell (EmitFoundIn). A
-            // value that reads a Variant declines what compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
+            // nothing is evaluated once the cell is found, so that the same element read in it is that cell (EmitFoundIn): after the calls of the subscripts,
+            // which the interpreter makes before it reads what the value reads. A value that reads a Variant declines what compiled code does not evaluate, as
+            // a variable's Let does (FailureOf): the interpreter runs the Let.
             case ElementLetStep let:
             {
                 Operand value;

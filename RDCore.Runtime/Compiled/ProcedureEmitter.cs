@@ -2097,12 +2097,17 @@ internal sealed partial class ProcedureEmitter
         VariantBinaryNode binary => MakesACall(binary.Left) || MakesACall(binary.Right),
         VariantUnaryNode unary => MakesACall(unary.Operand),
         LibraryVariantNode library => library.Arguments.Any(MakesACall),
+        VariantElementNode element => element.Subscripts.Any(MakesACall),
         _ => false,
     };
 
+    // an element read calls what its subscripts call, and a member of what a call returns makes that call.
     private static bool MakesACall(PayloadNode node) => node switch
     {
         CallNode => true,
+        ElementNode element => element.Subscripts.Any(MakesACall),
+        MemberFieldNode { ReceiverCall: not null } => true,
+        ObjectArgumentNode { Call: not null } => true,
         LibraryCallNode library => library.Syntax >= 0 || library.Arguments.Any(MakesACall),
         KnownNode known => MakesACall(known.Value),
         UnvariantNode unvariant => MakesACall(unvariant.Value),
