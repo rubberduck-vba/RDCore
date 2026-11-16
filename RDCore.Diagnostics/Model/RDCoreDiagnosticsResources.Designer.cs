@@ -468,6 +468,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Assign &apos;{0}&apos; its default value ({1}) at the start.
+        /// </summary>
+        public static string NotAllPathsReturnValue_Fix {
+            get {
+                return ResourceManager.GetString("NotAllPathsReturnValue_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to IsMissing({0}) is always False: &apos;{0}&apos; is {1}, which an omitted argument never leaves missing. Only a Variant parameter with no default value can be missing..
         /// </summary>
         public static string IsMissingAlwaysFalse_Message {
