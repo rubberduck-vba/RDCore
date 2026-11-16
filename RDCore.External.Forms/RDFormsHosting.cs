@@ -78,6 +78,11 @@ public static class RDFormsHosting
         public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
             => ServerOf(target).Invoke(target, member, invocation, arguments, byReference, culture);
 
+        // named arguments go to the server of the object too, which says whether it takes them (d.Add Key:="a", Item:=1).
+        public object? Invoke(
+            object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
+            => ServerOf(target).Invoke(target, member, invocation, arguments, byReference, names, culture);
+
         public string? ClassNameOf(object target) => ServerOf(target).ClassNameOf(target);
 
         public bool? IsInstanceOf(object target, string library, string className) => ServerOf(target).IsInstanceOf(target, library, className);

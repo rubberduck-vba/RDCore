@@ -187,7 +187,7 @@ internal static class AutomationMarshaller
                 VBDecimalType => new VBDecimalValue(DecimalOf(Present(value))),
                 VBDateType => new VBDateValue(IsAbsent(value) ? 0 : Convert.ToDateTime(value, CultureInfo.InvariantCulture).ToOADate()),
                 VBStringType => new VBStringValue(IsAbsent(value) ? string.Empty : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty),
-                VBClassType or VBObjectType or VBUnknownType => value is null or DBNull ? VBObjectValue.Nothing : wrap(value, declared),
+                VBClassType or VBObjectType or VBUnknownType => value is null or DBNull || IsNothing(value) ? VBObjectValue.Nothing : wrap(value, declared),
                 VBArrayType => Natural(value, wrap),
                 _ => throw new AutomationException(TypeMismatch, $"A value of type '{declared.Name}' cannot be taken from a server."),
             };
@@ -228,9 +228,16 @@ internal static class AutomationMarshaller
     /// <summary>
     /// Makes what a server returned the value of the type it is, for a member that is declared to return a <c>Variant</c>.
     /// </summary>
+    // a reference to no object, as a server gives Nothing: Nothing in a Variant too.
+    // CA1416: reading a wrapper's object asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+    private static bool IsNothing(object? value) => value is DispatchWrapper { WrappedObject: null };
+#pragma warning restore CA1416
+
     private static VBTypedValue Natural(object? value, Func<object, VBType, VBTypedValue> wrap) => value switch
     {
         null or Missing => VBEmptyValue.Empty,
+        _ when IsNothing(value) => VBObjectValue.Nothing,
         DBNull => VBNullValue.Null,
         bool boolean => new VBBooleanValue(boolean),
         byte @byte => new VBByteValue(@byte),
