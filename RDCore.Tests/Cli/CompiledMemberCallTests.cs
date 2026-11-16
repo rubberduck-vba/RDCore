@@ -195,6 +195,7 @@ public sealed class CompiledMemberCallTests
             "End Function"), "Raised", recoveries: 2, direct: 1);
 
     // the object a member is called on lives at least as long as the call: Set to another, the one before is let go of after the call, and terminates.
+    // Compiled code makes each new object; the Sets that destroy the one before, in passes 2 and 3, are the interpreter's, with the new object known.
     [TestMethod]
     public async Task TheObjectAMemberIsCalledOn_TerminatesWhenItsLastReferenceGoes()
         => await AssertCalledAsync(Program(
@@ -210,7 +211,7 @@ public sealed class CompiledMemberCallTests
             "        T.Touch I + 1",
             "    Next",
             "    Touched = I",
-            "End Function"), "Touched", recoveries: 0, direct: 6);
+            "End Function"), "Touched", recoveries: 2, direct: 6);
 
     // a member of a variable declared Object is late-bound: the interpreter's, which makes it as a support call of the compiled caller.
     [TestMethod]

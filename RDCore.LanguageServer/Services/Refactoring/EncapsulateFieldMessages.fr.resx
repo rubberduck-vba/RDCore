@@ -29,7 +29,7 @@
     <value>'{0}' est déclaré WithEvents : les procédures nommées d'après lui gèrent ses événements, et une propriété ne peut pas être déclarée WithEvents.</value>
   </data>
   <data name="EncapsulateFieldRefusal_NotSupported" xml:space="preserve">
-    <value>'{0}' est un tableau, une chaîne de longueur fixe ou une variable déclarée As New, ou son type n'est pas connu : l'encapsulation ne lui écrit aucune propriété.</value>
+    <value>'{0}' est un tableau de taille fixe ou une variable déclarée As New, ou son type n'est pas connu : l'encapsulation ne lui écrit aucune propriété.</value>
   </data>
   <data name="EncapsulateFieldRefusal_Conditional" xml:space="preserve">
     <value>'{0}' est déclaré dans une branche d'un bloc #If : il n'est compilé que lorsque cette branche est active, et ses propriétés le seraient toujours.</value>
@@ -63,5 +63,77 @@
   </data>
   <data name="EncapsulateFieldVerification_Retargeted" xml:space="preserve">
     <value>{1} ferait référence à autre chose.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NotAName" xml:space="preserve">
+    <value>'{1}' ne peut pas être le nom d'une variable.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WrittenOutside" xml:space="preserve">
+    <value>{1} assigne '{0}', ce qu'une propriété en lecture seule ne peut pas recevoir.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_ReplacedByMid" xml:space="preserve">
+    <value>{1} remplace des caractères de '{0}' par une instruction Mid, qui exige une variable : sur une propriété, le code ne compilerait pas.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Mode" xml:space="preserve">
+    <value>Garder la valeur dans</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ModeDescription" xml:space="preserve">
+    <value>Là où les propriétés lisent et écrivent la valeur du champ.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ModeThis" xml:space="preserve">
+    <value>Un membre du type privé du module (this)</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ModeBackingField" xml:space="preserve">
+    <value>Un champ privé</value>
+  </data>
+  <data name="EncapsulateFieldChoice_BackingField" xml:space="preserve">
+    <value>Champ privé</value>
+  </data>
+  <data name="EncapsulateFieldChoice_BackingFieldDescription" xml:space="preserve">
+    <value>Le nom du champ privé qui garde la valeur, lorsque la valeur est gardée dans un champ privé.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ReadOnly" xml:space="preserve">
+    <value>Lecture seule</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ReadOnlyDescription" xml:space="preserve">
+    <value>N'écrire qu'un Property Get. Le code hors du module ne peut pas assigner le champ.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Inside" xml:space="preserve">
+    <value>Dans le module</value>
+  </data>
+  <data name="EncapsulateFieldChoice_InsideDescription" xml:space="preserve">
+    <value>Ce que les références dans le module lisent et écrivent. Par les propriétés, un champ passé à un paramètre ByRef est passé comme une copie.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_InsideState" xml:space="preserve">
+    <value>La valeur, là où elle est gardée</value>
+  </data>
+  <data name="EncapsulateFieldChoice_InsideProperties" xml:space="preserve">
+    <value>Les propriétés</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Unknown" xml:space="preserve">
+    <value>'{0}' n'est pas une réponse à '{1}'.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WritesAnElement" xml:space="preserve">
+    <value>{1} écrit dans un élément de '{0}', un tableau, ou le redimensionne ou l'efface : par une propriété, l'écriture irait à une copie et serait perdue sans erreur, ou ne compilerait pas.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_SharesItsStatement" xml:space="preserve">
+    <value>'{0}' est déclaré dans la même instruction que '{1}', encapsulé avec lui : déclarez d'abord chacun dans une instruction à part.</value>
+  </data>
+  <data name="EncapsulateFieldChange_ElementPassed" xml:space="preserve">
+    <value>{1} passe un élément de '{0}' à un appel qui peut le prendre ByRef : par une propriété, ce que l'appel y écrit va à une copie et est perdu.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Fields" xml:space="preserve">
+    <value>Autres champs</value>
+  </data>
+  <data name="EncapsulateFieldChoice_FieldsDescription" xml:space="preserve">
+    <value>Les autres champs Public du module : ceux qui sont choisis sont encapsulés dans la même modification, et conservés de la même façon.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Encapsulate" xml:space="preserve">
+    <value>Encapsuler</value>
+  </data>
+  <data name="EncapsulateFieldChoice_UnknownField" xml:space="preserve">
+    <value>Le module n'a aucun autre champ Public nommé '{0}'.</value>
+  </data>
+  <data name="EncapsulateField_AllTitle" xml:space="preserve">
+    <value>Encapsuler tous les champs</value>
   </data>
 </root>

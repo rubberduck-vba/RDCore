@@ -83,4 +83,17 @@
     <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
   </ItemGroup>
 
+  <!-- rdc build makes a program's executable out of the .NET application host, and a machine with the .NET runtime has none: only the .NET SDK
+       does. so the published rdc ships the one its own executable is made of, laid out as the SDK's packs folder lays it out
+       (apphost/packs/Microsoft.NETCore.App.Host.<rid>/<version>/runtimes/<rid>/native/), which is where AppHost.Find looks first. -->
+  <Target Name="PublishProgramApplicationHost" AfterTargets="Publish" DependsOnTargets="_GetAppHostPaths" Condition="'$(UseAppHost)' == 'true'">
+    <Error Condition="'$(AppHostSourcePath)' == '' or !Exists('$(AppHostSourcePath)')" Text="rdc is published without the .NET application host its programs are made of: none was resolved for $(AssemblyName)." />
+    <PropertyGroup>
+      <_ProgramAppHostNative>$([System.IO.Path]::GetDirectoryName('$(AppHostSourcePath)'))</_ProgramAppHostNative>
+      <_ProgramAppHostRuntime>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('$(_ProgramAppHostNative)'))))</_ProgramAppHostRuntime>
+      <_ProgramAppHostVersion>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName($([System.IO.Path]::GetDirectoryName($([System.IO.Path]::GetDirectoryName('$(_ProgramAppHostNative)'))))))))</_ProgramAppHostVersion>
+    </PropertyGroup>
+    <Copy SourceFiles="$(AppHostSourcePath)" DestinationFolder="$(PublishDir)apphost/packs/Microsoft.NETCore.App.Host.$(_ProgramAppHostRuntime)/$(_ProgramAppHostVersion)/runtimes/$(_ProgramAppHostRuntime)/native" />
+  </Target>
+
 </Project>

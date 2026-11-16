@@ -102,7 +102,8 @@ public sealed class CompiledStringTests
             "End Function"), "Nulls", recoveries: 2);
 
     // a String that ends with a lone byte is joined byte by byte, by the interpreter: compiled code reads no text of it, and hands it each statement that does.
-    // S = ChrB(65) and the two Lets that call LenB call a function of a String; T = S & "x" joins the lone byte; T = S & "!" is compiled: 4.
+    // S = ChrB(65) returns a String compiled code holds no text of, T = S & "x" joins the lone byte, and Odd = LenB(T) reads it; T = S & "!" and the LenB
+    // of that even String are compiled: 3.
     [TestMethod]
     public async Task AStringEndingWithALoneByte_IsJoinedByTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -118,7 +119,7 @@ public sealed class CompiledStringTests
             "    S = \"even\"",
             "    T = S & \"!\"",
             "    Odd = Odd * 100 + LenB(T)",
-            "End Function"), "Odd", recoveries: 4);
+            "End Function"), "Odd", recoveries: 3);
 
     // a fixed-length String pads or truncates what it is assigned: it is the interpreter's, and so is each statement that reads it. F is assigned twice
     // and read twice; T = "ab" and the If of T are compiled: 4.

@@ -115,7 +115,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to No .NET application host for {0} is installed, so no executable was written: run the program with dotnet {1}..
+        ///   Looks up a localized string similar to Neither rdc nor an installed .NET SDK has the .NET application host for {0}, so no executable was written: run the program with dotnet {1}..
         /// </summary>
         public static string Build_NoAppHost {
             get {
@@ -273,15 +273,6 @@ namespace RDCore.CLI {
         public static string Command_Unknown {
             get {
                 return ResourceManager.GetString("Command_Unknown", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Copyright © {$YEAR} {$COMPANY}, all rights reserved..
-        /// </summary>
-        public static string CopyrightNotice {
-            get {
-                return ResourceManager.GetString("CopyrightNotice", resourceCulture);
             }
         }
         
@@ -619,30 +610,6 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {$VIVAT}  {$HEART}  {$CUCUMIS}.
-        /// </summary>
-        public static string RDCore_Slogan {
-            get {
-                return ResourceManager.GetString("RDCore_Slogan", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to                                     -+-+--++--                          
-        ///                                --+----+----------                      
-        ///                              ++-----+-    +--+----+                    
-        ///                             -----             +------                  
-        ///                            -----         ----   -------------          
-        ///                            +---          -----   +-----------+         
-        ///                            ----          +--+   ----++ +-----       [rest of string was truncated]&quot;;.
-        /// </summary>
-        public static string RDCoreSplash_Background {
-            get {
-                return ResourceManager.GetString("RDCoreSplash_Background", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to &gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 
         ///&gt;=&gt;    &gt;=&gt;   &gt;=&gt;   &gt;=&gt;          &gt;=&gt;       &gt;=&gt;  &gt;&gt;   &gt;=&gt;       &gt;&gt;=&gt;             &gt;=&gt;   &gt;=&gt; &gt;=&gt;       &gt;=&gt; 
         ///&gt;=&gt;    &gt;=&gt;   &gt;=&gt;    &gt;=&gt;          &gt;=&gt;     &gt;=&gt;   &gt;&gt;    &gt;=&gt;     &gt;&gt; &gt;=&gt;           &gt;=&gt;        &gt;=&gt;       &gt;=&gt; 
@@ -809,7 +776,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Shows the hints of the language server in a listing - the name of the parameter each argument is given to - or stops showing them (INLAYS ON, INLAYS OFF)..
+        ///   Looks up a localized string similar to Shows the hints of the language server in a listing, or stops showing them (INLAYS ON, INLAYS OFF). Each is in brackets where it applies: the name of the parameter an argument is given to ([Prompt:]), the type of a declaration that states none ([As Variant]), and the variable of a Next that names none ([i])..
         /// </summary>
         public static string Repl_Inlays_Summary {
             get {
@@ -1222,6 +1189,15 @@ namespace RDCore.CLI {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Shows the splash screen again..
+        /// </summary>
+        public static string Repl_Splash_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Splash_Summary", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Shows the procedures the stopped program is in, innermost first..
         /// </summary>

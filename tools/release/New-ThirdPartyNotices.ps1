@@ -545,7 +545,10 @@ if ($Executables.Count) {
             continue
         }
         if (-not $found.ContainsKey($matched[0])) { $found[$matched[0]] = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase) }
-        [void]$found[$matched[0]].Add([IO.Path]::GetRelativePath($PlatformRoot, $exe.DirectoryName).Replace('\', '/'))
+        # the component it ships in: the one whose folder holds it, as rdc's holds the apphost it makes programs of (apphost/packs/...)
+        $folder = [IO.Path]::GetRelativePath($PlatformRoot, $exe.DirectoryName).Replace('\', '/')
+        $component = @($Components | Where-Object { $folder -ceq $_ -or $folder.StartsWith("$_/", [StringComparison]::Ordinal) } | Sort-Object Length -Descending | Select-Object -First 1)
+        [void]$found[$matched[0]].Add($(if ($component.Count) { $component[0] } else { $folder }))
         $HostFiles.Add($relative)
     }
     foreach ($key in (ConvertTo-OrdinalOrder @($found.Keys))) {

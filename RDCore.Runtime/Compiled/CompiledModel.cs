@@ -228,6 +228,10 @@ internal sealed record class VariantSlotNode(int Slot) : VariantNode;
 // argument is evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
 internal sealed record class VariantValueNode(int Slot) : VariantNode;
 
+// an expression of Strings given by value to a Variant parameter of a function of the standard library: a Variant holding the String, as the interpreter
+// gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
+internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
+
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
 
@@ -246,6 +250,11 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
+
+// IsEmpty of a Variant read in its cell, a Variant of the activation (VariantSlotNode) or an element of an array of Variants (VariantElementNode): whether
+// it holds Empty (MS-VBAL §6.1.2.7.1.4), as the cell says (VariantOperations.IsEmpty). Of a Variant the cell says nothing of (an object, an array), it
+// is what the call of the standard library's function returns (Library), or the interpreter's when there is no such call.
+internal sealed record class VariantIsEmptyNode(VariantNode Variant, LibraryCallNode? Library) : PayloadNode(ScalarKind.Boolean);
 
 // left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing). An
 // operand that is the default instance of a class (LeftMade, RightMade) is compared only once it holds an object (ObjectOperations.HoldsAnObject).
@@ -284,6 +293,10 @@ internal sealed record class TypeNameTextNode(int Library, int? Slot) : TextNode
 // argument is.
 internal sealed record class LibraryTextNode(int Library, IReadOnlyList<TextNode> Arguments) : TextNode;
 
+// a call of a function of the standard library that returns a String and takes Variants or scalars (CStr): the arguments as a call of LibraryVariantNode
+// gives them, to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryVariantText).
+internal sealed record class LibraryVariantTextNode(int Library, IReadOnlyList<VariantNode> Arguments) : TextNode;
+
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
 
@@ -307,6 +320,11 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 // the argument of an object parameter passed by reference that is an object variable of the activation of the parameter's very type (MS-VBAL §5.3.1.11):
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+
+// the argument of an optional Variant parameter the call leaves out (CompiledCallee.Parameters, null): what the interpreter gives it
+// (RuntimeExpressionEvaluator.OmittedArgument), the default the parameter declares or Missing, of the parameter of the procedure the call invokes, given as
+// the call is made (CompiledActivation.SetOmitted). Only an argument of a call; its Kind is not read.
+internal sealed record class OmittedArgumentNode() : PayloadNode(default(ScalarKind));
 
 // an object parameter of a procedure a compiled body calls: the argument's expression, where an error Set-coercing what it gives is raised, and the
 // parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to. An optional parameter the call leaves out has no
@@ -454,7 +472,7 @@ internal sealed record class LibraryVariantNode(int Library, IReadOnlyList<Varia
 
 /// <summary>
 /// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>, <see cref="LibraryVariantNode"/>,
-/// <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>).
+/// <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>, <see cref="LibraryVariantTextNode"/>).
 /// </summary>
 /// <param name="Function">The function, as the call was bound to it.</param>
 /// <param name="Parameters">
@@ -471,8 +489,9 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
-/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), and for an object, whose argument is the object or the variable's address
-/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>).
+/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
+/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), and for an optional <c>Variant</c> the call leaves out
+/// (<see cref="OmittedArgumentNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -513,6 +532,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
 
     /// <summary>
+    /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default
+    /// <see cref="Procedure"/> declares for it, and a <c>Variant</c> one, whose <see cref="Parameters"/> kind is <see langword="null"/>, what the
+    /// interpreter gives the parameter of the member the call invokes (<see cref="OmittedArgumentNode"/>). Empty when the call leaves out none.
+    /// </summary>
+    public IReadOnlyList<bool> Omitted { get; init; } = [];
+
+    /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
     /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
     /// </summary>
@@ -538,10 +564,23 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 
     /// <summary>
+    /// The class of the object the call was last made on, and the member an object of that class invokes for it (<see cref="CompiledActivation.CanCallMember"/>):
+    /// found once for the class, and again only for an object of another one.
+    /// </summary>
+    public InvokedMember? Invoked { get; set; }
+
+    /// <summary>
     /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
     /// </summary>
     public MemberEntry? Entered { get; set; }
 }
+
+/// <summary>
+/// The member an object of <paramref name="Class"/> invokes for a call of a member of an object (<see cref="CompiledCallee.Invoked"/>).
+/// </summary>
+/// <param name="Class">The class of the object.</param>
+/// <param name="Member">The member it invokes.</param>
+internal sealed record class InvokedMember(SDK.Model.Symbols.VBClassModuleSymbol Class, SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member);
 
 /// <summary>
 /// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the

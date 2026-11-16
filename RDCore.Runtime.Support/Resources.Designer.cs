@@ -79,6 +79,33 @@ namespace RDCore.Runtime.Support {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to No standard module declares {0}, the entry point the project&apos;s build section names: the program has nowhere to start..
+        /// </summary>
+        public static string Build_NamedEntryPointNotFound {
+            get {
+                return ResourceManager.GetString("Build_NamedEntryPointNotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The project is a library (its build section&apos;s outputType), which is not run: it has no entry point..
+        /// </summary>
+        public static string Build_LibraryNotRun {
+            get {
+                return ResourceManager.GetString("Build_LibraryNotRun", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} ({1}).
+        /// </summary>
+        public static string Build_Refusal {
+            get {
+                return ResourceManager.GetString("Build_Refusal", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to {0} &apos;{1}&apos;: {2} ({3}).
         /// </summary>
         public static string Run_RuntimeError {

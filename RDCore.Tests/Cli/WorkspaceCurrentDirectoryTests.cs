@@ -280,7 +280,7 @@ public sealed class WorkspaceCurrentDirectoryTests
 
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-        await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        await new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

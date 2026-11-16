@@ -101,6 +101,9 @@ travaille sur le dossier courant.
 |`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
+|`rdc splash`|`s`|Écrit l'écran d'accueil de la plateforme en texte brut, que sa sortie soit une console ou non. Elle ne prend pas d'espace de travail.|
+
+Dans une console, une commande commence par l'écran d'accueil de la plateforme. Une sortie redirigée vers un fichier ou un tube n'en a pas : elle ne contient que ce que la commande écrit.
 
 ### Exécuter un programme
 
@@ -109,8 +112,8 @@ travaille sur le dossier courant.
 - la procédure que le `.rdproj` nomme comme point d'entrée dans sa section `build`, `Module.Procedure` ou `Procedure` : `"build": { "entryPoint": "Module1.Main" }`;
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
-Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
-ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il s'affiche dans la console et on y répond, comme dans le _shell_.
+Un projet sans point d'entrée ([RDC30001](diagnostics/rdc30001.md)), ou avec un `Sub Main` dans plus d'un module standard ([RDC30002](diagnostics/rdc30002.md)), ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
+ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` s'affiche dans la console et on y répond, comme dans le _shell_, sous tous les systèmes d'exploitation. Le paramètre `CLI.NativeDialogs` les affiche plutôt comme des boîtes de dialogue Windows, sous Windows. Le paramètre ne change pas la façon dont un formulaire s'affiche : il ouvre sa propre fenêtre.
 
 |Option|Ce qu'elle fait|
 |---|---|
@@ -151,8 +154,11 @@ le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui 
 Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
 Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
-second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
-installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui.
+
+L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec celui du _runtime_ sur lequel il s'exécute; pour un autre
+_runtime_, il prend celui d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
+`dotnet <nom>.dll`, il n'appelle pas le monde extérieur.
 
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.

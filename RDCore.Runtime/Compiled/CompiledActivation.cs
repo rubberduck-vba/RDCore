@@ -61,6 +61,10 @@ public sealed partial class CompiledActivation : ILightActivation
     private ScalarPayload _result;
     private bool _hasResult;
 
+    // the error handling policy its On Error statements set, which its frame is given when the frame is made: an error compiled code fails at is handed to
+    // the interpreter, which makes the frame, so an activation without a frame never has an error to handle.
+    private ErrorHandlerState _errorHandler = ErrorHandlerState.Disabled;
+
     // the cell of each slot held in one (CompiledBody.CellSlots), by its number: what compiled code reads and writes the variable in, and what the frame
     // holds, given it as soon as there is one (TakeReference).
     private readonly object?[] _cells;
@@ -96,6 +100,7 @@ public sealed partial class CompiledActivation : ILightActivation
         (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
         (_pc, _call, _library, _hasResult, _failed, _unspilled) = (0, -1, -1, false, null, false);
+        _errorHandler = ErrorHandlerState.Disabled;
         _knowns?.Clear();
         _untilPoll = PollInterval;
 
@@ -120,7 +125,7 @@ public sealed partial class CompiledActivation : ILightActivation
         var frame = _entered is { } member && _me is { } me
             ? _invoker.CreateMemberFrame(member, _list, _instance!.ObjectId, me)
             : _invoker.CreateCompiledFrame(_procedure!, _list);
-        (frame.Pc, frame.RunsCompiled) = (_pc, true);
+        (frame.Pc, frame.RunsCompiled, frame.ErrorHandler) = (_pc, true, _errorHandler);
         if (_call >= 0)
         {
             _ = frame.EnterCall(_body.Callees[_call].CallLocation);
@@ -438,6 +443,30 @@ public sealed partial class CompiledActivation : ILightActivation
     public void SetText(int index, string? text) => SetReference(index, new VBRuntimeValue<string>(text!));
 
     /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of an optional <c>Variant</c> parameter the call leaves
+    /// out: what the interpreter gives it (<c>RuntimeExpressionEvaluator.OmittedArgument</c>, MS-VBAL §5.3.1.11), the default the parameter declares or
+    /// <c>Missing</c>. The parameter is the one of the member the call invokes, which <see cref="CanCallMember"/> found for a call of a member of an object.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list, after its <c>Me</c>.</param>
+    /// <param name="callee">The number of the call among the body's callees.</param>
+    /// <returns>
+    /// Whether the argument was given; <see langword="false"/> when making the default raises an error, which the interpreter raises as it makes the call.
+    /// </returns>
+    public bool SetOmitted(int index, int callee)
+    {
+        var called = _body.Callees[callee];
+        var parameters = RuntimeProcedureInvoker.GetParameters(called.Site is not null || called.CallsOwnMember ? _member! : called.Procedure);
+        var first = parameters is [{ Name: SDK.Model.Tokens.Me }, ..] ? 1 : 0;
+        if (_executor.Expressions.OmittedArgument(_session, parameters[first + index]) is not { IsSuccess: true, Result: { } omitted })
+        {
+            return false;
+        }
+
+        SetReference(index, omitted.RuntimeValue);
+        return true;
+    }
+
+    /// <summary>
     /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter passed by reference given
     /// a <c>String</c> variable of the activation: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The variable has one address
     /// from then on, whichever name it is read by, so <c>VarPtr</c> of the parameter is <c>VarPtr</c> of the variable; its cell is bound at the address,
@@ -528,14 +557,30 @@ public sealed partial class CompiledActivation : ILightActivation
     // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
     // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
     // one implementing it, of a class that implements that class as an interface. A member of the class whose code runs, named bare, has no site: it is
-    // called on Me, which is of that class.
+    // called on Me, which is of that class. What an object of a class invokes is the same at every call, so the call keeps the last class's (Invoked).
     private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
     {
-        if (called.Site is not { } site)
+        if (called.Site is null)
         {
             return called.Procedure;
         }
 
+        if (called.Invoked is { } invoked && ReferenceEquals(invoked.Class, actual))
+        {
+            return invoked.Member;
+        }
+
+        if (InvokedOf(called, called.Site, actual) is not { } member)
+        {
+            return null;
+        }
+
+        called.Invoked = new InvokedMember(actual, member);
+        return member;
+    }
+
+    private VBTypeMemberSymbol? InvokedOf(CompiledCallee called, LanguageCore.Binding.BoundMember site, VBClassModuleSymbol actual)
+    {
         if (called.Procedure is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol) || site.DeclaredClass is not { } declared)
         {
             return _executor.Expressions.MemberOf(site, actual);
@@ -572,11 +617,16 @@ public sealed partial class CompiledActivation : ILightActivation
         for (var i = 0; i < called.Parameters.Count; i++)
         {
             var parameter = parameters[i + 1];
-            // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject).
+            var omitted = i < called.Omitted.Count && called.Omitted[i];
+            var passed = i < called.ObjectParameters.Count ? called.ObjectParameters[i] : null;
+            // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject). A Variant the call
+            // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted). A scalar the call leaves out is given the
+            // default the member it was bound to declares, which is this member's: an implemented member declares the defaults of the interface member
+            // (MS-VBAL §5.3.1.9), and one that does not is refused before the program runs.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
                 || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
-                || called.Parameters[i] is null
-                    && (i >= called.ObjectParameters.Count || called.ObjectParameters[i] is not { } passed || !passed.Type.Equals(parameter.ResolvedType)))
+                || called.Parameters[i] is null && (passed is not null ? !passed.Type.Equals(parameter.ResolvedType)
+                    : !omitted || parameter.ResolvedType is not SDK.Model.Types.VBVariantType))
             {
                 return false;
             }
@@ -1564,7 +1614,10 @@ public sealed partial class CompiledActivation : ILightActivation
     /// What the <c>On Error</c> statement at <paramref name="pc"/> does, to the activation's frame (MS-VBAL §5.4.4): its error handling policy set, and the
     /// Err object cleared.
     /// </summary>
-    public bool OnError(int pc) => ProcedureExecutor.TryApplyOnError(_session, Frame, Body.Items[pc]);
+    public bool OnError(int pc)
+        => _frame is null
+            ? ProcedureExecutor.TryApplyOnError(_session, _errorHandler, Body.Items[pc], out _errorHandler)
+            : ProcedureExecutor.TryApplyOnError(_session, _frame, Body.Items[pc]);
 
     /// <summary>A <c>GoSub</c>: <paramref name="returnPc"/> pushed onto the activation's GoSub Resumption List (MS-VBAL §5.4.2.14).</summary>
     public void GoSub(int returnPc) => Frame.PushGoSubReturn(returnPc);
@@ -1724,6 +1777,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).
     /// </summary>
     public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
+
+    /// <summary>
+    /// The <c>New</c> expressions whose objects the body makes, by the number compiled code knows each by (<see cref="ProcedureAnalysis.News"/>).
+    /// </summary>
+    public IReadOnlyList<LanguageCore.Binding.BoundNew> News { get; init; } = [];
 
     /// <summary>
     /// The public variables of objects the body reads, by the number compiled code knows each by (<see cref="ProcedureAnalysis.MemberFields"/>).
