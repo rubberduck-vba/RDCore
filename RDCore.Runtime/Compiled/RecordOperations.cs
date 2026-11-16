@@ -161,14 +161,68 @@ public static class RecordOperations
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? ArrayField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBArrayValue;
 
+    // a field held as a payload (DeclaredVariableDefaults) is read where it is, with no value boxed; any other, of the value it holds.
     private static bool TryRead(object? record, int index, ScalarKind kind, out ScalarPayload payload)
     {
         payload = default;
-        return (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is { } field && ScalarPayload.TryOf(ScalarKinds.TypeOf(kind), field.RuntimeValue, out payload);
+        if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is not { } field)
+        {
+            return false;
+        }
+
+        return field.Handle is ScalarCell cell && ScalarKinds.Of(cell.Type) == kind
+            ? cell.TryRead(out payload)
+            : ScalarPayload.TryOf(ScalarKinds.TypeOf(kind), field.RuntimeValue, out payload);
     }
 
     // the field holds a value of its declared type, as the interpreter's Let makes it: a LongPtr field a LongPtr, of the payload of the type it is an alias of.
     private static bool TryWrite(object? record, int index, ScalarPayload payload)
-        => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is { } before && ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _)
-            && held.TryLetFieldAt(index, (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86 ? payload with { Type = before.TypeInfo } : payload).Typed());
+    {
+        if (record is not VBUserDefinedTypeValue held || held.StoredFieldAt(index) is not { } before)
+        {
+            return false;
+        }
+
+        // a field held as a payload of the payload's type is written where it is: the value is boxed only when something reads it as one.
+        if (before.Handle is ScalarCell scalar && scalar.Type.Equals(payload.Type))
+        {
+            scalar.Write(payload);
+            return true;
+        }
+
+        if (!ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _))
+        {
+            return false;
+        }
+
+        if (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86)
+        {
+            return held.TryLetFieldAt(index, (payload with { Type = before.TypeInfo }).Typed());
+        }
+
+        // a field of the payload's own type is written in its cell, as TryLetFieldAt writes a value of the field's type: the value stored there, with no value
+        // of the type made around it.
+        if (before.Handle is IKnowledgeBinding cell && before.GetType() == ValueClassOf(payload.Type) && Equals(before.TypeInfo, payload.Type))
+        {
+            cell.Store(payload.Box(), isKnown: true);
+            return true;
+        }
+
+        return held.TryLetFieldAt(index, payload.Typed());
+    }
+
+    // the class of the value of a scalar type, as the type makes one (ScalarPayload.Typed): what a field of the type holds.
+    private static Type? ValueClassOf(VBType type) => type switch
+    {
+        VBByteType => typeof(VBByteValue),
+        VBIntegerType => typeof(VBIntegerValue),
+        VBLongType => typeof(VBLongValue),
+        VBLongLongType => typeof(VBLongLongValue),
+        VBSingleType => typeof(VBSingleValue),
+        VBDoubleType => typeof(VBDoubleValue),
+        VBBooleanType => typeof(VBBooleanValue),
+        VBCurrencyType => typeof(VBCurrencyValue),
+        VBDateType => typeof(VBDateValue),
+        _ => null,
+    };
 }

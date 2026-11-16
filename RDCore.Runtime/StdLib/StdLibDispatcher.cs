@@ -61,13 +61,8 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// <param name="cancellation">The run's cancellation, which stops a member that waits - a dialog - from waiting.</param>
     public static StdLibDispatcher For(IRuntimeSession session, ExternalWorld? outside = null, CancellationToken cancellation = default)
     {
-        // a collection makes the enumerator its For Each is driven by, which is an object of a class of its own.
-        var enumerators = new StdEnumVariant(session);
-
-        // a RegExp makes the collection of its matches, which makes each match, which makes what its groups matched.
-        var subMatches = new StdSubMatches(session, enumerators);
-        var match = new StdMatch(session, subMatches);
-        var matches = new StdMatchCollection(session, match, enumerators);
+        // the classes whose objects hold something are the session's, which every dispatcher composed on it reaches.
+        var objects = SessionLibraryObjects.Of(session);
 
         return new(new Dictionary<Type, object>
         {
@@ -81,15 +76,15 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdConversionModule)] = new StdConversion(session),
             [typeof(IStdHiddenModule)] = new StdHidden(session),
             [typeof(IStdInteractionModule)] = new StdInteraction(session, outside, cancellation),
-            [typeof(IStdCollectionClass)] = new StdCollection(session, enumerators),
-            [typeof(IStdEnumVariantClass)] = enumerators,
-            [typeof(IStdRegExpClass)] = new StdRegExp(session, matches),
-            [typeof(IStdMatchCollectionClass)] = matches,
-            [typeof(IStdMatchClass)] = match,
-            [typeof(IStdSubMatchesClass)] = subMatches,
+            [typeof(IStdCollectionClass)] = objects.Collections,
+            [typeof(IStdEnumVariantClass)] = objects.Enumerators,
+            [typeof(IStdRegExpClass)] = objects.RegExps,
+            [typeof(IStdMatchCollectionClass)] = objects.Matches,
+            [typeof(IStdMatchClass)] = objects.Match,
+            [typeof(IStdSubMatchesClass)] = objects.SubMatches,
             [typeof(IStdGlobalClass)] = new StdGlobal(session),
-            [typeof(IStdUserFormsClass)] = new StdUserForms(session, enumerators),
-            [typeof(IStdFormsClass)] = new StdForms(session, enumerators),
+            [typeof(IStdUserFormsClass)] = new StdUserForms(session, objects.Enumerators),
+            [typeof(IStdFormsClass)] = new StdForms(session, objects.Enumerators),
         });
     }
 

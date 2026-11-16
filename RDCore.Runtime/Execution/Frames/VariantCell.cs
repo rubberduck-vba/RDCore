@@ -57,7 +57,8 @@ internal sealed class VariantCell : ICopyableBinding
     }
 
     /// <summary>
-    /// A Variant cell holding <paramref name="value"/>, known: what an element of a <c>Variant</c> array starts as, holding <c>Empty</c>.
+    /// A Variant cell holding <paramref name="value"/>, known, made after a look at what the value holds. <see cref="OfEmpty"/> makes the cell of
+    /// <c>Empty</c> without that look.
     /// </summary>
     public static VariantCell Of(VBRuntimeVariantValue value)
     {
@@ -65,6 +66,14 @@ internal sealed class VariantCell : ICopyableBinding
         cell.Store(value, isKnown: true);
         return cell;
     }
+
+    /// <summary>
+    /// A Variant cell holding <paramref name="empty"/>, a Variant's <c>Empty</c>, known: the cell <see cref="Of(VBRuntimeVariantValue)"/> makes of it,
+    /// without its look at the value. Every cell that holds <c>Empty</c> has no payload and counts no object. Each element of a <c>Variant</c> array
+    /// starts as one.
+    /// </summary>
+    /// <param name="empty">The runtime value of a Variant that holds <c>Empty</c>, which the cell holds as it is.</param>
+    public static VariantCell OfEmpty(VBRuntimeVariantValue empty) => new() { _boxed = empty };
 
     // a copy of an element of an array that is assigned is a Variant's cell too, holding a copy of what this one holds: an array or a
     // record it holds is copied with it, as DataValues.CopyCell copies any cell's value; a payload as it is.
