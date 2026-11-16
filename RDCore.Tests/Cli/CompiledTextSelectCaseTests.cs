@@ -93,6 +93,28 @@ public sealed class CompiledTextSelectCaseTests
             "    End Select",
             "End Function"), "Picked", recoveries: 3);
 
+    // the end of a To range is a String variable, whose text compiled code reads: the range is compiled, and the comparison of the start is held while
+    // the end's is made.
+    [TestMethod]
+    public async Task ARangeWhoseEndIsAVariable_IsCompiled()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Ranged(\"c\"); Ranged(\"e\"); Ranged(\"a\")",
+            "End Sub",
+            "Private Function Ranged(ByVal S As String) As Long",
+            "    Dim Last As String",
+            "    Last = \"d\"",
+            "    Select Case S",
+            "        Case \"b\" To Last",
+            "            Ranged = 1",
+            "        Case Else",
+            "            Ranged = 2",
+            "    End Select",
+            "End Function"), "Ranged", recoveries: 0, expected: " 1  2  2 ");
+        AssertNoneStepped(result);
+    }
+
     // two Strings compared are a Boolean selector, compared on payloads as any scalar one is.
     [TestMethod]
     public async Task TwoStringsCompared_AreABooleanSelector()
