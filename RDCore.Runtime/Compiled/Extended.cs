@@ -252,6 +252,12 @@ public readonly struct Extended
         var converted = ExtendedIntermediates.Convert(new WideValue(value.Wide, VBDoubleType.TypeInfo, value._pending), ScalarKinds.TypeOf(kind), out var error);
         if (error is { } raised)
         {
+            // what IEEE 754 arithmetic made of the value, of a Single or a Double: what a Let of a variable of the kind assigns before raising the error.
+            if (converted is { } ieee)
+            {
+                (integral, floating) = (ieee.Integral, ieee.Floating);
+            }
+
             return raised is VBRuntimeErrorId.DivisionByZero ? PayloadStatus.DivisionByZero : PayloadStatus.Overflow;
         }
 

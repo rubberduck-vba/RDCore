@@ -1429,7 +1429,7 @@ internal sealed partial class ProcedureAnalysis
 
         if (IsExtended(node))
         {
-            return Extended(node) is { } extended ? new StoreNode(extended, destination) : null;
+            return Extended(node) is { } extended ? new StoreNode(extended, destination, ArithmeticSiteOf(node)) : null;
         }
 
         return Payload(node) is { } payload ? Converted(payload, destination) : null;
@@ -1487,7 +1487,7 @@ internal sealed partial class ProcedureAnalysis
                 return CompareText(compared);
 
             case BoundBinary or BoundUnary or BoundCall when IsExtended(node):
-                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
+                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value, ArithmeticSiteOf(node)) : null;
 
             case BoundBinary binary when IsExtended(binary.Left) || IsExtended(binary.Right):
                 return PlanOf(binary) is { } extendedPlan ? OperateWithExtended(binary, extendedPlan) : null;
@@ -1724,7 +1724,7 @@ internal sealed partial class ProcedureAnalysis
         if (effective is not ScalarKind.Boolean && ScalarKinds.IsIntegral(effective)
             && plan.Operator is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.IntegerDivisionOp or Tokens.ModuloOp)
         {
-            return new IntegralNode(plan.Operator, l, r, effective);
+            return new IntegralNode(plan.Operator, l, r, effective, ArithmeticSiteOf(binary));
         }
 
         if (OperatorTokens.ComparisonOf(plan.Operator) is { } comparison)
