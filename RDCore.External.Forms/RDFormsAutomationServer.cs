@@ -256,6 +256,15 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             return picture;
         }
 
+        // a picture property that holds none is Nothing, which a late-bound read (a Label's Picture, RDForms' own) takes as Nothing too.
+        // CA1416: a wrapper of no object asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+        if (RDFormsPictures.IsPicture(property) && stored is null)
+        {
+            return new System.Runtime.InteropServices.DispatchWrapper(null);
+        }
+#pragma warning restore CA1416
+
         if (CodeUnits.IsExtent(property))
         {
             stored = CodeUnits.ToCode(component, property, (double)stored!, form.Unit);
