@@ -10,7 +10,7 @@ namespace RDCore.Tests.Cli;
 /// array has not is error 9, as the interpreter raises it.
 /// </summary>
 [TestClass]
-[TestCategory("MS-VBAL 3.3.5.2 Array Dimensions and Bounds")]
+[TestCategory("MS-VBAL 5.2.3.1.3 Array Dimensions and Bounds")]
 public sealed class CompiledArrayBoundTests
 {
     // the bounds of arrays of one and two dimensions, of one declared with a constant expression, and of one declared by its upper bound alone under Option
