@@ -62,6 +62,12 @@ de l'élément de plus petit indice; un élément de menu chargé se place parmi
 pour un élément déjà chargé, 341 pour un indice négatif, 6 pour un indice supérieur à 32767, 340 pour un indice qu'aucun élément n'a, 362 pour un élément du
 fichier du formulaire, et 361 pour un élément de menu qui n'est dans aucun groupe.
 
+On atteint les éléments d'une ListBox et d'une ComboBox comme dans VB6, sur une liste du fichier du formulaire comme sur une liste que `Controls.Add`
+ajoute : `AddItem`, `RemoveItem`, `Clear`, `List(Index)`, `ItemData(Index)`, `ListIndex`, `ListCount`, `NewIndex` et `Text`, et `Selected(Index)` et
+`SelCount` pour une ListBox. Ils lèvent ce que VB6 lève : 5 pour un indice d'`AddItem` hors de 0 à `ListCount` et un indice de `RemoveItem` hors des
+éléments, 381 pour un indice d'`ItemData` ou de `Selected` hors des éléments, 380 pour un `ListIndex` hors de -1 à `ListCount` - 1, et 383 pour une
+affectation à `ListCount`, `NewIndex` ou `SelCount`. `Column` est un membre de la ListBox de MSForms, et lève 438.
+
 > [!NOTE]
 > **Non implémenté.** Le `Container` d'un contrôle lève 438.
 

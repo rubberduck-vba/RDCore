@@ -62,6 +62,12 @@ element of the lowest index; a loaded menu item goes among the others in the ord
 loaded already, 341 for a negative index, 6 for one above 32767, 340 for an index no element has, 362 for an element of the form's file, and 361 for a menu
 item that is in no array.
 
+A ListBox's and a ComboBox's items are reached as in VB6, on a list of the form's file and on one that `Controls.Add` adds: `AddItem`, `RemoveItem`,
+`Clear`, `List(Index)`, `ItemData(Index)`, `ListIndex`, `ListCount`, `NewIndex` and `Text`, and a ListBox's `Selected(Index)` and `SelCount`. They raise
+what VB6 raises: 5 for an `AddItem` index outside 0 to `ListCount` and a `RemoveItem` one outside the items, 381 for an `ItemData` or `Selected` one
+outside the items, 380 for a `ListIndex` outside -1 to `ListCount` - 1, and 383 for an assignment to `ListCount`, `NewIndex` or `SelCount`. `Column` is
+an MSForms ListBox's, and raises 438.
+
 > [!NOTE]
 > **Not implemented.** A control's `Container` raises 438.
 
