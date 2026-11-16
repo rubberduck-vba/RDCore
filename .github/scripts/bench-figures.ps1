@@ -178,5 +178,6 @@ $figures = [ordered]@{
 }
 $figures | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $Out 'bench.json') -Encoding utf8NoBOM
 $summary | ForEach-Object {
-    Write-Host ("{0,-24} {1,3} cases  fastest {2} {3}  median {4,6}  slowest {5} {6}" -f $_.name, $_.cases, $_.best.ratio, $_.best.case, $_.median, $_.worst.ratio, $_.worst.case)
+    Write-Host ("{0,-24} {1,3} cases  fastest {2} {3}  median {4,6}  slowest {5} {6}" -f $_.name, $_.cases, $_.best.ratio, $_.best.case,
+        $_.median, $_.worst.ratio, $_.worst.case)
 }
