@@ -36,8 +36,8 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
 
     public VBRuntimeObjectId ObjectId => objectId;
 
-    // a class the table does not declare - the library's, a late-bound server's - is the one the object was created as. What the table declares is found
-    // again only once the table changed (SymbolTable.Version): a member is called on the object far more often than a module is defined.
+    // a class the table does not declare (the library's, a late-bound server's) is the one the object was created as. The class the table declares is
+    // looked up again only after the table changes (SymbolTable.Version): a member is called on an object far more often than a module is defined.
     public VBClassModuleSymbol ClassModule
     {
         get
