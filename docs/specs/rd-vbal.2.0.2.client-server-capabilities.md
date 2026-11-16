@@ -588,7 +588,7 @@ The range is on the declaration of a variable or on a use of it. The declaration
 |A variable of a module, declared|Changes|Code|
 |---|---|---|
 |`Static`, in a standard module|Nothing: it keeps its value between calls.|None.|
-|`Static`, in a class module|Its extent: a variable of the class has object extent, a `Static` variable module extent (**MS-VBAL §2.3**).|`moveCloserToUsage.moduleExtent`|
+|`Static`, in a class module|Its extent: a variable of the class has object extent, a `Static` variable module extent (**MS-VBAL §2.3**, **§5.4.3.1**).|`moveCloserToUsage.moduleExtent`|
 |`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
 
 `rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
