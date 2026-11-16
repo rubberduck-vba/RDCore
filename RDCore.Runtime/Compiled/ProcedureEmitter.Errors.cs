@@ -49,7 +49,7 @@ internal sealed partial class ProcedureEmitter
 
     // the status of an operation, on the stack, which gave result: Ok goes on. Where failure is the interpreter's run of the instruction alone (RecoverAt),
     // an error is given to it as the error of a call is, after assign is given result; anywhere else, and of any other status, the failure is the
-    // interpreter's as it always is. A site below 0 is no operation of the source's.
+    // interpreter's as it always is. A site below 0 raises nothing: the interpreter finds the error.
     private void EmitArithmeticStatus(int site, Label failure, LocalBuilder? result = null, Action<Operand>? assign = null)
     {
         if (site < 0 || !_raisesErrors || !_recoveries.ContainsValue(failure))
@@ -65,7 +65,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, succeeded);
         if (assign is not null && result is not null)
         {
-            // a status below 0 is no error: the interpreter evaluates the instruction, and assigns what it does.
+            // a status below 0 declines, and is not an error: the interpreter evaluates the instruction, and assigns what it does.
             var declined = _il.DefineLabel();
             _il.Emit(OpCodes.Ldloc, status);
             _il.Emit(OpCodes.Ldc_I4_0);

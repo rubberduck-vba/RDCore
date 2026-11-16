@@ -9,10 +9,10 @@ namespace RDCore.Runtime.Compiled;
 public sealed partial class CompiledActivation
 {
     /// <summary>
-    /// The error an integral operation of the body found (MS-VBAL §5.6.9.3): runtime error 6 (Overflow) of a result its effective type does not hold, or 11
-    /// (Division by zero) of a <c>\</c> or a <c>Mod</c> by 0, at the operation's expression, as the interpreter's operator raises it. The interpreter is
-    /// given it at the instruction (<see cref="Recover"/>), as it is given the error of a call; any other status the operation gave is no error, and the
-    /// interpreter evaluates the instruction as it always does.
+    /// The error an arithmetic operation of the body found (MS-VBAL §5.6.9.3): runtime error 6 (Overflow) of a result its effective type does not hold, or
+    /// 11 (Division by zero) of a <c>/</c>, a <c>\</c> or a <c>Mod</c> by 0, at the operation's expression, as the interpreter's operator raises it. The
+    /// interpreter is given it at the instruction (<see cref="Recover"/>), as it is given the error of a call. Any other status the operation gave is not an
+    /// error, and the interpreter evaluates the instruction as it always does.
     /// </summary>
     /// <param name="status">The status the operation gave (<see cref="PayloadStatus"/>).</param>
     /// <param name="site">The number of the operation among the body's (<see cref="CompiledBody.ArithmeticSites"/>).</param>
