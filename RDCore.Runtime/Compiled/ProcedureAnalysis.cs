@@ -338,7 +338,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             or PrintStep
             || (step is SelectStep && compared.Contains(step.Offset));
@@ -742,6 +742,19 @@ internal sealed partial class ProcedureAnalysis
                 if (assigned is BoundVariable { Variable: ITypedSymbol { ResolvedType: VBArrayType } })
                 {
                     return new ArrayStatementStep(offset, [], Releases: true);
+                }
+
+                // a String, which the Variant is given a copy of (MS-VBAL §5.5.1.2.12): the text compiled code evaluates of it (Text), as a String variable
+                // is assigned it.
+                if (IsText(_evaluator.DeclaredTypeOf(_session, assignment.Value, new RuntimeEvaluationContext(_procedure.Uri))))
+                {
+                    return Text(assigned) is { } variantText ? new VariantTextLetStep(offset, variantSlot, variantText) : null;
+                }
+
+                // Null (MS-VBAL §5.5.1.2.12, §5.5.1.2.10), which the Variant holds as it is.
+                if (assigned is BoundLiteral { Literal.StaticValue: VBNullValue })
+                {
+                    return new VariantNullLetStep(offset, variantSlot);
                 }
 
                 if (Dynamic(assigned) is not { } variantValue)

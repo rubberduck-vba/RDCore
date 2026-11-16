@@ -136,6 +136,37 @@ public static class VariantOperations
     public static bool Write(object? cell, VariantPayload value) => WritePayload(cell, value.Value);
 
     /// <summary>
+    /// Let-assigns the <c>String</c> <paramref name="text"/> to the Variant held in <paramref name="cell"/>, which then holds a copy of it
+    /// (<strong>MS-VBAL §5.5.1.2.12</strong>), as the interpreter's assignment makes it: not over an object, an array or a record, which the assignment lets
+    /// go of; nor into a Variant its frame holds in no Variant's cell (<see cref="Read"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="text">The text assigned; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>Whether the text was assigned: when not, the interpreter runs the assignment.</returns>
+    public static bool WriteText(object? cell, string? text)
+        => Store(cell, new VBRuntimeVariantValue(VBStringType.TypeInfo.VarType(), new VBStringValue(text!)));
+
+    /// <summary>
+    /// Let-assigns <c>Null</c> to the Variant held in <paramref name="cell"/>, which then holds it (<strong>MS-VBAL §5.5.1.2.12</strong>), as the
+    /// interpreter's assignment makes it: not over an object, an array or a record; nor into a Variant its frame holds in no Variant's cell.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <returns>Whether <c>Null</c> was assigned: when not, the interpreter runs the assignment.</returns>
+    public static bool WriteNull(object? cell) => Store(cell, new VBRuntimeVariantValue(VBNullType.TypeInfo.VarType(), new VBNullValue()));
+
+    // a value that is no payload, stored in the Variant's cell over what holds no object, as the interpreter's assignment stores it.
+    private static bool Store(object? cell, VBRuntimeVariantValue value)
+    {
+        if (cell is null || !Unsafe.As<VariantCell>(cell).HoldsNoObject)
+        {
+            return false;
+        }
+
+        Unsafe.As<VariantCell>(cell).Store(value, isKnown: true);
+        return true;
+    }
+
+    /// <summary>
     /// A binary operation of <paramref name="left"/> and <paramref name="right"/>, planned for their subtypes (MS-VBAL §5.6.9).
     /// </summary>
     /// <param name="token">The operator's token.</param>

@@ -72,7 +72,8 @@ public sealed class CompiledVariantTests
             "    Widened = V & \" \" & TypeName(V)",
             "End Function"), "Widened", recoveries: 2);
 
-    // what the evaluation on payloads does not do of a Variant - one holding a String - the interpreter does, alone.
+    // what the evaluation on payloads does not do of a Variant (one holding a String) the interpreter does, alone: V + 1, once compiled code gave V the
+    // String "12": 1.
     [TestMethod]
     public async Task AVariantHoldingAString_IsAddedToByTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -85,7 +86,7 @@ public sealed class CompiledVariantTests
             "    V = V + 1",
             "    V = V * 2",
             "    Parsed = V",
-            "End Function"), "Parsed", recoveries: 2);
+            "End Function"), "Parsed", recoveries: 1);
 
     // a Let of a Variant that holds an object is the interpreter's, which lets go of the object there.
     [TestMethod]
