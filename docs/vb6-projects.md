@@ -75,8 +75,8 @@ A control's `Font` is a `StdFont`, the same object on every read. A change throu
 
 A control's `Container` is the form, Frame or PictureBox that holds it. `Set Command1.Container = Frame1` moves the control, with what it holds, into
 another container of the same form. It keeps its place in pixels, and its `Left` and `Top` read in the new container's scale. `Nothing`, a control that
-holds none, the control itself, a control it holds, and another form or its controls raise 425. A Timer has no `Container`, and an assignment without
-`Set` raises 438.
+holds no others (a TextBox), the control itself, a control it holds, and another form or its controls raise 425. A Timer has no `Container` (438),
+and an assignment without `Set` raises 438.
 
 > [!NOTE]
 > **Not implemented.**
