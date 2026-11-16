@@ -824,7 +824,7 @@ public static class SymbolRename
         return new RenameEdit(source.Module, new SourceRange(line, 0, line, 0), $"Attribute VB_Name = \"{newName}\"{newLine}");
     }
 
-    // a form, a user control, a designer: the designer's text names the module too (Begin VB.Form Form1), which is not renamed yet.
+    // a form, a user control, a designer: the designer's text names the module too (Begin VB.Form Form1), which a rename does not edit: it is refused.
     private static bool IsDesigned(RenameContext context, Symbol module)
     {
         var at = NameOccurrences.ModuleOf(module.Uri);

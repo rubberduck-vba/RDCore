@@ -421,7 +421,7 @@ A standard or class module is renamed where its name means it, the same way, its
 
 The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, or of a project (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
 
-A procedure named after what it implements or handles (**MS-VBAL §5.3.1.8**, §5.3.1.9) is renamed with it. Only the part of its name that is the renamed symbol's changes, where the procedure is declared and called:
+A procedure named after what it implements or handles (**MS-VBAL §5.3.1.8**, **§5.3.1.9**) is renamed with it. Only the part of its name that is the renamed symbol's changes, where the procedure is declared and called:
 
 |Renamed|With it|
 |---|---|
