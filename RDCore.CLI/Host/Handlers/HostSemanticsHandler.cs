@@ -55,6 +55,7 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
         var models = asked
             .Select(module => store.TryGet(module, out var model) ? model : null)
             .OfType<SDK.Semantics.ModuleSemanticModel>()
+            .Select(store.WithNativeCalls)
             .Select(ModuleSemanticsDto.From);
 
         return new HostSemanticsResult { Json = PlatformJson.Serialize(new SemanticsPayload([.. models])) };

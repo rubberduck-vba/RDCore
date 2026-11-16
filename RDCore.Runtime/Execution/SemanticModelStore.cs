@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics;
@@ -25,6 +26,7 @@ public sealed class SemanticModelStore
 {
     private readonly object _storing = new();
     private volatile ImmutableDictionary<string, ModuleSemanticModel> _models = ImmutableDictionary<string, ModuleSemanticModel>.Empty;
+    private volatile ImmutableDictionary<string, ModulePlatforms> _platforms = ImmutableDictionary<string, ModulePlatforms>.Empty;
     private readonly Dictionary<string, Evaluation> _evaluations = [];
 
     private sealed record Evaluation(CancellationTokenSource Cancellation, Task Completion);
@@ -58,11 +60,26 @@ public sealed class SemanticModelStore
     /// that stops it: it reads nothing that the thread that stored the model goes on changing.
     /// </param>
     public void Store(ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate)
+        => Store(model, evaluate, platforms: null);
+
+    /// <summary>
+    /// Keeps a module's model, replacing the one it had, with the platforms each position of the module is compiled on, and has the facts of its code
+    /// evaluated in the background.
+    /// </summary>
+    /// <param name="model">The model of a module, as the static pass made it.</param>
+    /// <param name="evaluate">Finds the facts of the procedures of the module, as <see cref="Store(ModuleSemanticModel, Func{CancellationToken, ImmutableDictionary{SemanticId, RuntimeFacts}}?)"/> does.</param>
+    /// <param name="platforms">
+    /// The platforms each position of the module is compiled on, which the calls it makes of a <c>Declare</c>'d procedure are stated with
+    /// (<see cref="WithNativeCalls"/>); <see langword="null"/> when they are not known, and its calls are not stated.
+    /// </param>
+    public void Store(
+        ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate, ModulePlatforms? platforms)
     {
         lock (_storing)
         {
             var key = model.Module.AbsoluteUri;
             _models = _models.SetItem(key, model);
+            _platforms = platforms is null ? _platforms.Remove(key) : _platforms.SetItem(key, platforms);
             Stop(key);
 
             if (evaluate is not null)
@@ -131,8 +148,60 @@ public sealed class SemanticModelStore
             Stop(module.AbsoluteUri);
             var found = _models.ContainsKey(module.AbsoluteUri);
             _models = _models.Remove(module.AbsoluteUri);
+            _platforms = _platforms.Remove(module.AbsoluteUri);
             return found;
         }
+    }
+
+    /// <summary>
+    /// A module's model with the platforms of each call it makes of a procedure a <c>Declare</c> statement declares (<see cref="ExpressionFact.NativeCall"/>):
+    /// where the call is compiled, and where the procedure is declared, as the model of the module that declares it says now.
+    /// </summary>
+    /// <param name="model">The model of a module of this store.</param>
+    /// <returns>
+    /// The model, its calls stated where the platforms of both the call and the procedure are known: those of the module the call is in were stored with it,
+    /// and the procedure's <see cref="DeclarationFact.CompiledOn"/> is stated.
+    /// </returns>
+    /// <remarks>
+    /// Joined when it is read, not when the module is loaded: the module that declares the procedure can be loaded again on its own, and its calls are then
+    /// of the procedure as it is declared now.
+    /// </remarks>
+    public ModuleSemanticModel WithNativeCalls(ModuleSemanticModel model)
+    {
+        var (models, stored) = (_models, _platforms);
+        if (!stored.TryGetValue(model.Module.AbsoluteUri, out var platforms))
+        {
+            return model;
+        }
+
+        var declared = new Dictionary<SemanticId, CompiledPlatforms>();
+        foreach (var fact in models.Values.SelectMany(module => module.Declarations))
+        {
+            if (fact.CompiledOn is { } compiledOn)
+            {
+                declared.TryAdd(fact.Symbol, compiledOn);
+            }
+        }
+
+        if (declared.Count == 0)
+        {
+            return model;
+        }
+
+        return model with
+        {
+            Procedures = [.. model.Procedures.Select(procedure =>
+            {
+                var calls = procedure.Expressions
+                    .Where(entry => entry.Value.Binding is { } binding && declared.ContainsKey(binding))
+                    .Select(entry => (entry.Key, Fact: entry.Value, Call: platforms.At(entry.Value.Location.Range.Start)))
+                    .Where(call => call.Call is not null)
+                    .Select(call => KeyValuePair.Create(call.Key,
+                        call.Fact with { NativeCall = new NativeCallPlatforms(call.Call!.Value, declared[call.Fact.Binding!.Value]) }))
+                    .ToList();
+                return calls.Count == 0 ? procedure : procedure with { Expressions = procedure.Expressions.SetItems(calls) };
+            })],
+        };
     }
 
     /// <summary>

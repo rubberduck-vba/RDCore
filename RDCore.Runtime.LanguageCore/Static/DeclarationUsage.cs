@@ -17,7 +17,8 @@ public static class DeclarationUsage
 {
     public static ImmutableArray<DeclarationFact> Of(
         IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
-        Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null)
+        Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null,
+        Func<Symbol, CompiledPlatforms?>? compiledOn = null)
     {
         var models = procedures.ToList();
         var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
@@ -70,6 +71,7 @@ public static class DeclarationUsage
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
                 Hides = hides?.Invoke(symbol),
                 AutoInstantiates = ClassFacts.AutoInstantiatedClassOf(symbol)?.SemanticId,
+                CompiledOn = symbol is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol ? compiledOn?.Invoke(symbol) : null,
             });
         }
 
