@@ -78,7 +78,7 @@ public static class RDFormsHosting
         public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
             => ServerOf(target).Invoke(target, member, invocation, arguments, byReference, culture);
 
-        // named arguments go to the server of the object too, which says whether it takes them (d.Add Key:="a", Item:=1).
+        // a call that names its arguments goes to the object's server as well: the interface's own refuses every name (446).
         public object? Invoke(
             object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
             => ServerOf(target).Invoke(target, member, invocation, arguments, byReference, names, culture);
