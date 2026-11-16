@@ -207,7 +207,19 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     private bool TryRulesFor(VBCompareMethod compare, string member, out StringComparisonRules rules, [NotNullWhen(false)] out IVBRaisableError? error,
         bool takesDatabaseCompare = false)
     {
-        error = null;
+        if (TryRulesIn(session, compare, takesDatabaseCompare, out rules))
+        {
+            error = null;
+            return true;
+        }
+
+        error = Failure(VBRuntimeErrorId.InvalidProcedureCallOrArgument, member,
+            $"Compare is vbBinaryCompare (0), vbTextCompare (1) or the identifier of a locale, not {(int)compare}");
+        return false;
+    }
+
+    private static bool TryRulesIn(IRuntimeSession session, VBCompareMethod compare, bool takesDatabaseCompare, out StringComparisonRules rules)
+    {
         switch (compare)
         {
             case VBCompareMethod.VBBinaryCompare:
@@ -223,8 +235,6 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
                 return true;
             default:
                 rules = default;
-                error = Failure(VBRuntimeErrorId.InvalidProcedureCallOrArgument, member,
-                    $"Compare is vbBinaryCompare (0), vbTextCompare (1) or the identifier of a locale, not {(int)compare}");
                 return false;
         }
     }
@@ -364,6 +374,24 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     };
 
     private static int RecordLength(VBUserDefinedTypeLayout layout, bool inMemory) => inMemory ? layout.Size : layout.UnpaddedSize;
+
+    /// <summary>
+    /// <c>Len</c> of a <c>String</c> held as text, which has no byte past its characters (<strong>MS-VBAL §6.1.2.11.1.22</strong>): what
+    /// <see cref="Len"/> returns for it. Compiled code calls it in place of <see cref="Len"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The number of characters of the text.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Len))]
+    public static int LengthOf(string? text) => text?.Length ?? 0;
+
+    /// <summary>
+    /// <c>LenB</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.11.1.22</strong>): two bytes a character, what <see cref="LenB"/> returns for
+    /// it. Compiled code calls it in place of <see cref="LenB"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The number of bytes of the text.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(LenB))]
+    public static int ByteLengthOf(string? text) => 2 * LengthOf(text);
 
     // a Variant's own TypeInfo mirrors what it wraps while the instance stays a VBVariantValue, so measuring
     // one has to see the wrapped value - "if the variable name is a Variant, Len/LenB treats it the same as a
@@ -1632,12 +1660,42 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return InVariant(VBNullValue.Null);
         }
 
+        if (left.TrailingByte is null && right.TrailingByte is null && OrderOf(session, left.Value, right.Value, (int)compare, out var order))
+        {
+            return InVariant(new VBIntegerValue(order));
+        }
+
         if (!TryRulesFor(compare, nameof(StrComp), out var rules, out error))
         {
             return Fail<VBVariantValue>(error);
         }
 
         return InVariant(new VBIntegerValue((short)Math.Sign(rules.Compare(left, right))));
+    }
+
+    /// <summary>
+    /// <c>StrComp</c> of two <c>String</c>s held as text (<strong>MS-VBAL §6.1.2.11.1.36</strong>): the Integer <see cref="StrComp"/> returns for them,
+    /// -1, 0 or 1. Compiled code calls it in place of <see cref="StrComp"/> (<see cref="StdLibIntrinsicAttribute"/>), with the calling module's
+    /// <c>Option Compare</c> for a Compare the call leaves out.
+    /// </summary>
+    /// <param name="session">The session, whose regional settings a text comparison collates by.</param>
+    /// <param name="string1">The first text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="string2">The second text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="compare">The Compare argument.</param>
+    /// <param name="result">-1, 0 or 1 as <paramref name="string1"/> is less than, equal to or greater than <paramref name="string2"/>.</param>
+    /// <returns><see langword="false"/> for a Compare that is not <c>vbBinaryCompare</c>, <c>vbTextCompare</c> or the identifier of a locale, which
+    /// <see cref="StrComp"/> raises error 5 for.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(StrComp))]
+    public static bool OrderOf(IRuntimeSession session, string? string1, string? string2, [StdLibOptionCompare] int compare, out short result)
+    {
+        if (!TryRulesIn(session, (VBCompareMethod)compare, takesDatabaseCompare: false, out var rules))
+        {
+            result = 0;
+            return false;
+        }
+
+        result = (short)Math.Sign(rules.Compare(string1.AsSpan(), string2.AsSpan()));
+        return true;
     }
 
     /// <inheritdoc/>
