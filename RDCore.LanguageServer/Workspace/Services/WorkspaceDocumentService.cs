@@ -183,8 +183,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     IOptions<SdkAppOptions>? options = null) : IWorkspaceDocumentService
 {
     // a module file is read in its own encoding: its byte order mark, else UTF-8, else the environment's ANSI code page.
-    private async Task<string> ReadModuleAsync(string path)
-        => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage).Text;
+    private int AnsiCodePage => options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage;
+
+    private async Task<string> ReadModuleAsync(string path) => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), AnsiCodePage).Text;
 
     // the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync), while requests the server answers in parallel look them up: a plain
     // dictionary written and read at once gave those requests an internal error (HexIDE's findings desk #24).
@@ -618,7 +619,17 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                         logger.LogTrace("Saving file: '{path}'...", path);
                     }
 
-                    await ioFile.WriteAllTextAsync(path, document.Text);
+                    // the file keeps its encoding and its byte order mark, and a text the encoding cannot write is not saved. A file that is not there yet is
+                    // written in UTF-8.
+                    if (ioFile.Exists(path))
+                    {
+                        var file = ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), AnsiCodePage).WithText(document.Text);
+                        await file.WriteAsync(ioFile.FileSystem, path, CancellationToken.None);
+                    }
+                    else
+                    {
+                        await ioFile.WriteAllTextAsync(path, document.Text);
+                    }
 
                     // what was written is what is saved: a document that changed - or moved - while it was written is not.
                     using (Locked())
