@@ -413,3 +413,12 @@ Code that does not unwrap a `VBVariantValue` sees the box instead of the value.
 The default member of a class type can be implicitly invoked through let-coercion, yielding the _data value_ of the
 object ([**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md);
 [**RD-VBAL §5.6.2** Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md)).
+
+A value other than an object, let-coerced to a class, is let-coerced as to `Object`: run-time error 424. Given to a `ByVal` parameter declared as a
+class or `Object`, it raises the error before the procedure is entered
+([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).
+
+|The procedure is called|Error|
+|---|---|
+|Directly, or through an expression declared as its class (`TakeThing v`, `t.TakeObj v`)|424|
+|Late bound, through an expression declared `Object` or `Variant` (`o.TakeObj v`)|13, as the `IDispatch` the call goes through raises it (observed in VB6)|
