@@ -35,18 +35,53 @@ namespace RDCore.CLI.App.Bench;
 internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, bool ListOnly = false, VBExecutionEngine? Engine = null);
 
 /// <summary>
+/// What a run of a benchmark case allocated, and the garbage collections made while it ran.
+/// </summary>
+/// <param name="Bytes">The bytes allocated while the run ran, on every thread of the process.</param>
+/// <param name="Gen0">The collections of generation 0; a collection of generation 1 or 2 counts here too.</param>
+/// <param name="Gen1">The collections of generation 1; a collection of generation 2 counts here too.</param>
+/// <param name="Gen2">The collections of generation 2.</param>
+internal readonly record struct BenchRunCost(long Bytes, int Gen0, int Gen1, int Gen2);
+
+/// <summary>
 /// A case of a benchmark, and how long each of its runs took - or the error that stopped it.
 /// </summary>
 /// <param name="Name">The case: <c>Module.Procedure</c>.</param>
 /// <param name="Runs">How long each run took.</param>
 /// <param name="Error">What stopped the case, when something did; no run that follows it is made.</param>
-internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs, string? Error = null)
+/// <param name="Costs">What each run allocated and the collections made while it ran, in the order of <paramref name="Runs"/>.</param>
+internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs, string? Error = null, IReadOnlyList<BenchRunCost>? Costs = null)
 {
     /// <summary>The fastest run, which is the least disturbed by anything else the machine did.</summary>
     public TimeSpan? Min => Runs.Count == 0 ? null : Runs.Min();
 
     /// <summary>The run in the middle.</summary>
     public TimeSpan? Median => Runs.Count == 0 ? null : Runs.Order().ElementAt(Runs.Count / 2);
+
+    /// <summary>
+    /// What the fastest run allocated, and the collections made while it ran; none without a cost for each run.
+    /// </summary>
+    public BenchRunCost? FastestCost
+    {
+        get
+        {
+            if (Runs.Count == 0 || Costs is not { } costs || costs.Count != Runs.Count)
+            {
+                return null;
+            }
+
+            var fastest = 0;
+            for (var run = 1; run < Runs.Count; run++)
+            {
+                if (Runs[run] < Runs[fastest])
+                {
+                    fastest = run;
+                }
+            }
+
+            return costs[fastest];
+        }
+    }
 }
 
 /// <summary>
@@ -477,6 +512,7 @@ internal sealed class BenchRunner(
     private async Task<BenchCase> RunCaseAsync(EnvironmentSessionProvider provider, string name, VBTypeMemberSymbol entryPoint, int runs, CancellationToken token)
     {
         var times = new List<TimeSpan>(runs);
+        var costs = new List<BenchRunCost>(runs);
         // run -1 is untimed: it warms up what the case calls before the timed runs.
         for (var run = -1; run < runs; run++)
         {
@@ -491,22 +527,27 @@ internal sealed class BenchRunner(
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
+            var bytes = GC.GetTotalAllocatedBytes(precise: true);
+            int gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2);
             var stopwatch = Stopwatch.StartNew();
             var result = await provider.Execution.RunAsync(pipeline, entryPoint, debug: false, token);
             stopwatch.Stop();
+            var cost = new BenchRunCost(GC.GetTotalAllocatedBytes(precise: true) - bytes,
+                GC.CollectionCount(0) - gen0, GC.CollectionCount(1) - gen1, GC.CollectionCount(2) - gen2);
 
             if (result.Outcome is not ExecutionOutcome.Completed)
             {
                 var error = result.Outcome is ExecutionOutcome.RuntimeError ? $"{result.ErrorCode} {result.ErrorMessage}" : $"{result.Outcome} {result.ErrorMessage}".Trim();
-                return new BenchCase(name, times, error);
+                return new BenchCase(name, times, error, costs);
             }
 
             if (run >= 0)
             {
                 times.Add(stopwatch.Elapsed);
+                costs.Add(cost);
             }
         }
 
-        return new BenchCase(name, times);
+        return new BenchCase(name, times, Costs: costs);
     }
 }
