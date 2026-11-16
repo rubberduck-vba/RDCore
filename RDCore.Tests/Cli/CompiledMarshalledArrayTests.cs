@@ -15,7 +15,7 @@ namespace RDCore.Tests.Cli;
 /// platform.
 /// </summary>
 [TestClass]
-[TestCategory("MS-VBAL 5.6.13.1 Index Expressions")]
+[TestCategory("MS-VBAL 5.6.13 Index Expressions")]
 public sealed class CompiledMarshalledArrayTests
 {
     private static readonly DateTime Day = new(2026, 11, 16, 6, 0, 0, DateTimeKind.Unspecified);
@@ -237,8 +237,8 @@ public sealed class CompiledMarshalledArrayTests
         Assert.AreEqual(12.0, written[4, 3]);
     }
 
-    // an element of the block is a Variant: compiled code gives it a value of another type - a number where there was nothing, a text where there was a
-    // date, nothing where there was a number - and reads back what it was given, the other elements as they were. The two statements recovered are the
+    // an element of the block is a Variant: compiled code gives it a value of another type (a number where there was nothing, a text where there was a
+    // date, nothing where there was a number) and reads back what it was given, the other elements as they were. The two statements recovered are the
     // copies of nothing and of a text, which no payload holds: a copy of such a Variant is the interpreter's, whatever holds it.
     [TestMethod]
     public async Task AnElementOfABlockOfCells_IsAVariant_ThatCompiledCodeGivesAValueOfAnyType()
