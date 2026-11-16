@@ -261,7 +261,7 @@ if (Test-Path -LiteralPath $LogsPath -PathType Container) {
 # (f) rdc build makes a program's executable of the .NET application host, which a machine with only the .NET runtime does not have: rdc ships the one of
 # each runtime the platform is published for (PlatformRuntimeIdentifiers in Directory.Build.props) beside it, as the SDK's packs have them
 # (RDCore.CLI.csproj), with the placeholder for the program's assembly still in it; and the one of the tree's RID, when it is not among them. a portable
-# tree ("any") ships its own host of the system that built it, which is one of them.
+# tree ("any") ships the host of the system that built it, which is one of them.
 if ($Manifest -and $Manifest.hostService -and (Test-RelativePath $Manifest.hostService)) {
     $props = [xml](Get-Content -LiteralPath (Join-Path $PSScriptRoot "../../Directory.Build.props") -Raw)
     $rids = @(@($props.Project.PropertyGroup | ForEach-Object { $_.PlatformRuntimeIdentifiers } | Where-Object { $_ }) -join ";" -split ";" | Where-Object { $_ })

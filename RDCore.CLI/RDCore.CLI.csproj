@@ -96,14 +96,14 @@
     <Copy SourceFiles="$(AppHostSourcePath)" DestinationFolder="$(PublishDir)apphost/packs/Microsoft.NETCore.App.Host.$(_ProgramAppHostRuntime)/$(_ProgramAppHostVersion)/runtimes/$(_ProgramAppHostRuntime)/native" />
   </Target>
 
-  <!-- rdc build -r <rid> makes a program for another runtime than its own, out of that runtime's host: the published rdc ships the host of every runtime the
+  <!-- rdc build -r <rid> makes a program for a runtime other than its own, out of that runtime's host: the published rdc ships the host of every runtime the
        platform is published for (PlatformRuntimeIdentifiers), from its NuGet pack, beside its own and in the same layout. -->
   <ItemGroup>
     <ProgramAppHostRuntime Include="$(PlatformRuntimeIdentifiers)" />
     <PackageDownload Include="@(ProgramAppHostRuntime->'Microsoft.NETCore.App.Host.%(Identity)')" Version="[$(BundledNETCoreAppPackageVersion)]" />
   </ItemGroup>
 
-  <!-- once for each runtime (Outputs batches the target), but for the one rdc's own host is of, which PublishProgramApplicationHost ships. -->
+  <!-- once for each runtime (Outputs batches the target), except rdc's own, whose host PublishProgramApplicationHost ships. -->
   <Target Name="PublishProgramApplicationHostsOfOtherRuntimes" AfterTargets="PublishProgramApplicationHost" Condition="'$(UseAppHost)' == 'true'" Outputs="%(ProgramAppHostRuntime.Identity)">
     <PropertyGroup>
       <_OtherAppHostRuntime>%(ProgramAppHostRuntime.Identity)</_OtherAppHostRuntime>
