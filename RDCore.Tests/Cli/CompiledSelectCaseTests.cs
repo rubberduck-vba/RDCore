@@ -35,6 +35,23 @@ public sealed class CompiledSelectCaseTests
             "    Next",
             "End Function"), "Sorted", recoveries: 0);
 
+    // the end of a To range a variable compiled code may not convert to the selector's type exactly, a Long to an Integer: compiled, the comparison of the
+    // start held while the end's is made.
+    [TestMethod]
+    public async Task ARangeWhoseEndMayNotConvert_IsCompiled()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Ranged(3, 5); Ranged(7, 5); Ranged(0, 5)",
+            "End Sub",
+            "Private Function Ranged(ByVal K As Integer, ByVal N As Long) As Long",
+            "    Select Case K",
+            "        Case 1 To N",
+            "            Ranged = 1",
+            "        Case Else",
+            "            Ranged = 2",
+            "    End Select",
+            "End Function"), "Ranged", recoveries: 0, expected: " 1  2  2 ");
+
     // the selector is evaluated once, at its Select: what the Case blocks do to what it was read from changes nothing it is compared with.
     [TestMethod]
     public async Task TheSelector_IsEvaluatedOnce()

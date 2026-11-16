@@ -749,7 +749,11 @@ internal sealed partial class ProcedureEmitter
             EmitClause(clause.Lower, failure);
             if (clause.Upper is { } upper)
             {
+                // the comparison of the start is held in a local while the end's is made, which goes to failure with nothing on the stack.
+                var above = _il.DeclareLocal(typeof(bool));
+                _il.Emit(OpCodes.Stloc, above);
                 EmitClause(upper, failure);
+                _il.Emit(OpCodes.Ldloc, above);
                 _il.Emit(OpCodes.And);
             }
 
