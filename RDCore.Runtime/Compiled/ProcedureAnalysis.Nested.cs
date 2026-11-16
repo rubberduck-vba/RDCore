@@ -115,12 +115,12 @@ internal sealed partial class ProcedureAnalysis
     {
         null => false,
         // a function of the standard library that keeps nothing calls nothing of the workspace: only what its arguments call. The interpreter makes it again
-        // when the instruction is handed to it (LibraryCallOf).
+        // when the instruction is handed to it (LibraryCallOf). Named with no arguments (Now, VBA.DateTime.Timer), it calls nothing.
         BoundCall { Procedure: var library, BoundArguments: var arguments } when IsVariantLibrary(library) || KeepsNothing(library)
             => arguments?.Any(argument => Calls(argument.Value)) ?? false,
         BoundCall => true,
-        BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol),
-        BoundQualifiedName { Member: var qualified } => IsCompiledLibrary(qualified),
+        BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol) && !KeepsNothing(name.Symbol),
+        BoundQualifiedName { Member: var qualified } => IsCompiledLibrary(qualified) && !KeepsNothing(qualified),
         // a member of Err compiled code reads where the session holds it calls nothing.
         BoundMember member when ErrNumberOf(member) is not null || ErrTextOf(member) is not null => false,
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
