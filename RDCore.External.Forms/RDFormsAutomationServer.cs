@@ -27,6 +27,17 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private const string ControlsMember = "Controls";
     private const string NameMember = "Name";
     private const string IndexMember = "Index";
+    private const string FontProperty = "Font";
+    private const string StdFontClass = "stdole.StdFont";
+
+    // a control's font is a StdFont, and of the interfaces it implements, as TypeOf reads them in VB6.
+    private static readonly string[] FontClasses = ["StdFont", "Font", "IFontDisp", "IFont"];
+
+    private static bool? IsFontClass(string library, string className)
+        => string.Equals(library, "stdole", StringComparison.OrdinalIgnoreCase)
+            ? FontClasses.Contains(className, StringComparer.OrdinalIgnoreCase)
+            : null;
+
     private const string DefaultMemberName = "_Default";
     private const string DefaultMemberDispatchName = "[DISPID=0]";
 
@@ -48,10 +59,10 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     public RDFormsPlatform Platform { get; }
 
     /// <summary>
-    /// Whether an object is one of this server's: a form, or one of its controls.
+    /// Whether an object is one of this server's: a form, one of its controls, or a font one of them hands out.
     /// </summary>
     /// <param name="handle">The handle of the object.</param>
-    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator or RDFormsArray;
+    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator or RDFormsArray or RDFormsFont;
 
     /// <inheritdoc/>
     public bool IsAvailable => true;
@@ -80,11 +91,24 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             });
         }
 
+        // a font is read after its control's form is gone, as VB6 reads it.
+        if (target is RDFormsFont font)
+        {
+            return RDFormsUI.Run(() => RDFormsFontMembers.Invoke(font, member, invocation, arguments, culture));
+        }
+
         var handle = HandleOf(target);
         return RDFormsUI.Run(() =>
         {
             Alive(handle);
             var component = handle.Component;
+
+            // FontBold and its kin are members of the control's Font.
+            if (component.Class.Property(member) is null && RDFormsFontMembers.TryShorthand(member, out var fontMember)
+                && component.Class.Property(FontProperty) is { } fontProperty && RDFormsFonts.IsFont(fontProperty))
+            {
+                return RDFormsFontMembers.Invoke(handle.Form.Fonts.FontOf(component, fontProperty), fontMember, invocation, arguments, culture);
+            }
 
             // a control's default member (_Default early bound, DISPID 0 late bound) is the member its class names for it, reached as if the program named it.
             if (IsDefaultMember(member) && component.Class.DefaultMember is { } named)
@@ -295,6 +319,11 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     // the model holds a component's position and size in pixels: the program reads and writes them in its form's unit.
     private static object? Read(RDFormsForm form, ComponentInstance component, PropertyDefinition property)
     {
+        if (RDFormsFonts.IsFont(property))
+        {
+            return form.Fonts.FontOf(component, property);
+        }
+
         var stored = component.GetBoxed(property);
         if (RDFormsPictures.IsPicture(property) && form.Pictures.PictureOf(component, property, stored as byte[]) is { } picture)
         {
@@ -318,6 +347,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             throw new AutomationException(BadParameterCount, $"{component}.{property.Name} takes no argument.");
         }
 
+        if (RDFormsFonts.IsFont(property))
+        {
+            AssignFont(form, component, property, arguments[0], culture);
+            return null;
+        }
+
         var value = RDFormsPictures.IsPicture(property)
             ? form.Pictures.Assign(component, property, arguments[0])
             : RDFormsValues.FromNeutral(arguments[0], property.ValueType, culture);
@@ -334,14 +369,42 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         return null;
     }
 
+    // Set of a font shares it: the control draws it, and a change through any reference is the control's (measured in VB6). Nothing is 380, and the font stays. A
+    // String or a number, which a Let of a font gives as its default member, sets the font's name.
+    private static void AssignFont(RDFormsForm form, ComponentInstance component, PropertyDefinition property, object? value, CultureInfo culture)
+    {
+        switch (value)
+        {
+            case RDFormsFont font:
+                form.Fonts.Share(component, property, font);
+                return;
+
+            // CA1416: a wrapper of no object asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+            case null or System.Runtime.InteropServices.DispatchWrapper { WrappedObject: null }:
+#pragma warning restore CA1416
+                throw FormFailure(FormError.InvalidPropertyValue);
+
+            case string or bool or byte or short or int or long or float or double or decimal or DateTime:
+                _ = RDFormsFontMembers.Invoke(form.Fonts.FontOf(component, property), NameMember, AutomationInvocation.Let, [value], culture);
+                return;
+
+            default:
+                throw new AutomationException(NotImplemented, $"{component}.{property.Name}: only a font a form's control holds can be given to it.");
+        }
+    }
+
     /// <inheritdoc/>
     public string? ClassNameOf(object target)
         // the Controls collection and a control array are not of a library's class: a late-bound Object.
-        => target is RDFormsControls or RDFormsArray ? null : HandleOf(target).Component.Class.TypeName;
+        => target is RDFormsFont ? StdFontClass
+            : target is RDFormsControls or RDFormsArray ? null
+            : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
-        => target is RDFormsControls or RDFormsArray
+        => target is RDFormsFont ? IsFontClass(library, className)
+            : target is RDFormsControls or RDFormsArray
             ? null
             : string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
                 ? string.Equals(HandleOf(target).Component.Class.ClassName, className, StringComparison.OrdinalIgnoreCase)
