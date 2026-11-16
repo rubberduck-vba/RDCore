@@ -509,7 +509,7 @@ public sealed class CompiledLibraryCallTests
             "    Next",
             "End Function"), [("Found", 0)]);
 
-    // MS-VBAL 6.1.2.11: a Compare argument left out is the Option Compare of the calling module: Text here, so "b" is found in "ABC", and "abc" and "ABC"
+    // MS-VBAL §6.1.2.11: a Compare argument left out is the Option Compare of the calling module: Text here, so "b" is found in "ABC", and "abc" and "ABC"
     // compare equal.
     [TestMethod]
     public async Task InStrOrStrComp_WithNoCompare_ComparesAsTheModuleSays()
@@ -580,7 +580,7 @@ public sealed class CompiledLibraryCallTests
             "    Next",
             "End Function"), [("Read", 0)]);
 
-    // MS-VBAL §6.1.2.4.1.1: DateAdd of days and months to a Date, which the procedure adds up as Dates; an interval it doesn't know raises 5 at the
+    // MS-VBAL §6.1.2.4.1.1: DateAdd of days and months to a Date, which the procedure adds up as Dates; an interval it does not know raises 5 at the
     // statement, the interpreter's call.
     [TestMethod]
     public async Task DateAdd_IsCalledByCompiledCode()

@@ -92,9 +92,9 @@ internal sealed partial class ProcedureAnalysis
 
     // the functions of the library that return a String, or a Variant that holds one, and take Variants or scalars, which compiled code calls with its
     // arguments as it calls a function that returns a Variant (LibraryArgumentsOf): CStr (MS-VBAL §6.1.2.3.1.12), TypeName of what is not an object
-    // (§6.1.2.7.1.12), Format (§6.1.2.11.1.8), LCase (§6.1.2.11.1.17), Left (§6.1.2.11.1.19), LTrim, RTrim and Trim (§6.1.2.11.1.23), Mid (§6.1.2.11.1.25),
-    // Right (§6.1.2.11.1.30) and UCase (§6.1.2.11.1.41), each with its $ form. A Variant one that returns Null, which no String holds, is the
-    // interpreter's call (CompiledActivation.TryCallLibraryVariantText).
+    // (§6.1.2.7.1.12), Format (§6.1.2.11.1.8), LCase (§6.1.2.11.1.17), Left (§6.1.2.11.1.19), LTrim, RTrim and Trim (§6.1.2.11.1.23),
+    // Mid (§6.1.2.11.1.25), Right (§6.1.2.11.1.30) and UCase (§6.1.2.11.1.41), each with its $ form. A Variant one that returns Null, which
+    // no String holds, is the interpreter's call (CompiledActivation.TryCallLibraryVariantText).
     private static readonly string[] VariantTextLibraryFunctions =
     [
         StdLibSymbolReader.ExternalTargetOf(typeof(IStdConversionModule), typeof(IStdConversionModule).GetMethod(nameof(IStdConversionModule.CStr))!),
