@@ -204,11 +204,11 @@ public sealed class WorkspaceDocumentRenameRaceTests
     [Timeout(600_000)]
     public async Task ADocumentTheClientOpensAgain_WhileItsCloseReadsTheFile_StaysTheClients()
     {
-        var gate = new TaskCompletionSource<string>();
+        var gate = new TaskCompletionSource<byte[]>();
         var reached = new ManualResetEventSlim();
         var file = Substitute.For<System.IO.Abstractions.IFile>();
         file.Exists(Arg.Any<string>()).Returns(true);
-        file.ReadAllTextAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        file.ReadAllBytesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
         {
             reached.Set();
             return gate.Task;
@@ -222,7 +222,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
         var closing = documents.CloseAsync(Old.Uri.ToUri());
         Assert.IsTrue(reached.Wait(SafetyCap), "the close is reading the file");
         documents.Open(Old.Uri.ToUri(), "opened again", 9);
-        gate.SetResult("what is on disk");
+        gate.SetResult(System.Text.Encoding.UTF8.GetBytes("what is on disk"));
         var closed = await closing;
 
         Assert.IsNotNull(closed);

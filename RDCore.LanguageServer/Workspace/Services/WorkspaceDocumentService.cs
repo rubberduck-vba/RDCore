@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RDCore.SDK.Server.Configuration;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace;
@@ -177,8 +179,13 @@ internal enum DocumentChangeOutcome
 
 internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProvider, ILogger<WorkspaceDocumentService> logger,
     System.IO.Abstractions.IPath ioPath,
-    System.IO.Abstractions.IFile ioFile) : IWorkspaceDocumentService
+    System.IO.Abstractions.IFile ioFile,
+    IOptions<SdkAppOptions>? options = null) : IWorkspaceDocumentService
 {
+    // a module file is read in its own encoding: its byte order mark, else UTF-8, else the environment's ANSI code page.
+    private async Task<string> ReadModuleAsync(string path)
+        => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage).Text;
+
     // the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync), while requests the server answers in parallel look them up: a plain
     // dictionary written and read at once gave those requests an internal error (HexIDE's findings desk #24).
     private readonly ConcurrentDictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
@@ -326,7 +333,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                     logger.LogTrace("Loading workspace document from '{path}'...", path);
                 }
 
-                content = await ioFile.ReadAllTextAsync(path);
+                content = await ReadModuleAsync(path);
                 companion = ReadCompanion(content, path);
             }
         }
@@ -782,7 +789,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             {
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.
-                var content = await ioFile.ReadAllTextAsync(path);
+                var content = await ReadModuleAsync(path);
                 var companion = ReadCompanion(content, path);
 
                 // the document is what it is when this is written, not what it was before the file was read: it may have moved on, or a project may have taken it.
