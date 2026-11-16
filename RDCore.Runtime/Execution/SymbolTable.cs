@@ -161,8 +161,8 @@ internal sealed class SymbolTable
     /// The number of changes made to the table: a symbol added, removed, or defined again in place.
     /// </summary>
     /// <remarks>
-    /// What is found in the table while the number holds is what was found when it was read, so whatever is found by a lookup can be kept against it
-    /// (<see cref="ObjectInstance.ClassModule"/>). A copy (<see cref="Snapshot"/>) counts its own changes, from none.
+    /// While the number is unchanged, a lookup finds what it found when the number was read, so the result of a lookup can be kept against the number
+    /// (<see cref="ObjectInstance.ClassModule"/>). A copy (<see cref="Snapshot"/>) counts its own changes, starting from zero.
     /// </remarks>
     public int Version { get; private set; }
 
