@@ -172,4 +172,25 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.WriteVariant))!);
         _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
+
+    // a String field, read into text; one that holds no known text goes to failure.
+    private void EmitFieldText(FieldTextNode field, LocalBuilder text, Label failure)
+    {
+        LoadRecordOf(field.Field);
+        _il.Emit(OpCodes.Ldloca, text);
+        _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.ReadText))!);
+        _il.Emit(OpCodes.Brfalse, failure);
+    }
+
+    // a Let of a String field: the text evaluated first, as the interpreter evaluates it before the record (AssignField), then written as it is, as a String
+    // variable's (TextLetStep). A field compiled code neither reads nor writes is the interpreter's.
+    private void EmitFieldTextLet(FieldTextLetStep let)
+    {
+        var failure = RecoverAt(let.Offset);
+        var text = EmitTextInto(let.Value, failure);
+        LoadRecordOf(let.Field);
+        _il.Emit(OpCodes.Ldloc, text);
+        _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.WriteText))!);
+        _il.Emit(OpCodes.Brfalse, failure);
+    }
 }

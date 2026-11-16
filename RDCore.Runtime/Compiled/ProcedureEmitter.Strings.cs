@@ -153,6 +153,10 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 break;
 
+            case FieldTextNode field:
+                EmitFieldText(field, text, failure);
+                break;
+
             case MemberTextNode member:
                 EmitMemberText(member, text, failure);
                 break;
