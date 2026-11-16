@@ -276,8 +276,8 @@ public sealed class CompiledIntrinsicTests
             "End Function"), [("Roots", 0), ("Negative", 1)]);
 
     // MS-VBAL §6.1.2.10.1.7: Round of a Double to a number of digits, given as an Integer the call let-coerces to Long, and to none; a tie goes to the even
-    // number as the scaled Double is (2.675 is a little under it). Round of a quotient or a product is of its intermediate stored as a Double. Fewer than
-    // no digits raise 5: the interpreter's.
+    // number as the scaled Double is (2.675 is a little under it). Round of a quotient or a product is of its intermediate stored as a Double. A negative
+    // number of digits raises 5: the interpreter's.
     [TestMethod]
     [DataRow(1033, DisplayName = "en-US")]
     [DataRow(1036, DisplayName = "fr-FR")]
