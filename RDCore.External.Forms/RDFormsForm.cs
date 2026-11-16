@@ -56,6 +56,9 @@ internal sealed class RDFormsForm : IComponentEventSink
     // the program's pictures that its components' picture properties hold.
     public RDFormsPictures Pictures { get; } = new();
 
+    // the fonts its components' Font properties hand out.
+    public RDFormsFonts Fonts { get; } = new();
+
     public bool IsDestroyed { get; private set; }
 
     public RDFormsObject HandleOf(ComponentInstance component)
