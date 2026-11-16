@@ -79,7 +79,8 @@ internal sealed class RDCoreMcpClientApp(IOptions<SdkAppOptions> options, IChild
     protected override void ConfigureServices(IServiceCollection services)
         => services.AddSingleton(_files);
 
-    // edits of text only, in document changes; the documents stay closed, so the server reads what another editor saves, and watches the files itself.
+    // edits of text only (no file is created, renamed or deleted), as document changes, and none applied after one fails; the documents stay closed, so the
+    // server reads what another editor saves, and watches the files itself.
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
     {
         capabilities.Workspace ??= new();

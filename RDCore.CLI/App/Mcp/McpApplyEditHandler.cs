@@ -12,7 +12,7 @@ internal sealed class McpApplyEditHandler(WorkspaceEditFiles files, ILanguageCli
 {
     public async Task<ApplyWorkspaceEditResponse> Handle(ApplyWorkspaceEditParams request, CancellationToken cancellationToken)
     {
-        // rdc opens no document: a change that names a version is of a document it does not have.
+        // rdc opens no document, so it knows no version: a change that names one is refused.
         var result = await files.ApplyAsync(request.Edit, _ => null, cancellationToken);
         if (result.Written.Count > 0)
         {
