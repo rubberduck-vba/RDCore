@@ -71,14 +71,9 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
             return new VBResizableArrayValue([], array.ItemType);
         }
 
-        // an array of more elements than RD-VBA holds is a compile error of its declaration (VBC09380, Out of memory), and is never made: the module it is
-        // declared in does not run.
-        return variable.TryGetProperty(SymbolProperties.ArrayBounds, out var declared)
-            && !declared.IsDefaultOrEmpty
-            && TryReduce(variable, declared) is { } dimensions
-            && VBArrayValue.LengthOf(dimensions) <= VBArrayValue.MaximumLength
-                ? new VBFixedSizeArrayValue(dimensions, array.ItemType, ((IVariableDefaults)this).ElementDefaultOf(array.ItemType), ElementCellOf(array.ItemType))
-                : new VBFixedSizeArrayValue([], array.ItemType);
+        return DimensionsOf(session, bounds, variable, OptionBaseOf(variable)) is { } dimensions
+            ? new VBFixedSizeArrayValue(dimensions, array.ItemType, ((IVariableDefaults)this).ElementDefaultOf(array.ItemType), ElementCellOf(array.ItemType))
+            : new VBFixedSizeArrayValue([], array.ItemType);
     }
 
     /// <inheritdoc/>
@@ -87,11 +82,26 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     /// </remarks>
     public Func<IBindingHandle>? ElementCellOf(VBType itemType) => ElementCells.Of(itemType);
 
-    private (int, int)[]? TryReduce(Symbol variable, IReadOnlyList<ArrayDimensionBound> declared)
+    /// <summary>
+    /// The dimensions of a fixed-size array variable, each bound its declaration gives reduced (MS-VBAL §5.2.3.1.3), and an omitted lower bound
+    /// <paramref name="optionBase"/>: what the variable is made with, and what a fixed-size array's bounds stay, since no <c>ReDim</c> changes them and
+    /// <c>Erase</c> keeps them (MS-VBAL §5.4.3.3, §5.4.3.4).
+    /// </summary>
+    /// <returns><see langword="null"/> when the variable is made with no dimensions: it declares none, or a bound cannot be reduced.</returns>
+    internal static (int, int)[]? DimensionsOf(IRuntimeSession session, ArrayBoundEvaluator bounds, Symbol variable, int optionBase)
+        // an array of more elements than RD-VBA holds is a compile error of its declaration (VBC09380, Out of memory), and is never made: the module it is
+        // declared in does not run.
+        => variable.TryGetProperty(SymbolProperties.ArrayBounds, out var declared)
+            && !declared.IsDefaultOrEmpty
+            && TryReduce(session, bounds, variable, declared, optionBase) is { } dimensions
+            && VBArrayValue.LengthOf(dimensions) <= VBArrayValue.MaximumLength
+                ? dimensions
+                : null;
+
+    private static (int, int)[]? TryReduce(IRuntimeSession session, ArrayBoundEvaluator bounds, Symbol variable, IReadOnlyList<ArrayDimensionBound> declared, int optionBase)
     {
         // the names a bound mentions resolve where the variable is declared.
         var context = new RuntimeEvaluationContext(variable.ParentUri);
-        var optionBase = OptionBaseOf(variable);
 
         var dimensions = new (int, int)[declared.Count];
         for (var dimension = 0; dimension < declared.Count; dimension++)
@@ -130,11 +140,15 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
             return 0;
         }
 
-        if (variable.ScopeKind is ScopeKind.Local && session.CallStack.Current is { } frame)
-        {
-            return frame.Directives.Base;
-        }
+        return variable.ScopeKind is ScopeKind.Local && session.CallStack.Current is { } frame ? frame.Directives.Base : ModuleOptionBaseOf(session, variable);
+    }
 
+    /// <summary>
+    /// The <c>Option Base</c> of the module <paramref name="variable"/>, a variable of a module, is declared in (MS-VBAL §5.2.1.2): what an omitted lower
+    /// bound of its declaration is.
+    /// </summary>
+    internal static int ModuleOptionBaseOf(IRuntimeSession session, Symbol variable)
+    {
         var moduleName = SymbolUri.ModuleNameOf(variable.Uri);
         return (session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var module)
                 || session.Symbols.TryResolveType(moduleName, GlobalSymbols.UnresolvedSymbol, out module))
