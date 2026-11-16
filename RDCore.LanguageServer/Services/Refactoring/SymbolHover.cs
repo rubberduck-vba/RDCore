@@ -38,16 +38,25 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         }
 
         var element = symbol is ITypedSymbol { ResolvedType: var type } ? FormControlArray.ElementOf(type) : null;
-        return new SymbolHover(DeclarationOf(symbol), container, symbol.GetProperty(SymbolProperties.DocString)) { ControlArrayOf = element is null ? null : ClassNameOf(element) };
+        return new SymbolHover(DeclarationOf(symbol), container, symbol.GetProperty(SymbolProperties.DocString))
+        {
+            ControlArrayOf = element is null ? null : ClassNameOf(element),
+            AdditionTo = symbol.GetProperty(SymbolProperties.LibraryAddition) ? symbol.GetProperty(SymbolProperties.Library) : null,
+        };
     }
 
     public string? ControlArrayOf { get; init; }
 
+    // the library RD-VBA adds the member to, which the library's type library does not declare.
+    public string? AdditionTo { get; init; }
+
     public string ToMarkdown(CultureInfo? culture = null)
-        => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+        => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
 
     public string ToPlainText(CultureInfo? culture = null)
-        => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+        => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+
+    private string? AdditionOf(CultureInfo? culture) => AdditionTo is null ? null : RefactoringTitles.LibraryAddition(AdditionTo, culture);
 
     private string? ArrayOf(CultureInfo? culture)
     {

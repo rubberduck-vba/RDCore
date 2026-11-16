@@ -16,7 +16,7 @@ namespace RDCore.Tests.Workspace.Forms;
 [TestClass]
 public sealed class VisualBasicFormLifecycleTests
 {
-    internal static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    internal static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
     // Form2 prints its events, and the number of loaded forms after each when it counts; what its Resize does while it is shown is what its Probe says.
     private static string Form2(bool counting = false)

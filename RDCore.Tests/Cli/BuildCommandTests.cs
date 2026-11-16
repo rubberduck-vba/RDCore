@@ -543,7 +543,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "LibraryProbe", "Modules": [ { "RelativeUri": "Program.bas" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
         var run = await RunAsync(fileSystem, shipped, Root);
         Assert.AreEqual(0, run.Exit, run.Error);
@@ -762,7 +762,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "{{form}}.frm" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         return await RunAsync(fileSystem, shipped, Root);
     }
 
@@ -774,7 +774,7 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), $$"""
             { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ]{{source}} } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         return await RunAsync(fileSystem, shipped, Root);
     }
 
@@ -795,7 +795,7 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
             { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
 
         var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
 
@@ -831,7 +831,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "ExampleView.frm" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
         var run = await RunAsync(fileSystem, shipped, Root);
         Assert.AreEqual(0, run.Exit, run.Error);

@@ -29,7 +29,7 @@ public sealed class VisualBasicFormWithoutHostTests
         + "Attribute VB_PredeclaredId = True\r\n"
         + "Attribute VB_Exposed = False\r\n";
 
-    private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    private static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
     private static Task<string[]> RunAsync(params string[] body)
     {
