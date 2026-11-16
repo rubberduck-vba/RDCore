@@ -25,6 +25,7 @@ La GPLv3 couvre RDCore lui-même, et non les projets avec lesquels il travaille.
   - `RDCore.Parsing/Syntax/README.md` indique que ces grammaires sont tirées directement du _projet legacy_ **Rubberduck**, licencié sous GPLv3.
   - Les en-têtes de `VBALexer.g4` et de `VBAParser.g4` portent la mention `Copyright (C) 2014 Ulrich Wolffgang <u.wol@wwu.de>` et placent ces fichiers sous la GNU General Public License publiée par la Free Software Foundation, version 3 de la licence ou (à votre choix) toute version ultérieure. `VBAConditionalCompilation.g4`, `VBADate.g4` et `VBALike.g4` ne portent aucun en-tête.
 - `RDCore.Parsing/Syntax/IdentifierNameExtensions.cs` indique que sa forme suit `Identifier.GetName` de Rubberduck (GPLv3).
+- `RDCore.CLI/App/Build/MachO/` est le signataire Mach-O de [dotnet/runtime](https://github.com/dotnet/runtime) v10.0.0 (`src/installer/managed/Microsoft.NET.HostModel/MachO`), licencié sous MIT, `Copyright (c) .NET Foundation and Contributors`; chaque fichier garde son en-tête, et `BinaryFormat/Blobs/CodeDirectoryBlob.cs` marque la modification qu'RDCore y a faite. `rdc build` signe ainsi les exécutables qu'il écrit pour macOS. `THIRD-PARTY-NOTICES.txt` reproduit le texte de cette licence.
 
 ## Paquets tiers et code source correspondant
 
@@ -68,6 +69,7 @@ The GPLv3 covers RDCore itself, not the projects it works with. A project's VBA 
   - `RDCore.Parsing/Syntax/README.md` states that these grammars are lifted directly from the _legacy **Rubberduck** project_, licensed under GPLv3.
   - The headers of `VBALexer.g4` and `VBAParser.g4` read `Copyright (C) 2014 Ulrich Wolffgang <u.wol@wwu.de>` and place those files under the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. `VBAConditionalCompilation.g4`, `VBADate.g4` and `VBALike.g4` carry no header.
 - `RDCore.Parsing/Syntax/IdentifierNameExtensions.cs` notes that its shape follows Rubberduck's `Identifier.GetName` (GPLv3).
+- `RDCore.CLI/App/Build/MachO/` is the Mach-O signer of [dotnet/runtime](https://github.com/dotnet/runtime) v10.0.0 (`src/installer/managed/Microsoft.NET.HostModel/MachO`), licensed under MIT, `Copyright (c) .NET Foundation and Contributors`; each file keeps its header, and `BinaryFormat/Blobs/CodeDirectoryBlob.cs` marks the change RDCore made to it. It is what `rdc build` signs the executables it writes for macOS with. `THIRD-PARTY-NOTICES.txt` reproduces that licence's text.
 
 ## Third-party packages and corresponding source
 

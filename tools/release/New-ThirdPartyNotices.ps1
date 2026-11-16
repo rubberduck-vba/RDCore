@@ -565,6 +565,23 @@ if ($Executables.Count) {
     }
 }
 
+# third-party source compiled into an RDCore assembly, which no deps.json lists: each with the component whose assembly it is in, and its license.
+#   Microsoft.NET.HostModel/MachO  dotnet/runtime v10.0.0, src/installer/managed/Microsoft.NET.HostModel/MachO (and the two exceptions of
+#                                  AppHost/AppHostExceptions.cs it throws), in RDCore.CLI/App/Build/MachO with its MIT headers: the managed signer
+#                                  rdc build gives its macOS executables their ad-hoc signature with. its LICENSE.TXT is the vendored one, byte for byte.
+$SourceRows = [Collections.Generic.List[object]]::new()
+$CompiledSource = @(
+    [pscustomobject]@{ Id = "Microsoft.NET.HostModel/MachO"; Version = "10.0.0"; Component = "RDCore.CLI"; Origin = "dotnet/runtime v10.0.0" }
+)
+foreach ($source in $CompiledSource) {
+    if (-not $Components.Contains($source.Component)) { continue }
+    Add-Section -Kind "license" -Title "MIT" -Text (Read-Text (Join-Path $LicensesDir $DotnetRuntime.LicenseFile)) -Source "tools/release/licenses/$($DotnetRuntime.LicenseFile), the LICENSE.TXT of $($source.Origin)" -Package $source
+    $SourceRows.Add([pscustomobject]@{
+        Package = $source.Id; Version = $source.Version; License = "MIT"; Copyright = $DotnetRuntime.Copyright
+        ProjectUrl = $DotnetRuntime.ProjectUrl; ShippedIn = $source.Component
+    })
+}
+
 if ($Failures.Count) {
     $Host.UI.WriteErrorLine("Third-party license check failed for $($Failures.Count) item(s):")
     foreach ($failure in $Failures) { $Host.UI.WriteErrorLine("  $failure") }
@@ -587,14 +604,18 @@ if ($HostRows.Count) {
 else { Add-Line "is not listed here." }
 Add-Line "RDCore's own license terms are in NOTICE.md and LICENSE-GPLv3.md at the root of this package. RDCore.SDK, listed"
 Add-Line "below, is the MIT-licensed package RDCore is built on, from the same authors; the RDCore.SDK.Protocol assembly is in it."
+if ($SourceRows.Count) {
+    Add-Line "Third-party source compiled into RDCore's own assemblies is listed too, with the component whose assembly it is in."
+}
 Add-Line
 Add-Line "Platform components: $((ConvertTo-OrdinalOrder $Components) -join ', ')"
 Add-Line "Third-party packages: $($Rows.Count)"
 if ($HostRows.Count) { Add-Line ".NET application host: $((ConvertTo-OrdinalOrder $HostFiles) -join ', ')" }
+if ($SourceRows.Count) { Add-Line "Third-party source: $((ConvertTo-OrdinalOrder @($SourceRows | ForEach-Object { "$($_.Package) $($_.Version)" })) -join ', ')" }
 Add-Line
 
 $TableRows = [Collections.Generic.List[object]]::new()
-foreach ($row in @($Rows) + @($HostRows)) { $TableRows.Add($row) }
+foreach ($row in @($Rows) + @($HostRows) + @($SourceRows)) { $TableRows.Add($row) }
 $TableRows.Sort([Comparison[object]] { param($a, $b) [StringComparer]::OrdinalIgnoreCase.Compare("$($a.Package) $($a.Version)", "$($b.Package) $($b.Version)") })
 $columns = [ordered]@{
     Package = "Package"; Version = "Version"; License = "License"; Copyright = "Copyright"

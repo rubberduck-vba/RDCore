@@ -157,6 +157,9 @@ Un programme construit appelle le monde extérieur (une procédure déclarée pa
 second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
 installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
 
+L'exécutable d'un programme construit pour macOS (`osx-x64`, `osx-arm64`) est signé ad hoc, comme le SDK .NET signe celui d'une application : un Mac
+doté d'une puce Apple n'exécute aucun exécutable qui n'est pas signé. La signature n'a pas de certificat : ce n'est pas une signature Developer ID.
+
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.
 
