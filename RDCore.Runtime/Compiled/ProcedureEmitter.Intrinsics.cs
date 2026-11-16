@@ -1,3 +1,4 @@
+using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection.Emit;
 
 namespace RDCore.Runtime.Compiled;
@@ -6,25 +7,33 @@ namespace RDCore.Runtime.Compiled;
 // texts of its arguments, as a method of the runtime.
 internal sealed partial class ProcedureEmitter
 {
-    // the arguments evaluated into locals, a whole number as a long and a Double as a double; then the call. A form that returns a bool and its result in an
-    // out parameter declines with false, which goes to failure: the interpreter makes the call. What it returns is held as a payload of its kind.
+    // the arguments evaluated into locals, a whole number as a long and a Double as a double, and the activation's session for a form that reads it; then the
+    // call. A form that returns a bool and its result in an out parameter declines with false, which goes to failure: the interpreter makes the call. What it
+    // returns is held as a payload of its kind, a bool as a Boolean's -1 or 0.
     private Operand EmitIntrinsic(IntrinsicNode node, Label failure)
     {
         var parameters = node.Method.GetParameters();
-        var arguments = new List<LocalBuilder>(node.Arguments.Count);
-        for (var i = 0; i < node.Arguments.Count; i++)
+        var arguments = new List<LocalBuilder?>(parameters.Length);
+        var given = 0;
+        foreach (var parameter in parameters.Where(parameter => !parameter.IsOut))
         {
-            if (node.Arguments[i] is TextArgumentNode { Value: var text })
+            if (parameter.ParameterType == typeof(IRuntimeSession))
+            {
+                arguments.Add(null);
+                continue;
+            }
+
+            if (node.Arguments[given++] is TextArgumentNode { Value: var text })
             {
                 arguments.Add(EmitTextInto(text, failure));
                 continue;
             }
 
-            var payload = node.Arguments[i];
+            var payload = node.Arguments[given - 1];
             var operand = EmitPayload(payload, failure);
-            var argument = _il.DeclareLocal(parameters[i].ParameterType);
+            var argument = _il.DeclareLocal(parameter.ParameterType);
             Load(operand, payload.Kind);
-            if (parameters[i].ParameterType == typeof(double) && ScalarKinds.IsIntegral(payload.Kind))
+            if (parameter.ParameterType == typeof(double) && ScalarKinds.IsIntegral(payload.Kind))
             {
                 _il.Emit(OpCodes.Conv_R8);
             }
@@ -35,24 +44,37 @@ internal sealed partial class ProcedureEmitter
 
         foreach (var argument in arguments)
         {
+            if (argument is null)
+            {
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.Session))!.GetMethod!);
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldloc, argument);
         }
 
         var declines = parameters is [.., { IsOut: true }];
-        var given = declines ? _il.DeclareLocal(parameters[^1].ParameterType.GetElementType()!) : null;
-        if (given is not null)
+        var returned = declines ? _il.DeclareLocal(parameters[^1].ParameterType.GetElementType()!) : null;
+        if (returned is not null)
         {
-            _il.Emit(OpCodes.Ldloca, given);
+            _il.Emit(OpCodes.Ldloca, returned);
         }
 
         _il.Emit(OpCodes.Call, node.Method);
-        if (given is not null)
+        if (returned is not null)
         {
             _il.Emit(OpCodes.Brfalse, failure);
-            _il.Emit(OpCodes.Ldloc, given);
+            _il.Emit(OpCodes.Ldloc, returned);
         }
 
         var result = _il.DeclareLocal(ScalarKinds.IsIntegral(node.Kind) ? typeof(long) : typeof(double));
+        if (node.Kind is ScalarKind.Boolean)
+        {
+            // true (1) is -1.
+            _il.Emit(OpCodes.Neg);
+        }
+
         if (ScalarKinds.IsIntegral(node.Kind))
         {
             _il.Emit(OpCodes.Conv_I8);

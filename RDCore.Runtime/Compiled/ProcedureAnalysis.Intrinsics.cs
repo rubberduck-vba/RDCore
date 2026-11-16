@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
 using System.Reflection;
@@ -54,22 +55,28 @@ internal sealed partial class ProcedureAnalysis
         return null;
     }
 
-    // what a typed form returns, of a payload's kind: an int is a Long, a double a Double, whether it is returned or given back in an out parameter.
+    // what a typed form returns, of a payload's kind: a short is an Integer, an int a Long, a double a Double, a bool a Boolean, whether it is returned or
+    // given back in an out parameter.
     private static ScalarKind? ResultKindOf(MethodInfo method)
     {
         var parameters = method.GetParameters();
         var returned = method.ReturnType == typeof(bool) && parameters is [.., { IsOut: true } result]
             ? result.ParameterType.GetElementType()
             : method.ReturnType;
-        return returned == typeof(int) ? ScalarKind.Long : returned == typeof(double) ? ScalarKind.Double : null;
+        return returned == typeof(short) ? ScalarKind.Integer
+            : returned == typeof(int) ? ScalarKind.Long
+            : returned == typeof(double) ? ScalarKind.Double
+            : returned == typeof(bool) ? ScalarKind.Boolean
+            : null;
     }
 
     // the arguments of a call given to a typed form, when each is of the type of its parameter: a String's text for a string; a whole number for a long; a
-    // Double for a double. Each argument is given, by value: the form has no optional parameter.
+    // Double for a double. Each argument is given, by value, except a Compare the call leaves out (StdLibOptionCompareAttribute), which is the calling
+    // module's Option Compare. The session, which the activation gives a form that reads it, is not one of the call's arguments.
     private List<PayloadNode>? IntrinsicArgumentsOf(MethodInfo method, ImmutableArray<BoundArgument> arguments)
     {
-        var parameters = method.GetParameters().Where(parameter => !parameter.IsOut).ToArray();
-        if (arguments.Length != parameters.Length)
+        var parameters = method.GetParameters().Where(parameter => !parameter.IsOut && parameter.ParameterType != typeof(IRuntimeSession)).ToArray();
+        if (arguments.Length > parameters.Length)
         {
             return null;
         }
@@ -77,7 +84,19 @@ internal sealed partial class ProcedureAnalysis
         var values = new List<PayloadNode>(parameters.Length);
         for (var i = 0; i < parameters.Length; i++)
         {
-            if (ValueOf(arguments[i]) is not { } value || DeclaredTypeOf(value) is not { } declared)
+            var omitted = i >= arguments.Length || arguments[i] is { Passing: ArgumentPassing.Omitted };
+            if (omitted && parameters[i].GetCustomAttribute<StdLibOptionCompareAttribute>() is not null)
+            {
+                if (CallersCompareMethod() is not { } compare)
+                {
+                    return null;
+                }
+
+                values.Add(new ConstantNode(ScalarKind.Long, (long)compare, 0));
+                continue;
+            }
+
+            if (omitted || ValueOf(arguments[i]) is not { } value || DeclaredTypeOf(value) is not { } declared)
             {
                 return null;
             }
@@ -94,7 +113,10 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            var expected = type == typeof(long) ? IsWhole(declared) : type == typeof(double) && declared is VBDoubleType;
+            // a whole number: of an integer type, or an enumeration's (a Long), as a VbCompareMethod constant is.
+            var expected = type == typeof(long)
+                ? ScalarKinds.Of(declared) is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong
+                : type == typeof(double) && declared is VBDoubleType;
             if (!expected || IsVariant(value) || IsExtended(value) || Payload(value) is not { } payload)
             {
                 return null;
@@ -104,6 +126,20 @@ internal sealed partial class ProcedureAnalysis
         }
 
         return values;
+    }
+
+    // MS-VBAL §6.1.2.11: the Compare a comparing function's call leaves out, which "uses the <option-compare-directive> of the calling module": the module
+    // declaring the procedure, as the interpreter reads it from the procedure's frame (RuntimeExpressionEvaluator's omitted argument). Option Compare
+    // Database compares as the environment says, which the interpreter reads when the call is made.
+    private VBCompareMethod? CallersCompareMethod()
+    {
+        var directives = _session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(_procedure.ParentUri), out var module) ? module.Directives : ModuleDirectives.None;
+        return directives.Compare switch
+        {
+            OptionCompare.Binary => VBCompareMethod.VBBinaryCompare,
+            OptionCompare.Text => VBCompareMethod.VBTextCompare,
+            _ => null,
+        };
     }
 
     // an argument given as a value, by value or by reference, with no element list; and the only argument of a call, given so.

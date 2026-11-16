@@ -497,6 +497,12 @@ public sealed partial class CompiledActivation : ILightActivation
     public bool SpillsBeforeCalls => _halt.Gate is not null;
 
     /// <summary>
+    /// The session the activation runs in, which compiled code gives the typed form of a function of the standard library that reads it (its locale, its
+    /// comparison rules).
+    /// </summary>
+    public IRuntimeSession Session => _session;
+
+    /// <summary>
     /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>, <see cref="SetReference"/>), as
     /// the interpreter calls a procedure every parameter of which is a scalar passed by value - or, when any is passed by reference, with the cell of each
     /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>; the address of a <c>String</c> variable,
