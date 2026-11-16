@@ -101,6 +101,9 @@ travaille sur le dossier courant.
 |`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
+|`rdc splash`|`s`|Écrit l'écran d'accueil de la plateforme en texte brut, que sa sortie soit une console ou non. Elle ne prend pas d'espace de travail.|
+
+Dans une console, une commande commence par l'écran d'accueil de la plateforme. Une sortie redirigée vers un fichier ou un tube n'en a pas : elle ne contient que ce que la commande écrit.
 
 ### Exécuter un programme
 
@@ -110,7 +113,7 @@ travaille sur le dossier courant.
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
 Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
-ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il s'affiche dans la console et on y répond, comme dans le _shell_.
+ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` s'affiche dans la console et on y répond, comme dans le _shell_, sous tous les systèmes d'exploitation. Le paramètre `CLI.NativeDialogs` les affiche plutôt comme des boîtes de dialogue Windows, sous Windows. Le paramètre ne change pas la façon dont un formulaire s'affiche : il ouvre sa propre fenêtre.
 
 |Option|Ce qu'elle fait|
 |---|---|

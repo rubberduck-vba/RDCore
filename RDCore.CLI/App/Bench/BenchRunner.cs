@@ -382,7 +382,7 @@ internal sealed class BenchRunner(
             workspace.Project.Name, scope, librarySymbols, hosts);
 
         // as the language server does, the types of every module are declared before the declarations of any are bound (DefineSymbolsParams.DeclareTypesOnly).
-        var define = new DefineSymbolsHandler(provider, errorDetails, loggers.CreateLogger<DefineSymbolsHandler>());
+        var define = new DefineSymbolsHandler(provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries), errorDetails, loggers.CreateLogger<DefineSymbolsHandler>());
         Task<DefineSymbolsResult> Define(DefineSymbolsParams definition)
         {
             definitions?.Add(definition);

@@ -43,6 +43,11 @@ public interface IEnvironmentSessionProvider
     string ProjectName { get; }
 
     /// <summary>
+    /// The root the session was composed under, which its modules are addressed under; <see langword="null"/> before <see cref="Compose"/> has run.
+    /// </summary>
+    Uri? WorkspaceRoot { get; }
+
+    /// <summary>
     /// The number of modules the project the session was composed from declares; <c>0</c> before
     /// <see cref="Compose"/> has run.
     /// </summary>
@@ -155,6 +160,9 @@ public sealed class EnvironmentSessionProvider(
     public string ProjectName { get; private set; } = string.Empty;
 
     /// <inheritdoc/>
+    public Uri? WorkspaceRoot { get; private set; }
+
+    /// <inheritdoc/>
     public int ModuleCount { get; private set; }
 
     /// <inheritdoc/>
@@ -250,6 +258,54 @@ public sealed class EnvironmentSessionProvider(
         // a reload starts where the host did, as at start-up, and not where the session it replaces left the process.
         LeaveSession();
 
+        _world = ComposeWorld(project, workspaceRoot);
+        var (session, referenced, constants) = ComposeSession(environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known);
+        _session = session;
+        // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
+        _session.Turn.EventScope = BeginEvent;
+        Image = NewImage(logger);
+        Execution = new ProgramExecution(this, logger);
+        Execution.SessionStopsChanged();
+        ProjectName = project.Name;
+        WorkspaceRoot = workspaceRoot;
+        ModuleCount = project.Modules.Length;
+        _directoryBefore = CurrentDirectory();
+        EnterWorkspaceRoot(workspaceRoot);
+
+        // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
+        // makes no such call, and nothing is started for it.
+        if (environment.AllowAutomation && !referenced.Libraries.IsEmpty)
+        {
+            Outside.Automation.Prepare();
+        }
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
+                project.Modules.Length, _session.References.Count, constants, environment.ExecutionEngine, environment.Configuration);
+        }
+
+        return _session;
+    }
+
+    /// <summary>
+    /// Composes a session of a project: its precompiler constants, the standard library, the libraries the project references and its modules, which is what
+    /// the runtime session and an analysis session (<see cref="ProjectAnalysisSessions"/>) are composed of alike.
+    /// </summary>
+    /// <param name="environment">The environment the session runs in.</param>
+    /// <param name="fileSystem">The file system the modules are read from.</param>
+    /// <param name="librarySource">Where the referenced libraries are found; the platform's library folder when <see langword="null"/>.</param>
+    /// <param name="logger">Where a library that cannot be loaded is said.</param>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The root the project's modules are relative to, and addressed under.</param>
+    /// <param name="output">The session's output channel.</param>
+    /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+    /// <returns>The session, the libraries it references, and how many precompiler constants it has (built-ins included).</returns>
+    internal static (IRuntimeSession Session, ReferencedLibraries Referenced, int Constants) ComposeSession(
+        IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, ILibrarySource? librarySource, ILogger logger, RDCoreProject project, Uri workspaceRoot,
+        RuntimeOutputRouter output, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null)
+    {
         var configuration = new ConfigurationSymbolProvider(environment, project);
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known);
         // the standard library and the environment's own globals resolve in the session too, so a name
@@ -267,42 +323,27 @@ public sealed class EnvironmentSessionProvider(
 
         var libraries = new LibrarySymbolProvider(workspaceRoot, referenced, environment.Is64Bit);
 
-        _world = ComposeWorld(project, workspaceRoot);
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
-        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], Output, libraries: source);
-        // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
-        _session.Turn.EventScope = BeginEvent;
-        Image = new ProgramImage();
-        Image.CompilationRefused += (procedure, exception)
-            => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
-        Execution = new ProgramExecution(this, logger);
-        Execution.SessionStopsChanged();
-        ProjectName = project.Name;
+        var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], output, libraries: source);
         // an error raised with no source is the project's (Err.Source).
         if (project.Name is { Length: > 0 } name)
         {
-            _session.Errors.ProjectName = name;
+            session.Errors.ProjectName = name;
         }
 
-        ModuleCount = project.Modules.Length;
-        _directoryBefore = CurrentDirectory();
-        EnterWorkspaceRoot(workspaceRoot);
+        return (session, referenced, configuration.ProvideSymbols().Count());
+    }
 
-        // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
-        // makes no such call, and nothing is started for it.
-        if (environment.AllowAutomation && !referenced.Libraries.IsEmpty)
-        {
-            Outside.Automation.Prepare();
-        }
-
-        if (logger.IsEnabled(LogLevel.Information))
-        {
-            logger.LogInformation(
-                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
-                project.Modules.Length, _session.References.Count, configuration.ProvideSymbols().Count(), environment.ExecutionEngine, environment.Configuration);
-        }
-
-        return _session;
+    /// <summary>
+    /// The code of a session, empty: a procedure the compiler refuses runs in the interpreter, and that is said.
+    /// </summary>
+    /// <param name="logger">Where a refused procedure is said.</param>
+    internal static ProgramImage NewImage(ILogger logger)
+    {
+        var image = new ProgramImage();
+        image.CompilationRefused += (procedure, exception)
+            => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
+        return image;
     }
 
     // a program starts in the folder of its workspace, as opening a project in VB6 makes its folder current: a relative path is a file of the workspace. The

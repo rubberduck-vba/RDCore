@@ -142,7 +142,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     {
         if (EntryOf(request.Member) is not { } entry)
         {
-            return NotImplemented(request, "nothing implements it yet");
+            return NotImplemented(request, "the dispatcher was composed with no code for it");
         }
 
         if (!TryMarshalArguments(entry, request, resolver, out var arguments))
@@ -221,12 +221,11 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         return new StdLibEntry(method, StdLibInvokers.For(target), implementation, [.. parameters], hasReceiver);
     }
 
-    // MS-VBAL 6.1.3.2.1.2's "Application-defined or object-defined error" is what VBA says about a member it
-    // has no answer for, and it is the honest answer here too: the symbol resolves, the call is well-formed,
-    // and the platform has not got the code.
+    // every member the library declares has its code among the implementations the platform composes the dispatcher with: a member with none is a fault
+    // of the platform's, an internal error, and no error a program could trap and go on from.
     private static RuntimeSemanticsEvaluationResult NotImplemented(ExternalCallRequest request, string because)
         => RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
-            VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
+            VBRuntimeErrorId.InternalError, request.CallSite,
             $"'{request.Member.Name}' could not be called: {because}."));
 
     // a variable passed to a ByRef parameter (StdLibByRefAttribute) arrives as its address: what the member is given is the value the variable holds, read

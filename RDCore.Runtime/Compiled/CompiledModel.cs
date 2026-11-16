@@ -228,6 +228,10 @@ internal sealed record class VariantSlotNode(int Slot) : VariantNode;
 // argument is evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
 internal sealed record class VariantValueNode(int Slot) : VariantNode;
 
+// an expression of Strings given by value to a Variant parameter of a function of the standard library: a Variant holding the String, as the interpreter
+// gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
+internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
+
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
 
@@ -283,6 +287,10 @@ internal sealed record class TypeNameTextNode(int Library, int? Slot) : TextNode
 // given to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryText), and a parameter given none given what an omitted
 // argument is.
 internal sealed record class LibraryTextNode(int Library, IReadOnlyList<TextNode> Arguments) : TextNode;
+
+// a call of a function of the standard library that returns a String and takes Variants or scalars (CStr): the arguments as a call of LibraryVariantNode
+// gives them, to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryVariantText).
+internal sealed record class LibraryVariantTextNode(int Library, IReadOnlyList<VariantNode> Arguments) : TextNode;
 
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
@@ -454,7 +462,7 @@ internal sealed record class LibraryVariantNode(int Library, IReadOnlyList<Varia
 
 /// <summary>
 /// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>, <see cref="LibraryVariantNode"/>,
-/// <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>).
+/// <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>, <see cref="LibraryVariantTextNode"/>).
 /// </summary>
 /// <param name="Function">The function, as the call was bound to it.</param>
 /// <param name="Parameters">
@@ -538,10 +546,23 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 
     /// <summary>
+    /// The class of the object the call was last made on, and the member an object of that class invokes for it (<see cref="CompiledActivation.CanCallMember"/>):
+    /// found once for the class, and again only for an object of another one.
+    /// </summary>
+    public InvokedMember? Invoked { get; set; }
+
+    /// <summary>
     /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
     /// </summary>
     public MemberEntry? Entered { get; set; }
 }
+
+/// <summary>
+/// The member an object of <paramref name="Class"/> invokes for a call of a member of an object (<see cref="CompiledCallee.Invoked"/>).
+/// </summary>
+/// <param name="Class">The class of the object.</param>
+/// <param name="Member">The member it invokes.</param>
+internal sealed record class InvokedMember(SDK.Model.Symbols.VBClassModuleSymbol Class, SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member);
 
 /// <summary>
 /// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the

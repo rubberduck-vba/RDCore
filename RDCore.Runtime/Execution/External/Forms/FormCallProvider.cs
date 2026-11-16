@@ -6,6 +6,7 @@ using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -82,6 +83,9 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
     // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (observed in Excel).
     private const int FormUnloaded = unchecked((int)0x80010007);
+
+    // REGDB_E_CLASSNOTREG: a form no host can create is a class that is not registered, error 429.
+    private const int ClassNotRegistered = unchecked((int)0x80040154);
 
     // the session's forms, which know which of them a Visual Basic 6.0 designer wrote: their lifecycle and their handlers' names are VB6's.
     private readonly SessionForms _forms = Declared(session, forms);
@@ -328,6 +332,22 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return argument;
     }
 
+    /// <summary>
+    /// The error of a <c>New</c> of the form class <paramref name="classModule"/>, made at <paramref name="site"/>, when no form host can create its form: error
+    /// 429, which the program can trap, before the object is made or its <c>Initialize</c> runs. <see langword="null"/> for a form a host can create, whose form
+    /// is made when the program first needs it, and for a class of no form.
+    /// </summary>
+    /// <param name="classModule">The class of the object to create.</param>
+    /// <param name="site">Where the <c>New</c> is written.</param>
+    internal RuntimeSemanticsEvaluationResult? CreationFailure(VBClassModuleSymbol classModule, SourceLocation site)
+        => forms.TryGetValue(classModule.Name, out var designer) && !CanBeHosted(designer)
+            ? RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(
+                new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose), site, $"New {classModule.Name}", creating: true))
+            : null;
+
+    // a Visual Basic 6.0 form is a class no form host of this platform can create (429), as a UserForm is where Microsoft Forms is not.
+    private static bool CanBeHosted(FormDescriptor designer) => designer.Kind != FormDesignerKind.VisualBasic6;
+
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
     private object? FormOf(VBRuntimeObjectId identity, string form, ExternalCallRequest request)
     {
@@ -339,6 +359,11 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         if (!forms.TryGetValue(form, out var designer))
         {
             return null;
+        }
+
+        if (!CanBeHosted(designer))
+        {
+            throw new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose);
         }
 
         // from the first form on, its windows' messages wait while a program runs - what Microsoft Forms posts as it creates this one included.

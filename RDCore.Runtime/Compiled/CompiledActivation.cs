@@ -61,6 +61,10 @@ public sealed partial class CompiledActivation : ILightActivation
     private ScalarPayload _result;
     private bool _hasResult;
 
+    // the error handling policy its On Error statements set, which its frame is given when the frame is made: an error compiled code fails at is handed to
+    // the interpreter, which makes the frame, so an activation without a frame never has an error to handle.
+    private ErrorHandlerState _errorHandler = ErrorHandlerState.Disabled;
+
     // the cell of each slot held in one (CompiledBody.CellSlots), by its number: what compiled code reads and writes the variable in, and what the frame
     // holds, given it as soon as there is one (TakeReference).
     private readonly object?[] _cells;
@@ -96,6 +100,7 @@ public sealed partial class CompiledActivation : ILightActivation
         (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
         (_pc, _call, _library, _hasResult, _failed, _unspilled) = (0, -1, -1, false, null, false);
+        _errorHandler = ErrorHandlerState.Disabled;
         _knowns?.Clear();
         _untilPoll = PollInterval;
 
@@ -120,7 +125,7 @@ public sealed partial class CompiledActivation : ILightActivation
         var frame = _entered is { } member && _me is { } me
             ? _invoker.CreateMemberFrame(member, _list, _instance!.ObjectId, me)
             : _invoker.CreateCompiledFrame(_procedure!, _list);
-        (frame.Pc, frame.RunsCompiled) = (_pc, true);
+        (frame.Pc, frame.RunsCompiled, frame.ErrorHandler) = (_pc, true, _errorHandler);
         if (_call >= 0)
         {
             _ = frame.EnterCall(_body.Callees[_call].CallLocation);
@@ -528,14 +533,30 @@ public sealed partial class CompiledActivation : ILightActivation
     // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
     // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
     // one implementing it, of a class that implements that class as an interface. A member of the class whose code runs, named bare, has no site: it is
-    // called on Me, which is of that class.
+    // called on Me, which is of that class. What an object of a class invokes is the same at every call, so the call keeps the last class's (Invoked).
     private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
     {
-        if (called.Site is not { } site)
+        if (called.Site is null)
         {
             return called.Procedure;
         }
 
+        if (called.Invoked is { } invoked && ReferenceEquals(invoked.Class, actual))
+        {
+            return invoked.Member;
+        }
+
+        if (InvokedOf(called, called.Site, actual) is not { } member)
+        {
+            return null;
+        }
+
+        called.Invoked = new InvokedMember(actual, member);
+        return member;
+    }
+
+    private VBTypeMemberSymbol? InvokedOf(CompiledCallee called, LanguageCore.Binding.BoundMember site, VBClassModuleSymbol actual)
+    {
         if (called.Procedure is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol) || site.DeclaredClass is not { } declared)
         {
             return _executor.Expressions.MemberOf(site, actual);
@@ -1564,7 +1585,10 @@ public sealed partial class CompiledActivation : ILightActivation
     /// What the <c>On Error</c> statement at <paramref name="pc"/> does, to the activation's frame (MS-VBAL §5.4.4): its error handling policy set, and the
     /// Err object cleared.
     /// </summary>
-    public bool OnError(int pc) => ProcedureExecutor.TryApplyOnError(_session, Frame, Body.Items[pc]);
+    public bool OnError(int pc)
+        => _frame is null
+            ? ProcedureExecutor.TryApplyOnError(_session, _errorHandler, Body.Items[pc], out _errorHandler)
+            : ProcedureExecutor.TryApplyOnError(_session, _frame, Body.Items[pc]);
 
     /// <summary>A <c>GoSub</c>: <paramref name="returnPc"/> pushed onto the activation's GoSub Resumption List (MS-VBAL §5.4.2.14).</summary>
     public void GoSub(int returnPc) => Frame.PushGoSubReturn(returnPc);

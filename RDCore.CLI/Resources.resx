@@ -129,38 +129,8 @@
   <data name="Command_ShowSplash" xml:space="preserve">
     <value>Displays the application's splash screen.</value>
   </data>
-  <data name="CopyrightNotice" xml:space="preserve">
-    <value>Copyright © {$YEAR} {$COMPANY}, all rights reserved.</value>
-  </data>
   <data name="Prompt_READY" xml:space="preserve">
     <value>READY.</value>
-  </data>
-  <data name="RDCoreSplash_Background" xml:space="preserve">
-    <value>                                    -+-+--++--                          
-                                --+----+----------                      
-                              ++-----+-    +--+----+                    
-                             -----             +------                  
-                            -----         ----   -------------          
-                            +---          -----   +-----------+         
-                            ----          +--+   ----++ +-----          
-             +-+            ----                ----- --+----           
-            ------+          ----               -----------             
-            --------++        ---+-              -----+-™               
-           ---+ -+--------     -----             +--                    
-           +--+    ----------+------+            +---+                  
-          ----+         +--+-----+--+             +----+                
-          ----                                      -----               
-          ---+                                       ---+-              
-          ----                                        -----             
-          +---+                                        +---             
-           ----                                        ----             
-           -...                                        .--.             
-</value>
-  </data>
-  <data name="RDCore_Slogan" xml:space="preserve">
-    <value>{$VIVAT}  {$HEART}  {$CUCUMIS}</value>
-    <comment>DO NOT LOCALIZE.
-Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="RDCoreSplash_Foreground" xml:space="preserve">
     <value>&gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 
@@ -450,7 +420,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>NO BREAKPOINTS</value>
   </data>
   <data name="Repl_Inlays_Summary" xml:space="preserve">
-    <value>Shows the hints of the language server in a listing - the name of the parameter each argument is given to, and the type of a declaration that states none - or stops showing them (INLAYS ON, INLAYS OFF).</value>
+    <value>Shows the hints of the language server in a listing, or stops showing them (INLAYS ON, INLAYS OFF). Each is in brackets where it applies: the name of the parameter an argument is given to ([Prompt:]), the type of a declaration that states none ([As Variant]), and the variable of a Next that names none ([i]).</value>
   </data>
   <data name="Repl_Inlays_On" xml:space="preserve">
     <value>HINTS SHOWN IN LISTINGS</value>
@@ -659,6 +629,9 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="CLI_Unattended" xml:space="preserve">
     <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
+  </data>
+  <data name="CLI_NativeDialogs" xml:space="preserve">
+    <value>Whether rdc run, and the programs rdc build builds, show MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>

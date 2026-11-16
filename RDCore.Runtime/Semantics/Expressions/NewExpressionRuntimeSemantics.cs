@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution.External;
+using RDCore.Runtime.Execution.External.Forms;
 using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.Literals;
 using RDCore.SDK;
@@ -61,7 +62,7 @@ public sealed record class NewExpressionRuntimeSemantics : RuntimeSemantics<Valu
                 Exceptions.VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose.Replace("{$TYPENAME}", typeName)));
         }
 
-        if (CreationFailure(classModule, node.SourceLocation) is { } refused)
+        if ((CreationFailure(classModule, node.SourceLocation) ?? SessionForms.Of(session).CreationFailure(classModule, node.SourceLocation)) is { } refused)
         {
             return refused;
         }

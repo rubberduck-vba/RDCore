@@ -1,4 +1,5 @@
 using CommandLine;
+using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Repl;
@@ -26,15 +27,16 @@ internal sealed class RunCommandOptions
 
 // rdc run [options] [path] [args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
 internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IErrorDetailsRecorder errorDetails,
-    TextWriter? output = null, TextWriter? error = null, IConsoleKeys? keys = null) : ICliCommand
+    TextWriter? output = null, TextWriter? error = null, IConsoleKeys? keys = null, IOptions<AppOptions>? options = null) : ICliCommand
 {
     private const string UnattendedSwitch = "--unattended";
 
     private TextWriter Output => output ?? global::System.Console.Out;
     private TextWriter Error => error ?? global::System.Console.Error;
 
-    // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as the shell asks them.
-    private IUserInteraction? Dialogs => OperatingSystem.IsWindows() ? null
+    // the dialogs of the program: asked at the console, as the shell asks them, on every operating system; the machine's own where it has them, when the
+    // settings ask for them (AppOptions.NativeDialogs).
+    private IUserInteraction? Dialogs => ProgramDialogs.ShowsNative(options?.Value.NativeDialogs ?? false) ? null
         : output is null ? ConsoleUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
         : new ConsoleUserInteraction(keys ?? new SystemConsoleKeys(), output);
 

@@ -2,7 +2,8 @@ namespace RDCore.CLI.App.Repl;
 
 /// <summary>
 /// A hint the language server gives for a place in a line of the program (<strong>LSP 3.17</strong> §Inlay Hint Request): text that is not part of the line,
-/// shown in it: the name of the parameter an argument is given to, before the argument; the type of a declaration that states none, after its name.
+/// shown in it, in brackets, at the place it describes: the name of the parameter an argument is given to, before the argument (<c>[Prompt:]</c>); the type
+/// of a declaration that states none, after its name (<c>[As Variant]</c>); the variable of a <c>Next</c> that names none, after it (<c>[i]</c>).
 /// </summary>
 /// <param name="Line">The zero-based line of the document: the index of the line in the program.</param>
 /// <param name="Character">The zero-based character of the line the hint is shown at: the hint is inserted there, before the character that is there.</param>

@@ -4,6 +4,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Symbols;
 
@@ -22,6 +23,14 @@ internal interface IReferencedLibraryService
     /// </summary>
     /// <param name="workspaceRoot">The workspace.</param>
     IReadOnlyList<Symbol> SymbolsUnder(Uri workspaceRoot);
+
+    /// <summary>
+    /// The symbols of the libraries another project of the workspace references, addressed under its root: what its names are bound against, as the host's
+    /// analysis session of it binds them.
+    /// </summary>
+    /// <param name="workspaceRoot">The project's root.</param>
+    /// <param name="project">The project.</param>
+    IReadOnlyList<Symbol> SymbolsOf(Uri workspaceRoot, RDCoreProject project);
 
     /// <summary>
     /// The name of the project that references them, which qualifies the project's own names as a library's qualifies its own (<c>MVVM.AppContext</c>);
@@ -55,6 +64,7 @@ internal sealed class ReferencedLibraryService(
     private (string Key, ReferencedLibraries Libraries)? _loaded;
     private (Uri Root, IReadOnlyList<Symbol> Symbols)? _symbols;
     private readonly Dictionary<(string Root, string Library), IReadOnlyList<Symbol>> _described = [];
+    private readonly Dictionary<(string Root, string References), IReadOnlyList<Symbol>> _others = [];
 
     public string? ProjectName => project.Project?.ProjectInfo?.Name is { Length: > 0 } name ? name : null;
 
@@ -63,8 +73,7 @@ internal sealed class ReferencedLibraryService(
         get
         {
             var references = project.Project?.ProjectInfo?.References ?? [];
-            // a reference is the library its identity finds: the same name of another type library or version is another library.
-            var key = string.Join('\n', references.Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}"));
+            var key = KeyOf(references);
 
             lock (_loading)
             {
@@ -99,6 +108,32 @@ internal sealed class ReferencedLibraryService(
             return cached.Symbols;
         }
     }
+
+    public IReadOnlyList<Symbol> SymbolsOf(Uri workspaceRoot, RDCoreProject project)
+    {
+        var references = project.References ?? [];
+        var key = (workspaceRoot.AbsoluteUri, KeyOf(references));
+        lock (_loading)
+        {
+            if (!_others.TryGetValue(key, out var symbols))
+            {
+                var libraries = LibrarySymbolProvider.Load(source, references, options.Value.Workspace.SupportedLanguage);
+                foreach (var problem in libraries.Problems)
+                {
+                    logger.LogWarning("📚 The library '{library}' that {project} references could not be loaded ({kind}); a type of it is not a type of that project.",
+                        problem.Name, project.Name, problem.Kind);
+                }
+
+                _others[key] = symbols = [.. new LibrarySymbolProvider(workspaceRoot, libraries, options.Value.Environment.Is64Bit).ProvideSymbols()];
+            }
+
+            return symbols;
+        }
+    }
+
+    // a reference is the library its identity finds: the same name of another type library or version is another library.
+    private static string KeyOf(IEnumerable<RDCoreReference> references)
+        => string.Join('\n', references.Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}"));
 
     public IReadOnlyList<Symbol> DescribedSymbolsOf(Uri workspaceRoot, string library)
     {

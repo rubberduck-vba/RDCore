@@ -267,6 +267,12 @@ public sealed class RuntimeExecutionPipeline
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         // Unload runs a form's QueryClose and Terminate, which are code the bindings call: the last edge of that cycle too.
         forms.Bindings = bindings;
+        // a New of a form's class asks the form host whether its form can be made, and a program that runs asks this pipeline's; an analysis makes no form.
+        if (!analysis)
+        {
+            SessionForms.Of(session).CreatesWith(forms);
+        }
+
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;
         expressions.AssumesVariables = mode is PipelineMode.Sweep;

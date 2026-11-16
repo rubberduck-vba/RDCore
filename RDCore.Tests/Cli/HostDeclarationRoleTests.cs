@@ -44,6 +44,21 @@ public sealed class HostDeclarationRoleTests
     }
 
     [TestMethod]
+    public async Task ThePropertyThatImplementsAnInterfaceMember_ImplementsIt_FromItsGetToo()
+    {
+        // a property's declaration is its first accessor, here a Get: of a property of the interface, and of a variable of it.
+        var settings = ("ISettings", ModuleWorkspace.ClassModule("ISettings", "Public Label As String",
+            "Public Property Get Tag() As Variant", "End Property", "Public Property Let Tag(ByVal value As Variant)", "End Property"));
+        var model = await ModelOfAsync("Settings", settings, ("Settings", ModuleWorkspace.ClassModule("Settings", "Implements ISettings",
+            "Private Property Get ISettings_Label() As String", "End Property", "Private Property Let ISettings_Label(ByVal value As String)", "End Property",
+            "Private Property Get ISettings_Tag() As Variant", "End Property", "Private Property Let ISettings_Tag(ByVal value As Variant)", "End Property")));
+
+        Assert.IsNotNull(model);
+        Assert.AreEqual(DeclarationRole.InterfaceImplementation, RoleOf(model, "ISettings_Label"));
+        Assert.AreEqual(DeclarationRole.InterfaceImplementation, RoleOf(model, "ISettings_Tag"));
+    }
+
+    [TestMethod]
     public async Task AMemberNamedAfterAnEventOfAWithEventsVariable_HandlesIt()
     {
         var model = await ModelOfAsync("Implementer", ("Implementer", Implementer("Public Sub Source_Click()", "End Sub")));

@@ -277,15 +277,6 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Copyright © {$YEAR} {$COMPANY}, all rights reserved..
-        /// </summary>
-        public static string CopyrightNotice {
-            get {
-                return ResourceManager.GetString("CopyrightNotice", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to A manifest already exists for the specified extension..
         /// </summary>
         public static string DescribeExtension_AlreadyExists {
@@ -619,30 +610,6 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {$VIVAT}  {$HEART}  {$CUCUMIS}.
-        /// </summary>
-        public static string RDCore_Slogan {
-            get {
-                return ResourceManager.GetString("RDCore_Slogan", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to                                     -+-+--++--                          
-        ///                                --+----+----------                      
-        ///                              ++-----+-    +--+----+                    
-        ///                             -----             +------                  
-        ///                            -----         ----   -------------          
-        ///                            +---          -----   +-----------+         
-        ///                            ----          +--+   ----++ +-----       [rest of string was truncated]&quot;;.
-        /// </summary>
-        public static string RDCoreSplash_Background {
-            get {
-                return ResourceManager.GetString("RDCoreSplash_Background", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to &gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 
         ///&gt;=&gt;    &gt;=&gt;   &gt;=&gt;   &gt;=&gt;          &gt;=&gt;       &gt;=&gt;  &gt;&gt;   &gt;=&gt;       &gt;&gt;=&gt;             &gt;=&gt;   &gt;=&gt; &gt;=&gt;       &gt;=&gt; 
         ///&gt;=&gt;    &gt;=&gt;   &gt;=&gt;    &gt;=&gt;          &gt;=&gt;     &gt;=&gt;   &gt;&gt;    &gt;=&gt;     &gt;&gt; &gt;=&gt;           &gt;=&gt;        &gt;=&gt;       &gt;=&gt; 
@@ -809,7 +776,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Shows the hints of the language server in a listing - the name of the parameter each argument is given to - or stops showing them (INLAYS ON, INLAYS OFF)..
+        ///   Looks up a localized string similar to Shows the hints of the language server in a listing, or stops showing them (INLAYS ON, INLAYS OFF). Each is in brackets where it applies: the name of the parameter an argument is given to ([Prompt:]), the type of a declaration that states none ([As Variant]), and the variable of a Next that names none ([i])..
         /// </summary>
         public static string Repl_Inlays_Summary {
             get {

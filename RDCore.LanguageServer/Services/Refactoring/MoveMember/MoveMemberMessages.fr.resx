@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Move Member Up and Move Member Down: {0} is the procedure moved, {1} the one it would go past. Sort Members (SortMembers_*): no arguments. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="MoveMember_UpTitle" xml:space="preserve">
+    <value>Déplacer « {0} » vers le haut</value>
+  </data>
+  <data name="MoveMember_DownTitle" xml:space="preserve">
+    <value>Déplacer « {0} » vers le bas</value>
+  </data>
+  <data name="MoveMember_LeavesItsBranch" xml:space="preserve">
+    <value>« {0} » est dans une branche d'un bloc #If où « {1} » n'est pas : déplacé au-delà, « {0} » quitterait la branche, et ne serait plus compilé seulement avec elle.</value>
+  </data>
+  <data name="MoveMember_EntersABranch" xml:space="preserve">
+    <value>« {1} » est dans une branche d'un bloc #If où « {0} » n'est pas : déplacé au-delà, « {0} » entrerait dans la branche, et ne serait compilé qu'avec elle.</value>
+  </data>
+  <data name="MoveMember_Nothing" xml:space="preserve">
+    <value>Il n'y a ici aucune procédure à déplacer.</value>
+  </data>
+  <data name="MoveMember_VerificationFailed" xml:space="preserve">
+    <value>« {0} » n'est pas déplacé : le module qui en résulterait n'a pas passé la vérification.</value>
+  </data>
+  <data name="MoveMember_DocumentChanged" xml:space="preserve">
+    <value>Le document a changé depuis que le déplacement a été offert : demandez-le de nouveau.</value>
+  </data>
+  <data name="SortMembers_Title" xml:space="preserve">
+    <value>Trier les procédures par type, puis par nom</value>
+  </data>
+  <data name="SortMembers_Nothing" xml:space="preserve">
+    <value>Les procédures de ce module sont déjà triées.</value>
+  </data>
+  <data name="SortMembers_VerificationFailed" xml:space="preserve">
+    <value>Les procédures ne sont pas triées : le module qui en résulterait n'a pas passé la vérification.</value>
+  </data>
+  <data name="SortMembers_DocumentChanged" xml:space="preserve">
+    <value>Le document a changé depuis que le tri a été offert : demandez-le de nouveau.</value>
+  </data>
+</root>

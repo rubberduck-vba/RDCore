@@ -500,7 +500,7 @@ public sealed class WorkspaceLoaderTests
         // the server goes on to run, as the language server does after a load that failed.
         var running = Substitute.For<IServerStateProvider>();
         running.State.Returns(ServerState.Running);
-        var reload = new WorkspaceReloadService(running, projectFiles, documents, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
+        var reload = new WorkspaceReloadService(running, projectFiles, documents, sut, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
             Substitute.For<RDCore.LanguageServer.Symbols.ISymbolSyncService>(), Substitute.For<RDCore.LanguageServer.IPlatformOrchestrationService>(), fs.Path,
             Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
 

@@ -95,6 +95,9 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 |`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine.|
 |`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
 |`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
+|`rdc splash`|`s`|Writes the platform's splash as plain text, whether its output is a console or not. It takes no workspace.|
+
+On a console, a command starts with the platform's splash. Output redirected to a file or a pipe has none, so it holds only what the command writes.
 
 ### Running a program
 
@@ -104,7 +107,7 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
 A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does a library (`"build": { "outputType": "Library" }`),
-nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
+nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is drawn in the console and answered there, as in the shell, on every operating system. The `CLI.NativeDialogs` setting shows them as Windows dialog boxes instead, on Windows. The setting does not change how a form is shown: it opens a window of its own.
 
 |Option|What it does|
 |---|---|

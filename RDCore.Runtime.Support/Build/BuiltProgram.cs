@@ -47,10 +47,11 @@ internal sealed record class BuiltModule(string RelativeUri, string Name, Module
 
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
 // runs, so that it runs with no parser and no resolver, and with no source: Modules are what the build read of each. Root is what the identities of its
-// symbols are relative to.
+// symbols are relative to. NativeDialogs: whether the program shows the machine's own dialogs where it has them, as the settings said when it was built
+// (ProgramDialogs); an image that does not say asks at the console.
 internal sealed record class BuiltProgramImage(
     RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions,
-    IReadOnlyList<BuiltModule> Modules)
+    IReadOnlyList<BuiltModule> Modules, bool NativeDialogs = false)
 {
     public const string ResourceName = "RDCore.Program.json";
 }
@@ -131,9 +132,9 @@ public static class BuiltProgram
         var fileSystem = new FileSystem();
         using var provider = new EnvironmentSessionProvider(image.Environment.Profile, fileSystem, NullLogger<EnvironmentSessionProvider>.Instance,
             libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
-            DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
+            DialogsOf(image.NativeDialogs, keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
-        var define = new DefineSymbolsHandler(provider, errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(provider, new ProjectAnalysisSessions(image.Environment.Profile, fileSystem, NullLogger<ProjectAnalysisSessions>.Instance), errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
         {
             var defined = await define.Handle(definition, token);
@@ -156,10 +157,11 @@ public static class BuiltProgram
         return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended, token);
     }
 
-    // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as rdc run and the shell ask them. A terminal that is not
-    // redirected, and whose TERM names a terminal other than "dumb", understands ANSI escape sequences.
-    private static ConsoleUserInteraction? DialogsOf(IConsoleKeys? keys, TextWriter output)
-        => OperatingSystem.IsWindows() ? null
+    // the dialogs of the program: asked at the console, as rdc run and the shell ask them, on every operating system; the machine's own where it has them,
+    // when the program was built to show them (native). A terminal that is not redirected, and whose TERM names a terminal other than "dumb", understands
+    // ANSI escape sequences.
+    private static ConsoleUserInteraction? DialogsOf(bool native, IConsoleKeys? keys, TextWriter output)
+        => ProgramDialogs.ShowsNative(native) ? null
             : keys is not null ? new ConsoleUserInteraction(keys, output)
             : ConsoleUserInteraction.OfTheConsole(new SystemConsoleKeys(),
                 ansi: !global::System.Console.IsOutputRedirected && Environment.GetEnvironmentVariable("TERM") is { Length: > 0 } and not "dumb");

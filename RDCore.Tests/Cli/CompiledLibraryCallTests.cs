@@ -346,4 +346,81 @@ public sealed class CompiledLibraryCallTests
             "        Parsed = Parsed * 10 + D + CLng(I * 1.5)",
             "    Next",
             "End Function"), [("Parsed", 0)], lcid: 1036);
+
+    // MS-VBAL §6.1.2.11.1.22: Len and LenB of a String variable, a literal, Strings joined, an empty String and a null one, which compiled code gives the
+    // library as a Variant holding the text; and of a Long, a Double and an Integer, the bytes each occupies.
+    [TestMethod]
+    public async Task LenOfAStringOrOfANumber_IsCalledByCompiledCode()
+    {
+        var observed = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Measured(\"abc\", 2)",
+            "End Sub",
+            "Private Function Measured(ByVal S As String, ByVal N As Long) As Long",
+            "    Dim I As Long, L As Long, D As Double, K As Integer, E As String",
+            "    For I = 1 To N",
+            "        L = Len(S) + Len(\"hello\") * 10 + Len(S & \"de\") * 100 + LenB(S) * 1000 + Len(E) + Len(vbNullString)",
+            "        Measured = Measured + L + Len(L) * 10000 + LenB(D) * 100000 + Len(K) * 1000000",
+            "    Next",
+            "End Function"), [("Measured", 0)]);
+        StringAssert.Contains(observed, "| 5693106 |");
+    }
+
+    // Len of a Variant that holds a String, Empty or Null. The Len of Null is Null, which compiled code holds in no payload: the interpreter is given the
+    // instruction, once.
+    [TestMethod]
+    public async Task LenOfAVariant_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim V As Variant",
+            "    Debug.Print Measured(\"abcd\"), Measured(V), Measured(Null)",
+            "End Sub",
+            "Private Function Measured(ByVal V As Variant) As Long",
+            "    Dim I As Long, U As Boolean",
+            "    For I = 1 To 2",
+            "        U = IsNull(Len(V))",
+            "    Next",
+            "    If Not U Then Measured = Len(V)",
+            "    Measured = Measured * 10 - U",
+            "End Function"), [("Measured", 0)], walkBacks: 1);
+
+    // MS-VBAL §6.1.2.3.1.12: CStr of a Long, a Double, a Boolean, a Date and a Variant, written by Debug.Print and joined to a String, in the session's
+    // regional settings: a comma for the decimal separator (fr-FR) and the date in its order.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    public async Task CStrOfAScalarOrAVariant_IsCalledByCompiledCode(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Written 2",
+            "End Sub",
+            "Private Sub Written(ByVal N As Long)",
+            "    Dim I As Long, D As Double, B As Boolean, T As Date, V As Variant, S As String",
+            "    T = DateSerial(2026, 11, 15)",
+            "    For I = 1 To N",
+            "        D = I * 1.25",
+            "        B = I > 1",
+            "        V = I * 0.5",
+            "        S = CStr(I) & \"|\" & CStr(D) & \"|\" & CStr(B) & \"|\" & CStr(T) & \"|\" & CStr(V)",
+            "        Debug.Print S; CStr(D * 2)",
+            "    Next",
+            "End Sub"), [("Written", 0)], lcid: lcid);
+
+    // a String given to a conversion or an information function, inside an instruction that calls inside an expression: the instruction is the
+    // interpreter's, since a String compiled code reads is not one it knows. The program runs the same: "2,5" is a number in the session's locale, and
+    // "x" raises 13.
+    [TestMethod]
+    public async Task AStringGivenToAConversion_RunsAsTheInterpreterRunsIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Parsed(\"2,5\"), Parsed(\"x\")",
+            "End Sub",
+            "Private Function Parsed(ByVal S As String) As Double",
+            "    Dim I As Long",
+            "    On Error Resume Next",
+            "    For I = 1 To 2",
+            "        Parsed = VarType(S) * 100 - IsNumeric(S) * 10",
+            "        Parsed = Parsed + CDbl(S)",
+            "    Next",
+            "End Function"), [], lcid: 1036);
 }

@@ -92,7 +92,8 @@ public sealed class CodeActionHandlerTests
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
         return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
-            _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles, _libraries);
+            new MoveMemberService(rename, _parsing), _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles,
+            _libraries);
     }
 
     private static DocumentUri Document => DocumentUri.From(Path.Combine(Root, "Main.rdc"));

@@ -116,6 +116,9 @@ internal sealed partial class ProcedureAnalysis
             case BoundCall library when IsTextLibrary(library.Procedure):
                 return LibraryTextOf(library);
 
+            case BoundCall converting when IsVariantTextLibrary(converting.Procedure):
+                return LibraryVariantTextOf(converting);
+
             // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
             // and a Date are the interpreter's, which writes them in the regional settings of the session.
             case var number when WholeOf(number) is { } whole:
