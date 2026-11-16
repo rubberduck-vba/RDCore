@@ -104,14 +104,14 @@ internal sealed partial class ProcedureAnalysis
 
     // what a Let that calls inside its value, or inside a subscript of its target, assigns: a variable (IsScalarTarget); a field of a record, a member of an
     // object, or an element of an array of a scalar type or of Variants, each found once the value is evaluated, after its calls, as the interpreter finds
-    // it (MS-VBAL §5.4.3.8).
+    // it (MS-VBAL §5.4.3.8). A String field of variable length is not among them: no step of these assigns it, and a Let of it is translated as any is.
     private bool IsNestedTarget(ExpressionNode target)
     {
         var bound = Bind(target);
         return target switch
         {
             SimpleNameExpressionNode => IsScalarTarget(bound),
-            MemberAccessExpressionNode => IsMemberOfAnObject(bound) || RecordFieldOf(bound) is not null,
+            MemberAccessExpressionNode => IsMemberOfAnObject(bound) || RecordFieldOf(bound) is (_, var type) && !IsText(type),
             IndexExpressionNode => (FieldElementOf(bound) ?? bound) is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Scalar or ElementClass.Variant },
             _ => false,
         };
