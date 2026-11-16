@@ -301,4 +301,30 @@ public sealed class CompiledIntrinsicTests
             "    D = Round(1.5, -1)",
             "    FewerThanNone = Err.Number",
             "End Function"), [("Rounded", 0), ("FewerThanNone", 1)], lcid);
+
+    // MS-VBAL §6.1.2.4.1.6-10, 14: Year, Month, Day, Hour, Minute and Second of a Date, each held in an Integer: of the date rounded to the nearest second
+    // (23:59:59.6 is the next day), before 1899, and in the Hijri calendar, where a date before its first day raises 5 for the year, the month and the day:
+    // the interpreter's, given the statement, which Resume Next goes on after.
+    [TestMethod]
+    public async Task ThePartsOfADate_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim D As Date",
+            "    D = DateSerial(2026, 3, 15) + TimeSerial(23, 59, 59) + 0.6 / 86400",
+            "    Debug.Print Parts(D), Parts(#12/31/1899 6:30:00 AM#), Parts(CDate(-1.25))",
+            "    Calendar = vbCalHijri",
+            "    Debug.Print Parts(D), Parts(CDate(-600000))",
+            "    Calendar = vbCalGreg",
+            "End Sub",
+            "Private Function Parts(ByVal D As Date) As Double",
+            "    Dim N As Double, K As Integer",
+            "    On Error Resume Next",
+            "    K = 0: K = Year(D): N = K",
+            "    K = 0: K = Month(D): N = N * 100 + K",
+            "    K = 0: K = Day(D): N = N * 100 + K",
+            "    K = 0: K = Hour(D): N = N * 100 + K",
+            "    K = 0: K = Minute(D): N = N * 100 + K",
+            "    K = 0: K = Second(D): N = N * 100 + K",
+            "    Parts = N * 10 + Err.Number",
+            "End Function"), [("Parts", 3)]);
 }

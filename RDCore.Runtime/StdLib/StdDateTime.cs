@@ -40,7 +40,18 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
     private static readonly GregorianCalendar Gregorian = new();
     private static readonly HijriCalendar Hijri = new();
 
-    private SystemCalendar CurrentCalendar => session.Clock.Calendar is VBCalendar.VBCalHijri ? Hijri : Gregorian;
+    private SystemCalendar CurrentCalendar => CalendarOf(session);
+
+    // the calendar of the session's clock (ISessionClock.Calendar).
+    private static SystemCalendar CalendarOf(IRuntimeSession session) => session.Clock.Calendar is VBCalendar.VBCalHijri ? Hijri : Gregorian;
+
+    // the parts of a date the members and their typed forms read: in a calendar, and on the line of time.
+    private static readonly Func<SystemCalendar, DateTime, int> YearPart = static (calendar, value) => calendar.GetYear(value);
+    private static readonly Func<SystemCalendar, DateTime, int> MonthPart = static (calendar, value) => calendar.GetMonth(value);
+    private static readonly Func<SystemCalendar, DateTime, int> DayPart = static (calendar, value) => calendar.GetDayOfMonth(value);
+    private static readonly Func<DateTime, int> HourPart = static value => value.Hour;
+    private static readonly Func<DateTime, int> MinutePart = static value => value.Minute;
+    private static readonly Func<DateTime, int> SecondPart = static value => value.Second;
 
     // the session's clock, to the second: a date of the system has no fraction of a second.
     private DateTime SystemNow
@@ -269,24 +280,19 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
         => TryReadDate(new VBVariantValue(date), out var value, out var error) ? Succeed(ToDateValue(value.Date)) : Fail(error);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBVariantValue> Day(VBVariantValue date)
-        => CalendarPart(date, nameof(Day), (calendar, value) => calendar.GetDayOfMonth(value));
+    public RuntimeSemanticsEvaluationResult<VBVariantValue> Day(VBVariantValue date) => CalendarPart(date, nameof(Day), DayPart);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBVariantValue> Hour(VBVariantValue time)
-        => Part(time, value => value.Hour);
+    public RuntimeSemanticsEvaluationResult<VBVariantValue> Hour(VBVariantValue time) => Part(time, HourPart);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBVariantValue> Minute(VBVariantValue time)
-        => Part(time, value => value.Minute);
+    public RuntimeSemanticsEvaluationResult<VBVariantValue> Minute(VBVariantValue time) => Part(time, MinutePart);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBVariantValue> Month(VBVariantValue date)
-        => CalendarPart(date, nameof(Month), (calendar, value) => calendar.GetMonth(value));
+    public RuntimeSemanticsEvaluationResult<VBVariantValue> Month(VBVariantValue date) => CalendarPart(date, nameof(Month), MonthPart);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBVariantValue> Second(VBVariantValue time)
-        => Part(time, value => value.Second);
+    public RuntimeSemanticsEvaluationResult<VBVariantValue> Second(VBVariantValue time) => Part(time, SecondPart);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> TimeSerial(VBIntegerValue hour, VBIntegerValue minute, VBIntegerValue second)
@@ -311,8 +317,94 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
             : InvalidArgument(nameof(Weekday), "the first day of the week is a value of its enumeration");
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBVariantValue> Year(VBVariantValue date)
-        => CalendarPart(date, nameof(Year), (calendar, value) => calendar.GetYear(value));
+    public RuntimeSemanticsEvaluationResult<VBVariantValue> Year(VBVariantValue date) => CalendarPart(date, nameof(Year), YearPart);
+
+    #endregion
+
+    #region Typed forms of the public functions
+
+    /// <summary>
+    /// <c>Year</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.14</strong>): the Integer <see cref="Year"/> returns for it, in the session's calendar.
+    /// Compiled code calls it in place of <see cref="Year"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose calendar the year is of.</param>
+    /// <param name="date">The serial of the <c>Date</c>.</param>
+    /// <param name="year">The year.</param>
+    /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, or that is before the calendar's first, which <see cref="Year"/> raises error 5
+    /// for.</returns>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Year))]
+    public static bool YearOf(IRuntimeSession session, [StdLibDate] double date, out short year) => TryCalendarPartOf(session, date, YearPart, out year);
+
+    /// <summary>
+    /// <c>Month</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.9</strong>): the Integer <see cref="Month"/> returns for it, in the session's calendar.
+    /// Compiled code calls it in place of <see cref="Month"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose calendar the month is of.</param>
+    /// <param name="date">The serial of the <c>Date</c>.</param>
+    /// <param name="month">The month, from 1.</param>
+    /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, or that is before the calendar's first, which <see cref="Month"/> raises error
+    /// 5 for.</returns>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Month))]
+    public static bool MonthOf(IRuntimeSession session, [StdLibDate] double date, out short month) => TryCalendarPartOf(session, date, MonthPart, out month);
+
+    /// <summary>
+    /// <c>Day</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.6</strong>): the Integer <see cref="Day"/> returns for it, in the session's calendar.
+    /// Compiled code calls it in place of <see cref="Day"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose calendar the day of the month is of.</param>
+    /// <param name="date">The serial of the <c>Date</c>.</param>
+    /// <param name="day">The day of the month, from 1.</param>
+    /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, or that is before the calendar's first, which <see cref="Day"/> raises error 5
+    /// for.</returns>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Day))]
+    public static bool DayOf(IRuntimeSession session, [StdLibDate] double date, out short day) => TryCalendarPartOf(session, date, DayPart, out day);
+
+    /// <summary>
+    /// <c>Hour</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.7</strong>): the Integer <see cref="Hour"/> returns for it, of the time rounded to the
+    /// nearest second. Compiled code calls it in place of <see cref="Hour"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="time">The serial of the <c>Date</c>.</param>
+    /// <param name="hour">The hour, from 0 to 23.</param>
+    /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, which <see cref="Hour"/> raises error 5 for.</returns>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Hour))]
+    public static bool HourOf([StdLibDate] double time, out short hour) => TryPartOf(time, HourPart, out hour);
+
+    /// <summary>
+    /// <c>Minute</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.8</strong>): the Integer <see cref="Minute"/> returns for it, of the time rounded to the
+    /// nearest second. Compiled code calls it in place of <see cref="Minute"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="time">The serial of the <c>Date</c>.</param>
+    /// <param name="minute">The minute, from 0 to 59.</param>
+    /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, which <see cref="Minute"/> raises error 5 for.</returns>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Minute))]
+    public static bool MinuteOf([StdLibDate] double time, out short minute) => TryPartOf(time, MinutePart, out minute);
+
+    /// <summary>
+    /// <c>Second</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.10</strong>): the Integer <see cref="Second"/> returns for it, of the time rounded to the
+    /// nearest second. Compiled code calls it in place of <see cref="Second"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="time">The serial of the <c>Date</c>.</param>
+    /// <param name="second">The second, from 0 to 59.</param>
+    /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, which <see cref="Second"/> raises error 5 for.</returns>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Second))]
+    public static bool SecondOf([StdLibDate] double time, out short second) => TryPartOf(time, SecondPart, out second);
+
+    // a part of the day and time a Date's serial is, to the nearest second; none for a serial that is not a day.
+    private static bool TryPartOf(double serial, Func<DateTime, int> part, out short value)
+    {
+        var found = TryMomentToTheSecond(serial, out var date);
+        value = found ? (short)part(date) : (short)0;
+        return found;
+    }
+
+    // a part in the session's calendar: none for a serial that is not a day, nor for a day before the calendar's first.
+    private static bool TryCalendarPartOf(IRuntimeSession session, double serial, Func<SystemCalendar, DateTime, int> part, out short value)
+    {
+        var calendar = CalendarOf(session);
+        var found = TryMomentToTheSecond(serial, out var date) && IsOfCalendar(calendar, date);
+        value = found ? (short)part(calendar, date) : (short)0;
+        return found;
+    }
 
     #endregion
 
@@ -433,9 +525,21 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
         }
 
         // a Date that is no day, which only its bytes can make, is error 5 (ValueConversions.TryMomentOf).
-        if (!ValueConversions.TryMomentOf(value, out var exact))
+        if (!TryMomentToTheSecond(value.SerialValue, out date))
         {
             error = VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidProcedureCallOrArgument, default, "The Date is no day from January 1, 100 to December 31, 9999.");
+            return false;
+        }
+
+        return true;
+    }
+
+    // the day and time a Date's serial is (ValueConversions.TryMomentOf), rounded to the nearest second; none for a serial that is not a day.
+    private static bool TryMomentToTheSecond(double serial, out DateTime date)
+    {
+        if (!ValueConversions.TryMomentOf(serial, out var exact))
+        {
+            date = default;
             return false;
         }
 
