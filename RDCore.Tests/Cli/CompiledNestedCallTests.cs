@@ -26,15 +26,14 @@ public sealed class CompiledNestedCallTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    internal sealed record class Run(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled);
+    private sealed record class Run(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled);
 
-    internal static async Task<Run> RunAsync(string program, VBExecutionEngine engine, IReadOnlyList<(string Name, string Source)>? classes = null)
+    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine)
     {
-        classes ??= [];
         var observed = string.Empty;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
         using var running = CompiledExecution.Running(engine);
-        await ModuleWorkspace.InspectAsync(classes, program, (provider, run, _) =>
+        await ModuleWorkspace.InspectAsync([], program, (provider, run, _) =>
         {
             observed = CompiledDirectCallTests.Observed(run);
             compiled = CompiledExecutionTests.ByName(provider);
@@ -45,12 +44,11 @@ public sealed class CompiledNestedCallTests
 
     // the program run both ways: the compiled run is the interpreted one; the caller is compiled, and made its calls, all directly, in compiled code; it was
     // handed to the interpreter only where it is said to be.
-    internal static async Task<string> AssertAlikeAsync(string program, string caller, long calls, bool walksBack = false,
-        IReadOnlyList<(string Name, string Source)>? classes = null)
+    private static async Task<string> AssertAlikeAsync(string program, string caller, long calls, bool walksBack = false)
     {
         CompiledExecutionTests.RequirePayloads();
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes);
-        var compiled = await RunAsync(program, VBExecutionEngine.Compiled, classes);
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
+        var compiled = await RunAsync(program, VBExecutionEngine.Compiled);
         Assert.AreEqual(interpreted.Observed, compiled.Observed);
 
         Assert.IsTrue(compiled.Compiled.TryGetValue(caller, out var result), $"{caller} was not called");

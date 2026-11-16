@@ -66,7 +66,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(member.WithAt is null
             ? nameof(CompiledActivation.TryReadMemberText)
             : nameof(CompiledActivation.TryReadMemberTextOfWith))!);
-        _il.Emit(OpCodes.Brfalse, Fail(member.Receiver is { } receiver ? ReceiverFailure(receiver, failure) : failure));
+        _il.Emit(OpCodes.Brfalse, member.Receiver is { } receiver ? ReceiverFailure(receiver, failure) : failure);
     }
 
     // where an instruction goes when what it reads or calls a member of is the default instance of a class and no member compiled code calls or reads: one
