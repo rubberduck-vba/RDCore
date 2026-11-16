@@ -146,21 +146,31 @@ public sealed class CompiledDoubleToIntegralTests
             "    End Select",
             "End Function"), [], "| 1  0 |", ("Outer", 0));
 
-    // a Double given to a Long parameter of a Property Let, rounded as it is passed.
+    // a Double given to a Long parameter of a Property Let, rounded as compiled code's call passes it: the interpreter assigns nothing (no support call).
     [TestMethod]
-    public async Task ADoubleGivenToALongParameter_IsRoundedToEven()
-        => await AssertCompiledAsync(Program(
+    public async Task ADoubleGivenToALongParameter_IsRoundedToEven_ByCompiledCodesCall()
+    {
+        var compiled = await CompiledErrorHandlingTests.AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Outer(2.5); Outer(3.5)",
-            "End Sub",
-            "Private Function Outer(ByVal D As Double) As Long",
             "    Dim B As Box",
             "    Set B = New Box",
+            "    Debug.Print Outer(B, 2.5); Outer(B, 3.5)",
+            "End Sub",
+            "Private Function Outer(ByVal B As Box, ByVal D As Double) As Long",
             "    B.Size = D",
             "    Outer = B.Size",
             "End Function"),
             [("Box", ModuleWorkspace.ClassModule("Box", "Option Explicit", "Private mSize As Long",
                 "Public Property Get Size() As Long", "    Size = mSize", "End Property",
                 "Public Property Let Size(ByVal Value As Long)", "    mSize = Value", "End Property"))],
-            "| 2  4 |", ("Outer", 0));
+            "| 2  4 |");
+
+        Assert.IsTrue(compiled.TryGetValue("Outer", out var outer), "Outer was not called");
+        Assert.IsNotNull(outer.Body, string.Join("; ", outer.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        if (!RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(0L, outer.Body.SupportCallsMade, "Outer's support calls");
+            Assert.AreEqual(0L, outer.Body.Recoveries, "Outer's recoveries");
+        }
+    }
 }
