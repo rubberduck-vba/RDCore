@@ -114,8 +114,9 @@ Chaque cas appelle une fonction 100 000 fois, avec les arguments indiqués.
 
 ## Automatisation d'Excel
 
-Ces cas appellent le modèle objet d'Excel en liaison tardive depuis VBA. Ils exigent Excel : ils ne sont donc mesurés que lors de l'exécution de
-référence, et leurs badges donnent la date de cette exécution plutôt qu'un chiffre à jour.
+Ces cas appellent le modèle objet d'Excel en liaison tardive depuis VBA. MS-VBA exécute le même code depuis une deuxième instance d'Excel : les deux
+côtés franchissent donc une frontière de processus. Ils exigent Excel : ils ne sont donc mesurés que lors de l'exécution de référence, et leurs badges
+donnent la date de cette exécution plutôt qu'un chiffre à jour.
 
 | Cas | Ce qu'il mesure | RD-VBA ÷ MS-VBA |
 |---|---|---|
@@ -129,8 +130,9 @@ référence, et leurs badges donnent la date de cette exécution plutôt qu'un c
 | Bloc de 100 000 × 10, écriture | `Range(...).Value = V` | ![Excel.Block100000x10.Write](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Write.json) |
 | Bloc de 100 000 × 10, total | Lecture, parcours et écriture | ![Excel.Block100000x10.Total](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Total.json) |
 
-Chaque appel au modèle objet d'Excel passe du programme RD-VBA à Excel, puis revient. Un appel coûte beaucoup plus cher à RD-VBA qu'à MS-VBA : c'est
-le nombre d'appels qui décide du temps que prend le code.
+Chaque appel au modèle objet d'Excel passe du processus du programme à celui d'Excel, puis revient, avec MS-VBA comme avec RD-VBA. Ce passage coûte
+bien plus cher que le travail de la plupart des appels : c'est le nombre d'appels qui décide du temps que prend le code. Le cas cellule par cellule
+appelle Excel quatre fois par cellule, 40 000 fois en tout, et un cas par bloc, huit fois.
 
 ## Comment les chiffres sont mesurés
 
