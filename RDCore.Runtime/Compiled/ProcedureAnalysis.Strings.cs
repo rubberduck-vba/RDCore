@@ -130,8 +130,8 @@ internal sealed partial class ProcedureAnalysis
                 return LibraryVariantTextOf(converting);
 
             // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
-            // and a Date are the interpreter's, which writes them in the regional settings of the session. What reads no payload is refused once: by the
-            // reason its payload gave, or else by its own.
+            // and a Date are the interpreter's, which writes them in the regional settings of the session. A node whose payload cannot be read is refused
+            // once: by the reason the read gave, or else by its own.
             default:
                 var refused = _reasons.Count;
                 if (WholeOf(node) is { } number)
