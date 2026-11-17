@@ -155,11 +155,12 @@ if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Conta
     }
 }
 
-# (c) every first-party assembly carries the same informational version, <platformVersion>+<commit>. RDCore.SDK and
-# RDCore.SDK.Protocol come from their NuGet package and carry its version instead: the same one in every folder.
-$SdkAssemblyNames = @("RDCore.SDK.dll", "RDCore.SDK.Protocol.dll")
+# (c) every first-party assembly carries the same informational version, <platformVersion>+<commit>. The assemblies of the
+# RDCore.SDK package (RDCore.SDK, RDCore.SDK.Protocol) and of the RDCore.Forms package (RDCore.Forms, RDCore.Forms.Avalonia)
+# come from NuGet and carry their package's version instead: the same one in every folder.
+$PackageAssemblyNames = @("RDCore.SDK.dll", "RDCore.SDK.Protocol.dll", "RDCore.Forms.dll", "RDCore.Forms.Avalonia.dll")
 $Assemblies = @(Get-ChildItem -LiteralPath $Root -Recurse -File |
-    Where-Object { ($_.Name -like "RDCore.*.dll" -or $_.Name -eq "rdc.dll") -and $_.Name -notlike "*.resources.dll" -and $_.Name -notin $SdkAssemblyNames })
+    Where-Object { ($_.Name -like "RDCore.*.dll" -or $_.Name -eq "rdc.dll") -and $_.Name -notlike "*.resources.dll" -and $_.Name -notin $PackageAssemblyNames })
 if ($Assemblies.Count -eq 0) {
     Add-Failure "no first-party assemblies (RDCore.*.dll, rdc.dll) found."
 }
@@ -172,7 +173,7 @@ if ($Manifest -and $Manifest.platformVersion -and $Manifest.commit) {
         }
     }
 }
-foreach ($name in $SdkAssemblyNames) {
+foreach ($name in $PackageAssemblyNames) {
     $copies = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Filter $name)
     if ($copies.Count -eq 0) { Add-Failure "$name is missing from the tree."; continue }
     $versions = @($copies | ForEach-Object { [Diagnostics.FileVersionInfo]::GetVersionInfo($_.FullName).ProductVersion } | Sort-Object -Unique)

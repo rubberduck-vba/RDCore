@@ -31,7 +31,7 @@ public sealed class FormHostingTests
     private const uint WM_CLOSE = 0x0010;
 
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL): every control a real form has is one of its classes.
-    internal static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    internal static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
     internal static void RequireMicrosoftForms()
     {
@@ -583,13 +583,15 @@ public sealed class FormHostingTests
     {
         public bool IsAvailable => forms.IsAvailable;
 
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
         public object Create(RDCore.External.Forms.FormDefinition form)
         {
             starting();
             return forms.Create(form);
         }
 
-        public void Show(object form, bool modal) => forms.Show(form, modal);
+        public void Show(object form, bool modal, object? owner = null) => forms.Show(form, modal, owner);
 
         public void Hide(object form) => forms.Hide(form);
 

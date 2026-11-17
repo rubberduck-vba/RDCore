@@ -447,6 +447,7 @@ public sealed class WorkspaceLoaderTests
             Substitute.For<RDCore.SDK.Server.Configuration.ILiveSettings>(),
             Microsoft.Extensions.Options.Options.Create(new RDCore.CLI.AppOptions()),
             new RDCore.CLI.App.Repl.ReplServerQuestions(keys),
+            new RDCore.CLI.App.Repl.ReplSessionStops(),
             NullLogger<RDCore.CLI.RDCoreConsoleClientApp>.Instance);
         var platform = Substitute.For<RDCore.SDK.Platform.IPlatformCompositionService>();
         platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });
@@ -672,7 +673,7 @@ public sealed class WorkspaceLoaderTests
             await pipe.WaitForConnectionAsync();
             Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
                 .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
-                .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
                 .OnInitialize((server, request, token) => initialize(server, request, token))
                 .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>

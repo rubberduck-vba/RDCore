@@ -33,6 +33,11 @@ public sealed class ShippedLibrariesTests
 
     private static DirectoryLibrarySource Source => new(new FileSystem(), Symbols);
 
+    /// <summary>
+    /// The libraries the platform's apps read, as they compose them: the RDForms package's <c>VB</c>, then the <c>Symbols</c> folder.
+    /// </summary>
+    internal static ILibrarySource Platform => RDCore.Symbols.PlatformLibraries.With(Source);
+
     // the names of the libraries: DAO.json and DAO.dao2535.json are both of DAO.
     private static string[] Shipped
         => [.. Directory.GetFiles(Symbols, "*" + DirectoryLibrarySource.Extension).Select(DirectoryLibrarySource.LibraryNameOf).Distinct(StringComparer.OrdinalIgnoreCase).Order()];

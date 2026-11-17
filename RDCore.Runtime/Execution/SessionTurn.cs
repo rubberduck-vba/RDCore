@@ -9,8 +9,9 @@ namespace RDCore.Runtime.Execution;
 /// raised by gave it up - and an asynchronous one only when the session is <see cref="IsOpenForEvents">open to them</see>, which is when no program runs or one pumps. Deciding
 /// which an event is belongs to whatever received it, which knows whether a call was pending.
 /// <para>
-/// Who a thread runs code for is the turn's to know as well: the program, an event of the program, or code beside a program that waits at a stop. An event is the program's
-/// when the thread that gave the turn up for it was the program's or an event of the program's, and the code's beside the stop when that code gave it up.
+/// Who a thread runs code for is the turn's to know as well: the program, an event of the program, an event of the session, or code beside a program that waits at a
+/// stop. An event is the program's when the thread that gave the turn up for it was the program's or an event of the program's, and the code's beside the stop when that
+/// code gave it up. One that takes the turn while no program runs is the session's, and so is one its handlers' calls raise.
 /// </para>
 /// </remarks>
 internal sealed class SessionTurn : ISessionTurn
@@ -21,6 +22,7 @@ internal sealed class SessionTurn : ISessionTurn
         None,
         Program,
         ProgramEvent,
+        SessionEvent,
         Alongside,
         AlongsideEvent,
     }
@@ -64,6 +66,15 @@ internal sealed class SessionTurn : ISessionTurn
 
     /// <inheritdoc/>
     public bool RunsAnEventOfTheProgram => _role.Value is Role.ProgramEvent && IsRunning;
+
+    /// <inheritdoc/>
+    public bool RunsAnEventOfTheSession => _role.Value is Role.SessionEvent;
+
+    /// <summary>
+    /// Raised on the thread of an event of the session (<see cref="RunsAnEventOfTheSession"/>) once its handlers are done, and the turn is given back: what a
+    /// debugger that resumed one of them stopped answers by.
+    /// </summary>
+    internal event Action<Thread>? SessionEventHandled;
 
     /// <inheritdoc/>
     public Action<TimeSpan>? ServeOfTheCallingThread => _serve.Value;
@@ -196,9 +207,13 @@ internal sealed class SessionTurn : ISessionTurn
 
     private void Run(Action handle, Action<TimeSpan>? serve)
     {
-        // an event that a call of code beside a stop raised is that code's; any other is the program's, and none of the program's runs while it waits at a stop.
-        var role = (Role)_yielder is Role.Alongside or Role.AlongsideEvent ? Role.AlongsideEvent : Role.ProgramEvent;
-        var held = role is Role.ProgramEvent && (Volatile.Read(ref _stopped) > 0 || _resuming is { } resuming && resuming != Thread.CurrentThread);
+        // an event that a call of code beside a stop raised is that code's; one with no program running is the session's; any other is the program's. None of the
+        // program's or the session's runs while a handler waits at a stop.
+        var role = (Role)_yielder is Role.Alongside or Role.AlongsideEvent ? Role.AlongsideEvent
+            : Volatile.Read(ref _programs) == 0 ? Role.SessionEvent
+            : Role.ProgramEvent;
+        var held = role is Role.ProgramEvent or Role.SessionEvent
+            && (Volatile.Read(ref _stopped) > 0 || _resuming is { } resuming && resuming != Thread.CurrentThread);
         if (held)
         {
             WaitForTheStopToBeOver(serve);
@@ -220,6 +235,10 @@ internal sealed class SessionTurn : ISessionTurn
                 (_role.Value, _serve.Value) = (previousRole, previousServe);
                 Release();
                 scope?.Dispose();
+                if (role is Role.SessionEvent && previousRole is not Role.SessionEvent)
+                {
+                    SessionEventHandled?.Invoke(Thread.CurrentThread);
+                }
             }
         }
         finally

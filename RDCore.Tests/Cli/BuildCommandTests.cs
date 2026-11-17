@@ -291,6 +291,145 @@ public sealed class BuildCommandTests
         Assert.DoesNotContain("LICENSE-GPLv3.md", warning);
     }
 
+    // a Visual Basic 6.0 form that the program does not use: the project has it, and the program's folder holds what hosts it.
+    private static readonly string VisualBasicForm = string.Join("\r\n",
+        "VERSION 5.00",
+        "Begin VB.Form Form1 ",
+        "   Caption         =   \"Form1\"",
+        "   ClientHeight    =   3195",
+        "End",
+        "Attribute VB_Name = \"Form1\"",
+        "Attribute VB_GlobalNameSpace = False",
+        "Attribute VB_Creatable = False",
+        "Attribute VB_PredeclaredId = True",
+        "Attribute VB_Exposed = False",
+        "Option Explicit",
+        string.Empty);
+
+    // a project of the program and the form.
+    private static MockFileSystem WithAVisualBasicForm(MockFileSystem fileSystem)
+    {
+        fileSystem.File.WriteAllText(Path.Combine(Root, "Form1.frm"), VisualBasicForm);
+        fileSystem.File.WriteAllText(Path.Combine(Root, ProjectFile.FileName),
+            """{ "Version": "1.1", "ProjectInfo": { "Name": "Hello", "Modules": [ "Program.bas", "Form1.frm" ] } }""");
+        return fileSystem;
+    }
+
+    private const string NativeLicense = "Copyright (c) 2026 the drawing library's authors\n\nPermission is hereby granted.";
+
+    // rdc's runtime folder as a build of it lays it out: the forms host and the RDForms model it references, the host's resources in French, and rdc's deps.json, by
+    // which the host depends on a package that ships a native library for two runtime identifiers. A publish of rdc for win-x64 has that identifier's beside rdc;
+    // a portable one has each identifier's under runtimes/.
+    private static MockFileSystem WithTheFormsHost(MockFileSystem fileSystem, bool published)
+    {
+        foreach (var name in new[] { BuiltProgram.FormsAssembly, "RDCore.Forms" })
+        {
+            fileSystem.File.WriteAllBytes(Path.Combine(Runtime, $"{name}.dll"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, $"{name}.dll")));
+        }
+
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", $"{BuiltProgram.FormsAssembly}.resources.dll"), "les ressources des formulaires");
+        string[] natives = published ? ["libdraw.dll"] : ["runtimes/win-x64/native/libdraw.dll", "runtimes/linux-x64/native/libdraw.so"];
+        foreach (var native in natives)
+        {
+            fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(Runtime, native))!);
+            fileSystem.File.WriteAllText(Path.Combine(Runtime, native), "the drawing library");
+        }
+
+        var assets = published
+            ? """ "native": { "runtimes/win-x64/native/libdraw.dll": { "fileVersion": "0.0.0.0", "localPath": "libdraw.dll" } } """
+            : """
+              "runtimeTargets": {
+                "runtimes/win-x64/native/libdraw.dll": { "rid": "win-x64", "assetType": "native", "localPath": "runtimes/win-x64/native/libdraw.dll" },
+                "runtimes/linux-x64/native/libdraw.so": { "rid": "linux-x64", "assetType": "native", "localPath": "runtimes/linux-x64/native/libdraw.so" } }
+              """;
+        var target = published ? ".NETCoreApp,Version=v10.0/win-x64" : ".NETCoreApp,Version=v10.0";
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.deps.json"), $$"""
+            { "runtimeTarget": { "name": "{{target}}" }, "targets": { "{{target}}": {
+                "RDCore.External.Forms/1.0.0": { "dependencies": { "RDCore.Forms": "0.1.0" }, "runtime": { "RDCore.External.Forms.dll": {} } },
+                "RDCore.Forms/0.1.0": { "dependencies": { "Draw.NativeAssets": "1.0.0" }, "runtime": { "lib/net10.0/RDCore.Forms.dll": {} } },
+                "Draw.NativeAssets/1.0.0": { {{assets}} } } } }
+            """);
+
+        // the package of the native library, as the release lists it: it ships no assembly.
+        var data = System.Text.Json.Nodes.JsonNode.Parse(PlatformThirdPartyNotices)!;
+        data["packages"]!.AsArray().Add(System.Text.Json.Nodes.JsonNode.Parse("""
+            { "package": "Draw.NativeAssets", "version": "1.0.0", "license": "MIT", "copyright": "-", "projectUrl": "https://example.invalid/draw",
+              "assemblies": [], "natives": [ "libdraw.dll", "libdraw.so" ] }
+            """));
+        data["texts"]!.AsArray().Add(System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            kind = "license", title = "MIT", packages = new[] { "Draw.NativeAssets 1.0.0" }, sources = new[] { "LICENSE shipped in the package" }, text = NativeLicense,
+        })));
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "THIRD-PARTY-NOTICES.json"), data.ToJsonString());
+        return fileSystem;
+    }
+
+    private static readonly string[] FormsFiles = [$"{BuiltProgram.FormsAssembly}.dll", "RDCore.Forms.dll", Path.Combine("fr", $"{BuiltProgram.FormsAssembly}.resources.dll")];
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "a portable rdc")]
+    [DataRow(true, DisplayName = "rdc published for win-x64")]
+    public async Task ABuiltProgramWithAVisualBasicForm_CarriesTheFormsHost_TheNativeLibrariesOfItsRuntime_AndTheirNotices(bool published)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = WithTheFormsHost(WithAVisualBasicForm(Files(("Program.bas", Program))), published);
+        var (command, messages) = Command(fileSystem);
+
+        var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
+        foreach (var file in FormsFiles.Append("libdraw.dll"))
+        {
+            Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, "libdraw.so")), "the native library of another runtime");
+        Assert.IsFalse(fileSystem.Directory.Exists(Path.Combine(Output, "runtimes")), "a native library is beside the program");
+        var notices = fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt"));
+        Assert.Contains("Draw.NativeAssets", notices);
+        Assert.Contains(NativeLicense, notices);
+    }
+
+    [TestMethod]
+    public async Task ABuiltProgramForARuntimeRdcIsNotPublishedFor_CarriesNoNativeLibraryOfAnother()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = WithTheFormsHost(WithAVisualBasicForm(Files(("Program.bas", Program))), published: true);
+        var (command, messages) = Command(fileSystem);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "linux-x64"], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, $"{BuiltProgram.FormsAssembly}.dll")));
+        Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, "libdraw.dll")));
+        Assert.DoesNotContain("Draw.NativeAssets", fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt")));
+    }
+
+    // the same folder built again once the project has no form: what the earlier build copied of RDForms is not left there.
+    [TestMethod]
+    public async Task ABuiltProgramWithNoVisualBasicForm_CarriesNothingOfRDForms_NorWhatAnEarlierBuildOfItsFolderCopied()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = WithTheFormsHost(WithAVisualBasicForm(Files(("Program.bas", Program))), published: false);
+        var (command, messages) = Command(fileSystem);
+        string[] build = [Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"];
+        Assert.AreEqual(0, await command.ExecuteAsync(build, CancellationToken.None), string.Join("; ", messages.Select(message => message.Text)));
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "libdraw.dll")), "the earlier build copied the native library");
+
+        fileSystem.File.Delete(Path.Combine(Root, "Form1.frm"));
+        fileSystem.File.Delete(Path.Combine(Root, ProjectFile.FileName));
+        Assert.AreEqual(0, await command.ExecuteAsync(build, CancellationToken.None), string.Join("; ", messages.Select(message => message.Text)));
+
+        foreach (var file in FormsFiles.Append("libdraw.dll"))
+        {
+            Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "RDCore.Runtime.Support.dll")));
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "fr", "RDCore.Runtime.Support.resources.dll")));
+        Assert.DoesNotContain("Draw.NativeAssets", fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt")));
+    }
+
     [TestMethod]
     public async Task TheBuiltAssembly_RunsTheProgram_ItsProceduresTheCodeTheyWereBuiltTo()
     {
@@ -341,17 +480,22 @@ public sealed class BuildCommandTests
     private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem, string folder, params string[] args)
         => BuildAndRunAsync(fileSystem, null, folder, args);
 
-    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
         RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, params string[] args)
+        => BuildAndRunNamedAsync(fileSystem, libraries, folder, "Hello", args);
+
+    // the program built under name: its executable is name in the test's folder.
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunNamedAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, string name, params string[] args)
     {
         var (command, messages) = Command(fileSystem, libraries: libraries);
-        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", .. args], CancellationToken.None),
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", name, .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
 
         var context = new AssemblyLoadContext("built program", isCollectible: true);
         try
         {
-            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, "Hello.dll"))));
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, $"{name}.dll"))));
             var output = new StringWriter();
             var error = new StringWriter();
             // the libraries the program reads from its own folder: the one it was built to, and not the folder the test runs it from.
@@ -404,7 +548,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "LibraryProbe", "Modules": [ { "RelativeUri": "Program.bas" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
         var run = await RunAsync(fileSystem, shipped, Root);
         Assert.AreEqual(0, run.Exit, run.Error);
@@ -623,7 +767,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "{{form}}.frm" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         return await RunAsync(fileSystem, shipped, Root);
     }
 
@@ -635,7 +779,7 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), $$"""
             { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ]{{source}} } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         return await RunAsync(fileSystem, shipped, Root);
     }
 
@@ -656,7 +800,7 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
             { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
 
         var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
 
@@ -673,6 +817,55 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(ProgramRunner.Refused, exit);
         StringAssert.Contains(error, "VB.Timer");
+    }
+
+    // a Visual Basic 6.0 program that prints where App says it is: its folder, the name of its executable, its title, and whether it already ran.
+    private static MockFileSystem PrintsApp()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()",
+            "    Debug.Print App.Path", "    Debug.Print App.EXEName", "    Debug.Print App.Title", "    Debug.Print App.PrevInstance", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
+            """);
+        return fileSystem;
+    }
+
+    [TestMethod]
+    public async Task Run_App_IsTheWorkspaceProject()
+    {
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+
+        var (exit, output, error) = await RunAsync(PrintsApp(), shipped, Root);
+
+        Assert.AreEqual(0, exit, error);
+        CollectionAssert.AreEqual(new[] { Root, "Probe", "Probe", "False" }, output, error);
+    }
+
+    // the program runs from the test's folder, which holds no executable of its name: it runs as its assembly does with dotnet, from that folder. Its name
+    // is this test's own: another program of the same executable running is a previous instance (App.PrevInstance).
+    [TestMethod]
+    public async Task TheBuiltProgram_App_IsItsExecutable()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+        var name = $"Probe{Guid.NewGuid():N}";
+
+        var built = await BuildAndRunNamedAsync(PrintsApp(), shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime), name);
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory), name, "Probe", "False" }, built.Output, built.Error);
+    }
+
+    [TestMethod]
+    public void TheBuiltProgram_InstanceName_IsTheSameForOneExecutable_WithoutSeparators()
+    {
+        var executable = Path.Combine(Path.GetTempPath(), "Hello", "Hello.exe");
+
+        var name = BuiltProgram.InstanceName(executable);
+
+        Assert.AreEqual(name, BuiltProgram.InstanceName(Path.Combine(Path.GetTempPath(), "Hello", ".", "Hello.exe")));
+        Assert.AreNotEqual(name, BuiltProgram.InstanceName(Path.Combine(Path.GetTempPath(), "Other", "Hello.exe")));
+        Assert.AreEqual(-1, name.IndexOfAny(['/', '\\'], @"Local\".Length), name);
     }
 
     // the workspace is no folder of the disk the program runs on: the form's designer, its companion file with it, is what the build read, and the form the
@@ -692,7 +885,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "ExampleView.frm" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
         var run = await RunAsync(fileSystem, shipped, Root);
         Assert.AreEqual(0, run.Exit, run.Error);

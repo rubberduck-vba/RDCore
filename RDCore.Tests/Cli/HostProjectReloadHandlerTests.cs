@@ -144,4 +144,34 @@ public sealed class HostProjectReloadHandlerTests
         Assert.IsFalse(reloaded.Composed);
         Assert.IsFalse(_session.IsComposed);
     }
+
+    // a project imported from a Visual Basic 6 project once the workspace is open: the language server says it is VB6's from this reload on.
+    [TestMethod]
+    public async Task AReloadThatNamesALanguage_ComposesTheSessionInIt_AndTheNextReloadKeepsIt()
+    {
+        var options = new RDCore.SDK.Server.Configuration.SdkAppOptions();
+        var sut = new HostProjectReloadHandler(_session, new ProjectFileLoader(_files), Microsoft.Extensions.Options.Options.Create(options),
+            NullLogger<HostProjectReloadHandler>.Instance);
+        await ComposeAsync("Program.bas");
+
+        var reloaded = await sut.Handle(new HostProjectReloadParams { WorkspaceRoot = new Uri(Root), Language = SupportedLanguages.VB6.Id }, CancellationToken.None);
+        var inVB6 = _session.Session.Environment.Language.Id;
+        await sut.Handle(new HostProjectReloadParams { WorkspaceRoot = new Uri(Root) }, CancellationToken.None);
+
+        Assert.IsTrue(reloaded.Composed);
+        Assert.AreEqual(SupportedLanguages.VB6.Id, inVB6);
+        Assert.AreEqual(SupportedLanguages.VB6.Id, _session.Session.Environment.Language.Id);
+        Assert.AreEqual(SupportedLanguages.VB6.Id, options.Workspace.Language);
+    }
+
+    [TestMethod]
+    public async Task AReloadThatNamesALanguageThePlatformDoesNotServe_KeepsTheProjectsLanguage()
+    {
+        await ComposeAsync("Program.bas");
+
+        var reloaded = await _sut.Handle(new HostProjectReloadParams { WorkspaceRoot = new Uri(Root), Language = "cobol" }, CancellationToken.None);
+
+        Assert.IsTrue(reloaded.Composed);
+        Assert.AreEqual(SupportedLanguages.RDVBA.Id, _session.Session.Environment.Language.Id);
+    }
 }

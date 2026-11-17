@@ -14,7 +14,7 @@ namespace RDCore.Tests.Workspace.Forms;
 [TestCategory("MSForms")]
 public sealed class FormLifecycleTests
 {
-    private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    private static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
     // a form with no controls, whose event procedures print the events, as s41's LifeForm logs them
     private static readonly FormDescriptor Designer = new(

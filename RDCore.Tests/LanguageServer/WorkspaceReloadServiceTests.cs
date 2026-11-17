@@ -122,6 +122,42 @@ public sealed class WorkspaceReloadServiceTests
         _refresh.Received(1).Changed();
     }
 
+    // a project imported from a Visual Basic 6 project once the workspace is open: its file says VB6, which the workspace is written in from then on, and
+    // the host composes its session in it. A reload that keeps the language names none.
+    [TestMethod]
+    public async Task AProjectFileThatSaysAnotherLanguage_IsTheWorkspacesLanguage_AndTheHostsFromThisReloadOn()
+    {
+        var options = new RDCore.SDK.Server.Configuration.SdkWorkspaceOptions { WorkspaceUri = Root };
+        var projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, _files.Path, _files.File, new ProjectFileLoader(_files), () => options.SupportedLanguage);
+        var workspace = new WorkspaceService(_state, NullLogger<WorkspaceService>.Instance, _files.Path, _files.File, _files.Directory, projectFiles, _documents,
+            _documentStates, () => options.SupportedLanguage, new WorkspaceProjects(projectFiles), new ProjectFileLoader(_files));
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(_host);
+        var sut = new WorkspaceReloadService(_state, projectFiles, _documents, workspace, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh,
+            NullLogger<WorkspaceReloadService>.Instance);
+        WriteProject("A.bas");
+        _state.State.Returns(ServerState.Initializing);
+        await workspace.LoadAsync(Root, [Root], ask: null, CancellationToken.None, CoreLanguageServerApp.ProjectLanguageTaker(options));
+        _state.State.Returns(ServerState.Running);
+
+        _files.AddFile(Path.Combine(Root, ProjectFile.FileName), new MockFileData(JsonSerializer.Serialize(new ProjectFile(Root, new RDCoreProject
+        {
+            Name = "Reloaded",
+            SourceProject = "Reloaded.vbp",
+            Modules = [new RDCoreModule { RelativeUri = "A.bas" }, new RDCoreModule { RelativeUri = "B.cls" }],
+        }))));
+        await sut.ReloadAsync(CancellationToken.None);
+        WriteProject("A.bas");
+        await sut.ReloadAsync(CancellationToken.None);
+
+        Assert.AreEqual(SupportedLanguages.VB6.Id, options.Language);
+        Received.InOrder(() =>
+        {
+            _ = _host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Is<HostProjectReloadParams>(sent => sent.Language == SupportedLanguages.VB6.Id), Arg.Any<CancellationToken>());
+            _ = _host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Is<HostProjectReloadParams>(sent => sent.Language == null), Arg.Any<CancellationToken>());
+        });
+    }
+
     // a resource file the project gained is a document of the workspace, and none of its code: it is never parsed.
     [TestMethod]
     public async Task AnOtherFileTheProjectGained_IsLoaded_AndNotParsed()
