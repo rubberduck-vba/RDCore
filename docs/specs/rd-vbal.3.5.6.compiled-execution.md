@@ -39,6 +39,10 @@ the whole number the value rounds to, so an `Integer` can be given 32767.4 and -
 error 6 (Overflow). The operands of `\`, `Mod`, the logical operators, and the value of a `Case` compared with a selector of an integer type are rounded
 the same way ([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md#the-value-of-a-clause-is-converted-to-the-selectors-type)).
 
+A `Double` assigned to a variable of the `Single` type, or given to a parameter of one, is the `Single` nearest it, ties to even (MS-VBAL §5.5.1.2.1). So
+is a `Date` assigned to one, as its serial (MS-VBAL §5.5.1.2.3), and a `Variant` that holds a `Double` or a `Date`. A value past the magnitude range of a
+`Single` is given to the interpreter, which raises error 6 (Overflow).
+
 When a procedure is compiled, the compiler also guesses the type each of its `Variant`s holds. The guess comes from what the procedure assigns the
 `Variant` and from the type a `For` loop of a `Variant` counter counts in. For `S = 0#` and then `S = S + I` with `I` an `Integer`, it guesses `Double`. An
 operation on `Variant`s that hold the types they are guessed to hold is then compiled as an operation on those types, using the same operations as the
