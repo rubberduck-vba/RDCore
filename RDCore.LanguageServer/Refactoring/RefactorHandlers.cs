@@ -12,8 +12,9 @@ namespace RDCore.LanguageServer.Refactoring;
 /// </summary>
 /// <remarks>
 /// The refactorings it prepares are Extract Method's (<see cref="RefactoringKinds.ExtractMethod"/>), Convert GoSub's
-/// (<see cref="RefactoringKinds.ConvertGoSub"/>), Encapsulate Field's (<see cref="RefactoringKinds.EncapsulateField"/>), of the field named at the start of the range, Move Closer To Usage's
-/// (<see cref="RefactoringKinds.MoveCloserToUsage"/>), of the variable named at the start of the range, and Reorder Parameters'
+/// (<see cref="RefactoringKinds.ConvertGoSub"/>), Encapsulate Field's (<see cref="RefactoringKinds.EncapsulateField"/>), of the field named at the
+/// start of the range, Move Closer To Usage's (<see cref="RefactoringKinds.MoveCloserToUsage"/>), of the variable named at the start of the range,
+/// and Reorder Parameters'
 /// (<see cref="RefactoringKinds.ReorderParameters"/>), of the procedure named at the start of the range or whose parameter is declared there; a kind it does
 /// not serve is answered an error.
 /// </remarks>
