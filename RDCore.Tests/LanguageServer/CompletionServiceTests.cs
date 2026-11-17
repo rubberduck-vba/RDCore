@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Completion;
 using RDCore.LanguageServer.Parsing;
@@ -114,11 +115,13 @@ public sealed class CompletionServiceTests
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, references.Select(name => new LibraryIdentity(name)), [StandardLibrary.LibraryName])).ProvideSymbols()]);
         libraries.DescribedSymbolsOf(Arg.Any<Uri>(), Arg.Any<string>()).Returns(call => LibrarySymbolProvider.ReadDescribed(source, call.Arg<Uri>(), call.Arg<string>()));
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = language } });
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = language }, Formatting = _formatting });
         return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, OneProject.Registry());
     }
 
     private readonly ClientVerbRegistry _verbs = new();
+
+    private SdkFormattingOptions _formatting = new();
 
     // the module with the cursor where the `|` is, which is taken out of the source.
     private static (string Source, Position Position) At(string source)
@@ -1197,6 +1200,63 @@ public sealed class CompletionServiceTests
         var item = list.Items.Single(item => item.Label == "Copies:=");
 
         Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), item.TextEdit?.TextEdit?.Range, Show(list.Items));
+    }
+
+    private const string Indented = "Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    If\r\nEnd Sub\r\n";
+
+    private static CompletionItemCapabilityOptions SnippetClient(bool adjustsIndentation) => new()
+    {
+        SnippetSupport = true,
+        InsertTextModeSupport = adjustsIndentation
+            ? new CompletionItemInsertTextModeSupportCapabilityOptions { ValueSet = new Container<InsertTextMode>(InsertTextMode.AsIs, InsertTextMode.AdjustIndentation) }
+            : null,
+    };
+
+    // `    If|` in a procedure, of a document the client holds.
+    private async Task<CompletionItem> IfOfferedToAsync(CompletionItemCapabilityOptions? client)
+    {
+        var main = new WorkspaceDocument("Main.bas", Root, Indented);
+        WorkspaceHas(new WorkspaceDocument("Widget.cls", Root, Widget), main);
+        var list = await Sut().CompleteDocumentAsync(main.Id.Uri.ToUri(), new Position(2, 6), CancellationToken.None, items: client);
+        return list.Items.Single(item => item.Label == "If");
+    }
+
+    [TestMethod]
+    public async Task AClientThatTakesSnippets_IsOfferedTheBlockAKeywordStarts_ForItToIndent()
+    {
+        var item = await IfOfferedToAsync(SnippetClient(adjustsIndentation: true));
+
+        Assert.AreEqual(InsertTextFormat.Snippet, item.InsertTextFormat);
+        Assert.AreEqual(InsertTextMode.AdjustIndentation, item.InsertTextMode);
+        Assert.AreEqual("If ${1:condition} Then\r\n    $0\r\nEnd If", item.InsertText);
+    }
+
+    [TestMethod]
+    public async Task AClientThatDoesNotAdjustTheIndentation_IsOfferedTheBlockIndentedAsTheLineIs()
+    {
+        var item = await IfOfferedToAsync(SnippetClient(adjustsIndentation: false));
+
+        Assert.AreEqual(InsertTextFormat.Snippet, item.InsertTextFormat);
+        Assert.AreEqual("If ${1:condition} Then\r\n        $0\r\n    End If", item.InsertText);
+    }
+
+    [TestMethod]
+    public async Task AClientThatTakesNoSnippets_IsOfferedTheKeyword()
+    {
+        var item = await IfOfferedToAsync(new CompletionItemCapabilityOptions { SnippetSupport = false });
+
+        Assert.AreNotEqual(InsertTextFormat.Snippet, item.InsertTextFormat);
+        Assert.IsNull(item.InsertText);
+    }
+
+    [TestMethod]
+    public async Task AUserWhoSetNoSnippets_IsOfferedTheKeyword()
+    {
+        _formatting = new SdkFormattingOptions { Snippets = false };
+
+        var item = await IfOfferedToAsync(SnippetClient(adjustsIndentation: true));
+
+        Assert.IsNull(item.InsertText);
     }
 
     // 110 Send "a", Co|pies:=2, of a client that takes two ranges: the rest of the word is in the replaced one, in the program's own lines.
