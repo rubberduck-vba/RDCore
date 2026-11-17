@@ -884,10 +884,15 @@ public sealed class ClientWithoutOmniSharpTests
         /// <summary>What the client waits for before it answers a request of the server, given its method, reading on meanwhile; or nothing, to answer at once.</summary>
         public Func<string, Task?>? Hold { get; set; }
 
-        /// <summary>The requests the server made of the client, each method with its id, in the order they were read.</summary>
+        /// <summary>
+        /// The requests the server made of the client, each method with its id, in the order they were read.
+        /// </summary>
         public ConcurrentQueue<(string Method, long Id)> Requests { get; } = [];
 
-        /// <summary>The id of the first request of a method that the server makes of the client, once it is read.</summary>
+        /// <summary>
+        /// The id of the first request of a method that the server makes of the client, once it is read.
+        /// </summary>
+        /// <param name="method">The method of the request.</param>
         public Task<long> FirstAsked(string method) => Unhung(Asked(method).Task, $"the server's {method}: asked {string.Join(", ", Requests)}");
 
         /// <summary>The answer to a request with this id, which the client writes itself.</summary>
