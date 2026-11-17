@@ -445,36 +445,68 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     /// stripped from the argument" (<strong>MS-VBAL §6.1.2.3.1.21</strong>).
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBDoubleValue> Val(VBStringValue value)
+        => ValueOf(value.Value, out var number, out var overflow)
+            ? Succeed(new VBDoubleValue(number))
+            : Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, overflow!);
+
+    /// <summary>
+    /// <c>Val</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.3.1.21</strong>): the number it begins with, what <see cref="Val"/> returns
+    /// for it.
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="number">The number, 0 when the text begins with none.</param>
+    /// <returns><see langword="false"/> for a number that does not fit the type it is read as: <see cref="Val"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Val))]
+    public static bool ValueOf(string? text, out double number) => ValueOf(text, out number, out _);
+
+    // the number, or false and what overflows.
+    private static bool ValueOf(string? value, out double number, out string? overflow)
     {
-        var text = new string([.. (value.Value ?? string.Empty).Where(c => c is not (' ' or '\t' or '\n' or '\r'))]);
+        // "Blanks, tabs, and linefeed characters are stripped from the argument": a text with none is read as it is.
+        var text = value ?? string.Empty;
+        if (text.AsSpan().IndexOfAny(" \t\n\r") >= 0)
+        {
+            text = new string([.. text.Where(c => c is not (' ' or '\t' or '\n' or '\r'))]);
+        }
+
+        (number, overflow) = (0, null);
 
         // "If Value is the 0 length String data value return the Double data value 0."
         if (text.Length == 0)
         {
-            return Succeed(new VBDoubleValue(0));
+            return true;
         }
 
         // "the function recognizes the radix prefixes &O (for octal) and &H (for hexadecimal)."
         if (text.Length >= 2 && text[0] == '&' && char.ToUpperInvariant(text[1]) is 'H' or 'O')
         {
-            return Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8) is { } prefixed
-                ? Succeed(new VBDoubleValue(prefixed))
-                : Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, $"'{text}' does not fit the integer it is read as.");
+            if (Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8) is not { } prefixed)
+            {
+                overflow = $"'{text}' does not fit the integer it is read as.";
+                return false;
+            }
+
+            number = prefixed;
+            return true;
         }
 
         var match = LeadingNumber().Match(text);
         if (!match.Success)
         {
-            return Succeed(new VBDoubleValue(0));
+            return true;
         }
 
-        var number = double.Parse(
+        number = double.Parse(
             match.Value.Replace('d', 'e').Replace('D', 'e'),
             NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
             CultureInfo.InvariantCulture);
-        return double.IsInfinity(number)
-            ? Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, $"'{match.Value}' is not a Double.")
-            : Succeed(new VBDoubleValue(number));
+        if (double.IsInfinity(number))
+        {
+            (number, overflow) = (0, $"'{match.Value}' is not a Double.");
+            return false;
+        }
+
+        return true;
     }
 
     // MS-VBA reads the digits of a radix number as the bits of an integer, typed by its width and by the type-declaration character after them, if any, much
