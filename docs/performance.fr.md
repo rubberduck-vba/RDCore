@@ -132,7 +132,7 @@ donnent la date de cette exécution plutôt qu'un chiffre à jour.
 
 Chaque appel au modèle objet d'Excel passe du processus du programme à celui d'Excel, puis revient, avec MS-VBA comme avec RD-VBA. Ce passage coûte
 bien plus cher que le travail de la plupart des appels : c'est le nombre d'appels qui décide du temps que prend le code. Le cas cellule par cellule
-appelle Excel quatre fois par cellule, 40 000 fois en tout, et un cas par bloc, huit fois.
+appelle Excel quatre fois par cellule, 40 000 fois en tout, alors qu'un bloc se lit en quatre appels et s'écrit en quatre.
 
 ## Comment les chiffres sont mesurés
 

@@ -130,7 +130,7 @@ boundary. They need Excel, so they are measured in the reference run only: their
 
 Every call to Excel's object model crosses from the program's process to Excel's and back, in MS-VBA and in RD-VBA. A crossing costs far more than the
 work most calls do, so the number of calls decides how long the code takes: the cell-by-cell case calls Excel four times a cell, 40,000 times in all,
-and a block case eight times.
+while a block is read in four calls and written in four.
 
 ## How the figures are measured
 
