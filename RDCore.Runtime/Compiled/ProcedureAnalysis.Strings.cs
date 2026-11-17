@@ -90,7 +90,7 @@ internal sealed partial class ProcedureAnalysis
                 return new TextSlotNode(slot);
 
             // a Variant variable, outside an instruction that calls inside an expression: one that holds what compiled code writes no text of is given to
-            // the interpreter, which would make again a call made before it.
+            // the interpreter, which would repeat a call made before it.
             case BoundVariable variable when _nesting is null && VariantSlotOf(variable) is { } variantSlot:
                 return new VariantSlotTextNode(variantSlot);
 

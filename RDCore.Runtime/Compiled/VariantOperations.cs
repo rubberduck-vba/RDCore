@@ -156,8 +156,8 @@ public static class VariantOperations
     /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
     /// <returns>
     /// <see langword="false"/> when the interpreter let-coerces it: the Variant holds <c>Null</c>, which raises error 94
-    /// (<strong>MS-VBAL §5.5.1.2.10</strong>), a <c>Date</c>, a <c>Boolean</c> or any other number, written in the regional settings of the session, an
-    /// error or an object; or its value is not known.
+    /// (<strong>MS-VBAL §5.5.1.2.10</strong>); a <c>Date</c>, a <c>Boolean</c> or any other number, which is written in the regional settings of the
+    /// session; an error or an object; or its value is not known.
     /// </returns>
     public static bool TextOf(IRuntimeValue? value, out string? text)
     {
