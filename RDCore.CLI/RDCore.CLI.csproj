@@ -99,7 +99,7 @@
   <!-- rdc build -r <rid> makes a program for a runtime other than its own, out of that runtime's host: the published rdc ships the host of every runtime the
        platform is published for (PlatformRuntimeIdentifiers), from its NuGet pack, beside its own and in the same layout. -->
   <PropertyGroup>
-    <!-- the folder NuGet restores packs to, as a NuGet.config globalPackagesFolder names it, which ends in a separator or not. -->
+    <!-- the folder NuGet restores packages to, as a NuGet.config globalPackagesFolder names it, which ends in a separator or not. -->
     <_ProgramAppHostPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))</_ProgramAppHostPackageRoot>
   </PropertyGroup>
   <ItemGroup>

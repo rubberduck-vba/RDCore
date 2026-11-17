@@ -43,7 +43,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- the folder NuGet restores packs to, as a NuGet.config globalPackagesFolder names it, which ends in a separator or not. -->
+    <!-- the folder NuGet restores packages to, as a NuGet.config globalPackagesFolder names it, which ends in a separator or not. -->
     <_HostPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))</_HostPackageRoot>
   </PropertyGroup>
   <ItemGroup>
