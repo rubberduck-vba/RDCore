@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+    <AssemblyTitle>RDCore External Forms</AssemblyTitle>
+    <Description>The RDForms implementation of RDCore External's form host: Visual Basic 6.0 forms in RDForms windows, and an automation server over their components.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the tests type into a form's headless window, which only the host has. -->
+    <InternalsVisibleTo Include="RDCore.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the outside world's abstractions this host implements; nothing else of the platform, so that it can move to a process of its own. -->
+    <ProjectReference Include="..\RDCore.External\RDCore.External.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the RDForms model, its Avalonia windows and its application, and the platforms the host starts that application on: the desktop's, and the headless one. -->
+    <PackageReference Include="RDCore.Forms" Version="$(RDCoreFormsVersion)" />
+    <PackageReference Include="RDCore.Forms.Avalonia" Version="$(RDCoreFormsVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+</Project>

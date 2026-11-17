@@ -41,6 +41,34 @@ public interface IStdGlobalClass
     /// <param name="object">The form.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     public RuntimeSemanticsEvaluationResult Unload(VBObjectValue @object);
+
+    /// <summary>
+    /// <c>Load</c> of an element of a Visual Basic 6.0 control array (<c>Load mnuRecent(3)</c>): what the statement calls in place of <see cref="Load"/>, with the
+    /// array and the index, since the element does not exist before it is loaded.
+    /// </summary>
+    /// <remarks>
+    /// An RD-VBA addition, hidden, which a program cannot name. The array raises what VB6 raises: 360 for an element that is loaded already, 341 for a negative
+    /// index, 6 for one above 32767.
+    /// </remarks>
+    /// <param name="array">The control array, the element's index left out.</param>
+    /// <param name="index">The new element's index, let-coerced to <c>Integer</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember("_LoadElement", IsHidden = true)]
+    public RuntimeSemanticsEvaluationResult LoadElement(VBObjectValue array, VBIntegerValue index);
+
+    /// <summary>
+    /// <c>Unload</c> of an element of a Visual Basic 6.0 control array (<c>Unload mnuRecent(3)</c>): what the statement calls in place of <see cref="Unload"/>,
+    /// with the array and the index.
+    /// </summary>
+    /// <remarks>
+    /// An RD-VBA addition, hidden, which a program cannot name. The array raises what VB6 raises: 340 for an index no element has, 362 for an element of the
+    /// form's file.
+    /// </remarks>
+    /// <param name="array">The control array, the element's index left out.</param>
+    /// <param name="index">The element's index, let-coerced to <c>Integer</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember("_UnloadElement", IsHidden = true)]
+    public RuntimeSemanticsEvaluationResult UnloadElement(VBObjectValue array, VBIntegerValue index);
     #endregion
 
     #region Properties

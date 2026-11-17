@@ -72,7 +72,8 @@ public sealed class LoadPictureTests
     private static Task<string[]> RunWithoutAutomationAsync(params string[] lines)
         => ModuleWorkspace.RunAsync([], Source(lines), Stdole with { References = ["stdole", "Scripting"], AllowAutomation = false });
 
-    // a Visual Basic 6.0 project, which references the Visual Basic objects and procedures (VB.Global's LoadPicture), and stdole, without listing them.
+    // a Visual Basic 6.0 project, which references the Visual Basic objects and procedures (VB.Global's LoadPicture), and stdole, without listing them. VB is
+    // the RDForms package's library.
     private static async Task<string[]> RunVB6Async(params string[] lines)
     {
         ExecuteResult? ran = null;
@@ -80,7 +81,7 @@ public sealed class LoadPictureTests
         {
             ran = result;
             return Task.CompletedTask;
-        }, libraries: new([], Stdole.Source), language: SupportedLanguages.VB6);
+        }, libraries: new([], RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform), language: SupportedLanguages.VB6);
 
         Assert.AreEqual(ExecutionOutcome.Completed, ran!.Outcome, $"{ran.ErrorMessage} {string.Join("; ", ran.Diagnostics)}");
         return [.. ran.Output.Select(line => line.Trim())];

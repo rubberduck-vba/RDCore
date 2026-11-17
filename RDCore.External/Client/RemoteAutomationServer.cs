@@ -130,6 +130,9 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     // as for the servers: an external host that cannot be started is not a machine with no forms, and the program that shows one is told it could not be started.
     bool Forms.IFormHost.IsAvailable => !_host.TryConnect(out var incarnation) || incarnation!.IsFormHostAvailable;
 
+    // nor a host of no Visual Basic 6.0 forms: the New of such a form's class goes on to the form's creation, which says the host could not be started.
+    bool Forms.IFormHost.HostsVisualBasic6Forms => !_host.TryConnect(out var incarnation) || incarnation!.HostsVisualBasic6Forms;
+
     /// <inheritdoc/>
     public object Create(Forms.FormDefinition form)
     {
@@ -142,10 +145,13 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     }
 
     /// <inheritdoc/>
-    public void Show(object form, bool modal)
+    public void Show(object form, bool modal, object? owner = null)
     {
+        // the external host gives its form an owner only when it holds the owner: an owner from another incarnation of the host is not one of its forms.
         var remote = Live(form);
-        _ = Send<FormShowParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormShow, new FormShowParams { Target = remote.Handle, Modal = modal, HandlingEvent = _handlingEvent });
+        long? ownerHandle = owner is RemoteObject { Incarnation.IsLost: false } held && held.Incarnation == remote.Incarnation ? held.Handle : null;
+        _ = Send<FormShowParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormShow,
+            new FormShowParams { Target = remote.Handle, Modal = modal, Owner = ownerHandle, HandlingEvent = _handlingEvent });
     }
 
     /// <inheritdoc/>

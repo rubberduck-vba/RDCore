@@ -29,7 +29,7 @@ public sealed class VisualBasicFormWithoutHostTests
         + "Attribute VB_PredeclaredId = True\r\n"
         + "Attribute VB_Exposed = False\r\n";
 
-    private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    private static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
     private static Task<string[]> RunAsync(params string[] body)
     {
@@ -42,6 +42,8 @@ public sealed class VisualBasicFormWithoutHostTests
     [TestMethod]
     [DataRow("Form1.Show", DisplayName = "Show")]
     [DataRow("Form1.Show vbModal", DisplayName = "Show vbModal")]
+    [DataRow("Debug.Print Form1.Visible", DisplayName = "Visible, which loads it")]
+    [DataRow("Load Form1", DisplayName = "Load")]
     public async Task AVisualBasic6Form_IsAClassThatCannotBeCreated(string statement)
     {
         var printed = await RunAsync("On Error Resume Next", statement, "Debug.Print Err.Number");
@@ -91,12 +93,4 @@ public sealed class VisualBasicFormWithoutHostTests
 
     private static Task<string[]> RunInitializedAsync(params string[] body)
         => ModuleWorkspace.RunAsync([], Program(body), Libraries, InitializedForm, SupportedLanguages.VB6);
-
-    [TestMethod]
-    public async Task AVisualBasic6Form_ThatIsNotShown_IsNotVisible()
-    {
-        var printed = await RunAsync("Debug.Print Form1.Visible");
-
-        CollectionAssert.AreEqual(new[] { "False" }, printed);
-    }
 }

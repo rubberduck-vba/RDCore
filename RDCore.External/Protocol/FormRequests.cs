@@ -37,6 +37,16 @@ public sealed record class FormCreateParams : AutomationRequest
     /// </summary>
     public double? ClientHeight { get; init; }
 
+    /// <summary>
+    /// The designer that wrote the form.
+    /// </summary>
+    public SDK.Workspace.Forms.FormDesignerKind Kind { get; init; } = SDK.Workspace.Forms.FormDesignerKind.MSForms;
+
+    /// <summary>
+    /// The text of the form's designer block, for a form whose controls it declares; <see langword="null"/> when there is none.
+    /// </summary>
+    public string? DesignerText { get; init; }
+
     /// <summary>The request for <paramref name="form"/>.</summary>
     /// <param name="form">The form.</param>
     /// <param name="handlingEvent">The event whose handler asks for it, if one does.</param>
@@ -50,12 +60,23 @@ public sealed record class FormCreateParams : AutomationRequest
         ClientTop = form.ClientTop,
         ClientWidth = form.ClientWidth,
         ClientHeight = form.ClientHeight,
+        Kind = form.Kind,
+        DesignerText = form.DesignerText,
         HandlingEvent = handlingEvent,
     };
 
     /// <summary>The form this request is for.</summary>
-    public FormDefinition ToDefinition() => new(Name, State) { Caption = Caption, StartUpPosition = StartUpPosition,
-        ClientLeft = ClientLeft, ClientTop = ClientTop, ClientWidth = ClientWidth, ClientHeight = ClientHeight };
+    public FormDefinition ToDefinition() => new(Name, State)
+    {
+        Caption = Caption,
+        StartUpPosition = StartUpPosition,
+        ClientLeft = ClientLeft,
+        ClientTop = ClientTop,
+        ClientWidth = ClientWidth,
+        ClientHeight = ClientHeight,
+        Kind = Kind,
+        DesignerText = DesignerText,
+    };
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.FormShow"/>: <see cref="IFormHost.Show"/>.</summary>
@@ -66,6 +87,11 @@ public sealed record class FormShowParams : AutomationRequest
 
     /// <summary>Whether it is shown modal, and answered once it is hidden.</summary>
     public bool Modal { get; init; }
+
+    /// <summary>
+    /// The handle of the form that owns it, or <see langword="null"/> when it has none.
+    /// </summary>
+    public long? Owner { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.FormHold"/>.</summary>

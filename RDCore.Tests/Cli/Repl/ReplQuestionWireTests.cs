@@ -153,6 +153,7 @@ public sealed class ReplQuestionWireTests
             Substitute.For<ILiveSettings>(),
             Microsoft.Extensions.Options.Options.Create(new RDCore.CLI.AppOptions()),
             questions,
+            new RDCore.CLI.App.Repl.ReplSessionStops(),
             NullLogger<RDCore.CLI.RDCoreConsoleClientApp>.Instance);
         var platform = Substitute.For<RDCore.SDK.Platform.IPlatformCompositionService>();
         platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });
