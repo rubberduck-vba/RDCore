@@ -96,9 +96,9 @@ public sealed class AppObjectTests
     }
 
     [TestMethod]
-    [DataRow("Excel", DisplayName = "a name that is no component")]
+    [DataRow("Excel", DisplayName = "the name of another component")]
     [DataRow("", DisplayName = "an empty name")]
-    public async Task App_ComponentVersion_OfANameThatIsNoComponent_IsEmpty_WithNoError(string component)
+    public async Task App_ComponentVersion_OfAnyOtherName_IsEmpty_WithNoError(string component)
         => Printed(["[]", "0"], await RunAsync($"Debug.Print \"[\" & App.ComponentVersion(\"{component}\") & \"]\"", "Debug.Print Err.Number"));
 
     [TestMethod]

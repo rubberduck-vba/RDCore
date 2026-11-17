@@ -38,15 +38,15 @@ namespace RDCore.Runtime.Execution.External.Application;
 /// <para>
 /// <c>PlatformVersion</c> and <c>ComponentVersion</c> are RD-VBA additions. <c>PlatformVersion</c> is RDCore's version, and <c>ComponentVersion(Name)</c>
 /// the version of the component of the platform it names (<c>RDCore</c>, <c>RDCore.SDK</c>, <c>RDCore.Forms</c>), as
-/// <see cref="PlatformComponents.VersionOf(string)"/> reads it: an empty string for a name that is no component, or a component that is not installed.
+/// <see cref="PlatformComponents.VersionOf(string)"/> reads it: an empty string for any other name, or for a component that is not installed.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose program asks.</param>
 public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProvider, IExternalObjectOwner
 {
     /// <summary>
-    /// Reads the version of a component of the platform by its name, or gives <see langword="null"/> when the name is no component or the component is not
-    /// installed: <see cref="PlatformComponents.VersionOf(string)"/> unless it is set.
+    /// Reads the version of a component of the platform by its name, and gives <see langword="null"/> for any other name, or for a component not installed:
+    /// <see cref="PlatformComponents.VersionOf(string)"/> unless it is set.
     /// </summary>
     public Func<string, string?> VersionOf { get; init; } = PlatformComponents.VersionOf;
 
@@ -168,7 +168,7 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
             : Error(VBRuntimeErrorId.Overflow, request, "the module handle of a 64-bit process does not fit a Long");
     }
 
-    // the version of the component the program names, which has none when the name is no component or the component is not installed.
+    // the version of the component the program names: none for any other name, or for a component not installed.
     private RuntimeSemanticsEvaluationResult ComponentVersion(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(request.Member);
