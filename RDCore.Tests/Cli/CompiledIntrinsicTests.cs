@@ -251,6 +251,45 @@ public sealed class CompiledIntrinsicTests
             "    Whole = R",
             "End Function"), [("Whole", 0)]);
 
+    // MS-VBAL §6.1.2.3.1.18 and §6.1.2.3.1.16: Int and Fix of a Date are CDate(Int(CDbl(Number))) and CDate(Fix(CDbl(Number))), a Date, which a Variant
+    // holds as one (VarType 7), as Int and Fix of a Variant that holds a Date are. Before 1899-12-30 a Date's serial is negative, and Int goes a day down
+    // where Fix does not. Int of a time on the first day of the Date range is below the range, which raises 6 (Overflow): the interpreter's.
+    [TestMethod]
+    public async Task IntAndFixOfADate_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim D As Date, V As Variant",
+            "    D = -1.25",
+            "    V = D",
+            "    Debug.Print Days(6), First()",
+            "    Debug.Print VarType(Floor(D)), VarType(Truncation(D)), VarType(Int(V)), VarType(Fix(V)), CDbl(Floor(D)), CDbl(Truncation(D))",
+            "End Sub",
+            "Private Function Days(ByVal N As Long) As Double",
+            "    Dim I As Long, D As Date, F As Double, R As Double",
+            "    For I = -N To N",
+            "        D = I / 4 + 0.1",
+            "        F = Int(D)",
+            "        R = R + F * 1000",
+            "        F = Fix(D)",
+            "        R = R + F",
+            "    Next",
+            "    Days = R",
+            "End Function",
+            "Private Function Floor(ByVal D As Date) As Variant",
+            "    Floor = Int(D)",
+            "End Function",
+            "Private Function Truncation(ByVal D As Date) As Variant",
+            "    Truncation = Fix(D)",
+            "End Function",
+            "Private Function First() As Double",
+            "    Dim D As Date, F As Double",
+            "    On Error Resume Next",
+            "    D = -657434.5",
+            "    F = Fix(D)",
+            "    D = Int(D)",
+            "    First = F * 10 + Err.Number",
+            "End Function"), [("Days", 0), ("Floor", 0), ("Truncation", 0), ("First", 1)]);
+
     // MS-VBAL §6.1.2.10.1.10: Sqr of a Double, and of a Long or an Integer let-coerced to Double, as Sqr declares its parameter. A negative number has no
     // square root and raises 5 (Invalid procedure call or argument): the interpreter's.
     [TestMethod]
