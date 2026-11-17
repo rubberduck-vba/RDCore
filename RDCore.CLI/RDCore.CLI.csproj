@@ -98,6 +98,10 @@
 
   <!-- rdc build -r <rid> makes a program for a runtime other than its own, out of that runtime's host: the published rdc ships the host of every runtime the
        platform is published for (PlatformRuntimeIdentifiers), from its NuGet pack, beside its own and in the same layout. -->
+  <PropertyGroup>
+    <!-- the folder NuGet restores packs to, as a NuGet.config globalPackagesFolder names it, which ends in a separator or not. -->
+    <_ProgramAppHostPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))</_ProgramAppHostPackageRoot>
+  </PropertyGroup>
   <ItemGroup>
     <ProgramAppHostRuntime Include="$(PlatformRuntimeIdentifiers)" />
     <PackageDownload Include="@(ProgramAppHostRuntime->'Microsoft.NETCore.App.Host.%(Identity)')" Version="[$(BundledNETCoreAppPackageVersion)]" />
@@ -109,7 +113,7 @@
       <_OtherAppHostRuntime>%(ProgramAppHostRuntime.Identity)</_OtherAppHostRuntime>
       <_OtherAppHostFile Condition="$(_OtherAppHostRuntime.StartsWith('win'))">apphost.exe</_OtherAppHostFile>
       <_OtherAppHostFile Condition="!$(_OtherAppHostRuntime.StartsWith('win'))">apphost</_OtherAppHostFile>
-      <_OtherAppHostSource>$(NuGetPackageRoot)microsoft.netcore.app.host.$(_OtherAppHostRuntime.ToLowerInvariant())/$(BundledNETCoreAppPackageVersion.ToLowerInvariant())/runtimes/$(_OtherAppHostRuntime)/native/$(_OtherAppHostFile)</_OtherAppHostSource>
+      <_OtherAppHostSource>$(_ProgramAppHostPackageRoot)microsoft.netcore.app.host.$(_OtherAppHostRuntime.ToLowerInvariant())/$(BundledNETCoreAppPackageVersion.ToLowerInvariant())/runtimes/$(_OtherAppHostRuntime)/native/$(_OtherAppHostFile)</_OtherAppHostSource>
     </PropertyGroup>
     <Error Condition="'$(_OtherAppHostRuntime)' != '$(_ProgramAppHostRuntime)' and !Exists('$(_OtherAppHostSource)')" Text="rdc is published without the .NET application host of $(_OtherAppHostRuntime): $(_OtherAppHostSource) was not restored." />
     <Copy Condition="'$(_OtherAppHostRuntime)' != '$(_ProgramAppHostRuntime)'" SourceFiles="$(_OtherAppHostSource)" DestinationFolder="$(PublishDir)apphost/packs/Microsoft.NETCore.App.Host.$(_OtherAppHostRuntime)/$(BundledNETCoreAppPackageVersion)/runtimes/$(_OtherAppHostRuntime)/native" />
