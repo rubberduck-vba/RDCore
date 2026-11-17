@@ -8,8 +8,19 @@ namespace RDCore.Runtime.LanguageCore.Static;
 
 public static class FormClasses
 {
+    // the roots whose class the root's own class is built on, not composed with: VB6's UserControl, PropertyPage and UserDocument. The base class's members
+    // are names in scope in the root's code, unqualified or through the base class's name (`UserControl.BackColor`), and not members of the root's class:
+    // Me has none of them, early- or late-bound (observed in VB6).
+    private static readonly HashSet<string> BaseClasses = new(StringComparer.OrdinalIgnoreCase) { "UserControl", "PropertyPage", "UserDocument" };
+
     public static string? HandlerPrefixOf(FormDescriptor designer)
         => designer.Kind == FormDesignerKind.Other ? null : designer.Class.Name;
+
+    public static string? BaseClassNameOf(FormDescriptor designer)
+        => designer is { Kind: FormDesignerKind.VisualBasic6, Class: { Library: { } library, Name: { } name } }
+            && string.Equals(library, "VB", StringComparison.OrdinalIgnoreCase) && BaseClasses.Contains(name)
+            ? name
+            : null;
 
     public static IEnumerable<VBClassModuleSymbol> Of(FormDescriptor designer, ISymbolResolver resolver, Uri handle, Uri workspaceRoot)
     {

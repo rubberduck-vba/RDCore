@@ -222,7 +222,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// Microsoft Forms <c>UserForm</c>'s (<c>Caption</c>, <c>Controls</c>…), when the project references Microsoft Forms, and the VBA form object's
     /// (<see cref="FormObject"/>: <c>Show</c>, <c>Hide</c>, <c>Left</c>…). For a Visual Basic 6.0 form, the <c>VB.Form</c>'s (<c>Show</c>, <c>Caption</c>…).
     /// They are members of the form's class itself, part of its default interface: <c>Me.Caption</c> is a member of the form whose code it is in, and
-    /// <c>Caption</c>, there, is too.
+    /// <c>Caption</c>, there, is too. A UserControl's, a PropertyPage's or a UserDocument's are its base class's (<see cref="FormClasses.BaseClassNameOf"/>):
+    /// they are declared Private, names in scope in the root's code that are no members of its class, on Me or late-bound.
     /// </summary>
     /// <remarks>
     /// Each is declared as the member it is of its own class, with the form for its parent, and dispatched outside the workspace's code
@@ -232,11 +233,12 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// <param name="taken">The names the form's code and its controls declare.</param>
     public IEnumerable<Symbol> BuildFormMembers(FormDescriptor designer, IReadOnlySet<string> taken)
     {
+        var access = FormClasses.BaseClassNameOf(designer) is null ? AccessModifier.Public : AccessModifier.Private;
         var inherited = FormClasses.Of(designer, resolver, moduleUri, workspaceRoot).SelectMany(form => form.Members)
             .Where(member => member is not VBEventMemberSymbol && !taken.Contains(member.Name));
         foreach (var member in inherited)
         {
-            if (Rehome(member) is { } rehomed)
+            if (Rehome(member, access) is { } rehomed)
             {
                 yield return rehomed.With(SymbolProperties.ExternalTarget, FormObject.TargetOf(designer.Name, member.Name, KindOf(member)));
             }
@@ -253,20 +255,20 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
 
     // a library member declared again as a member of the module: the same kind of member, of the same type and parameters, whose parent is the module. A
     // symbol's identity is its parent's, made when it is constructed, so it is built anew; its default-member id and its flags (hidden) go with it.
-    private Symbol? Rehome(VBTypeMemberSymbol member)
+    private Symbol? Rehome(VBTypeMemberSymbol member, AccessModifier access)
     {
         Symbol? rehomed = member switch
         {
             VBPropertyGetMemberSymbol => new VBPropertyGetMemberSymbol(
-                workspaceRoot, moduleUri, memberScope, member.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { ResolvedType = member.ResolvedType },
+                workspaceRoot, moduleUri, memberScope, member.Name, SourceRange.Empty, SourceRange.Empty, access) { ResolvedType = member.ResolvedType },
             VBPropertyLetMemberSymbol => new VBPropertyLetMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, access),
             VBPropertySetMemberSymbol => new VBPropertySetMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, access),
             VBFunctionMemberSymbol => new VBFunctionMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Function, member.ResolvedType, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Function, member.ResolvedType, SourceRange.Empty, SourceRange.Empty, access),
             VBProcedureMemberSymbol => new VBProcedureMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Procedure, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Procedure, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, access),
             _ => null,
         };
 
