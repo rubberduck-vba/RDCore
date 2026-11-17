@@ -195,6 +195,46 @@ public sealed class VisualBasicFormLanguageTests
     public async Task AMemberOfAControlsName_IsMemberAlreadyExists()
         => StringAssert.StartsWith(Assert.ContainsSingle(await ErrorsAsync(Form("Private Text1 As Long"))), nameof(VBCompileErrorId.MemberAlreadyExistsInDesigner));
 
+    // a Line and a Shape raise no events, and a form holds them as it holds any control.
+    private const string EventlessControls =
+        "VERSION 5.00\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   Caption         =   \"About\"\r\n" +
+        "   Begin VB.Line lineAboveSignature \r\n" +
+        "      X1              =   120\r\n" +
+        "      X2              =   4560\r\n" +
+        "   End\r\n" +
+        "   Begin VB.Shape Shape1 \r\n" +
+        "      Shape           =   3\r\n" +
+        "   End\r\n" +
+        "   Begin VB.Line Rule \r\n" +
+        "      Index           =   0\r\n" +
+        "   End\r\n" +
+        "   Begin VB.Line Rule \r\n" +
+        "      Index           =   1\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n" +
+        "Attribute VB_GlobalNameSpace = False\r\n" +
+        "Attribute VB_Creatable = False\r\n" +
+        "Attribute VB_PredeclaredId = True\r\n" +
+        "Attribute VB_Exposed = False\r\n" +
+        "Option Explicit\r\n";
+
+    [TestMethod]
+    public async Task AControlOfAClassWithNoEvents_IsAControlLikeAnyOther()
+    {
+        var errors = await ErrorsAsync(
+            EventlessControls + "Private Sub Form_Load()\r\n    lineAboveSignature.X2 = 4000\r\n    Shape1.Visible = False\r\n    Rule(1).BorderWidth = 2\r\nEnd Sub\r\n");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    [TestMethod]
+    public async Task AWithEventsVariableTheCodeDeclares_OfAControlClassWithNoEvents_IsInvalid()
+        => StringAssert.StartsWith(Assert.ContainsSingle(await ErrorsAsync(EventlessControls + "Private WithEvents Other As VB.Line\r\n")),
+            nameof(VBCompileErrorId.InvalidWithEventsType));
+
     // ---- what each member is there for ----
 
     [TestMethod]
