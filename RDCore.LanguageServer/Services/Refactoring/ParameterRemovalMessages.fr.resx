@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Remove Parameter: {0} is the parameter (or the procedure), {1} the procedure, {2} where. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="RemoveParameter_Title" xml:space="preserve">
+    <value>Supprimer le paramètre « {0} »</value>
+  </data>
+  <data name="RemoveParameter_NoParameter" xml:space="preserve">
+    <value>Il n'y a pas de paramètre à supprimer ici.</value>
+  </data>
+  <data name="RemoveParameter_NotDeclaredByWorkspace" xml:space="preserve">
+    <value>« {0} » n'est pas déclaré par l'espace de travail : seul ce que l'espace de travail déclare peut être modifié.</value>
+  </data>
+  <data name="RemoveParameter_Used" xml:space="preserve">
+    <value>« {0} » est utilisé à {2} : sans le paramètre, ce nom ne désignerait rien.</value>
+  </data>
+  <data name="RemoveParameter_ParamArray" xml:space="preserve">
+    <value>« {0} » est un ParamArray : le supprimer n'est pas pris en charge.</value>
+  </data>
+  <data name="RemoveParameter_Value" xml:space="preserve">
+    <value>« {0} » est la valeur qu'assigne « {1} » : un Property Let ou un Property Set la prend toujours.</value>
+  </data>
+  <data name="RemoveParameter_Event" xml:space="preserve">
+    <value>« {0} » est un paramètre de l'événement « {1} » : supprimer le paramètre d'un événement n'est pas pris en charge.</value>
+  </data>
+  <data name="RemoveParameter_Handler" xml:space="preserve">
+    <value>« {0} » gère un événement et prend les paramètres de l'événement : il les garde.</value>
+  </data>
+  <data name="RemoveParameter_ExternalProcedure" xml:space="preserve">
+    <value>« {0} » est un paramètre de « {1} », que sa bibliothèque déclare : il ne peut pas être supprimé.</value>
+  </data>
+  <data name="RemoveParameter_Evaluated" xml:space="preserve">
+    <value>L'argument passé pour « {0} » à {2} fait plus que lire une valeur : le supprimer changerait ce que fait le code.</value>
+  </data>
+  <data name="RemoveParameter_LateBound" xml:space="preserve">
+    <value>« {1} » est peut-être appelé en liaison tardive à {2} : l'argument qui y est passé pour « {0} » ne serait pas supprimé.</value>
+  </data>
+  <data name="RemoveParameter_CalledByName" xml:space="preserve">
+    <value>« {1} » est appelé par son nom dans une chaîne à {2} : l'argument qui y est passé pour « {0} » ne serait pas supprimé.</value>
+  </data>
+  <data name="RemoveParameter_Unresolved" xml:space="preserve">
+    <value>Ce que « {0} » désigne à {2} n'est pas connu : la modification pourrait l'oublier.</value>
+  </data>
+</root>

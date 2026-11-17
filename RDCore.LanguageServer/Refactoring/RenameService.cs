@@ -132,13 +132,47 @@ internal sealed class RenameService(
         }
 
         // the project the server runs, then the others: each is composed of its own modules, so that a name resolves in the project of the module that writes it.
-        List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, name: null, token)];
+        List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, workspaceProjects.Projects.FirstOrDefault()?.Project.ProjectInfo.Name, token)];
         foreach (var other in workspaceProjects.Projects.Skip(1))
         {
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }
 
-        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen };
+        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf };
+    }
+
+    // the edit that renames the workspace's project of a name in its project file, where the text writes the name; none when the file cannot be read, or
+    // writes no name.
+    private TextDocumentEdit? ProjectFileEditOf(string project, string newName)
+    {
+        if (workspaceProjects.Projects.FirstOrDefault(candidate => string.Equals(candidate.Project.ProjectInfo.Name, project, StringComparison.OrdinalIgnoreCase)) is not { } owner)
+        {
+            return null;
+        }
+
+        var path = Path.Combine(owner.Root, ProjectFile.FileName);
+        string text;
+        try
+        {
+            text = File.ReadAllText(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "📁 The project file {Path} could not be read: the project is renamed in its code only.", path);
+            return null;
+        }
+
+        return ProjectFile.NameRangeIn(text) is { } range
+            ? new TextDocumentEdit
+            {
+                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.FromFileSystemPath(path) },
+                Edits = new TextEditContainer(new TextEdit
+                {
+                    Range = new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character),
+                    NewText = newName,
+                }),
+            }
+            : null;
     }
 
     private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
@@ -159,7 +193,7 @@ internal sealed class RenameService(
         }
 
         // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
-        var projectName = primary || string.IsNullOrEmpty(name) ? null : name;
+        var projectName = string.IsNullOrEmpty(name) ? null : name;
         var implicitScope = options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope;
         var libraries = primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null;
         var documentHosts = modules.Where(module => module.Document.Super is not null)
@@ -217,6 +251,9 @@ internal sealed class RenameWorkspace
     // whether the client has the document open, and so knows its version: an edit of a document it has not opened names no version.
     internal Func<TextDocumentIdentifier, bool> IsOpen { get; init; } = static _ => true;
 
+    // the edit that renames the workspace's project of a name in its project file, given the project and its new name; none by default.
+    internal Func<string, string, TextDocumentEdit?> ProjectFileEdit { get; init; } = static (_, _) => null;
+
     // the project a module of a document is in, which its names resolve in.
     private ProjectPart PartOf(DocumentModule module) => _parts.First(part => part.Modules.Any(candidate => ReferenceEquals(candidate, module)));
 
@@ -261,25 +298,7 @@ internal sealed class RenameWorkspace
             return new(null, Say(part, plan.Refusal!));
         }
 
-        // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
-        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
-        // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
-        var changes = plan.Edits
-            .GroupBy(edit => edit.Module.AbsoluteUri)
-            .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
-            .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
-            {
-                TextDocument = new OptionalVersionedTextDocumentIdentifier
-                {
-                    Uri = edited.Document.Id.Uri,
-                    Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
-                },
-                Edits = new TextEditContainer(plan.Edits
-                    .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
-                    .Select(edit => AnnotationOf(edit) is { } annotation
-                        ? new AnnotatedTextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText, AnnotationId = annotation }
-                        : new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
-            }));
+        var changes = DocumentChangesOf(part, plan.Edits);
 
         // the user confirms what a string says, and which member a late-bound access calls: a client that takes change annotations asks them; one that does
         // not is asked for, before it is sent the edit.
@@ -317,12 +336,149 @@ internal sealed class RenameWorkspace
             }
         }
 
+        // a module's file named after it is renamed with it, after its text is edited (LSP 3.17 RenameFile); the module is named by its VB_Name, so a client
+        // that does not rename files is sent the rest of the edit (RenameHandler).
+        if (plan.Module is { } renamedModule && part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == renamedModule.AbsoluteUri) is { } file
+            && FileRenameOf(file, target.Name, newName) is { } renameFile)
+        {
+            // a designer's binary file (Dialog.frx), which its text names, is renamed with it, then its text names the new one. Neither file is renamed over
+            // one that exists: the client refuses the edit, and the text does not name a file it was not renamed to.
+            if (CompanionOf(file, newName) is { } companion)
+            {
+                renameFile = renameFile with { Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false } };
+                changes = changes
+                    .Append(new WorkspaceEditDocumentChange(renameFile))
+                    .Append(new WorkspaceEditDocumentChange(companion.Rename))
+                    .Append(new WorkspaceEditDocumentChange(new TextDocumentEdit
+                    {
+                        TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = renameFile.NewUri },
+                        Edits = new TextEditContainer(companion.Names.Select(range => new TextEdit { Range = file.ToTextRange(range), NewText = companion.NewName })),
+                    }));
+            }
+            else
+            {
+                changes = changes.Append(new WorkspaceEditDocumentChange(renameFile));
+            }
+        }
+
+        // a project is renamed in its project file too, where the file writes its name (ProjectFile.NameRangeIn).
+        if (plan.Project is { } project && ProjectFileEdit(project, newName) is { } projectFile)
+        {
+            changes = changes.Append(new WorkspaceEditDocumentChange(projectFile));
+        }
+
         var workspaceEdit = new WorkspaceEdit
         {
             DocumentChanges = new Container<WorkspaceEditDocumentChange>(changes),
             ChangeAnnotations = annotations.Count == 0 ? null : annotations,
         };
         return new(workspaceEdit, null, questions.Count == 0 ? null : questions);
+    }
+
+    // the file of that name in the folder of a document, as the client spells the document's URI (its drive letter, its escapes).
+    private static DocumentUri Sibling(DocumentUri document, string fileName)
+        => DocumentUri.From(new Uri(document.ToUri(), Uri.EscapeDataString(fileName)));
+
+    // the file of a module, when its name is the module's, renamed to the new name; a file of that name that is there already is left as it is, and so is the
+    // module's file.
+    private static RenameFile? FileRenameOf(DocumentModule module, string oldName, string newName)
+    {
+        var path = module.Document.Id.Uri.GetFileSystemPath();
+        if (!string.Equals(Path.GetFileNameWithoutExtension(path), oldName, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return new RenameFile
+        {
+            OldUri = module.Document.Id.Uri,
+            NewUri = Sibling(module.Document.Id.Uri, newName + Path.GetExtension(path)),
+            Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
+        };
+    }
+
+    // the binary file of a designer's file, by the extension of each (a form's .frx, a user control's .ctx), when the designer's text names it as the file of
+    // the same name (OleObjectBlob = "Dialog.frx":0000): its rename, and where the text names it, in the text of the module.
+    private static (RenameFile Rename, IReadOnlyList<SDK.Model.Source.SourceRange> Names, string NewName)? CompanionOf(DocumentModule module, string newName)
+    {
+        var path = module.Document.Id.Uri.GetFileSystemPath();
+        if (!BinaryExtensions.TryGetValue(Path.GetExtension(path), out var extension))
+        {
+            return null;
+        }
+
+        var companion = Path.GetFileNameWithoutExtension(path) + extension;
+        var names = new List<SDK.Model.Source.SourceRange>();
+        var lines = module.Source.Split('\n');
+        for (var line = 0; line < lines.Length && !lines[line].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase); line++)
+        {
+            for (var at = lines[line].IndexOf($"\"{companion}\"", StringComparison.OrdinalIgnoreCase); at >= 0;
+                at = lines[line].IndexOf($"\"{companion}\"", at + companion.Length + 2, StringComparison.OrdinalIgnoreCase))
+            {
+                names.Add(new SDK.Model.Source.SourceRange(line, at + 1, line, at + 1 + companion.Length));
+            }
+        }
+
+        if (names.Count == 0)
+        {
+            return null;
+        }
+
+        return (new RenameFile
+        {
+            OldUri = Sibling(module.Document.Id.Uri, companion),
+            NewUri = Sibling(module.Document.Id.Uri, newName + extension),
+            Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false },
+        }, names, newName + extension);
+    }
+
+    // the binary files of the designers' files of VBA and Visual Basic 6.0: a form, a user control, a designer, a property page, a user document.
+    private static readonly Dictionary<string, string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".frm"] = ".frx", [".ctl"] = ".ctx", [".dsr"] = ".dsx", [".pag"] = ".pgx", [".dob"] = ".dox",
+    };
+
+    // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
+    // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
+    // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
+    private IEnumerable<WorkspaceEditDocumentChange> DocumentChangesOf(ProjectPart part, IReadOnlyList<RenameEdit> edits) => edits
+        .GroupBy(edit => edit.Module.AbsoluteUri)
+        .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
+        .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier
+            {
+                Uri = edited.Document.Id.Uri,
+                Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
+            },
+            Edits = new TextEditContainer(edits
+                .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
+                .Select(edit => AnnotationOf(edit) is { } annotation
+                    ? new AnnotatedTextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText, AnnotationId = annotation }
+                    : new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
+        }));
+
+    /// <summary>
+    /// The parameter declared at a position of a document, and the edits that remove it with its argument from every call (<see cref="ParameterRemoval"/>), or
+    /// why they are not made; <see langword="null"/> where no parameter is declared.
+    /// </summary>
+    public (string Name, RenameAnswer<WorkspaceEdit> Answer)? RemoveParameter(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return null;
+        }
+
+        var part = PartOf(module);
+        if (ParameterRemoval.Prepare(part.Context, module.Module, module.ToModulePosition(position)).Target is not { } target)
+        {
+            return null;
+        }
+
+        var plan = ParameterRemoval.Plan(part.Context, target);
+        return (target.Name, plan.IsValid
+            ? new(new WorkspaceEdit { DocumentChanges = new Container<WorkspaceEditDocumentChange>(DocumentChangesOf(part, plan.Edits)) }, null)
+            : new(null, plan.Refusal!.ToMessage(Locator(part))));
     }
 
     private static ChangeAnnotationIdentifier? AnnotationOf(RenameEdit edit)
