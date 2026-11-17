@@ -518,7 +518,7 @@ public sealed class VisualBasicFormLanguageTests
     // a library's class is open (a member it does not declare is bound late), so what binds early is what its class declares, of its declared type.
     [TestMethod]
     [DataRow("Label1", "Opacity", "Double")]
-    [DataRow("List1", "ItemIcon", "Variant")]
+    [DataRow("List1", "ItemIcon", "StdPicture")]
     [DataRow("Label1", "Caption", "String")]
     [DataRow("List1", "ListCount", "Integer")]
     public void WhatRDVBAAddsToVB_IsDeclaredByTheControlsClass_AsVB6sOwnMembersAre(string control, string member, string type)
@@ -527,7 +527,7 @@ public sealed class VisualBasicFormLanguageTests
     [TestMethod]
     public async Task WhatRDVBAAddsToVB_IsUsedByAForm_AsVB6sOwnMembersAre()
         => Assert.IsEmpty(await ErrorsAsync(FormWithLabelAndList(
-            "Private Sub Form_Load()", "    Label1.Opacity = 0.5", "    Label1.Caption = \"a\"", "    Debug.Print TypeName(List1.ItemIcon); List1.ListCount", "End Sub")));
+            "Private Sub Form_Load()", "    Label1.Opacity = 0.5", "    Label1.Caption = \"a\"", "    Debug.Print TypeName(List1.ItemIcon(0)); List1.ListCount", "End Sub")));
 
     [TestMethod]
     [DataRow("Label1", "Opacity")]
