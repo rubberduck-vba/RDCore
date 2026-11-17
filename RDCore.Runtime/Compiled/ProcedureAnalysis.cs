@@ -81,8 +81,8 @@ namespace RDCore.Runtime.Compiled;
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's: the selector is evaluated once into a local, and each <c>Case</c>
 /// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>). So is one of a <c>String</c> selector of variable length:
-/// its text, which each <c>Case</c> compares with the text of a value, as two Strings are compared. A call in the selector is made as a call inside any
-/// expression is (<c>ProcedureAnalysis.Nested.cs</c>); a <c>Case</c> whose values call is the interpreter's.
+/// its text, which each <c>Case</c> compares with the text of a value, as two Strings are compared. A call in the selector, or in a value of a
+/// <c>Case</c>, is made as a call inside any expression is (<c>ProcedureAnalysis.Nested.cs</c>).
 /// </para>
 /// <para>
 /// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation,

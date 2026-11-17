@@ -22,9 +22,9 @@ internal sealed partial class ProcedureAnalysis
     private StatementNode? _nesting;
 
     // a Let of a scalar, String or Variant variable of the activation or of the function result variable, of a field of a record, of a member of an object,
-    // or of an element of an array, a call statement, a Debug.Print, a condition of an If or a loop, the bounds of a For, or the selector of a Select Case,
-    // that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode). Every other instruction
-    // is translated as any instruction is.
+    // or of an element of an array, a call statement, a Debug.Print, a condition of an If or a loop, the bounds of a For, the selector of a Select Case or
+    // the values of a Case, that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode).
+    // Every other instruction is translated as any instruction is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);
@@ -93,14 +93,24 @@ internal sealed partial class ProcedureAnalysis
             { Kind: InstructionKind.ForOpener, Node: ForStatementNode forStatement }
                 => Calls(Bind(forStatement.StartExpression)) || Calls(Bind(forStatement.EndExpression))
                 || forStatement.StepExpression is { } step && Calls(Bind(step)),
-            // the selector of a Select Case, evaluated once (MS-VBAL §5.4.2.10). The values of a Case are not among the nodes of
-            // its statement (KnownOperands.IndexOf), so a Case that calls is the interpreter's.
+            // the selector of a Select Case, evaluated once (MS-VBAL §5.4.2.10); and the values of a Case, each evaluated as its clause is compared, in
+            // order, until one matches.
             { Kind: InstructionKind.Select, Node: SelectCaseStatementNode selectCase } => Calls(Bind(selectCase.ControlExpression)),
+            { Kind: InstructionKind.ConditionalBranch, Matching: not null, Node: CaseExpressionStatementNode caseBlock }
+                => caseBlock.RangeClauses.SelectMany(ValuesOf).Any(value => Calls(Bind(value))),
             _ => false,
         };
 
         return nests ? instruction.Node : null;
     }
+
+    private static IEnumerable<ExpressionNode> ValuesOf(CaseRangeClauseNode clause) => clause switch
+    {
+        CaseValueRangeClauseNode value => [value.Value],
+        CaseComparisonRangeClauseNode comparison => [comparison.Value],
+        CaseToRangeClauseNode range => [range.Start, range.End],
+        _ => [],
+    };
 
     // what a Let that calls inside its value, or inside a subscript of its target, assigns: a variable (IsScalarTarget); a field of a record, a member of an
     // object, or an element of an array of a scalar type or of Variants, each found once the value is evaluated, after its calls, as the interpreter finds
@@ -288,6 +298,7 @@ internal sealed partial class ProcedureAnalysis
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
         SelectStep select => Admits(select.Selector),
+        CaseStep caseStep => caseStep.Clauses.All(clause => Admits(clause.Lower) && (clause.Upper is not { } upper || Admits(upper))),
         TextLetStep let => Admits(let.Value),
         TextResultLetStep let => Admits(let.Value),
         PrintStep print => Admits(print.Items),
@@ -351,7 +362,8 @@ internal sealed partial class ProcedureAnalysis
         // an element, read once its subscripts are evaluated, calls among them.
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
-        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or OmittedArgumentNode => true,
+        // the selector of a Select Case is what its Select evaluated, which no call changes.
+        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or SelectorNode or OmittedArgumentNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
         ConvertNode convert => Admits(convert.Operand),
@@ -468,6 +480,7 @@ internal sealed partial class ProcedureAnalysis
         LoopBackStep loop => [loop.Condition],
         ForOpenStep open => [open.Start, open.End, open.Step],
         SelectStep select => [select.Selector],
+        CaseStep caseStep => caseStep.Clauses.SelectMany(clause => clause.Upper is { } upper ? new[] { clause.Lower, upper } : [clause.Lower]),
         TextLetStep let => PayloadsOf(let.Value),
         TextResultLetStep let => PayloadsOf(let.Value),
         PrintStep print => print.Items.SelectMany(PayloadsOf),
