@@ -46,8 +46,8 @@ internal static class RDFormsControlsMembers
     private const string DefaultMember = "[DISPID=0]";
     private const string EnumerationMember = "[DISPID=-4]";
 
-    // the RDForms class of each class of the VB library, by its VB6 ProgID (VB.Menu). The ProgIDs a Controls.Add literal ports from name controls only, and VB6
-    // refuses a menu or a form as no control type (720): the model raises that error once it is given the menu's or the form's RDForms class.
+    // the RDForms class of each class of the VB library, by its VB6 ProgID (VB.Menu). A Controls.Add literal names a control's ProgID only: VB6 refuses a
+    // menu or a form as no control type (720), and the model raises that error once it is given the menu's or the form's RDForms class.
     private static readonly Dictionary<string, string> VisualBasicClasses = FormsPortMap.VB6.Types
         .Where(type => type.Kind == TypePortKind.Class)
         .GroupBy(type => $"{type.LegacyLibrary}.{type.LegacyName}", StringComparer.OrdinalIgnoreCase)
