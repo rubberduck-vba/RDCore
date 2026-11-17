@@ -265,6 +265,17 @@ internal sealed partial class ProcedureEmitter
                 EmitTypeName(typeName, text);
                 break;
 
+            // TypeName of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls.
+            case VariantTypeNameTextNode variantTypeName:
+                var named = _il.DefineLabel();
+                _il.Emit(OpCodes.Ldloc, EmitVariantCellOf(variantTypeName.Variant, failure));
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.TypeName))!);
+                _il.Emit(OpCodes.Brtrue, named);
+                EmitLibraryVariantText(variantTypeName.Library, text, failure);
+                _il.MarkLabel(named);
+                break;
+
             case IntrinsicTextNode typed:
                 EmitIntrinsicText(typed, text, failure);
                 break;

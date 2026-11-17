@@ -258,10 +258,20 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
 
-// IsEmpty of a Variant read in its cell, a Variant of the activation (VariantSlotNode) or an element of an array of Variants (VariantElementNode): whether
-// it holds Empty (MS-VBAL §6.1.2.7.1.4), as the cell says (VariantOperations.IsEmpty). Of a Variant the cell says nothing of (an object, an array), it
-// is what the call of the standard library's function returns (Library), or the interpreter's when there is no such call.
-internal sealed record class VariantIsEmptyNode(VariantNode Variant, LibraryCallNode? Library) : PayloadNode(ScalarKind.Boolean);
+// IsEmpty, IsNull or VarType of a Variant read in its cell, a Variant of the activation (VariantSlotNode) or an element of an array of Variants
+// (VariantElementNode): whether it holds Empty (MS-VBAL §6.1.2.7.1.4) or Null (§6.1.2.7.1.7), or its subtype (§6.1.2.7.1.13), as the cell says
+// (VariantOperations.IsEmpty, IsNull, VarType). Of a Variant the cell says nothing of (an object, an array), it is what the call of the standard library's
+// function returns (Library), or the interpreter's when there is no such call.
+internal sealed record class VariantInformationNode(VariantNode Variant, VariantInformation Function, LibraryCallNode? Library)
+    : PayloadNode(Function is VariantInformation.VarType ? ScalarKind.Long : ScalarKind.Boolean);
+
+// the functions of the standard library a VariantInformationNode answers of a Variant's cell.
+internal enum VariantInformation
+{
+    IsEmpty,
+    IsNull,
+    VarType,
+}
 
 // left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing). An
 // operand that is the default instance of a class (LeftMade, RightMade) is compared only once it holds an object (ObjectOperations.HoldsAnObject).
@@ -302,6 +312,11 @@ internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
 // there is none, given to the library's function numbered Library of the body (CompiledActivation.TryTypeNameOf), which names it as the interpreter's
 // call does.
 internal sealed record class TypeNameTextNode(int Library, int? Slot) : TextNode;
+
+// TypeName of a Variant read in its cell, as VariantInformationNode reads it (MS-VBAL §6.1.2.7.1.12): the name of its subtype, as the cell says
+// (VariantOperations.TypeName). Of a Variant the cell says nothing of (an object, an array), it is what the call of the standard library's function returns
+// (Library).
+internal sealed record class VariantTypeNameTextNode(VariantNode Variant, LibraryVariantTextNode Library) : TextNode;
 
 // a call of the typed form of a function of the standard library that returns a String (StdLibIntrinsicAttribute), given the payloads and texts of its
 // arguments as IntrinsicNode gives them: what the form returns.
