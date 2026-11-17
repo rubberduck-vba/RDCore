@@ -17,8 +17,10 @@ modules hold what the cases call. The pages below give each case's source, as it
 | [Numeric](numeric.md) | `Numeric.bas` | Arithmetic over typed and `Variant` operands |
 | [Variables and parameters](variables-and-parameters.md) | `Slots.bas` | Parameters and locals, a module variable, a `Static` local |
 | [Standard library](standard-library.md) | `StdLib.bas` | One function of the standard library a case |
+| [Excel automation](excel-automation.md) | `ExcelCases.bas` | Cells of a sheet read and written, as a block and cell by cell |
 
-The Excel automation cases need Excel, so they are measured in the reference run only (see [Excel automation](../performance.md#excel-automation)).
+The Excel automation cases are not part of the corpus. They need Excel, so they are measured in the reference run only
+(see [Measuring MS-VBA](#measuring-ms-vba)).
 
 ## Running the benchmarks
 
@@ -43,6 +45,29 @@ compare runs made on the same machine: two builds of `rdc`, or your code before 
 
 `rdc bench <path>` times the `Public Sub Bench*()` of a workspace's standard modules instead of the corpus (see
 [The shell and the rdc commands](../rdc.md)).
+
+## Measuring MS-VBA
+
+The reference run measures MS-VBA and RD-VBA on the same machine, with `rdc bench-msvba`. It needs Windows, Excel, and Excel's "Trust access to the
+VBA project object model" setting (File > Options > Trust Center > Trust Center Settings > Macro Settings).
+
+```
+rdc bench-msvba
+```
+
+It runs the corpus and the Excel automation cases in MS-VBA, in a hidden Excel, and in RD-VBA, in alternated rounds: MS-VBA first in odd rounds,
+RD-VBA first in even rounds. It keeps the fastest run of each case on each side, over all the rounds, and writes the figures to `msvba.json`.
+Nothing is written unless every case has a figure on both sides.
+
+| Option | What it does |
+|---|---|
+| `--out <file>`, `-o <file>` | Writes the figures to that file instead of `msvba.json`. |
+| `--rounds <n>` | Runs `n` rounds (5 by default). |
+| `--excel-rounds <n>` | Runs the Excel automation cases in the first `n` rounds (3 by default; 0 runs none). |
+| `--runs <n>`, `-r <n>` | Runs each case of the corpus `n` times a round (7 by default). |
+| `--excel-runs <n>` | Runs each Excel automation case `n` times a round (5 by default). |
+
+The file's `method` line says how its rounds were run. The site's MS-VBA figures come from `RDCore.CLI/Bench/Reference/msvba.json`.
 
 ## See also
 

@@ -17,9 +17,10 @@ Son chiffre, et la façon dont les chiffres sont mesurés, sont à la page [Perf
 | [Calcul numérique](numeric.fr.md) | `Numeric.bas` | De l'arithmétique sur des opérandes typés et `Variant` |
 | [Variables et paramètres](variables-and-parameters.fr.md) | `Slots.bas` | Des paramètres et des variables locales, une variable de module, une variable locale `Static` |
 | [Bibliothèque standard](standard-library.fr.md) | `StdLib.bas` | Une fonction de la bibliothèque standard par cas |
+| [Automatisation d'Excel](excel-automation.fr.md) | `ExcelCases.bas` | Des cellules d'une feuille lues et écrites, en bloc et cellule par cellule |
 
-Les cas d'automatisation d'Excel exigent Excel : ils ne sont donc mesurés que lors de l'exécution de référence (voir
-[Automatisation d'Excel](../performance.fr.md#automatisation-dexcel)).
+Les cas d'automatisation d'Excel ne font pas partie du corpus. Ils exigent Excel : ils ne sont donc mesurés que lors de l'exécution de référence
+(voir [Mesurer MS-VBA](#mesurer-ms-vba)).
 
 ## Exécuter les bancs d'essai
 
@@ -46,6 +47,31 @@ après une modification.
 
 `rdc bench <chemin>` chronomètre les `Public Sub Bench*()` des modules standard d'un espace de travail plutôt que le corpus (voir
 [Le _shell_ et les commandes rdc](../rdc.fr.md)).
+
+## Mesurer MS-VBA
+
+L'exécution de référence mesure MS-VBA et RD-VBA sur la même machine, avec `rdc bench-msvba`. Elle exige Windows, Excel et le paramètre « Accès
+approuvé au modèle d'objet du projet VBA » d'Excel (Fichier > Options > Centre de gestion de la confidentialité > Paramètres du Centre de gestion de
+la confidentialité > Paramètres des macros).
+
+```
+rdc bench-msvba
+```
+
+La commande exécute le corpus et les cas d'automatisation d'Excel dans MS-VBA, dans un Excel masqué, et dans RD-VBA, en rondes alternées : MS-VBA en
+premier dans les rondes impaires, RD-VBA en premier dans les rondes paires. Elle garde l'exécution la plus rapide de chaque cas de chaque côté, sur
+l'ensemble des rondes, et écrit les chiffres dans `msvba.json`. Rien n'est écrit à moins que chaque cas ait un chiffre des deux côtés.
+
+| Option | Ce qu'elle fait |
+|---|---|
+| `--out <fichier>`, `-o <fichier>` | Écrit les chiffres dans ce fichier au lieu de `msvba.json`. |
+| `--rounds <n>` | Exécute `n` rondes (5 par défaut). |
+| `--excel-rounds <n>` | Exécute les cas d'automatisation d'Excel dans les `n` premières rondes (3 par défaut; 0 n'en exécute aucun). |
+| `--runs <n>`, `-r <n>` | Exécute chaque cas du corpus `n` fois par ronde (7 par défaut). |
+| `--excel-runs <n>` | Exécute chaque cas d'automatisation d'Excel `n` fois par ronde (5 par défaut). |
+
+La ligne `method` du fichier dit comment ses rondes ont été exécutées. Les chiffres de MS-VBA du site viennent de
+`RDCore.CLI/Bench/Reference/msvba.json`.
 
 ## Voir aussi
 

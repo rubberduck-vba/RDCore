@@ -115,7 +115,7 @@ Each case calls one function 100,000 times, with the arguments shown.
 ## Excel automation
 
 These cases call Excel's object model late-bound from VBA. They need Excel, so they are measured in the reference run only: their badges give the
-reference run's date instead of a live figure.
+reference run's date instead of a live figure. Their source is on the [Excel automation](benchmarks/excel-automation.md) page.
 
 | Case | What it measures | RD-VBA ÷ MS-VBA |
 |---|---|---|

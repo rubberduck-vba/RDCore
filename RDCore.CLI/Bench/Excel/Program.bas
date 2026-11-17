@@ -1,6 +1,7 @@
 Attribute VB_Name = "Program"
 Option Explicit
 
+' <Main>
 Public Sub Main()
     Dim Xl As Object
     Set Xl = CreateObject("Excel.Application")
@@ -9,3 +10,4 @@ Public Sub Main()
     Debug.Print RunExcelCases(Xl, CLng(Command$))
     Xl.Quit
 End Sub
+' </Main>

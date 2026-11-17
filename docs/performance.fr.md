@@ -116,7 +116,8 @@ Chaque cas appelle une fonction 100 000 fois, avec les arguments indiqués.
 ## Automatisation d'Excel
 
 Ces cas appellent le modèle objet d'Excel en liaison tardive depuis VBA. Ils exigent Excel : ils ne sont donc mesurés que lors de l'exécution de
-référence, et leurs badges donnent la date de cette exécution plutôt qu'un chiffre à jour.
+référence, et leurs badges donnent la date de cette exécution plutôt qu'un chiffre à jour. Leur source est sur la page
+[Automatisation d'Excel](benchmarks/excel-automation.fr.md).
 
 | Cas | Ce qu'il mesure | RD-VBA ÷ MS-VBA |
 |---|---|---|

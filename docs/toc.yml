@@ -29,6 +29,8 @@
     href: benchmarks/variables-and-parameters.md
   - name: Standard Library
     href: benchmarks/standard-library.md
+  - name: Excel Automation
+    href: benchmarks/excel-automation.md
 - name: Diagnostics
   href: diagnostics/index.md
 - name: Disabling a Diagnostic
