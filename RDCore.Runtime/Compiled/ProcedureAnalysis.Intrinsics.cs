@@ -110,11 +110,11 @@ internal sealed partial class ProcedureAnalysis
     };
 
     // the arguments of a call given to a typed form, when each is of the type of its parameter: a String's text for a string, a payload of the parameter's
-    // kind for a number. A parameter the function declares of a type of its own also takes a number that widens to it, as the call would let-coerce it; one
-    // it declares a Variant takes only its own kind, its type being what the function returns. Each argument is given, by value: the form has no optional
-    // parameter, and a function with one has a form for each number of arguments it takes, except a Compare the call leaves out
-    // (StdLibOptionCompareAttribute), which is given the calling module's Option Compare. The session, which the activation gives a form that reads it, is not
-    // one of the call's arguments.
+    // kind for a number, a Date for a Date's serial. A parameter the function declares of a type of its own also takes a number that widens to it, as the
+    // call would let-coerce it; one it declares a Variant takes only its own kind, its type being what the function returns. Each argument is given, by
+    // value: the form has no optional parameter, and a function with one has a form for each number of arguments it takes, except a Compare the call leaves
+    // out (StdLibOptionCompareAttribute), which is given the calling module's Option Compare. The session, which the activation gives a form that reads it,
+    // is not one of the call's arguments.
     private List<PayloadNode>? IntrinsicArgumentsOf(IntrinsicForm form, ImmutableArray<BoundArgument> arguments)
     {
         // arguments left out at the end are dropped, as a call of the library's binding drops them (LibraryArgumentsOf): Round(D) is the form of one. A
@@ -170,10 +170,12 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // an extended intermediate is given as the call holds it: stored as the expression's type from its 80 bits, which raises what it raises there
-            // (StoreNode), then given as any value of that type.
+            // a double marked as a Date's serial (StdLibDateAttribute) takes a Date, and nothing that widens to it. An extended intermediate is given as the
+            // call holds it: stored as the expression's type from its 80 bits, which raises what it raises there (StoreNode), then given as any value of
+            // that type.
             if (KindOf(type, parameters[i]) is not { } taken || ScalarKinds.Of(declared) is not { } given
-                || given != taken && !(form.Coerced[i] && Widens(given, taken)) || IsVariant(value) || (IsExtended(value) ? PayloadAs(value, given) : Payload(value)) is not { } payload)
+                || given != taken && !(form.Coerced[i] && Widens(given, taken)) || IsVariant(value)
+                || (IsExtended(value) ? PayloadAs(value, given) : Payload(value)) is not { } payload)
             {
                 return null;
             }
