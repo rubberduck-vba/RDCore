@@ -17,7 +17,7 @@ namespace RDCore.Runtime.Compiled;
 // enclosing With block.
 internal sealed partial class ProcedureAnalysis
 {
-    // the members of the standard library's classes compiled code calls on an object, each pure: what it returns is computed of the object and of the
+    // the members of the standard library's classes compiled code calls on an object, each pure: what it returns is computed from the object and the
     // arguments, and the call changes nothing, so the interpreter makes it again when it is handed the instruction. Count and Item of a Collection
     // (MS-VBAL §6.1.3.1.1.1, §6.1.3.1.1.2).
     private static readonly ImmutableHashSet<string> CompiledLibraryMembers = ImmutableHashSet.Create(StringComparer.Ordinal,

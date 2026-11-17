@@ -144,7 +144,7 @@ public sealed class CompiledLibraryClassMemberTests
             "    Keyed = C(Key)",
             "End Function"]), "Keyed", expected: "5", raises: true);
 
-    // the Count of a Collection a variable holds Nothing of: error 91, which the interpreter raises.
+    // the Count of a Collection variable that holds Nothing: error 91, which the interpreter raises.
     [TestMethod]
     public async Task TheCountOfNothing_RaisesError91()
         => await AssertNoneSteppedAsync(Program(
