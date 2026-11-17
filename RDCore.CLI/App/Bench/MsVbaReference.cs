@@ -46,8 +46,8 @@ internal static partial class MsVbaHarness
     /// Excel automation cases run against a second Excel instance it starts.
     /// </summary>
     /// <remarks>
-    /// <c>TimeCorpus(Runs)</c> returns one line per case, <c>Module.Case|us;us;...</c>, or <c>Module.Case|error &lt;number&gt; &lt;description&gt;</c> for a case
-    /// that raises. <c>StartTarget</c> starts the second instance and returns its process id, <c>TimeExcel(Runs)</c> runs <c>ExcelCases.RunExcelCases</c>
+    /// <c>TimeCorpus(Runs)</c> returns one line per case, <c>Module.Case|us;us;...</c>, or <c>Module.Case|error &lt;number&gt; &lt;description&gt;</c>
+    /// for a case that raises. <c>StartTarget</c> starts the second instance and returns its process id, <c>TimeExcel(Runs)</c> runs <c>ExcelCases.RunExcelCases</c>
     /// against it, and <c>StopTarget</c> quits it. <c>HostProcess</c> and <c>Bitness</c> say which process the harness runs in, and whether it is 64-bit.
     /// </remarks>
     /// <param name="cases">The cases, <c>Module.Procedure</c>, in the order <c>rdc bench</c> runs them.</param>
