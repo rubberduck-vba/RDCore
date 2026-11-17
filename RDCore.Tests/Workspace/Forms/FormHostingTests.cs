@@ -328,12 +328,10 @@ public sealed class FormHostingTests
 
         var running = RunWithCodeAsync(external ? ExternalHosts.WorldOf(host) : world, code, $"ExampleView.Caption = \"{caption}\"", "ExampleView.Show", "Debug.Print \"after\"");
 
-        // sent, not posted: the window answers the close button once the program has answered its QueryClose, which a modal Show waits for at once.
+        // the close button clicked twice: the window takes the clicks in the order they came. The first QueryClose cancels, so the form stays and Show still
+        // waits, and the second is asked of it; had the first unloaded the form, the second would have gone with its window, and the program said so sooner.
         var window = await WindowOfAsync(caption);
-        SendMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-        Assert.IsFalse(running.IsCompleted, "the first QueryClose cancels: the form stays, and Show still waits");
-        Assert.AreNotEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption));
-
+        Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
         CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(SafetyCap));
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
@@ -806,9 +804,6 @@ public sealed class FormHostingTests
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? className, string? title);
