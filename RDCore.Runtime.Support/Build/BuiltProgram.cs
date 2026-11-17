@@ -4,6 +4,7 @@ using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.External.Application;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST.Declarations;
@@ -102,6 +103,14 @@ public static class BuiltProgram
         return File.Exists(executable) ? executable : null;
     }
 
+    // the name every instance of an executable opens, which exists while one of them runs: of its full path, without regard to case where the file system
+    // has none. A mutex's name holds no separator after its namespace, so the path is hashed.
+    internal static string InstanceName(string executable)
+    {
+        var path = OperatingSystem.IsWindows() ? Path.GetFullPath(executable).ToUpperInvariant() : Path.GetFullPath(executable);
+        return $@"Local\RDCore.App.{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(path)))}";
+    }
+
     // keys: the console's, unless a test types them; the dialogs are then drawn on output. libraries: the program's own folder's, unless a test runs the
     // program from a folder that is not the process's.
     internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys = null,
@@ -130,6 +139,10 @@ public static class BuiltProgram
             libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
             DialogsOf(image.NativeDialogs, keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
+        // App is the program's executable, or its assembly when it runs with dotnet; it is another instance when one of the same executable holds its name.
+        var executable = ExecutableOf(program) ?? Path.Combine(AppContext.BaseDirectory, program.GetName().Name!);
+        using var instance = new Mutex(initiallyOwned: false, InstanceName(executable), out var first);
+        SessionApplication.Of(provider.Session).Built(image.Project.Name, executable, prevInstance: !first);
         var define = new DefineSymbolsHandler(provider, new ProjectAnalysisSessions(image.Environment.Profile, fileSystem, NullLogger<ProjectAnalysisSessions>.Instance), errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
         {

@@ -675,6 +675,53 @@ public sealed class BuildCommandTests
         StringAssert.Contains(error, "VB.Timer");
     }
 
+    // a Visual Basic 6.0 program that prints where App says it is: its folder, the name of its executable, its title, and whether it already ran.
+    private static MockFileSystem PrintsApp()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()",
+            "    Debug.Print App.Path", "    Debug.Print App.EXEName", "    Debug.Print App.Title", "    Debug.Print App.PrevInstance", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
+            """);
+        return fileSystem;
+    }
+
+    [TestMethod]
+    public async Task Run_App_IsTheWorkspaceProject()
+    {
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+
+        var (exit, output, error) = await RunAsync(PrintsApp(), shipped, Root);
+
+        Assert.AreEqual(0, exit, error);
+        CollectionAssert.AreEqual(new[] { Root, "Probe", "Probe", "False" }, output, error);
+    }
+
+    // the program runs from the test's folder, which holds no executable of its name: it runs as its assembly does with dotnet, from that folder.
+    [TestMethod]
+    public async Task TheBuiltProgram_App_IsItsExecutable()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+
+        var built = await BuildAndRunAsync(PrintsApp(), shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory), "Hello", "Probe", "False" }, built.Output, built.Error);
+    }
+
+    [TestMethod]
+    public void TheBuiltProgram_InstanceName_IsTheSameForOneExecutable_WithoutSeparators()
+    {
+        var executable = Path.Combine(Path.GetTempPath(), "Hello", "Hello.exe");
+
+        var name = BuiltProgram.InstanceName(executable);
+
+        Assert.AreEqual(name, BuiltProgram.InstanceName(Path.Combine(Path.GetTempPath(), "Hello", ".", "Hello.exe")));
+        Assert.AreNotEqual(name, BuiltProgram.InstanceName(Path.Combine(Path.GetTempPath(), "Other", "Hello.exe")));
+        Assert.AreEqual(-1, name.IndexOfAny(['/', '\\'], @"Local\".Length), name);
+    }
+
     // the workspace is no folder of the disk the program runs on: the form's designer, its companion file with it, is what the build read, and the form the
     // program loads has the controls that file describes, as rdc run's has.
     [TestMethod]
