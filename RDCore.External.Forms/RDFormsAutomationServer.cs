@@ -34,8 +34,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     // a control's font is a StdFont, and of the interfaces it implements, as TypeOf reads them in VB6.
     private static readonly string[] FontClasses = ["StdFont", "Font", "IFontDisp", "IFont"];
 
-    // the forms are Visual Basic 6.0 forms, whose code knows a component by the class of the VB library (VB.TextBox) that its RDForms class (RDForms.TextBox)
-    // ports from: by the RDForms class's name.
+    // the forms are Visual Basic 6.0 forms, whose code knows a component by its class of the VB library (VB.TextBox): the class each RDForms class
+    // (RDForms.TextBox) ports from, by the RDForms class's name.
     private static readonly Dictionary<string, TypePort> VisualBasicClasses = FormsPortMap.VB6.Types
         .Where(type => type.Kind == TypePortKind.Class)
         .GroupBy(type => type.RDFormsName, StringComparer.OrdinalIgnoreCase)
