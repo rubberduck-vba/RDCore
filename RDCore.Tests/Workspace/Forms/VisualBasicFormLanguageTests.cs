@@ -145,6 +145,67 @@ public sealed class VisualBasicFormLanguageTests
         CollectionAssert.IsSubsetOf(new[] { "Show", "Hide", "Caption", "Move", "Controls", "Command1", "Refresh2" }, members);
     }
 
+    // ---- a UserControl's, a PropertyPage's and a UserDocument's base class ----
+
+    // a procedure of the module's code, Paint, with the body given.
+    private static string Based(string designerClass, params string[] body) => Designed(designerClass, ["Private Sub Paint()", .. body, "End Sub"]);
+
+    [TestMethod]
+    [DataRow("VB.UserControl", "UserControl")]
+    [DataRow("VB.PropertyPage", "PropertyPage")]
+    [DataRow("VB.UserDocument", "UserDocument")]
+    public void ADesignedModulesClass_IsBuiltOnItsBaseClass_WhoseMembersAreNotItsOwn(string designerClass, string baseClass)
+    {
+        var module = ComposedForm(Based(designerClass));
+
+        Assert.AreEqual(new FormControlClass("VB", baseClass), module.BaseClass);
+        var members = module.DefaultInterfaceMembers.Select(member => member.Name).ToArray();
+        CollectionAssert.Contains(members, "Command1");
+        CollectionAssert.DoesNotContain(members, "BackColor", "a member of the base class, which Me does not reach");
+    }
+
+    [TestMethod]
+    [DataRow("VB.UserControl", "UserControl")]
+    [DataRow("VB.PropertyPage", "PropertyPage")]
+    [DataRow("VB.UserDocument", "UserDocument")]
+    public void InTheLanguageServersComposition_AnUnqualifiedNameOfTheBaseClass_IsItsMember(string designerClass, string baseClass)
+    {
+        var root = Wire.FileUri(ModuleWorkspace.Root);
+        var formUri = new UriBuilder(root) { Fragment = "Form1" }.Uri;
+        var source = Based(designerClass, "    BackColor = vbRed");
+        var parse = new ModuleParser().Parse(formUri, source) with { Designer = FormDesigner.Read(source) };
+        var libraries = new LibrarySymbolProvider(root, LibrarySymbolProvider.Load(Libraries().Source, [], SupportedLanguages.VB6)).ProvideSymbols().ToList();
+        var resolver = WorkspaceSymbolResolver.Compose(root, [(formUri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(), libraries: libraries);
+        var paint = resolver.ResolveValue("Paint", ScopeKind.Global, formUri).Symbol!;
+
+        var backColor = resolver.ResolveValue("BackColor", ScopeKind.Local, paint.Uri).Symbol;
+
+        Assert.IsNotNull(backColor);
+        StringAssert.EndsWith(backColor.ParentUri.Fragment, baseClass, "a member of the VB library's class");
+    }
+
+    [TestMethod]
+    [DataRow("VB.UserControl")]
+    [DataRow("VB.PropertyPage")]
+    [DataRow("VB.UserDocument")]
+    public async Task ADesignedModulesCode_NamesTheMembersOfItsBaseClass_Unqualified(string designerClass)
+    {
+        var errors = await ErrorsAsync(Based(designerClass, "    BackColor = vbRed", "    Debug.Print Command1.Caption"));
+
+        Assert.IsEmpty(errors, string.Join("\n", errors));
+    }
+
+    [TestMethod]
+    [DataRow("VB.UserControl")]
+    [DataRow("VB.PropertyPage")]
+    [DataRow("VB.UserDocument")]
+    public async Task ADesignedModulesCode_NamesNoMemberOfItsBaseClass_ThroughMe(string designerClass)
+    {
+        var errors = await ErrorsAsync(Based(designerClass, "    Me.BackColor = vbRed"));
+
+        Assert.IsTrue(errors.Any(error => error.Contains("BackColor", StringComparison.Ordinal)), string.Join("\n", errors) + "|");
+    }
+
     // ---- what the host checks ----
 
     [TestMethod]

@@ -78,10 +78,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
 
-        // a document module's code names the members of its host's class as its own (MS-VBAL §4.2.1), after them: an unqualified Range in a worksheet's.
-        if (HostMembersOf(origin, global, name) is { } hostMember)
+        // a document module's code names the members of its host's class as its own (MS-VBAL §4.2.1), after them: an unqualified Range in a worksheet's. A
+        // UserControl's, a PropertyPage's and a UserDocument's name those of their base class: an unqualified BackColor in a UserControl's.
+        if (InheritedMembersOf(origin, global, name) is { } inheritedMember)
         {
-            return hostMember;
+            return inheritedMember;
         }
 
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
@@ -240,9 +241,10 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SymbolResolutionResult.Unbound;
     }
 
-    // the members of the host's class named so, when the lookup is from a document module (VBClassModuleSymbol.HostClass): its library's class is found by
-    // its names, and its members are not the module's - no scope maps them.
-    private SymbolResolutionResult? HostMembersOf(LexicalScope[] origin, LexicalScope? global, string name)
+    // the members named so of the library's class that the module's code names the members of as its own, when the lookup is from a document module (its
+    // host's class, VBClassModuleSymbol.HostClass) or from a UserControl, a PropertyPage or a UserDocument (its base class, VBClassModuleSymbol.BaseClass).
+    // The class is found by its names, and its members are not the module's: no scope maps them, and Me does not reach a base class's.
+    private SymbolResolutionResult? InheritedMembersOf(LexicalScope[] origin, LexicalScope? global, string name)
     {
         if (global is null || origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Module) is not { } moduleScope)
         {
@@ -250,13 +252,14 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         var module = global.DeclaredAs(SymbolUri.ModuleNameOf(moduleScope.Uri)).OfType<VBClassModuleSymbol>()
-            .FirstOrDefault(candidate => candidate.HostClass is not null && candidate.Uri.AbsoluteUri == moduleScope.Uri.AbsoluteUri);
-        if (module is null || VBProjectSymbol.ResolveHostClass(this, module) is not { } host)
+            .FirstOrDefault(candidate => (candidate.HostClass is not null || candidate.BaseClass is not null)
+                && candidate.Uri.AbsoluteUri == moduleScope.Uri.AbsoluteUri);
+        if (module is null || (VBProjectSymbol.ResolveHostClass(this, module) ?? VBProjectSymbol.ResolveBaseClass(this, module)) is not { } inherited)
         {
             return null;
         }
 
-        return SelectTier(moduleScope, host.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol
+        return SelectTier(moduleScope, inherited.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol
             && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)));
     }
 
