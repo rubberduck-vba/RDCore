@@ -105,16 +105,24 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
-    // the Mid statement (CompiledActivation.TryMid), which reads the String's cell: what is appended to it is written into it first. The start, the length
-    // and the value are evaluated before it is changed; one the statement declines is the interpreter's.
+    // the Mid statement (CompiledActivation.TryMid), in the String's appender while it holds what was appended, else in its cell. The start, the length
+    // and the value are evaluated before it is changed; one the statement declines is the interpreter's, given what was appended (EmitSpill).
     private void EmitMid(MidStep mid)
     {
         var failure = RecoverAt(mid.Offset);
-        EmitWriteAppended(mid.Slot);
         var start = EmitPayload(mid.Start, failure);
         var length = mid.Length is { } given ? EmitPayload(given, failure) : default(Operand?);
         var value = EmitTextInto(mid.Value, failure);
         _il.Emit(OpCodes.Ldarg_0);
+        if (_appenders.TryGetValue(mid.Slot, out var appender))
+        {
+            _il.Emit(OpCodes.Ldloc, appender);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldnull);
+        }
+
         _il.Emit(OpCodes.Ldloc, _texts[mid.Slot]);
         Load(start, mid.Start.Kind);
         if (length is { } counted)

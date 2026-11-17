@@ -1,5 +1,5 @@
 using RDCore.Runtime.Execution.Memory;
-using RDCore.Runtime.StdLib;
+using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -9,8 +9,11 @@ public sealed partial class CompiledActivation
     /// <summary>
     /// The <c>Mid</c> statement of a <c>String</c> variable held in <paramref name="cell"/>, in characters (MS-VBAL §5.4.3.5): from
     /// <paramref name="start"/>, the next characters of the variable are replaced by the first characters of <paramref name="value"/>, as many as the least
-    /// of the length, the characters left from <paramref name="start"/> and the characters of <paramref name="value"/>; the variable keeps its length.
+    /// of the length, the characters left from <paramref name="start"/> and the characters of <paramref name="value"/>; the variable keeps its length. The
+    /// characters are replaced in <paramref name="appender"/> while it holds what was appended to the variable that the cell does not hold; otherwise
+    /// in the String the cell holds, after what the appender holds is written into it.
     /// </summary>
+    /// <param name="appender">The activation's appender of the variable; <see langword="null"/> for a variable never appended to.</param>
     /// <param name="cell">The cell of the String variable.</param>
     /// <param name="start">The 1-based position of the first character replaced.</param>
     /// <param name="length">The most characters replaced, when <paramref name="hasLength"/>.</param>
@@ -20,21 +23,30 @@ public sealed partial class CompiledActivation
     /// <see langword="false"/> when the interpreter runs the statement: a start below 1 or past the end, or a negative length, which is error 5; a cell that
     /// holds no text compiled code reads; or a String of the session in a <c>BSTR</c> (<c>StrPtr</c>), which the interpreter writes in place.
     /// </returns>
-    public bool TryMid(object? cell, long start, long length, bool hasLength, string? value)
+    public bool TryMid(TextAppender? appender, object? cell, long start, long length, bool hasLength, string? value)
     {
-        if (FailsAccessAtRandom() || _session.Storage is SessionStorage { HasStringBlocks: true } || !StringOperations.TryRead(cell, out var held))
+        if (FailsAccessAtRandom() || _session.Storage is SessionStorage { HasStringBlocks: true })
+        {
+            return false;
+        }
+
+        if (appender is not null && cell is ValueBindingHandle handle && appender.TryMid(handle, start, length, hasLength, value))
+        {
+            return true;
+        }
+
+        StringOperations.WriteAppended(appender, cell);
+        if (!StringOperations.TryRead(cell, out var held))
         {
             return false;
         }
 
         var text = held ?? string.Empty;
-        if (start > text.Length || length > int.MaxValue
-            || StdStrings.MidRange(text.Length, (int)Math.Max(start, 0), hasLength ? (int)length : null) is not var (index, count))
+        if (StringOperations.MidReplaced(text.Length, start, length, hasLength, value) is not var (index, replaced))
         {
             return false;
         }
 
-        var replaced = Math.Min(count, value?.Length ?? 0);
         if (replaced == 0)
         {
             return true;
