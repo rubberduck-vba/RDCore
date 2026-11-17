@@ -480,17 +480,22 @@ public sealed class BuildCommandTests
     private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem, string folder, params string[] args)
         => BuildAndRunAsync(fileSystem, null, folder, args);
 
-    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
         RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, params string[] args)
+        => BuildAndRunNamedAsync(fileSystem, libraries, folder, "Hello", args);
+
+    // the program built under name: its executable is name in the test's folder.
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunNamedAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, string name, params string[] args)
     {
         var (command, messages) = Command(fileSystem, libraries: libraries);
-        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", .. args], CancellationToken.None),
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", name, .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
 
         var context = new AssemblyLoadContext("built program", isCollectible: true);
         try
         {
-            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, "Hello.dll"))));
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, $"{name}.dll"))));
             var output = new StringWriter();
             var error = new StringWriter();
             // the libraries the program reads from its own folder: the one it was built to, and not the folder the test runs it from.
@@ -828,7 +833,7 @@ public sealed class BuildCommandTests
     [TestMethod]
     public async Task Run_App_IsTheWorkspaceProject()
     {
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
 
         var (exit, output, error) = await RunAsync(PrintsApp(), shipped, Root);
 
@@ -836,17 +841,19 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(new[] { Root, "Probe", "Probe", "False" }, output, error);
     }
 
-    // the program runs from the test's folder, which holds no executable of its name: it runs as its assembly does with dotnet, from that folder.
+    // the program runs from the test's folder, which holds no executable of its name: it runs as its assembly does with dotnet, from that folder. Its name
+    // is this test's own: another program of the same executable running is a previous instance (App.PrevInstance).
     [TestMethod]
     public async Task TheBuiltProgram_App_IsItsExecutable()
     {
         CompiledExecutionTests.RequirePayloads();
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+        var name = $"Probe{Guid.NewGuid():N}";
 
-        var built = await BuildAndRunAsync(PrintsApp(), shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+        var built = await BuildAndRunNamedAsync(PrintsApp(), shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime), name);
 
         Assert.AreEqual(0, built.Exit, built.Error);
-        CollectionAssert.AreEqual(new[] { Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory), "Hello", "Probe", "False" }, built.Output, built.Error);
+        CollectionAssert.AreEqual(new[] { Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory), name, "Probe", "False" }, built.Output, built.Error);
     }
 
     [TestMethod]
