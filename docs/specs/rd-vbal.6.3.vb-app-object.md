@@ -57,10 +57,10 @@ RD-VBA addition. These read-only `String` properties say which platform runs the
 
 |Member|Value|
 |---|---|
-|`PlatformVersion`|RDCore's version, such as `0.1.6-alpha+c90bd73…`.|
-|`ComponentVersion(Name)`|The version of the component `Name` names, in any case: `RDCore`, `RDCore.SDK` or `RDCore.Forms`. `""` for another name, or for a component that is not installed, with no error.|
+|`PlatformVersion`|RDCore's version, such as `0.1.5-alpha`, followed by `+` and the commit it was built from.|
+|`ComponentVersion(Name)`|The version of the component `Name` names, whatever its case: `RDCore`, `RDCore.SDK` or `RDCore.Forms`. `""` for another name, or for a component that is not installed, with no error.|
 
-A version is the one its component's build stamped into its assembly, read from [`PlatformComponents`](../api/RDCore.SDK.Platform.PlatformComponents.html).
+A version is the one its component's build stamped into its assembly, read from [`PlatformComponents`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.PlatformComponents.html).
 
 > [!NOTE]
 > **Not implemented.** `HelpFile`, `LogMode`, `LogPath`, `StartLogging` and `LogEvent` raise error `438`.
