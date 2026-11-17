@@ -85,6 +85,9 @@ internal sealed partial class ProcedureAnalysis
             // a Set of an object variable, or of the function result variable, to what a call returns, or to a New, whose Initialize is a call.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
                 => Bind(assignment.Value) is var value && (value is BoundNew || Calls(value)),
+            // a With of what a call returns, or of a New, whose Initialize is a call.
+            { Kind: InstructionKind.With, Node: WithStatementNode with }
+                => Bind(with.WithExpression) is var target && (target is BoundNew || Calls(target)),
             { Kind: InstructionKind.Simple, Node: CallStatementNode call }
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
@@ -284,6 +287,8 @@ internal sealed partial class ProcedureAnalysis
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         SetStep { SourceCall: { } source } => Admits(source),
         SetStep { SourceNew: not null } => true,
+        WithStep { SourceCall: { } source } => Admits(source),
+        WithStep { SourceNew: not null } => true,
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
@@ -418,7 +423,7 @@ internal sealed partial class ProcedureAnalysis
             given.AddRange(ObjectCallsOf(statement.ReceiverCall).Select(call => call.Arguments));
         }
 
-        if (step is SetStep { SourceCall: { } source })
+        if (((step as SetStep)?.SourceCall ?? (step as WithStep)?.SourceCall) is { } source)
         {
             given.AddRange(ObjectCallsOf(source).Select(call => call.Arguments));
         }
@@ -464,6 +469,7 @@ internal sealed partial class ProcedureAnalysis
         VariantElementLetStep let => [.. OperandsOf(let.Value), .. let.Element.Subscripts],
         CallStep call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
         SetStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
+        WithStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
         BranchStep branch => [branch.Condition],
         LoopBackStep loop => [loop.Condition],
         ForOpenStep open => [open.Start, open.End, open.Step],

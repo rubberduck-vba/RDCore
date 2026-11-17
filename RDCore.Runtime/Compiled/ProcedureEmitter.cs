@@ -642,6 +642,10 @@ internal sealed partial class ProcedureEmitter
                 EmitSupportCall(support);
                 break;
 
+            case WithStep with:
+                EmitWith(with);
+                break;
+
             case EndWithStep endWith:
                 EmitEndWith(endWith);
                 break;
