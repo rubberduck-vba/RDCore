@@ -166,7 +166,7 @@ public sealed class VisualBasicFormMenuArrayTests
                 if (form.Form.Window.PoppedUpMenu is { IsOpen: true } popup)
                 {
                     Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(popup).OfType<Avalonia.Controls.MenuItem>()
-                        .Single(item => RDCore.Forms.Avalonia.Controls.VBControl.GetInstance(item) is { Name: "mnuRecent" } element && element.Index == index)
+                        .Single(item => RDCore.Forms.Avalonia.Controls.RDFormsControl.GetInstance(item) is { Name: "mnuRecent" } element && element.Index == index)
                         .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.MenuItem.ClickEvent));
                     popup.Close();
                 }

@@ -2,7 +2,7 @@ using Avalonia.Threading;
 using RDCore.External.Automation;
 using RDCore.Forms.Menus;
 using RDCore.Forms.Model;
-using RDCore.Forms.Model.VB;
+using RDCore.Forms.Porting;
 using System.Globalization;
 
 namespace RDCore.External.Forms.RDForms;
@@ -33,6 +33,13 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
     // a control's font is a StdFont, and of the interfaces it implements, as TypeOf reads them in VB6.
     private static readonly string[] FontClasses = ["StdFont", "Font", "IFontDisp", "IFont"];
+
+    // the forms are Visual Basic 6.0 forms, whose code knows a component by its class of the VB library (VB.TextBox): the class each RDForms class
+    // (RDForms.TextBox) ports from, by the RDForms class's name.
+    private static readonly Dictionary<string, TypePort> VisualBasicClasses = FormsPortMap.VB6.Types
+        .Where(type => type.Kind == TypePortKind.Class)
+        .GroupBy(type => type.RDFormsName, StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
     private static bool? IsFontClass(string library, string className)
         => string.Equals(library, "stdole", StringComparison.OrdinalIgnoreCase)
@@ -341,7 +348,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
     // the item a menu of the form's own is; null for any other value.
     private static FormMenuItem? MenuOf(RDFormsObject form, object? value)
-        => value is RDFormsObject { IsForm: false } menu && ReferenceEquals(menu.Form, form.Form) && menu.Component.Class == VBClasses.Menu
+        => value is RDFormsObject { IsForm: false } menu && ReferenceEquals(menu.Form, form.Form) && menu.Component.Class == ComponentClasses.Menu
             ? FormMenuItem.Of(menu.Component)
             : null;
 
@@ -446,7 +453,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         // the Controls collection and a control array are not of a library's class: a late-bound Object.
         => target is RDFormsFont ? StdFontClass
             : target is RDFormsControls or RDFormsArray ? null
-            : HandleOf(target).Component.Class.TypeName;
+            : VisualBasicClasses.TryGetValue(HandleOf(target).Component.Class.TypeName, out var ported)
+                ? $"{ported.LegacyLibrary}.{ported.LegacyName}"
+                : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
@@ -454,7 +463,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             : target is RDFormsControls or RDFormsArray
             ? null
             : string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
-                ? string.Equals(HandleOf(target).Component.Class.ClassName, className, StringComparison.OrdinalIgnoreCase)
+                ? VisualBasicClasses.TryGetValue(HandleOf(target).Component.Class.TypeName, out var ported)
+                    && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
                 : null;
 
     /// <inheritdoc/>

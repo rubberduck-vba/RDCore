@@ -1,7 +1,6 @@
 using RDCore.External.Automation;
 using RDCore.Forms.Import.VB6;
 using RDCore.Forms.Model;
-using RDCore.Forms.Model.VB;
 using RDCore.SDK.Workspace.Forms;
 using Model = RDCore.Forms.Model;
 
@@ -67,7 +66,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     {
         if (form.DesignerText is not { } text)
         {
-            return new ComponentInstance(VBClasses.Form, form.Name).Set(VBProperties.Caption, form.Caption ?? form.Name);
+            return new ComponentInstance(ComponentClasses.Form, form.Name).Set(Properties.Caption, form.Caption ?? form.Name);
         }
 
         var import = VB6FormReader.Read(text, form.State.IsEmpty ? null : form.State.ToArray());
@@ -77,7 +76,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
             throw new AutomationException(Failed, $"{form.Name}: its designer cannot be read. {string.Join(" ", errors)}");
         }
 
-        if (!ReferenceEquals(model.Root.Class, VBClasses.Form))
+        if (!ReferenceEquals(model.Root.Class, ComponentClasses.Form))
         {
             throw new AutomationException(ClassNotRegistered, $"{form.Name}: RDForms cannot host a {model.Root.Class.TypeName} yet.");
         }
@@ -133,7 +132,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         return RDFormsUI.Run(() =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
-            return hosted.Model.Root.Get(VBProperties.Caption);
+            return hosted.Model.Root.Get(Properties.Caption);
         });
     }
 
@@ -144,7 +143,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         RDFormsUI.Run(() =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
-            hosted.Model.Root.Set(VBProperties.Caption, caption);
+            hosted.Model.Root.Set(Properties.Caption, caption);
         });
     }
 
