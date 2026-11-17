@@ -74,21 +74,28 @@ internal sealed partial class ProcedureAnalysis
         return null;
     }
 
-    // what a typed form returns, whether it is returned or given back in an out parameter; and that of a payload's kind.
-    private static Type? ResultTypeOf(MethodInfo method)
+    // what a typed form returns, whether it is returned or given back in an out parameter: its type, and the return value or the parameter it is; and that of
+    // a payload's kind.
+    private static (Type? Type, ParameterInfo Result) ResultOf(MethodInfo method)
         => method.ReturnType == typeof(bool) && method.GetParameters() is [.., { IsOut: true } result]
-            ? result.ParameterType.GetElementType()
-            : method.ReturnType;
+            ? (result.ParameterType.GetElementType(), result)
+            : (method.ReturnType, method.ReturnParameter);
 
-    private static ScalarKind? ResultKindOf(MethodInfo method) => KindOf(ResultTypeOf(method));
+    private static Type? ResultTypeOf(MethodInfo method) => ResultOf(method).Type;
 
-    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double, a bool a
-    // Boolean.
-    private static ScalarKind? KindOf(Type? type)
+    private static ScalarKind? ResultKindOf(MethodInfo method)
+    {
+        var (type, result) = ResultOf(method);
+        return KindOf(type, result);
+    }
+
+    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double (a Date
+    // where the parameter or the return value is marked StdLibDateAttribute), a bool a Boolean.
+    private static ScalarKind? KindOf(Type? type, ParameterInfo parameter)
         => type == typeof(short) ? ScalarKind.Integer
             : type == typeof(int) ? ScalarKind.Long
             : type == typeof(long) ? ScalarKind.LongLong
-            : type == typeof(double) ? ScalarKind.Double
+            : type == typeof(double) ? parameter.IsDefined(typeof(StdLibDateAttribute)) ? ScalarKind.Date : ScalarKind.Double
             : type == typeof(bool) ? ScalarKind.Boolean
             : null;
 
@@ -165,8 +172,8 @@ internal sealed partial class ProcedureAnalysis
 
             // an extended intermediate is given as the call holds it: stored as the expression's type from its 80 bits, which raises what it raises there
             // (StoreNode), then given as any value of that type.
-            if (KindOf(type) is not { } taken || ScalarKinds.Of(declared) is not { } given || given != taken && !(form.Coerced[i] && Widens(given, taken))
-                || IsVariant(value) || (IsExtended(value) ? PayloadAs(value, given) : Payload(value)) is not { } payload)
+            if (KindOf(type, parameters[i]) is not { } taken || ScalarKinds.Of(declared) is not { } given
+                || given != taken && !(form.Coerced[i] && Widens(given, taken)) || IsVariant(value) || (IsExtended(value) ? PayloadAs(value, given) : Payload(value)) is not { } payload)
             {
                 return null;
             }
