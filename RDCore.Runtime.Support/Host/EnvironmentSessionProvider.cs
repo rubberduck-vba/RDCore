@@ -357,9 +357,16 @@ public sealed class EnvironmentSessionProvider(
     // once that folder is deleted, every later read of the current directory fails. When the directory the session found is gone, the process stays where it is.
     private void LeaveSession()
     {
+        // a program that waits at a stop holds a thread of its own, and the session it runs in, until it is ended: nothing resumes it once its session is left.
+        Execution?.EndWaiting();
+
         // the files a program left open are the session's, and close with it: a session replaced or let go of holds none of them open, whichever way its
         // program ended (an internal error, which closes nothing, included).
         _ = _session?.Files.CloseAll();
+
+        // and the evaluation of its code is the session's too: a session replaced or let go of has no use for what is still to be found out, which can
+        // take seconds and gigabytes (an array of millions of elements).
+        Image.Semantics.StopEvaluations();
 
         if (_session is null || _directoryBefore is not { } before)
         {

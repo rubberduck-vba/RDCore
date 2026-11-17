@@ -840,6 +840,25 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     }
 
     /// <summary>
+    /// Ends the program that waits, as the session it waits in is replaced or let go of: its thread runs out of the entry point, and the session keeps what
+    /// the program made of it.
+    /// </summary>
+    /// <remarks>
+    /// Does nothing for a program that is over, or that is running: one that is running ends when it ends. What runs alongside a program that waits is let
+    /// finish, as <see cref="TerminateAsync"/> lets it, and the program is not ended.
+    /// </remarks>
+    public void EndWaiting()
+    {
+        lock (_sync)
+        {
+            if (_state is ProgramState.Suspended && !_alongside)
+            {
+                EndSuspended(provider.Session, wipe: false);
+            }
+        }
+    }
+
+    /// <summary>
     /// Ends the program that is running or waits.
     /// </summary>
     /// <param name="wipe">Whether the session is wiped, as an <c>End</c> wipes it, or keeps what the program made of it.</param>
