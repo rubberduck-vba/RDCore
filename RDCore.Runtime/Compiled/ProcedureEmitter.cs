@@ -670,6 +670,10 @@ internal sealed partial class ProcedureEmitter
                 EmitTextLet(textLet);
                 break;
 
+            case MidStep mid:
+                EmitMid(mid);
+                break;
+
             case TextResultLetStep textResultLet:
                 EmitTextResultLet(textResultLet);
                 break;
