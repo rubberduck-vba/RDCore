@@ -352,6 +352,29 @@ public sealed class CompiledIntrinsicTests
             "    Trimmed = R & S & L",
             "End Function"), [("Trimmed", 0)]);
 
+    // MS-VBAL §6.1.2.11.1.42 and §6.1.2.11.1.18: UCase$ and LCase$ of a String, cased by the session's regional settings (in Turkish, "i" is a dotted
+    // capital and "I" a dotless small letter), one character for one ("ß" stays); UCase and LCase, which return a Variant, assigned to a String; and the
+    // cased text given to Len, Left$ and AscW.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    [DataRow(1055, DisplayName = "tr-TR")]
+    public async Task UCaseAndLCaseOfAString_AreTheirTypedForms(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Cased(\"Rd-Vba \" & ChrW(223) & \" \" & ChrW(304) & ChrW(305) & \" iI \" & ChrW(233), 3)",
+            "End Sub",
+            "Private Function Cased(ByVal P As String, ByVal N As Long) As String",
+            "    Dim I As Long, L As Long, R As String, S As String, W As String",
+            "    For I = 1 To N",
+            "        R = R & \"[\" & UCase$(P) & \"][\" & LCase$(P) & \"]\" & Left$(UCase$(P), I)",
+            "        L = L + Len(UCase$(P)) + Len(LCase$(vbNullString)) + AscW(UCase$(\"i\")) + AscW(LCase$(\"I\"))",
+            "        S = UCase(P)",
+            "        W = LCase(P)",
+            "    Next",
+            "    Cased = R & S & W & L",
+            "End Function"), [("Cased", 0)], lcid);
+
     // MS-VBAL §6.1.2.11.1.14: InStr of two Strings, from a start given as a Long or as an Integer the call let-coerces, in a module that compares Binary: a
     // zero-length pattern is found at the start, past the end too (InStr(9, "abc", "") is 9), and nothing is found in a zero-length String. A start below 1
     // raises 5: the interpreter's.
