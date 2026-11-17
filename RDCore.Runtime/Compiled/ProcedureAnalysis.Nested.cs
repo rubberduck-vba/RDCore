@@ -333,8 +333,8 @@ internal sealed partial class ProcedureAnalysis
             case ChrTextNode { Code: var code }:
                 return Admits(code, ref calledAfter);
 
-            // TypeName of an object variable or of Me: the object is read as the call is made, and the interpreter reads it again when it makes the call
-            // after a call right of it. Of Nothing, nothing is read.
+            // TypeName of an object variable or of Me: the object is read as the call is made. One with a call right of it is the interpreter's, which reads
+            // the object before that call. Of Nothing, nothing is read.
             case TypeNameTextNode { Slot: var slot }:
                 return slot is null || !calledAfter;
 

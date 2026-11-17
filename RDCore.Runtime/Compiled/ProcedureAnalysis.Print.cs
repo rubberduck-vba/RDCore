@@ -118,8 +118,8 @@ internal sealed partial class ProcedureAnalysis
             && Array.IndexOf(VariantTextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
 
     // a call of a function of VariantTextLibraryFunctions. Inside an instruction that calls inside an expression, only TypeName: the call is made when the
-    // text is evaluated, and the interpreter makes it again when it is handed the instruction after a call, of the arguments it is given known, and TypeName
-    // names the same type of the same value.
+    // text is evaluated, and when the interpreter is handed the instruction after a call, it makes it again of the arguments it is given: TypeName names the
+    // same type of the same value.
     private TextNode? LibraryVariantTextOf(BoundCall call)
     {
         var function = (VBTypeMemberSymbol)call.Procedure;
