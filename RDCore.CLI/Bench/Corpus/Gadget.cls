@@ -4,6 +4,7 @@ BEGIN
 END
 Attribute VB_Name = "Gadget"
 Attribute VB_PredeclaredId = True
+' <Gadget>
 Option Explicit
 ' A factory method off a stateless default instance, the pattern object-oriented VBA is built on: the object it makes is given its state through a Friend
 ' setter that only the factory uses, and a member guards against being called on the default instance by calling a private member of the class.
@@ -41,3 +42,4 @@ End Function
 Private Sub GuardInstance()
     If Me Is Gadget Then Err.Raise 5
 End Sub
+' </Gadget>
