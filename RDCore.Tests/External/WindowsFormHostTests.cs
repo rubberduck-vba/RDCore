@@ -159,7 +159,8 @@ public sealed class WindowsFormHostTests
         });
         await activated.WaitAsync(Patience);
 
-        // what is asked of the apartment while the form waits is done: a Hide, as a handler of the form's would ask it. The Show returns after it, never before.
+        // what is asked of the apartment while the form waits is done: a Hide, as a handler of the form's would ask it. The Show returns after it, never
+        // before.
         Volatile.Write(ref hidden, 1);
         host.Forms.Hide(form);
         Assert.IsTrue(await showing.WaitAsync(Patience), "a modal Show waits until its form is hidden");
