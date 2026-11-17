@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The <c>Mid</c> statement of a <c>String</c> variable, in characters, run by compiled code (MS-VBAL §5.4.3.5): a program runs the same as the
-/// interpreter runs it, and the statements compiled code leaves to the interpreter are the ones said.
+/// interpreter runs it, and the statements compiled code leaves to the interpreter are the ones each row names.
 /// </summary>
 [TestClass]
 public sealed class CompiledMidStatementTests
