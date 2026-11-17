@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -83,7 +84,10 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     /// </summary>
     internal static int HelpContextOf(int number)
         => 1000000 + (number is < 0 or > 65535 ? (int)VBRuntimeErrorId.AutomationError
-            : number < (int)VBRuntimeErrorId.NobodyToAnswer && Enum.IsDefined(typeof(VBRuntimeErrorId), number) ? number : 95);
+            : number < (int)VBRuntimeErrorId.NobodyToAnswer && MessageCodes.Contains(number) ? number : 95);
+
+    // the codes of VBA's run-time error messages, looked up at every error raised: read from VBRuntimeErrorId once, and not by reflection at each error.
+    private static readonly FrozenSet<int> MessageCodes = Enum.GetValues<VBRuntimeErrorId>().Select(id => (int)id).ToFrozenSet();
 
     /// <inheritdoc/>
     public bool Clear(bool keepLineNumber = false)
