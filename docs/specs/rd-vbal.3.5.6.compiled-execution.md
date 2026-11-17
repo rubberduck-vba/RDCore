@@ -116,9 +116,11 @@ fixed-length `String`, a field and an element of an array are the interpreter's 
 Compiled code writes a `Debug.Print` whose items are all `String`s, as above, separated by `;` or by nothing (MS-VBAL §5.4.5.8.1): each item as it is,
 and the line ended when no separator follows the last one. It evaluates every item before it writes any, so a statement handed to the interpreter writes
 nothing twice. A break asked for while it writes is answered before the next statement, as the interpreter answers it. An item that is a number (written
-with a space on each side) or a `Variant`, a `,`, `Spc` and `Tab` are the interpreter's: it runs the statement on its own. An item can contain a call
-of a whole-number type, or one that returns a `String` (`Debug.Print "(" & G.Size & ")"`, `Debug.Print G.Name`, see Calls inside an expression,
-below).
+with a space on each side) or a `Variant`, a `,`, `Spc` and `Tab` are the interpreter's: it runs the statement on its own. The first item can contain
+a call of a whole-number type, or one that returns a `String` (`Debug.Print "(" & G.Size & ")"`, `Debug.Print G.Name`, see Calls inside an
+expression, below). A call in an item after the first makes the statement the interpreter's (`Debug.Print "x"; G.Size & ""`): the interpreter writes
+each item before it evaluates the next (MS-VBAL §5.4.5.8), so what the call writes, or an error it raises, comes after the items left of it are
+written.
 
 ### Fields of `Me`
 

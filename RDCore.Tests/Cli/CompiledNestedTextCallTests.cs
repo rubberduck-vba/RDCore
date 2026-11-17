@@ -184,7 +184,8 @@ public sealed class CompiledNestedTextCallTests
     [TestMethod]
     [DataRow("Debug.Print G.Named", 3, 0, "| n1 ; n2 ; n3 ; end ; 3 |", DisplayName = "an item that is the call")]
     [DataRow("Debug.Print \"(\" & G.Named & \")\"", 3, 0, "| (n1) ; (n2) ; (n3) ; end ; 3 |", DisplayName = "an item that calls")]
-    [DataRow("Debug.Print G.Named; Label(i)", 6, 3, "| n1L1 ; n2L2 ; n3L3 ; end ; 3 |", DisplayName = "two items that call")]
+    [DataRow("Debug.Print G.Named & Label(i)", 6, 3, "| n1L1 ; n2L2 ; n3L3 ; end ; 3 |", DisplayName = "an item with two calls")]
+    [DataRow("Debug.Print G.Named; \"-\"", 3, 0, "| n1- ; n2- ; n3- ; end ; 3 |", DisplayName = "a call in the first item")]
     public async Task ACallThatReturnsAStringInsideAnItemOfDebugPrint_IsCompiled(string statement, long calls, long indirect, string printed)
         => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(Looping("String",
             "    For i = 1 To n",

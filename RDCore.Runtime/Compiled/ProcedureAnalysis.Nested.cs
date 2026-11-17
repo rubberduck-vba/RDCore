@@ -353,13 +353,15 @@ internal sealed partial class ProcedureAnalysis
 
     private static bool Admits(TextNode node) => Admits(new[] { node });
 
-    // texts evaluated one after the other, the last first.
+    // the items of a Debug.Print, which compiled code evaluates all before it writes the first. The interpreter writes each item before it evaluates the next
+    // (MS-VBAL §5.4.5.8): an item after the first that calls is the interpreter's, since what the call writes, or an error it raises, comes after the items
+    // left of it are written.
     private static bool Admits(IReadOnlyList<TextNode> texts)
     {
-        var calledAfter = false;
-        for (var i = texts.Count - 1; i >= 0; i--)
+        for (var i = 0; i < texts.Count; i++)
         {
-            if (!Admits(texts[i], ref calledAfter))
+            var calls = false;
+            if (!Admits(texts[i], ref calls) || calls && i > 0)
             {
                 return false;
             }
