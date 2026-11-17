@@ -7,8 +7,8 @@ namespace RDCore.Tests.Cli;
 /// A division by zero, under <c>On Error Resume Next</c>: the error each shape raises, and what its target holds after it (RD-VBAL §5.6.9.3, §5.4.3.8). A
 /// floating-point division of typed operands assigns a <c>Single</c> or <c>Double</c> target the infinity or NaN it made before raising, whatever the
 /// operands' types; MS-VBAL §5.6.9.3.5 says so of two operands declared <c>Double</c> only. Every expected line was recorded in Excel (64-bit VBA7), except
-/// those of a <c>ByRef</c> argument or parameter, which apply the same rules to the variable the parameter is. Each target is given 5 first, so that a
-/// target left as it was is told from one assigned zero. Each case runs interpreted and compiled.
+/// those of a <c>ByRef</c> argument or parameter, which apply the same rules to the variable the parameter is bound to. Each target is given 5 first, so
+/// that a target left as it was is told from one assigned zero. Each case runs interpreted and compiled.
 /// </summary>
 [TestClass]
 public sealed class DivisionByZeroTests
