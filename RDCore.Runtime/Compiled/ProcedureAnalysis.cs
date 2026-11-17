@@ -1536,7 +1536,8 @@ internal sealed partial class ProcedureAnalysis
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
 
-            // a pure member of a class of the standard library called on an object, which returns a value of a scalar type (ProcedureAnalysis.LibraryMembers.cs).
+            // a pure member of a class of the standard library called on an object, which returns a value of a scalar type
+            // (ProcedureAnalysis.LibraryMembers.cs).
             case BoundMember or BoundIndex when LibraryMemberCallOf(node) is { Member: var libraryMember } && ScalarKinds.Of(ReturnedType(libraryMember)) is { } returned:
                 return LibraryMemberOf(node) is { } libraryCall ? new UnvariantNode(libraryCall, returned) : null;
 
