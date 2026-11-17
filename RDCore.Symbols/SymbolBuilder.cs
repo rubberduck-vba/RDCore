@@ -227,8 +227,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// <remarks>
     /// Each is declared as the member it is of its own class, with the form for its parent, and dispatched outside the workspace's code
     /// (<see cref="FormObject.TargetOf"/>). A name the form's code or one of its controls declares is not declared again: that one is the member of that name.
-    /// A UserControl's, a PropertyPage's and a UserDocument's class has none: the members of its base class are names of its code, and not members of its
-    /// class (<see cref="FormDescriptor.BaseClass"/>), so <c>Me.BackColor</c> is a member the UserControl declares or none.
+    /// A UserControl's, a PropertyPage's and a UserDocument's class is given none of these members: the members of its base class are names of its code,
+    /// and not members of its class (<see cref="FormDescriptor.BaseClass"/>), so <c>Me.BackColor</c> is a member the UserControl declares or none.
     /// </remarks>
     /// <param name="designer">What the form's designer declares.</param>
     /// <param name="taken">The names the form's code and its controls declare.</param>

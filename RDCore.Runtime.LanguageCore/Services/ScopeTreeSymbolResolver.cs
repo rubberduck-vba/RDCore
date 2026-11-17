@@ -241,8 +241,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SymbolResolutionResult.Unbound;
     }
 
-    // the members named so of the library's class that the module's code names the members of as its own, when the lookup is from a document module (its
-    // host's class, VBClassModuleSymbol.HostClass) or from a UserControl, a PropertyPage or a UserDocument (its base class, VBClassModuleSymbol.BaseClass).
+    // the members named so of the library's class whose members the module's code names as its own: its host's class, when the lookup is from a document
+    // module (VBClassModuleSymbol.HostClass), or its base class, from a UserControl, a PropertyPage or a UserDocument (VBClassModuleSymbol.BaseClass).
     // The class is found by its names, and its members are not the module's: no scope maps them, and Me does not reach a base class's.
     private SymbolResolutionResult? InheritedMembersOf(LexicalScope[] origin, LexicalScope? global, string name)
     {
