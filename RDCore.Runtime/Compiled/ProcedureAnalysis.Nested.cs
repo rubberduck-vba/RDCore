@@ -85,6 +85,9 @@ internal sealed partial class ProcedureAnalysis
             // a Set of an object variable, or of the function result variable, to what a call returns, or to a New, whose Initialize is a call.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
                 => Bind(assignment.Value) is var value && (value is BoundNew || Calls(value)),
+            // a Set of a property of an object to what a call returns, which is given to its Property Set (AccessorCallOf).
+            { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: MemberAccessExpressionNode } assignment }
+                => Bind(assignment.Target) is BoundMember { Member: VBPropertyGetMemberSymbol or VBPropertySetMemberSymbol } && Calls(Bind(assignment.Value)),
             { Kind: InstructionKind.Simple, Node: CallStatementNode call }
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
