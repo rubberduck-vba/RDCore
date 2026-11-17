@@ -233,34 +233,86 @@ public static partial class ValueConversions
 
     // MS-VBAL 5.5.1.2.4, as MS-VBA reads it (NumberGrammar).
     private static ValueConversionResult StringToNumeric(string? text, VBNumericType destination, RegionalSettings? regional = null)
+        => ReadNumber(text, regional ?? RegionalSettings.Default, out var bits, out var writtenValue, out var scaledValue) switch
+        {
+            NumberRead.None => ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch),
+            NumberRead.Radix => FromRadix(bits, destination),
+            NumberRead.Written => FromFixed(writtenValue, destination),
+            _ => !double.IsNaN(scaledValue) && Ranged(scaledValue, destination)
+                ? ValueConversionResult.Success(destination.CreateValue(scaledValue))
+                : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
+        };
+
+    /// <summary>
+    /// Whether a <c>String</c> Let-coerces to a <c>Double</c> (<strong>MS-VBAL §5.5.1.2.4</strong>), which is what <c>IsNumeric</c> says of it: as
+    /// <see cref="ToNumeric"/> reads it to a <c>Double</c>, without making the <c>Double</c>.
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="regional">The regional settings the number is written by.</param>
+    /// <returns>Whether the text reads as a number a <c>Double</c> holds.</returns>
+    public static bool IsNumber(string? text, RegionalSettings regional)
+        => ReadNumber(text, regional, out _, out _, out var scaledValue, wantsValue: false) switch
+        {
+            NumberRead.None => false,
+
+            // a Double holds every whole number of 64 bits (FromRadix) and every Decimal (FromFixed), rounded.
+            NumberRead.Radix or NumberRead.Written => true,
+            _ => !double.IsNaN(scaledValue) && Ranged(scaledValue, VBDoubleType.TypeInfo),
+        };
+
+    // what a String reads as (NumberGrammar): the bits of a radix literal; the decimal number it is written as, when it has no exponent and a Decimal holds
+    // it ("9223372036854775807" is the largest LongLong, which no Double is); or the Double it reads as, scaled by its exponent.
+    private enum NumberRead
     {
-        if (!NumberGrammar.TryRead(text ?? string.Empty, regional ?? RegionalSettings.Default, out var reading))
+        None,
+        Radix,
+        Written,
+        Scaled,
+    }
+
+    // the length of the text whose digits are read on the stack.
+    private const int StackDigits = 128;
+
+    private const NumberStyles DigitStyles = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
+
+    // for a caller that does not want the value (IsNumber), a number of at most 28 characters with no exponent is written without being read: a Decimal
+    // holds it and a Double reads it, whatever its digits are.
+    private static NumberRead ReadNumber(string? text, RegionalSettings regional, out ulong bits, out decimal writtenValue, out double scaledValue,
+        bool wantsValue = true)
+    {
+        (bits, writtenValue, scaledValue) = (0, 0, 0);
+        var span = text.AsSpan();
+        var length = NumberGrammar.DigitsLengthOf(span);
+        Span<char> buffer = length <= StackDigits ? stackalloc char[StackDigits] : new char[length];
+        if (!NumberGrammar.TryRead(span, regional, buffer, out var reading))
         {
-            return ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch);
+            return NumberRead.None;
         }
 
-        if (reading.Radix is { } bits)
+        if (reading.Radix is { } radix)
         {
-            return FromRadix(bits, destination);
+            bits = radix;
+            return NumberRead.Radix;
         }
 
-        if (!double.TryParse(reading.Digits, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var interpretedValue))
+        var digits = buffer[reading.Digits];
+        if (!wantsValue && reading.Exponent is null && digits.Length <= 28)
         {
-            return ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch);
+            return NumberRead.Written;
         }
 
-        // a number written without an exponent is the decimal number it is written as, when a Decimal holds it: "9223372036854775807" is the largest
-        // LongLong, which no Double is.
-        if (reading.Exponent is null
-            && decimal.TryParse(reading.Digits, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var writtenValue))
+        if (!double.TryParse(digits, DigitStyles, CultureInfo.InvariantCulture, out var interpretedValue))
         {
-            return FromFixed(writtenValue, destination);
+            return NumberRead.None;
         }
 
-        var scaledValue = reading.Exponent is { } exponent ? interpretedValue * Math.Pow(10, exponent) : interpretedValue;
-        return !double.IsNaN(scaledValue) && Ranged(scaledValue, destination)
-            ? ValueConversionResult.Success(destination.CreateValue(scaledValue))
-            : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow);
+        if (reading.Exponent is null && decimal.TryParse(digits, DigitStyles, CultureInfo.InvariantCulture, out writtenValue))
+        {
+            return NumberRead.Written;
+        }
+
+        scaledValue = reading.Exponent is { } exponent ? interpretedValue * Math.Pow(10, exponent) : interpretedValue;
+        return NumberRead.Scaled;
     }
 
     // the digits of an &H or &O literal, as MS-VBA converts them (recorded in Excel): to an Integer, up to 16 bits are the Integer they are (&HFFFF is -1)

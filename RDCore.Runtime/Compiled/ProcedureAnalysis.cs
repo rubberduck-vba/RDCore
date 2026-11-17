@@ -1426,6 +1426,12 @@ internal sealed partial class ProcedureAnalysis
     // TryEvaluatePayloadAs: an extended intermediate converted to the destination from its 80 bits, anything else coerced from its payload.
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
+        // a function of the standard library returning a Variant, called in a typed form that returns a payload of the Variant's subtype.
+        if (IntrinsicOf(node) is { } intrinsic)
+        {
+            return Converted(intrinsic, destination);
+        }
+
         // a Variant's payload, of its subtype, converted to the destination as any payload is.
         if (IsVariant(node))
         {
@@ -1434,7 +1440,7 @@ internal sealed partial class ProcedureAnalysis
 
         if (IsExtended(node))
         {
-            return Extended(node) is { } extended ? new StoreNode(extended, destination) : null;
+            return Extended(node) is { } extended ? new StoreNode(extended, destination, ArithmeticSiteOf(node)) : null;
         }
 
         return Payload(node) is { } payload ? Converted(payload, destination) : null;
@@ -1492,7 +1498,7 @@ internal sealed partial class ProcedureAnalysis
                 return CompareText(compared);
 
             case BoundBinary or BoundUnary or BoundCall when IsExtended(node):
-                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
+                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value, ArithmeticSiteOf(node)) : null;
 
             case BoundBinary binary when IsExtended(binary.Left) || IsExtended(binary.Right):
                 return PlanOf(binary) is { } extendedPlan ? OperateWithExtended(binary, extendedPlan) : null;
@@ -1571,6 +1577,14 @@ internal sealed partial class ProcedureAnalysis
                     ? new VariantIsEmptyNode(variant, LibraryCallOf(isEmpty, library, isEmpty.BoundArguments, isEmpty.ResultType) as LibraryCallNode)
                     : null;
 
+            // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types
+            // (ProcedureAnalysis.Intrinsics.cs).
+            case BoundCall call when ConversionOf(call) is { } letCoerced:
+                return letCoerced;
+
+            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+                return intrinsic;
+
             // a function of the standard library, called with its arguments or by its name, qualified or not (ProcedureAnalysis.Libraries.cs).
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsCompiledLibrary(library):
                 return LibraryCallOf(call, library, call.BoundArguments, call.ResultType);
@@ -1635,7 +1649,11 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
                 return new VariantFieldNode(field.Path);
 
-            // a function of the standard library that returns a Variant (ProcedureAnalysis.Libraries.cs).
+            // a function of the standard library that returns a Variant: in a typed form, the payload it returns, held in a Variant of its own subtype
+            // (ProcedureAnalysis.Intrinsics.cs); else as the interpreter calls it (ProcedureAnalysis.Libraries.cs).
+            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+                return new VariantOfNode(intrinsic);
+
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):
                 return LibraryVariantOf(call, library, call.BoundArguments);
 
@@ -1729,7 +1747,7 @@ internal sealed partial class ProcedureAnalysis
         if (effective is not ScalarKind.Boolean && ScalarKinds.IsIntegral(effective)
             && plan.Operator is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.IntegerDivisionOp or Tokens.ModuloOp)
         {
-            return new IntegralNode(plan.Operator, l, r, effective);
+            return new IntegralNode(plan.Operator, l, r, effective, ArithmeticSiteOf(binary));
         }
 
         if (OperatorTokens.ComparisonOf(plan.Operator) is { } comparison)
