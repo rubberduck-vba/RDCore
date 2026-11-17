@@ -139,6 +139,21 @@ public sealed class SemanticModelStore
     }
 
     /// <summary>
+    /// Stops the evaluation of every module's code: what the session they were evaluated for asks of them is over. The models stay as they are, and a model
+    /// whose evaluation is stopped says that its code was not evaluated.
+    /// </summary>
+    public void StopEvaluations()
+    {
+        lock (_storing)
+        {
+            foreach (var key in _evaluations.Keys.ToList())
+            {
+                Stop(key);
+            }
+        }
+    }
+
+    /// <summary>
     /// Forgets a module's model, and stops the evaluation of its code.
     /// </summary>
     /// <param name="module">The <see cref="RDCore.SDK.Model.Symbols.Abstract.Symbol.Uri"/> of the module.</param>

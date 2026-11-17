@@ -4,6 +4,7 @@ using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.External.Application;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST.Declarations;
@@ -66,6 +67,10 @@ public static class BuiltProgram
     // program's session reads them there, and nowhere else.
     internal const string LibrariesFolder = PlatformEnvironment.SymbolsDirectory;
 
+    // the assembly that hosts Visual Basic 6.0 forms in RDForms, and what only it references: the program's folder holds them when its project has such a form.
+    // Named, and not read from its type, which would load it.
+    internal const string FormsAssembly = "RDCore.External.Forms";
+
     public static int Run(Assembly program, string[] args)
     {
         ArgumentNullException.ThrowIfNull(program);
@@ -75,7 +80,7 @@ public static class BuiltProgram
         // started by the program as its external host: it makes the calls the program makes to the outside world, and runs no program of its own.
         if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
         {
-            using var host = new MachineExternalHost(logFileName: null);
+            using var host = new MachineExternalHost(logFileName: null, hostsRDForms: File.Exists(Path.Combine(AppContext.BaseDirectory, $"{FormsAssembly}.dll")));
             return host.RunAsync(args).GetAwaiter().GetResult();
         }
 
@@ -100,6 +105,14 @@ public static class BuiltProgram
     {
         var executable = Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{program.GetName().Name}.exe" : program.GetName().Name!);
         return File.Exists(executable) ? executable : null;
+    }
+
+    // the name every instance of an executable opens, which exists while one of them runs: of its full path, without regard to case where the file system
+    // has none. A mutex's name holds no separator after its namespace, so the path is hashed.
+    internal static string InstanceName(string executable)
+    {
+        var path = OperatingSystem.IsWindows() ? Path.GetFullPath(executable).ToUpperInvariant() : Path.GetFullPath(executable);
+        return $@"Local\RDCore.App.{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(path)))}";
     }
 
     // keys: the console's, unless a test types them; the dialogs are then drawn on output. libraries: the program's own folder's, unless a test runs the
@@ -130,6 +143,10 @@ public static class BuiltProgram
             libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
             DialogsOf(image.NativeDialogs, keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
+        // App is the program's executable, or its assembly when it runs with dotnet; it is another instance when one of the same executable holds its name.
+        var executable = ExecutableOf(program) ?? Path.Combine(AppContext.BaseDirectory, program.GetName().Name!);
+        using var instance = new Mutex(initiallyOwned: false, InstanceName(executable), out var first);
+        SessionApplication.Of(provider.Session).Built(image.Project.Name, executable, prevInstance: !first);
         var define = new DefineSymbolsHandler(provider, new ProjectAnalysisSessions(image.Environment.Profile, fileSystem, NullLogger<ProjectAnalysisSessions>.Instance), errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
         {

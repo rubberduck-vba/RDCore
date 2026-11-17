@@ -102,7 +102,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09336](vbc09336.md)|Private Enum and user defined types cannot be used in public members|A public member is declared with a private Enum, or in a class with a private type|
 |[VBC09337](vbc09337.md)|Not allowed as a Public member of an object module|A class exposes a constant, fixed-length string, array, user-defined type or Declare|
 |[VBC09338](vbc09338.md)|Cannot define a Public user-defined type within an object module|A class module declares a public Type|
-|[VBC09339](vbc09339.md)|Argument not optional|An object whose default member takes an argument is where a value is expected|
+|[VBC09339](vbc09339.md)|Argument not optional|A procedure that takes an argument is called without it|
 |[VBC09340](vbc09340.md)|Expected Function or variable|A subroutine is used where a value is expected|
 |[VBC09341](vbc09341.md)|Can't assign to read-only property|A property that can only be read is assigned with `Let`|
 |[VBC09342](vbc09342.md)|Wrong number of arguments or invalid property assignment|A procedure is called with arguments it does not declare|
@@ -200,6 +200,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBR00322](vbr00322.md)|Can't create necessary temporary file|A temporary file the operation needs cannot be created|
 |[VBR00325](vbr00325.md)|Invalid format in resource file|A resource file's format is not valid|
 |[VBR00361](vbr00361.md)|Can't load or unload this object|`Load` or `Unload` is given an object that is no form|
+|[VBR00364](vbr00364.md)|Object was unloaded|A form's `Form_Load` unloads it, under the use that loaded it|
 |[VBR00380](vbr00380.md)|Invalid property value|A property is given a value it does not accept|
 |[VBR00381](vbr00381.md)|Invalid property array index|A property array index is not valid|
 |[VBR00382](vbr00382.md)|Set not supported at runtime|A property cannot be set at run time|
@@ -208,6 +209,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBR00387](vbr00387.md)|Set not permitted|Setting this property is not permitted|
 |[VBR00393](vbr00393.md)|Get not supported at runtime|A property cannot be read at run time|
 |[VBR00394](vbr00394.md)|Get not supported (write-only property)|A property is write-only|
+|[VBR00401](vbr00401.md)|Can't show non-modal form when modal form is displayed|A form is shown modeless while a modal form is displayed|
+|[VBR00402](vbr00402.md)|Must close or hide topmost modal form first|A form is hidden while a modal form is displayed over it|
+|[VBR00405](vbr00405.md)|Unable to show modal form within this context|The modal form is shown modal again|
 |[VBR00422](vbr00422.md)|Property not found|A property is not found|
 |[VBR00423](vbr00423.md)|Property or method not found|A property or method is not found|
 |[VBR00424](vbr00424.md)|Object required|An object is required where a value is given|

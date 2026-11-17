@@ -444,9 +444,18 @@ internal sealed class RenameWorkspace
     /// </summary>
     /// <returns><see langword="null"/> for an item of no document the server holds.</returns>
     public (DocumentUri Uri, LspRange Range, LspRange SelectionRange)? Locate(HierarchyItem item)
-        => PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
-            ? (document.Document.Id.Uri, document.ToTextRange(item.Range), document.ToTextRange(item.SelectionRange))
-            : null;
+    {
+        if (PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is not { } document)
+        {
+            return null;
+        }
+
+        // a module declares itself nowhere in its text: it is the whole of it, named by its VB_Name, as the document's outline has it.
+        var (range, selection) = item.Symbol is VBModuleSymbol && document.Parse.SyntaxTree is { } tree
+            ? DocumentOutline.ModuleRangesOf(tree)
+            : (item.Range, item.SelectionRange);
+        return (document.Document.Id.Uri, document.ToTextRange(range), document.ToTextRange(selection));
+    }
 
     /// <summary>A range of the module of an item, in the text of its document.</summary>
     public LspRange InTextOf(HierarchyItem item, SourceRange range)

@@ -80,6 +80,8 @@
     <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
     <!-- the host composes the session with the outside world of the platform it runs on. -->
     <ProjectReference Include="..\RDCore.External.Windows\RDCore.External.Windows.csproj" />
+    <!-- and with RDForms, which hosts the forms of a Visual Basic 6.0 project. -->
+    <ProjectReference Include="..\RDCore.External.Forms\RDCore.External.Forms.csproj" />
     <!-- rdc bench (and, later, rdc build) parse a workspace and build its symbols in-process, as the language server does. -->
     <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
     <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
@@ -100,6 +102,10 @@
 
   <!-- rdc build -r <rid> makes a program for a runtime other than its own, out of that runtime's host: the published rdc ships the host of every runtime the
        platform is published for (PlatformRuntimeIdentifiers), from its NuGet pack, beside its own and in the same layout. -->
+  <PropertyGroup>
+    <!-- the folder NuGet restores packages to, as a NuGet.config globalPackagesFolder names it, which ends in a separator or not. -->
+    <_ProgramAppHostPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))</_ProgramAppHostPackageRoot>
+  </PropertyGroup>
   <ItemGroup>
     <ProgramAppHostRuntime Include="$(PlatformRuntimeIdentifiers)" />
     <PackageDownload Include="@(ProgramAppHostRuntime->'Microsoft.NETCore.App.Host.%(Identity)')" Version="[$(BundledNETCoreAppPackageVersion)]" />
@@ -111,7 +117,7 @@
       <_OtherAppHostRuntime>%(ProgramAppHostRuntime.Identity)</_OtherAppHostRuntime>
       <_OtherAppHostFile Condition="$(_OtherAppHostRuntime.StartsWith('win'))">apphost.exe</_OtherAppHostFile>
       <_OtherAppHostFile Condition="!$(_OtherAppHostRuntime.StartsWith('win'))">apphost</_OtherAppHostFile>
-      <_OtherAppHostSource>$(NuGetPackageRoot)microsoft.netcore.app.host.$(_OtherAppHostRuntime.ToLowerInvariant())/$(BundledNETCoreAppPackageVersion.ToLowerInvariant())/runtimes/$(_OtherAppHostRuntime)/native/$(_OtherAppHostFile)</_OtherAppHostSource>
+      <_OtherAppHostSource>$(_ProgramAppHostPackageRoot)microsoft.netcore.app.host.$(_OtherAppHostRuntime.ToLowerInvariant())/$(BundledNETCoreAppPackageVersion.ToLowerInvariant())/runtimes/$(_OtherAppHostRuntime)/native/$(_OtherAppHostFile)</_OtherAppHostSource>
     </PropertyGroup>
     <Error Condition="'$(_OtherAppHostRuntime)' != '$(_ProgramAppHostRuntime)' and !Exists('$(_OtherAppHostSource)')" Text="rdc is published without the .NET application host of $(_OtherAppHostRuntime): $(_OtherAppHostSource) was not restored." />
     <Copy Condition="'$(_OtherAppHostRuntime)' != '$(_ProgramAppHostRuntime)'" SourceFiles="$(_OtherAppHostSource)" DestinationFolder="$(PublishDir)apphost/packs/Microsoft.NETCore.App.Host.$(_OtherAppHostRuntime)/$(BundledNETCoreAppPackageVersion)/runtimes/$(_OtherAppHostRuntime)/native" />

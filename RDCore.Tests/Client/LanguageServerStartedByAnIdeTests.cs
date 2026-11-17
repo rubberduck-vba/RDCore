@@ -47,7 +47,7 @@ public sealed class LanguageServerStartedByAnIdeTests
             // LanguageClient.From sends initialize, and returns once it is answered.
             using var client = await LanguageClient.From(options => options
                 .WithInput(pipe)
-                .WithOutput(pipe)
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithRootUri(new Uri(workspace)), timeout.Token);
 
             Assert.IsNotNull(client.ServerSettings.Capabilities, "initialize is answered");

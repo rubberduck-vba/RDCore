@@ -162,6 +162,9 @@ runs no executable that is not signed. The signature has no certificate: it is n
 The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
 reads them from there, wherever the folder is.
 
+When the project has a Visual Basic 6.0 form, the folder also holds RDForms, which shows the program's forms, and the native libraries RDForms draws
+with for the program's runtime. A program with no such form is built without them, and building it again into a folder that held them removes them.
+
 The folder also holds the license terms of what the program runs on:
 
 |File|Terms of|

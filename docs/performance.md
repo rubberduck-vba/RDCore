@@ -114,8 +114,9 @@ Each case calls one function 100,000 times, with the arguments shown.
 
 ## Excel automation
 
-These cases call Excel's object model late-bound from VBA. They need Excel, so they are measured in the reference run only: their badges give the
-reference run's date instead of a live figure. Their source is on the [Excel automation](benchmarks/excel-automation.md) page.
+These cases call Excel's object model late-bound from VBA. MS-VBA runs the same code from a second Excel instance, so both sides cross a process
+boundary. They need Excel, so they are measured in the reference run only: their badges give the reference run's date instead of a live figure. Their
+source is on the [Excel automation](benchmarks/excel-automation.md) page.
 
 | Case | What it measures | RD-VBA ÷ MS-VBA |
 |---|---|---|
@@ -129,8 +130,9 @@ reference run's date instead of a live figure. Their source is on the [Excel aut
 | Block of 100,000 × 10, write | `Range(...).Value = V` | ![Excel.Block100000x10.Write](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Write.json) |
 | Block of 100,000 × 10, total | Read, pass and write | ![Excel.Block100000x10.Total](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Total.json) |
 
-Every call to Excel's object model crosses from the RD-VBA program to Excel and back. A call costs RD-VBA much more than it costs MS-VBA, so the number of
-calls decides how long the code takes.
+Every call to Excel's object model crosses from the program's process to Excel's and back, in MS-VBA and in RD-VBA. A crossing costs far more than the
+work most calls do, so the number of calls decides how long the code takes: the cell-by-cell case calls Excel four times a cell, 40,000 times in all,
+while a block is read in four calls and written in four.
 
 ## How the figures are measured
 
