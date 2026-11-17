@@ -57,6 +57,55 @@ public sealed class CompiledMidStatementTests
             "    Wrong = S & E",
             "End Function"), [("Wrong", 3)]);
 
+    // a String appended to: the statement changes what is appended to it, which is read where it is (U = T), and then a String assigned anew; the first
+    // statement after the first append, and the ones after T is assigned, change the String the variable holds.
+    [TestMethod]
+    public async Task AMidStatementOfAStringAppendedTo_ChangesWhatIsAppended()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Built(5)",
+            "End Sub",
+            "Private Function Built(ByVal N As Long) As String",
+            "    Dim I As Long, T As String, U As String",
+            "    For I = 1 To N",
+            "        T = T & \"ab\"",
+            "        T = T & \"cd\"",
+            "        Mid$(T, 1, 1) = CStr(I)",
+            "        Mid(T, Len(T) - 1) = \"XY\"",
+            "        If I = 3 Then U = T",
+            "        If I = 4 Then T = \"re\"",
+            "    Next",
+            "    Mid(T, 2) = \"Z\"",
+            "    Built = T & \"|\" & U",
+            "End Function"), [("Built", 0)]);
+
+    // a String appended to and changed by the statement is what a callee given it by reference reads, and changes; and what the interpreter reads, given
+    // the statement that raises 5.
+    [TestMethod]
+    public async Task AMidStatementOfAStringAppendedTo_IsWhatACalleeAndTheInterpreterRead()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Passed()",
+            "End Sub",
+            "Private Function Passed() As String",
+            "    Dim I As Long, T As String, E As Long",
+            "    On Error Resume Next",
+            "    For I = 1 To 3",
+            "        T = T & \"abc\"",
+            "        T = T & \"def\"",
+            "        Mid$(T, I, 1) = \"z\"",
+            "        Shown T",
+            "    Next",
+            "    T = T & \"ghi\"",
+            "    Mid(T, 99) = \"x\"",
+            "    E = Err.Number",
+            "    Passed = T & E",
+            "End Function",
+            "Private Sub Shown(ByRef S As String)",
+            "    Debug.Print S",
+            "    Mid(S, Len(S), 1) = \"!\"",
+            "End Sub"), [("Passed", 1), ("Shown", 0)]);
+
     // a parameter by reference is the caller's variable, which the statement changes.
     [TestMethod]
     public async Task AMidStatementOfAParameterByReference_ChangesTheCallersString()
