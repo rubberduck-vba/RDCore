@@ -101,7 +101,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Text(enclosed);
 
-            // & of a Variant, whose value type is known when it is evaluated (MS-VBAL §5.6.9.4), is a String where neither operand is Null: each operand
+            // & of a Variant, whose value type is known when it is evaluated (MS-VBAL §5.6.9.4), is a String unless both operands are Null. Each operand
             // Text gives is a String (a Variant call that returns Null is the interpreter's), so the two are joined as Strings are.
             case BoundBinary { Plan: { } plan } joined
                 when plan is { IsDeferred: false, EffectiveType: VBStringType, Operator: Tokens.ConcatOp or Tokens.AdditionOp } or { IsDeferred: true, Operator: Tokens.ConcatOp }:
