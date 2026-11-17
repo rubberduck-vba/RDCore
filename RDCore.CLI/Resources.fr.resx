@@ -862,4 +862,67 @@
   <data name="Install_ProfileHasBlock" xml:space="preserve">
     <value>{0} n&apos;est pas encore dans le PATH de ce terminal : {1} l&apos;y ajoute dans un nouveau terminal.</value>
   </data>
+  <data name="BenchMsVba_Summary" xml:space="preserve">
+    <value>Exécute le corpus de bancs d&apos;essai et les cas d&apos;automatisation d&apos;Excel dans MS-VBA et dans RD-VBA, en tours alternés sur cette machine, et écrit les chiffres de référence (msvba.json). Requiert Windows et Excel.</value>
+  </data>
+  <data name="BenchMsVba_OutHelp" xml:space="preserve">
+    <value>Le fichier où les chiffres de référence sont écrits.</value>
+  </data>
+  <data name="BenchMsVba_RoundsHelp" xml:space="preserve">
+    <value>Le nombre de tours : chacun exécute le corpus une fois de chaque côté, MS-VBA d&apos;abord aux tours impairs et RD-VBA d&apos;abord aux tours pairs.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRoundsHelp" xml:space="preserve">
+    <value>Le nombre des premiers tours qui exécutent aussi les cas d&apos;automatisation d&apos;Excel, des deux côtés; 0 n&apos;en exécute aucun.</value>
+  </data>
+  <data name="BenchMsVba_RunsHelp" xml:space="preserve">
+    <value>Le nombre d&apos;exécutions de chaque cas du corpus par tour; l&apos;exécution la plus rapide de tous les tours est retenue.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRunsHelp" xml:space="preserve">
+    <value>Le nombre d&apos;exécutions de chaque cas d&apos;automatisation d&apos;Excel par tour.</value>
+  </data>
+  <data name="BenchMsVba_BadCounts" xml:space="preserve">
+    <value>--rounds, --runs et --excel-runs doivent valoir au moins 1, et --excel-rounds entre 0 et --rounds.</value>
+  </data>
+  <data name="BenchMsVba_NeedsWindows" xml:space="preserve">
+    <value>rdc bench-msvba exécute MS-VBA dans Excel, et l&apos;automatisation d&apos;Excel requiert Windows : rien n&apos;a été exécuté.</value>
+  </data>
+  <data name="BenchMsVba_NoExcel" xml:space="preserve">
+    <value>Excel n&apos;est pas installé : il n&apos;y a aucun Excel.Application à démarrer.</value>
+  </data>
+  <data name="BenchMsVba_ProjectNotTrusted" xml:space="preserve">
+    <value>Excel ne laisse pas les programmes importer des modules dans un classeur. Activez « Accès approuvé au modèle d&apos;objet du projet VBA » (Options Excel, Centre de gestion de la confidentialité, Paramètres du Centre de gestion de la confidentialité, Paramètres des macros), puis relancez la commande.</value>
+  </data>
+  <data name="BenchMsVba_Dialog" xml:space="preserve">
+    <value>Excel a affiché une boîte de dialogue, et le tour a donc été arrêté : {0}</value>
+  </data>
+  <data name="BenchMsVba_NoAnswer" xml:space="preserve">
+    <value>Excel n&apos;a pas répondu en moins de {0} minutes, et le tour a donc été arrêté.</value>
+  </data>
+  <data name="BenchMsVba_OneProcess" xml:space="preserve">
+    <value>Les cas d&apos;automatisation d&apos;Excel ne se sont pas exécutés entre deux processus (harnais {0}, cible {1}) : aucun chiffre n&apos;a été retenu.</value>
+  </data>
+  <data name="BenchMsVba_NoCaseList" xml:space="preserve">
+    <value>rdc bench --list n&apos;a listé aucun cas : {0}</value>
+  </data>
+  <data name="BenchMsVba_Round" xml:space="preserve">
+    <value>Tour {0} sur {1}</value>
+  </data>
+  <data name="BenchMsVba_RoundWithExcel" xml:space="preserve">
+    <value>Tour {0} sur {1}, avec les cas d&apos;automatisation d&apos;Excel</value>
+  </data>
+  <data name="BenchMsVba_ProcessFailed" xml:space="preserve">
+    <value>rdc {0} s&apos;est terminé avec le code de sortie {1}.</value>
+  </data>
+  <data name="BenchMsVba_ProcessTimedOut" xml:space="preserve">
+    <value>rdc {0} ne s&apos;est pas terminé en moins de {1} minutes, et a été arrêté.</value>
+  </data>
+  <data name="BenchMsVba_Missing" xml:space="preserve">
+    <value>Aucun chiffre pour {0} du côté {1} : rien n&apos;a été écrit.</value>
+  </data>
+  <data name="BenchMsVba_ExcelLeftRunning" xml:space="preserve">
+    <value>Un Excel démarré pendant le tour de RD-VBA s&apos;exécute toujours (processus {0}); il n&apos;a pas été touché.</value>
+  </data>
+  <data name="BenchMsVba_Written" xml:space="preserve">
+    <value>{0} cas du corpus et {1} chiffres d&apos;automatisation d&apos;Excel écrits dans {2}.</value>
+  </data>
 </root>
