@@ -126,6 +126,15 @@ public interface IEnvironmentSessionProvider
     IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot);
 
     /// <summary>
+    /// Composes the session as <see cref="Compose(RDCoreProject, Uri)"/> does, in a language the project is written in from then on: its libraries, the
+    /// implicit references of the language among them, are that language's. Every session composed after it is of that language.
+    /// </summary>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
+    /// <param name="language">The language the project is written in.</param>
+    IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, SupportedLanguage language);
+
+    /// <summary>
     /// The module symbols a project lists, each a standard module or a class as <see cref="Compose"/> composes it, without composing anything: what a project
     /// gained while a program is in progress is.
     /// </summary>
@@ -144,6 +153,9 @@ public sealed class EnvironmentSessionProvider(
 {
     private IRuntimeSession? _session;
     private ExternalWorld? _world;
+
+    // the environment the sessions are composed in: the host's, in the language the project was last composed in.
+    private IRuntimeEnvironmentProfile _environment = environment;
 
     // the directory the process was in when the session was composed, given back when the session is replaced or the provider disposed.
     private string? _directoryBefore;
@@ -247,6 +259,18 @@ public sealed class EnvironmentSessionProvider(
     /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot) => Compose(project, workspaceRoot, known: null);
 
+    /// <inheritdoc/>
+    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, SupportedLanguage language)
+    {
+        ArgumentNullException.ThrowIfNull(language);
+        if (language.Id != _environment.Language.Id)
+        {
+            _environment = RDCore.SDK.Runtime.RuntimeEnvironmentProfile.Of(_environment) with { SourceLanguage = language };
+        }
+
+        return Compose(project, workspaceRoot, known: null);
+    }
+
     /// <summary>
     /// Composes the session as <see cref="Compose(RDCoreProject, Uri)"/> does, the name and the kind of each module in <paramref name="known"/> given rather
     /// than read from its source: a built program's, whose sources are not where it runs.
@@ -260,7 +284,7 @@ public sealed class EnvironmentSessionProvider(
         LeaveSession();
 
         _world = ComposeWorld(project, workspaceRoot);
-        var (session, referenced, constants) = ComposeSession(environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known);
+        var (session, referenced, constants) = ComposeSession(_environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known);
         _session = session;
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
@@ -277,7 +301,7 @@ public sealed class EnvironmentSessionProvider(
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
         // makes no such call, and nothing is started for it.
-        if (environment.AllowAutomation && !referenced.Libraries.IsEmpty)
+        if (_environment.AllowAutomation && !referenced.Libraries.IsEmpty)
         {
             Outside.Automation.Prepare();
         }
@@ -286,7 +310,7 @@ public sealed class EnvironmentSessionProvider(
         {
             logger.LogInformation(
                 "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
-                project.Modules.Length, _session.References.Count, constants, environment.ExecutionEngine, environment.Configuration);
+                project.Modules.Length, _session.References.Count, constants, _environment.ExecutionEngine, _environment.Configuration);
         }
 
         return _session;
@@ -461,7 +485,7 @@ public sealed class EnvironmentSessionProvider(
             Interaction = new RelayedUserInteraction(this, host.Interaction, logger),
             DialogTitle = project.Name is { Length: > 0 } name ? name : host.DialogTitle,
             WorkspaceSettings = settings,
-            ProgramSettings = MachinePlatform.ProgramSettings(environment, settings),
+            ProgramSettings = MachinePlatform.ProgramSettings(_environment, settings),
         };
     }
 
