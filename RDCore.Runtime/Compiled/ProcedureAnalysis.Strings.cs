@@ -70,9 +70,9 @@ internal sealed partial class ProcedureAnalysis
     private int? TextSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
-    // TryEvaluateText, case for case: a String literal, a String variable of the activation, parentheses, and two of them joined by & (or by +, of two
-    // Strings); and a whole number and the library's Chr$ of one, which TryEvaluateText leaves to the let-coercion and the call. Strings joined that are all
-    // literals are the text they make, joined once.
+    // TryEvaluateText, case for case: a String literal, a String variable of the activation or a String field of one of its records, parentheses, and two
+    // of them joined by & (or by +, of two Strings); and a whole number and the library's Chr$ of one, which TryEvaluateText leaves to the let-coercion
+    // and the call. Strings joined that are all literals are the text they make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -88,6 +88,9 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundVariable variable when TextSlotOf(variable) is { } slot:
                 return new TextSlotNode(slot);
+
+            case BoundMember member when RecordFieldOf(member) is var (path, type) && IsText(type):
+                return new FieldTextNode(path);
 
             case BoundMember member when ErrTextOf(member) is { } errText:
                 return errText;
@@ -115,6 +118,10 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundCall library when IsTextLibrary(library.Procedure):
                 return LibraryTextOf(library);
+
+            // CStr of a whole number, written as the let-coercion writes it (ProcedureAnalysis.Intrinsics.cs).
+            case BoundCall converting when WholeTextOf(converting) is { } written:
+                return written;
 
             case BoundCall converting when IsVariantTextLibrary(converting.Procedure):
                 return LibraryVariantTextOf(converting);
@@ -180,7 +187,7 @@ internal sealed partial class ProcedureAnalysis
 
     // the argument of a String parameter, as the interpreter gives it (MS-VBAL §5.3.1.11): a String variable of the activation given by reference is given
     // its address, which the parameter is a second name for; Strings given by value are given their text, of which the callee makes a cell of its own. Anything
-    // else - a Variant, a number, a field, an element - is let-coerced or passed by the interpreter, which makes the call.
+    // else (a Variant, a number, a field given by reference, an element) is let-coerced or passed by the interpreter, which makes the call.
     private PayloadNode? TextArgumentOf(BoundArgument argument) => argument switch
     {
         { Passing: ArgumentPassing.Reference, Value: BoundVariable variable } when TextSlotOf(variable) is { } slot => new TextReferenceNode(slot),

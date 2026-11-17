@@ -264,11 +264,10 @@ public sealed class CompiledExecutionTests
     }
 
     [TestMethod]
-    public async Task AConversionThatRounds_IsTheInterpretersToMake_AndTheLoopGoesOn()
+    public async Task ADoubleVariableStoredInALong_RoundsToEven_InCompiledCode()
     {
-        // a Double variable to a Long rounds to even, which no payload operation does: the interpreter is handed the activation at that Let, and runs the
-        // rest of it.
-        await AssertAlikeWalkingBackAsync(Program(
+        // a Double variable to a Long rounds to even (MS-VBAL §5.5.1.2.1.1), which compiled code does as the interpreter does: 1.5 is 2, 2.5 is 2, 3.5 is 4.
+        await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Rounded()",
             "End Sub",

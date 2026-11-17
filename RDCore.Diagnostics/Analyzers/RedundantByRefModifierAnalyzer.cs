@@ -5,7 +5,6 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
-using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -49,30 +48,14 @@ internal sealed class RedundantByRefModifierAnalyzer(IOptions<DiagnosticsOptions
         }
     }
 
-    // the ByRef and the space after it: the parameter is passed by reference without it. After Optional, only where the declaration is written with single
-    // spaces, which tells where the ByRef begins.
+    // the ByRef and what is written between it and the name: the parameter is passed by reference without it.
     private static DiagnosticFixes? FixOf(ParameterDeclarationNode parameter)
-    {
-        var start = parameter.Location.Range.Start;
-        if (parameter.NameRange is not { Start: var name } || name.Line != start.Line
-            || parameter.IsOptional && name.Character - start.Character != "Optional ByRef ".Length)
-        {
-            return null;
-        }
-
-        var keyword = parameter.IsOptional ? new SourcePosition(start.Line, start.Character + "Optional ".Length) : start;
-        return new DiagnosticFixes
-        {
-            Edits =
-            [
-                new EditFix
-                {
-                    Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.RedundantByRefModifier_Fix, parameter.Name),
-                    Edits = [new TextEdit { Range = new SourceRange(keyword, name).ToLsp(), NewText = string.Empty }],
-                },
-            ],
-        };
-    }
+        => parameter is { PassingRange.Start: var keyword, NameRange.Start: var name }
+            ? new DiagnosticFixes
+            {
+                Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.RedundantByRefModifier_Fix, parameter.Name), SyntaxEdits.Remove(new SourceRange(keyword, name)))],
+            }
+            : null;
 
     // an implementation of an interface member, or a handler of an event: its declaration matches another's.
     private static bool Matches(MemberDeclarationNode member, ModuleSemanticsDto semantics)

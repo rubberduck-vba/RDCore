@@ -9,7 +9,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// A <c>Function</c> or a <c>Property Get</c> called in the <c>TruePart</c> or the <c>FalsePart</c> of <c>IIf</c> (<c>RDC11039</c>), which runs whatever the
-/// condition: a function of the project or of a library, but no function of the VBA library that changes nothing and raises no error.
+/// condition: a function of the project or of a library, or a member bound late, but no function of the VBA library that changes nothing and raises no error.
 /// </summary>
 [TestClass]
 public sealed class IIfSideEffectAnalyzerTests
@@ -27,6 +27,7 @@ public sealed class IIfSideEffectAnalyzerTests
             "Public Sub Main()",
             "    Dim x As Variant",
             "    Dim c As New Counter",
+            "    Dim o As Object",
             .. main.Select(line => "    " + line),
             "End Sub",
             "Public Function Compute(ByVal n As Long) As Long",
@@ -67,6 +68,12 @@ public sealed class IIfSideEffectAnalyzerTests
         => CollectionAssert.AreEqual(
             new[] { "MsgBox" },
             await FoundAsync("x = VBA.IIf(False, Len(\"a\"), UCase$(\"b\"))", "x = IIf(False, IsNumeric(x), MsgBox(\"c\"))"));
+
+    [TestMethod]
+    public async Task AMemberBoundLateInAPart_IsFound_AndNotInTheCondition()
+        => CollectionAssert.AreEqual(
+            new[] { "Compute", "Key", "Count" },
+            await FoundAsync("x = IIf(o.IsReady, o.Compute(1), 0)", "x = IIf(o Is Nothing, 0, o!Key)", "x = IIf(True, x.Count, 0)"));
 
     [TestMethod]
     public async Task APartWithNoCall_IsNotFound()

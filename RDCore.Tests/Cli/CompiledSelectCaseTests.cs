@@ -232,19 +232,19 @@ public sealed class CompiledSelectCaseTests
             "    Next",
             "End Function"), "Tolerant", recoveries: 3);
 
-    // a selector compiled code does not evaluate - a Double rounded to a Long, which only the boxed coercion does - the interpreter evaluates; it is compared
-    // where it is, the interpreter's from there on when it evaluated it boxed.
+    // a selector compiled code does not evaluate (a Currency product that is not a whole number of ten-thousandths, which only the boxed evaluation
+    // rounds) the interpreter evaluates; it is compared where it is, the interpreter's from there on when it evaluated it boxed.
     [TestMethod]
     public async Task ASelectorTheInterpreterEvaluates_IsComparedWhereItIs()
     {
         var compiled = await AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Rounded(2.6); Rounded(1)",
+            "    Debug.Print Rounded(1.0001); Rounded(1)",
             "End Sub",
-            "Private Function Rounded(ByVal D As Double) As Long",
+            "Private Function Rounded(ByVal C As Currency) As Long",
             "    On Error Resume Next",
-            "    Select Case D \\ 1",
-            "        Case 3",
+            "    Select Case C * C",
+            "        Case 1.0002@",
             "            Rounded = 3",
             "        Case Else",
             "            Rounded = 1",

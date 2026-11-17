@@ -340,7 +340,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or FieldTextLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             or PrintStep
             || (step is SelectStep or TextSelectStep && compared.Contains(step.Offset));
@@ -739,6 +739,26 @@ internal sealed partial class ProcedureAnalysis
                     return slotAssigned;
                 }
 
+                // an array variable, which the Variant is given a copy of (MS-VBAL §5.5.1.2.12): the runtime's Let, which copies it, and lets go of what the
+                // Variant held (ArrayStatementStep).
+                if (assigned is BoundVariable { Variable: ITypedSymbol { ResolvedType: VBArrayType } })
+                {
+                    return new ArrayStatementStep(offset, [], Releases: true);
+                }
+
+                // a String, which the Variant is given a copy of (MS-VBAL §5.5.1.2.12): the text compiled code evaluates of it (Text), as a String variable
+                // is assigned it.
+                if (IsText(_evaluator.DeclaredTypeOf(_session, assignment.Value, new RuntimeEvaluationContext(_procedure.Uri))))
+                {
+                    return Text(assigned) is { } variantText ? new VariantTextLetStep(offset, variantSlot, variantText) : null;
+                }
+
+                // Null (MS-VBAL §5.5.1.2.12, §5.5.1.2.10), which the Variant holds as it is.
+                if (assigned is BoundLiteral { Literal.StaticValue: VBNullValue })
+                {
+                    return new VariantNullLetStep(offset, variantSlot);
+                }
+
                 if (Dynamic(assigned) is not { } variantValue)
                 {
                     return null;
@@ -948,8 +968,30 @@ internal sealed partial class ProcedureAnalysis
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
         ObjectParameter?[]? objects = null;
+        bool[]? omitted = null;
         for (var i = 0; i < parameters.Length; i++)
         {
+            if (arguments[i] is { Passing: ArgumentPassing.Omitted })
+            {
+                (omitted ??= new bool[parameters.Length])[i] = true;
+            }
+
+            // an optional Variant the call leaves out is given what the interpreter gives it, the default it declares or Missing (MS-VBAL §5.3.1.11), of the
+            // parameter of the member the call invokes, as the call is made (CompiledActivation.SetOmitted). One whose default raises an error is the
+            // interpreter's to give.
+            if (parameters[i] is not ParamArrayParameterSymbol && parameters[i].ResolvedType is VBVariantType && arguments[i] is { Passing: ArgumentPassing.Omitted })
+            {
+                if (_evaluator.OmittedArgument(_session, parameters[i]) is not { IsSuccess: true })
+                {
+                    return null;
+                }
+
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(new OmittedArgumentNode());
+                continue;
+            }
+
             // an object, given the object a variable holds, Me or Nothing, or the address of an object variable of the activation. A call given an object is
             // never made through a direct entry: the invoker or the member's binding gives the object to the parameter, as the interpreter gives it
             // (CompiledActivation.SetObject), and counts it for as long as the callee runs.
@@ -1006,6 +1048,7 @@ internal sealed partial class ProcedureAnalysis
             HoldsWhatItReturns = assigns || resultKind is null && ReturnedType(procedure) is VBVariantType,
             ReturnsObject = returnsObject,
             ObjectParameters = objects ?? [],
+            Omitted = omitted ?? [],
         });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
@@ -1363,10 +1406,13 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), an element of an
-    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant.
+    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant, called with its arguments or named
+    // with none (Now, VBA.DateTime.Time).
     private bool IsVariant(BoundNode node)
         => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType }
-            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called);
+            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called)
+            || node is BoundName { Symbol: var named } && IsVariantLibrary(named)
+            || node is BoundQualifiedName { Member: var qualified } && IsVariantLibrary(qualified);
 
     private static bool IsExtended(BoundNode node) => RuntimeExpressionEvaluator.ExtendedTypeOf(node) is not null;
 
@@ -1375,6 +1421,12 @@ internal sealed partial class ProcedureAnalysis
     // TryEvaluatePayloadAs: an extended intermediate converted to the destination from its 80 bits, anything else coerced from its payload.
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
+        // a function of the standard library returning a Variant, called in a typed form that returns a payload of the Variant's subtype.
+        if (IntrinsicOf(node) is { } intrinsic)
+        {
+            return Converted(intrinsic, destination);
+        }
+
         // a Variant's payload, of its subtype, converted to the destination as any payload is.
         if (IsVariant(node))
         {
@@ -1383,7 +1435,7 @@ internal sealed partial class ProcedureAnalysis
 
         if (IsExtended(node))
         {
-            return Extended(node) is { } extended ? new StoreNode(extended, destination) : null;
+            return Extended(node) is { } extended ? new StoreNode(extended, destination, ArithmeticSiteOf(node)) : null;
         }
 
         return Payload(node) is { } payload ? Converted(payload, destination) : null;
@@ -1441,7 +1493,7 @@ internal sealed partial class ProcedureAnalysis
                 return CompareText(compared);
 
             case BoundBinary or BoundUnary or BoundCall when IsExtended(node):
-                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
+                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value, ArithmeticSiteOf(node)) : null;
 
             case BoundBinary binary when IsExtended(binary.Left) || IsExtended(binary.Right):
                 return PlanOf(binary) is { } extendedPlan ? OperateWithExtended(binary, extendedPlan) : null;
@@ -1510,6 +1562,24 @@ internal sealed partial class ProcedureAnalysis
                     && ScalarKinds.Of(conversion) is { } convertedTo:
                 return PayloadAs(argument, convertedTo);
 
+            // IsEmpty of a Variant compiled code reads in its cell, a Variant of the activation or an element of an array of Variants, as the cell says
+            // (VariantIsEmptyNode), and of one the cell says nothing of, the call of the standard library's function; never in an instruction that calls
+            // inside an expression, whose operands are known as they were read.
+            case BoundCall { Procedure: VBTypeMemberSymbol library, BoundArguments: [{ Value: { } tested, Elements.IsDefaultOrEmpty: true }] } isEmpty
+                when _nesting is null && IsCompiledLibrary(library) && library.GetProperty(SymbolProperties.ExternalTarget) == IsEmptyFunction
+                    && IsVariantInItsCell(tested):
+                return VariantInItsCell(tested) is { } variant
+                    ? new VariantIsEmptyNode(variant, LibraryCallOf(isEmpty, library, isEmpty.BoundArguments, isEmpty.ResultType) as LibraryCallNode)
+                    : null;
+
+            // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types
+            // (ProcedureAnalysis.Intrinsics.cs).
+            case BoundCall call when ConversionOf(call) is { } letCoerced:
+                return letCoerced;
+
+            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+                return intrinsic;
+
             // a function of the standard library, called with its arguments or by its name, qualified or not (ProcedureAnalysis.Libraries.cs).
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsCompiledLibrary(library):
                 return LibraryCallOf(call, library, call.BoundArguments, call.ResultType);
@@ -1574,9 +1644,19 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
                 return new VariantFieldNode(field.Path);
 
-            // a function of the standard library that returns a Variant (ProcedureAnalysis.Libraries.cs).
+            // a function of the standard library that returns a Variant: in a typed form, the payload it returns, held in a Variant of its own subtype
+            // (ProcedureAnalysis.Intrinsics.cs); else as the interpreter calls it (ProcedureAnalysis.Libraries.cs).
+            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+                return new VariantOfNode(intrinsic);
+
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):
-                return LibraryVariantOf(call, library);
+                return LibraryVariantOf(call, library, call.BoundArguments);
+
+            case BoundQualifiedName { Member: VBTypeMemberSymbol library } qualified when IsVariantLibrary(library):
+                return LibraryVariantOf(qualified, library, ImmutableArray<BoundArgument>.Empty);
+
+            case BoundName { Symbol: VBTypeMemberSymbol library } name when IsVariantLibrary(library):
+                return LibraryVariantOf(name, library, ImmutableArray<BoundArgument>.Empty);
 
             default:
                 return Payload(node) is { } payload ? new VariantOfNode(payload) : null;
@@ -1662,7 +1742,7 @@ internal sealed partial class ProcedureAnalysis
         if (effective is not ScalarKind.Boolean && ScalarKinds.IsIntegral(effective)
             && plan.Operator is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.IntegerDivisionOp or Tokens.ModuloOp)
         {
-            return new IntegralNode(plan.Operator, l, r, effective);
+            return new IntegralNode(plan.Operator, l, r, effective, ArithmeticSiteOf(binary));
         }
 
         if (OperatorTokens.ComparisonOf(plan.Operator) is { } comparison)

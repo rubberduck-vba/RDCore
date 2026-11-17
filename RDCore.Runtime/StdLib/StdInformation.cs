@@ -123,9 +123,20 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
             VBEmptyValue or VBBooleanValue => true,
             VBDateValue => false,
             VBNumericTypedValue => true,
-            VBStringValue text => ValueConversions.ToNumeric(text, VBDoubleType.TypeInfo, session.Environment.Regional).IsSuccess,
+            VBStringValue text => IsNumberOf(session, text.Value),
             _ => false,
         });
+
+    /// <summary>
+    /// <c>IsNumeric</c> of a <c>String</c>: whether it Let-coerces to a <c>Double</c> (<strong>MS-VBAL §5.5.1.2.4</strong>), which is what
+    /// <see cref="IsNumeric"/> says of it, as MS-VBA's does (<strong>MS-VBAL §6.1.2.7.1.8</strong> names numeric types only). Compiled code calls it in
+    /// place of <see cref="IsNumeric"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose regional settings the number is written by.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>Whether the text reads as a number.</returns>
+    [StdLibIntrinsic(typeof(IStdInformationModule), nameof(IsNumeric))]
+    public static bool IsNumberOf(IRuntimeSession session, string? text) => ValueConversions.IsNumber(text, session.Environment.Regional);
 
     public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsObject(VBVariantValue arg)
         => Answer(Unwrapped(arg) is VBObjectValue);

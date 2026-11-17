@@ -143,8 +143,28 @@ public sealed class StepStopRedundantAnalyzerTests
     }
 
     [TestMethod]
+    [DataRow("flags(i) = True", "flags(i) = False", "flags(i)", DisplayName = "an element of an array")]
+    [DataRow("flags(i + 1) = True", "flags(i+1) = False", "flags(i + 1)", DisplayName = "an element, the index written apart")]
+    [DataRow("Program.Items(i).Done = True", "Program.Items(i).Done = False", "Program.Items(i).Done", DisplayName = "a member of what a call returns")]
+    public void TheSameTargetWithArguments_IsReported_WithNoFix(string then, string otherwise, string target)
+    {
+        var source = Module($"Public Function Items(ByVal i As Long) As Object\nEnd Function\nPublic Sub DoSomething(ByVal foo As Long, ByVal i As Long)\n    Dim flags(3) As Boolean\n    If foo > 0 Then\n        {then}\n    Else\n        {otherwise}\n    End If\nEnd Sub");
+
+        var finding = Assert.ContainsSingle(Run(new BooleanAssignedInIfElseAnalyzer(), source));
+
+        StringAssert.Contains(finding.Message, $"'{target}'");
+        Assert.IsNull(finding.Fixes, "the If evaluates the condition first, and the assignment need not");
+    }
+
+    [TestMethod]
+    public void AMemberInAWithBlock_IsReported()
+        => Assert.ContainsSingle(Run(new BooleanAssignedInIfElseAnalyzer(),
+            Module("Public Done As Boolean\nPublic Sub DoSomething(ByVal foo As Long)\n    With Me\n        If foo > 0 Then\n            .Done = True\n        Else\n            .Done = False\n        End If\n    End With\nEnd Sub")));
+
+    [TestMethod]
     [DataRow("bar = True", "bar = True", DisplayName = "the same value")]
     [DataRow("bar = True", "baz = False", DisplayName = "two names")]
+    [DataRow("flags(i) = True", "flags(i + 1) = False", DisplayName = "two elements")]
     [DataRow("bar = 1", "bar = 0", DisplayName = "no Boolean literal")]
     [DataRow("bar = True\n        Debug.Print 1", "bar = False", DisplayName = "a second statement")]
     [DataRow("Set obj = Nothing", "Set obj = Nothing", DisplayName = "a Set")]
@@ -304,17 +324,14 @@ public sealed class StepStopRedundantAnalyzerTests
     [TestMethod]
     [DataRow("ByRef n As Long", "n As Long", DisplayName = "ByRef")]
     [DataRow("Optional ByRef n As Long = 1", "Optional n As Long = 1", DisplayName = "Optional ByRef")]
+    [DataRow("Optional  ByRef   n As Long = 1", "Optional  n As Long = 1", DisplayName = "Optional ByRef, written with more than one space")]
+    [DataRow("ByRef _\n    n As Long", "n As Long", DisplayName = "ByRef, the name on the next line")]
     public async Task TheFix_RemovesByRef_AndTheArgumentIsStillPassedByReference(string before, string after)
     {
         static string Source(string parameter) => $"Public Sub Main()\n    Dim x As Long\n    x = 41\n    Bump x\n    Debug.Print x\nEnd Sub\nPublic Sub Bump({parameter})\n    n = n + 1\nEnd Sub";
 
         await AssertFixedAsync(new RedundantByRefModifierAnalyzer(Options(byRef: ByRefConvention.Implicit)), Source(before), Source(after), "Remove ByRef from 'n'", StandardModule(Program));
     }
-
-    [TestMethod]
-    public void NoRemovalIsOffered_AfterOptional_WrittenWithMoreThanOneSpace()
-        => Assert.IsNull(Assert.ContainsSingle(Run(new RedundantByRefModifierAnalyzer(Options(byRef: ByRefConvention.Implicit)),
-            Module("Public Sub DoSomething(Optional  ByRef n As Long)\nEnd Sub"), StandardModule(Program))).Fixes?.Edits.SingleOrDefault());
 
     #endregion
 

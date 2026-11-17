@@ -20,8 +20,9 @@ namespace RDCore.Runtime.LanguageCore.Flow;
 /// </para>
 /// <para>
 /// A fact is stated only when it is true, so nothing is stated when it could not be established: when the static pass found something wrong with the procedure or did not
-/// analyze every expression of it (an assignment may be in what it did not see), or when the graph approximates a jump (<see cref="ControlFlowImprecision.UnresolvedJump"/>,
-/// <see cref="ControlFlowImprecision.Subroutines"/>).
+/// analyze every expression of it (an assignment may be in what it did not see), or when the graph approximates a jump that lands nowhere
+/// (<see cref="ControlFlowImprecision.UnresolvedJump"/>). Where a <c>GoSub</c> makes the paths of its <c>Return</c> unknown
+/// (<see cref="ControlFlowImprecision.Subroutines"/>), only <see cref="ReturnValueAssignment.Never"/> is stated: when no instruction assigns the return value.
 /// </para>
 /// <para>
 /// The paths are those of the edges <see cref="ErrorHandlingStates"/> derives, not the graph's own: where a <c>Resume</c> continues and where an error goes under
@@ -47,21 +48,27 @@ public static class ReturnValueAnalysis
             return null;
         }
 
+        var name = new SourceLocation(declaration.SourceLocation.Uri, declaration.NameRange ?? declaration.SourceLocation.Range);
         var graph = ControlFlowGraph.Of(instructions, model);
-        if (graph.Imprecision.HasFlag(ControlFlowImprecision.UnresolvedJump) || graph.Imprecision.HasFlag(ControlFlowImprecision.Subroutines))
+        if (graph.Imprecision.HasFlag(ControlFlowImprecision.UnresolvedJump))
         {
             return null;
         }
 
-        var states = ErrorHandlingStates.Of(graph);
         var assigns = instructions.Items.Select(instruction => Assigns(instruction, model)).ToArray();
+        if (graph.Imprecision.HasFlag(ControlFlowImprecision.Subroutines))
+        {
+            // which paths a Return takes is not known, but no path assigns what no instruction does.
+            return assigns.Contains(true) ? null : new ReturnValueFact(ReturnValueAssignment.Never, declaration.Name, name, IsEmpty: false);
+        }
+
+        var states = ErrorHandlingStates.Of(graph);
         var assignment = !ReturnsWithout(graph, states, assigns)
             ? ReturnValueAssignment.Always
             : instructions.Items.Any(instruction => assigns[instruction.Offset] && !states.At(instruction.Offset).IsEmpty)
                 ? ReturnValueAssignment.Sometimes
                 : ReturnValueAssignment.Never;
 
-        var name = new SourceLocation(declaration.SourceLocation.Uri, declaration.NameRange ?? declaration.SourceLocation.Range);
         return new ReturnValueFact(assignment, declaration.Name, name, IsEmpty: instructions.Items.IsEmpty);
     }
 

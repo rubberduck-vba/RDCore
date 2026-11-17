@@ -7,6 +7,7 @@ using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
+using RDCore.Diagnostics;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
@@ -34,6 +35,11 @@ public sealed class BuildCommandTests
     private static readonly string Runtime = Path.Combine(Platform, "RDCore.CLI");
     private static readonly string Host = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.win-x64", "10.0.11",
         "runtimes", "win-x64", "native", "apphost.exe");
+    // a macOS runtime's host is a Mach-O, which rdc build signs: the host of the Microsoft.NETCore.App.Host.osx-arm64 package, which the tests' project
+    // copies beside them.
+    private static readonly string MacHost = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.osx-arm64", "11.0.0",
+        "runtimes", "osx-arm64", "native", "apphost");
+    private static readonly Lazy<byte[]> AppleSiliconHost = new(() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Cli", "Data", "osx-arm64", "apphost")));
     private static readonly string Output = Path.Combine(Path.GetTempPath(), "rdcore-build-out");
 
     private static string Module(string name, params string[] body) => $"Attribute VB_Name = \"{name}\"\r\nOption Explicit\r\n{string.Join("\r\n", body)}\r\n";
@@ -80,6 +86,8 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net11.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
+        fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(MacHost)!);
+        fileSystem.File.WriteAllBytes(MacHost, AppleSiliconHost.Value);
 
         // the package the support is built on, and one of rdc's that no program runs on; the platform's notices, as its release writes them.
         fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.SDK.dll"), SdkAssembly.Value);
@@ -144,7 +152,7 @@ public sealed class BuildCommandTests
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
-            _ => hasHost ? Host : null, settings is null ? null : Options.Create(settings)), messages);
+            runtime => !hasHost ? null : MacOSSignature.IsNeeded(runtime) ? MacHost : Host, settings is null ? null : Options.Create(settings)), messages);
     }
 
     [TestMethod]
@@ -191,6 +199,21 @@ public sealed class BuildCommandTests
         Assert.AreEqual(fileSystem.File.ReadAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json")), fileSystem.File.ReadAllText(Path.Combine(Output, "Hello.runtimeconfig.json")));
         CollectionAssert.AreEqual(AppHost.Patch(FakeHost, "Hello.dll"), fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.exe")));
         Assert.Contains(message => message.Kind == MessageKind.Information && message.Text.Contains("3 ", StringComparison.Ordinal), messages);
+    }
+
+    // the host of the runtime built for, whatever the runtime the build runs on: on a Mac, the runtime a build is for by default is a macOS one.
+    [TestMethod]
+    public async Task AWorkspaceBuiltForMacOS_HasTheHostOfItsRuntime_PatchedAndSigned()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        var (command, messages) = Command(fileSystem);
+
+        var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "osx-arm64"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
+        CollectionAssert.AreEqual(MacOSSignature.Sign(AppHost.Patch(AppleSiliconHost.Value, "Hello.dll"), "Hello"),
+            fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello")));
     }
 
     [TestMethod]
@@ -1255,7 +1278,8 @@ public sealed class BuildCommandTests
         var run = await RunAsync(fileSystem, Root);
 
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
-        Assert.AreNotEqual(string.Empty, run.Error);
+        Assert.Contains(RDCore.Runtime.Support.Resources.Build_NoEntryPoint, run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
     }
 
     [TestMethod]
@@ -1268,6 +1292,25 @@ public sealed class BuildCommandTests
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
         Assert.Contains("One", run.Error);
         Assert.Contains("Two", run.Error);
+        Assert.Contains("(RDC30002)", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Build_OfAWorkspaceWithoutSubMain_IsRefused_WithItsCode()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub NotMain()", "End Sub")));
+        var (command, messages) = Command(fileSystem);
+
+        Assert.AreEqual(1, await command.ExecuteAsync([Root, "--output", Output], CancellationToken.None));
+
+        Assert.Contains(message => message.Kind == MessageKind.Error && message.Text.Contains("(RDC30001)", StringComparison.Ordinal), messages);
+    }
+
+    [TestMethod]
+    public void TheBuildersCodes_AreTheCodesTheDiagnosticsDocument()
+    {
+        Assert.AreEqual(RDCoreDiagnosticId.NoEntryPoint.ToDiagnosticCode(), ProgramRunner.NoEntryPoint.ToString());
+        Assert.AreEqual(RDCoreDiagnosticId.AmbiguousEntryPoint.ToDiagnosticCode(), ProgramRunner.AmbiguousEntryPoint.ToString());
     }
 
     [TestMethod]
@@ -1316,7 +1359,19 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
         Assert.IsEmpty(run.Output);
-        Assert.AreNotEqual(string.Empty, run.Error);
+        Assert.Contains(RDCore.Runtime.Support.Resources.Build_LibraryNotRun, run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAnEntryPointTheBuildSectionNames_ThatNoModuleDeclares_ExitsWith2_NamingIt()
+    {
+        var run = await RunAsync(TwoMains("""{ "entryPoint": "Two.Start" }"""), Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit);
+        Assert.IsEmpty(run.Output);
+        Assert.Contains("Two.Start", run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
     }
 
     [TestMethod]

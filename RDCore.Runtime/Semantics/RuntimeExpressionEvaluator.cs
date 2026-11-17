@@ -575,12 +575,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         _ => null,
     };
 
-    private readonly Dictionary<SemanticId, VBTypedValue> _foldedConstants = [];
+    // each constant's value, with the expression it was folded from: a module loaded again while the program waits declares the constant anew, by the same
+    // identity, and an edit may have given it another value, which is folded once in its turn.
+    private readonly Dictionary<SemanticId, (ExpressionNode Expression, VBTypedValue Value)> _foldedConstants = [];
     private readonly HashSet<SemanticId> _foldingConstants = [];
 
     /// <summary>
-    /// Reduces <paramref name="constantExpression"/> — the constant expression declared by
-    /// <paramref name="owner"/> — to its value, once for the whole run.
+    /// Reduces <paramref name="constantExpression"/>, the constant expression declared by
+    /// <paramref name="owner"/>, to its value, once each time its module is loaded.
     /// </summary>
     /// <param name="session">The session the expression resolves its own names against.</param>
     /// <param name="owner">The symbol that declares it: a <c>Const</c>, or a parameter with a default.</param>
@@ -813,9 +815,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private RuntimeSemanticsEvaluationResult FoldConstant(IRuntimeSession session, RuntimeEvaluationContext context, Symbol constant, ExpressionNode value)
     {
         var id = constant.SemanticId;
-        if (_foldedConstants.TryGetValue(id, out var folded))
+        if (_foldedConstants.TryGetValue(id, out var folded) && ReferenceEquals(folded.Expression, value))
         {
-            return RuntimeSemanticsEvaluationResult.Success(folded);
+            return RuntimeSemanticsEvaluationResult.Success(folded.Value);
         }
 
         // a constant expression may name another constant, so folding one can fold others; a cycle
@@ -845,7 +847,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             if (result.IsSuccess)
             {
-                _foldedConstants[id] = result.Result!;
+                _foldedConstants[id] = (value, result.Result!);
             }
             return result;
         }
@@ -893,8 +895,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
-    // an object of a class, created for a New expression: held by the statement, and initialized.
-    private static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, ExpressionNode expression, VBClassModuleSymbol classModule)
+    // an object of a class, created for a New expression: held by the statement, and initialized. Compiled code makes the object of a New it evaluates here
+    // too (CompiledActivation.New).
+    internal static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, ExpressionNode expression, VBClassModuleSymbol classModule)
     {
         var created = NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule));
 
@@ -2049,7 +2052,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (BindArguments(session, context, parameters, argumentNodes, out var arguments, out var argumentsKnown, borrowed,
                     external: external, cellReferences: InvokerOf(procedure) is not null, boundArguments: boundArguments,
                     anyByAddress: !external && procedure.GetProperty(SymbolProperties.ExternalTarget) is not null,
-                    dispatchedThrough: DispatchedThrough(procedure, reachedThrough))
+                    dispatchedThrough: DispatchedThrough(procedure, reachedThrough),
+                    lateBound: reachedThrough is not null && DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType)
                 is { } bindingError)
             {
                 return bindingError;
@@ -2232,11 +2236,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// For a member of an object of the standard library, the expression the object was reached through: when it is declared <c>Object</c> or
     /// <c>Variant</c>, the call is MS-VBA's late-bound one, through the object's <c>IDispatch</c> (<see cref="AsDispatched"/>).
     /// </param>
+    /// <param name="lateBound">
+    /// Whether the member is reached through an expression declared <c>Object</c> or <c>Variant</c>, whatever its object is: a value other than an object,
+    /// given to a parameter of a class or <c>Object</c>, is then a type mismatch.
+    /// </param>
     /// <returns>The error that stopped the binding, or <see langword="null"/> when every argument was bound.</returns>
     private RuntimeSemanticsEvaluationResult? BindArguments(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters,
         ImmutableArray<ExpressionNode> argumentNodes, out IRuntimeValue[] arguments, out bool isKnown, List<MemoryAddress> borrowed, bool external = false,
-        bool cellReferences = false, ImmutableArray<BoundArgument>? boundArguments = null, bool anyByAddress = false, ExpressionNode? dispatchedThrough = null)
+        bool cellReferences = false, ImmutableArray<BoundArgument>? boundArguments = null, bool anyByAddress = false, ExpressionNode? dispatchedThrough = null,
+        bool lateBound = false)
     {
         arguments = [];
         isKnown = true;
@@ -2449,7 +2458,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
             if (!coercionResult.IsSuccess)
             {
-                return RuntimeSemanticsEvaluationResult.Error(AsDispatched(session, context, dispatchedThrough, coercionResult.ErrorInfo!));
+                // reached late bound, a value other than an object given to a parameter of a class or Object is a type mismatch, as the IDispatch the call
+                // goes through makes it, and not error 424; the member is not entered (observed in VB6: a class's method and PaintPicture's picture).
+                var error = coercionResult.ErrorInfo!;
+                return RuntimeSemanticsEvaluationResult.Error(
+                    lateBound && error.ErrorId == (int)VBRuntimeErrorId.ObjectRequired && parameter.ResolvedType is VBObjectType or VBClassType
+                        && HeldObject(argumentResult.Value.Result) is null
+                        ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, error.Location, error.Verbose)
+                        : AsDispatched(session, context, dispatchedThrough, error));
             }
 
             // an array coerced to an array parameter is a fresh copy nothing has bound yet, so it has no

@@ -156,4 +156,10 @@ public sealed class ReturnValueAnalysisTests
         Assert.IsNull(subroutines);
         Assert.IsNull(unresolved);
     }
+
+    [TestMethod]
+    [DataRow("GoSub Work\nExit Function\nWork:\nn = 2\nReturn", DisplayName = "a GoSub")]
+    [DataRow("GoSub Work\nExit Function\nWork:\nDebug.Print G()\nReturn", DisplayName = "a GoSub to a subroutine that only reads another function")]
+    public async Task AFunctionWithAGoSub_ThatNoInstructionAssigns_NeverAssignsItsReturnValue(string body)
+        => await AssertAsync(body, ReturnValueAssignment.Never);
 }

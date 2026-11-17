@@ -1,5 +1,6 @@
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Source;
+using System.Reflection;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -178,11 +179,12 @@ internal sealed record class ResultNode(ScalarKind Kind) : PayloadNode(Kind);
 // a literal, or a constant folded.
 internal sealed record class ConstantNode(ScalarKind Kind, long Integral, double Floating) : PayloadNode(Kind);
 
-// PayloadOperations.Convert: an exact conversion.
+// PayloadOperations.Convert: an exact conversion, or a floating-point number's to an integer type, by Banker's rounding.
 internal sealed record class ConvertNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
 
-// PayloadOperations.Add, Subtract, Multiply, IntegerDivide, Modulo, of an integral kind.
-internal sealed record class IntegralNode(string Token, PayloadNode Left, PayloadNode Right, ScalarKind Kind) : PayloadNode(Kind);
+// PayloadOperations.Add, Subtract, Multiply, IntegerDivide, Modulo, of an integral kind; Site is the number of the operation's expression among the body's
+// (ProcedureAnalysis.ArithmeticSites), where the error the operation raises is raised.
+internal sealed record class IntegralNode(string Token, PayloadNode Left, PayloadNode Right, ScalarKind Kind, int Site) : PayloadNode(Kind);
 
 // PayloadOperations.Logical.
 internal sealed record class LogicalNode(LogicalOperator Operator, PayloadNode Left, PayloadNode Right, ScalarKind Kind) : PayloadNode(Kind);
@@ -196,8 +198,9 @@ internal sealed record class NotNode(PayloadNode Operand, ScalarKind Kind) : Pay
 // PayloadOperations.Negate; of a constant expression, PayloadOperations.NegateConstant.
 internal sealed record class NegateNode(PayloadNode Operand, ScalarKind Kind, bool OfAConstantExpression = false) : PayloadNode(Kind);
 
-// an extended intermediate converted to a kind: Extended.ToFloating, Extended.ToIntegral.
-internal sealed record class StoreNode(ExtendedNode Value, ScalarKind Kind) : PayloadNode(Kind);
+// an extended intermediate converted to a kind: Extended.ToFloating, Extended.ToIntegral; Site is the number of its expression among the body's
+// (ProcedureAnalysis.ArithmeticSites), where the error the conversion raises is raised.
+internal sealed record class StoreNode(ExtendedNode Value, ScalarKind Kind, int Site) : PayloadNode(Kind);
 
 // Extended.Compare, of a floating-point effective type: a Boolean.
 internal sealed record class ExtendedCompareNode(ComparisonOperator Operator, ExtendedNode Left, ExtendedNode Right, ScalarKind Effective) : PayloadNode(ScalarKind.Boolean);
@@ -232,6 +235,10 @@ internal sealed record class VariantValueNode(int Slot) : VariantNode;
 // gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
 internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
 
+// an expression of Strings given by value to a String parameter of a function of the standard library: its text, as the interpreter gives it
+// (CompiledActivation.StringArgument). Only a library call's argument is one.
+internal sealed record class StringArgumentNode(TextNode Text) : VariantNode;
+
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
 
@@ -250,6 +257,11 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
+
+// IsEmpty of a Variant read in its cell, a Variant of the activation (VariantSlotNode) or an element of an array of Variants (VariantElementNode): whether
+// it holds Empty (MS-VBAL §6.1.2.7.1.4), as the cell says (VariantOperations.IsEmpty). Of a Variant the cell says nothing of (an object, an array), it
+// is what the call of the standard library's function returns (Library), or the interpreter's when there is no such call.
+internal sealed record class VariantIsEmptyNode(VariantNode Variant, LibraryCallNode? Library) : PayloadNode(ScalarKind.Boolean);
 
 // left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing). An
 // operand that is the default instance of a class (LeftMade, RightMade) is compared only once it holds an object (ObjectOperations.HoldsAnObject).
@@ -316,6 +328,11 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
+// the argument of an optional Variant parameter the call leaves out (CompiledCallee.Parameters, null): what the interpreter gives it
+// (RuntimeExpressionEvaluator.OmittedArgument), the default the parameter declares or Missing, of the parameter of the procedure the call invokes, given as
+// the call is made (CompiledActivation.SetOmitted). Only an argument of a call; its Kind is not read.
+internal sealed record class OmittedArgumentNode() : PayloadNode(default(ScalarKind));
+
 // an object parameter of a procedure a compiled body calls: the argument's expression, where an error Set-coercing what it gives is raised, and the
 // parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to. An optional parameter the call leaves out has no
 // argument: it is given the default value of its type, Nothing, as the interpreter gives it (RuntimeExpressionEvaluator.OmittedArgument).
@@ -327,6 +344,13 @@ internal abstract record class CompiledStep(int Offset);
 // a Let of a Variant variable of the activation: the payload written into its cell, of its own subtype - when the cell holds no object,
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
+
+// a Let of a String to a Variant variable of the activation: the text written into its cell, which then holds a String, when the cell holds no object,
+// array or record.
+internal sealed record class VariantTextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
+
+// a Let of Null to a Variant variable of the activation: its cell then holds Null, when it holds no object, array or record.
+internal sealed record class VariantNullLetStep(int Offset, int Slot) : CompiledStep(Offset);
 
 // a Let of the function result variable of a function of the Variant type: the payload assigned where its frame holds it, as the interpreter assigns it
 // (CompiledActivation.TryAssignResultVariant) - unless what it held was an object only it held, which the interpreter's assignment destroys.
@@ -462,6 +486,11 @@ internal sealed record class KnownNode(PayloadNode Value, int Syntax) : PayloadN
 // call, which the interpreter makes again when it is handed the instruction.
 internal sealed record class LibraryCallNode(int Library, IReadOnlyList<VariantNode> Arguments, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
 
+// a call of the typed form of a function of the standard library (Method, StdLibIntrinsicAttribute), given payloads of whole numbers or Doubles and texts
+// (TextArgumentNode) for its parameters, which returns a payload of its kind (Kind). A typed form that declines hands the instruction to the interpreter, which
+// makes the call as it always does.
+internal sealed record class IntrinsicNode(MethodInfo Method, IReadOnlyList<PayloadNode> Arguments, ScalarKind Kind) : PayloadNode(Kind);
+
 // a call of a function of the standard library that returns a Variant and keeps nothing from call to call (IIf), made as a LibraryCallNode is, each of its
 // arguments evaluated first, and what it returns the Variant's payload, of its own subtype. The interpreter makes it again when it is handed the
 // instruction, given what compiled code read and called for its arguments.
@@ -486,8 +515,9 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
-/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), and for an object, whose argument is the object or the variable's address
-/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>).
+/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
+/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), and for an optional <c>Variant</c> the call leaves out
+/// (<see cref="OmittedArgumentNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -526,6 +556,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// Empty when the call has no object parameter.
     /// </summary>
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
+
+    /// <summary>
+    /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default
+    /// <see cref="Procedure"/> declares for it, and a <c>Variant</c> one, whose <see cref="Parameters"/> kind is <see langword="null"/>, what the
+    /// interpreter gives the parameter of the member the call invokes (<see cref="OmittedArgumentNode"/>). Empty when the call leaves out none.
+    /// </summary>
+    public IReadOnlyList<bool> Omitted { get; init; } = [];
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
@@ -584,6 +621,10 @@ internal sealed record class InvokedMember(SDK.Model.Symbols.VBClassModuleSymbol
 internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, RDCore.Runtime.LanguageCore.Instructions.InstructionList List, CompiledBody Body,
     nint Entry, Semantics.RuntimeEvaluationContext Context)
 {
+    /// <summary>
+    /// The procedures of the program in which the member's body was last found to be the invoker's (<c>RuntimeProcedureInvoker.Image</c>).
+    /// </summary>
+    public object? Image { get; set; }
 }
 
 /// <summary>
@@ -608,6 +649,22 @@ internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObject
 /// <param name="Generation">What the storage bound when they were found: a cell is the variable's for as long as that has not changed.</param>
 /// <param name="Cells">The cells, by number.</param>
 internal sealed record class SessionFieldCells(WeakReference<Execution.Memory.SessionStorage> Storage, int Generation, object?[] Cells)
+{
+}
+
+/// <summary>
+/// The public variable of an object a member access of a body found last (<see cref="CompiledBody.MemberFieldCells"/>), and its cell: the variable the
+/// object's class has for the member, which is the same for as long as no module is defined again (the session's scope tree is the one it was), and the
+/// cell the object holds it in, which it keeps for as long as it lives. The object is known by its identity, which no other object is ever given: the cache
+/// holds no reference to it.
+/// </summary>
+/// <param name="Object">The object's identity.</param>
+/// <param name="Scopes">The session's scope tree when the variable was found.</param>
+/// <param name="Field">The variable.</param>
+/// <param name="Held">Its cell.</param>
+/// <param name="Kind">The kind of a payload cell, whose type does not change; <see langword="null"/> for any other cell.</param>
+internal sealed record class MemberFieldCell(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, SDK.Model.Symbols.ScopeTree Scopes,
+    SDK.Model.Symbols.VBProject.VBModuleFieldVariableMemberSymbol Field, SDK.Model.Values.Bindings.IBindingHandle Held, ScalarKind? Kind)
 {
 }
 
@@ -664,6 +721,12 @@ internal sealed class DirectCall(System.Reflection.MethodInfo Entry, SDK.Model.S
 
     /// <summary>The callee's compiled body; set once it is created, for a procedure that calls itself.</summary>
     public CompiledBody? Body { get; set; }
+
+    /// <summary>
+    /// The procedures of the program in which the callee's body was last found to be the invoker's (<c>RuntimeProcedureInvoker.Image</c>). A body is
+    /// shared by every session composed over the same scopes, so it is found again in another session's program.
+    /// </summary>
+    public object? Image { get; set; }
 
     /// <summary>The context the callee's code is evaluated in, the same for each of its activations.</summary>
     public Semantics.RuntimeEvaluationContext Context { get; } = new(Procedure.Uri);

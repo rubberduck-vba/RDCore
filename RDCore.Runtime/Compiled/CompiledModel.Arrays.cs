@@ -62,6 +62,9 @@ internal sealed record class ElementLetStep(int Offset, ElementNode Element, Pay
 // a Let of an element of an array of Variants, written as a VariantLetStep writes a Variant's cell: not over an object.
 internal sealed record class VariantElementLetStep(int Offset, VariantElementNode Element, VariantNode Value) : CompiledStep(Offset);
 
-// a ReDim or an Erase of arrays of a scalar kind of the activation (MS-VBAL §5.4.3.3-4), each named by its slot: the interpreter's statement run as a support
-// call (CompiledActivation.RunArrayStatement), its bounds read from the frame, and the cell of each array found again after it.
-internal sealed record class ArrayStatementStep(int Offset, IReadOnlyList<int> Arrays) : CompiledStep(Offset);
+// a ReDim or an Erase of arrays of the activation (MS-VBAL §5.4.3.3-4), each named by its slot, or the Let of an array to a Variant of the activation
+// (MS-VBAL §5.4.3.8, §5.5.1.2.12), which copies it: the runtime's statement run as a support call (CompiledActivation.RunArrayStatement), its bounds read
+// from the frame, and the cell of each array found again after it. One that may let go of an object (Releases) - the elements of an array of Variants, of
+// objects or of records, or what the Variant held - may have run its Terminate, which can do anything a call does: the frame is read back after it, as
+// after a call.
+internal sealed record class ArrayStatementStep(int Offset, IReadOnlyList<int> Arrays, bool Releases = false) : CompiledStep(Offset);

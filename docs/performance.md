@@ -4,43 +4,153 @@
 ---
 ## What to expect
 
-RD-VBA runs most of a program as compiled code. The figures below compare it to MS-VBA running the same code in Excel, on the same machine
-(Windows 11 x64, Excel 64-bit). Each is the time RD-VBA takes as a multiple of the time MS-VBA takes for the same work: below 1 is faster, above 1 slower.
-They describe the default settings: the `Compiled` execution engine and the `Debug` program configuration (`--configuration`, see [The shell and the rdc commands](rdc.md)).
+RD-VBA runs most of a program as compiled code. Each figure below is the time RD-VBA takes for a case of the `rdc bench` corpus, as a multiple of the time
+MS-VBA takes for the same code in Excel: below 1× is faster, above 1× slower. Each badge also gives both times, in milliseconds, on the reference machine
+(Excel 16, 64-bit, Windows 11 x64, 12 cores). The figures describe the default settings: the `Compiled` execution engine and the `Debug` program
+configuration (`--configuration`, see [The shell and the rdc commands](rdc.md)).
 
-| Kind of code | Time compared to MS-VBA |
-|---|---|
-| Arithmetic on `Long` and `Double` variables, conditions, `Select Case`, local and static variables | 0.3–0.8× (faster) |
-| String assignment and comparison | 0.7–2× |
-| `Variant` arithmetic | about 2× |
-| Calls to your own procedures, recursion, `ByRef` arguments | 3–4× |
-| `On Error Resume Next` in a loop that raises errors | about 5× |
-| Calls to the members of your own classes and interfaces | about 7× |
-| `Currency` and `Date` arithmetic | about 7.5× |
-| Filling and summing a typed array | about 9× |
-| Building a string piece by piece, concatenation in a loop | 7–19× |
-| Assigning a field of a user-defined type | about 19× |
-| Creating an object on every iteration | about 23× |
-| `Set` assignment, assigning a property of an object | about 36× |
-| Calls to the standard library (`Len`, `CStr`, `CLng`) in a loop | about 75× |
-| Reading and writing the elements of an array held in a `Variant` | about 120× |
-| The `Mid` statement | about 135× |
+The RD-VBA figures are measured on every merge. Every case of the corpus is listed, the slowest included.
 
-### Excel automation
+## Calls
 
-| Work | Time compared to MS-VBA |
-|---|---|
-| Writing a block of cells at once (`Range(...).Value = values`) | 1.5–2× |
-| Reading a block of cells at once (`values = Range(...).Value`) | about 45× |
-| Reading and writing cells one at a time (`Cells(r, c).Value`) | about 550× |
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| `Calls.BenchRecursion` | Recursion: `Fib(25)`, 242,785 short calls | ![Calls.BenchRecursion](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchRecursion.json) |
+| `Calls.BenchProcedureCalls` | A function of the same module, called in a loop | ![Calls.BenchProcedureCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchProcedureCalls.json) |
+| `Calls.BenchByRefCalls` | A variable passed `ByRef` and assigned through the parameter | ![Calls.BenchByRefCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchByRefCalls.json) |
+| `Calls.BenchClassMemberCalls` | A member of a class, called through a variable of the class | ![Calls.BenchClassMemberCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchClassMemberCalls.json) |
+| `Calls.BenchInterfaceMemberCalls` | The same member, called through an interface | ![Calls.BenchInterfaceMemberCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchInterfaceMemberCalls.json) |
+| `Calls.BenchStandardLibraryCalls` | `N = Len(CStr(I)) + CLng(I)` in a loop | ![Calls.BenchStandardLibraryCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchStandardLibraryCalls.json) |
+| `Calls.BenchFactoryCalls` | A factory method of a default instance, a new object on every call | ![Calls.BenchFactoryCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchFactoryCalls.json) |
+| `Calls.BenchDefaultInstanceCalls` | A member called on a default instance | ![Calls.BenchDefaultInstanceCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchDefaultInstanceCalls.json) |
+| `Calls.BenchSiblingCalls` | A member that calls a private member of its own class by its bare name | ![Calls.BenchSiblingCalls](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Calls.BenchSiblingCalls.json) |
+
+## Statements
+
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| `Statements.BenchSetAssignment` | `Set D = C` of an object variable | ![Statements.BenchSetAssignment](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Statements.BenchSetAssignment.json) |
+| `Statements.BenchMemberAssignment` | `P.X = I`, a property of an object | ![Statements.BenchMemberAssignment](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Statements.BenchMemberAssignment.json) |
+| `Statements.BenchRecordFieldAssignment` | `R.X = I`, a field of a user-defined type | ![Statements.BenchRecordFieldAssignment](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Statements.BenchRecordFieldAssignment.json) |
+| `Statements.BenchSelectCase` | `Select Case I Mod 4` with three branches | ![Statements.BenchSelectCase](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Statements.BenchSelectCase.json) |
+| `Statements.BenchConditions` | `If`, `ElseIf` and `Do While` conditions: comparisons joined with `And` | ![Statements.BenchConditions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Statements.BenchConditions.json) |
+| `Statements.BenchMidStatement` | The `Mid$` statement: `Mid$(S, 1, 1) = "r"` | ![Statements.BenchMidStatement](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Statements.BenchMidStatement.json) |
+| `Statements.BenchOnErrorResumeNext` | A loop under `On Error Resume Next`, dividing by zero one time in ten | ![Statements.BenchOnErrorResumeNext](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Statements.BenchOnErrorResumeNext.json) |
+
+## Arrays
+
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| `Arrays.BenchArrayFillAndSum` | Writing, then reading, every element of a `Long` array | ![Arrays.BenchArrayFillAndSum](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Arrays.BenchArrayFillAndSum.json) |
+| `Arrays.BenchVariantArray2D` | A 2-D `Variant` array, every element doubled | ![Arrays.BenchVariantArray2D](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Arrays.BenchVariantArray2D.json) |
+| `Arrays.BenchVariantHeldArray2D` | The same, with the array held in a `Variant`, as `V = Range(...).Value` gives it | ![Arrays.BenchVariantHeldArray2D](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Arrays.BenchVariantHeldArray2D.json) |
+
+## Strings
+
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| `Strings.BenchStringAssignment` | A `String` assigned in a loop | ![Strings.BenchStringAssignment](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Strings.BenchStringAssignment.json) |
+| `Strings.BenchStringConcatenation` | `S = S & "x"`, a string growing by one character at a time | ![Strings.BenchStringConcatenation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Strings.BenchStringConcatenation.json) |
+| `Strings.BenchStringComparison` | Short strings joined and compared | ![Strings.BenchStringComparison](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Strings.BenchStringComparison.json) |
+| `Strings.BenchStringBuilding` | A line of numbers written as text, with a separator between each | ![Strings.BenchStringBuilding](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Strings.BenchStringBuilding.json) |
+| `Strings.BenchStringArguments` | Strings passed to a procedure, by value and by reference | ![Strings.BenchStringArguments](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Strings.BenchStringArguments.json) |
+
+## Numeric
+
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| `Numeric.BenchLongCounterDoubleSum` | `S = S + I` with a `Long` counter and a `Double` sum | ![Numeric.BenchLongCounterDoubleSum](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Numeric.BenchLongCounterDoubleSum.json) |
+| `Numeric.BenchDoubleSum` | The same loop over `Double` values | ![Numeric.BenchDoubleSum](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Numeric.BenchDoubleSum.json) |
+| `Numeric.BenchLongArithmetic` | `Long` arithmetic, kept in range with `Mod` | ![Numeric.BenchLongArithmetic](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Numeric.BenchLongArithmetic.json) |
+| `Numeric.BenchVariantSum` | The same loop with every operand a `Variant` | ![Numeric.BenchVariantSum](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Numeric.BenchVariantSum.json) |
+| `Numeric.BenchCurrencyAndDate` | A `Currency` sum and a `Date` advanced a thousandth of a day each time | ![Numeric.BenchCurrencyAndDate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Numeric.BenchCurrencyAndDate.json) |
+| `Numeric.BenchVariantTypedMix` | A `Long` and a `Double` added into a `Variant` sum | ![Numeric.BenchVariantTypedMix](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Numeric.BenchVariantTypedMix.json) |
+
+## Variables and parameters
+
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| `Slots.BenchWideActivations` | A call with six typed parameters and four locals | ![Slots.BenchWideActivations](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Slots.BenchWideActivations.json) |
+| `Slots.BenchModuleVariableLoop` | A module variable, read and written each time round | ![Slots.BenchModuleVariableLoop](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Slots.BenchModuleVariableLoop.json) |
+| `Slots.BenchLocalVariableLoop` | The same loop over a local variable | ![Slots.BenchLocalVariableLoop](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Slots.BenchLocalVariableLoop.json) |
+| `Slots.BenchStaticVariableLoop` | The same loop over a `Static` local | ![Slots.BenchStaticVariableLoop](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Slots.BenchStaticVariableLoop.json) |
+| `Slots.BenchCurrencySum` | A `Currency` sum | ![Slots.BenchCurrencySum](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Slots.BenchCurrencySum.json) |
+| `Slots.BenchBooleanFlag` | A `Boolean` flag flipped and tested each time round | ![Slots.BenchBooleanFlag](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Slots.BenchBooleanFlag.json) |
+
+## Standard library
+
+Each case calls one function 100,000 times, with the arguments shown.
+
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| `StdLib.BenchCLng` | `CLng(X)` of a `Double` | ![StdLib.BenchCLng](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchCLng.json) |
+| `StdLib.BenchCDbl` | `CDbl(I)` of a `Long` | ![StdLib.BenchCDbl](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchCDbl.json) |
+| `StdLib.BenchCStr` | `CStr(I)` of a `Long` | ![StdLib.BenchCStr](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchCStr.json) |
+| `StdLib.BenchVal` | `Val(S)` of `"123.5"` | ![StdLib.BenchVal](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchVal.json) |
+| `StdLib.BenchLen` | `Len(S)` of a `String` | ![StdLib.BenchLen](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchLen.json) |
+| `StdLib.BenchLeft` | `Left$(S, 2)` | ![StdLib.BenchLeft](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchLeft.json) |
+| `StdLib.BenchMidFunction` | `Mid$(S, 4, 3)` | ![StdLib.BenchMidFunction](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchMidFunction.json) |
+| `StdLib.BenchInStr` | `InStr(S, "V")` | ![StdLib.BenchInStr](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchInStr.json) |
+| `StdLib.BenchReplace` | `Replace(S, "-", "_")` | ![StdLib.BenchReplace](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchReplace.json) |
+| `StdLib.BenchTrim` | `Trim$(S)` | ![StdLib.BenchTrim](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchTrim.json) |
+| `StdLib.BenchUCase` | `UCase$(S)` | ![StdLib.BenchUCase](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchUCase.json) |
+| `StdLib.BenchStrComp` | `StrComp(S, "rd-vba", vbTextCompare)` | ![StdLib.BenchStrComp](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchStrComp.json) |
+| `StdLib.BenchAsc` | `Asc(S)` | ![StdLib.BenchAsc](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchAsc.json) |
+| `StdLib.BenchChr` | `Chr$(65 + I Mod 26)` | ![StdLib.BenchChr](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchChr.json) |
+| `StdLib.BenchFormat` | `Format$(D, "0.00")` | ![StdLib.BenchFormat](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchFormat.json) |
+| `StdLib.BenchIsNumeric` | `IsNumeric(S)` of `"123.5"` | ![StdLib.BenchIsNumeric](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchIsNumeric.json) |
+| `StdLib.BenchIsEmpty` | `IsEmpty(V)` of an `Empty` `Variant` | ![StdLib.BenchIsEmpty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchIsEmpty.json) |
+| `StdLib.BenchVarType` | `VarType(V)` of a `Variant` holding a `Double` | ![StdLib.BenchVarType](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchVarType.json) |
+| `StdLib.BenchTypeName` | `TypeName(V)` of the same | ![StdLib.BenchTypeName](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchTypeName.json) |
+| `StdLib.BenchAbs` | `Abs(-I)` | ![StdLib.BenchAbs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchAbs.json) |
+| `StdLib.BenchRound` | `Round(D, 2)` | ![StdLib.BenchRound](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchRound.json) |
+| `StdLib.BenchSqr` | `Sqr(I)` | ![StdLib.BenchSqr](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchSqr.json) |
+| `StdLib.BenchInt` | `Int(D)` | ![StdLib.BenchInt](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchInt.json) |
+| `StdLib.BenchDateAdd` | `DateAdd("d", 1, T)` | ![StdLib.BenchDateAdd](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchDateAdd.json) |
+| `StdLib.BenchYear` | `Year(T)` | ![StdLib.BenchYear](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchYear.json) |
+| `StdLib.BenchNow` | `Now` | ![StdLib.BenchNow](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchNow.json) |
+| `StdLib.BenchUBound` | `UBound(A)` of an array | ![StdLib.BenchUBound](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-StdLib.BenchUBound.json) |
+
+## Excel automation
+
+These cases call Excel's object model late-bound from VBA. They need Excel, so they are measured in the reference run only: their badges give the
+reference run's date instead of a live figure.
+
+| Case | What it measures | RD-VBA ÷ MS-VBA |
+|---|---|---|
+| Block of 1,000 × 10, read | `V = Range(...).Value` | ![Excel.Block1000x10.Read](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block1000x10.Read.json) |
+| Block of 1,000 × 10, pass | The loop over `V(R, C)`, no call to Excel | ![Excel.Block1000x10.Pass](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block1000x10.Pass.json) |
+| Block of 1,000 × 10, write | `Range(...).Value = V` | ![Excel.Block1000x10.Write](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block1000x10.Write.json) |
+| Block of 1,000 × 10, total | Read, pass and write | ![Excel.Block1000x10.Total](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block1000x10.Total.json) |
+| Cell by cell, 1,000 × 10 | 10,000 cells, a get and a put each | ![Excel.CellByCell1000x10.Total](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.CellByCell1000x10.Total.json) |
+| Block of 100,000 × 10, read | `V = Range(...).Value` | ![Excel.Block100000x10.Read](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Read.json) |
+| Block of 100,000 × 10, pass | The loop over `V(R, C)`, no call to Excel | ![Excel.Block100000x10.Pass](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Pass.json) |
+| Block of 100,000 × 10, write | `Range(...).Value = V` | ![Excel.Block100000x10.Write](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Write.json) |
+| Block of 100,000 × 10, total | Read, pass and write | ![Excel.Block100000x10.Total](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Total.json) |
 
 Every call to Excel's object model crosses from the RD-VBA program to Excel and back. A call costs RD-VBA much more than it costs MS-VBA, so the number of
 calls decides how long the code takes.
 
+## How the figures are measured
+
+- **The reference run.** On the reference machine, MS-VBA and RD-VBA run the corpus in five alternated rounds (MS-VBA first in the first four, RD-VBA
+  first in the fifth), and the Excel automation cases in three rounds, MS-VBA first. Each case runs seven times a round (five for Excel automation), and
+  the figure is the fastest run. The reference run is repeated when the corpus changes.
+- **On every merge.** A Windows build machine runs the corpus in three alternated rounds with two builds of `rdc`: the merged one, and the one the
+  reference run used. A case's RD-VBA time is the reference run's, scaled by how the merged build compares with the reference build on that machine.
+  Comparing the two builds on one machine keeps that machine's own speed out of the figure. The figures file (`bench.json`, on the `badges` branch)
+  names that machine's processor.
+- **Each run starts from a collected heap.** Before each timed run, `rdc bench` collects the heap, so whether a garbage collection falls inside a run
+  depends only on what that run allocates and keeps. The time of a collection inside a run is part of the figure.
+- **Allocation.** For each case, `rdc bench` also gives what its fastest run allocated and the garbage collections of each generation made while it ran
+  (the `allocated` and `gc 0/1/2` columns). On every merge they are recorded beside the times in the figures file, for the merged build. They do not
+  depend on the machine's speed. The badges give the ratio only.
+- **Resolution.** `rdc bench` gives times to a tenth of a millisecond, so a case that takes under a millisecond is good to about ±0.05 ms.
+
 ## Writing code that runs well
 
-- **Work with ranges in blocks.** Read a range into an array with one `Range(...).Value`, work on the array, and write it back with one assignment.
-  10,000 cells done one at a time take about 2.5 minutes. Done as a block, they take under a third of a second.
+- **Work with ranges in blocks.** Read a range into an array with one `Range(...).Value`, work on the array, and write it back with one assignment. The
+  cell-by-cell and block cases above show the difference.
 - **Keep a hot loop's values typed.** A `Long` or `Double` loop runs faster than in MS-VBA. The same loop over `Variant` values, or over an array held in
   a `Variant`, is slower.
 - **See what runs compiled.** `rdc compilation` lists the procedures that do not run compiled, and what keeps each one in the interpreter. Code in the

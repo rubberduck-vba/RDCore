@@ -185,14 +185,19 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
             return;
         }
 
-        Output.WriteLine($"{"case".PadRight(width)}{"runs",6}{"min",14}{"median",14}");
+        // allocated and gc 0/1/2: what the fastest run allocated, and the collections of each generation made while it ran.
+        Output.WriteLine($"{"case".PadRight(width)}{"runs",6}{"min",14}{"median",14}{"allocated",14}{"gc 0/1/2",12}");
         foreach (var benchCase in report.Cases)
         {
             Output.WriteLine(benchCase.Error is { } error
                 ? $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}  {error}"
-                : $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}{Milliseconds(benchCase.Min!.Value),14}{Milliseconds(benchCase.Median!.Value),14}");
+                : $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}{Milliseconds(benchCase.Min!.Value),14}{Milliseconds(benchCase.Median!.Value),14}{Cost(benchCase.FastestCost)}");
         }
     }
+
+    private static string Cost(BenchRunCost? cost) => cost is { } each
+        ? $"{(each.Bytes / 1024.0).ToString("0", CultureInfo.InvariantCulture) + " KB",14}{$"{each.Gen0}/{each.Gen1}/{each.Gen2}",12}"
+        : string.Empty;
 
     // each module's parse, indentation and edits applied with the default settings, the slowest first; then the totals, and those with every alignment on. The
     // first time every module is formatted, before the code is compiled to its fastest, is the cold total; what is measured after it is a server's that is warm.

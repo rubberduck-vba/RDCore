@@ -86,13 +86,16 @@ internal sealed partial class ProcedureEmitter
                 continue;
             }
 
-            // an expression of Strings: a Variant holding its text, where it is in the order.
-            if (arguments[i] is VariantTextNode given)
+            // an expression of Strings: a Variant holding its text, or for a String parameter its text, where it is in the order.
+            if (arguments[i] is VariantTextNode or StringArgumentNode)
             {
+                var (given, argument) = arguments[i] is VariantTextNode variant
+                    ? (variant.Text, nameof(CompiledActivation.TextArgument))
+                    : (((StringArgumentNode)arguments[i]).Text, nameof(CompiledActivation.StringArgument));
                 payloads[i] = _il.DeclareLocal(typeof(VariantPayload));
                 values[i] = _il.DeclareLocal(typeof(IRuntimeValue));
-                _il.Emit(OpCodes.Ldloc, EmitTextInto(given.Text, failure));
-                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TextArgument))!);
+                _il.Emit(OpCodes.Ldloc, EmitTextInto(given, failure));
+                _il.Emit(OpCodes.Call, Activation.GetMethod(argument)!);
                 _il.Emit(OpCodes.Stloc, values[i]!);
                 continue;
             }

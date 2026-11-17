@@ -133,4 +133,25 @@ public sealed class CompiledTextSelectCaseTests
             "End Function"), "Same", recoveries: 0, expected: " 1  2 ");
         AssertNoneStepped(result);
     }
+
+    // a String field of a record is a selector of variable length, read where the record holds it.
+    [TestMethod]
+    public async Task AStringFieldOfARecord_IsATextSelector()
+        => AssertNoneStepped(await AssertAlikeAsync(Program(
+            "Private Type TLabel",
+            "    Label As String",
+            "End Type",
+            "Public Sub Main()",
+            "    Debug.Print Picked(\"b\"); Picked(\"z\")",
+            "End Sub",
+            "Private Function Picked(ByVal S As String) As Long",
+            "    Dim R As TLabel",
+            "    R.Label = S",
+            "    Select Case R.Label",
+            "        Case \"a\" To \"c\"",
+            "            Picked = 1",
+            "        Case Else",
+            "            Picked = 2",
+            "    End Select",
+            "End Function"), "Picked", recoveries: 0, expected: " 1  2 "));
 }

@@ -102,7 +102,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldloc, _texts[textLet.Slot]);
         _il.Emit(OpCodes.Ldloc, text);
         _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.Write))!);
-        _il.Emit(OpCodes.Brfalse, failure);
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
     // the text assigned to the function result variable where its frame holds it (CompiledActivation.TryAssignResultText).
@@ -113,7 +113,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldloc, text);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultText))!);
-        _il.Emit(OpCodes.Brfalse, failure);
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
     // the bool of two texts compared, on the stack (CompiledActivation.CompareText).
@@ -129,7 +129,7 @@ internal sealed partial class ProcedureEmitter
     }
 
     // the text an expression of Strings is, in a local of its own; a String whose cell holds no text compiled code reads goes to failure, with nothing on the
-    // stack.
+    // stack, and given what was evaluated before it when a call inside the statement was made (Fail).
     private LocalBuilder EmitTextInto(TextNode node, Label failure)
     {
         var text = _il.DeclareLocal(typeof(string));
@@ -150,7 +150,11 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, _texts[slot.Slot]);
                 _il.Emit(OpCodes.Ldloca, text);
                 _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.TryRead))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                break;
+
+            case FieldTextNode field:
+                EmitFieldText(field, text, failure);
                 break;
 
             case MemberTextNode member:
@@ -167,7 +171,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(err.Source ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 _il.Emit(OpCodes.Ldloca, text);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReadErrText))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
 
             case ConcatNode concat:
@@ -185,7 +189,7 @@ internal sealed partial class ProcedureEmitter
                 Load(code, chr.Code.Kind);
                 _il.Emit(OpCodes.Ldloca, text);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryChr))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
 
             case WholeTextNode whole:

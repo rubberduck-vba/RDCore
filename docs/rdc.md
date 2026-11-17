@@ -92,7 +92,7 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 |`rdc config`|`configure`|Shows the platform's settings and sets them, as the shell's `CONFIG` does, without starting the platform.|
 |`rdc export-library <library>`|`xl`|Describes a type library of this machine (a file such as `scrrun.dll`, its identifier, or its name) as a file a project can reference by name. `--dependencies` describes the libraries it depends on too.|
 |`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, what keeps it in the interpreter, and what the interpreter runs for it when it is compiled.|
-|`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine.|
+|`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine, with what each case allocates.|
 |`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
 |`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
 |`rdc splash`|`s`|Writes the platform's splash as plain text, whether its output is a console or not. It takes no workspace.|
@@ -106,7 +106,7 @@ On a console, a command starts with the platform's splash. Output redirected to 
 - the procedure the `.rdproj` names as its entry point in its `build` section, `Module.Procedure` or `Procedure`: `"build": { "entryPoint": "Module1.Main" }`;
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
-A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does a library (`"build": { "outputType": "Library" }`),
+A project with no entry point ([RDC30001](diagnostics/rdc30001.md)), or with a `Sub Main` in more than one standard module ([RDC30002](diagnostics/rdc30002.md)), does not run. Neither does a library (`"build": { "outputType": "Library" }`),
 nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is drawn in the console and answered there, as in the shell, on every operating system. The `CLI.NativeDialogs` setting shows them as Windows dialog boxes instead, on Windows. The setting does not change how a form is shown: it opens a window of its own.
 
 |Option|What it does|
@@ -148,8 +148,15 @@ wherever it is. It needs the same entry point as `rdc run`.
 The program shows its dialogs as `rdc run` does, and its exit code says how it ran, as `rdc run`'s does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
 
 A built program calls the outside world (a `Declare`d procedure, an automation server's object) as `rdc run` does, through a second process: its own
-executable, started again as its external host, which ends with it. Where the .NET host for the program's runtime is not installed, the program is built without an executable;
-run with `dotnet <name>.dll`, it makes no such call.
+executable, started again as its external host, which ends with it.
+
+The executable is made of the .NET application host for the program's runtime. `rdc` comes with the hosts for `win-x64`, `linux-x64`, `osx-x64` and
+`osx-arm64`, the runtimes the platform is published for, so it builds a program for any of them wherever it runs. For another runtime, it uses the host
+in an installed .NET SDK. Where neither has it, the program is built without an executable; run with `dotnet <name>.dll`, it makes no call to the
+outside world.
+
+The executable of a program built for macOS (`osx-x64`, `osx-arm64`) is signed ad hoc, as the .NET SDK signs an application's: a Mac with Apple silicon
+runs no executable that is not signed. The signature has no certificate: it is not a Developer ID signature.
 
 The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
 reads them from there, wherever the folder is.

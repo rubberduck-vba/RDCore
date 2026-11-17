@@ -445,6 +445,9 @@
   <data name="Repl_Suspended" xml:space="preserve">
     <value>PROGRAMME INTERROMPU : CONT, STEP, RUN OU NEW</value>
   </data>
+  <data name="Repl_Splash_Summary" xml:space="preserve">
+    <value>Affiche de nouveau l'écran de démarrage.</value>
+  </data>
   <data name="Repl_Stack_Summary" xml:space="preserve">
     <value>Affiche les procédures où se trouve le programme interrompu, de la plus interne à la plus externe.</value>
   </data>
@@ -500,7 +503,7 @@
     <value>Un programme ne peut pas s'appeler {0} : le runtime sur lequel il s'exécute a un assembly de ce nom. Nommez-le avec --name.</value>
   </data>
   <data name="Build_NoAppHost" xml:space="preserve">
-    <value>Aucun hôte d'application .NET n'est installé pour {0}, et aucun exécutable n'a donc été écrit : exécutez le programme avec dotnet {1}.</value>
+    <value>Ni rdc ni un SDK .NET installé n'ont l'hôte d'application .NET pour {0}, et aucun exécutable n'a donc été écrit : exécutez le programme avec dotnet {1}.</value>
   </data>
   <data name="Build_NoticesLacking" xml:space="preserve">
     <value>Il manque {0} au dossier du programme : cette copie de RDCore n'en a aucun à y mettre. Un RDCore publié les a tous.</value>
