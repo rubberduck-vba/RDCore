@@ -51,7 +51,7 @@ internal sealed class CodeActionService(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
     ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
-    IMoveCloserToUsageService? closerToUsage = null) : ICodeActionService
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null) : ICodeActionService
 {
     public Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionParams request, ClientCapabilities? client, CancellationToken cancellationToken)
         => For(client).ActionsAsync(request, cancellationToken);
@@ -60,7 +60,7 @@ internal sealed class CodeActionService(
         => For(client).ResolveAsync(request, cancellationToken);
 
     private CodeActions For(ClientCapabilities? client) => new(client, rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField, implementInterface,
-        closerToUsage);
+        closerToUsage, parameterReorder);
 }
 
 /// <summary>
@@ -91,6 +91,13 @@ internal sealed class CodeActionService(
 /// <para>
 /// A <c>GoSub</c> routine is offered, the same way, as a refactoring that converts it to a procedure: at a position on its label, on a <c>GoSub</c> that names
 /// it or on one of its <c>Return</c>s, and for a selection whose extraction is refused for a <c>GoSub</c> to it or one of its <c>Return</c>s.
+/// </para>
+/// <para>
+/// A parameter declared at the start of the range is offered its removal (<see cref="ParameterRemoval"/>), as an edit, and so is the parameter of a diagnostic
+/// fixed by removing it, as a preferred quick fix. The procedure named at the start of the range, or whose parameter is declared there, is offered the
+/// reordering of its parameters (<see cref="IParameterReorderService"/>) when it has two or more: a command (<see cref="RefactoringCommands.Refactor"/>) that
+/// a client expecting <see cref="SDK.Client.Refactoring"/> runs with its user's order. A refused one is offered disabled, with why, to a client that shows it
+/// so.
 /// </para>
 /// <para>
 /// The diagnostics of a code that can be disabled are offered, once for the code and after their fixes, a quick fix that disables it in every workspace of the
@@ -136,7 +143,7 @@ internal sealed class CodeActions(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
     ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
-    IMoveCloserToUsageService? closerToUsage = null)
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null)
 {
     // LSP "RequestFailed": the request is valid, and is refused.
     private const int RequestFailedCode = -32803;
@@ -287,6 +294,28 @@ internal sealed class CodeActions(
             else if (ShowsDisabled && parameter.Answer.Refusal is { } refusal)
             {
                 actions.Add(new CodeAction { Title = title, Kind = CodeActionHandler.RefactorRemoveParameter, Disabled = new CodeActionDisabled { Reason = refusal } });
+            }
+        }
+
+        // the procedure named at the start of the range, or one of its parameters declared there, is offered the reordering of its parameters: a command that a
+        // client with a dialog runs, which asks the order of its user. It is not offered to another client: the order it would take is the one they have.
+        if (IsAsked(CodeActionHandler.RefactorReorderParameters) && parameterReorder is not null && clientCapabilities.Expects(capabilities => capabilities.Refactoring)
+            && await parameterReorder.OfferAsync(documentUri, new SourcePosition(request.Range.Start.Line, request.Range.Start.Character), cancellationToken) is { } reorder)
+        {
+            if (reorder.Refusal is null)
+            {
+                var start = new SourcePosition(request.Range.Start.Line, request.Range.Start.Character);
+                var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.ReorderParameters, Uri = documentUri, Range = new SourceRange(start, start) };
+                actions.Add(new CodeAction
+                {
+                    Title = reorder.Title,
+                    Kind = CodeActionHandler.RefactorReorderParameters,
+                    Command = new Command { Name = RefactoringCommands.Refactor, Title = reorder.Title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+                });
+            }
+            else if (ShowsDisabled)
+            {
+                actions.Add(new CodeAction { Title = reorder.Title, Kind = CodeActionHandler.RefactorReorderParameters, Disabled = new CodeActionDisabled { Reason = reorder.Refusal } });
             }
         }
 

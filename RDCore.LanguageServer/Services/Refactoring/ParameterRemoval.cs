@@ -151,7 +151,7 @@ public static class ParameterRemoval
     // the procedures whose parameter lists change together: the accessors of a property, and, for the member of a class that other classes implement, the
     // procedures that implement it (MS-VBAL §5.3.1.9). A procedure that implements a member changes with that member. None for a handler of an event, whose
     // parameters are the event's (MS-VBAL §5.3.1.8).
-    private static IReadOnlyList<Symbol>? FamilyOf(RenameContext context, Symbol procedure, string parameter)
+    internal static IReadOnlyList<Symbol>? FamilyOf(RenameContext context, Symbol procedure, string parameter)
     {
         var root = procedure;
         if (NameOccurrences.SymbolOf(context, new SemanticId(procedure.ParentUri)) is VBClassModuleSymbol owner && procedure.Name.Contains('_'))
@@ -249,6 +249,52 @@ public static class ParameterRemoval
     // every call to the procedure: the argument passed for the parameter, by position or by name, is removed.
     private static ParameterRemovalRefusal? CallEdits(RenameContext context, Symbol member, VBParameterSymbol parameter, int index, List<RenameEdit> edits)
     {
+        var (sites, problem) = CallSitesOf(context, member);
+        if (problem is { } missed)
+        {
+            return missed.Kind switch
+            {
+                CallProblemKind.CalledByName => new(ParameterRemovalRefusalKind.CalledByName, parameter.Name, member.Name, missed.Module, missed.Position),
+                CallProblemKind.LateBound => new(ParameterRemovalRefusalKind.LateBound, parameter.Name, member.Name, missed.Module, missed.Position),
+                _ => new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: missed.Module, Position: missed.Position),
+            };
+        }
+
+        foreach (var (source, callee, call, bindingOf) in sites)
+        {
+            var positional = call.Arguments.TakeWhile(argument => argument is not NamedArgumentNode).Count();
+            var removed = index < positional ? index
+                : call.Arguments.IndexOf(call.Arguments.OfType<NamedArgumentNode>().FirstOrDefault(argument => string.Equals(argument.Name, parameter.Name, StringComparison.OrdinalIgnoreCase))!);
+            if (removed < 0)
+            {
+                continue;
+            }
+
+            var argument = call.Arguments[removed] is NamedArgumentNode { Value: var value } ? value : call.Arguments[removed];
+            if (!IsInert(context, argument, bindingOf))
+            {
+                return new(ParameterRemovalRefusalKind.Evaluated, parameter.Name, Module: source.Module, Position: argument.Location.Range.Start);
+            }
+
+            if (call.List is not { } list)
+            {
+                return new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: source.Module, Position: callee);
+            }
+
+            // a call left with no argument loses its parentheses (F (a), Call F(a), x = F(a)): F () is not a statement.
+            var leftEmpty = !ListEdits.ItemsOf(source.Source, list).Where((item, at) => at != removed && item.End != item.Start).Any();
+            edits.Add(leftEmpty && call.Parentheses is { } parentheses
+                ? new RenameEdit(source.Module, parentheses, string.Empty)
+                : EditOf(source.Module, ListEdits.RemoveItem(source.Source, list, removed)));
+        }
+
+        return null;
+    }
+
+    // every call to a procedure that passes it arguments, where the edit can find it; or the first place the edit could miss one: a call by the procedure's
+    // name in a string (MS-VBAL §6.1.2.8.1.1), an access that may be late-bound (MS-VBAL §5.6.12), a name or a member access that is not resolved.
+    internal static (IReadOnlyList<CallSite> Sites, CallProblem? Problem) CallSitesOf(RenameContext context, Symbol member)
+    {
         var found = NameOccurrences.Find(context, member.Name, context.Modules);
         foreach (var unknown in found.Unknown)
         {
@@ -256,7 +302,7 @@ public static class ParameterRemoval
             {
                 if (RenameBinding.IsCalledBy(context, [member], unknown))
                 {
-                    return new(ParameterRemovalRefusalKind.CalledByName, parameter.Name, member.Name, unknown.Module, unknown.Range.Start);
+                    return ([], new(CallProblemKind.CalledByName, unknown.Module, unknown.Range.Start));
                 }
 
                 continue;
@@ -264,16 +310,17 @@ public static class ParameterRemoval
 
             if (unknown.Kind is OccurrenceKind.Member || RenameBinding.ChainIndex(unknown.Scope, member) < int.MaxValue)
             {
-                return new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: unknown.Module, Position: unknown.Range.Start);
+                return ([], new(CallProblemKind.Unresolved, unknown.Module, unknown.Range.Start));
             }
         }
 
         if (found.Occurrences.FirstOrDefault(occurrence => RenameBinding.LateBoundMatchOf(context, [member], occurrence) != RenameBinding.LateBoundMatch.None)
             is { Module: not null } lateBound)
         {
-            return new(ParameterRemovalRefusalKind.LateBound, parameter.Name, member.Name, lateBound.Module, lateBound.Range.Start);
+            return ([], new(CallProblemKind.LateBound, lateBound.Module, lateBound.Range.Start));
         }
 
+        var sites = new List<CallSite>();
         foreach (var group in found.Occurrences
             .Where(occurrence => occurrence.Binding == member.SemanticId && occurrence.Kind is OccurrenceKind.Name or OccurrenceKind.Member && occurrence.Node is not null)
             .GroupBy(occurrence => occurrence.Module.AbsoluteUri))
@@ -283,45 +330,20 @@ public static class ParameterRemoval
             var bindingOf = NameOccurrences.BindingsOf(context, source);
             foreach (var occurrence in group)
             {
-                if (!calls.TryGetValue(occurrence.Node!, out var call))
+                if (calls.TryGetValue(occurrence.Node!, out var call))
                 {
-                    continue;
+                    sites.Add(new CallSite(source, occurrence.Range.Start, call, bindingOf));
                 }
-
-                var positional = call.Arguments.TakeWhile(argument => argument is not NamedArgumentNode).Count();
-                var removed = index < positional ? index
-                    : call.Arguments.IndexOf(call.Arguments.OfType<NamedArgumentNode>().FirstOrDefault(argument => string.Equals(argument.Name, parameter.Name, StringComparison.OrdinalIgnoreCase))!);
-                if (removed < 0)
-                {
-                    continue;
-                }
-
-                var argument = call.Arguments[removed] is NamedArgumentNode { Value: var value } ? value : call.Arguments[removed];
-                if (!IsInert(context, argument, bindingOf))
-                {
-                    return new(ParameterRemovalRefusalKind.Evaluated, parameter.Name, Module: source.Module, Position: argument.Location.Range.Start);
-                }
-
-                if (call.List is not { } list)
-                {
-                    return new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: source.Module, Position: occurrence.Range.Start);
-                }
-
-                // a call left with no argument loses its parentheses (F (a), Call F(a), x = F(a)): F () is not a statement.
-                var leftEmpty = !ListEdits.ItemsOf(source.Source, list).Where((item, at) => at != removed && item.End != item.Start).Any();
-                edits.Add(leftEmpty && call.Parentheses is { } parentheses
-                    ? new RenameEdit(source.Module, parentheses, string.Empty)
-                    : EditOf(source.Module, ListEdits.RemoveItem(source.Source, list, removed)));
             }
         }
 
-        return null;
+        return (sites, null);
     }
 
     // an argument whose evaluation does nothing but read a value (MS-VBAL §5.6.13.1): an omitted one, a literal, Me, or the name of a variable, a parameter or a
     // constant; a constant or a member of an Enum qualified by its module or its Enum. Anything else may call a procedure or raise an error, which removing the
     // argument would no longer do.
-    private static bool IsInert(RenameContext context, ExpressionNode argument, Func<ExpressionNode, SemanticId?> bindingOf) => argument switch
+    internal static bool IsInert(RenameContext context, ExpressionNode argument, Func<ExpressionNode, SemanticId?> bindingOf) => argument switch
     {
         MissingArgumentNode or LiteralExpressionNode or InstanceExpressionNode => true,
         VBUnaryOperatorExpressionNode { Children: [LiteralExpressionNode] } => true,
@@ -335,7 +357,22 @@ public static class ParameterRemoval
 
     // a call: its arguments, the range of its list (none when the edit cannot tell where it is), and the range of its parentheses with the blanks before them,
     // when they can go with the last argument: not when the call's result is indexed (F(a)(1)).
-    private sealed record class Call(ImmutableArray<ExpressionNode> Arguments, SourceRange? List, SourceRange? Parentheses);
+    internal sealed record class Call(ImmutableArray<ExpressionNode> Arguments, SourceRange? List, SourceRange? Parentheses);
+
+    // a call in a module: where it names what it calls, and what the names of its arguments are bound to.
+    internal sealed record class CallSite(RenameModule Source, SourcePosition Callee, Call Call, Func<ExpressionNode, SemanticId?> BindingOf);
+
+    internal enum CallProblemKind
+    {
+        CalledByName,
+
+        LateBound,
+
+        Unresolved,
+    }
+
+    // a place where an edit of the calls to a procedure could miss one.
+    internal sealed record class CallProblem(CallProblemKind Kind, Uri Module, SourcePosition Position);
 
     // the calls of a module, by the node that names what they call: a name, or the member of a member access.
     private static Dictionary<SyntaxNode, Call> CallsIn(RenameModule source)
@@ -384,10 +421,10 @@ public static class ParameterRemoval
     }
 
     // the text between the parentheses of a list.
-    private static SourceRange Inside(SourceRange parenthesized)
+    internal static SourceRange Inside(SourceRange parenthesized)
         => new(new SourcePosition(parenthesized.Start.Line, parenthesized.Start.Character + 1), new SourcePosition(parenthesized.End.Line, parenthesized.End.Character - 1));
 
-    private static (MemberDeclarationNode Procedure, ParameterDeclarationNode Parameter)? DeclarationOf(RenameModule source, VBParameterSymbol parameter)
+    internal static (MemberDeclarationNode Procedure, ParameterDeclarationNode Parameter)? DeclarationOf(RenameModule source, VBParameterSymbol parameter)
     {
         foreach (var procedure in source.Syntax.Children.OfType<MemberDeclarationNode>().Where(procedure => procedure.ParameterListRange is not null))
         {
@@ -401,10 +438,10 @@ public static class ParameterRemoval
         return null;
     }
 
-    private static RenameEdit EditOf(Uri module, SDK.Platform.Protocol.RefactorTextEdit edit) => new(module, edit.Range, edit.NewText);
+    internal static RenameEdit EditOf(Uri module, SDK.Platform.Protocol.RefactorTextEdit edit) => new(module, edit.Range, edit.NewText);
 
     // the parameters a procedure's declaration writes, in order: a class member's implicit Me, its parameter 0, is none of them.
-    private static ImmutableArray<VBParameterSymbol> ParametersOf(Symbol symbol)
+    internal static ImmutableArray<VBParameterSymbol> ParametersOf(Symbol symbol)
     {
         ImmutableArray<VBParameterSymbol> parameters = symbol switch
         {

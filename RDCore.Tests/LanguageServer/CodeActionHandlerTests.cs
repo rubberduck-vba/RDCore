@@ -86,14 +86,21 @@ public sealed class CodeActionHandlerTests
 
     private CodeActionHandler Handler()
     {
+        var rename = Rename();
+        return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, AppOptions()),
+            new MoveMemberService(rename, _parsing), _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles,
+            _libraries, closerToUsage: new MoveCloserToUsageService(rename), parameterReorder: new ParameterReorderService(rename));
+    }
+
+    private static IOptions<SdkAppOptions> AppOptions()
+        => Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+
+    private RenameService Rename()
+    {
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
-        var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
-        return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
-            new MoveMemberService(rename, _parsing), _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles,
-            _libraries, closerToUsage: new MoveCloserToUsageService(rename));
+        return new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, AppOptions(), NullLogger<RenameService>.Instance, OneProject.Registry());
     }
 
     private static DocumentUri Document => DocumentUri.From(Path.Combine(Root, "Main.rdc"));
@@ -443,6 +450,37 @@ public sealed class CodeActionHandlerTests
         Assert.IsTrue(fix.IsPreferred);
         Assert.AreEqual(2, fix.Edit!.Changes!.Single().Value.Count(), "the declaration and the call");
         Assert.IsFalse(atTheUsedOne.Any(action => action.Kind == CodeActionHandler.RefactorRemoveParameter), "a client that shows no disabled action is offered none");
+    }
+
+    [TestMethod]
+    public async Task AProcedureWithParameters_IsOfferedTheirReordering_AsACommand_ThatPutsThemInTheOrderAnswered()
+    {
+        const string tools = "Attribute VB_Name = \"Tools\"\r\nPublic Sub Go(ByVal a As Long, ByVal b As String)\r\nEnd Sub\r\nPublic Sub One()\r\n    Go 1, \"x\"\r\nEnd Sub\r\n";
+        Hold(new WorkspaceDocument("Tools.bas", Root, tools, version: 1));
+        var document = DocumentUri.From(Path.Combine(Root, "Tools.bas"));
+        _capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(true);
+
+        var rename = Rename();
+        var at = new RDCore.SDK.Model.Source.SourceRange(1, 12, 1, 12);
+
+        var offered = await ActionsAsync(document, new Range(1, 12, 1, 12), null);
+        var prepared = await new RefactorPrepareHandler(new ExtractMethodService(rename, _parsing, AppOptions()), _capabilities, parameterReorder: new ParameterReorderService(rename)).Handle(
+            new RDCore.SDK.Platform.Protocol.RefactorPrepareRequest { Kind = RefactoringKinds.ReorderParameters, Uri = document.ToUri(), Range = at }, CancellationToken.None);
+        var applied = await new RefactorApplyHandler(new ExtractMethodService(rename, _parsing, AppOptions()), _capabilities, parameterReorder: new ParameterReorderService(rename)).Handle(
+            new RDCore.SDK.Platform.Protocol.RefactorApplyRequest
+            {
+                Kind = RefactoringKinds.ReorderParameters,
+                Uri = document.ToUri(),
+                Range = at,
+                Answers = [new() { Id = ParameterReorderService.ParametersChoice, Items = [new() { Id = "b" }, new() { Id = "a" }] }],
+            }, CancellationToken.None);
+
+        var reorder = Assert.ContainsSingle(offered.Where(action => action.Kind == CodeActionHandler.RefactorReorderParameters));
+        Assert.AreEqual("Reorder the parameters of 'Go'", reorder.Title);
+        Assert.AreEqual(RefactoringCommands.Refactor, reorder.Command!.Name);
+        CollectionAssert.AreEqual(new[] { "ByVal a As Long", "ByVal b As String" }, prepared.Choices.Single().Items.Select(item => item.Label).ToArray());
+        Assert.AreEqual(tools.Replace("(ByVal a As Long, ByVal b As String)", "(ByVal b As String, ByVal a As Long)").Replace("Go 1, \"x\"", "Go \"x\", 1"),
+            DeclarationEdits.ApplyTo(tools, applied.Documents.Single().Edits));
     }
 
     [TestMethod]

@@ -20,7 +20,7 @@ internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
     ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
-    IMoveCloserToUsageService? closerToUsage = null) : CodeActionHandlerBase
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null) : CodeActionHandlerBase
 {
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
@@ -41,6 +41,11 @@ internal sealed class CodeActionHandler(
     /// The kind of the action that removes a parameter (<see cref="RefactoringKinds.RemoveParameter"/>).
     /// </summary>
     public static readonly CodeActionKind RefactorRemoveParameter = new(RefactoringKinds.RemoveParameter);
+
+    /// <summary>
+    /// The kind of the action that reorders the parameters of a procedure (<see cref="RefactoringKinds.ReorderParameters"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorReorderParameters = new(RefactoringKinds.ReorderParameters);
 
     /// <summary>
     /// The kind of the action that moves a procedure above the one before it (<see cref="RefactoringKinds.MoveMemberUp"/>).
@@ -79,7 +84,7 @@ internal sealed class CodeActionHandler(
     public static readonly CodeActionKind SourceImportProject = new(RefactoringKinds.ImportProject);
 
     private readonly CodeActionService _actions = new(rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField, implementInterface,
-        closerToUsage);
+        closerToUsage, parameterReorder);
 
     // what the client said it can do, as it initialized: a rename's edits are sent in the form it applies.
     private ClientCapabilities? _client;
@@ -95,7 +100,7 @@ internal sealed class CodeActionHandler(
         return new()
         {
             CodeActionKinds = new Container<CodeActionKind>(
-                CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorRemoveParameter, RefactorMoveMemberUp, RefactorMoveMemberDown,
+                CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorRemoveParameter, RefactorReorderParameters, RefactorMoveMemberUp, RefactorMoveMemberDown,
                 SourceSortMembers, RefactorEncapsulateField, RefactorImplementInterface, RefactorMoveCloserToUsage, SourceImportProject),
             ResolveProvider = true,
         };
