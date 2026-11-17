@@ -408,7 +408,8 @@ them: a call in a part is not made twice.
 `IsEmpty`, `IsNull` and `VarType` of a `Variant` variable of the procedure, or of an element of one of its arrays of `Variant`s, are read in the
 `Variant` (**MS-VBAL §6.1.2.7.1.4**, **§6.1.2.7.1.7**, **§6.1.2.7.1.13**) when it holds a number, a `Boolean`, a `Date`, `Empty`, `Null`, a `String`
 or an error. Of a `Variant` that holds an object or an array, compiled code calls the standard library's function, as it calls the functions above, and
-an object is judged by its default member's value. So it does for a `Variant` parameter passed a `String`, an error or nothing (`Missing`) by value.
+an object is judged by its default member's value. It calls the library's function too for a `Variant` parameter passed a `String`, an error or nothing
+(`Missing`) by value, which its frame holds in no `Variant`'s cell.
 The interpreter runs the statement where compiled code cannot, as for an element that holds an array. Compiled code runs a single-line `If` such as
 `If Not IsEmpty(V(R, C)) Then V(R, C) = V(R, C) * 2` whole.
 
