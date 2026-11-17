@@ -8,8 +8,8 @@ namespace RDCore.Runtime.Compiled;
 // what compiled code does of a With block.
 internal sealed partial class ProcedureAnalysis
 {
-    // MS-VBAL §5.4.2.21: the With statement of a block of an object compiled code reads - an object variable of the activation or Me, an object field of
-    // one of its records, a New of a class, or a call that returns an object - the block holding the reference it read, as the interpreter holds it
+    // MS-VBAL §5.4.2.21: the With statement of a block of an object compiled code reads (an object variable of the activation or Me, an object field of
+    // one of its records, a New of a class, or a call that returns an object), the block holding the reference it read, as the interpreter holds it
     // (CompiledActivation.TryWith). A record, a Variant and anything else is the interpreter's statement, which evaluates the block's object and holds it in
     // the frame: what compiled code did not read gives no reason but the statement's own.
     private WithStep? WithOf(Instruction instruction)

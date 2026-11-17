@@ -241,9 +241,12 @@ given to a `Single`, a `Double`, a `Boolean` or an integer type, which it rounds
 of `Me`, and a public field are assigned by the interpreter, as above.
 
 Compiled code also calls a member of the object of a `With` block (`.Add 1`, `N = .Total()`, `If .IsSunken Then`) as it calls a member of an object
-variable (see Objects, above), inside an expression too (see Calls inside an expression, below). The `With` statement is the interpreter's: it evaluates
-the object and holds it for the block (MS-VBAL §5.4.2.21). The `End With` is compiled code's: the block has no object from there on, and what it held is
-let go of. The interpreter runs the `End With` instead under a debugger, and when letting go of the object destroys it, whose `Class_Terminate` then runs.
+variable (see Objects, above), inside an expression too (see Calls inside an expression, below). It runs the `With` statement of an object variable or
+`Me`, an object field, a `New`, or a call that returns an object: it evaluates the object and holds it for the block where the interpreter holds it
+(MS-VBAL §5.4.2.21). The block keeps the reference it read, which a `Set` of the variable inside the block does not change. The interpreter runs the
+`With` instead under a debugger, for a record, a `Variant` or any other value, and when opening the block again before its `End With` would destroy the
+object it holds. The `End With` is compiled code's: the block has no object from there on, and what it held is let go of. The interpreter runs the
+`End With` instead under a debugger, and when letting go of the object destroys it, whose `Class_Terminate` then runs.
 What the block holds is also let go of when the procedure is left. Compiled code reads the object where the interpreter holds it, each time it needs it,
 so a jump out of the block and back in finds the same object. A block whose `With` statement did not run (jumped into), or whose object raised an error
 that `On Error Resume Next` went past, has no object, and neither does a block of `Nothing`: a member of it raises error 91, as in the interpreter.
@@ -462,13 +465,13 @@ value, and a whole number as its digits. Any other value, such as a `Double`, wh
 interpreter's: it runs that `Case` on its own, with the selector compiled code evaluated. Two `String`s compared (`Select Case L = R`) are a `Boolean`
 selector, which is a scalar.
 
-The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With`, and its `End With` when letting go of
-the block's object destroys it, and each statement in the block that uses its object other than as compiled code does (see Members of objects and `With`
-blocks, above); a `For Each` statement inside a `With` block, which is evaluated against the block's object; and a `Select Case` and its `Case`s when the
-selector is a `Variant`, a fixed-length `String`, or a scalar compiled code cannot evaluate, such as `Len(S)` with `S` a `String`. Compiled code
-does the rest of the block. What a block holds is let go of at the same place in either engine, so a `Class_Terminate` runs at the same place too: the
-object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop, by its `Next`, an `Exit For`, a
-jump or a `Return`.
+The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` compiled code does not run, its
+`End With` when letting go of the block's object destroys it, and each statement in the block that uses its object other than as compiled code does (see
+Members of objects and `With` blocks, above); a `For Each` statement inside a `With` block, which is evaluated against the block's object; and a
+`Select Case` and its `Case`s when the selector is a `Variant`, a fixed-length `String`, or a scalar compiled code cannot evaluate, such as `Len(S)`
+with `S` a `String`. Compiled code does the rest of the block. What a block holds is let go of at the same place in either engine, so a
+`Class_Terminate` runs at the same place too: the object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the
+program leaves the loop, by its `Next`, an `Exit For`, a jump or a `Return`.
 
 The interpreter runs a `For Each` statement and its `Next` for compiled code (MS-VBAL §5.4.2.4), as it runs a call statement compiled code does not make.
 The frame holds the loop: the enumerator of an object, or the array and the position in it. The control variable is a `Variant` or an object, which the
@@ -484,13 +487,13 @@ These keep the whole procedure in the interpreter:
 
 - a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
 - a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does nothing at each pass of
-  it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`, no `End With`. The `Next` of a `For Each` is
-  none of these, since the interpreter runs it. The loop is the innermost one around the statement: what an outer loop or a loop beside it does is no gain
+  it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`, no `With` or `End With`. The `Next` of a
+  `For Each` is none of these, since the interpreter runs it. The loop is the innermost one around the statement: what an outer loop or a loop beside it does is no gain
   for this one. Around each such statement compiled code would only write its variables into the frame and read them back, which costs more than it saves.
 
-A procedure whose frame holds something compiled code does not hold is always called with its frame, through the interpreter's call, never through the
-compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,
-for a compiled procedure, what the interpreter runs of it.
+A procedure whose frame holds something compiled code does not hold, such as the object of a `With` block, is always called with its frame, through
+the interpreter's call, never through the compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is
+compiled and what keeps it in the interpreter, and, for a compiled procedure, what the interpreter runs of it.
 
 No procedure runs compiled during an analysis. Under a debugger, compiled code writes its variables into its frame before each call, so the debugger sees
 every activation while the program waits.
