@@ -111,7 +111,7 @@ internal sealed partial class ProcedureAnalysis
     private List<PayloadNode>? IntrinsicArgumentsOf(IntrinsicForm form, ImmutableArray<BoundArgument> arguments)
     {
         // arguments left out at the end are dropped, as a call of the library's binding drops them (LibraryArgumentsOf): Round(D) is the form of one. A
-        // comparison left out that is the calling module's Option Compare is given that module's (below) to a form that takes a Compare (StrComp); a form
+        // comparison left out that is the calling module's Option Compare goes to a form that takes a Compare (StrComp) as that module's (below); a form
         // that takes none compares Strings as Option Compare Binary does, so it takes the call only in a module that compares that way (InStr).
         var parameters = form.Method.GetParameters().Where(parameter => !parameter.IsOut && parameter.ParameterType != typeof(IRuntimeSession)).ToArray();
         var count = arguments.Length;
