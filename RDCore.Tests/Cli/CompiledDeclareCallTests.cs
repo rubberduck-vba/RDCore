@@ -36,7 +36,7 @@ public sealed class CompiledDeclareCallTests
     }
 
     // the program run both ways, printing what is expected: each procedure named compiled, never handed to the interpreter for the rest of its body, and
-    // the Declare it calls as a statement made by the interpreter as a support call - or, called in an expression, the statement stepped.
+    // the Declare it calls as a statement made by the interpreter as a support call, or, when it is called in an expression, the statement stepped.
     private static async Task AssertGoesOnCompiledAsync(string program, string expected, (string Name, string Called, bool InAnExpression)[] procedures,
         Func<WorkspaceLibraries>? libraries = null)
     {
@@ -64,7 +64,8 @@ public sealed class CompiledDeclareCallTests
     }
 
     // memmove writes what it copies into the variable passed by reference, whatever it is: a local, a field of the module, an element of an array, a field
-    // of a record; a property's value is a temporary, which it writes and nothing reads. A call statement with Call, and one naming the module, is the same call.
+    // of a record; a property's value is a temporary, which it writes and nothing reads. A call statement with Call, and one naming the module, is the same
+    // call.
     [TestMethod]
     public async Task WhatADeclareWritesThroughAnArgumentPassedByReference_IsTheVariables_AndTheProcedureGoesOnCompiled()
         => await AssertGoesOnCompiledAsync(Program(
@@ -174,7 +175,8 @@ public sealed class CompiledDeclareCallTests
             [("Closed", "CloseHandle", false)]);
 
     // a library that is not there is error 53, and a function the library does not export is error 453, raised where the call is: On Error Resume Next goes
-    // past it, and the variable passed by reference holds what it held; a handler is given it, with Erl the line of the call, and Resume Next goes on after it.
+    // past it, and the variable passed by reference holds what it held; a handler is given it, with Erl the line of the call, and Resume Next goes on after
+    // it.
     [TestMethod]
     public async Task AnErrorADeclareRaises_IsRaisedWhereTheCallIs_AndTheProcedureGoesOnCompiled()
         => await AssertGoesOnCompiledAsync(Program(
