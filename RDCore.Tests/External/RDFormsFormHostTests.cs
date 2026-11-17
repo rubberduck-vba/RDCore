@@ -197,8 +197,8 @@ public sealed class RDFormsFormHostTests
         {
             host.Show(form, modal: false);
 
-            // the window system activates the form shown after Show returns, on the UI thread, and Text1 takes the focus there (GotFocus): it is done before
-            // the sink is advised, which hears only what the program's call raises.
+            // the window system activates a form shown modeless after Show returns, on the UI thread, and Text1 takes the focus there (GotFocus): that is
+            // done before the sink is advised, so that the sink hears only what the program's call raises.
             host.DoEvents();
             var text = Get(host, form, "Text1")!;
             var sink = new Recorder();
