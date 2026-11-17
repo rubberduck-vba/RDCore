@@ -18,7 +18,8 @@ namespace RDCore.CLI.Host.Handlers;
 /// The session is composed anew, as it is at start-up, and the language server defines the workspace in it again. A program that is running or waits keeps
 /// the session it runs in: nothing is composed, and the result says why. A module the project gained meanwhile is not of the program, which is not resumed
 /// while the project lists it, and is part of the session once the program is over. The language the request names is the project's from then on, the
-/// session it keeps included once it is composed again; a request that names none keeps the language the project was written in.
+/// session it keeps included once it is composed again. A request that names none, or names a language the platform does not serve, keeps the language
+/// the project was written in.
 /// </remarks>
 internal sealed class HostProjectReloadHandler(
     IEnvironmentSessionProvider sessionProvider,
