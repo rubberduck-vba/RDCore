@@ -65,7 +65,7 @@ public sealed class StoppedSweepTests
     }
 
     [TestMethod]
-    [Ignore("an element of a String is in the cell the SDK's array makes of its default value, with nothing asked: it stops once the SDK's element store makes no cell up front")]
+    [Ignore("an element of a String is in the cell the SDK's array makes of its default value, with nothing asked: the sweep stops only once the array is made")]
     public async Task ASweepThatIsStopped_StopsWhileItMakesTheElementsOfAnArrayOfStrings()
         => Assert.IsInstanceOfType<OperationCanceledException>(await SweepStoppedAsync("String"));
 }

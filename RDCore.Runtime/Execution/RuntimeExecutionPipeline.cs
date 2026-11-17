@@ -112,8 +112,8 @@ public sealed class RuntimeExecutionPipeline
     /// <param name="errorDetails">Records the details of the run-time errors raised.</param>
     /// <param name="observer">Told of every conversion and operation the analysis evaluates.</param>
     /// <param name="cancellation">
-    /// Stops the interpreter between instructions, and while it makes the elements of a fixed-size array a procedure declares (<see cref="DeclaredVariableDefaults"/>),
-    /// which throws <see cref="OperationCanceledException"/>.
+    /// Stops the interpreter between instructions, and while it makes the elements of a fixed-size array a procedure declares
+    /// (<see cref="DeclaredVariableDefaults"/>), which throws <see cref="OperationCanceledException"/>.
     /// </param>
     /// <remarks>
     /// <para>
@@ -140,8 +140,8 @@ public sealed class RuntimeExecutionPipeline
     /// <param name="errorDetails">Records the details of the run-time errors raised.</param>
     /// <param name="observer">Told of every conversion and operation the sweep evaluates.</param>
     /// <param name="cancellation">
-    /// Stops the sweep between instructions, and while it makes the elements of a fixed-size array a procedure declares (<see cref="DeclaredVariableDefaults"/>),
-    /// which throws <see cref="OperationCanceledException"/>.
+    /// Stops the sweep between instructions, and while it makes the elements of a fixed-size array a procedure declares
+    /// (<see cref="DeclaredVariableDefaults"/>), which throws <see cref="OperationCanceledException"/>.
     /// </param>
     /// <remarks>
     /// <para>
