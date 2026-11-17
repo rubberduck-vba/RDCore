@@ -74,8 +74,8 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // the id of the server's msgBox, for a client that declares no progress (AsHexIdeDeclaresButProgress) and runs its program once the server has asked it
-    // to refresh its diagnostics, which the server does once it has brought the workspace up: the refresh is the server's first request, the msgBox its second.
-    // A client that runs its program sooner has the two asked in either order.
+    // to refresh its diagnostics, which the server does once it has brought the workspace up: the refresh is the server's first request, the msgBox its
+    // second. A client that runs its program sooner has the two asked in either order.
     private const int MessageBoxId = 2;
 
     private const string ClaimsDialogs = """
@@ -228,7 +228,8 @@ public sealed class ClientWithoutOmniSharpTests
 
     // the order HexIDE's add-in sent its messages in (a byte tap of HexIDE's messages): the document opened and its diagnostics asked for before the
     // platform handshake, which is sent without waiting for them, and whose id is the one the language server's msgBox then has. HexIDE's handshake was 4,
-    // behind the server's progress requests; this client asks none (MessageBoxId), and numbers its handshake 2.
+    // behind the server's progress requests; this client declares no progress, so the server asks none (MessageBoxId), and the client numbers its
+    // handshake 2.
     [TestMethod]
     public async Task AClientInHexIdesOrder_AnswersTheMsgBoxOfAProgram_AndTheProgramCompletes()
     {
@@ -395,9 +396,9 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // a third byte tap of HexIDE's messages: HexIDE pulls the document's diagnostics again before it answers the refresh, and writes both at once; the
-    // program's msgBox then has the id of the client's execute, still running. HexIDE's was 5, behind the server's progress requests; this client asks none
-    // (MessageBoxId), and numbers its execute 2. The client holds the refresh and the MsgBox for each other, as above: the pull and the refresh's answer are
-    // written while the program waits.
+    // program's msgBox then has the id of the client's execute, still running. HexIDE's was 5, behind the server's progress requests; this client declares
+    // no progress, so the server asks none (MessageBoxId), and the client numbers its execute 2. The client holds the refresh and the MsgBox for each
+    // other, as above: the pull and the refresh's answer are written while the program waits.
     [TestMethod]
     public async Task AProgramRunWhileTheClientPullsAgainBeforeItAnswersTheRefresh_AsksTheClient_AndCompletesWithItsAnswer()
     {
