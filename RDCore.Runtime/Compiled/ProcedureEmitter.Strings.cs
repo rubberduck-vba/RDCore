@@ -262,7 +262,11 @@ internal sealed partial class ProcedureEmitter
                 break;
 
             case TypeNameTextNode typeName:
-                EmitTypeName(typeName, text);
+                EmitTypeName(typeName.Library, typeName.Slot is { } held ? _objects[held] : null, text);
+                break;
+
+            case FieldTypeNameTextNode fieldTypeName:
+                EmitTypeName(fieldTypeName.Library, EmitObjectFieldCell(new ObjectFieldNode(fieldTypeName.Field)), text);
                 break;
 
             // TypeName of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls.
@@ -326,16 +330,16 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brtrue, WalkBackAt(print.Offset + 1));
     }
 
-    // TypeName of the object an object slot holds, or of Nothing (CompiledActivation.TryTypeNameOf); a call the function fails, or a cell that holds no
-    // object compiled code reads, gives the interpreter the call.
-    private void EmitTypeName(TypeNameTextNode node, LocalBuilder text)
+    // TypeName of the object a cell holds (of an object slot, or of an object field of a record), or of Nothing when there is no cell
+    // (CompiledActivation.TryTypeNameOf); a call the function fails, or a cell that holds no object compiled code reads, gives the interpreter the call.
+    private void EmitTypeName(int library, LocalBuilder? cell, LocalBuilder text)
     {
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldc_I4, _knowingAt);
-        _il.Emit(OpCodes.Ldc_I4, node.Library);
-        if (node.Slot is { } slot)
+        _il.Emit(OpCodes.Ldc_I4, library);
+        if (cell is not null)
         {
-            _il.Emit(OpCodes.Ldloc, _objects[slot]);
+            _il.Emit(OpCodes.Ldloc, cell);
             _il.Emit(OpCodes.Ldc_I4_0);
         }
         else

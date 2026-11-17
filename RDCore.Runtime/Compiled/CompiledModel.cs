@@ -322,6 +322,10 @@ internal sealed record class VariantTypeNameTextNode(VariantNode Variant, Librar
 // arguments as IntrinsicNode gives them: what the form returns.
 internal sealed record class IntrinsicTextNode(MethodInfo Method, IReadOnlyList<PayloadNode> Arguments) : TextNode;
 
+// TypeName of the object an object field of a record of the activation holds (MS-VBAL §6.1.2.7.1.12), read where the record holds it as the call is
+// made, and given to the library's function numbered Library of the body as a TypeNameTextNode gives it.
+internal sealed record class FieldTypeNameTextNode(int Library, FieldPath Field) : TextNode;
+
 // a call of a function of the standard library that returns a String, each of whose parameters it gives an argument to is a String (Replace): the texts
 // given to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryText), and a parameter given none given what an omitted
 // argument is.
