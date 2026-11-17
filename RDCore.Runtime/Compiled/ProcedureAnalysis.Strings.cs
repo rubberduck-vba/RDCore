@@ -71,8 +71,8 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
     // TryEvaluateText, case for case: a String literal, a String variable of the activation or a String field of one of its records, parentheses, and two
-    // of them joined by & (or by +, of two Strings); and a whole number and the library's Chr$ of one, which TryEvaluateText leaves to the let-coercion
-    // and the call. Strings joined that are all literals are the text they make, joined once.
+    // of them joined by & (or by +, of two Strings); and a whole number, the library's Chr$ of one, and & of a Variant, which TryEvaluateText leaves to
+    // the let-coercion, the call and the Variant operation. Strings joined that are all literals are the text they make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -101,7 +101,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Text(enclosed);
 
-            case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } plan } joined when plan.Operator is Tokens.ConcatOp or Tokens.AdditionOp:
+            // & of a Variant, whose value type is known when it is evaluated (MS-VBAL §5.6.9.4), is a String where neither operand is Null: each operand
+            // Text gives is a String (a Variant call that returns Null is the interpreter's), so the two are joined as Strings are.
+            case BoundBinary { Plan: { } plan } joined
+                when plan is { IsDeferred: false, EffectiveType: VBStringType, Operator: Tokens.ConcatOp or Tokens.AdditionOp } or { IsDeferred: true, Operator: Tokens.ConcatOp }:
                 if (Text(joined.Left) is not { } left || Text(joined.Right) is not { } right)
                 {
                     return null;

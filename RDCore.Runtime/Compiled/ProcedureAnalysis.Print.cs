@@ -2,6 +2,7 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.LanguageCore.StdLib.Abstract;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
@@ -69,7 +70,7 @@ internal sealed partial class ProcedureAnalysis
             BoundVariable variable => TextSlotOf(variable) is not null,
             BoundName { Symbol: var symbol } => IsTextConstant(node, symbol),
             BoundQualifiedName { Member: var member } => IsTextConstant(node, member),
-            BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } => true,
+            BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } or { IsDeferred: true, Operator: Tokens.ConcatOp } } => true,
             BoundCall { Procedure: var called } => IsChrString(called) || IsTypeName(called) || IsTextLibrary(called) || IsVariantTextLibrary(called),
             BoundMember member => ErrTextOf(member) is not null || MemberTextOf(member) is not null,
             _ => false,
