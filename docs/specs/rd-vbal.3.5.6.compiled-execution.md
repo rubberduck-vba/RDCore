@@ -359,15 +359,15 @@ it, as the interpreter does.
 A statement can read a variable that a call in it may change: one it also passes `ByRef` to the call, such as `X = A + Bump(A)`; a `ByRef` parameter,
 while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module, a `Static` (which
 has module extent, MS-VBAL §5.4.3.1, §2.3, so a call of its own procedure changes it), a field of a record, an element of an array or a public
-variable of an object, which any call may change. Compiled code runs such a statement when every
-operation in it is of type `Byte`, `Boolean`, `Integer`, `Long`, `LongLong` or `Currency`, and the variable is an operand, not an argument of a
-call. It reads the variable where it is written, as MS-VBA does
-([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)). The interpreter runs any other such statement on its own:
-one that computes a `Single`, a `Double` or a `Date`, and one that gives the variable to a call as an argument.
+variable of an object, which any call may change. Compiled code runs such a statement when every operation in it is of type `Byte`, `Boolean`,
+`Integer`, `Long`, `LongLong` or `Currency`, and the variable is an operand, not an argument of a call. It reads the variable where it is written, as
+MS-VBA does ([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)). The interpreter runs any other such statement
+on its own: one that computes a `Single`, a `Double` or a `Date`, and one that gives the variable to a call as an argument.
+
 In a `Let` of a `String` and in a `Debug.Print`, compiled code also runs a statement that reads such a variable after every call in it, in the order
-the text is evaluated: the left of a `&` before its right, an item before the next (`Debug.Print "a" & G.Size & "(" & Shots & ")"`). MS-VBA reads the
-variable when its operation is computed, after the calls, and compiled code reads it there too: both read what the calls left in it. A read left of a
-call is the interpreter's, as above.
+the text is evaluated: the left of a `&` before its right, an item before the next. In `Debug.Print "a" & G.Size & "(" & Shots & ")"`, `Shots` is read
+after the call of `G.Size`. MS-VBA reads the variable when its operation is computed, after the calls, and compiled code reads it there too: both read
+what the calls left in it. A read left of a call follows the rule above.
 
 When compiled code hands the activation to the interpreter after such a call, it also gives the interpreter what it already evaluated of the statement:
 the result of each call it made, and each variable as it read it. This happens when an operation of the result fails, when the program is to stop, when

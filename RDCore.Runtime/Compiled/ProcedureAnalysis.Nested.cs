@@ -404,7 +404,7 @@ internal sealed partial class ProcedureAnalysis
     // can be the same variable as one the procedure was given by reference, or any call, of a field - inside the same expression, where MS-VBA may read it
     // after the call: in an argument of a call,
     // whose value is taken when the call is made, or in an expression that computes anything of a type MS-VBA reads when its operation is computed. When it
-    // is read there is the interpreter's to say. One a String Let or a Debug.Print reads after every call of the statement is not (ReadAfterEveryCall).
+    // is read there is the interpreter's to say. A read a String Let or a Debug.Print makes after every call of the statement is not (ReadAfterEveryCall).
     private KnownNode? ReadAndPassed(CompiledStep step)
     {
         var after = ReadAfterEveryCall(step);
@@ -439,8 +439,8 @@ internal sealed partial class ProcedureAnalysis
 
     // the reads of a String Let or of the items of a Debug.Print that no call of the statement comes after, in the order the text is evaluated: the left of
     // a & before its right, an item before the next. MS-VBA reads such an operand when its operation is computed (RD-VBAL §5.6.9.2), after every call,
-    // and so does compiled code: it reads it where it is written, after the calls, in the cell the variable is held in - of a Static, whose variable has
-    // module extent and outlives the activation (MS-VBAL §5.4.3.1, §2.3), the cell a call of the procedure itself writes it in. What a call left it is
+    // and so does compiled code: it reads it where it is written, after the calls, in the cell the variable is held in. A Static has module extent and
+    // outlives the activation (MS-VBAL §5.4.3.1, §2.3), so its cell is the one a call of the procedure itself writes it in. What a call left it is
     // what each reads. A text compiled code does not know of is taken to call: what is read left of it is left to the rule above.
     private static HashSet<KnownNode> ReadAfterEveryCall(CompiledStep step)
     {
