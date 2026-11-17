@@ -53,6 +53,16 @@ public sealed class CompiledFieldTypeNameTests
         "    Replaced = 1",
         "End Function"]);
 
+    // the program run both ways, as CompiledNestedCallTests.AssertAlikeAsync runs it; and no statement of the caller is the interpreter's to run.
+    private static async Task<string> AssertWholeAsync(string program, string caller, long calls)
+    {
+        var observed = await CompiledNestedCallTests.AssertAlikeAsync(program, caller, calls, classes: Classes());
+        var compiled = (await CompiledNestedCallTests.RunAsync(program, VBExecutionEngine.Compiled, Classes())).Compiled[caller];
+        Assert.IsEmpty(compiled.Stepped, string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        Assert.IsEmpty(compiled.SupportCalls, string.Join("; ", compiled.SupportCalls.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        return observed;
+    }
+
     private static string InLoop(string statement, string result = "s") => Looping(
         "    For i = 1 To n",
         $"        {statement}",
@@ -66,7 +76,7 @@ public sealed class CompiledFieldTypeNameTests
     [DataRow("s = \"a\" & Twice(i) & \"(\" & TypeName(this.G) & \")\"", 3, "| a6(Gadget) ; 0 |", DisplayName = "right of a function call")]
     [DataRow("s = Replaced() & TypeName(this.G)", 3, "| 1Nothing ; 0 |", DisplayName = "right of the call that changes it")]
     public async Task TypeNameOfAnObjectFieldInAStringLet_IsCompiled(string statement, long calls, string printed)
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(InLoop(statement), "Outer", calls, classes: Classes()), printed);
+        => StringAssert.Contains(await AssertWholeAsync(InLoop(statement), "Outer", calls), printed);
 
     [TestMethod]
     [DataRow("Debug.Print \"a\" & TypeName(this.G)", 0, "| aGadget ; aGadget ; aGadget ; end ; 0 |", DisplayName = "of an object field")]
@@ -74,7 +84,7 @@ public sealed class CompiledFieldTypeNameTests
         "| P 1(Gadget) has played 1 turns ; P 2(Gadget) has played 2 turns ; P 3(Gadget) has played 3 turns ; end ; 3 |",
         DisplayName = "right of a member call, and a whole number after it")]
     public async Task TypeNameOfAnObjectFieldInAnItemOfDebugPrint_IsCompiled(string statement, long calls, string printed)
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(InLoop(statement, "\"end\""), "Outer", calls, classes: Classes()), printed);
+        => StringAssert.Contains(await AssertWholeAsync(InLoop(statement, "\"end\""), "Outer", calls), printed);
 
     // the field is read as TypeName is called, before the call right of it puts Nothing in it: the interpreter reads it.
     [TestMethod]
@@ -93,8 +103,8 @@ public sealed class CompiledFieldTypeNameTests
     // again.
     [TestMethod]
     public async Task AnErrorAfterTheCalls_UnderResumeNext_TheCallsMadeOnce()
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(Looping(
+        => StringAssert.Contains(await AssertWholeAsync(Looping(
             "    On Error Resume Next",
             "    s = \"a\" & this.G.Size & Chr$(this.G.Bad) & TypeName(this.G)",
-            "    Outer = s & Err.Number"), "Outer", 2, classes: Classes()), "| 5 ; 2 |");
+            "    Outer = s & Err.Number"), "Outer", 2), "| 5 ; 2 |");
 }
