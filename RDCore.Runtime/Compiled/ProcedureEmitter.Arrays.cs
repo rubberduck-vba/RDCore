@@ -13,7 +13,7 @@ internal sealed partial class ProcedureEmitter
     // the array slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _arrays = [];
 
-    // the array each array slot, and each Variant that holds one, holds, as compiled code keeps it (ArrayOperations.KnownArray): none until an element is
+    // the array each array slot, and each Variant that holds one, holds, as compiled code keeps it with its shape (KeptArray): none until an element is
     // found in it, and none again after anything that may give the holder another array (KeepsArrays) and wherever every variable is read back. An array
     // field of a record is found through its record each time.
     private readonly Dictionary<int, LocalBuilder> _knownArrays = [];
@@ -23,14 +23,14 @@ internal sealed partial class ProcedureEmitter
         foreach (var array in _analysis.Arrays)
         {
             _arrays[array.Slot] = _il.DeclareLocal(typeof(object));
-            _knownArrays[array.Slot] = _il.DeclareLocal(typeof(object));
+            _knownArrays[array.Slot] = _il.DeclareLocal(typeof(KeptArray));
         }
 
         for (var i = 0; i < _analysis.HeldArrays.Count; i++)
         {
             if (_analysis.HeldArrays[i].Variant is not null)
             {
-                _knownArrays[~i] = _il.DeclareLocal(typeof(object));
+                _knownArrays[~i] = _il.DeclareLocal(typeof(KeptArray));
             }
         }
     }
@@ -38,24 +38,20 @@ internal sealed partial class ProcedureEmitter
     // whether the step being emitted keeps the arrays it finds (KeepsArrays).
     private bool _keepsArrays = true;
 
-    // the array an element is found in, onto the stack: the one compiled code keeps, or else the one the holder holds now, kept. A step that may give a
-    // holder another array finds each in its holder.
-    private void LoadKnownArray(int array)
+    // what an element is found in, onto the stack, for the operation of ArrayOperations named: the array compiled code keeps (by reference) and its holder,
+    // for the operation that finds it there, whose name is the operation's prefixed with Kept; or the holder alone. A step that may give a holder another
+    // array finds each in its holder. The name of the operation to call is returned.
+    private string LoadArrayFor(int array, string operation)
     {
         if (!_keepsArrays || !_knownArrays.TryGetValue(array, out var known))
         {
             LoadArrayHolder(array);
-            return;
+            return operation;
         }
 
-        var kept = _il.DefineLabel();
-        _il.Emit(OpCodes.Ldloc, known);
-        _il.Emit(OpCodes.Brtrue, kept);
+        _il.Emit(OpCodes.Ldloca, known);
         LoadArrayHolder(array);
-        _il.Emit(OpCodes.Call, ArraySupport.GetMethod(nameof(ArrayOperations.KnownArray))!);
-        _il.Emit(OpCodes.Stloc, known);
-        _il.MarkLabel(kept);
-        _il.Emit(OpCodes.Ldloc, known);
+        return "Kept" + operation;
     }
 
     // every array compiled code keeps, let go of: each is found in its holder again.
@@ -63,8 +59,8 @@ internal sealed partial class ProcedureEmitter
     {
         foreach (var known in _knownArrays.Values)
         {
-            _il.Emit(OpCodes.Ldnull);
-            _il.Emit(OpCodes.Stloc, known);
+            _il.Emit(OpCodes.Ldloca, known);
+            _il.Emit(OpCodes.Initobj, typeof(KeptArray));
         }
     }
 
@@ -269,11 +265,11 @@ internal sealed partial class ProcedureEmitter
             {
                 var dimension = bound.Dimension is { } given ? EmitPayload(given, failure) : new Operand(null, 1, 0);
                 var result = _il.DeclareLocal(typeof(long));
-                LoadArrayHolder(bound.Array);
+                var operation = LoadArrayFor(bound.Array, nameof(ArrayOperations.Bound));
                 _il.Emit(bound.Upper ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 Load(dimension, ScalarKind.Long);
                 _il.Emit(OpCodes.Ldloca, result);
-                _il.Emit(OpCodes.Call, ArraySupport.GetMethod(nameof(ArrayOperations.Bound))!);
+                _il.Emit(OpCodes.Call, ArraySupport.GetMethod(operation)!);
                 _il.Emit(OpCodes.Brfalse, failure);
                 return new Operand(result, 0, 0);
             }
@@ -411,7 +407,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         var cell = _il.DeclareLocal(typeof(object));
-        LoadKnownArray(array);
+        var operation = LoadArrayFor(array, find);
         if (kind is { } scalar)
         {
             _il.Emit(OpCodes.Ldc_I4, (int)scalar);
@@ -430,7 +426,7 @@ internal sealed partial class ProcedureEmitter
             }
         }
 
-        _il.Emit(OpCodes.Call, ArraySupport.GetMethod(find)!);
+        _il.Emit(OpCodes.Call, ArraySupport.GetMethod(operation)!);
         _il.Emit(OpCodes.Stloc, cell);
         if (!orNone)
         {

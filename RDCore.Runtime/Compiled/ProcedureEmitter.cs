@@ -2296,11 +2296,23 @@ internal sealed partial class ProcedureEmitter
             {
                 var left = EmitVariant(binary.Left, failure);
                 var right = EmitVariant(binary.Right, failure);
-                _il.Emit(OpCodes.Ldstr, binary.Token);
+
+                // an arithmetic, comparison or logical operator is given as its code, planned for the kinds of the operands; any other as its token.
+                var @operator = VariantOperators.Of(binary.Token);
+                if (@operator is { } code)
+                {
+                    _il.Emit(OpCodes.Ldc_I4, (int)code);
+                }
+                else
+                {
+                    _il.Emit(OpCodes.Ldstr, binary.Token);
+                }
+
                 _il.Emit(OpCodes.Ldloc, left);
                 _il.Emit(OpCodes.Ldloc, right);
                 _il.Emit(OpCodes.Ldloca, result);
-                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Binary))!);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Binary),
+                    [@operator is null ? typeof(string) : typeof(VariantOperator), typeof(VariantPayload), typeof(VariantPayload), typeof(VariantPayload).MakeByRefType()])!);
                 _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
             }

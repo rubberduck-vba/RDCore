@@ -31,6 +31,7 @@ public sealed class SplashCommandTests
         var expected = PlatformSplash.Lines(CultureInfo.GetCultureInfo("fr-CA")).Select(line => line.Text + "\n");
         Assert.AreEqual(string.Concat(expected), output.ToString());
         StringAssert.Contains(output.ToString(), "tous droits réservés", "the notice is in the language of the user interface");
+        StringAssert.Contains(output.ToString(), $"bâti sur RDCore.SDK {PlatformSplash.SdkVersion.Split('+')[0]}", "the versions, in the language of the user interface");
         Assert.IsFalse(output.ToString().Contains('\u001b'), "no style: the text is plain");
     }
 

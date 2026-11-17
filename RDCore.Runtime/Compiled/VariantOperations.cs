@@ -183,13 +183,32 @@ public static class VariantOperations
     }
 
     /// <summary>
+    /// A binary operation of <paramref name="left"/> and <paramref name="right"/> named by its operator, as
+    /// <see cref="Binary(string, VariantPayload, VariantPayload, out VariantPayload)"/> does the operation of its token: planned once for the subtypes of
+    /// the operands, whichever two they are (MS-VBAL §5.6.9).
+    /// </summary>
+    /// <param name="operator">The operator.</param>
+    /// <param name="left">The left operand.</param>
+    /// <param name="right">The right operand.</param>
+    /// <param name="result">The operation's result.</param>
+    /// <returns><see langword="false"/> when it is the interpreter's, as the operation of its token says.</returns>
+    public static bool Binary(VariantOperator @operator, VariantPayload left, VariantPayload right, out VariantPayload result)
+    {
+        var done = RuntimeExpressionEvaluator.TryOperateDeferred(@operator, left.Value, right.Value, out var payload);
+        result = new VariantPayload(payload);
+        return done;
+    }
+
+    /// <summary>
     /// A negation or a <c>Not</c> of <paramref name="operand"/>, planned for its subtype.
     /// </summary>
     /// <param name="token">The operator's token.</param>
     /// <param name="operand">The operand.</param>
     /// <param name="ofAConstantExpression">Whether the operation is part of a constant expression.</param>
     /// <param name="result">The operation's result.</param>
-    /// <returns><see langword="false"/> when it is the interpreter's, as <see cref="Binary"/> says.</returns>
+    /// <returns>
+    /// <see langword="false"/> when it is the interpreter's, as <see cref="Binary(string, VariantPayload, VariantPayload, out VariantPayload)"/> says.
+    /// </returns>
     public static bool Unary(string token, VariantPayload operand, bool ofAConstantExpression, out VariantPayload result)
     {
         var done = RuntimeExpressionEvaluator.TryOperateDeferred(token, operand.Value, ofAConstantExpression, out var payload);
