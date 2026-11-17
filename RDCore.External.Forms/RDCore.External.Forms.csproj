@@ -24,9 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- the RDForms model, its Avalonia windows and its application, and the platforms the host starts that application on: the desktop's, and the headless one. -->
+    <!-- the RDForms model, its Avalonia windows and its application (one package), and the platforms the host starts that application on: the desktop's, and
+         the headless one. -->
     <PackageReference Include="RDCore.Forms" Version="$(RDCoreFormsVersion)" />
-    <PackageReference Include="RDCore.Forms.Avalonia" Version="$(RDCoreFormsVersion)" />
     <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
   </ItemGroup>
