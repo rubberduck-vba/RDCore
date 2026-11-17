@@ -488,9 +488,10 @@ internal sealed partial class ProcedureAnalysis
     // can be the same variable as one the procedure was given by reference, or any call, of a field - inside the same expression, where MS-VBA may read it
     // after the call: in an argument of a call,
     // whose value is taken when the call is made, or in an expression that computes anything of a type MS-VBA reads when its operation is computed. When it
-    // is read there is the interpreter's to say.
+    // is read there is the interpreter's to say. A read a String Let or a Debug.Print makes after every call of the statement is not (ReadAfterEveryCall).
     private KnownNode? ReadAndPassed(CompiledStep step)
     {
+        var after = ReadAfterEveryCall(step);
         var nodes = PayloadsOf(step).SelectMany(Within).ToList();
         // the arguments of each call: of one inside the expression, and of the call of the statement itself - a call statement, a function whose result
         // is assigned whole.
@@ -520,10 +521,72 @@ internal sealed partial class ProcedureAnalysis
 
         var byReference = Parameters.Where(parameter => parameter.ByReference).Select(parameter => parameter.Slot).ToHashSet();
         var aliased = passed.Overlaps(byReference);
-        return nodes.OfType<KnownNode>().FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
+        return nodes.OfType<KnownNode>().FirstOrDefault(read => !after.Contains(read) && (read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
             && (passed.Contains(slot) || aliased && byReference.Contains(slot) || FieldSlots.Contains(slot))
             // a field of a record, an element of an array, and a public variable of an object, which any call may change, as a field.
-            || read.Value is FieldNode or ElementNode or MemberFieldNode && (!early || arguments.Contains(read)));
+            || read.Value is FieldNode or ElementNode or MemberFieldNode && (!early || arguments.Contains(read))));
+    }
+
+    // the reads of a String Let or of the items of a Debug.Print that no call of the statement comes after, in the order the text is evaluated: the left of
+    // a & before its right, an item before the next. MS-VBA reads such an operand when its operation is computed (RD-VBAL §5.6.9.2), after every call,
+    // and so does compiled code: it reads it where it is written, after the calls, in the cell the variable is held in. A Static has module extent and
+    // outlives the activation (MS-VBAL §5.4.3.1, §2.3), so its cell is the one a call of the procedure itself writes it in. What a call left it is
+    // what each reads. A text compiled code does not know of is taken to call: what is read left of it is left to the rule above.
+    private static HashSet<KnownNode> ReadAfterEveryCall(CompiledStep step)
+    {
+        var after = new HashSet<KnownNode>(ReferenceEqualityComparer.Instance);
+        IReadOnlyList<TextNode> texts = step switch
+        {
+            TextLetStep let => [let.Value],
+            TextResultLetStep let => [let.Value],
+            PrintStep print => print.Items,
+            _ => [],
+        };
+
+        var calledAfter = false;
+        for (var i = texts.Count - 1; i >= 0; i--)
+        {
+            Collect(texts[i]);
+        }
+
+        return after;
+
+        // the text walked right to left, so that whether a call comes after a read is known when the read is reached.
+        void Collect(TextNode node)
+        {
+            switch (node)
+            {
+                case TextConstantNode or TextSlotNode or MemberTextNode or ErrTextNode or TypeNameTextNode:
+                    return;
+                case ConcatNode concat:
+                    Collect(concat.Right);
+                    Collect(concat.Left);
+                    return;
+                case WholeTextNode { Value: var whole }:
+                    CollectPayload(whole);
+                    return;
+                case ChrTextNode { Code: var code }:
+                    CollectPayload(code);
+                    return;
+                default:
+                    calledAfter = true;
+                    return;
+            }
+        }
+
+        // a payload that calls is read before its own call, or as its argument: none of its reads is after every call.
+        void CollectPayload(PayloadNode payload)
+        {
+            var within = Within(payload).ToList();
+            if (within.Exists(each => each is CallNode || ReceiverCallsOf(each).Any()))
+            {
+                calledAfter = true;
+            }
+            else if (!calledAfter)
+            {
+                after.UnionWith(within.OfType<KnownNode>());
+            }
+        }
     }
 
     // the types of an operand MS-VBA reads where it is written, before a call right of it changes it (RD-VBAL §5.6.9.2): what compiled code reads, and the
