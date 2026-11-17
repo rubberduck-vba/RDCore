@@ -672,7 +672,7 @@ public sealed class WorkspaceLoaderTests
             await pipe.WaitForConnectionAsync();
             Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
                 .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
-                .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
                 .OnInitialize((server, request, token) => initialize(server, request, token))
                 .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>
