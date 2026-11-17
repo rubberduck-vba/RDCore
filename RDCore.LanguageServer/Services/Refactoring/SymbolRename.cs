@@ -17,51 +17,15 @@ using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Resources;
 using System.Text.RegularExpressions;
 using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
-public enum RenameRefusalKind
-{
-    NoName,
-
-    NotDeclaredByWorkspace,
-
-    Type,
-
-    // MS-VBAL §5.2.3.1.2, §5.3.1.1
-    NamedByConvention,
-
-    Control,
-
-    ExternalProcedure,
-
-    // MS-VBAL §4.2
-    ModuleNameTooLong,
-
-    Empty,
-
-    NotAnIdentifier,
-
-    Reserved,
-
-    Conflict,
-
-    Unresolved,
-}
-
 public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, string? Other = null, Uri? Module = null, SourcePosition Position = default)
 {
-    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
-
     public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
-    {
-        var where = Module is null ? string.Empty : (locate ?? DefaultLocation)(Module, Position);
-        var format = Messages.GetString($"Rename_{Kind}", culture ?? CultureInfo.CurrentUICulture) ?? Kind.ToString();
-        return string.Format(culture ?? CultureInfo.CurrentUICulture, format, Name, Other, where);
-    }
+        => RefactoringTitles.RenameRefusal(Kind, Name, Other, Module is null ? null : (locate ?? DefaultLocation)(Module, Position), culture);
 
     private static string DefaultLocation(Uri module, SourcePosition position)
         => $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}";
