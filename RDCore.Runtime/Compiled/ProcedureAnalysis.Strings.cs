@@ -130,12 +130,20 @@ internal sealed partial class ProcedureAnalysis
                 return LibraryVariantTextOf(converting);
 
             // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
-            // and a Date are the interpreter's, which writes them in the regional settings of the session.
-            case var number when WholeOf(number) is { } whole:
-                return whole is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(whole);
-
+            // and a Date are the interpreter's, which writes them in the regional settings of the session. What reads no payload is refused once: by the
+            // reason its payload gave, or else by its own.
             default:
-                _ = Unsupported(node);
+                var refused = _reasons.Count;
+                if (WholeOf(node) is { } number)
+                {
+                    return number is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(number);
+                }
+
+                if (_reasons.Count == refused)
+                {
+                    _ = Unsupported(node);
+                }
+
                 return null;
         }
     }
