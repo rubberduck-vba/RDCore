@@ -294,7 +294,10 @@ and reads its elements as `Variant`s.
   - a `ReDim` of an array variable of the procedure whose bounds compiled code computes, with `Preserve` or without (**MS-VBAL §5.4.3.3**);
   - an `Erase` of one (**MS-VBAL §5.4.3.4**);
   - the `Let` of an array variable to a `Variant` variable of the procedure (`V = A`), which gives the `Variant` a copy of the array
-    (**MS-VBAL §5.4.3.8**, **§5.5.1.2.12**).
+    (**MS-VBAL §5.4.3.8**, **§5.5.1.2.12**);
+  - the `Let` of what a function or a `Property Get` of an object returns, called with no argument and its result indexed (`Kind = Kinds.Names(N)`):
+    the function is called once, and its result is indexed (an array for its element, an object through its default member) and let-coerced to the
+    variable's type (**MS-VBAL §5.6.13**, **§5.5.1.2**).
 
   The statement can let go of an object: of an array of `Variant`s or of objects, and in the `Let` to a `Variant`. The object is terminated in the
   statement, as the interpreter terminates it, and compiled code reads its variables back after it, as after a call. An error the statement raises
