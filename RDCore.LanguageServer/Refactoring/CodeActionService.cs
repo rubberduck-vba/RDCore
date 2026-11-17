@@ -282,7 +282,8 @@ internal sealed class CodeActions(
             actions.Add(RenameCommand(documentUri, name, position, CodeActionHandler.RefactorRename, diagnostic: null));
         }
 
-        // the parameter declared at the start of the range is offered its removal: as an edit when it can be made, or disabled, with why, to a client that shows it.
+        // the parameter declared at the start of the range is offered its removal: as an edit when it can be made, or disabled, with why, to a client
+        // that shows it.
         if (IsAsked(CodeActionHandler.RefactorRemoveParameter) && !parameters.Contains(request.Range.Start)
             && workspace.RemoveParameter(documentUri, request.Range.Start) is { } parameter)
         {
@@ -297,8 +298,9 @@ internal sealed class CodeActions(
             }
         }
 
-        // the procedure named at the start of the range, or one of its parameters declared there, is offered the reordering of its parameters: a command that a
-        // client with a dialog runs, which asks the order of its user. It is not offered to another client: the order it would take is the one they have.
+        // the procedure named at the start of the range, or one of its parameters declared there, is offered the reordering of its parameters: a
+        // command that a client with a dialog runs, which asks its user the order. It is not offered to another client: the order it would take by
+        // default is the one the parameters have.
         if (IsAsked(CodeActionHandler.RefactorReorderParameters) && parameterReorder is not null && clientCapabilities.Expects(capabilities => capabilities.Refactoring)
             && await parameterReorder.OfferAsync(documentUri, new SourcePosition(request.Range.Start.Line, request.Range.Start.Character), cancellationToken) is { } reorder)
         {
@@ -767,9 +769,9 @@ internal sealed class CodeActions(
         }
     }
 
-    // the action that moves the declaration of the variable named at a position closer to its usage. A client with a dialog of its own runs it as a command,
-    // which asks the keyword of a variable of a module and the changes to accept; any other is sent the edit, with Static, when that changes nothing. A refused
-    // one is offered disabled, with why, to a client that shows it so.
+    // the action that moves the declaration of the variable named at a position closer to its usage. A client with a dialog of its own runs it as a
+    // command, which asks the keyword of a variable of a module and the changes to accept; any other is sent the edit, with Static, when that changes
+    // nothing. A refused one is offered disabled, with why, to a client that shows it so.
     private async Task<CodeAction?> CloserToUsageActionAsync(DocumentUri lspUri, SourcePosition position, CancellationToken token)
     {
         var documentUri = lspUri.ToUri();
