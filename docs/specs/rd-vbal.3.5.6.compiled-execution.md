@@ -86,9 +86,10 @@ A `Byte`, an `Integer`, a `Long` or a `LongLong` joined to a `String`, or assign
 no character is error 5, which the interpreter raises at that statement.
 
 `TypeName` of one of the procedure's object variables, of `Me` or of `Nothing` is the name the library gives (MS-VBAL §6.1.2.7.1.12): compiled code
-calls it, so a form or a class is named as in the interpreter. `Replace` given `String`s, with no start, count or comparison (MS-VBAL §6.1.2.11.1.29),
-is called by compiled code with the text of each argument. Any other argument, and an error either function raises, are the interpreter's at that
-statement.
+calls it, so a form or a class is named as in the interpreter. `TypeName` of a `Variant` that compiled code reads as it does for `IsEmpty` (see
+Functions of the standard library, below) is the name the library gives what it holds, read in the `Variant`. `Replace` given `String`s, with no start,
+count or comparison (MS-VBAL §6.1.2.11.1.29), is called by compiled code with the text of each argument. Any other argument, and an error either
+function raises, are the interpreter's at that statement.
 
 The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads nothing of
 it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `Let` of what a call returns to it or to a `String` variable
@@ -404,10 +405,11 @@ returns a `Variant`, and an operation of it is the `Variant`'s: `IIf(C, 32767, 1
 to call, so when compiled code hands its statement to the interpreter, the interpreter calls it again, given its parts as compiled code evaluated
 them: a call in a part is not made twice.
 
-`IsEmpty` of a `Variant` variable of the procedure, or of an element of one of its arrays of `Variant`s, is read in the `Variant` (**MS-VBAL
-§6.1.2.7.1.4**): a number, a `String`, `Null` or an error is not `Empty`. Of a `Variant` that holds an object or an array, compiled code
-calls the standard library's `IsEmpty`, as it calls the functions above, and an object is judged by its default member's value. The interpreter runs
-the statement where compiled code cannot, as for an element that holds an array. Compiled code runs a single-line `If` such as
+`IsEmpty`, `IsNull` and `VarType` of a `Variant` variable of the procedure, or of an element of one of its arrays of `Variant`s, are read in the
+`Variant` (**MS-VBAL §6.1.2.7.1.4**, **§6.1.2.7.1.7**, **§6.1.2.7.1.13**) when it holds a number, a `Boolean`, a `Date`, `Empty`, `Null`, a `String`
+or an error. Of a `Variant` that holds an object or an array, compiled code calls the standard library's function, as it calls the functions above, and
+an object is judged by its default member's value. So it does for a `Variant` parameter passed a `String`, an error or nothing (`Missing`) by value.
+The interpreter runs the statement where compiled code cannot, as for an element that holds an array. Compiled code runs a single-line `If` such as
 `If Not IsEmpty(V(R, C)) Then V(R, C) = V(R, C) * 2` whole.
 
 `Rnd` moves the random number generator at each call, so compiled code calls it only in a statement listed under Calls inside an expression, above. When
