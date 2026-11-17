@@ -46,7 +46,7 @@ RDCore is in active **alpha** development. The **specification** and **documenta
 
 ✅ Parser, symbol resolution and the **language server** are functional. The server answers diagnostics (pull and push), completion, signature help,
 hover, inlay hints, semantic tokens, document and workspace symbols, folding and selection ranges, go to definition, declaration, type definition and
-implementation, references and highlights, call and type hierarchy, inline values, rename and code actions.
+implementation, references and highlights, call and type hierarchy, inline values, rename, linked editing and code actions.
 
 ### Performance
 
