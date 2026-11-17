@@ -31,7 +31,8 @@ public sealed partial class CompiledActivation
     /// statement's temporaries hold an object until the instruction is over.
     /// </summary>
     /// <param name="syntax">Where the call is in the instruction's statement (<c>KnownOperands.IndexOf</c>).</param>
-    /// <param name="returned">The object, as <see cref="TakeReturnedObject"/> took it, or the <c>String</c>, as <see cref="TakeReturnedText"/> took it.</param>
+    /// <param name="returned">The object, as <see cref="TakeReturnedObject"/> took it, or the <c>String</c>, as <see cref="TakeReturnedText"/>
+    /// took it.</param>
     public void KnowObject(int syntax, object? returned)
     {
         if (returned is VBTypedValue value)
@@ -68,7 +69,8 @@ public sealed partial class CompiledActivation
     /// <param name="returned">The <c>String</c>, as the call returned it, which the interpreter is given when the statement is handed to it
     /// (<see cref="KnowObject"/>).</param>
     /// <param name="text">Its text; <see langword="null"/> for <c>vbNullString</c>.</param>
-    /// <returns>Whether what the call returned holds a text compiled code reads; when not, the interpreter is given it, and goes on with the statement.</returns>
+    /// <returns>Whether what the call returned holds a text compiled code reads; when not, the interpreter is given it, and goes on with the
+    /// statement.</returns>
     public bool TakeReturnedText(out object? returned, out string? text)
     {
         var value = _returnedText;
