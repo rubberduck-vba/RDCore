@@ -27,6 +27,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private const string ControlsMember = "Controls";
     private const string NameMember = "Name";
     private const string IndexMember = "Index";
+    private const string ContainerMember = "Container";
     private const string FontProperty = "Font";
     private const string StdFontClass = "stdole.StdFont";
 
@@ -179,6 +180,23 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return component.Index is { } index ? (short)index : throw FormFailure(FormError.ObjectNotAnArray);
             }
 
+            // a control's container is not a property of its class either: the form, a Frame or a PictureBox, read as its object and placed with Set.
+            // A Timer, a menu and a form have none (438), and an assignment without Set is 438 too.
+            if (component.Class.HasContainer && component.Class.Property(member) is null
+                && string.Equals(member, ContainerMember, StringComparison.OrdinalIgnoreCase))
+            {
+                if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && arguments.Length == 0)
+                {
+                    return handle.Form.HandleOf(component.Container!);
+                }
+
+                if (invocation is AutomationInvocation.Set && arguments.Length == 1)
+                {
+                    PlaceIn(handle, arguments[0]);
+                    return null;
+                }
+            }
+
             // the form's collection of its controls, which a control of its file cannot be named for; given arguments, its default member: Controls(0) is
             // Controls.Item(0).
             if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm
@@ -220,6 +238,26 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         {
             var result = handle.Form.Window.Invoke(handle.Component, method, given, handle.Form.Unit);
             return RDFormsValues.ToNeutral(result, handle.Form.HandleOf);
+        }
+        catch (FormErrorException exception)
+        {
+            throw FormFailure(exception.Error);
+        }
+    }
+
+    // Set Control.Container: the form places the control and its window moves it. Nothing, an object other than one of the same form's, and what the form
+    // refuses are 425.
+    private static void PlaceIn(RDFormsObject handle, object? value)
+    {
+        if (value is not RDFormsObject container || !ReferenceEquals(container.Form, handle.Form))
+        {
+            throw FormFailure(FormError.InvalidObjectUse);
+        }
+
+        Alive(container);
+        try
+        {
+            handle.Form.Model.SetContainer(handle.Component, container.Component);
         }
         catch (FormErrorException exception)
         {

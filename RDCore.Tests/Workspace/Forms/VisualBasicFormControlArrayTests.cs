@@ -155,7 +155,6 @@ public sealed class VisualBasicFormControlArrayTests
             "Debug.Print Form4.cmd.Count & \",\" & Mid$(s, 2, 1) & \",\" & Mid$(s, 4)");
 
     [TestMethod]
-    [Ignore("not implemented: a control's Container, which raises 438")]
     public Task Load_PutsTheElementInTheContainerOfTheElementItCopies()
         => AssertPrintsAsync(["Form4", "fra"],
             "Load Form4.picCell(1)", "Debug.Print Form4.picCell(1).Container.Name",

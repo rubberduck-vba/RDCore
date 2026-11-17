@@ -77,11 +77,15 @@ Une feuille et un PictureBox dessinent avec `Cls`, `Line`, `Circle`, `PSet`, `Po
 propre échelle. `PaintPicture` dessine une image du programme, comme celle que donne `LoadPicture`, ou la `Picture` d'un autre contrôle. Il lève ce que
 VB6 lève : 91 pour `Nothing` et, en liaison tardive, 13 pour une valeur qui n'est pas un objet et 481 pour un objet qui n'est pas une image.
 
+Le `Container` d'un contrôle est la feuille, le Frame ou le PictureBox qui le détient. `Set Command1.Container = Frame1` déplace le contrôle, avec ce qu'il
+détient, dans un autre conteneur de la même feuille. Il garde sa place en pixels, et son `Left` et son `Top` se lisent dans l'échelle du nouveau conteneur.
+`Nothing`, un contrôle qui n'en détient pas d'autres (un TextBox), le contrôle lui-même, un contrôle qu'il détient, et une autre feuille ou ses
+contrôles lèvent 425. Un Timer n'a pas de `Container` (438), et une affectation sans `Set` lève 438.
+
 > [!NOTE]
 > **Non implémenté.**
 > - Une feuille ou un PictureBox qui n'est pas affiché ne dessine rien, et son `Point` donne -1, quel que soit son `AutoRedraw`. VB6 dessine sur
 >   celui dont l'`AutoRedraw` est True.
-> - Le `Container` d'un contrôle lève 438.
 > - `TypeName` de la `Font` d'un contrôle donne `StdFont`, là où VB6 donne `Font`.
 > - Un `New StdFont` ne peut pas être affecté à la `Font` d'un contrôle.
 

@@ -77,11 +77,15 @@ A form and a PictureBox draw with `Cls`, `Line`, `Circle`, `PSet`, `Point`, `Pai
 `PaintPicture` draws a picture of the program's, such as one `LoadPicture` gives, or another control's `Picture`. It raises what VB6 raises: 91 for
 `Nothing`, and, given late bound, 13 for a value that is not an object and 481 for an object that is not a picture.
 
+A control's `Container` is the form, Frame or PictureBox that holds it. `Set Command1.Container = Frame1` moves the control, with what it holds, into
+another container of the same form. It keeps its place in pixels, and its `Left` and `Top` read in the new container's scale. `Nothing`, a control that
+holds no others (a TextBox), the control itself, a control it holds, and another form or its controls raise 425. A Timer has no `Container` (438),
+and an assignment without `Set` raises 438.
+
 > [!NOTE]
 > **Not implemented.**
 > - A form or a PictureBox that is not shown draws nothing, and its `Point` reads -1, whatever its `AutoRedraw`. VB6 draws on one whose `AutoRedraw`
 >   is True.
-> - A control's `Container` raises 438.
 > - `TypeName` of a control's `Font` is `StdFont`, where VB6 gives `Font`.
 > - A `New StdFont` cannot be given to a control's `Font`.
 
