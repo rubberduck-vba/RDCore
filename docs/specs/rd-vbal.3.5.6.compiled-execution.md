@@ -373,6 +373,10 @@ interpreter runs a statement that reads one left of a call on its own (`S = T & 
 operation of the `String` type: one that a call in the statement may change is the interpreter's to read, as below.
 An object given to a call as its argument (`If B.Hit(Target) Then`) is no operand: compiled code reads it when it makes the call, after the calls left of
 it, as the interpreter does.
+`TypeName` (see Strings, above) is called in such a statement too (`Debug.Print "a" & G.Size & "(" & TypeName(G) & ")"`). Of an object variable or of
+`Me`, the object is read as `TypeName` is called, after the calls left of it; the interpreter reads one left of a call (`S = TypeName(G) & G.Size`), as it
+reads a `String`. Of `Nothing`, or of an operand as above (`TypeName(I)`), it is called wherever it is in the statement: when the interpreter is handed
+the statement after a call, it is given the operand as it was read, and `TypeName` gives the same text (MS-VBAL §6.1.2.7.1.12).
 
 A statement can read a variable that a call in it may change: one it also passes `ByRef` to the call, such as `X = A + Bump(A)`; a `ByRef` parameter,
 while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module, a field of a

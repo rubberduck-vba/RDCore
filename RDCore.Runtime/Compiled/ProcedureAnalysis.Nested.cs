@@ -400,6 +400,17 @@ internal sealed partial class ProcedureAnalysis
             case FieldTypeNameTextNode:
                 return !calledAfter;
 
+            // TypeName of an object variable or of Me: the object is read as the call is made. One with a call right of it is the interpreter's, which reads
+            // the object before that call. Of Nothing, nothing is read.
+            case TypeNameTextNode { Slot: var slot }:
+                return slot is null || !calledAfter;
+
+            // TypeName of a value (LibraryVariantTextOf, the only call of VariantTextLibraryFunctions inside such an instruction): its arguments evaluated
+            // before the call.
+            case LibraryVariantTextNode { Arguments: var arguments }:
+                calledAfter |= arguments.SelectMany(OperandsOf).SelectMany(Within).Any(each => each is CallNode || ReceiverCallsOf(each).Any());
+                return arguments.All(Admits);
+
             // a call that returns a String, made after the calls among its arguments: a String left of it is read after it.
             case TextCallNode call:
                 calledAfter = true;
@@ -554,12 +565,14 @@ internal sealed partial class ProcedureAnalysis
         _ => [],
     };
 
-    // the payloads a text is made of: the whole numbers joined to it, the codes of Chr$, and what the calls that return a String are given.
+    // the payloads a text is made of: the whole numbers joined to it, the codes of Chr$, the arguments of TypeName of a value, and what the calls that
+    // return a String are given.
     private static IEnumerable<PayloadNode> PayloadsOf(TextNode node) => node switch
     {
         ConcatNode concat => [.. PayloadsOf(concat.Left), .. PayloadsOf(concat.Right)],
         WholeTextNode whole => [whole.Value],
         ChrTextNode chr => [chr.Code],
+        LibraryVariantTextNode library => library.Arguments.SelectMany(OperandsOf),
         TextCallNode call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
         _ => [],
     };
