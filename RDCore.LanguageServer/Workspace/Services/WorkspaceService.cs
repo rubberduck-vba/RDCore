@@ -49,10 +49,21 @@ internal interface IWorkspaceService
     /// <param name="token">A token that cancels the question.</param>
     /// <param name="takeLanguage">
     /// Takes the language the primary project's file says the workspace is written in (<see cref="SupportedLanguages.OfProject"/>), once the file is read and
-    /// before anything is loaded in that language; <see langword="null"/> when the client named the language, which wins.
+    /// before anything is loaded in that language; <see langword="null"/> when the client named the language, which wins. A project the server made up for a
+    /// folder (<see cref="ProjectFile.IsSynthesized"/>) is made again once its language is taken, of that language's source files.
     /// </param>
     Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default,
         Action<SupportedLanguage>? takeLanguage = null);
+
+    /// <summary>
+    /// Takes the language the primary project's file says once the file was read again, with what loading the workspace took it with: a project imported
+    /// from a Visual Basic 6 project once the workspace is open is written in VB6 from then on.
+    /// </summary>
+    /// <returns>
+    /// The language taken; <see langword="null"/> when it is the language the workspace was written in, when the file says none, and when the client named
+    /// the language, which wins.
+    /// </returns>
+    SupportedLanguage? RetakeLanguage();
 
     /// <summary>
     /// Makes the workspace what its folders are once the client added some or removed some (<strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>),
@@ -148,10 +159,27 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
     private readonly IWorkspaceProjects _projects = projects;
     private RDCoreProject ProjectInfo => projectFileService.Project.ProjectInfo!;
 
-    // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then.
+    // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then, and is asked again
+    // once the project's file says another language.
     private HashSet<string>? _sourceExtensions;
     private HashSet<string> SourceExtensions
         => _sourceExtensions ??= [.. language().FileTypes.Select(ext => ext[1..].ToLowerInvariant())];
+
+    // what takes the language the project's file says, when the client named none: what the workspace was loaded with.
+    private Action<SupportedLanguage>? _takeLanguage;
+
+    public SupportedLanguage? RetakeLanguage()
+    {
+        if (_takeLanguage is null || SupportedLanguages.OfProject(ProjectInfo) is not { } said || said.Id == language().Id)
+        {
+            return null;
+        }
+
+        _takeLanguage(said);
+        _sourceExtensions = null;
+        logger.LogInformation("The workspace is written in {language} ('{id}') from now on, as its project file says.", said.Name, said.Id);
+        return said;
+    }
 
     public async Task SaveAsync()
     {
@@ -340,10 +368,20 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         LogSchemaOf(projectFileService.Project);
 
         // the source files and the libraries are the language's: what the project file says of it is taken before either is loaded.
-        if (takeLanguage is not null && SupportedLanguages.OfProject(ProjectInfo) is { } language)
+        _takeLanguage = takeLanguage;
+        if (takeLanguage is not null && SupportedLanguages.OfProject(ProjectInfo) is { } said)
         {
-            takeLanguage(language);
-            logger.LogInformation("The workspace is written in {language} ('{id}'), as its project file says.", language.Name, language.Id);
+            var madeIn = language();
+            takeLanguage(said);
+            _sourceExtensions = null;
+            logger.LogInformation("The workspace is written in {language} ('{id}'), as its project file says.", said.Name, said.Id);
+
+            // a project made up for a folder holds the source files of the language it was made in: one whose .vbp says it is VB6's is made again, of
+            // VB6's source files.
+            if (projectFileService.Project.IsSynthesized && said.Id != madeIn.Id)
+            {
+                await projectFileService.LoadAsync(workspaceRoot);
+            }
         }
 
         // the root is a folder of the workspace whether or not the client lists it among its folders.

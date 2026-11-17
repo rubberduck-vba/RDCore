@@ -497,7 +497,9 @@ internal sealed class WorkspaceReloadService(
             }
         }
 
-        var (composed, programRunning) = work.Any(each => each.ComposeHost) ? await ComposeHostAsync(stopping) : (false, false);
+        // the language the last of the changes made the workspace's, which a change after it that kept its language keeps.
+        var language = work.Select(each => each.Language).LastOrDefault(id => id is not null);
+        var (composed, programRunning) = work.Any(each => each.ComposeHost) ? await ComposeHostAsync(language, stopping) : (false, false);
         if (composed)
         {
             symbols.SessionComposedAnew();
@@ -648,6 +650,9 @@ internal sealed class WorkspaceReloadService(
         var before = FilesOf(project);
         var after = FilesOf(projectFiles.Project);
 
+        // a project file that says another language makes the workspace that language's before what it gained is loaded, and the host's session too.
+        var language = workspace.RetakeLanguage()?.Id;
+
         // what the projects now list as other files is no code, whatever it was before: the other files of every project, since they are set as one, and a
         // project that is not the one reloaded keeps its own.
         documents.SetOtherFiles(workspace.OtherFilesOfTheProjects());
@@ -701,17 +706,21 @@ internal sealed class WorkspaceReloadService(
             }
 
             return new WorkspaceReloadResult(added.Count, removed.Count, composed, programRunning);
-        }));
+        }) { Language = language });
     }
 
     // What is left to do once the documents are what the project lists: the documents to parse, the modules the host forgets, whether the host composes its session
-    // again, and what the change made of the workspace once that is done.
+    // again, and what the change made of the workspace once that is done. Language is the identifier of the language the project's file made the workspace's, which
+    // the host composes its session in from then on; null when the workspace kept its language.
     private sealed record class FinishWork(
         IReadOnlyList<TextDocumentIdentifier> ToParse,
         IReadOnlyList<string> ToDiscard,
         IReadOnlyList<string> RemovedModules,
         bool ComposeHost,
-        Func<bool, bool, WorkspaceReloadResult> Result);
+        Func<bool, bool, WorkspaceReloadResult> Result)
+    {
+        public string? Language { get; init; }
+    }
 
     private sealed record class Applied(WorkspaceReloadResult Started, FinishWork? Work);
 
@@ -724,7 +733,7 @@ internal sealed class WorkspaceReloadService(
 
     // the environment host composes its session from the project file, and a class module's symbol is the project's: it composes it again, unless a program
     // runs in it.
-    private async Task<(bool Composed, bool ProgramRunning)> ComposeHostAsync(CancellationToken token)
+    private async Task<(bool Composed, bool ProgramRunning)> ComposeHostAsync(string? language, CancellationToken token)
     {
         var host = orchestration.RuntimeEnvironment;
         if (host is null)
@@ -740,7 +749,7 @@ internal sealed class WorkspaceReloadService(
         }
 
         var result = await host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(
-            new HostProjectReloadParams { WorkspaceRoot = SymbolUri.Root(documents.WorkspaceRoot) }, token);
+            new HostProjectReloadParams { WorkspaceRoot = SymbolUri.Root(documents.WorkspaceRoot), Language = language }, token);
         return (result.Composed, result.IsProgramRunning);
     }
 
