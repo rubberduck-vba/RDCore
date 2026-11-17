@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 
@@ -34,10 +35,21 @@ namespace RDCore.Runtime.Execution.External.Application;
 /// of the thread the program runs on. <c>hInstance</c> raises error 5 on an operating system other than Windows, and 6 in a 64-bit process, whose handle
 /// does not fit a <c>Long</c>.
 /// </para>
+/// <para>
+/// <c>PlatformVersion</c> and <c>ComponentVersion</c> are RD-VBA additions. <c>PlatformVersion</c> is RDCore's version, and <c>ComponentVersion(Name)</c>
+/// the version of the component of the platform it names (<c>RDCore</c>, <c>RDCore.SDK</c>, <c>RDCore.Forms</c>), as
+/// <see cref="PlatformComponents.VersionOf(string)"/> reads it: an empty string for a name that is no component, or a component that is not installed.
+/// </para>
 /// </remarks>
 /// <param name="session">The session whose program asks.</param>
 public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProvider, IExternalObjectOwner
 {
+    /// <summary>
+    /// Reads the version of a component of the platform by its name, or gives <see langword="null"/> when the name is no component or the component is not
+    /// installed: <see cref="PlatformComponents.VersionOf(string)"/> unless it is set.
+    /// </summary>
+    public Func<string, string?> VersionOf { get; init; } = PlatformComponents.VersionOf;
+
     private const string Library = "VB";
     private const string ClassName = "App";
     private const string GlobalKey = "VB.Global.App/get";
@@ -135,6 +147,8 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
                 null => Error(VBRuntimeErrorId.InvalidProcedureCallOrArgument, request, "this operating system gives no thread identifier"),
             },
             ("RETAINEDPROJECT", "get") => Success(VBBooleanValue.False),
+            ("PLATFORMVERSION", "get") => Success(new VBStringValue(VersionOf(PlatformComponents.Platform) ?? string.Empty)),
+            ("COMPONENTVERSION", "get") => ComponentVersion(request, resolver),
             _ => Error(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, request, $"App.{name} is not implemented"),
         };
     }
@@ -152,6 +166,18 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
         return handle is { } value and >= int.MinValue and <= int.MaxValue
             ? Success(new VBLongValue((int)value))
             : Error(VBRuntimeErrorId.Overflow, request, "the module handle of a 64-bit process does not fit a Long");
+    }
+
+    // the version of the component the program names, which has none when the name is no component or the component is not installed.
+    private RuntimeSemanticsEvaluationResult ComponentVersion(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
+    {
+        var parameters = RuntimeProcedureInvoker.GetParameters(request.Member);
+        if (request.Arguments is not [_, .., var name] || parameters.Length == 0)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        return Success(new VBStringValue(VersionOf(Text(Read(name, parameters[^1].ResolvedType, resolver))) ?? string.Empty));
     }
 
     // a Property Let: the value it is given, as its parameter declares it.

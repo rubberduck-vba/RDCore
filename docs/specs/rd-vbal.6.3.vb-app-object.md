@@ -51,6 +51,17 @@ taskbar button is hidden.
 |`ThreadID`|The operating system's identifier of the thread the program runs on, on every operating system. Error `6` when it does not fit a `Long`.|
 |`hInstance`|Error `5` on an operating system other than Windows. On Windows, error `6` in a 64-bit process, whose module handle does not fit a `Long`. The handle is never cut short.|
 
+## Versions of the platform
+
+RD-VBA addition. These read-only `String` properties say which platform runs the program, such as for an About box.
+
+|Member|Value|
+|---|---|
+|`PlatformVersion`|RDCore's version, such as `0.1.6-alpha+c90bd73…`.|
+|`ComponentVersion(Name)`|The version of the component `Name` names, in any case: `RDCore`, `RDCore.SDK` or `RDCore.Forms`. `""` for another name, or for a component that is not installed, with no error.|
+
+A version is the one its component's build stamped into its assembly, read from [`PlatformComponents`](../api/RDCore.SDK.Platform.PlatformComponents.html).
+
 > [!NOTE]
 > **Not implemented.** `HelpFile`, `LogMode`, `LogPath`, `StartLogging` and `LogEvent` raise error `438`.
 

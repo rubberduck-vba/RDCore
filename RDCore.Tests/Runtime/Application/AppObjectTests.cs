@@ -1,4 +1,12 @@
+using NSubstitute;
+using RDCore.Runtime.Execution.External.Application;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
@@ -14,8 +22,7 @@ namespace RDCore.Tests.Runtime.Application;
 [TestCategory("RD-VBAL 6.3 App Object")]
 public sealed class AppObjectTests
 {
-    private static ModuleWorkspace.WorkspaceLibraries Shipped => new(
-        [], new DirectoryLibrarySource(new FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols));
+    private static ModuleWorkspace.WorkspaceLibraries Shipped => new([], RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform);
 
     // a Visual Basic 6.0 project, which references the Visual Basic objects and procedures (VB.Global's App) without listing them.
     private static async Task<string[]> RunAsync(bool unattended, params string[] lines)
@@ -67,6 +74,53 @@ public sealed class AppObjectTests
         => Printed(
             ["0 True False False"],
             await RunAsync("Debug.Print App.StartMode & \" \" & App.NonModalAllowed & \" \" & App.RetainedProject & \" \" & App.UnattendedApp"));
+
+    [TestMethod]
+    public async Task App_PlatformVersion_IsRDCoresVersion()
+    {
+        var version = PlatformComponents.VersionOf(PlatformComponents.Platform);
+        Assert.IsFalse(string.IsNullOrEmpty(version), "the test's folder holds RDCore.Runtime.dll");
+        Printed([version!, "0"], await RunAsync("Debug.Print App.PlatformVersion", "Debug.Print Err.Number"));
+    }
+
+    [TestMethod]
+    [DataRow("RDCore", DisplayName = "RDCore")]
+    [DataRow("RDCore.SDK", DisplayName = "RDCore.SDK")]
+    [DataRow("RDCore.Forms", DisplayName = "RDCore.Forms")]
+    [DataRow("rdcore.forms", DisplayName = "a name in another case")]
+    public async Task App_ComponentVersion_IsTheVersionOfTheComponentItNames(string component)
+    {
+        var version = PlatformComponents.VersionOf(component);
+        Assert.IsFalse(string.IsNullOrEmpty(version), $"the test's folder holds {component}");
+        Printed([version!, "0"], await RunAsync($"Debug.Print App.ComponentVersion(\"{component}\")", "Debug.Print Err.Number"));
+    }
+
+    [TestMethod]
+    [DataRow("Excel", DisplayName = "a name that is no component")]
+    [DataRow("", DisplayName = "an empty name")]
+    public async Task App_ComponentVersion_OfANameThatIsNoComponent_IsEmpty_WithNoError(string component)
+        => Printed(["[]", "0"], await RunAsync($"Debug.Print \"[\" & App.ComponentVersion(\"{component}\") & \"]\"", "Debug.Print Err.Number"));
+
+    [TestMethod]
+    public void App_ComponentVersion_OfAComponentThatIsNotInstalled_IsEmpty()
+    {
+        // the platform's reader, in an installation whose folder holds no RDCore.Forms.dll.
+        var app = new AppCallProvider(Substitute.For<IRuntimeSession>())
+        {
+            VersionOf = name => string.Equals(name, PlatformComponents.Forms, StringComparison.OrdinalIgnoreCase) ? null : PlatformComponents.VersionOf(name),
+        };
+        Assert.IsTrue(RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform.TryGet("VB", out var vb));
+        var member = new LibrarySymbolReader(new Uri(ModuleWorkspace.Root)).Read([vb])
+            .OfType<VBClassModuleSymbol>().First(declared => declared.Name == "App")
+            .Members.OfType<VBPropertyGetMemberSymbol>().Single(declared => declared.Name == "ComponentVersion");
+
+        var result = app.Dispatch(
+            new ExternalCallRequest(member, [new VBRuntimeValue<string>("App"), new VBRuntimeValue<string>(PlatformComponents.Forms)]),
+            Substitute.For<IRuntimeSymbolResolver>());
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(string.Empty, ((VBStringValue)result.Result!).Value);
+    }
 
     [TestMethod]
     public async Task App_OfAProgramRunUnattended_IsUnattended()
