@@ -333,6 +333,17 @@ internal sealed partial class ProcedureAnalysis
             case ChrTextNode { Code: var code }:
                 return Admits(code, ref calledAfter);
 
+            // TypeName of an object variable or of Me: the object is read as the call is made, and the interpreter reads it again when it makes the call
+            // after a call right of it. Of Nothing, nothing is read.
+            case TypeNameTextNode { Slot: var slot }:
+                return slot is null || !calledAfter;
+
+            // TypeName of a value (LibraryVariantTextOf, the only call of VariantTextLibraryFunctions inside such an instruction): its arguments evaluated
+            // before the call.
+            case LibraryVariantTextNode { Arguments: var arguments }:
+                calledAfter |= arguments.SelectMany(OperandsOf).SelectMany(Within).Any(each => each is CallNode || ReceiverCallsOf(each).Any());
+                return arguments.All(Admits);
+
             default:
                 return false;
         }
@@ -474,12 +485,13 @@ internal sealed partial class ProcedureAnalysis
         _ => [],
     };
 
-    // the payloads a text is made of: the whole numbers joined to it, and the codes of Chr$.
+    // the payloads a text is made of: the whole numbers joined to it, the codes of Chr$, and the arguments of TypeName of a value.
     private static IEnumerable<PayloadNode> PayloadsOf(TextNode node) => node switch
     {
         ConcatNode concat => [.. PayloadsOf(concat.Left), .. PayloadsOf(concat.Right)],
         WholeTextNode whole => [whole.Value],
         ChrTextNode chr => [chr.Code],
+        LibraryVariantTextNode library => library.Arguments.SelectMany(OperandsOf),
         _ => [],
     };
 

@@ -117,13 +117,14 @@ internal sealed partial class ProcedureAnalysis
         => StandardLibrary.IsLibraryMember(symbol) && symbol is VBTypeMemberSymbol
             && Array.IndexOf(VariantTextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
 
-    // a call of a function of VariantTextLibraryFunctions, outside an instruction that calls inside an expression: the call is made once, when the text is
-    // evaluated, and the interpreter makes it again when it is handed the instruction.
+    // a call of a function of VariantTextLibraryFunctions. Inside an instruction that calls inside an expression, only TypeName: the call is made when the
+    // text is evaluated, and the interpreter makes it again when it is handed the instruction after a call, of the arguments it is given known, and TypeName
+    // names the same type of the same value.
     private TextNode? LibraryVariantTextOf(BoundCall call)
     {
         var function = (VBTypeMemberSymbol)call.Procedure;
         var parameters = RuntimeProcedureInvoker.GetParameters(function);
-        if (_nesting is not null || call.BoundArguments is not { } arguments || LibraryArgumentsOf(parameters, arguments) is not { } values)
+        if (_nesting is not null && !IsTypeName(function) || call.BoundArguments is not { } arguments || LibraryArgumentsOf(parameters, arguments) is not { } values)
         {
             _ = Unsupported(call);
             return null;
@@ -138,16 +139,15 @@ internal sealed partial class ProcedureAnalysis
             && Array.IndexOf(TextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
 
     // TypeName of an object variable of the activation, of Me, or of Nothing (MS-VBAL §6.1.2.7.1.12): the library's function names it when compiled code
-    // calls it. Any other argument is given as a call of VariantTextLibraryFunctions gives it, and a call inside an instruction that calls inside an
-    // expression is the interpreter's.
+    // calls it. Any other argument is given as a call of VariantTextLibraryFunctions gives it.
     private TextNode? TypeNameOf(BoundCall call)
     {
-        if (_nesting is null && call.BoundArguments is [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } value }] && !TryObjectArgument(value, out _))
+        if (call.BoundArguments is [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } value }] && !TryObjectArgument(value, out _))
         {
             return LibraryVariantTextOf(call);
         }
 
-        if (_nesting is not null || call.BoundArguments is not [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } named }]
+        if (call.BoundArguments is not [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } named }]
             || !TryObjectArgument(named, out var slot) || call.Procedure is not VBTypeMemberSymbol function)
         {
             _ = Unsupported(call);
