@@ -486,8 +486,8 @@ internal sealed record class KnownNode(PayloadNode Value, int Syntax) : PayloadN
 // call, which the interpreter makes again when it is handed the instruction.
 internal sealed record class LibraryCallNode(int Library, IReadOnlyList<VariantNode> Arguments, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
 
-// a call of the typed form of a function of the standard library (Method, StdLibIntrinsicAttribute), given payloads of whole numbers or Doubles and texts
-// (TextArgumentNode) for its parameters, which returns a payload of its kind (Kind). A typed form that declines hands the instruction to the interpreter, which
+// a call of the typed form of a function of the standard library (Method, StdLibIntrinsicAttribute), given payloads of whole numbers, Doubles or Dates and
+// texts (TextArgumentNode) for its parameters, which returns a payload of its kind (Kind). A typed form that declines hands the instruction to the interpreter, which
 // makes the call as it always does.
 internal sealed record class IntrinsicNode(MethodInfo Method, IReadOnlyList<PayloadNode> Arguments, ScalarKind Kind) : PayloadNode(Kind);
 

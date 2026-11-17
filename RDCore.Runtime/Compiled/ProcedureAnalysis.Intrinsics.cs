@@ -68,19 +68,18 @@ internal sealed partial class ProcedureAnalysis
     private static ScalarKind? ResultKindOf(MethodInfo method)
     {
         var parameters = method.GetParameters();
-        var returned = method.ReturnType == typeof(bool) && parameters is [.., { IsOut: true } result]
-            ? result.ParameterType.GetElementType()
-            : method.ReturnType;
-        return KindOf(returned);
+        return method.ReturnType == typeof(bool) && parameters is [.., { IsOut: true } result]
+            ? KindOf(result.ParameterType.GetElementType(), result)
+            : KindOf(method.ReturnType, method.ReturnParameter);
     }
 
-    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double, a bool a
-    // Boolean.
-    private static ScalarKind? KindOf(Type? type)
+    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double, or a Date
+    // where the parameter or the return value is marked StdLibDateAttribute, a bool a Boolean.
+    private static ScalarKind? KindOf(Type? type, ParameterInfo parameter)
         => type == typeof(short) ? ScalarKind.Integer
             : type == typeof(int) ? ScalarKind.Long
             : type == typeof(long) ? ScalarKind.LongLong
-            : type == typeof(double) ? ScalarKind.Double
+            : type == typeof(double) ? parameter.IsDefined(typeof(StdLibDateAttribute)) ? ScalarKind.Date : ScalarKind.Double
             : type == typeof(bool) ? ScalarKind.Boolean
             : null;
 
@@ -148,7 +147,7 @@ internal sealed partial class ProcedureAnalysis
 
             // an extended intermediate is given as the call holds it: stored as the expression's type from its 80 bits, which raises what it raises there
             // (StoreNode), then given as any value of that type.
-            if (KindOf(type) is not { } taken || ScalarKinds.Of(declared) is not { } given || given != taken && !(form.Coerced[i] && Widens(given, taken))
+            if (KindOf(type, parameters[i]) is not { } taken || ScalarKinds.Of(declared) is not { } given || given != taken && !(form.Coerced[i] && Widens(given, taken))
                 || IsVariant(value) || (IsExtended(value) ? PayloadAs(value, given) : Payload(value)) is not { } payload)
             {
                 return null;
