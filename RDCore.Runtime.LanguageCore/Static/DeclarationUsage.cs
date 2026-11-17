@@ -18,7 +18,7 @@ public static class DeclarationUsage
     public static ImmutableArray<DeclarationFact> Of(
         IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
         Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null,
-        IReadOnlySet<string>? excludedBranchNames = null)
+        IReadOnlySet<string>? excludedBranchNames = null, Func<Symbol, ImmutableArray<CompiledPlatforms>?>? statementsCompiledOn = null)
     {
         var models = procedures.ToList();
         var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
@@ -61,6 +61,8 @@ public static class DeclarationUsage
                 counted = references.GetValueOrDefault(Key(symbol.SemanticId)) ?? new References();
             }
 
+            // a procedure that several Declare statements declare is declared on every platform one of them is compiled on.
+            var statements = symbol is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol ? statementsCompiledOn?.Invoke(symbol) : null;
             facts.Add(new DeclarationFact(
                 symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted?.Count)
             {
@@ -70,6 +72,8 @@ public static class DeclarationUsage
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
                 Hides = hides?.Invoke(symbol),
                 AutoInstantiates = ClassFacts.AutoInstantiatedClassOf(symbol)?.SemanticId,
+                CompiledOn = statements?.Aggregate(CompiledPlatforms.None, (all, statement) => all | statement),
+                StatementsCompiledOn = statements ?? default,
             });
         }
 
