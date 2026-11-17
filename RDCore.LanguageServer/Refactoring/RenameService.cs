@@ -538,6 +538,25 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
+    /// The variables of a range of a document whose values a client shows while the program is stopped (<strong>LSP 3.17</strong> §Inline Value Request): the
+    /// names of the procedure the program is stopped in that are its variables' (<see cref="InlineValueLookups.In"/>), each at its place in the text of the
+    /// document, and none of what the module of a program adds to its text.
+    /// </summary>
+    public IReadOnlyList<InlineValueVariableLookup> InlineValues(Uri documentUri, LspRange range, LspRange stoppedLocation)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return [];
+        }
+
+        // the line a client shows the values at is the one the range of the stop ends on.
+        var within = new SourceRange(module.ToModulePosition(range.Start), module.ToModulePosition(range.End));
+        return [.. InlineValueLookups.In(PartOf(module).Context, module.Module, within, module.ToModulePosition(stoppedLocation.End))
+            .Where(lookup => module.IsInText(lookup.Range.Start))
+            .Select(lookup => new InlineValueVariableLookup { Range = module.ToTextRange(lookup.Range), VariableName = lookup.Name, CaseSensitiveLookup = false })];
+    }
+
+    /// <summary>
     /// What a hover over the name at a position of a document says of its symbol (<see cref="SymbolHover"/>), and where the name is written.
     /// </summary>
     /// <returns>The hover; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
