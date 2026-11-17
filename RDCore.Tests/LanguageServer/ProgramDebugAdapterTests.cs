@@ -412,6 +412,33 @@ public sealed class ProgramDebugAdapterTests
         StringAssert.Contains(refusal.Message, "no project");
     }
 
+    // a platform with no manifest fails as its components are brought up, with an error that is not the workspace's: the launch is refused with what was
+    // missing and where, and the requests a client sends beside it, which wait for the launch, are answered.
+    [TestMethod]
+    public async Task ALaunch_OfAPlatformThatCannotBeBroughtUp_IsRefusedInOneLine_AndTheRequestsBesideItAreAnswered()
+    {
+        const string missing = "Could not find file 'C:\\Platform\\rdcore.json'.";
+        await using var session = new Session();
+        var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Workspace.OpenAsync(Arg.Any<CancellationToken>()).Returns(opening.Task);
+        await session.StartAsync();
+
+        var launch = session.LaunchAsync();
+        var breakpoints = session.SendAsync(new SetBreakpointsArguments
+        {
+            Source = new Source { Path = Path },
+            Breakpoints = new Container<SourceBreakpoint>(new SourceBreakpoint { Line = 12 }),
+        });
+        var configured = session.SendAsync(new ConfigurationDoneArguments());
+        opening.SetException(new FileNotFoundException(missing));
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => launch);
+        Assert.AreEqual(missing, refusal.Message, "the refusal is the one line that says what is missing, with no stack trace");
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => breakpoints);
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => configured);
+        await session.Workspace.DidNotReceive().StartAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     // ---- breakpoints ----
 
     [TestMethod]
