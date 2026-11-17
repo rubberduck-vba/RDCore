@@ -364,6 +364,10 @@ public sealed class EnvironmentSessionProvider(
         // program ended (an internal error, which closes nothing, included).
         _ = _session?.Files.CloseAll();
 
+        // and the evaluation of its code is the session's too: a session replaced or let go of has no use for what is still to be found out, which can
+        // take seconds and gigabytes (an array of millions of elements).
+        Image.Semantics.StopEvaluations();
+
         if (_session is null || _directoryBefore is not { } before)
         {
             return;
