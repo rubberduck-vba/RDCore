@@ -290,12 +290,14 @@ public static class PayloadOperations
     };
 
     /// <summary>
-    /// A payload of <paramref name="from"/> converted to <paramref name="to"/> (<strong>MS-VBAL §5.5.1.2.1</strong>), in two cases:
+    /// A payload of <paramref name="from"/> converted to <paramref name="to"/> (<strong>MS-VBAL §5.5.1.2.1</strong>), in three cases:
     /// <list type="bullet">
     /// <item><description>the conversion is exact, with no rounding to decide: an integer in the range of an integer type, an integer as a floating-point
     /// value, a <c>Date</c> as its serial, any number as a <c>Boolean</c>;</description></item>
     /// <item><description>a <c>Single</c> or a <c>Double</c> made an integer by Banker's rounding (<strong>§5.5.1.2.1.1</strong>), which overflows past
-    /// the range of the type.</description></item>
+    /// the range of the type;</description></item>
+    /// <item><description>a <c>Double</c>, or a <c>Date</c>'s serial (<strong>§5.5.1.2.3</strong>), made the nearest <c>Single</c>, which overflows past
+    /// the magnitude range of a <c>Single</c>.</description></item>
     /// </list>
     /// Anything else is the boxed coercion's, which rounds, and declines.
     /// </summary>
@@ -353,6 +355,20 @@ public static class PayloadOperations
             }
 
             resultIntegral = (long)VBNumericType.BankersRounding(floating);
+            return PayloadStatus.Ok;
+        }
+
+        // MS-VBAL §5.5.1.2.1: a Double, or a Date's serial (§5.5.1.2.3), is the Single nearest it when it is within the magnitude range of a Single, and
+        // otherwise an overflow, as the boxed coercion converts it (VBNumericType.IsWithinRange, then the Single the type makes of it). An infinity or a NaN
+        // is a Single as it is (MS-VBAL §2.4), which the boxed coercion lets through too.
+        if (from is ScalarKind.Double or ScalarKind.Date && to is ScalarKind.Single)
+        {
+            if (double.IsFinite(floating) && !VBNumericType.IsWithinRange(floating, (VBNumericType)ScalarKinds.TypeOf(to)))
+            {
+                return PayloadStatus.Overflow;
+            }
+
+            resultFloating = (float)floating;
             return PayloadStatus.Ok;
         }
 
