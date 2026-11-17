@@ -1311,7 +1311,15 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return Text(Bind(value)) is { } text ? new TextCompareNode(comparison, new TextSelectorNode(select), text) : null;
+        // a Variant is compared as its value type says (MS-VBAL §5.6.9.5), which may be a number: the interpreter compares it.
+        var bound = Bind(value);
+        if (IsVariant(bound))
+        {
+            Refuse(IneligibilityKind.VariantOperand, token, value.Location);
+            return null;
+        }
+
+        return Text(bound) is { } text ? new TextCompareNode(comparison, new TextSelectorNode(select), text) : null;
     }
 
     // an expression bound as the interpreter binds it where it is written: in a With block, a member with no object before the dot is a member of the

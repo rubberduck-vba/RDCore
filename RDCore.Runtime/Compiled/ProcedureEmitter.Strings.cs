@@ -153,6 +153,26 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
 
+            // a Variant the frame holds in no Variant's cell (a parameter passed a String, an error, an object or nothing) is read from the frame.
+            case VariantSlotTextNode variant:
+                var uncelled = _il.DefineLabel();
+                var read = _il.DefineLabel();
+                _il.Emit(OpCodes.Ldloc, _variants[variant.Slot]);
+                _il.Emit(OpCodes.Brfalse, uncelled);
+                _il.Emit(OpCodes.Ldloc, _variants[variant.Slot]);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.ReadText))!);
+                _il.Emit(OpCodes.Br, read);
+                _il.MarkLabel(uncelled);
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, variant.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.VariantValueOf))!);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.TextOf))!);
+                _il.MarkLabel(read);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                break;
+
             case FieldTextNode field:
                 EmitFieldText(field, text, failure);
                 break;
