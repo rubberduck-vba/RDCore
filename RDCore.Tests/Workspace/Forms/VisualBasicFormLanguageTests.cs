@@ -42,23 +42,10 @@ namespace RDCore.Tests.Workspace.Forms;
 [TestClass]
 public sealed class VisualBasicFormLanguageTests
 {
-    private static string Symbols
-    {
-        get
-        {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
-            {
-                directory = directory.Parent;
-            }
-
-            Assert.IsNotNull(directory, "the repository root, where RDCore.slnx is");
-            return Path.Combine(directory.FullName, "Symbols");
-        }
-    }
-
-    // the libraries that ship (Symbols/*.json): a VB6 project that lists none references VBRUN and VB, and one may list Microsoft Forms besides.
-    private static ModuleWorkspace.WorkspaceLibraries Libraries(params string[] listed) => new(listed, new DirectoryLibrarySource(new FileSystem(), Symbols));
+    // the libraries that ship (RDForms' VB, then Symbols/*.json): a VB6 project that lists none references VBRUN and VB, and one may list Microsoft
+    // Forms besides.
+    private static ModuleWorkspace.WorkspaceLibraries Libraries(params string[] listed)
+        => new(listed, RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform);
 
     // Command1, Text1, and the control array Command2 (two controls of one name, each with its Index)
     private static string Form(params string[] body) => Designed("VB.Form", body);
@@ -414,7 +401,9 @@ public sealed class VisualBasicFormLanguageTests
 
     // ---- completion ----
 
-    private static async Task<string[]> CompletionAtAsync(string form)
+    private static async Task<string[]> CompletionAtAsync(string form) => [.. (await CompletionItemsAtAsync(form)).Select(item => item.Label)];
+
+    private static async Task<IReadOnlyList<CompletionItem>> CompletionItemsAtAsync(string form)
     {
         // the cursor is where the `|` is
         var lines = form.Split("\r\n");
@@ -450,7 +439,7 @@ public sealed class VisualBasicFormLanguageTests
             NullLogger<CompletionService>.Instance, RDCore.Tests.LanguageServer.OneProject.Registry());
 
         var list = await completion.CompleteDocumentAsync(uri, position, CancellationToken.None);
-        return [.. list.Items.Select(item => item.Label)];
+        return [.. list.Items];
     }
 
     [TestMethod]
@@ -468,5 +457,55 @@ public sealed class VisualBasicFormLanguageTests
 
         CollectionAssert.IsSubsetOf(new[] { "Caption", "Left", "SetFocus", "TabIndex" }, labels);
         CollectionAssert.DoesNotContain(labels, "ControlTipText", "MSForms.Control's, which the project references and a VB6 form does not wrap its controls in");
+    }
+
+    // ---- what RD-VBA adds to the VB library ----
+
+    // Form() with a Label1 and a List1 besides, whose classes have members VB6.OLB does not declare.
+    private static string FormWithLabelAndList(params string[] body)
+        => Form(body).Replace("End\r\nAttribute VB_Name",
+            "   Begin VB.Label Label1 \r\n      Caption         =   \"Label1\"\r\n   End\r\n" +
+            "   Begin VB.ListBox List1 \r\n      TabIndex        =   4\r\n   End\r\n" +
+            "End\r\nAttribute VB_Name", StringComparison.Ordinal);
+
+    // the Property Get of a property of a control's class.
+    private static VBPropertyGetMemberSymbol MemberOfControl(string control, string member)
+    {
+        var field = (ITypedSymbol)ComposedForm(FormWithLabelAndList()).Members.Single(declared => declared.Name == control);
+        return Assert.IsInstanceOfType<VBClassType>(field.ResolvedType).Symbol.Members.OfType<VBPropertyGetMemberSymbol>().Single(declared => declared.Name == member);
+    }
+
+    // a library's class is open (a member it does not declare is bound late), so what binds early is what its class declares, of its declared type.
+    [TestMethod]
+    [DataRow("Label1", "Opacity", "Double")]
+    [DataRow("List1", "ItemIcon", "Variant")]
+    [DataRow("Label1", "Caption", "String")]
+    [DataRow("List1", "ListCount", "Integer")]
+    public void WhatRDVBAAddsToVB_IsDeclaredByTheControlsClass_AsVB6sOwnMembersAre(string control, string member, string type)
+        => Assert.AreEqual(type, MemberOfControl(control, member).ResolvedType.Name);
+
+    [TestMethod]
+    public async Task WhatRDVBAAddsToVB_IsUsedByAForm_AsVB6sOwnMembersAre()
+        => Assert.IsEmpty(await ErrorsAsync(FormWithLabelAndList(
+            "Private Sub Form_Load()", "    Label1.Opacity = 0.5", "    Label1.Caption = \"a\"", "    Debug.Print TypeName(List1.ItemIcon); List1.ListCount", "End Sub")));
+
+    [TestMethod]
+    [DataRow("Label1", "Opacity")]
+    [DataRow("List1", "ItemIcon")]
+    public void TheHoverOfWhatRDVBAAddsToVB_SaysItIsAnAddition(string control, string member)
+        => CollectionAssert.Contains(SymbolHover.Of(MemberOfControl(control, member)).ToPlainText(CultureInfo.InvariantCulture).Split('\n'),
+            "RD-VBA addition: the type library of VB does not declare it.");
+
+    [TestMethod]
+    public void TheHoverOfAVB6Member_SaysNothingOfAnAddition()
+        => Assert.DoesNotContain("RD-VBA", SymbolHover.Of(MemberOfControl("Label1", "Caption")).ToPlainText(CultureInfo.InvariantCulture));
+
+    [TestMethod]
+    public async Task TheCompletionItemOfWhatRDVBAAddsToVB_SaysItIsAnAddition_AndThatOfAVB6MemberDoesNot()
+    {
+        var items = await CompletionItemsAtAsync(FormWithLabelAndList("Private Sub Fill()", "    Label1.|", "End Sub"));
+
+        StringAssert.StartsWith(items.First(item => item.Label == "Opacity").Documentation?.String, SymbolTexts.LibraryAddition("VB"));
+        Assert.DoesNotContain(SymbolTexts.LibraryAddition("VB"), items.First(item => item.Label == "Caption").Documentation?.String ?? string.Empty);
     }
 }

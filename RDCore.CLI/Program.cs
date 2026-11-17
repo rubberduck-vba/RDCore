@@ -38,6 +38,7 @@ using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 using RDCore.SDK.Platform.Components;
+using RDCore.Symbols;
 
 // expose internals to RDCore.Tests, RDCore.Benchmarks and the LSP handler container's dynamic proxies:
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -155,6 +156,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
         ];
 
     protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
+
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => PlatformLibraries.With(symbols);
 
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
@@ -489,6 +493,9 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
 
     protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
 
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => PlatformLibraries.With(symbols);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
@@ -572,6 +579,9 @@ internal sealed class RDCoreConsoleCommandApp(
 /// </summary>
 internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreConsoleEnvironmentHostApp>
 {
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => PlatformLibraries.With(symbols);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         base.ConfigureAdditionalExternalServices(services, configuration);

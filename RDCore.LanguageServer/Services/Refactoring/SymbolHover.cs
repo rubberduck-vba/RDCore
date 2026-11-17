@@ -8,15 +8,11 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
-using System.Resources;
-using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
 public sealed record class SymbolHover(string Declaration, string? Container, string? Documentation)
 {
-    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
-
     public static SymbolHover Of(Symbol symbol)
     {
         var path = NameOccurrences.Describe(symbol);
@@ -38,27 +34,27 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         }
 
         var element = symbol is ITypedSymbol { ResolvedType: var type } ? FormControlArray.ElementOf(type) : null;
-        return new SymbolHover(DeclarationOf(symbol), container, symbol.GetProperty(SymbolProperties.DocString)) { ControlArrayOf = element is null ? null : ClassNameOf(element) };
+        return new SymbolHover(DeclarationOf(symbol), container, symbol.GetProperty(SymbolProperties.DocString))
+        {
+            ControlArrayOf = element is null ? null : ClassNameOf(element),
+            AdditionTo = symbol.GetProperty(SymbolProperties.LibraryAddition) ? symbol.GetProperty(SymbolProperties.Library) : null,
+        };
     }
 
     public string? ControlArrayOf { get; init; }
 
+    // the library RD-VBA adds the member to, which the library's type library does not declare.
+    public string? AdditionTo { get; init; }
+
     public string ToMarkdown(CultureInfo? culture = null)
-        => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+        => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
 
     public string ToPlainText(CultureInfo? culture = null)
-        => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+        => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
 
-    private string? ArrayOf(CultureInfo? culture)
-    {
-        if (ControlArrayOf is null)
-        {
-            return null;
-        }
+    private string? AdditionOf(CultureInfo? culture) => AdditionTo is null ? null : SymbolTexts.LibraryAddition(AdditionTo, culture);
 
-        culture ??= CultureInfo.CurrentUICulture;
-        return string.Format(culture, Messages.GetString("Hover_ControlArrayOf", culture) ?? "{0}", ControlArrayOf);
-    }
+    private string? ArrayOf(CultureInfo? culture) => ControlArrayOf is null ? null : SymbolTexts.ControlArrayOf(ControlArrayOf, culture);
 
     // a class of a type library by its library's name and its own, as a declaration names it: VB.CommandButton.
     private static string ClassNameOf(RDCore.SDK.Model.Types.Abstract.VBType type)
@@ -66,16 +62,7 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
             ? $"{library}.{type.Name}"
             : type.Name;
 
-    private string? MemberOf(CultureInfo? culture)
-    {
-        if (Container is null)
-        {
-            return null;
-        }
-
-        culture ??= CultureInfo.CurrentUICulture;
-        return string.Format(culture, Messages.GetString("Hover_MemberOf", culture) ?? "{0}", Container);
-    }
+    private string? MemberOf(CultureInfo? culture) => Container is null ? null : SymbolTexts.MemberOf(Container, culture);
 
     // the declaration as code writes it: what is called by its signature, what holds a value by its type.
     private static string DeclarationOf(Symbol symbol)
