@@ -8,10 +8,10 @@ using RDCore.SDK.Model.Symbols.VBProject;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
-// the places a client edits as one while the user types a name (LSP 3.17 §Linked Editing Range): each place the procedure writes the name of a local variable,
-// a parameter or a line label of its own. A name of the module, or of any other, is named outside the procedure too, as is a parameter a named argument
-// names, and is linked nowhere: a rename changes it everywhere it is named. A name written in brackets is linked nowhere either, since the brackets are not
-// part of the name.
+// the places a client edits as one while the user types a name (LSP 3.17 §Linked Editing Range): each place the procedure writes the name of a local
+// variable, a parameter or a line label of its own. A name of the module or of another module is named outside the procedure too, as is a parameter a named
+// argument names, and is linked nowhere: a rename changes it everywhere it is named. A name written in brackets is linked nowhere either, since the
+// brackets are not part of the name, and nor is any name of a procedure that writes a name whose meaning is not known.
 public static class LinkedEditingLookups
 {
     private static readonly IReadOnlySet<MemberKind> Procedures = new HashSet<MemberKind>

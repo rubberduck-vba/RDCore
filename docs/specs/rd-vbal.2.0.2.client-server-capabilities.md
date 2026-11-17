@@ -499,6 +499,20 @@ statement, or after a `.` calls it again, and is a reference.
 `textDocument/documentHighlight` (**LSP 3.17** §Document Highlights Request) answers every name in the document that a rename of the symbol would rename
 there, its declaration and every procedure of a property included, each of kind `Text`: a name that reads the symbol and one that assigns it are not told apart.
 
+### `textDocument/linkedEditingRange`
+
+The language server answers `textDocument/linkedEditingRange` (**LSP 3.17** §Linked Editing Range) for the documents it holds
+(`linkedEditingRangeProvider`). At the name of a local variable (**MS-VBAL §5.4.3.1**), a parameter (**MS-VBAL §5.3.1.5**) or a line label
+(**MS-VBAL §5.4.1.1**), it answers each place the procedure writes that name, in any case, for the client to edit them as one while the user types.
+It answers no ranges for:
+
+- a name of the module or of another module, which a [rename](#textdocumentrename-and-textdocumentpreparerename) changes everywhere it is named;
+- a parameter that a named argument names outside its procedure (**MS-VBAL §5.6.13.1**);
+- a name written in brackets;
+- any name of a procedure that writes a name whose meaning is not known.
+
+The answer carries no `wordPattern`: the client checks the edited name with its own.
+
 ### `textDocument/declaration`
 
 The language server answers `textDocument/declaration` (**LSP 3.17** §Goto Declaration Request) the way it answers `textDocument/definition`, with one place:

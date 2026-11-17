@@ -541,6 +541,8 @@ internal sealed class RenameWorkspace
     /// The names a client edits as one while the user types the name at a position of a document (<strong>LSP 3.17</strong> §Linked Editing Range): each
     /// place its procedure writes the local variable, the parameter or the line label named there (<see cref="LinkedEditingLookups.At"/>).
     /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">The position, in the document's text.</param>
     /// <returns>The ranges; none where no such name is written, or where one of them is not in the text of the document.</returns>
     public LinkedEditingRanges LinkedEditing(Uri documentUri, Position position)
     {
