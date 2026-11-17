@@ -285,6 +285,11 @@ internal sealed record class TextResultNode : TextNode;
 // two Strings joined, by & or by + of two Strings (MS-VBAL §5.6.9.4, §5.6.5).
 internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNode;
 
+// a Variant variable of the activation let-coerced to String (MS-VBAL §5.5.1.2.4, §5.5.1.2.11), by its slot: the text of what its cell holds
+// (VariantOperations.ReadText), or of what the frame holds it as when it is in no Variant's cell (VariantOperations.TextOf); the interpreter's when it
+// holds what neither writes a text of.
+internal sealed record class VariantSlotTextNode(int Slot) : TextNode;
+
 // a Byte, an Integer, a Long or a LongLong let-coerced to String (MS-VBAL §5.5.1.2.4): its digits, after a minus sign when it is negative, which no
 // regional setting changes (StringOperations.OfWhole).
 internal sealed record class WholeTextNode(PayloadNode Value) : TextNode;

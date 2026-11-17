@@ -94,9 +94,9 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
     // TryEvaluateText, case for case: a String literal, a String variable of the activation or a String field of one of its records, parentheses, and two
-    // of them joined by & (or by +, of two Strings); and a whole number, the library's Chr$ of one, the typed form of a function of the library and & of a
-    // Variant, which TryEvaluateText leaves to the let-coercion, the call and the Variant operation. Strings joined that are all literals are the text they
-    // make, joined once.
+    // of them joined by & (or by +, of two Strings); and a whole number, a Variant variable, the library's Chr$ of a whole number, the typed form of a
+    // function of the library and & of a Variant, which TryEvaluateText leaves to the let-coercion, the call and the Variant operation. Strings joined that
+    // are all literals are the text they make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -116,6 +116,11 @@ internal sealed partial class ProcedureAnalysis
             case BoundName { Symbol: var function } when ResultIsText && IsOwnFunction(function):
                 NeedsFrame = true;
                 return new TextResultNode();
+
+            // a Variant variable, outside an instruction that calls inside an expression: one that holds what compiled code writes no text of is given to
+            // the interpreter, which would repeat a call made before it.
+            case BoundVariable variable when _nesting is null && VariantSlotOf(variable) is { } variantSlot:
+                return new VariantSlotTextNode(variantSlot);
 
             case BoundMember member when RecordFieldOf(member) is var (path, type) && IsText(type):
                 return new FieldTextNode(path);

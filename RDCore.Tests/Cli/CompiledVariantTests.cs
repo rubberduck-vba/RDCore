@@ -70,7 +70,7 @@ public sealed class CompiledVariantTests
             "        V = V + 100",
             "    Next",
             "    Widened = V & \" \" & TypeName(V)",
-            "End Function"), "Widened", recoveries: 2);
+            "End Function"), "Widened", recoveries: 1);
 
     // what the evaluation on payloads does not do of a Variant (one holding a String) the interpreter does, alone: V + 1, once compiled code gave V the
     // String "12": 1.
@@ -237,7 +237,7 @@ public sealed class CompiledVariantTests
             "        N = N + 1",
             "    Next",
             "    Stepped = N & \" \" & I & \" \" & TypeName(I)",
-            "End Function"), "Stepped", recoveries: 3);
+            "End Function"), "Stepped", recoveries: 2);
 
     // a division by zero of Variants is the interpreter's to raise: in a body with an error handler, the handler is given it, and compiled code goes on after.
     [TestMethod]

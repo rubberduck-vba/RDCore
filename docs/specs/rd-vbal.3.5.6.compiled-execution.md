@@ -98,11 +98,17 @@ A `Let` of such a `String`, or of `Null`, to a `Variant` variable of the procedu
 `Null` (MS-VBAL §5.5.1.2.12). `V = "x"`, `V = "a" & S` and `U = Null` assign what they assign in the interpreter. A `Variant` that holds an object, an
 array or a record is the interpreter's to assign, since the assignment lets go of what it holds, and compiled code goes on after the statement.
 
+A `Variant` variable of the procedure assigned to a `String` (`R = V`) is the text the interpreter's let-coercion writes of it: a copy of the `String` it
+holds (MS-VBAL §5.5.1.2.4), the zero-length string of `Empty` (MS-VBAL §5.5.1.2.11), or the digits of the whole number it holds. A `Variant` that holds
+any other value is the interpreter's to let-coerce: `Null` is error 94 (MS-VBAL §5.5.1.2.10), and any other number, a `Boolean` and a `Date` are written
+in the session's regional settings. In a statement that calls inside an expression (see Calls inside an expression, below), a `Variant` let-coerced to
+a `String` is the interpreter's.
+
 Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
 parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`
-variable given. Either way the callee holds its own frame, which the interpreter makes. A whole number given by value is given its digits. A `Variant` or
-any other number given to a `String` parameter, a fixed-length `String`, a field and an element of an array are the interpreter's to give, and it makes
-the call.
+variable given. Either way the callee holds its own frame, which the interpreter makes. A whole number given by value is given its digits, and a
+`Variant` variable the text it is let-coerced to, as above. Any other number given to a `String` parameter, a `Variant` that holds anything else, a
+fixed-length `String`, a field and an element of an array are the interpreter's to give, and it makes the call.
 
 ### `Debug.Print`
 
