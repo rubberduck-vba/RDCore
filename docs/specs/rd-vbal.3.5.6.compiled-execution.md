@@ -88,9 +88,9 @@ no character is error 5, which the interpreter raises at that statement.
 `TypeName` of one of the procedure's object variables, of an object field of one of its records (`TypeName(this.Strategy)`), of `Me` or of `Nothing` is
 the name the library gives (MS-VBAL §6.1.2.7.1.12): compiled code calls it, so a form or a class is named as in the interpreter. A field is read where
 the record holds it as `TypeName` is called, in a statement that calls inside an expression too (see Calls inside an expression, below), after the calls
-left of it; the interpreter reads one left of a call (`S = TypeName(this.G) & Replaced()`), which may put another object in it. `Replace` given `String`s, with no start, count or comparison (MS-VBAL §6.1.2.11.1.29),
-is called by compiled code with the text of each argument. Any other argument, and an error either function raises, are the interpreter's at that
-statement.
+left of it; the interpreter reads one left of a call (`S = TypeName(this.G) & Replaced()`), which may put another object in it.
+`Replace` given `String`s, with no start, count or comparison (MS-VBAL §6.1.2.11.1.29), is called by compiled code with the text of each argument.
+Any other argument, and an error either function raises, are the interpreter's at that statement.
 
 The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads nothing of
 it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `Let` of what a call returns to it or to a `String` variable
