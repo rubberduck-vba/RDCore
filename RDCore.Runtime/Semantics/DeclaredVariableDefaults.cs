@@ -39,7 +39,11 @@ namespace RDCore.Runtime.Semantics;
 /// </remarks>
 /// <param name="session">The session the variables are allocated in, which resolves what the bounds name.</param>
 /// <param name="bounds">Reduces a bound to an integer.</param>
-public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBoundEvaluator bounds) : IVariableDefaults
+/// <param name="stop">
+/// Stops the making of a fixed-size array between two of its elements, which can be millions: an analysis that is told to stop does not first make the
+/// rest of an array it never reads. <see cref="OperationCanceledException"/> is what a stopped array throws.
+/// </param>
+public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBoundEvaluator bounds, CancellationToken stop = default) : IVariableDefaults
 {
     /// <inheritdoc/>
     public VBTypedValue DefaultValueOf(Symbol variable)
@@ -82,7 +86,8 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
         }
 
         return DimensionsOf(session, bounds, variable, OptionBaseOf(variable)) is { } dimensions
-            ? new VBFixedSizeArrayValue(dimensions, array.ItemType, ((IVariableDefaults)this).ElementDefaultOf(array.ItemType), ElementCellOf(array.ItemType))
+            ? new VBFixedSizeArrayValue(dimensions, array.ItemType, Stopping(((IVariableDefaults)this).ElementDefaultOf(array.ItemType)),
+                Stopping(ElementCellOf(array.ItemType)))
             : new VBFixedSizeArrayValue([], array.ItemType);
     }
 
@@ -91,6 +96,14 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     /// The cells of <see cref="ElementCells"/>, which the copy an assignment makes of an array is given too.
     /// </remarks>
     public Func<IBindingHandle>? ElementCellOf(VBType itemType) => ElementCells.Of(itemType);
+
+    // what makes each element of a declared array, asking first whether to stop. An element kept in the cell VBArrayValue makes of its default value (a
+    // String's, an Object's, any element of an array when values are boxed) is made with nothing asked: it stops once the array is made.
+    private Func<T>? Stopping<T>(Func<T>? make) => make is null || !stop.CanBeCanceled ? make : () =>
+    {
+        stop.ThrowIfCancellationRequested();
+        return make();
+    };
 
     /// <summary>
     /// The dimensions of a fixed-size array variable, each bound its declaration gives reduced (MS-VBAL §5.2.3.1.3), and an omitted lower bound
