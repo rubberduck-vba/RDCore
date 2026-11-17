@@ -26,7 +26,9 @@ public sealed class ExternalHostTests
         using var host = NewHost();
         var server = new RemoteAutomationServer(host);
 
-        Assert.AreEqual(OperatingSystem.IsWindows(), server.IsAvailable);
+        // RDForms' objects are reachable on every platform, so the host's automation server is available on all of them; a ProgID the platform cannot
+        // create still raises 429.
+        Assert.IsTrue(server.IsAvailable);
     }
 
     [TestMethod]
