@@ -136,7 +136,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundCall { Procedure: var chr, BoundArguments: [{ Value: { } code }] } when IsChrString(chr) && WholeOf(code) is { } whole:
                 return new ChrTextNode(whole);
 
-            // a function of the library whose typed form returns a String, of its arguments (ProcedureAnalysis.Intrinsics.cs): Mid$, Left$, Trim$.
+            // a function of the library whose typed form returns a String, of its arguments (ProcedureAnalysis.Intrinsics.cs): Mid$, Left$, Trim$, UCase$.
             case BoundCall typed when IntrinsicTextOf(typed) is { } formed:
                 return formed;
 

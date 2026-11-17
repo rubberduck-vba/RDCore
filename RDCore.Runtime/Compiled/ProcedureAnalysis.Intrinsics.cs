@@ -182,7 +182,9 @@ internal sealed partial class ProcedureAnalysis
     // Database compares as the environment says, which the interpreter reads when the call is made.
     private VBCompareMethod? CallersCompareMethod()
     {
-        var directives = _session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(_procedure.ParentUri), out var module) ? module.Directives : ModuleDirectives.None;
+        var directives = _session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(_procedure.ParentUri), out var module)
+            ? module.Directives
+            : ModuleDirectives.None;
         return directives.Compare switch
         {
             OptionCompare.Binary => VBCompareMethod.VBBinaryCompare,
