@@ -868,4 +868,67 @@
   <data name="Install_ProfileHasBlock" xml:space="preserve">
     <value>{0} is not on this terminal&apos;s PATH yet: {1} adds it in a new terminal.</value>
   </data>
+  <data name="BenchMsVba_Summary" xml:space="preserve">
+    <value>Runs the benchmark corpus and the Excel automation cases in MS-VBA and in RD-VBA, in alternated rounds on this machine, and writes the reference figures (msvba.json). Needs Windows and Excel.</value>
+  </data>
+  <data name="BenchMsVba_OutHelp" xml:space="preserve">
+    <value>The file the reference figures are written to.</value>
+  </data>
+  <data name="BenchMsVba_RoundsHelp" xml:space="preserve">
+    <value>How many rounds: each runs the corpus once on each side, MS-VBA first in odd rounds and RD-VBA first in even rounds.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRoundsHelp" xml:space="preserve">
+    <value>How many of the first rounds also run the Excel automation cases, on both sides; 0 runs none.</value>
+  </data>
+  <data name="BenchMsVba_RunsHelp" xml:space="preserve">
+    <value>How many times each case of the corpus runs in a round; the fastest run of all the rounds is kept.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRunsHelp" xml:space="preserve">
+    <value>How many times each Excel automation case runs in a round.</value>
+  </data>
+  <data name="BenchMsVba_BadCounts" xml:space="preserve">
+    <value>--rounds, --runs and --excel-runs must be at least 1, and --excel-rounds between 0 and --rounds.</value>
+  </data>
+  <data name="BenchMsVba_NeedsWindows" xml:space="preserve">
+    <value>rdc bench-msvba runs MS-VBA in Excel, and automating Excel needs Windows: nothing was run.</value>
+  </data>
+  <data name="BenchMsVba_NoExcel" xml:space="preserve">
+    <value>Excel is not installed: there is no Excel.Application to start.</value>
+  </data>
+  <data name="BenchMsVba_ProjectNotTrusted" xml:space="preserve">
+    <value>Excel does not let programs import modules into a workbook. Turn on &quot;Trust access to the VBA project object model&quot; (Excel Options, Trust Center, Trust Center Settings, Macro Settings), then run this again.</value>
+  </data>
+  <data name="BenchMsVba_Dialog" xml:space="preserve">
+    <value>Excel showed a dialog, so the round was stopped: {0}</value>
+  </data>
+  <data name="BenchMsVba_NoAnswer" xml:space="preserve">
+    <value>Excel did not answer within {0} minutes, so the round was stopped.</value>
+  </data>
+  <data name="BenchMsVba_OneProcess" xml:space="preserve">
+    <value>The Excel automation cases did not run across two processes (harness {0}, target {1}): no figures were kept.</value>
+  </data>
+  <data name="BenchMsVba_NoCaseList" xml:space="preserve">
+    <value>rdc bench --list named no case: {0}</value>
+  </data>
+  <data name="BenchMsVba_Round" xml:space="preserve">
+    <value>Round {0} of {1}</value>
+  </data>
+  <data name="BenchMsVba_RoundWithExcel" xml:space="preserve">
+    <value>Round {0} of {1}, with the Excel automation cases</value>
+  </data>
+  <data name="BenchMsVba_ProcessFailed" xml:space="preserve">
+    <value>rdc {0} ended with exit code {1}.</value>
+  </data>
+  <data name="BenchMsVba_ProcessTimedOut" xml:space="preserve">
+    <value>rdc {0} did not end within {1} minutes, and was stopped.</value>
+  </data>
+  <data name="BenchMsVba_Missing" xml:space="preserve">
+    <value>No figure for {0} on the {1} side: nothing was written.</value>
+  </data>
+  <data name="BenchMsVba_ExcelLeftRunning" xml:space="preserve">
+    <value>An Excel started during RD-VBA&apos;s round is still running (process {0}); it was left alone.</value>
+  </data>
+  <data name="BenchMsVba_Written" xml:space="preserve">
+    <value>{0} corpus cases and {1} Excel automation figures written to {2}.</value>
+  </data>
 </root>
