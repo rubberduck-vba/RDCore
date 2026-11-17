@@ -88,6 +88,7 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveMemberService, RDCore.LanguageServer.Refactoring.MoveMemberService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IEncapsulateFieldService, RDCore.LanguageServer.Refactoring.EncapsulateFieldService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IImplementInterfaceService, RDCore.LanguageServer.Refactoring.ImplementInterfaceService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveCloserToUsageService, RDCore.LanguageServer.Refactoring.MoveCloserToUsageService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             // the codes disabled for the workspace's documents: the user's, which change while the server runs, and the workspace's.
             .AddSingleton<IDisabledDiagnostics>(provider => new DisabledDiagnostics(

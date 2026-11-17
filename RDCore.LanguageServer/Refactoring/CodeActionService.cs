@@ -50,7 +50,8 @@ internal interface ICodeActionService
 internal sealed class CodeActionService(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null) : ICodeActionService
+    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
+    IMoveCloserToUsageService? closerToUsage = null) : ICodeActionService
 {
     public Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionParams request, ClientCapabilities? client, CancellationToken cancellationToken)
         => For(client).ActionsAsync(request, cancellationToken);
@@ -58,7 +59,8 @@ internal sealed class CodeActionService(
     public Task<CodeAction> ResolveAsync(CodeAction request, ClientCapabilities? client, CancellationToken cancellationToken)
         => For(client).ResolveAsync(request, cancellationToken);
 
-    private CodeActions For(ClientCapabilities? client) => new(client, rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField, implementInterface);
+    private CodeActions For(ClientCapabilities? client) => new(client, rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField, implementInterface,
+        closerToUsage);
 }
 
 /// <summary>
@@ -119,6 +121,11 @@ internal sealed class CodeActionService(
 /// disabled, with why, to a client that shows it so.
 /// </para>
 /// <para>
+/// A variable named at a position, or by a selection on one line, is offered a refactoring that moves its declaration closer to its usage
+/// (<see cref="IMoveCloserToUsageService"/>): as a command to a client that expects <see cref="SDK.Client.Refactoring"/>, and to any other as its edit, with
+/// <c>Static</c> for a variable of a module, when that changes nothing the user would have to accept.
+/// </para>
+/// <para>
 /// An extraction, a conversion, a move, a sort, an encapsulation and an implementation are the actions that are resolved (<c>resolveProvider = true</c>): a
 /// client that resolves an action's edit (<strong>LSP 3.17</strong> §Code Action Resolve Request) is answered them without their edit, which is made and verified
 /// when it resolves the action, and refused when the document has changed since. Any other client is answered every action complete.
@@ -128,7 +135,8 @@ internal sealed class CodeActions(
     ClientCapabilities? client,
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null)
+    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
+    IMoveCloserToUsageService? closerToUsage = null)
 {
     // LSP "RequestFailed": the request is valid, and is refused.
     private const int RequestFailedCode = -32803;
@@ -295,6 +303,13 @@ internal sealed class CodeActions(
             && await ImplementInterfaceActionAsync(request.TextDocument.Uri, range, request.Context.Diagnostics, cancellationToken) is { } implementation)
         {
             actions.Add(implementation);
+        }
+
+        // the variable named at a position, or by a selection on one line.
+        if (range.Start.Line == range.End.Line && IsAsked(CodeActionHandler.RefactorMoveCloserToUsage)
+            && await CloserToUsageActionAsync(request.TextDocument.Uri, range.Start, cancellationToken) is { } moved)
+        {
+            actions.Add(moved);
         }
 
         return [.. actions.Where(action => IsAsked(action.Kind))];
@@ -689,6 +704,45 @@ internal sealed class CodeActions(
         {
             throw new RpcErrorException(RequestFailedCode, error: null!, unsupported.Message);
         }
+    }
+
+    // the action that moves the declaration of the variable named at a position closer to its usage. A client with a dialog of its own runs it as a command,
+    // which asks the keyword of a variable of a module and the changes to accept; any other is sent the edit, with Static, when that changes nothing. A refused
+    // one is offered disabled, with why, to a client that shows it so.
+    private async Task<CodeAction?> CloserToUsageActionAsync(DocumentUri lspUri, SourcePosition position, CancellationToken token)
+    {
+        var documentUri = lspUri.ToUri();
+        if (closerToUsage is null || await closerToUsage.OfferAsync(documentUri, position, token) is not { } offer)
+        {
+            return null;
+        }
+
+        var (title, refusal, changes) = offer;
+        if (refusal is not null)
+        {
+            return ShowsDisabled ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorMoveCloserToUsage, Disabled = new CodeActionDisabled { Reason = refusal } } : null;
+        }
+
+        if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
+        {
+            var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.MoveCloserToUsage, Uri = documentUri, Range = new SourceRange(position, position) };
+            return new CodeAction
+            {
+                Title = title,
+                Kind = CodeActionHandler.RefactorMoveCloserToUsage,
+                Command = new Command { Name = RefactoringCommands.Refactor, Title = title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+            };
+        }
+
+        if (changes)
+        {
+            return null;
+        }
+
+        var answer = await closerToUsage.ApplyAsync(documentUri, position, [], [], token);
+        return answer.Edit is not null && ForTheClient(LspEditOf(answer.Edit)) is { } applicable
+            ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorMoveCloserToUsage, Edit = applicable }
+            : null;
     }
 
     // the data of an action a client resolves: a client sends the action back as it holds it, and may drop a kind it does not know, so the data names the
