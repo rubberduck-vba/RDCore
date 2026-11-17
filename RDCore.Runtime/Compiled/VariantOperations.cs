@@ -206,7 +206,9 @@ public static class VariantOperations
     /// <param name="operand">The operand.</param>
     /// <param name="ofAConstantExpression">Whether the operation is part of a constant expression.</param>
     /// <param name="result">The operation's result.</param>
-    /// <returns><see langword="false"/> when it is the interpreter's, as <see cref="Binary(string, VariantPayload, VariantPayload, out VariantPayload)"/> says.</returns>
+    /// <returns>
+    /// <see langword="false"/> when it is the interpreter's, as <see cref="Binary(string, VariantPayload, VariantPayload, out VariantPayload)"/> says.
+    /// </returns>
     public static bool Unary(string token, VariantPayload operand, bool ofAConstantExpression, out VariantPayload result)
     {
         var done = RuntimeExpressionEvaluator.TryOperateDeferred(token, operand.Value, ofAConstantExpression, out var payload);

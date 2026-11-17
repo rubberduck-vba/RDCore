@@ -25,8 +25,7 @@ public sealed class CompiledVariantOperatorTests
     ];
 
     // + - * / \ Mod of each pair: a result that does not fit its subtype (an Integer's -300 * -300, a Long's 70000 * 70000) is the interpreter's, which
-    // widens it. The 138 recoveries are the operations compiled code leaves to the interpreter, as many as before operations were dispatched on the
-    // operands' subtypes.
+    // widens it. The 138 recoveries are the operations compiled code leaves to the interpreter.
     [TestMethod]
     public async Task TheArithmeticOfTwoVariants_IsDoneInTheTypeOfTheirSubtypes()
         => await AssertAlikeAsync(Program([.. Values,
@@ -56,7 +55,7 @@ public sealed class CompiledVariantOperatorTests
             [("Arithmetic", 138)]);
 
     // = <> < <= > >= of each pair, each a Boolean: compared in the type of their subtypes. The 36 recoveries are the comparisons compiled code leaves to
-    // the interpreter, as many as before operations were dispatched on the operands' subtypes.
+    // the interpreter.
     [TestMethod]
     public async Task AComparisonOfTwoVariants_IsDoneInTheTypeOfTheirSubtypes()
         => await AssertAlikeAsync(Program([.. Values,
@@ -80,7 +79,7 @@ public sealed class CompiledVariantOperatorTests
             [("Compared", 36)]);
 
     // And Or Xor Eqv Imp of each pair: the bits of each, a Single, a Double, a Currency and a Date rounded to a Long first. The 160 recoveries are the
-    // logical operations compiled code leaves to the interpreter, as many as before operations were dispatched on the operands' subtypes.
+    // logical operations compiled code leaves to the interpreter.
     [TestMethod]
     public async Task ALogicalOperationOfTwoVariants_IsDoneInTheTypeOfTheirSubtypes()
         => await AssertAlikeAsync(Program([.. Values,

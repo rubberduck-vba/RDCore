@@ -3,9 +3,10 @@ using RDCore.SDK.Model;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// A binary operator compiled code applies to <c>Variant</c> operands (<see cref="VariantOperations.Binary(VariantOperator, VariantPayload, VariantPayload, out VariantPayload)"/>):
-/// an arithmetic operator (<strong>MS-VBAL §5.6.9.3</strong>), a comparison (<strong>MS-VBAL §5.6.9.5</strong>) or a logical operator
-/// (<strong>MS-VBAL §5.6.9.8</strong>). Another operator is named by its token (<see cref="VariantOperations.Binary(string, VariantPayload, VariantPayload, out VariantPayload)"/>).
+/// A binary operator compiled code applies to <c>Variant</c> operands
+/// (<see cref="VariantOperations.Binary(VariantOperator, VariantPayload, VariantPayload, out VariantPayload)"/>): an arithmetic operator
+/// (<strong>MS-VBAL §5.6.9.3</strong>), a comparison (<strong>MS-VBAL §5.6.9.5</strong>) or a logical operator (<strong>MS-VBAL §5.6.9.8</strong>).
+/// Another operator is named by its token (<see cref="VariantOperations.Binary(string, VariantPayload, VariantPayload, out VariantPayload)"/>).
 /// </summary>
 public enum VariantOperator
 {

@@ -1067,7 +1067,7 @@ public sealed partial class RuntimeExpressionEvaluator
         }
     }
 
-    // §5.6.9.8: the bits of the operands, in the effective type - a Boolean's -1 or 0 giving -1 or 0 - which no operation takes out of its range.
+    // §5.6.9.8: the bits of the operands, in the effective type (a Boolean's -1 or 0 giving -1 or 0), which no operation takes out of its range.
     private static bool TryLogical(LogicalOperator @operator, VBType effective, ScalarKind? kind, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
@@ -1087,7 +1087,7 @@ public sealed partial class RuntimeExpressionEvaluator
         return OperatorTokens.ComparisonOf(token) is { } comparison && TryCompare(comparison, l, r, out result);
     }
 
-    // MS-VBAL §5.6.9.5: a comparison of two operands of its effective type, which they were let-coerced to, is a Boolean - the payloads are finite, so any
+    // MS-VBAL §5.6.9.5: a comparison of two operands of its effective type, which they were let-coerced to, is a Boolean: the payloads are finite, so any
     // two compare.
     private static bool TryCompare(ComparisonOperator comparison, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
