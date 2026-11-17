@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.External.Application;
 using RDCore.External;
 using RDCore.External.Settings;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -269,6 +270,8 @@ public sealed class EnvironmentSessionProvider(
         ProjectName = project.Name;
         WorkspaceRoot = workspaceRoot;
         ModuleCount = project.Modules.Length;
+        // App says the program is the workspace project, run from its folder; a built program says otherwise once it is composed.
+        SessionApplication.Of(_session).Runs(project.Name, FolderOf(workspaceRoot) ?? string.Empty);
         _directoryBefore = CurrentDirectory();
         EnterWorkspaceRoot(workspaceRoot);
 
@@ -346,6 +349,23 @@ public sealed class EnvironmentSessionProvider(
         return image;
     }
 
+    // the folder a file: root names, as the platform spells it. A root that is not a full path on this platform (file:///C:/... on Linux) names none here:
+    // resolving it would read the current directory, which may be gone.
+    private static string? FolderOf(Uri workspaceRoot)
+    {
+        if (!workspaceRoot.IsFile || !Path.IsPathFullyQualified(workspaceRoot.LocalPath))
+        {
+            return null;
+        }
+
+        // a client's file: URI may spell the drive in lower case (file:///c:/...), which CurDir and App.Path would give back as it was set: a drive is its
+        // upper-case letter.
+        var root = WorkspacePaths.Normalized(workspaceRoot.LocalPath);
+        return OperatingSystem.IsWindows() && root.Length >= 2 && root[1] == ':' && char.IsAsciiLetterLower(root[0])
+            ? char.ToUpperInvariant(root[0]) + root[1..]
+            : root;
+    }
+
     // a program starts in the folder of its workspace, as opening a project in VB6 makes its folder current: a relative path is a file of the workspace. The
     // directory is the session's, which ChDir moves too; End leaves it where the program put it. The shell's scratch workspace is no folder of the user's.
     private void EnterWorkspaceRoot(Uri workspaceRoot)
@@ -355,18 +375,11 @@ public sealed class EnvironmentSessionProvider(
             return;
         }
 
-        // a root that is no full path on this platform (file:///C:/... on Linux) is no folder here: resolving it would read the current directory, which may be gone.
         var root = workspaceRoot.LocalPath;
         RDCoreDiagnosticCode? error = VBRuntimeErrorId.PathNotFound.ToCode();
-        if (Path.IsPathFullyQualified(root))
+        if (FolderOf(workspaceRoot) is { } folder)
         {
-            // a client's file: URI may spell the drive in lower case (file:///c:/...), which CurDir would give back as it was set: a drive is its upper-case letter.
-            root = WorkspacePaths.Normalized(root);
-            if (OperatingSystem.IsWindows() && root.Length >= 2 && root[1] == ':' && char.IsAsciiLetterLower(root[0]))
-            {
-                root = char.ToUpperInvariant(root[0]) + root[1..];
-            }
-
+            root = folder;
             if (ScratchWorkspace.Is(fileSystem, root))
             {
                 return;
