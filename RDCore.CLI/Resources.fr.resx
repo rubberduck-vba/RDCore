@@ -896,13 +896,13 @@
     <value>Excel a affiché une boîte de dialogue, et le tour a donc été arrêté : {0}</value>
   </data>
   <data name="BenchMsVba_NoAnswer" xml:space="preserve">
-    <value>Excel n&apos;a pas répondu dans les {0} minutes, et le tour a donc été arrêté.</value>
+    <value>Excel n&apos;a pas répondu en moins de {0} minutes, et le tour a donc été arrêté.</value>
   </data>
   <data name="BenchMsVba_OneProcess" xml:space="preserve">
     <value>Les cas d&apos;automatisation d&apos;Excel ne se sont pas exécutés entre deux processus (harnais {0}, cible {1}) : aucun chiffre n&apos;a été retenu.</value>
   </data>
   <data name="BenchMsVba_NoCaseList" xml:space="preserve">
-    <value>rdc bench --list n&apos;a nommé aucun cas : {0}</value>
+    <value>rdc bench --list n&apos;a listé aucun cas : {0}</value>
   </data>
   <data name="BenchMsVba_Round" xml:space="preserve">
     <value>Tour {0} sur {1}</value>
@@ -914,7 +914,7 @@
     <value>rdc {0} s&apos;est terminé avec le code de sortie {1}.</value>
   </data>
   <data name="BenchMsVba_ProcessTimedOut" xml:space="preserve">
-    <value>rdc {0} ne s&apos;est pas terminé dans les {1} minutes, et a été arrêté.</value>
+    <value>rdc {0} ne s&apos;est pas terminé en moins de {1} minutes, et a été arrêté.</value>
   </data>
   <data name="BenchMsVba_Missing" xml:space="preserve">
     <value>Aucun chiffre pour {0} du côté {1} : rien n&apos;a été écrit.</value>

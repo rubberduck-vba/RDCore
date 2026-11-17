@@ -29,15 +29,16 @@ internal sealed class BenchMsVbaCommandOptions
 }
 
 /// <summary>
-/// <c>rdc bench-msvba</c>: the reference run of the benchmark. The built-in corpus and the Excel automation cases are run in MS-VBA and in RD-VBA, in alternated
-/// rounds on this machine, and the fastest run of each case on each side is written as the reference data the CI bench job reads (<see cref="ReferenceData"/>).
+/// <c>rdc bench-msvba</c>: the reference run of the benchmark. The built-in corpus and the Excel automation cases are run in MS-VBA and in RD-VBA, in
+/// alternated rounds on this machine, and the fastest run of each case on each side is written as the reference data the CI bench job reads
+/// (<see cref="ReferenceData"/>).
 /// </summary>
 /// <remarks>
 /// <para>
 /// MS-VBA's side of a round is a new hidden Excel (<see cref="IMsVbaHost"/>): the corpus, the Excel automation cases and a harness module
-/// (<see cref="MsVbaHarness"/>) imported into a new workbook, each case called directly between two <c>QueryPerformanceCounter</c> reads. RD-VBA's side is this
-/// <c>rdc</c> run again (<see cref="IRdcProcess"/>): <c>rdc bench</c> on the built-in corpus with the compiled engine, and <c>rdc run</c> of the Excel automation
-/// cases' program. On both sides the Excel automation cases automate an Excel instance of their own, in another process.
+/// (<see cref="MsVbaHarness"/>) imported into a new workbook, each case called directly between two <c>QueryPerformanceCounter</c> reads. RD-VBA's side is
+/// this <c>rdc</c> run again (<see cref="IRdcProcess"/>): <c>rdc bench</c> on the built-in corpus with the compiled engine, and <c>rdc run</c> of the Excel
+/// automation cases' program. On both sides the Excel automation cases automate an Excel instance of their own, in another process.
 /// </para>
 /// <para>
 /// The cases are those <c>rdc bench --list</c> names. Nothing is written unless every case has a figure on both sides. Excel automation runs only on Windows:

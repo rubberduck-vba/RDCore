@@ -10,8 +10,8 @@ namespace RDCore.CLI.App.Bench;
 /// What a round of MS-VBA returned: the Excel that ran it, and what the harness returned (<see cref="MsVbaHarness.ModuleText"/>).
 /// </summary>
 /// <param name="Excel">The Excel that ran the round: its version, build and bitness, as the reference stamp says them.</param>
-/// <param name="Corpus">What <c>TimeCorpus</c> returned: a line a case.</param>
-/// <param name="ExcelCases">What <c>TimeExcel</c> returned, a line a phase; null when the round did not run the Excel automation cases.</param>
+/// <param name="Corpus">What <c>TimeCorpus</c> returned: one line per case.</param>
+/// <param name="ExcelCases">What <c>TimeExcel</c> returned, one line per phase; null when the round did not run the Excel automation cases.</param>
 internal sealed record class MsVbaRound(string Excel, string Corpus, string? ExcelCases);
 
 /// <summary>
@@ -37,7 +37,7 @@ internal interface IMsVbaHost
     MsVbaRound Run(string folder, IReadOnlyList<string> modules, int runs, int excelRuns, CancellationToken token);
 
     /// <summary>
-    /// The ids of the Excel processes running now.
+    /// The ids of the Excel processes that are running.
     /// </summary>
     IReadOnlySet<int> ExcelProcesses();
 }

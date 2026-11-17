@@ -908,7 +908,7 @@
     <value>The Excel automation cases did not run across two processes (harness {0}, target {1}): no figures were kept.</value>
   </data>
   <data name="BenchMsVba_NoCaseList" xml:space="preserve">
-    <value>rdc bench --list named no case: {0}</value>
+    <value>rdc bench --list listed no cases: {0}</value>
   </data>
   <data name="BenchMsVba_Round" xml:space="preserve">
     <value>Round {0} of {1}</value>

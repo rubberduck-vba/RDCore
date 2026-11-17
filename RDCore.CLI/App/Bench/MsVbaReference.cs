@@ -35,7 +35,8 @@ internal static partial class MsVbaHarness
     private static partial Regex Local();
 
     /// <summary>
-    /// A module of the corpus as it is imported into Excel: its lines ended with CR LF, and <c>Local</c>, which MS-VBA rejects as a name, named <c>LocalCount</c>.
+    /// A module of the corpus as it is imported into Excel: its lines ended with CR LF, and <c>Local</c>, which MS-VBA rejects as a name, named
+    /// <c>LocalCount</c>.
     /// </summary>
     /// <param name="source">The module's source, as the corpus has it.</param>
     public static string Importable(string source) => Crlf(Local().Replace(source, "LocalCount"));
@@ -45,7 +46,7 @@ internal static partial class MsVbaHarness
     /// Excel automation cases run against a second Excel instance it starts.
     /// </summary>
     /// <remarks>
-    /// <c>TimeCorpus(Runs)</c> returns a line a case, <c>Module.Case|us;us;...</c>, or <c>Module.Case|error &lt;number&gt; &lt;description&gt;</c> for a case
+    /// <c>TimeCorpus(Runs)</c> returns one line per case, <c>Module.Case|us;us;...</c>, or <c>Module.Case|error &lt;number&gt; &lt;description&gt;</c> for a case
     /// that raises. <c>StartTarget</c> starts the second instance and returns its process id, <c>TimeExcel(Runs)</c> runs <c>ExcelCases.RunExcelCases</c>
     /// against it, and <c>StopTarget</c> quits it. <c>HostProcess</c> and <c>Bitness</c> say which process the harness runs in, and whether it is 64-bit.
     /// </remarks>
@@ -197,7 +198,7 @@ internal static partial class BenchFigures
     /// Keeps the fastest run of each case of what the harness or <c>ExcelCases</c> returned: <c>Module.Case|us;us;...</c> for a case of the corpus,
     /// <c>Excel.Case|phase|us;us;...</c> for a phase of an Excel automation case, named <c>Excel.Case.Phase</c>.
     /// </summary>
-    /// <param name="output">What the harness returned, a line a case or a phase.</param>
+    /// <param name="output">What the harness returned, one line per case or phase.</param>
     /// <param name="fastest">The fastest run of each case so far, in milliseconds; a faster run replaces it.</param>
     /// <param name="problems">Told each line that is not a case's runs: a case that raised says so.</param>
     public static void ReadHarness(string output, IDictionary<string, double> fastest, ICollection<string> problems)
@@ -260,13 +261,13 @@ internal static class ReferenceData
     public static bool MsVbaFirst(int round) => round % 2 == 1;
 
     /// <summary>
-    /// How the rounds are run, as the stamp says it: the rounds, which side runs first, the runs a case, and how the Excel automation cases are run.
+    /// How the rounds are run, as the stamp says it: the rounds, which side runs first, the runs per case, and how the Excel automation cases are run.
     /// </summary>
     /// <remarks>The text is data of the reference file, in English whatever the culture.</remarks>
     /// <param name="rounds">The rounds of the corpus.</param>
     /// <param name="excelRounds">The first rounds that run the Excel automation cases as well; none when 0.</param>
-    /// <param name="runs">The runs of a case of the corpus, a round.</param>
-    /// <param name="excelRuns">The runs of an Excel automation case, a round.</param>
+    /// <param name="runs">The runs of a case of the corpus, per round.</param>
+    /// <param name="excelRuns">The runs of an Excel automation case, per round.</param>
     public static string Method(int rounds, int excelRounds, int runs, int excelRuns)
     {
         var text = new StringBuilder(string.Create(CultureInfo.InvariantCulture, $"alternated rounds on one machine: {rounds} for the corpus"));

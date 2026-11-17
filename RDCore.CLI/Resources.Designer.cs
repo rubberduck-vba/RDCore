@@ -1990,7 +1990,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to rdc bench --list named no case: {0}.
+        ///   Looks up a localized string similar to rdc bench --list listed no cases: {0}.
         /// </summary>
         public static string BenchMsVba_NoCaseList {
             get {
