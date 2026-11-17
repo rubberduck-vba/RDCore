@@ -11,12 +11,14 @@ using RDCore.Tests.Cli;
 namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
-/// A sweep (<see cref="ModuleSweep"/>) makes none of the elements of a fixed-size array a procedure declares: an array of the most elements an array
-/// holds costs nothing until its elements are used, and a sweep that is told to stop stops between instructions, with no array to finish making first.
+/// A sweep (<see cref="ModuleSweep"/>) makes none of the elements of a fixed-size array a procedure declares: an array of the largest length
+/// (<see cref="VBArrayValue.MaximumLength"/>) costs nothing until its elements are used, and a sweep that is told to stop stops between instructions,
+/// with no array to finish making first.
 /// </summary>
 /// <remarks>
-/// What counts the elements made is the sweep's token: each element made asks it whether to stop (<see cref="DeclaredVariableDefaults"/>), and a token
-/// already canceled throws <see cref="OperationCanceledException"/> at the first one.
+/// The sweep's token tells whether an element is made: each element made asks it whether to stop (<see cref="DeclaredVariableDefaults"/>). The token is
+/// canceled before the sweep begins, so an element made throws <see cref="OperationCanceledException"/>: the sweep throws nothing, and the first element
+/// the test then uses throws.
 /// </remarks>
 [TestClass]
 [TestCategory("RD-VBAL §5.0.3 Semantic Analysis")]
@@ -75,7 +77,7 @@ public sealed class StoppedSweepTests
 
         Assert.IsNull(swept, $"{swept}");
         Assert.AreEqual(MostElements, array.Length);
-        // the count is live: the first element made asks whether to stop, and is not made.
+        // the token is asked: the first element made asks whether to stop, and is not made.
         Assert.ThrowsExactly<OperationCanceledException>(() => array.CellAt(0));
     }
 }
