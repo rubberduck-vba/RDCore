@@ -304,7 +304,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     }
 
     /// <summary>
-    /// A Date rounded down to the next whole serial, as <see cref="Int"/> returns it (<strong>MS-VBAL §6.1.2.3.1.18</strong>): a Date.
+    /// A Date rounded down to a whole serial, as <see cref="Int"/> returns it (<strong>MS-VBAL §6.1.2.3.1.18</strong>): a Date.
     /// </summary>
     /// <param name="serial">The Date's serial.</param>
     /// <param name="day">The serial of the Date returned: the greatest whole number less than or equal to <paramref name="serial"/>.</param>
