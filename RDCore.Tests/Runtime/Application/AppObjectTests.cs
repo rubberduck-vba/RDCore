@@ -7,8 +7,8 @@ using System.IO.Abstractions;
 namespace RDCore.Tests.Runtime.Application;
 
 /// <summary>
-/// Visual Basic 6.0's <c>App</c> under <c>rdc run</c>: the workspace project's folder and name, the values a new Visual Basic 6.0 project has, the properties a
-/// program assigns, which keep their value for the session, and the errors of a member that cannot run where the program does.
+/// Visual Basic 6.0's <c>App</c> under <c>rdc run</c>: the workspace project's folder and name, the values a new Visual Basic 6.0 project has, the
+/// properties a program assigns, which keep their value for the session, and the errors of a member that cannot run where the program does.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 6.3 App Object")]
