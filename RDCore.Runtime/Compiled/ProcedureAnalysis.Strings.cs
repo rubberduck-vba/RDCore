@@ -113,6 +113,17 @@ internal sealed partial class ProcedureAnalysis
             case BoundCall { Procedure: var chr, BoundArguments: [{ Value: { } code }] } when IsChrString(chr) && WholeOf(code) is { } whole:
                 return new ChrTextNode(whole);
 
+            // TypeName of a Variant compiled code reads in its cell, as the cell says (VariantTypeNameTextNode), and of one the cell says nothing of, the call
+            // of the standard library's function; never in an instruction that calls inside an expression, whose operands are known as they were read.
+            case BoundCall
+                {
+                    BoundArguments: [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } named, Elements.IsDefaultOrEmpty: true }],
+                } variantTypeName
+                when _nesting is null && IsTypeName(variantTypeName.Procedure) && IsVariantInItsCell(named):
+                return VariantInItsCell(named) is { } variant && LibraryVariantTextOf(variantTypeName) is LibraryVariantTextNode called
+                    ? new VariantTypeNameTextNode(variant, called)
+                    : null;
+
             case BoundCall typeName when IsTypeName(typeName.Procedure):
                 return TypeNameOf(typeName);
 

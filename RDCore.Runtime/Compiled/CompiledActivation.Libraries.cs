@@ -245,8 +245,11 @@ public sealed partial class CompiledActivation
     // the call of a function of the standard library compiled code makes: straight to the library when nothing needs to see the call
     // (ExternalCallPipeline.TryCallLibraryDirectly), through the pipeline otherwise.
     private RuntimeSemanticsEvaluationResult LibraryCall(ICallableBindingFactory bindings, CompiledLibraryCall called, IRuntimeValue[] arguments)
-        => bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
+    {
+        _body.CountLibraryCall();
+        return bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
             && pipeline.TryCallLibraryDirectly(called.Function, arguments, _session.Symbols.Resolver, out var direct)
                 ? direct
                 : bindings.ForMember(called.Function).Call(_session.Symbols.Resolver, arguments);
+    }
 }
