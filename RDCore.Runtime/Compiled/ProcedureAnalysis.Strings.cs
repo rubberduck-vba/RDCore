@@ -1,5 +1,6 @@
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
@@ -65,6 +66,28 @@ internal sealed partial class ProcedureAnalysis
 
         appended.Reverse();
         return new TextAppendStep(offset, slot, appended);
+    }
+
+    // MS-VBAL §5.4.3.5: a Mid statement of a String variable of the activation, in characters: its start and its length let-coerced to Long, as the
+    // interpreter coerces them, and the text of the value. MidB, and any other target (a Variant, a fixed-length String, a field, an element), are the
+    // interpreter's.
+    private MidStep? MidOf(int offset, MidStatementNode mid)
+    {
+        if (mid.IsByteMode || Bind(mid.Target) is not BoundVariable variable || TextSlotOf(variable) is not { } slot)
+        {
+            Refuse(IneligibilityKind.Statement, StatementNameOf(mid), mid.SourceLocation);
+            return null;
+        }
+
+        PayloadNode? length = null;
+        if (PayloadAs(Bind(mid.Start), ScalarKind.Long) is not { } start
+            || mid.Length is { } given && (length = PayloadAs(Bind(given), ScalarKind.Long)) is null
+            || Text(Bind(mid.Value)) is not { } value)
+        {
+            return null;
+        }
+
+        return new MidStep(offset, slot, start, length, value);
     }
 
     private int? TextSlotOf(BoundVariable variable)

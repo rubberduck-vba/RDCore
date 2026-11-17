@@ -14,7 +14,7 @@ public sealed class CompiledIntrinsicTests
 {
     // the program run both ways, in the session's locale lcid: what it printed, the error it raised and where, alike; and each procedure named compiled,
     // with as many statements recovered as said, and no call of the library's binding.
-    private static async Task AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, int lcid = 0)
+    internal static async Task AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, int lcid = 0)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, lcid);

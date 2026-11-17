@@ -340,7 +340,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or FieldTextLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep or TextResultLetStep or MidStep or FieldLetStep or VariantFieldLetStep or FieldTextLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             or PrintStep
             || (step is SelectStep or TextSelectStep && compared.Contains(step.Offset));
@@ -579,6 +579,10 @@ internal sealed partial class ProcedureAnalysis
 
             case InstructionKind.Simple when instruction.Node is DebugPrintStatementNode print:
                 return PrintOf(instruction.Offset, print);
+
+            // MS-VBAL §5.4.3.5: a Mid statement of a String variable of the activation (ProcedureAnalysis.Strings.cs).
+            case InstructionKind.Simple when instruction.Node is MidStatementNode mid:
+                return MidOf(instruction.Offset, mid);
 
             case InstructionKind.Simple:
                 Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
