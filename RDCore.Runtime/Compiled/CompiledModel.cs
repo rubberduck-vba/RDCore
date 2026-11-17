@@ -279,6 +279,9 @@ internal sealed record class TextConstantNode(string? Text) : TextNode;
 // a String variable of the activation, by its slot: the text its cell holds (StringOperations.TryRead).
 internal sealed record class TextSlotNode(int Slot) : TextNode;
 
+// the function result variable of a function of the String type, named in its own body: the text its frame holds (CompiledActivation.TryReadResultText).
+internal sealed record class TextResultNode : TextNode;
+
 // two Strings joined, by & or by + of two Strings (MS-VBAL §5.6.9.4, §5.6.5).
 internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNode;
 

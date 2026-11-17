@@ -83,6 +83,24 @@ public sealed partial class CompiledActivation
     }
 
     /// <summary>
+    /// The text the function result variable, of the <c>String</c> type, holds, read where the function names it in its own body (MS-VBAL §5.3.1): the
+    /// zero-length string of its type's default before it is first assigned, then the text it was last assigned.
+    /// </summary>
+    /// <param name="text">The text read; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns><see langword="false"/> when the interpreter reads it: the activation has no frame, or the frame holds no known text.</returns>
+    public bool TryReadResultText(out string? text)
+    {
+        text = null;
+        if (FailsAccessAtRandom() || Frame is not { ReturnValue: VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> held } })
+        {
+            return false;
+        }
+
+        text = held.StoredValue;
+        return true;
+    }
+
+    /// <summary>
     /// The payload the function result variable, of the <c>Variant</c> type, holds, when it holds one: a known value of a scalar type. When it holds
     /// anything else - <c>Empty</c> before it is first assigned, <c>Null</c>, a <c>String</c>, an object, an array - the interpreter reads it.
     /// </summary>
