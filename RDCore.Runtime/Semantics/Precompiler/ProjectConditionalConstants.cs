@@ -7,8 +7,9 @@ namespace RDCore.Runtime.Semantics.Precompiler;
 /// The names of the conditional-compilation constants a session's project defines (a <c>.rdproj</c> <c>#Const</c>), as the session was composed with them.
 /// </summary>
 /// <remarks>
-/// The session's constants are one set, whichever defined them: what a <c>#If</c> means on another platform (<see cref="PrecompilerLiveBranchEvaluator.CompiledPlatformsOf"/>)
-/// takes the value the project gives a predefined constant on every platform, and that of the platform otherwise, which the set alone does not say.
+/// The session's constants are one set, whichever defined them: what a <c>#If</c> means on another platform
+/// (<see cref="PrecompilerLiveBranchEvaluator.CompiledPlatformsOf"/>) takes the value the project gives a predefined constant on every platform, and that
+/// of the platform otherwise, which the set alone does not say.
 /// </remarks>
 public static class ProjectConditionalConstants
 {
