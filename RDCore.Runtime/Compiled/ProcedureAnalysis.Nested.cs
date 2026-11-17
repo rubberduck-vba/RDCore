@@ -336,6 +336,11 @@ internal sealed partial class ProcedureAnalysis
             case ChrTextNode { Code: var code }:
                 return Admits(code, ref calledAfter);
 
+            // TypeName of an object field of a record: the field is read as the call is made, and the interpreter reads it again when it makes the call
+            // after a call right of it, which may have put another object in it.
+            case FieldTypeNameTextNode:
+                return !calledAfter;
+
             default:
                 return false;
         }

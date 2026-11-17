@@ -138,10 +138,18 @@ internal sealed partial class ProcedureAnalysis
             && Array.IndexOf(TextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
 
     // TypeName of an object variable of the activation, of Me, or of Nothing (MS-VBAL §6.1.2.7.1.12): the library's function names it when compiled code
-    // calls it. Any other argument is given as a call of VariantTextLibraryFunctions gives it, and a call inside an instruction that calls inside an
-    // expression is the interpreter's.
+    // calls it, and so does TypeName of an object field of one of its records, inside an instruction that calls inside an expression too. Any other
+    // argument is given as a call of VariantTextLibraryFunctions gives it, and a call inside an instruction that calls inside an expression is the
+    // interpreter's.
     private TextNode? TypeNameOf(BoundCall call)
     {
+        if (call.BoundArguments is [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } argument }] && ObjectFieldOf(argument) is { } field
+            && call.Procedure is VBTypeMemberSymbol typeName)
+        {
+            Libraries.Add(new CompiledLibraryCall(typeName, RuntimeProcedureInvoker.GetParameters(typeName), call.Expression.SourceLocation));
+            return new FieldTypeNameTextNode(Libraries.Count - 1, field);
+        }
+
         if (_nesting is null && call.BoundArguments is [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } value }] && !TryObjectArgument(value, out _))
         {
             return LibraryVariantTextOf(call);
