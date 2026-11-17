@@ -196,12 +196,18 @@ public sealed class RDFormsFormHostTests
         try
         {
             host.Show(form, modal: false);
+
+            // the window system activates the form shown after Show returns, on the UI thread, and Text1 takes the focus there (GotFocus): it is done before
+            // the sink is advised, which hears only what the program's call raises.
+            host.DoEvents();
             var text = Get(host, form, "Text1")!;
             var sink = new Recorder();
             host.Server.Advise(text, sink);
 
             Let(host, text, "Text", "typed");
 
+            // what the UI thread has left to do is done too, so that an event the call did not raise reaches the sink before it is read.
+            host.DoEvents();
             Assert.AreEqual("typed", Get(host, text, "Text"));
             Assert.AreEqual(("Change", true), Assert.ContainsSingle(sink.Raised), "raised by the program's own call, the event is its answer");
         }
