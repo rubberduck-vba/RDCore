@@ -539,7 +539,7 @@ internal sealed class RenameWorkspace
 
     /// <summary>
     /// The variables of a range of a document whose values a client shows while the program is stopped (<strong>LSP 3.17</strong> §Inline Value Request): the
-    /// names of the procedure the program is stopped in that are its variables' (<see cref="InlineValueLookups.In"/>), each at its place in the text of the
+    /// names of variables written in the procedure the program is stopped in (<see cref="InlineValueLookups.In"/>), each at its place in the text of the
     /// document, and none of what the module of a program adds to its text.
     /// </summary>
     public IReadOnlyList<InlineValueVariableLookup> InlineValues(Uri documentUri, LspRange range, LspRange stoppedLocation)

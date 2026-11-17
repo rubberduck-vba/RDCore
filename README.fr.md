@@ -45,7 +45,7 @@ RDCore est en développement actif **alpha**. La **spécification** et la **docu
 
 ✅ Le parser, la résolution de symboles et le **language server** sont fonctionnels. Le serveur répond aux requêtes _diagnostics_ (pull et push),
 _completion_, _signature help_, _hover_, _inlay hints_, _semantic tokens_, _document_ et _workspace symbols_, _folding_ et _selection ranges_, _definition_,
-_declaration_, _type definition_ et _implementation_, _references_ et _highlights_, _call_ et _type hierarchy_, _rename_ et _code actions_.
+_declaration_, _type definition_ et _implementation_, _references_ et _highlights_, _call_ et _type hierarchy_, _inline values_, _rename_ et _code actions_.
 
 ### Performance
 

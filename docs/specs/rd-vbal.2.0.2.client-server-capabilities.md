@@ -702,6 +702,17 @@ The interactive shell folds blocks only. `FOLD <line>` folds the block that star
 (▽ open, ▲ folded; `-` and `+` on a console that draws no Unicode), next to the line. A folded block is listed as its first line, with how many lines it hides before its text (`20 [4 lines] If X < 0 Then`), faint as ghost text and cut with `…` to the console's
 width. A breakpoint it hides shows in the margin of that line, an enabled one first, when the line has none of its own. A fold is on a line number, as a breakpoint is, and `NEW` and `LOAD` clear them.
 
+### `textDocument/inlineValue`
+
+A client sends `textDocument/inlineValue` (**LSP 3.17** §Inline Value Request) while the program is stopped. The language server answers with a variable
+lookup for each name of a variable written in the procedure the program is stopped in: a local variable (**MS-VBAL §5.4.3.1**), a parameter (§5.3.1.5),
+or a variable of the module (§5.2.3.1). The client looks each name up in the stopped frame of the debug adapter, without regard to case, and shows its
+value beside the name.
+
+Only the names in the range asked for, from the procedure's first line to the line of the stop (`context.stoppedLocation`), are looked up: the lines below
+the stop have not run. A call, a constant, a declaration and a name of another procedure have no lookup. A stop in no procedure of the document is answered
+with no lookups.
+
 ### `workspace/didChangeWatchedFiles`
 
 The language server reads the project file (`.rdproj`) when it initializes. The server is the project file's only writer: a client tells it which files it created,

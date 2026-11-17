@@ -10,8 +10,8 @@ using RDCore.SDK.Model.Symbols.VBProject;
 namespace RDCore.LanguageServer.Services.Refactoring;
 
 // the variables whose values a client shows beside their names while the program is stopped (LSP 3.17 §Inline Value Request): each name written in the
-// procedure the program is stopped in, from the procedure's first line to the line it is stopped at, that is a local variable's, a parameter's or a module's
-// variable's. A name that calls a procedure, or names a constant, has no value to look up, and the lines below the stop have not run yet.
+// procedure the program is stopped in, from the procedure's first line to the line it is stopped at, that names a local variable, a parameter or a variable of
+// the module. A name that calls a procedure, or names a constant, has no value to look up, and the lines below the stop have not run.
 public static class InlineValueLookups
 {
     private static readonly IReadOnlySet<MemberKind> Procedures = new HashSet<MemberKind>
@@ -47,7 +47,7 @@ public static class InlineValueLookups
         return lookups;
     }
 
-    // MS-VBAL §5.2.3.1, §5.3.1.5, §5.4.3.1
+    // a local variable (MS-VBAL §5.4.3.1), a parameter (§5.3.1.5), or a variable of the module (§5.2.3.1).
     private static bool IsVariable(Symbol symbol)
         => symbol is VBLocalVariableSymbol or VBParameterSymbol or ParamArrayParameterSymbol or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol;
 
