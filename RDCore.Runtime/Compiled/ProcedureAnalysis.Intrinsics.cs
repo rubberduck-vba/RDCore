@@ -89,8 +89,8 @@ internal sealed partial class ProcedureAnalysis
         return KindOf(type, result);
     }
 
-    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double (a Date where
-    // the parameter or the return value is marked StdLibDateAttribute), a bool a Boolean.
+    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double (a Date
+    // where the parameter or the return value is marked StdLibDateAttribute), a bool a Boolean.
     private static ScalarKind? KindOf(Type? type, ParameterInfo parameter)
         => type == typeof(short) ? ScalarKind.Integer
             : type == typeof(int) ? ScalarKind.Long
