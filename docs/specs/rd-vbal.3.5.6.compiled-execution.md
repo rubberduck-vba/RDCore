@@ -25,13 +25,14 @@ environment never runs in a session of the other: there, each procedure is compi
 
 ### Variants
 
-Compiled code reads and writes a `Variant` parameter or variable where its frame keeps it, whenever the `Variant` holds a value of a scalar type. An
-operation with a `Variant` operand is worked out for the type of the value the `Variant` holds when it runs, as the interpreter works it out (MS-VBAL
-§5.6.9), so `V + 1` adds two `Integer`s while `V` holds an `Integer`, and two `Double`s once it holds a `Double`. A `Variant` assigned a scalar holds it as
-its own type (MS-VBAL §5.5.1.2.12). When the `Variant` holds anything else (`Empty`, `Null`, a `String`, an object, an array), or the operation would
-overflow its type, the interpreter runs that statement on its own and compiled code goes on after it. That is where the interpreter widens an `Integer`
-that overflows to a `Long`, and where a `Variant` that held an object lets go of it. A `Variant` holding a `Single` or a `Double` assigned to a variable
-of an integer type is rounded as any `Single` or `Double` is (see below).
+Compiled code reads and writes a `Variant` parameter or variable where its frame keeps it, whenever the `Variant` holds a value of a scalar type. A frame
+keeps a `Variant` parameter given a scalar, `Empty`, `Null`, a `String`, an error value or no argument (`Missing`) by value, but not one given an object,
+an array or a record. An operation with a `Variant` operand is worked out for the type of the value the `Variant` holds when it runs, as the interpreter
+works it out (MS-VBAL §5.6.9), so `V + 1` adds two `Integer`s while `V` holds an `Integer`, and two `Double`s once it holds a `Double`. A `Variant`
+assigned a scalar holds it as its own type (MS-VBAL §5.5.1.2.12). When the `Variant` holds anything else (`Empty`, `Null`, a `String`, an object, an
+array), or the operation would overflow its type, the interpreter runs that statement on its own and compiled code goes on after it. That is where the
+interpreter widens an `Integer` that overflows to a `Long`, and where a `Variant` that held an object lets go of it. A `Variant` holding a `Single` or a
+`Double` assigned to a variable of an integer type is rounded as any `Single` or `Double` is (see below).
 
 A `Single` or a `Double` assigned to a variable of an integer type, or given to a parameter of one, is rounded to the nearest whole number, ties to even
 (MS-VBAL §5.5.1.2.1, §5.5.1.2.1.1): `L = 2.5` makes `L` 2 and `L = 3.5` makes it 4, as the interpreter rounds them. The range of the type is checked on
@@ -133,8 +134,9 @@ scalar one. It compares two such references with `Is`, or one with `Nothing`, an
 §5.6.7). `TypeOf` of `Nothing` is the interpreter's, which raises error 91. So is a variable or field declared `As New`, which the interpreter makes when
 it is read.
 
-Compiled code also tests a `Variant` variable of the procedure with `TypeOf`, where its frame keeps it. A `Variant` that holds an object is tested for that
-object, and one that holds no object (a number, `Empty`, `Null` or a `String`) is an instance of no class, so the test is `False`. A `Variant` that holds
+Compiled code also tests a `Variant` parameter or variable of the procedure with `TypeOf`, where its frame keeps it. A `Variant` that holds an object is
+tested for that object, and one that holds no object (a number, `Empty`, `Null`, a `String` or an error value, `Missing` among them) is an instance of no
+class, so the test is `False`. A `Variant` that holds
 `Nothing` is the interpreter's, which raises error 91. So is a `Variant` parameter given an object by value.
 
 Compiled code does a `Set` of such a variable or field, or of the result of a function that returns an object, to another such variable or field, to `Me` or to `Nothing`
