@@ -29,8 +29,8 @@ internal static class ExternalHosts
     /// <param name="canStart">Whether the host can be started now.</param>
     public static ExternalHost New(Func<bool> canStart)
     {
-        // what the host writes is the test's output, and not the test process's own streams: a host a test takes down on purpose says so in that test's output,
-        // and not in what the test run reports when its process ends.
+        // what the host writes is the test's output, and not the test process's own streams: a host a test takes down on purpose says so in that test's
+        // output, and not in what the test run reports when its process ends.
         var options = Options.Create(new SdkAppOptions { Server = { CaptureChildOutput = true } });
         return new ExternalHost(
             () => canStart()
