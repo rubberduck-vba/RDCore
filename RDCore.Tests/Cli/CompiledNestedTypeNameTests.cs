@@ -57,6 +57,20 @@ public sealed class CompiledNestedTypeNameTests
         "    Dropped = 1",
         "End Function"]);
 
+    // the program run both ways, as CompiledNestedCallTests.AssertAlikeAsync runs it; and no statement of the caller is the interpreter's to run.
+    private static async Task<string> AssertWholeAsync(string program, string caller, long calls, bool walksBack = false)
+    {
+        var observed = await CompiledNestedCallTests.AssertAlikeAsync(program, caller, calls, walksBack, Gadget());
+        AssertWhole((await CompiledNestedCallTests.RunAsync(program, VBExecutionEngine.Compiled, Gadget())).Compiled[caller]);
+        return observed;
+    }
+
+    private static void AssertWhole(CompilationResult compiled)
+    {
+        Assert.IsEmpty(compiled.Stepped, string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        Assert.IsEmpty(compiled.SupportCalls, string.Join("; ", compiled.SupportCalls.Select(reason => $"{reason.Kind} {reason.Detail}")));
+    }
+
     private static string InLoop(string statement, string result = "s") => Looping([],
         "    For i = 1 To n",
         $"        {statement}",
@@ -72,7 +86,7 @@ public sealed class CompiledNestedTypeNameTests
     [DataRow("s = TypeName(i) & Twice(i)", 3, "| Long6 ; 0 |", DisplayName = "of a value, left of a call")]
     [DataRow("s = \"a\" & TypeName(Twice(i))", 3, "| aLong ; 0 |", DisplayName = "of what a call returns")]
     public async Task TypeNameInsideTheValueOfAStringLet_IsCompiled(string statement, long calls, string printed)
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(InLoop(statement), "Outer", calls, classes: Gadget()), printed);
+        => StringAssert.Contains(await AssertWholeAsync(InLoop(statement), "Outer", calls), printed);
 
     [TestMethod]
     [DataRow("Debug.Print \"a\" & G.Size & \"(\" & TypeName(G) & \")\"", 3, "| a1(Gadget) ; a2(Gadget) ; a3(Gadget) ; end ; 3 |",
@@ -80,7 +94,7 @@ public sealed class CompiledNestedTypeNameTests
     [DataRow("Debug.Print \"a\" & Twice(i) & \"(\" & TypeName(i) & \")\"", 3, "| a2(Long) ; a4(Long) ; a6(Long) ; end ; 0 |", DisplayName = "of a value")]
     [DataRow("Debug.Print \"a\" & Twice(i); TypeName(Nothing)", 3, "| a2Nothing ; a4Nothing ; a6Nothing ; end ; 0 |", DisplayName = "of Nothing")]
     public async Task TypeNameInsideAnItemOfDebugPrint_IsCompiled(string statement, long calls, string printed)
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(InLoop(statement, "\"end\""), "Outer", calls, classes: Gadget()), printed);
+        => StringAssert.Contains(await AssertWholeAsync(InLoop(statement, "\"end\""), "Outer", calls), printed);
 
     // the text of each type of value MS-VBAL §6.1.2.7.1.12 names, of a variable declared of that type.
     [TestMethod]
@@ -93,26 +107,27 @@ public sealed class CompiledNestedTypeNameTests
     [DataRow("Date", "Date")]
     [DataRow("Boolean", "Boolean")]
     public async Task TypeNameOfAValue_InsideAStatementThatCalls_NamesItsType(string type, string text)
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(Looping([$"    Dim v As {type}"],
+        => StringAssert.Contains(await AssertWholeAsync(Looping([$"    Dim v As {type}"],
             "    For i = 1 To n",
             "        s = \"a\" & Twice(i) & TypeName(v)",
             "    Next",
-            "    Outer = s"), "Outer", 3, classes: Gadget()), $"| a6{text} ; 0 |");
+            "    Outer = s"), "Outer", 3), $"| a6{text} ; 0 |");
 
     [TestMethod]
     public async Task TypeNameOfMe_RightOfACall_IsCompiled()
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(Program(
+        => StringAssert.Contains(await AssertWholeAsync(Program(
             "Private Held As Gadget",
             "Public Sub Main()",
             "    Set Held = New Gadget",
             "    Debug.Print Held.Named(3)",
             "    Debug.Print Held.Calls",
-            "End Sub"), "Named", 3, classes: Gadget()), "| 3(Gadget) ; 3 |");
+            "End Sub"), "Named", 3), "| 3(Gadget) ; 3 |");
 
     // a call given the variable by reference, which the invoker makes, puts Nothing in it: TypeName, right of the call, reads it after the call, compiled.
     [TestMethod]
     public async Task TypeNameOfAnObjectVariableRightOfACallThatChangesIt_IsCompiled()
     {
+        CompiledExecutionTests.RequirePayloads();
         var program = InLoop("s = Dropped(G) & TypeName(G)");
         var interpreted = await CompiledNestedCallTests.RunAsync(program, VBExecutionEngine.Interpreter, Gadget());
         var compiled = await CompiledNestedCallTests.RunAsync(program, VBExecutionEngine.Compiled, Gadget());
@@ -120,6 +135,7 @@ public sealed class CompiledNestedTypeNameTests
         StringAssert.Contains(compiled.Observed, "| 1Nothing ; 0 |");
         Assert.IsTrue(compiled.Compiled.TryGetValue("Outer", out var outer));
         Assert.IsNotNull(outer.Body, string.Join("; ", outer.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        AssertWhole(outer);
         if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(0L, outer.Body.WalkBacks, "Outer was handed to the interpreter");
@@ -146,25 +162,25 @@ public sealed class CompiledNestedTypeNameTests
     [DataRow("s = \"a\" & G.Size & TypeName(Nothing) & Chr$(G.Bad)", DisplayName = "TypeName of Nothing, between the calls")]
     [DataRow("s = \"a\" & G.Size & Chr$(G.Bad) & TypeName(G)", DisplayName = "TypeName of an object variable, after the calls")]
     public async Task AnErrorAfterTheCalls_UnderResumeNext_TheCallsMadeOnce(string statement)
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(Looping([],
+        => StringAssert.Contains(await AssertWholeAsync(Looping([],
             "    On Error Resume Next",
             $"    {statement}",
-            "    Outer = s & Err.Number"), "Outer", 2, classes: Gadget()), "| 5 ; 2 |");
+            "    Outer = s & Err.Number"), "Outer", 2), "| 5 ; 2 |");
 
     [TestMethod]
     public async Task AnErrorRaisedInsideACallRightOfTypeName_UnhandledAnywhere_EndsTheProgramWhereTheInterpreterEndsIt()
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(Looping([],
+        => StringAssert.Contains(await AssertWholeAsync(Looping([],
             "    s = \"a\" & G.Size & TypeName(i) & G.Failing",
-            "    Outer = s"), "Outer", 2, walksBack: true, classes: Gadget()), "| 13 ");
+            "    Outer = s"), "Outer", 2, walksBack: true), "| 13 ");
 
     // an error raised inside a call left of TypeName goes to the handler of the caller, as the interpreter's does; TypeName is not called.
     [TestMethod]
     public async Task AnErrorRaisedInsideACallLeftOfTypeName_GoesToTheCallersHandler()
-        => StringAssert.Contains(await CompiledNestedCallTests.AssertAlikeAsync(Looping([],
+        => StringAssert.Contains(await AssertWholeAsync(Looping([],
             "    On Error GoTo Handler",
             "    s = \"a\" & G.Size & G.Failing & TypeName(G)",
             "    Outer = s",
             "    Exit Function",
             "Handler:",
-            "    Outer = \"e\" & Err.Number"), "Outer", 2, classes: Gadget()), "| e13 ; 2 |");
+            "    Outer = \"e\" & Err.Number"), "Outer", 2), "| e13 ; 2 |");
 }
