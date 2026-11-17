@@ -1,4 +1,6 @@
 ﻿using RDCore.External.Automation;
+using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -247,17 +249,52 @@ internal static class AutomationMarshaller
         _ => wrap(value, VBObjectType.TypeInfo),
     };
 
+    // an array of Variants, each element in a Variant's cell, as the elements of an array Array makes are (ElementCells.OfVariant): what compiled code
+    // reads and writes an element in. The elements are read in the order the array numbers them, the first subscript varying fastest.
     private static VBArrayValue FromAutomation(Array array, Func<object, VBType, VBTypedValue> wrap)
     {
         var bounds = Enumerable.Range(0, array.Rank).Select(dimension => (array.GetLowerBound(dimension), array.GetUpperBound(dimension))).ToArray();
         var result = new VBResizableArrayValue(bounds, VBVariantType.TypeInfo);
 
+        // the values of a block of cells (Range.Value), read without the subscripts of each element.
+        if (array is object?[,] block)
+        {
+            var index = 0;
+            for (var column = block.GetLowerBound(1); column <= block.GetUpperBound(1); column++)
+            {
+                for (var row = block.GetLowerBound(0); row <= block.GetUpperBound(0); row++)
+                {
+                    _ = result.TrySetElementAt(index++, ElementCellOf(block[row, column], wrap));
+                }
+            }
+
+            return result;
+        }
+
         foreach (var subscripts in Subscripts(result))
         {
-            var element = new VBVariantValue(Natural(array.GetValue(subscripts), wrap));
-            _ = result.TrySetElement(new ValueBindingHandle(element.RuntimeValue), subscripts);
+            _ = result.TrySetElement(ElementCellOf(array.GetValue(subscripts), wrap), subscripts);
         }
 
         return result;
     }
+
+    // the cell of an element: a number, a Boolean or a date held as the payload the Variant holds it as, which is the value Natural makes of it.
+    private static IBindingHandle ElementCellOf(object? element, Func<object, VBType, VBTypedValue> wrap)
+        => UnboxedEvaluation.IsEnabled && PayloadOf(element) is { Type: not null } payload
+            ? VariantCell.Of(payload)
+            : ElementCells.OfVariant(new VBVariantValue(Natural(element, wrap)));
+
+    private static ScalarPayload PayloadOf(object? element) => element switch
+    {
+        double @double => new(VBDoubleType.TypeInfo, 0, @double),
+        bool boolean => ScalarPayload.OfBoolean(boolean),
+        int @long => new(VBLongType.TypeInfo, @long, 0),
+        short integer => new(VBIntegerType.TypeInfo, integer, 0),
+        byte @byte => new(VBByteType.TypeInfo, @byte, 0),
+        long longLong => new(VBLongLongType.TypeInfo, longLong, 0),
+        float single => new(VBSingleType.TypeInfo, 0, single),
+        DateTime date => new(VBDateType.TypeInfo, 0, date.ToOADate()),
+        _ => default,
+    };
 }

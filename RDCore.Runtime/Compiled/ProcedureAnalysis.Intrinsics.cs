@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
 using System.Reflection;
@@ -81,17 +82,14 @@ internal sealed partial class ProcedureAnalysis
 
     private static ScalarKind? ResultKindOf(MethodInfo method) => KindOf(ResultTypeOf(method));
 
-    // whether the module the procedure is declared in compares Strings as Option Compare Binary does (MS-VBAL §5.2.1.1), as the procedure's frame has it
-    // (RuntimeProcedureInvoker): the module declares it, or no Option Compare; a procedure of no module the session has runs under that default.
-    private bool ComparesBinary
-        => !_session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(_procedure.ParentUri), out var module) || module.Directives.Compare is OptionCompare.Binary;
-
-    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double.
+    // the payload kind a type of a typed form's parameter or result is: a short is an Integer, an int a Long, a long a LongLong, a double a Double, a bool a
+    // Boolean.
     private static ScalarKind? KindOf(Type? type)
         => type == typeof(short) ? ScalarKind.Integer
             : type == typeof(int) ? ScalarKind.Long
             : type == typeof(long) ? ScalarKind.LongLong
             : type == typeof(double) ? ScalarKind.Double
+            : type == typeof(bool) ? ScalarKind.Boolean
             : null;
 
     // whether an argument of kind given is let-coerced to a parameter of kind taken with no loss: a whole number to a wider one, or to a Double.
@@ -107,16 +105,21 @@ internal sealed partial class ProcedureAnalysis
     // the arguments of a call given to a typed form, when each is of the type of its parameter: a String's text for a string, a payload of the parameter's
     // kind for a number. A parameter the function declares of a type of its own also takes a number that widens to it, as the call would let-coerce it; one
     // it declares a Variant takes only its own kind, its type being what the function returns. Each argument is given, by value: the form has no optional
-    // parameter, and a function with one has a form for each number of arguments it takes.
+    // parameter, and a function with one has a form for each number of arguments it takes, except a Compare the call leaves out
+    // (StdLibOptionCompareAttribute), which is given the calling module's Option Compare. The session, which the activation gives a form that reads it, is not
+    // one of the call's arguments.
     private List<PayloadNode>? IntrinsicArgumentsOf(IntrinsicForm form, ImmutableArray<BoundArgument> arguments)
     {
-        // arguments left out at the end are dropped, as a call of the library's binding drops them (LibraryArgumentsOf): Round(D) is the form of one. A form
-        // compares Strings as Option Compare Binary does, so a comparison left out that is the calling module's Option Compare takes it only in a module
-        // that compares that way (InStr).
+        // arguments left out at the end are dropped, as a call of the library's binding drops them (LibraryArgumentsOf): Round(D) is the form of one. A
+        // comparison left out that is the calling module's Option Compare is given that module's (below) to a form that takes a Compare (StrComp); a form
+        // that takes none compares Strings as Option Compare Binary does, so it takes the call only in a module that compares that way (InStr).
+        var parameters = form.Method.GetParameters().Where(parameter => !parameter.IsOut && parameter.ParameterType != typeof(IRuntimeSession)).ToArray();
         var count = arguments.Length;
         while (count > 0 && arguments[count - 1].Passing is ArgumentPassing.Omitted)
         {
-            if (arguments[count - 1].Parameter.TryGetProperty(SymbolProperties.DefaultsToOptionCompare, out var callers) && callers && !ComparesBinary)
+            var takesCompare = count - 1 < parameters.Length && parameters[count - 1].GetCustomAttribute<StdLibOptionCompareAttribute>() is not null;
+            if (!takesCompare && arguments[count - 1].Parameter.TryGetProperty(SymbolProperties.DefaultsToOptionCompare, out var callers) && callers
+                && CallersCompareMethod() is not VBCompareMethod.VBBinaryCompare)
             {
                 return null;
             }
@@ -124,8 +127,7 @@ internal sealed partial class ProcedureAnalysis
             count--;
         }
 
-        var parameters = form.Method.GetParameters().Where(parameter => !parameter.IsOut).ToArray();
-        if (count != parameters.Length || form.Coerced.Length < parameters.Length)
+        if (count > parameters.Length || form.Coerced.Length < parameters.Length)
         {
             return null;
         }
@@ -133,6 +135,17 @@ internal sealed partial class ProcedureAnalysis
         var values = new List<PayloadNode>(parameters.Length);
         for (var i = 0; i < parameters.Length; i++)
         {
+            if (i >= count)
+            {
+                if (parameters[i].GetCustomAttribute<StdLibOptionCompareAttribute>() is null || CallersCompareMethod() is not { } compare)
+                {
+                    return null;
+                }
+
+                values.Add(new ConstantNode(ScalarKind.Long, (long)compare, 0));
+                continue;
+            }
+
             if (ValueOf(arguments[i]) is not { } value || DeclaredTypeOf(value) is not { } declared)
             {
                 return null;
@@ -162,6 +175,20 @@ internal sealed partial class ProcedureAnalysis
         }
 
         return values;
+    }
+
+    // MS-VBAL §6.1.2.11: the Compare a comparing function's call leaves out, which "uses the <option-compare-directive> of the calling module": the module
+    // declaring the procedure, as the interpreter reads it from the procedure's frame (RuntimeExpressionEvaluator's omitted argument). Option Compare
+    // Database compares as the environment says, which the interpreter reads when the call is made.
+    private VBCompareMethod? CallersCompareMethod()
+    {
+        var directives = _session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(_procedure.ParentUri), out var module) ? module.Directives : ModuleDirectives.None;
+        return directives.Compare switch
+        {
+            OptionCompare.Binary => VBCompareMethod.VBBinaryCompare,
+            OptionCompare.Text => VBCompareMethod.VBTextCompare,
+            _ => null,
+        };
     }
 
     // an argument given as a value, by value or by reference, with no element list; and the only argument of a call, given so.

@@ -96,6 +96,12 @@ internal sealed partial class SessionStorage
     /// </summary>
     public void ReleaseHeadersOf(VBRuntimeObjectId destroyed)
     {
+        // an object has interfaces only once ObjPtr gave out their addresses: most sessions have none, and are not looked through for any.
+        if (_headerOf.Count == 0)
+        {
+            return;
+        }
+
         foreach (var (key, header) in _headerOf.Where(entry => entry.Key.Object.Equals(destroyed)).ToList())
         {
             _headerOf.Remove(key);
