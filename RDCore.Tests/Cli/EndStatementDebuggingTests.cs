@@ -227,9 +227,10 @@ public sealed class EndStatementDebuggingTests
             CollectionAssert.AreEqual(new[] { "42" }, done.Output.Select(line => line.Trim()).ToArray());
         }, debug: true, engine: engine);
 
-    // Step Into from T's Stop to the end of the program stops where MS-VBA stops (measured in Excel, 64-bit): a post-test loop's Do once, on entry, then the
-    // body and its Loop line on each pass; a pre-test loop's Do While on entry and after each pass, its Loop on each pass; End If after its branch; T's End
-    // Sub, then the line after the call, then Main's End Sub. T's lines are written from line 6, its Stop at line 8, its block from line 9.
+    // Step Into from T's Stop to the end of the program stops where MS-VBA stops. Measured in Excel (64-bit): a post-test loop's Do once, on entry, then the
+    // body and its Loop line on each pass; a pre-test loop's Do While on entry and after each pass, its Loop on each pass. MS-VBA also stops at an End If
+    // after its branch, and at the End Sub of a procedure that runs to its end: T's End Sub, then the line after the call, then Main's End Sub. T's lines are
+    // written from line 6, its Stop at line 8, its block from line 9.
     [TestMethod]
     [DataRow("Do|    i = i + 1|Loop While i < 3", "9 10 11 10 11 10 11 12 13 4 5", DisplayName = "Do ... Loop While")]
     [DataRow("Do|    i = i + 1|Loop Until i >= 3", "9 10 11 10 11 10 11 12 13 4 5", DisplayName = "Do ... Loop Until")]
