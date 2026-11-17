@@ -211,20 +211,47 @@ internal sealed class SessionHalt : ISessionHalt
         Location = null;
         (_step, _stepping) = (null, false);
         _lastWaitedAt = null;
+        Changed();
     }
 
-    public IExecutionGate? Gate { get; set; }
+    public IExecutionGate? Gate
+    {
+        get => _gate;
+        set
+        {
+            _gate = value;
+            Changed();
+        }
+    }
+
+    private IExecutionGate? _gate;
+
+    // how many times what the interpreter is wanted for changed: a gate given or taken, a step asked for or taken. Read by the program's thread while the
+    // debugger's thread changes it.
+    private int _changes;
+
+    private void Changed() => Interlocked.Increment(ref _changes);
+
+    /// <summary>
+    /// A number that is the same for as long as the interpreter is wanted for the same things (<see cref="WantsInterpreter"/>): no gate given or taken, no
+    /// step asked for or taken, no breakpoint set or cleared. Compiled code that found it need not hand a call to the interpreter compares this number at
+    /// each call instead of asking again.
+    /// </summary>
+    internal int Epoch => Volatile.Read(ref _changes) + _breakpoints.Version;
 
     // under a debugger, compiled code runs on until something only the interpreter can do is asked for: a breakpoint, set anywhere, or a step - which a pause
     // is too, a step into whatever runs next.
     public bool WantsInterpreter => Gate is not null && (_stepping || Breakpoints.HasAny);
 
-    public IBreakpointTable Breakpoints { get; } = new BreakpointTable();
+    public IBreakpointTable Breakpoints => _breakpoints;
+
+    private readonly BreakpointTable _breakpoints = new();
 
     public void RequestStep(StepKind kind, int callDepth)
     {
         (_step, _stepDepth) = (kind, callDepth);
         _stepping = true;
+        Changed();
     }
 
     public bool TakeStep(int callDepth)
@@ -245,6 +272,7 @@ internal sealed class SessionHalt : ISessionHalt
         if (due)
         {
             (_step, _stepping) = (null, false);
+            Changed();
         }
 
         return due;
@@ -350,12 +378,18 @@ internal sealed class SessionObjects : ISessionObjects
 
     public void OnDestroying(Action<VBRuntimeObjectId> release) => _destroying.Add(release);
 
+    /// <summary>
+    /// How many handlers let go of what a destroyed object holds (<see cref="OnDestroying"/>).
+    /// </summary>
+    internal int DestroyingHandlerCount => _destroying.Count;
+
     public void NotifyDestroying(VBRuntimeObjectId instance)
     {
-        // a copy: a handler that lets go of what the object holds can destroy another object, which notifies again.
-        foreach (var release in _destroying.ToArray())
+        // by their place, as many as there are now: a handler that lets go of what the object holds can destroy another object, which notifies again, and a
+        // handler is never taken off.
+        for (int i = 0, count = _destroying.Count; i < count; i++)
         {
-            release(instance);
+            _destroying[i](instance);
         }
     }
 

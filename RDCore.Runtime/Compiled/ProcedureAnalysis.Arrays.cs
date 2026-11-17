@@ -1,5 +1,6 @@
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -143,20 +144,62 @@ internal sealed partial class ProcedureAnalysis
     // LBound or UBound of an array variable of the activation, whatever its elements are (MS-VBAL §3.3.5.2).
     private PayloadNode? ArrayBound(BoundArrayBound bound)
     {
+        PayloadNode? dimension = null;
+        var isFixed = bound.Array is BoundVariable { Variable: ITypedSymbol { ResolvedType: VBFixedSizeArrayType } };
+        if (isFixed)
+        {
+            if (bound.Dimension is { } fixedDimension && (dimension = PayloadAs(fixedDimension, ScalarKind.Long)) is null)
+            {
+                return null;
+            }
+
+            if (DeclaredBoundOf(bound, dimension) is { } declared)
+            {
+                return new ConstantNode(ScalarKind.Long, declared, 0);
+            }
+        }
+
         if (ArrayOf(bound.Array) is not { } array)
         {
             Refuse(IneligibilityKind.Element, bound.ArrayBound.Kind == ArrayBoundKind.Upper ? "UBound" : "LBound", bound.Expression.Location);
             return null;
         }
 
-        PayloadNode? dimension = null;
-        if (bound.Dimension is { } given && (dimension = PayloadAs(given, ScalarKind.Long)) is null)
+        if (!isFixed && bound.Dimension is { } given && (dimension = PayloadAs(given, ScalarKind.Long)) is null)
         {
             return null;
         }
 
         // a Long, which MS-VBA reads where it is written: in an instruction that calls inside an expression, known as it was read, before a call right of it.
         return Read(new ArrayBoundNode(array.Slot, bound.ArrayBound.Kind == ArrayBoundKind.Upper, dimension), bound);
+    }
+
+    // MS-VBAL §3.3.5.2, §5.2.3.1.3: LBound or UBound of a fixed-size array variable, of a dimension a constant says (the first when it is omitted), is the
+    // bound its declaration gives that dimension, which no ReDim changes and Erase keeps. It is the bound of the array the variable is made with
+    // (DeclaredVariableDefaults.DimensionsOf), an omitted lower bound being the Option Base of the module the variable is declared in: for a local, the
+    // procedure's, which its frame has. A dimension the array has not (error 9), and an array whose bounds are not reduced (made with none), are read when
+    // the statement runs.
+    private long? DeclaredBoundOf(BoundArrayBound bound, PayloadNode? dimension)
+    {
+        if (bound.Array is not BoundVariable { Variable: { } variable }
+            || dimension is not (null or ConstantNode { Kind: ScalarKind.Long })
+            || _evaluator.LetCoercionProvider is not { } letCoercion)
+        {
+            return null;
+        }
+
+        var optionBase = variable.ScopeKind is not ScopeKind.Local ? DeclaredVariableDefaults.ModuleOptionBaseOf(_session, variable)
+            : _session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(_procedure.ParentUri), out var module) ? module.Directives.Base
+            : 0;
+        var which = (dimension as ConstantNode)?.Integral ?? 1;
+        if (DeclaredVariableDefaults.DimensionsOf(_session, new ArrayBoundEvaluator(_evaluator, letCoercion), variable, optionBase) is not { } dimensions
+            || which < 1 || which > dimensions.Length)
+        {
+            return null;
+        }
+
+        var (lower, upper) = dimensions[which - 1];
+        return bound.ArrayBound.Kind == ArrayBoundKind.Upper ? upper : lower;
     }
 
     private bool IsVariantElement(BoundNode node) => ElementOf(node) is { } index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };

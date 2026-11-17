@@ -387,14 +387,15 @@ internal sealed partial class ProcedureEmitter
 
     private void EmitStep(CompiledStep step)
     {
+        _raisesErrors = RaisesErrorsIn(step);
         switch (step)
         {
             case LetStep let when let.Slot < 0:
-                Store(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, _result!);
+                Store(EmitAssigned(let, value => Store(value, let.Value.Kind, _result!)), let.Value.Kind, _result!);
                 break;
 
             case LetStep let:
-                StoreSlot(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, let.Slot);
+                StoreSlot(EmitAssigned(let, value => StoreSlot(value, let.Value.Kind, let.Slot)), let.Value.Kind, let.Slot);
                 break;
 
             case BranchStep branch:
@@ -1452,6 +1453,7 @@ internal sealed partial class ProcedureEmitter
         ExtendedCompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
         TemporaryNode temporary => ReadsVariant(temporary.Value),
         LibraryCallNode library => library.Arguments.Any(argument => argument is not VariantOfNode { Value: var value } || ReadsVariant(value)),
+        IntrinsicNode intrinsic => intrinsic.Arguments.Any(argument => argument is TextArgumentNode || ReadsVariant(argument)),
         _ => false,
     };
 
@@ -1892,7 +1894,7 @@ internal sealed partial class ProcedureEmitter
                     Tokens.IntegerDivisionOp => nameof(PayloadOperations.IntegerDivide),
                     _ => nameof(PayloadOperations.Modulo),
                 })!);
-                _il.Emit(OpCodes.Brtrue, Fail(failure));
+                EmitArithmeticStatus(integral.Site, failure);
                 return new Operand(result, 0, 0);
             }
 
@@ -1943,10 +1945,14 @@ internal sealed partial class ProcedureEmitter
 
             case StoreNode { Value: ExtendedOperationNode { Left: WidenNode left, Right: WidenNode right } operation } store
                 when IsExactlyDouble(left.Operand.Kind) && IsExactlyDouble(right.Operand.Kind) && store.Kind is ScalarKind.Double or ScalarKind.Date:
-                return EmitExactOperation(operation.Token, left.Operand, right.Operand, store.Kind, failure);
+            {
+                var assign = TakeAssignsOnError();
+                return EmitExactOperation(operation.Token, left.Operand, right.Operand, store.Kind, failure, RaisedAt(store, assign), assign);
+            }
 
             case StoreNode store:
             {
+                var assign = TakeAssignsOnError();
                 var value = EmitExtended(store.Value, failure);
                 var integral = ScalarKinds.IsIntegral(store.Kind);
                 var result = _il.DeclareLocal(ClrTypeOf(store.Kind));
@@ -1954,7 +1960,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldc_I4, (int)store.Kind);
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(integral ? nameof(Compiled.Extended.ToIntegral) : nameof(Compiled.Extended.ToFloating))!);
-                _il.Emit(OpCodes.Brtrue, Fail(failure));
+                EmitArithmeticStatus(RaisedAt(store, assign), failure, result, assign);
                 return new Operand(result, 0, 0);
             }
 
@@ -2116,6 +2122,9 @@ internal sealed partial class ProcedureEmitter
             case LibraryCallNode library:
                 return EmitLibraryCall(library, failure);
 
+            case IntrinsicNode intrinsic:
+                return EmitIntrinsic(intrinsic, failure);
+
             default:
                 return EmitArrayPayload(node, failure);
         }
@@ -2172,6 +2181,7 @@ internal sealed partial class ProcedureEmitter
         MemberFieldNode { ReceiverCall: not null } => true,
         ObjectArgumentNode { Call: not null } => true,
         LibraryCallNode library => library.Syntax >= 0 || library.Arguments.Any(MakesACall),
+        IntrinsicNode intrinsic => intrinsic.Arguments.Any(MakesACall),
         KnownNode known => MakesACall(known.Value),
         UnvariantNode unvariant => MakesACall(unvariant.Value),
         TruthNode truth => MakesACall(truth.Value),
@@ -2322,7 +2332,8 @@ internal sealed partial class ProcedureEmitter
 
     // one operation of two payloads stored as a Double or a Date: computed in Double when its result is exact (Extended.TryAddExactly), which is what the
     // extended format stores; in the extended format otherwise, from the same operands.
-    private Operand EmitExactOperation(string token, PayloadNode left, PayloadNode right, ScalarKind kind, Label failure)
+    private Operand EmitExactOperation(string token, PayloadNode left, PayloadNode right, ScalarKind kind, Label failure, int site = -1,
+        Action<Operand>? assign = null)
     {
         var l = EmitPayload(left, failure);
         var r = EmitPayload(right, failure);
@@ -2359,7 +2370,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, (int)kind);
         _il.Emit(OpCodes.Ldloca, result);
         _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Compiled.Extended.ToFloating))!);
-        _il.Emit(OpCodes.Brtrue, Fail(failure));
+        EmitArithmeticStatus(site, failure, result, assign);
 
         _il.MarkLabel(done);
         return new Operand(result, 0, 0);

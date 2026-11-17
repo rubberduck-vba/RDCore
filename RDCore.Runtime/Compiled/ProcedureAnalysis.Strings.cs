@@ -119,6 +119,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundCall library when IsTextLibrary(library.Procedure):
                 return LibraryTextOf(library);
 
+            // CStr of a whole number, written as the let-coercion writes it (ProcedureAnalysis.Intrinsics.cs).
+            case BoundCall converting when WholeTextOf(converting) is { } written:
+                return written;
+
             case BoundCall converting when IsVariantTextLibrary(converting.Procedure):
                 return LibraryVariantTextOf(converting);
 

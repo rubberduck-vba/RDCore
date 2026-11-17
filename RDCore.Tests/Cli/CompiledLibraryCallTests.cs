@@ -228,7 +228,8 @@ public sealed class CompiledLibraryCallTests
 
     // Round, of a Variant it returns, with its optional argument left out and given (an Integer let-coerced to the Long its parameter is); DateSerial and
     // TimeSerial, of Integer parameters given a Long, an Integer and an operation of Doubles let-coerced as the interpreter coerces them, a month or a minute
-    // past its range rolling over. The error 5 Round raises for a negative number of digits is raised where the interpreter raises it.
+    // past its range rolling over. The error 5 Round raises for a negative number of digits is raised where the interpreter raises it: Round's typed form
+    // declines it, and the interpreter runs the statement, which ends the run there: no walk-back, and no recovery that goes on compiled.
     [TestMethod]
     public async Task AFunctionOfOptionalOrTypedParameters_IsCalledByCompiledCode()
         => await AssertAlikeAsync(Program(
@@ -248,7 +249,7 @@ public sealed class CompiledLibraryCallTests
             "        R = R + D",
             "    Next",
             "    Made = R",
-            "End Function"), [("Made", 0)], walkBacks: 1);
+            "End Function"), [("Made", 0)]);
 
     // IsEmpty, IsNull, IsNumeric and VarType of a Variant that holds Empty, Null, a String, an error, Missing or an object, which compiled code gives the
     // function as the interpreter gives it.
