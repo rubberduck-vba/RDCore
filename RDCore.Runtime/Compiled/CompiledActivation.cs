@@ -629,8 +629,9 @@ public sealed partial class CompiledActivation : ILightActivation
         var returned = ScalarKinds.Of(returnedType);
         if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
-            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject
+            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject && !called.ReturnsText
             || (called.ReturnsObject ? returnedType is not (SDK.Model.Types.VBObjectType or VBClassType)
+                : called.ReturnsText ? !ProcedureAnalysis.IsText(returnedType)
                 : called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
                 : called.Result is { } read ? returned != read
                 : returnedType is { } discarded && returned is null && discarded is not SDK.Model.Types.VBVariantType))
@@ -704,6 +705,14 @@ public sealed partial class CompiledActivation : ILightActivation
         if (called.ReturnsObject)
         {
             _returnedObject = result.Result;
+            _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
+            return result.Result is not null;
+        }
+
+        // a String, which compiled code takes whole (TakeReturnedText).
+        if (called.ReturnsText)
+        {
+            _returnedText = result.Result;
             _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
             return result.Result is not null;
         }
@@ -965,8 +974,21 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of, and one
-        // whose statement assigns what it returns is assigned it.
+        // whose statement assigns what it returns is assigned it. One that returns a String inside a text returns the frame's function result, which compiled
+        // code takes whole (TakeReturnedText).
         var called = _body.Callees[call];
+        if (called.ReturnsText)
+        {
+            _returnedText = ReturnedBy(callee);
+            if (_returnedText is null)
+            {
+                _failed = RuntimeExecutionOutcome.InternalError;
+                return false;
+            }
+
+            return true;
+        }
+
         if (called.Result is null)
         {
             return AssignReturned(called, called.AssignsResult ? ReturnedBy(callee) : null);

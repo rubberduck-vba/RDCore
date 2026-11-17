@@ -110,7 +110,8 @@ Compiled code writes a `Debug.Print` whose items are all `String`s, as above, se
 and the line ended when no separator follows the last one. It evaluates every item before it writes any, so a statement handed to the interpreter writes
 nothing twice. A break asked for while it writes is answered before the next statement, as the interpreter answers it. An item that is a number (written
 with a space on each side) or a `Variant`, a `,`, `Spc` and `Tab` are the interpreter's: it runs the statement on its own. An item can contain a call
-of a whole-number type (`Debug.Print "(" & G.Size & ")"`, see Calls inside an expression, below).
+of a whole-number type, or one that returns a `String` (`Debug.Print "(" & G.Size & ")"`, `Debug.Print G.Name`, see Calls inside an expression,
+below).
 
 ### Fields of `Me`
 
@@ -304,7 +305,9 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
 
 - a `Let` of a scalar variable of the procedure or of the function's result;
 - a `Let` of a `String` variable of the procedure or of the function's `String` result, made of `String`s (see Strings, above), with a call of
-  a whole-number type inside it (`S = "(" & P.X & "," & P.Y & ")"`, `S = Chr$(64 + G.Size)`);
+  a whole-number type inside it (`S = "(" & P.X & "," & P.Y & ")"`, `S = Chr$(64 + G.Size)`), or a call that returns a `String` (`S = "a" & G.Name`,
+  **MS-VBAL §5.6.9.4**). What the call returns is joined as it is. When the interpreter runs the `Let` after the call, it is given that `String`, and
+  the call is not made again;
 - a `Debug.Print` of such `String`s (see `Debug.Print`, above);
 - a `Let` of a `Variant` variable of the procedure (`V = 1 + F(2)`, `V = 1 + G.Size`), which is given what the value evaluates to, of its own type
   (**MS-VBAL §5.5.1.2.12**): a `Long` when `F` and `Size` return one. The value is evaluated once. When the interpreter runs the `Let` after the

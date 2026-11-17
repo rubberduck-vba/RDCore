@@ -219,12 +219,57 @@ internal sealed partial class ProcedureAnalysis
         };
     }
 
-    // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10); and a member of the class whose code runs
-    // named so, called on Me (OwnMemberReceiver): a Function or a Property Get for what it returns, whose result the statement assigns (AssignedCallOf), or
-    // for the object it returns (ObjectCallOf), and a Sub or a Function as a statement, whose kind is null.
-    private CallStep? BareCallOf(VBTypeMemberSymbol function, int offset, ScalarKind? kind, ExpressionNode named, bool assigns = false, bool returnsObject = false)
+    // the function or the Property Get of the workspace node calls, inside an instruction that calls, when it returns a String of variable length: called
+    // with arguments, as a member of an object, or by its bare name (the procedure's own name is its result variable). None of the standard library, nor a
+    // Declare.
+    private VBTypeMemberSymbol? TextCalledBy(BoundNode node)
     {
-        var read = kind is not null || assigns || returnsObject;
+        var function = _nesting is null ? null : node switch
+        {
+            BoundCall { Procedure: VBTypeMemberSymbol called } => called,
+            BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } => called,
+            BoundName { Symbol: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } when !IsOwnFunction(called) => called,
+            _ => null,
+        };
+
+        return function is not null && function.GetProperty(SymbolProperties.Library) is null && function.GetProperty(SymbolProperties.ExternalTarget) is null
+            && IsText(ReturnedType(function))
+                ? function
+                : null;
+    }
+
+    // a function of the workspace that returns a String, called inside the text of an instruction that calls, as NestedCall calls one of a scalar type: what
+    // it returns is the String itself (CompiledCallee.ReturnsText), which the interpreter is given as it is, by where the call is in its statement.
+    private TextCallNode? TextCallOf(BoundNode node, VBTypeMemberSymbol function)
+    {
+        var syntax = KnownOperands.IndexOf(_nesting!, node.Expression);
+        var made = syntax < 0 ? null : node switch
+        {
+            BoundCall call => CallOf(call, CallStep.NoResult, -1, resultKind: null, returnsText: true),
+            BoundMember member => MemberCallOf(member, CallStep.NoResult, -1, resultKind: null, returnsText: true),
+            _ => BareCallOf(function, -1, kind: null, node.Expression, returnsText: true),
+        };
+
+        if (made is null)
+        {
+            _ = Unsupported(node);
+            return null;
+        }
+
+        return new TextCallNode(made.Callee, made.Arguments, made.Receiver, syntax)
+        {
+            WithAt = made.WithAt, ReceiverField = made.ReceiverField, ReceiverCall = made.ReceiverCall,
+        };
+    }
+
+    // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10); and a member of the class whose code runs
+    // named so, called on Me (OwnMemberReceiver): a Function or a Property Get for what it returns, whose result the statement assigns (AssignedCallOf), for
+    // the object it returns (ObjectCallOf), or for the String it returns inside a text (TextCallOf), and a Sub or a Function as a statement, whose kind is
+    // null.
+    private CallStep? BareCallOf(VBTypeMemberSymbol function, int offset, ScalarKind? kind, ExpressionNode named, bool assigns = false, bool returnsObject = false,
+        bool returnsText = false)
+    {
+        var read = kind is not null || assigns || returnsObject || returnsText;
         if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null)
         {
             return null;
@@ -251,7 +296,8 @@ internal sealed partial class ProcedureAnalysis
         System.Collections.Immutable.ImmutableArray<BoundArgument> arguments
             = parameters.IsEmpty ? [] : ArgumentMapping.Bind([.. parameters], [], static _ => null, static _ => null) ?? default;
         return !arguments.IsDefault && arguments.Length == parameters.Length
-            ? CallWith(function, parameters, arguments, CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject)
+            ? CallWith(function, parameters, arguments, CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject,
+                returnsText)
             : null;
     }
 
@@ -333,6 +379,11 @@ internal sealed partial class ProcedureAnalysis
             case ChrTextNode { Code: var code }:
                 return Admits(code, ref calledAfter);
 
+            // a call that returns a String, made after the calls among its arguments: a String left of it is read after it.
+            case TextCallNode call:
+                calledAfter = true;
+                return call.Arguments.All(Admits) && Admits(call.ReceiverCall);
+
             default:
                 return false;
         }
@@ -412,6 +463,12 @@ internal sealed partial class ProcedureAnalysis
         // is assigned whole.
         var given = nodes.OfType<CallNode>().Select(call => call.Arguments).ToList();
         given.AddRange(nodes.SelectMany(ReceiverCallsOf).Select(call => call.Arguments));
+        foreach (var call in TextCallsOf(step))
+        {
+            given.Add(call.Arguments);
+            given.AddRange(ObjectCallsOf(call.ReceiverCall).Select(made => made.Arguments));
+        }
+
         if (step is CallStep statement)
         {
             given.Add(statement.Arguments);
@@ -474,12 +531,29 @@ internal sealed partial class ProcedureAnalysis
         _ => [],
     };
 
-    // the payloads a text is made of: the whole numbers joined to it, and the codes of Chr$.
+    // the payloads a text is made of: the whole numbers joined to it, the codes of Chr$, and what the calls that return a String are given.
     private static IEnumerable<PayloadNode> PayloadsOf(TextNode node) => node switch
     {
         ConcatNode concat => [.. PayloadsOf(concat.Left), .. PayloadsOf(concat.Right)],
         WholeTextNode whole => [whole.Value],
         ChrTextNode chr => [chr.Code],
+        TextCallNode call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
+        _ => [],
+    };
+
+    // the calls that return a String inside the text of a String Let or of the items of a Debug.Print.
+    private static IEnumerable<TextCallNode> TextCallsOf(CompiledStep step) => step switch
+    {
+        TextLetStep let => TextCallsOf(let.Value),
+        TextResultLetStep let => TextCallsOf(let.Value),
+        PrintStep print => print.Items.SelectMany(TextCallsOf),
+        _ => [],
+    };
+
+    private static IEnumerable<TextCallNode> TextCallsOf(TextNode node) => node switch
+    {
+        ConcatNode concat => [.. TextCallsOf(concat.Left), .. TextCallsOf(concat.Right)],
+        TextCallNode call => [call],
         _ => [],
     };
 
