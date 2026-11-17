@@ -10,16 +10,24 @@ namespace RDCore.CLI.App.Bench;
 /// </summary>
 internal static partial class MsVbaHarness
 {
-    /// <summary>The name of the harness module.</summary>
+    /// <summary>
+    /// The name of the harness module.
+    /// </summary>
     public const string ModuleName = "XlBench";
 
-    /// <summary>The prefix of the names of the Excel automation files embedded in <c>rdc</c>: <c>ExcelCases.bas</c> and <c>Program.bas</c>.</summary>
+    /// <summary>
+    /// The prefix of the names of the Excel automation files embedded in <c>rdc</c>: <c>ExcelCases.bas</c> and <c>Program.bas</c>.
+    /// </summary>
     public const string ExcelResourcePrefix = "Bench/Excel/";
 
-    /// <summary>The module of the Excel automation cases, the same source on both sides.</summary>
+    /// <summary>
+    /// The module of the Excel automation cases, the same source on both sides.
+    /// </summary>
     public const string ExcelCasesFile = "ExcelCases.bas";
 
-    /// <summary>The RD-VBA program that runs the Excel automation cases; MS-VBA runs them from the harness instead.</summary>
+    /// <summary>
+    /// The RD-VBA program that runs the Excel automation cases; MS-VBA runs them from the harness instead.
+    /// </summary>
     public const string ExcelProgramFile = "Program.bas";
 
     // MS-VBA rejects Local as the name of a variable ("Syntax error"), which MS-VBAL does not reserve and RD-VBA accepts: the MS-VBA copy names it LocalCount.

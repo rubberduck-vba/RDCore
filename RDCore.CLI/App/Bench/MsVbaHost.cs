@@ -58,7 +58,9 @@ internal interface IMsVbaHost
 [SupportedOSPlatform("windows")]
 internal sealed class ExcelMsVbaHost : IMsVbaHost
 {
-    /// <summary>How long the round waits for Excel to answer a call: the Excel automation cases take minutes.</summary>
+    /// <summary>
+    /// How long the round waits for Excel to answer a call: the Excel automation cases take minutes.
+    /// </summary>
     public static readonly TimeSpan CallTimeout = TimeSpan.FromMinutes(30);
 
     private static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(250);
@@ -243,9 +245,11 @@ internal sealed class ExcelMsVbaHost : IMsVbaHost
         return id;
     }
 
-    // the visible dialogs of a process (window class #32770), and what they say: their caption and their static text.
+    // the visible dialogs of a process (the dialog window class), and what they say: their caption and their static text.
     private static class Dialog
     {
+        private const string DialogClass = "#32770";
+
         public static string? Find(int process)
         {
             if (process == 0)
@@ -257,7 +261,7 @@ internal sealed class ExcelMsVbaHost : IMsVbaHost
             _ = EnumWindows((window, parameter) =>
             {
                 _ = GetWindowThreadProcessId(window, out var owner);
-                if (owner != process || !IsWindowVisible(window) || ClassOf(window) != "#32770")
+                if (owner != process || !IsWindowVisible(window) || ClassOf(window) != DialogClass)
                 {
                     return true;
                 }
