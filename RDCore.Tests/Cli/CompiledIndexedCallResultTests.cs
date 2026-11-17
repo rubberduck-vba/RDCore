@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The <c>Let</c> of an index expression whose callee is a function of an object, called with no argument and its result indexed
-/// (<strong>MS-VBAL §5.6.13.1</strong>): the interpreter runs the statement for compiled code as a support call. The function is called once, its result
+/// (<strong>MS-VBAL §5.6.13</strong>): the interpreter runs the statement for compiled code as a support call. The function is called once, its result
 /// indexed as the interpreter indexes it (an array for its element, an object through its default member) and let-coerced to the variable's type
 /// (<strong>MS-VBAL §5.5.1.2</strong>); an error it raises is the activation's, at the statement's line.
 /// </summary>

@@ -31,9 +31,9 @@ internal sealed partial class ProcedureAnalysis
         return new SupportCallStep(instruction.Offset);
     }
 
-    // MS-VBAL §5.6.13.1: an index expression whose callee is a function or a Property Get of an object, which takes none of the arguments, so that what it
-    // returns is indexed: an array for its element, an object through its default member. The interpreter's statement calls it once, and indexes and
-    // let-coerces what it returns, the errors of both its own (CompiledActivation.RunStatement).
+    // MS-VBAL §5.6.13: an index expression whose callee is a function or a Property Get of an object that takes no parameter, so that what it returns
+    // is indexed: an array for its element, an object through its default member. The interpreter's statement calls it once, and indexes and
+    // let-coerces what it returns, raising the errors of both itself (CompiledActivation.RunStatement).
     private bool IndexesWhatACallReturns(BoundNode value)
         => value is BoundMember { Member: null, DeclaredClass: null, Arguments: not null, Access: var access }
             && Bind(access) is BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol };
