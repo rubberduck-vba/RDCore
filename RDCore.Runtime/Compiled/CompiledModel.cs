@@ -331,6 +331,18 @@ internal sealed record class LibraryTextNode(int Library, IReadOnlyList<TextNode
 // gives them, to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryVariantText).
 internal sealed record class LibraryVariantTextNode(int Library, IReadOnlyList<VariantNode> Arguments) : TextNode;
 
+// a call of a function or a Property Get of the workspace that returns a String, inside an expression, made as a CallNode is: the text it returns
+// (CompiledActivation.TakeReturnedText). Once it is made, the instruction is handed to the interpreter in the middle of it with the String known, by where
+// the call is in its statement (Syntax), as an object a call returned is known (CompiledActivation.KnowObject): the interpreter does not make it again.
+internal sealed record class TextCallNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, int Syntax) : TextNode
+{
+    public int? WithAt { get; init; }
+
+    public FieldPath? ReceiverField { get; init; }
+
+    public ObjectCallNode? ReceiverCall { get; init; }
+}
+
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
 
@@ -581,6 +593,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// its first call and ended once it is over. <see cref="Result"/> is then <see langword="null"/>.
     /// </summary>
     public bool ReturnsObject { get; init; }
+
+    /// <summary>
+    /// Whether the call is of a function or a <c>Property Get</c> that returns a <c>String</c>, inside the text of an expression (<see cref="TextCallNode"/>):
+    /// what it returns is taken whole (<see cref="CompiledActivation.TakeReturnedText"/>), as the interpreter's call returns it. <see cref="Result"/> is then
+    /// <see langword="null"/>.
+    /// </summary>
+    public bool ReturnsText { get; init; }
 
     /// <summary>
     /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.

@@ -287,6 +287,10 @@ internal sealed partial class ProcedureEmitter
             case LibraryVariantTextNode converting:
                 EmitLibraryVariantText(converting, text, failure);
                 break;
+
+            case TextCallNode call:
+                EmitTextCall(call, text, failure);
+                break;
         }
 
         return text;

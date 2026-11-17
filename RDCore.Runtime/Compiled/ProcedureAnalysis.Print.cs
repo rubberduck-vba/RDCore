@@ -64,7 +64,7 @@ internal sealed partial class ProcedureAnalysis
             node = enclosed;
         }
 
-        return node switch
+        return TextCalledBy(node) is not null || node switch
         {
             BoundLiteral { Literal.StaticValue: VBStringValue } => true,
             BoundVariable variable => TextSlotOf(variable) is not null,

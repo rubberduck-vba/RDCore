@@ -26,7 +26,7 @@ internal sealed partial class ProcedureAnalysis
     private readonly SortedSet<int> _textSlots = [];
 
     // a String that holds the text it is assigned as it is.
-    private static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
+    internal static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
 
     // a String parameter or variable, held in the cell its frame holds it in.
     private void HoldText(int slot, Symbol symbol)
@@ -176,6 +176,10 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundCall converting when IsVariantTextLibrary(converting.Procedure):
                 return LibraryVariantTextOf(converting);
+
+            // a function or a Property Get of the workspace that returns a String, called inside an instruction that calls (TextCallOf).
+            case var called when TextCalledBy(called) is { } function:
+                return TextCallOf(called, function);
 
             // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
             // and a Date are the interpreter's, which writes them in the regional settings of the session. A node whose payload cannot be read is refused
