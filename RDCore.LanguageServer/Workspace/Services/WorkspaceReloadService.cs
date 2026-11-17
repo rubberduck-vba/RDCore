@@ -710,8 +710,8 @@ internal sealed class WorkspaceReloadService(
     }
 
     // What is left to do once the documents are what the project lists: the documents to parse, the modules the host forgets, whether the host composes its session
-    // again, and what the change made of the workspace once that is done. Language is the identifier of the language the project's file made the workspace's, which
-    // the host composes its session in from then on; null when the workspace kept its language.
+    // again, and what the change made of the workspace once that is done. Language is the identifier of the language the project's file made the
+    // workspace's, which the host composes its session in from then on; null when the workspace kept its language.
     private sealed record class FinishWork(
         IReadOnlyList<TextDocumentIdentifier> ToParse,
         IReadOnlyList<string> ToDiscard,
