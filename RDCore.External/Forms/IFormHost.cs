@@ -77,12 +77,27 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     public bool ShowModal { get; init; } = true;
 
     /// <summary>
+    /// The designer that wrote the form, which says what can host it: a VBA UserForm is a Microsoft Forms form, and a Visual Basic 6.0 form is not.
+    /// <see cref="SDK.Workspace.Forms.FormDesignerKind.MSForms"/> unless said otherwise.
+    /// </summary>
+    public SDK.Workspace.Forms.FormDesignerKind Kind { get; init; } = SDK.Workspace.Forms.FormDesignerKind.MSForms;
+
+    /// <summary>
+    /// The text of the form's designer block (<c>Begin VB.Form</c> … <c>End</c>), which declares a Visual Basic 6.0 form's controls and their properties; the
+    /// <see cref="State"/> of such a form is its <c>.frx</c>. <see langword="null"/> when there is no text to read, and for a VBA UserForm, whose controls are in
+    /// its state.
+    /// </summary>
+    public string? DesignerText { get; init; }
+
+    /// <summary>
     /// The definition of the form a form module's designer declares: its state, and what its designer block says of its window.
     /// </summary>
     /// <param name="name">The name of the form's module.</param>
     /// <param name="designer">What the designer declares.</param>
     public static FormDefinition Of(string name, SDK.Workspace.Forms.FormDescriptor designer) => new(name, designer.State)
     {
+        Kind = designer.Kind,
+        DesignerText = designer.DesignerText,
         Caption = designer.Caption,
         StartUpPosition = designer.StartUpPosition is { } position && Enum.IsDefined((FormStartUpPosition)position) ? (FormStartUpPosition)position : FormStartUpPosition.CenterOwner,
         ClientLeft = designer.ClientLeft,
@@ -116,6 +131,12 @@ public interface IFormHost
     bool IsAvailable { get; }
 
     /// <summary>
+    /// Whether this host creates the forms a Visual Basic 6.0 designer wrote. Where it does not, such a form is a class that is not registered: the
+    /// <c>New</c> of its class, and any use of its default instance that makes its form, raise 429. <see langword="false"/> unless the host says otherwise.
+    /// </summary>
+    bool HostsVisualBasic6Forms => false;
+
+    /// <summary>
     /// Creates a form from its definition, in a window that is not shown yet.
     /// </summary>
     /// <param name="form">The form.</param>
@@ -134,8 +155,9 @@ public interface IFormHost
     /// </remarks>
     /// <param name="form">The handle of the form.</param>
     /// <param name="modal">Whether it is shown modal.</param>
+    /// <param name="owner">The handle of the form that owns it, or <see langword="null"/> when it has none.</param>
     /// <exception cref="Automation.AutomationException">The handle is not a form of this host, or the form was destroyed.</exception>
-    void Show(object form, bool modal);
+    void Show(object form, bool modal, object? owner = null);
 
     /// <summary>
     /// Hides a form, which ends the wait of the <see cref="Show"/> that showed it modal. A form that is not shown is left as it is.
@@ -239,6 +261,65 @@ public static class FormWindowEvents
 }
 
 /// <summary>
+/// The members of a Visual Basic 6.0 control array that the <c>Load</c> and <c>Unload</c> statements call for one of its elements (<c>Load mnuRecent(3)</c>),
+/// given the element's index: the element is not reached first, since it does not exist before <c>Load</c>.
+/// </summary>
+/// <remarks>
+/// A program cannot name them: a name in brackets is the platform's, as <see cref="FormWindowEvents.Close"/> is. The array's server raises what VB6 raises for
+/// them: 360 for an element that is loaded already, 340 for one that is not, 362 for the unloading of one the form's file declares.
+/// </remarks>
+public static class FormControlArrayMembers
+{
+    /// <summary>
+    /// Loads a new element of the array, of the index given.
+    /// </summary>
+    public const string Load = "[Load]";
+
+    /// <summary>
+    /// Unloads the element of the index given.
+    /// </summary>
+    public const string Unload = "[Unload]";
+}
+
+/// <summary>
+/// The member of a Visual Basic 6.0 form or PictureBox that its <c>Print</c> method calls (<c>picBoard.Print "Score:"; score</c>), with the output list
+/// evaluated: the object lays it out on its surface, in its font.
+/// </summary>
+/// <remarks>
+/// A program cannot name it: a name in brackets is the platform's, as <see cref="FormWindowEvents.Close"/> is. Its first argument is a <c>Boolean</c>, whether the
+/// output ends the line. A pair of arguments follows for each part of the output list, in source order: the part's <see cref="FormPrintPartKind"/> as an
+/// <c>Integer</c>, then its <c>String</c> text, its <c>Long</c> count or column, or <c>Empty</c> for a <c>Tab</c> to the next print zone.
+/// </remarks>
+public static class FormPrintMembers
+{
+    /// <summary>
+    /// Prints an output list on the object.
+    /// </summary>
+    public const string Print = "[Print]";
+}
+
+/// <summary>
+/// What a part of an output list is, as <see cref="FormPrintMembers.Print"/> takes it.
+/// </summary>
+public enum FormPrintPartKind : short
+{
+    /// <summary>
+    /// A text: the output string of an expression.
+    /// </summary>
+    Text = 0,
+
+    /// <summary>
+    /// <c>Spc(n)</c>: a number of columns.
+    /// </summary>
+    Spc = 1,
+
+    /// <summary>
+    /// <c>Tab(n)</c>, a column; <c>Tab</c> with no column, or a comma, the next print zone.
+    /// </summary>
+    Tab = 2,
+}
+
+/// <summary>
 /// The form host of a machine that has none: no form can be created.
 /// </summary>
 public sealed class UnavailableFormHost : IFormHost
@@ -259,7 +340,7 @@ public sealed class UnavailableFormHost : IFormHost
     public object Create(FormDefinition form) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
 
     /// <inheritdoc/>
-    public void Show(object form, bool modal) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
+    public void Show(object form, bool modal, object? owner = null) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
 
     /// <inheritdoc/>
     public void Hide(object form) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);

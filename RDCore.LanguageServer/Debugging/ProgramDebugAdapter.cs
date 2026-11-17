@@ -51,8 +51,10 @@ internal sealed class ProgramDebugAdapter(
     IProgramDebugService debugging,
     IHostOutputRelay output,
     IEditStatusMonitor editStatus,
+    ISessionStopRelay stops,
     ILogger<ProgramDebugAdapter> logger) :
     ILaunchHandler<ProgramLaunchRequestArguments>,
+    IAttachHandler<AttachRequestArguments>,
     IConfigurationDoneHandler,
     ISetBreakpointsHandler,
     IContinueHandler,
@@ -118,6 +120,12 @@ internal sealed class ProgramDebugAdapter(
     private ExecuteResult? _stoppedError;
     private ErrorBreakMode _errorBreak;
 
+    // a session the client attached to runs no program of its own: what waits in it is a handler of an event, or a statement of the debug console, and its end is
+    // not the end of the session. Whether one waits.
+    private bool _attached;
+    private bool _waiting;
+    private IDisposable? _takesStops;
+
     // an edit was loaded while the program waited, which it goes on with, and its next stop is told as invalidating what the client showed; and whether the client
     // takes that. One request at a time has the program go on.
     private bool _editedWhileWaiting;
@@ -144,6 +152,9 @@ internal sealed class ProgramDebugAdapter(
     public void Attach(IDebugAdapterServer server)
     {
         _server = server;
+
+        // a handler of an event that stops while no program runs stops here, in a session attached to or launched.
+        _takesStops = stops.Take(TakeSessionStop);
 
         // what the program prints is said as it prints.
         output.Printed += lines =>
@@ -221,7 +232,16 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<LaunchResponse> Handle(ProgramLaunchRequestArguments request, CancellationToken cancellationToken)
     {
-        _launching = true;
+        lock (_sync)
+        {
+            if (_attached)
+            {
+                throw Refusal(DebuggerMessages.ProgramStartedAlready);
+            }
+
+            _launching = true;
+        }
+
         _entryPoint = string.IsNullOrWhiteSpace(request.EntryPoint) ? ProgramEntryPoint.Name : request.EntryPoint;
         _module = string.IsNullOrWhiteSpace(request.Module) ? null : request.Module;
 
@@ -264,8 +284,56 @@ internal sealed class ProgramDebugAdapter(
         return new LaunchResponse();
     }
 
+    // a session that is attached to runs nothing until it is asked to: a statement of the debug console, and the handlers of the events that statement's objects
+    // raise. It is the session of the workspace, brought up as a launch brings it up.
+    public async Task<AttachResponse> Handle(AttachRequestArguments request, CancellationToken cancellationToken)
+    {
+        lock (_sync)
+        {
+            if (_launching || _attached)
+            {
+                throw Refusal(DebuggerMessages.ProgramStartedAlready);
+            }
+
+            _attached = true;
+        }
+
+        try
+        {
+            await workspace.OpenAsync(cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _ = _opened.TrySetException(Refusal(exception.Message));
+            throw Refusal(exception.Message);
+        }
+
+        _ = _opened.TrySetResult();
+        return new AttachResponse();
+    }
+
+    // the stop of a handler of an event that runs while no program runs: the client of a session it attached to is told of it as of a program that waits, once the
+    // session is up, and until it is over. A launched program's session ends with the program, and runs no handler with no program running.
+    private bool TakeSessionStop(ExecuteResult stop)
+    {
+        if (!_attached || Volatile.Read(ref _terminated) != 0 || !_opened.Task.IsCompletedSuccessfully)
+        {
+            return false;
+        }
+
+        Run(_ => Task.FromResult(stop));
+        return true;
+    }
+
     public async Task<ConfigurationDoneResponse> Handle(ConfigurationDoneArguments request, CancellationToken cancellationToken)
     {
+        // a session attached to has nothing to start.
+        if (_attached)
+        {
+            await _opened.Task.WaitAsync(cancellationToken);
+            return new ConfigurationDoneResponse();
+        }
+
         // configuration follows a launch, which may still be bringing the workspace up; without one there is nothing to wait for.
         if (!_launching)
         {
@@ -523,6 +591,18 @@ internal sealed class ProgramDebugAdapter(
 
     private async Task ReportAsync(ExecuteResult result)
     {
+        // in a session attached to, a handler of an event or a statement of the debug console that is over is not the end of the session: it goes on as it was
+        // before, with nothing waiting.
+        bool beside;
+        lock (_sync)
+        {
+            beside = _attached;
+            if (result.Outcome is not ExecutionOutcome.Refused)
+            {
+                _waiting = result.Outcome is ExecutionOutcome.Suspended;
+            }
+        }
+
         // the lines the program printed came apart from the answer, and are said before what the answer says of the program.
         await output.WaitForAsync(result.StreamedLines, TimeSpan.FromSeconds(2), _lifetime.Token);
 
@@ -537,6 +617,8 @@ internal sealed class ProgramDebugAdapter(
             case ExecutionOutcome.Suspended:
                 await StoppedAsync(result);
                 break;
+            case ExecutionOutcome.Completed or ExecutionOutcome.Halted when beside:
+                break;
             case ExecutionOutcome.Completed:
             case ExecutionOutcome.Halted:
                 await TerminateAsync(exitCode: 0);
@@ -544,6 +626,10 @@ internal sealed class ProgramDebugAdapter(
             case ExecutionOutcome.Refused:
                 // the program is as it was: a request was made that it cannot be asked.
                 Say(result.ErrorMessage + "\n", OutputEventCategory.StandardError);
+                break;
+            case var _ when beside:
+                // an error a handler or a statement of the debug console left unhandled is said, and ends that, and not the session.
+                Say(Describe(result) + "\n", OutputEventCategory.StandardError, result);
                 break;
             default:
                 Say(Describe(result) + "\n", OutputEventCategory.StandardError, result);
@@ -651,6 +737,7 @@ internal sealed class ProgramDebugAdapter(
         // the program is over once, however many ways there are to learn it.
         if (Interlocked.Exchange(ref _terminated, 1) == 0)
         {
+            _takesStops?.Dispose();
             _server!.SendExited(new ExitedEvent { ExitCode = exitCode });
             _server!.SendTerminated(new TerminatedEvent());
         }
@@ -812,6 +899,19 @@ internal sealed class ProgramDebugAdapter(
             throw Refusal(DebuggerMessages.FrameIsNotCode);
         }
 
+        // in a session attached to, with nothing waiting, the debug console is a prompt: the statement is run, and what it shows - a form - raises the events
+        // whose handlers stop here.
+        bool atAPrompt;
+        lock (_sync)
+        {
+            atAPrompt = _attached && !_waiting && request.Context == EvaluateArgumentsContext.Repl;
+        }
+
+        if (atAPrompt)
+        {
+            return await RunStatementAsync(request.Expression, cancellationToken);
+        }
+
         var frame = ActivationOf(request.FrameId ?? 0);
 
         // the debug console is the immediate window: what is typed there is a statement, run in the frame, and nothing is shown that it does not print (?x, for Debug.Print x).
@@ -839,6 +939,36 @@ internal sealed class ProgramDebugAdapter(
                 Type = result.Type,
                 VariablesReference = result.Reference == 0 ? 0 : Reference(new VariableScope(frame, DebugVariableScope.Locals, result.Reference)),
             };
+        }
+    }
+
+    // a statement that stops waits as a handler that stops does, and is told of as one; one that fails is refused with its error. What it prints is said as it
+    // prints.
+    private async Task<EvaluateResponse> RunStatementAsync(string text, CancellationToken token)
+    {
+        var result = await workspace.RunStatementAsync(text, token);
+        await output.WaitForAsync(result.StreamedLines, TimeSpan.FromSeconds(2), token);
+        foreach (var line in result.Output)
+        {
+            Say(line + "\n", OutputEventCategory.Console);
+        }
+
+        switch (result.Outcome)
+        {
+            case ExecutionOutcome.Completed or ExecutionOutcome.Halted:
+                return new EvaluateResponse { Result = string.Empty };
+
+            case ExecutionOutcome.Suspended:
+                lock (_sync)
+                {
+                    _waiting = true;
+                }
+
+                Run(_ => Task.FromResult(result with { Output = [] }));
+                return new EvaluateResponse { Result = string.Empty };
+
+            default:
+                throw Refusal(Describe(result));
         }
     }
 
@@ -968,6 +1098,7 @@ internal sealed class ProgramDebugAdapter(
             _ = await debugging.TerminateAsync(wipe: true, cancellationToken);
         }
 
+        _takesStops?.Dispose();
         await _lifetime.CancelAsync();
         _ = _closed.TrySetResult();
         return new DisconnectResponse();

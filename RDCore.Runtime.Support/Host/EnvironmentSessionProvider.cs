@@ -9,6 +9,7 @@ using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
@@ -70,6 +71,16 @@ public interface IEnvironmentSessionProvider
     /// sets it; while it is <see langword="null"/>, a program's dialogs are those of the platform the host runs on.
     /// </summary>
     IHostInteractionChannel? Interaction { get; set; }
+
+    /// <summary>
+    /// Where a handler of an event of the session that stops while no program runs is told, as the request that runs a program answers where it waits: whoever
+    /// owns the connection to the language server sets it, and it answers whether somebody takes the stop. While it is <see langword="null"/>, such a handler is
+    /// stopped by a <c>Stop</c> and a breakpoint, as a program that is not under a debugger is.
+    /// </summary>
+    /// <remarks>
+    /// Called while the handler waits for the answer; once it is taken, the handler is the program that <see cref="Execution"/> resumes, steps and ends.
+    /// </remarks>
+    Func<ExecuteResult, Task<bool>>? SessionStopped { get; set; }
 
     /// <summary>
     /// The composed runtime session.
@@ -161,6 +172,22 @@ public sealed class EnvironmentSessionProvider(
     /// <inheritdoc/>
     public Action<IReadOnlyList<string>, long>? OutputStreamed { get; set; }
 
+    /// <inheritdoc/>
+    public Func<ExecuteResult, Task<bool>>? SessionStopped
+    {
+        get => _sessionStopped;
+        set
+        {
+            _sessionStopped = value;
+            if (_session is not null)
+            {
+                Execution.SessionStopsChanged();
+            }
+        }
+    }
+
+    private Func<ExecuteResult, Task<bool>>? _sessionStopped;
+
     private readonly Lock _eventLinesLock = new();
     private readonly List<string> _eventLines = [];
     private long _eventLinesSaid;
@@ -239,6 +266,7 @@ public sealed class EnvironmentSessionProvider(
         _session.Turn.EventScope = BeginEvent;
         Image = NewImage(logger);
         Execution = new ProgramExecution(this, logger);
+        Execution.SessionStopsChanged();
         ProjectName = project.Name;
         WorkspaceRoot = workspaceRoot;
         ModuleCount = project.Modules.Length;

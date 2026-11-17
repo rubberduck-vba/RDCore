@@ -42,23 +42,10 @@ namespace RDCore.Tests.Workspace.Forms;
 [TestClass]
 public sealed class VisualBasicFormLanguageTests
 {
-    private static string Symbols
-    {
-        get
-        {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
-            {
-                directory = directory.Parent;
-            }
-
-            Assert.IsNotNull(directory, "the repository root, where RDCore.slnx is");
-            return Path.Combine(directory.FullName, "Symbols");
-        }
-    }
-
-    // the libraries that ship (Symbols/*.json): a VB6 project that lists none references VBRUN and VB, and one may list Microsoft Forms besides.
-    private static ModuleWorkspace.WorkspaceLibraries Libraries(params string[] listed) => new(listed, new DirectoryLibrarySource(new FileSystem(), Symbols));
+    // the libraries that ship (RDForms' VB, then Symbols/*.json): a VB6 project that lists none references VBRUN and VB, and one may list Microsoft
+    // Forms besides.
+    private static ModuleWorkspace.WorkspaceLibraries Libraries(params string[] listed)
+        => new(listed, RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform);
 
     // Command1, Text1, and the control array Command2 (two controls of one name, each with its Index)
     private static string Form(params string[] body) => Designed("VB.Form", body);
@@ -208,6 +195,46 @@ public sealed class VisualBasicFormLanguageTests
     public async Task AMemberOfAControlsName_IsMemberAlreadyExists()
         => StringAssert.StartsWith(Assert.ContainsSingle(await ErrorsAsync(Form("Private Text1 As Long"))), nameof(VBCompileErrorId.MemberAlreadyExistsInDesigner));
 
+    // a Line and a Shape raise no events, and a form holds them as it holds any control.
+    private const string EventlessControls =
+        "VERSION 5.00\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   Caption         =   \"About\"\r\n" +
+        "   Begin VB.Line lineAboveSignature \r\n" +
+        "      X1              =   120\r\n" +
+        "      X2              =   4560\r\n" +
+        "   End\r\n" +
+        "   Begin VB.Shape Shape1 \r\n" +
+        "      Shape           =   3\r\n" +
+        "   End\r\n" +
+        "   Begin VB.Line Rule \r\n" +
+        "      Index           =   0\r\n" +
+        "   End\r\n" +
+        "   Begin VB.Line Rule \r\n" +
+        "      Index           =   1\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n" +
+        "Attribute VB_GlobalNameSpace = False\r\n" +
+        "Attribute VB_Creatable = False\r\n" +
+        "Attribute VB_PredeclaredId = True\r\n" +
+        "Attribute VB_Exposed = False\r\n" +
+        "Option Explicit\r\n";
+
+    [TestMethod]
+    public async Task AControlOfAClassWithNoEvents_IsAControlLikeAnyOther()
+    {
+        var errors = await ErrorsAsync(
+            EventlessControls + "Private Sub Form_Load()\r\n    lineAboveSignature.X2 = 4000\r\n    Shape1.Visible = False\r\n    Rule(1).BorderWidth = 2\r\nEnd Sub\r\n");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    [TestMethod]
+    public async Task AWithEventsVariableTheCodeDeclares_OfAControlClassWithNoEvents_IsInvalid()
+        => StringAssert.StartsWith(Assert.ContainsSingle(await ErrorsAsync(EventlessControls + "Private WithEvents Other As VB.Line\r\n")),
+            nameof(VBCompileErrorId.InvalidWithEventsType));
+
     // ---- what each member is there for ----
 
     [TestMethod]
@@ -276,9 +303,147 @@ public sealed class VisualBasicFormLanguageTests
         Assert.AreNotEqual("0", error.Split('|')[0], error);
     }
 
+    // the outside world of an external host that hosts its VB6 forms with RDForms, headless, and has no other server: the composition rdc's external host makes.
+    private static RDCore.External.ExternalWorld RDFormsWorld(RDCore.External.Forms.RDForms.VisualBasicFormsHost host = RDCore.External.Forms.RDForms.VisualBasicFormsHost.RDForms)
+    {
+        var (automation, forms) = RDCore.External.Forms.RDForms.RDFormsHosting.Compose(
+            RDCore.External.Automation.UnavailableAutomationServer.Instance,
+            RDCore.External.Forms.UnavailableFormHost.Instance,
+            new RDCore.External.Forms.RDForms.FormsOptions { VB = host, Headless = true });
+        return new RDCore.External.ExternalWorld(automation, RDCore.External.Native.UnavailableNativeLibraryHost.Instance) { Forms = forms };
+    }
+
+    private static Task<string[]> RunWithRDFormsAsync(string main, RDCore.External.ExternalWorld? world = null, string? form = null)
+        => ModuleWorkspace.RunAsync(
+            [], $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n{main}\r\nEnd Sub\r\n",
+            Libraries() with { Outside = world ?? RDFormsWorld() }, [FormModule(form ?? Form())], SupportedLanguages.VB6);
+
+    [TestMethod]
+    public async Task AVB6Form_HostedByRDForms_IsShownModelessByAShowThatSaysNothing_AndHidden()
+    {
+        var printed = await RunWithRDFormsAsync("Form1.Show\r\nDebug.Print Form1.Visible\r\nForm1.Hide\r\nDebug.Print Form1.Visible\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "True", "False" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsCaption_HostedByRDForms_IsItsDesignersUntilTheProgramSetsIt()
+    {
+        var printed = await RunWithRDFormsAsync("Debug.Print Form1.Caption\r\nForm1.Caption = \"Hello\"\r\nDebug.Print Form1.Caption\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "Form1", "Hello" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsOwnProperty_HostedByRDForms_IsReadAndWrittenOnItsModel()
+    {
+        var printed = await RunWithRDFormsAsync("Form1.Tag = \"tagged\"\r\nDebug.Print Form1.Tag\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "tagged" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControls_HostedByRDForms_HaveTheirDesignersProperties()
+    {
+        var printed = await RunWithRDFormsAsync("Debug.Print Form1.Command1.Caption\r\nDebug.Print Form1.Text1.Text\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "Command1", "Text1" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControl_HostedByRDForms_KeepsWhatTheProgramSetsIt()
+    {
+        var printed = await RunWithRDFormsAsync("Form1.Text1.Text = \"typed\"\r\nDebug.Print Form1.Text1.Text\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "typed" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControlsPosition_HostedByRDForms_IsInTwips_OrInTheFormsScale()
+    {
+        var printed = await RunWithRDFormsAsync(
+            "Form1.Text1.Left = 360\r\nForm1.Text1.Width = 1500\r\nDebug.Print Form1.Text1.Left\r\nDebug.Print Form1.Text1.Width\r\n" +
+            "Form1.ScaleMode = 3\r\nDebug.Print Form1.Text1.Left\r\nDebug.Print Form1.Text1.Width\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "360", "1500", "24", "100" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6FormsControlsEvent_HostedByRDForms_IsHandledByTheFormsHandler()
+    {
+        // setting a TextBox's Text from code raises its Change, in VB6 as in a UserForm.
+        var form = Form("Private Sub Text1_Change()", "Debug.Print \"changed \" & Text1.Text", "End Sub");
+        var printed = await RunWithRDFormsAsync("Form1.Text1.Text = \"typed\"\r\nUnload Form1", form: form);
+
+        CollectionAssert.AreEqual(new[] { "changed typed" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AVB6Form_WithRDFormsTurnedOff_IsATrappableRunTimeError_AsWithNothingToHostIt()
+    {
+        var printed = await RunWithRDFormsAsync(
+            "On Error Resume Next\r\nForm1.Show\r\nDebug.Print Err.Number",
+            RDFormsWorld(RDCore.External.Forms.RDForms.VisualBasicFormsHost.Off));
+
+        Assert.AreNotEqual("0", Assert.ContainsSingle(printed));
+    }
+
+    [TestMethod]
+    public async Task AnObjectByName_WithRDFormsAndNoAutomationServer_IsError429_AsWithNoFormHost()
+    {
+        var printed = await RunWithRDFormsAsync("On Error Resume Next\r\nDim x As Object\r\nSet x = CreateObject(\"Scripting.Dictionary\")\r\nDebug.Print Err.Number");
+
+        CollectionAssert.AreEqual(new[] { "429" }, printed);
+    }
+
+    // a value assigned to a control's property is let-coerced to the property's declared type, early-bound or late-bound, as DispInvoke coerces it.
+    [TestMethod]
+    [DataRow("Form1.Text1", "Left = Empty", "Left", "0", DisplayName = "Empty to a Single, early-bound, is 0")]
+    [DataRow("o", "Left = Empty", "Left", "0", DisplayName = "Empty to a Single, late-bound, is 0")]
+    [DataRow("o", "Width = \"1500\"", "Width", "1500", DisplayName = "a String to a Single, late-bound, is its number")]
+    [DataRow("o", "Text = True", "Text", "True", DisplayName = "True to a String, late-bound, is True")]
+    [DataRow("o", "Text = 2.5", "Text", "2.5", DisplayName = "a Double to a String, late-bound, is its digits")]
+    [DataRow("o", "TabIndex = 1.5", "TabIndex", "2", DisplayName = "a Double to an Integer, late-bound, rounds to even")]
+    public async Task AValueAssignedToAControlsProperty_IsLetCoercedToItsDeclaredType(string target, string assignment, string read, string printed)
+    {
+        var lines = await RunWithRDFormsAsync(
+            $"Dim o As Object\r\nSet o = Form1.Text1\r\n{target}.{assignment}\r\nDebug.Print {target}.{read}\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { printed }, lines);
+    }
+
+    [TestMethod]
+    [DataRow("Text = Null", "94", DisplayName = "Null to a String is invalid use of Null")]
+    [DataRow("Width = \"wide\"", "13", DisplayName = "a String that is no number, to a Single, is a type mismatch")]
+    [DataRow("TabIndex = 70000", "6", DisplayName = "a number too large for an Integer overflows")]
+    public async Task AValueThatDoesNotCoerceToAControlsProperty_IsTheCoercionsError(string assignment, string error)
+    {
+        var printed = await RunWithRDFormsAsync($"On Error Resume Next\r\nDim o As Object\r\nSet o = Form1.Text1\r\no.{assignment}\r\nDebug.Print Err.Number\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { error }, printed);
+    }
+
+    [TestMethod]
+    public async Task AControlReachedLateBound_IsOfItsVBClass()
+    {
+        var printed = await RunWithRDFormsAsync("Dim o As Object\r\nSet o = Form1.Text1\r\nDebug.Print TypeName(o)\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "TextBox" }, printed);
+    }
+
+    [TestMethod]
+    public async Task AControlOfAControlArray_IsReachedByItsIndex()
+    {
+        var printed = await RunWithRDFormsAsync("Debug.Print Form1.Command2(1).Index\r\nUnload Form1");
+
+        CollectionAssert.AreEqual(new[] { "1" }, printed);
+    }
+
     // ---- completion ----
 
-    private static async Task<string[]> CompletionAtAsync(string form)
+    private static async Task<string[]> CompletionAtAsync(string form) => [.. (await CompletionItemsAtAsync(form)).Select(item => item.Label)];
+
+    private static async Task<IReadOnlyList<CompletionItem>> CompletionItemsAtAsync(string form)
     {
         // the cursor is where the `|` is
         var lines = form.Split("\r\n");
@@ -314,7 +479,7 @@ public sealed class VisualBasicFormLanguageTests
             NullLogger<CompletionService>.Instance, RDCore.Tests.LanguageServer.OneProject.Registry());
 
         var list = await completion.CompleteDocumentAsync(uri, position, CancellationToken.None);
-        return [.. list.Items.Select(item => item.Label)];
+        return [.. list.Items];
     }
 
     [TestMethod]
@@ -332,5 +497,55 @@ public sealed class VisualBasicFormLanguageTests
 
         CollectionAssert.IsSubsetOf(new[] { "Caption", "Left", "SetFocus", "TabIndex" }, labels);
         CollectionAssert.DoesNotContain(labels, "ControlTipText", "MSForms.Control's, which the project references and a VB6 form does not wrap its controls in");
+    }
+
+    // ---- what RD-VBA adds to the VB library ----
+
+    // Form() with a Label1 and a List1 besides, whose classes have members VB6.OLB does not declare.
+    private static string FormWithLabelAndList(params string[] body)
+        => Form(body).Replace("End\r\nAttribute VB_Name",
+            "   Begin VB.Label Label1 \r\n      Caption         =   \"Label1\"\r\n   End\r\n" +
+            "   Begin VB.ListBox List1 \r\n      TabIndex        =   4\r\n   End\r\n" +
+            "End\r\nAttribute VB_Name", StringComparison.Ordinal);
+
+    // the Property Get of a property of a control's class.
+    private static VBPropertyGetMemberSymbol MemberOfControl(string control, string member)
+    {
+        var field = (ITypedSymbol)ComposedForm(FormWithLabelAndList()).Members.Single(declared => declared.Name == control);
+        return Assert.IsInstanceOfType<VBClassType>(field.ResolvedType).Symbol.Members.OfType<VBPropertyGetMemberSymbol>().Single(declared => declared.Name == member);
+    }
+
+    // a library's class is open (a member it does not declare is bound late), so what binds early is what its class declares, of its declared type.
+    [TestMethod]
+    [DataRow("Label1", "Opacity", "Double")]
+    [DataRow("List1", "ItemIcon", "StdPicture")]
+    [DataRow("Label1", "Caption", "String")]
+    [DataRow("List1", "ListCount", "Integer")]
+    public void WhatRDVBAAddsToVB_IsDeclaredByTheControlsClass_AsVB6sOwnMembersAre(string control, string member, string type)
+        => Assert.AreEqual(type, MemberOfControl(control, member).ResolvedType.Name);
+
+    [TestMethod]
+    public async Task WhatRDVBAAddsToVB_IsUsedByAForm_AsVB6sOwnMembersAre()
+        => Assert.IsEmpty(await ErrorsAsync(FormWithLabelAndList(
+            "Private Sub Form_Load()", "    Label1.Opacity = 0.5", "    Label1.Caption = \"a\"", "    Debug.Print TypeName(List1.ItemIcon(0)); List1.ListCount", "End Sub")));
+
+    [TestMethod]
+    [DataRow("Label1", "Opacity")]
+    [DataRow("List1", "ItemIcon")]
+    public void TheHoverOfWhatRDVBAAddsToVB_SaysItIsAnAddition(string control, string member)
+        => CollectionAssert.Contains(SymbolHover.Of(MemberOfControl(control, member)).ToPlainText(CultureInfo.InvariantCulture).Split('\n'),
+            "RD-VBA addition: the type library of VB does not declare it.");
+
+    [TestMethod]
+    public void TheHoverOfAVB6Member_SaysNothingOfAnAddition()
+        => Assert.DoesNotContain("RD-VBA", SymbolHover.Of(MemberOfControl("Label1", "Caption")).ToPlainText(CultureInfo.InvariantCulture));
+
+    [TestMethod]
+    public async Task TheCompletionItemOfWhatRDVBAAddsToVB_SaysItIsAnAddition_AndThatOfAVB6MemberDoesNot()
+    {
+        var items = await CompletionItemsAtAsync(FormWithLabelAndList("Private Sub Fill()", "    Label1.|", "End Sub"));
+
+        StringAssert.StartsWith(items.First(item => item.Label == "Opacity").Documentation?.String, SymbolTexts.LibraryAddition("VB"));
+        Assert.DoesNotContain(SymbolTexts.LibraryAddition("VB"), items.First(item => item.Label == "Caption").Documentation?.String ?? string.Empty);
     }
 }

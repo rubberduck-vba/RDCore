@@ -167,6 +167,10 @@ doté d'une puce Apple n'exécute aucun exécutable qui n'est pas signé. La sig
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.
 
+Quand le projet a un formulaire Visual Basic 6.0, le dossier contient aussi RDForms, qui affiche les formulaires du programme, et les bibliothèques
+natives avec lesquelles RDForms dessine, pour la plateforme du programme. Un programme sans formulaire de ce genre est construit sans eux, et le
+construire à nouveau dans un dossier qui les contenait les retire.
+
 Le dossier contient aussi les conditions de licence de ce sur quoi le programme s'exécute :
 
 |Fichier|Conditions de|

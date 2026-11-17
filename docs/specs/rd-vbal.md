@@ -87,6 +87,7 @@ This specification follows the technical prose style of its inspirational Open S
     - 5.4.3 [Data Manipulation Statements](rd-vbal.5.4.3.data-manipulation-statements.md)
     - 5.4.4 [Error Handling Statements](rd-vbal.5.4.4.error-handling-statements.md)
     - 5.4.5 [File Statements](rd-vbal.5.4.5.file-statements.md)
+    - 5.4.6 [Graphics Statements](rd-vbal.5.4.6.graphics-statements.md)
   - 5.5 [Implicit coercion](rd-vbal.5.5.implicit-coercion.md)
     - 5.5.1 [Let-coercion](rd-vbal.5.5.1.let-coercion.md)
     - 5.5.2 [Set-coercion](rd-vbal.5.5.2.set-coercion.md) (*reserved*)

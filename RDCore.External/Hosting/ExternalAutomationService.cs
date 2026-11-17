@@ -158,7 +158,12 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     }
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
-    public AutomationStatusResult Status(AutomationStatusParams request) => new() { IsAvailable = platform.IsAvailable, IsFormHostAvailable = _forms.IsAvailable };
+    public AutomationStatusResult Status(AutomationStatusParams request) => new()
+    {
+        IsAvailable = platform.IsAvailable,
+        IsFormHostAvailable = _forms.IsAvailable,
+        HostsVisualBasic6Forms = _forms.HostsVisualBasic6Forms,
+    };
 
     /// <summary>Answers <see cref="ExternalProtocol.FormCreate"/>.</summary>
     public AutomationObjectResult CreateForm(FormCreateParams request)
@@ -167,7 +172,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     /// <summary>Answers <see cref="ExternalProtocol.FormShow"/>: a modal form is answered once it is hidden.</summary>
     public ExternalDoneResult ShowForm(FormShowParams request) => Answer(request.HandlingEvent, () =>
     {
-        _forms.Show(_handles.ObjectOf(request.Target), request.Modal);
+        _forms.Show(_handles.ObjectOf(request.Target), request.Modal, request.Owner is { } owner ? _handles.ObjectOf(owner) : null);
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 
