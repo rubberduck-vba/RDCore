@@ -412,6 +412,40 @@ public sealed class CompiledIntrinsicTests
             "    Found = InStr(P, \"b\") + InStr(2, P, \"c\") * 10",
             "End Function"), []);
 
+    // MS-VBAL §6.1.2.11.1.29: Replace of three Strings, in a module that compares Binary and in one that says nothing: every match from left to right,
+    // never overlapping ("aaa" has one "aa"), what is put in not searched again, a zero-length or vbNullString Find leaving the text as it is, a zero-length
+    // Replace removing what is found, and a zero-length String having nothing to replace.
+    [TestMethod]
+    [DataRow("Option Compare Binary", DisplayName = "Option Compare Binary")]
+    [DataRow("", DisplayName = "no Option Compare")]
+    public async Task ReplaceOfThreeStrings_IsItsTypedForm(string directive)
+        => await AssertAlikeAsync(Program(
+            directive,
+            "Public Sub Main()",
+            "    Debug.Print Replaced(\"a,b,,cA,aaa\", 3)",
+            "End Sub",
+            "Private Function Replaced(ByVal P As String, ByVal N As Long) As String",
+            "    Dim I As Long, R As String, S As String",
+            "    S = P",
+            "    For I = 1 To N",
+            "        S = Replace(S, \"a\", \"aa\")",
+            "        R = R & \"[\" & Replace(P, \",\", \"\") & \"][\" & Replace(P, \"aa\", \"X\") & \"][\" & Replace(P, \"A\", Left$(P, I)) & \"]\"",
+            "    Next",
+            "    Replaced = R & S & Replace(P, \"\", \"X\") & Replace(P, vbNullString, \"X\") & Replace(\"\", \"a\", \"b\") & Replace(vbNullString, \"a\", \"b\")",
+            "End Function"), [("Replaced", 0)]);
+
+    // MS-VBAL §5.2.1.1: in a module that compares Text, Replace with its comparison left out is the library's, which replaces "A" for "a".
+    [TestMethod]
+    public async Task ReplaceUnderOptionCompareText_IsTheLibrarys()
+        => await AssertAlikeAsync(Program(
+            "Option Compare Text",
+            "Public Sub Main()",
+            "    Debug.Print Replaced(\"aAbB\")",
+            "End Sub",
+            "Private Function Replaced(ByVal P As String) As String",
+            "    Replaced = Replace(P, \"a\", \"x\")",
+            "End Function"), []);
+
     // MS-VBAL §6.1.2.11.1.1 and .3: Asc of a String that begins with an ASCII character, and AscW of any, a code from 32,768 on being negative. Asc of a
     // character that is not ASCII is the code page's: the interpreter's, given the statement. A zero-length String raises 5.
     [TestMethod]
