@@ -94,8 +94,9 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
     // TryEvaluateText, case for case: a String literal, a String variable of the activation or a String field of one of its records, parentheses, and two
-    // of them joined by & (or by +, of two Strings); and a whole number, the library's Chr$ of one and the typed form of a function of the library, which
-    // TryEvaluateText leaves to the let-coercion and the call. Strings joined that are all literals are the text they make, joined once.
+    // of them joined by & (or by +, of two Strings); and a whole number, the library's Chr$ of one, the typed form of a function of the library and & of a
+    // Variant, which TryEvaluateText leaves to the let-coercion, the call and the Variant operation. Strings joined that are all literals are the text they
+    // make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -128,7 +129,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Text(enclosed);
 
-            case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } plan } joined when plan.Operator is Tokens.ConcatOp or Tokens.AdditionOp:
+            // & of a Variant, whose value type is known when it is evaluated (MS-VBAL §5.6.9.4), is a String unless both operands are Null. Each operand
+            // Text gives is a String (a Variant call that returns Null is the interpreter's), so the two are joined as Strings are.
+            case BoundBinary { Plan: { } plan } joined
+                when plan is { IsDeferred: false, EffectiveType: VBStringType, Operator: Tokens.ConcatOp or Tokens.AdditionOp } or { IsDeferred: true, Operator: Tokens.ConcatOp }:
                 if (Text(joined.Left) is not { } left || Text(joined.Right) is not { } right)
                 {
                     return null;
@@ -158,12 +162,20 @@ internal sealed partial class ProcedureAnalysis
                 return LibraryVariantTextOf(converting);
 
             // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
-            // and a Date are the interpreter's, which writes them in the regional settings of the session.
-            case var number when WholeOf(number) is { } whole:
-                return whole is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(whole);
-
+            // and a Date are the interpreter's, which writes them in the regional settings of the session. A node whose payload cannot be read is refused
+            // once: by the reason the read gave, or else by its own.
             default:
-                _ = Unsupported(node);
+                var refused = _reasons.Count;
+                if (WholeOf(node) is { } number)
+                {
+                    return number is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(number);
+                }
+
+                if (_reasons.Count == refused)
+                {
+                    _ = Unsupported(node);
+                }
+
                 return null;
         }
     }
