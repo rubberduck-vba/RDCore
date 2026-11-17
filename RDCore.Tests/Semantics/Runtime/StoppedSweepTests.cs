@@ -4,26 +4,35 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
-/// A sweep that is told to stop (<see cref="ModuleSweep"/>) stops while it makes the elements of a fixed-size array a procedure declares, and not only
-/// between instructions: an array of millions of elements is seconds and gigabytes, which a sweep nobody waits for any more does not spend.
+/// A sweep (<see cref="ModuleSweep"/>) makes none of the elements of a fixed-size array a procedure declares: an array of the most elements an array
+/// holds costs nothing until its elements are used, and a sweep that is told to stop stops between instructions, with no array to finish making first.
 /// </summary>
+/// <remarks>
+/// What counts the elements made is the sweep's token: each element made asks it whether to stop (<see cref="DeclaredVariableDefaults"/>), and a token
+/// already canceled throws <see cref="OperationCanceledException"/> at the first one.
+/// </remarks>
 [TestClass]
 [TestCategory("RD-VBAL §5.0.3 Semantic Analysis")]
 public sealed class StoppedSweepTests
 {
+    private static readonly int MostElements = (int)VBArrayValue.MaximumLength;
+
     private static string Program(string type) => "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n"
         + "Private Type TPoint\r\n    X As Long\r\n    Y As Long\r\nEnd Type\r\n"
-        + $"Public Sub Main()\r\n    Dim b(1 To 1000) As {type}\r\nEnd Sub\r\n";
+        + $"Public Sub Main()\r\n    Dim b(1 To {MostElements}) As {type}\r\nEnd Sub\r\n";
 
-    // the sweep of Main, told to stop before it begins: what it throws, if it throws.
-    private static async Task<Exception?> SweepStoppedAsync(string type)
+    // the sweep of Main, told to stop before it begins, and the array its local b starts as in that sweep's session: what the sweep throws, if it throws.
+    private static async Task<(Exception? Swept, VBArrayValue Array)> SweepStoppedAsync(string type)
     {
-        Exception? thrown = null;
+        Exception? swept = null;
+        VBArrayValue? array = null;
         await ModuleWorkspace.WithHostAsync([], Program(type), provider =>
         {
             Assert.IsTrue(provider.Session.Symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module));
@@ -40,32 +49,33 @@ public sealed class StoppedSweepTests
             }
             catch (Exception exception)
             {
-                thrown = exception;
+                swept = exception;
             }
 
+            var b = ((VBProcedureMemberSymbol)main!).Locals.OfType<VBLocalVariableSymbol>().Single(local => local.Name == "b");
+            array = Assert.IsInstanceOfType<VBArrayValue>(analysis.Symbols.Defaults!.DefaultValueOf(b));
             return Task.CompletedTask;
         });
 
-        return thrown;
+        return (swept, array!);
     }
 
-    // the first element made asks whether to stop, and is not made: the sweep ends there, before Main's first instruction.
     [TestMethod]
     [DataRow("Byte", DisplayName = "of a Byte, in a cell of its own")]
     [DataRow("Variant", DisplayName = "of a Variant, in a Variant's cell")]
     [DataRow("TPoint", DisplayName = "of a record")]
-    public async Task ASweepThatIsStopped_StopsWhileItMakesTheElementsOfAnArray(string type)
+    public async Task ASweepThatIsStopped_MakesNoElementOfTheArrayAProcedureDeclares(string type)
     {
         if (type is not "TPoint" && !UnboxedEvaluation.IsEnabled)
         {
             Assert.Inconclusive("values are boxed (RDCORE_UNBOXED=0): an element is in the cell the array makes of its default value, made with nothing asked");
         }
 
-        Assert.IsInstanceOfType<OperationCanceledException>(await SweepStoppedAsync(type));
-    }
+        var (swept, array) = await SweepStoppedAsync(type);
 
-    [TestMethod]
-    [Ignore("an element of a String is in the cell the SDK's array makes of its default value, with nothing asked: the sweep stops only once the array is made")]
-    public async Task ASweepThatIsStopped_StopsWhileItMakesTheElementsOfAnArrayOfStrings()
-        => Assert.IsInstanceOfType<OperationCanceledException>(await SweepStoppedAsync("String"));
+        Assert.IsNull(swept, $"{swept}");
+        Assert.AreEqual(MostElements, array.Length);
+        // the count is live: the first element made asks whether to stop, and is not made.
+        Assert.ThrowsExactly<OperationCanceledException>(() => array.CellAt(0));
+    }
 }
