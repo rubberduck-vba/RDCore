@@ -136,6 +136,14 @@ public sealed partial class CompiledActivation
         => VariantCell.Holding(VBStringType.TypeInfo, (text is null ? VBStringValue.VBNullString : new VBStringValue(text)).RuntimeValue);
 
     /// <summary>
+    /// <paramref name="text"/>, as the interpreter gives a <c>String</c> to a <c>String</c> parameter passed by value: what a call of a function of the
+    /// standard library is given in place of an argument's payload.
+    /// </summary>
+    /// <param name="text">The text of the argument; <see langword="null"/> for a null String.</param>
+    /// <returns>The String's runtime value.</returns>
+    public static IRuntimeValue StringArgument(string? text) => (text is null ? VBStringValue.VBNullString : new VBStringValue(text)).RuntimeValue;
+
+    /// <summary>
     /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
     /// (<see cref="VariantCellOf"/>): a parameter passed a <c>String</c>, an error, an object or no argument by value.
     /// </summary>

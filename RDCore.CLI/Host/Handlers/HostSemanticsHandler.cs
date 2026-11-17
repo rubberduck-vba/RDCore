@@ -2,8 +2,10 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -13,7 +15,8 @@ namespace RDCore.CLI.Host.Handlers;
 /// </summary>
 /// <remarks>
 /// The pass runs when a module's code is loaded (<c>ModuleLoader</c>), so this only reads what it left: the model of a module is as of the last time it was
-/// defined. The host says what is; what is worth saying is for a diagnostics extension.
+/// defined. The references to a declaration that only the modules of the project can refer to are counted over the models of all of them
+/// (<c>SemanticModelStore.AcrossProject</c>). The host says what is; what is worth saying is for a diagnostics extension.
 /// <para>
 /// The static facts are there when the module is loaded and are answered at once. The facts that come of evaluating the code take longer, and are waited for only
 /// by a request that asks for them (<see cref="HostSemanticsParams.Phase"/>): a request for the static phase does not wait behind them.
@@ -28,7 +31,7 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
 {
     protected override async Task<HostSemanticsResult> HandleAsync(HostSemanticsParams request, CancellationToken token)
     {
-        if (ImageOf(request) is not { } image)
+        if (SessionOf(request) is not ({ } image, { } session))
         {
             // not an error: the session is composed on the LSP initialize handshake, so a request can arrive first; and a project the host was not asked to
             // analyze has no model.
@@ -52,9 +55,12 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
             }
         }
 
-        var models = asked
-            .Select(module => store.TryGet(module, out var model) ? model : null)
-            .OfType<SDK.Semantics.ModuleSemanticModel>()
+        // a declaration that only the modules of the project can refer to is counted over all of them, whichever modules are asked for.
+        var named = asked.Select(module => module.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+        var project = session.Symbols.ScopeOf(StaticSymbol.GlobalUri)?.Declarations.OfType<VBModuleSymbol>()
+            .Where(module => module.GetProperty(SymbolProperties.Library) is null) ?? [];
+        var models = store.AcrossProject(project)
+            .Where(model => named.Contains(model.Module.AbsoluteUri))
             .Select(store.WithNativeCalls)
             .Select(ModuleSemanticsDto.From);
 
@@ -62,20 +68,22 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
     }
 
     // the code of the session the module asked for is in: that of the project its address is under, which the runtime session's root may be too.
-    private ProgramImage? ImageOf(HostSemanticsParams request)
+    private (ProgramImage Image, IRuntimeSession Session)? SessionOf(HostSemanticsParams request)
     {
         if (request.ModuleUri is { } moduleUri)
         {
             var root = SymbolUri.ProjectRootOf(moduleUri);
             if (analyses.TryGet(root, out var analysis))
             {
-                return analysis.Image;
+                return (analysis.Image, analysis.Session);
             }
 
-            return sessionProvider.IsComposed && sessionProvider.WorkspaceRoot is { } runRoot && SymbolUri.SameRoot(runRoot, root) ? sessionProvider.Image : null;
+            return sessionProvider.IsComposed && sessionProvider.WorkspaceRoot is { } runRoot && SymbolUri.SameRoot(runRoot, root)
+                ? (sessionProvider.Image, sessionProvider.Session)
+                : null;
         }
 
-        return sessionProvider.IsComposed ? sessionProvider.Image : null;
+        return sessionProvider.IsComposed ? (sessionProvider.Image, sessionProvider.Session) : null;
     }
 
     // the modules asked for: the one at the address, the ones of the name, or every one the session has a model of, when neither is given.

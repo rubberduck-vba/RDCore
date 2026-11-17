@@ -98,7 +98,7 @@ travaille sur le dossier courant.
 |`rdc config`|`configure`|Affiche les paramètres de la plateforme et les modifie, comme le `CONFIG` du _shell_, sans démarrer la plateforme.|
 |`rdc export-library <bibliothèque>`|`xl`|Décrit une bibliothèque de types de cette machine (un fichier comme `scrrun.dll`, son identifiant ou son nom) dans un fichier qu'un projet peut référencer par son nom. `--dependencies` décrit aussi les bibliothèques dont elle dépend.|
 |`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, ce qui la garde dans l'interpréteur, et ce que l'interpréteur exécute pour elle lorsqu'elle est compilée.|
-|`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré.|
+|`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré, avec ce que chaque cas alloue.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
 |`rdc splash`|`s`|Écrit l'écran d'accueil de la plateforme en texte brut, que sa sortie soit une console ou non. Elle ne prend pas d'espace de travail.|
@@ -156,9 +156,13 @@ Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sor
 Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
 second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui.
 
-L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec celui du _runtime_ sur lequel il s'exécute; pour un autre
-_runtime_, il prend celui d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
+L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec les hôtes de `win-x64`, `linux-x64`, `osx-x64` et
+`osx-arm64`, les _runtimes_ pour lesquels la plateforme est publiée : il construit donc un programme pour chacun d'eux, où qu'il s'exécute. Pour un autre
+_runtime_, il prend l'hôte d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
 `dotnet <nom>.dll`, il n'appelle pas le monde extérieur.
+
+L'exécutable d'un programme construit pour macOS (`osx-x64`, `osx-arm64`) est signé ad hoc, comme le SDK .NET signe celui d'une application : un Mac
+doté d'une puce Apple n'exécute aucun exécutable qui n'est pas signé. La signature n'a pas de certificat : ce n'est pas une signature Developer ID.
 
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.

@@ -80,7 +80,9 @@ namespace RDCore.Runtime.Compiled;
 /// </para>
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's: the selector is evaluated once into a local, and each <c>Case</c>
-/// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>).
+/// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>). So is one of a <c>String</c> selector of variable length:
+/// its text, which each <c>Case</c> compares with the text of a value, as two Strings are compared. A call in the selector is made as a call inside any
+/// expression is (<c>ProcedureAnalysis.Nested.cs</c>); a <c>Case</c> whose values call is the interpreter's.
 /// </para>
 /// <para>
 /// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation,
@@ -338,10 +340,10 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or FieldTextLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             or PrintStep
-            || (step is SelectStep && compared.Contains(step.Offset));
+            || (step is SelectStep or TextSelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
         {
@@ -742,6 +744,19 @@ internal sealed partial class ProcedureAnalysis
                 if (assigned is BoundVariable { Variable: ITypedSymbol { ResolvedType: VBArrayType } })
                 {
                     return new ArrayStatementStep(offset, [], Releases: true);
+                }
+
+                // a String, which the Variant is given a copy of (MS-VBAL §5.5.1.2.12): the text compiled code evaluates of it (Text), as a String variable
+                // is assigned it.
+                if (IsText(_evaluator.DeclaredTypeOf(_session, assignment.Value, new RuntimeEvaluationContext(_procedure.Uri))))
+                {
+                    return Text(assigned) is { } variantText ? new VariantTextLetStep(offset, variantSlot, variantText) : null;
+                }
+
+                // Null (MS-VBAL §5.5.1.2.12, §5.5.1.2.10), which the Variant holds as it is.
+                if (assigned is BoundLiteral { Literal.StaticValue: VBNullValue })
+                {
+                    return new VariantNullLetStep(offset, variantSlot);
                 }
 
                 if (Dynamic(assigned) is not { } variantValue)
@@ -1187,6 +1202,20 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
+        // a String of variable length is evaluated to its text, which each Case compares under the comparison mode of the module, the frame's.
+        if (IsTextSelector(bound))
+        {
+            if (Text(bound) is not { } text)
+            {
+                return null;
+            }
+
+            NeedsFrame = true;
+            _selectOfOpener[offset] = _selects.Count;
+            _selects.Add(new CompiledSelect(offset, end, default, IsText: true));
+            return new TextSelectStep(offset, _selects.Count - 1, text);
+        }
+
         if (Payload(bound) is not { } selector)
         {
             return null;
@@ -1197,22 +1226,41 @@ internal sealed partial class ProcedureAnalysis
         return new SelectStep(offset, _selects.Count - 1, selector);
     }
 
+    // a selector that is a String of variable length: an expression of Strings Text translates (IsStringItem), or a String field of a record, which Text
+    // translates where compiled code reads it. Two Strings compared are a Boolean, which is a scalar selector.
+    private bool IsTextSelector(BoundNode node)
+    {
+        while (node is BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed })
+        {
+            node = enclosed;
+        }
+
+        return node switch
+        {
+            BoundBinary { Plan: { } plan } => plan is { IsDeferred: false, EffectiveType: VBStringType, Operator: Tokens.ConcatOp or Tokens.AdditionOp },
+            _ => IsStringItem(node) || RecordFieldOf(node) is (_, var type) && IsText(type),
+        };
+    }
+
     // CaseMatchEvaluator.TryMatchUnboxed: each range clause compared with the selector, in order - a To range as both its comparisons - each value converted
     // to the type of the selector, then both to the type the comparison is made in. A conversion that is not exact fails the Case, which the interpreter then
     // matches boxed, as it does when its own payload comparison declines.
     private CompiledStep? AnalyzeCase(int offset, CaseExpressionStatementNode caseBlock, int select, int next)
     {
         var selector = new SelectorNode(select, _selects[select].Kind);
+        PayloadNode? Compared(string token, ExpressionNode value)
+            => _selects[select].IsText ? TextCaseComparison(token, select, value) : CaseComparison(token, selector, value);
+
         var clauses = new List<CaseClause>(caseBlock.RangeClauses.Length);
         foreach (var clause in caseBlock.RangeClauses)
         {
             var compared = clause switch
             {
-                CaseValueRangeClauseNode value => CaseComparison(Tokens.CompareEqualOp, selector, value.Value) is { } equal ? new CaseClause(equal) : null,
+                CaseValueRangeClauseNode value => Compared(Tokens.CompareEqualOp, value.Value) is { } equal ? new CaseClause(equal) : null,
                 CaseComparisonRangeClauseNode comparison
-                    => CaseComparison(comparison.ComparisonOperator, selector, comparison.Value) is { } compare ? new CaseClause(compare) : null,
-                CaseToRangeClauseNode range => CaseComparison(Tokens.CompareGreaterThanOrEqualOp, selector, range.Start) is { } above
-                    && CaseComparison(Tokens.CompareLessThanOrEqualOp, selector, range.End) is { } below ? new CaseClause(above, below) : null,
+                    => Compared(comparison.ComparisonOperator, comparison.Value) is { } compare ? new CaseClause(compare) : null,
+                CaseToRangeClauseNode range => Compared(Tokens.CompareGreaterThanOrEqualOp, range.Start) is { } above
+                    && Compared(Tokens.CompareLessThanOrEqualOp, range.End) is { } below ? new CaseClause(above, below) : null,
                 _ => null,
             };
 
@@ -1251,6 +1299,19 @@ internal sealed partial class ProcedureAnalysis
         }
 
         return new CompareNode(comparison, Converted(selector, destination), Converted(Converted(evaluated, valueKind), destination));
+    }
+
+    // a String selector operator value, the value let-coerced to String (RD-VBAL §5.4.2.10), as TryCompareText compares two Strings: a String as it is, and
+    // a whole number as its digits (Text). Any other value the interpreter's let-coercion writes in the regional settings of the session, and compares.
+    private TextCompareNode? TextCaseComparison(string token, int select, ExpressionNode value)
+    {
+        if (OperatorTokens.ComparisonOf(token) is not { } comparison)
+        {
+            Refuse(IneligibilityKind.Operator, token, value.Location);
+            return null;
+        }
+
+        return Text(Bind(value)) is { } text ? new TextCompareNode(comparison, new TextSelectorNode(select), text) : null;
     }
 
     // an expression bound as the interpreter binds it where it is written: in a With block, a member with no object before the dot is a member of the
@@ -1345,10 +1406,13 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), an element of an
-    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant.
+    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant, called with its arguments or named
+    // with none (Now, VBA.DateTime.Time).
     private bool IsVariant(BoundNode node)
         => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType }
-            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called);
+            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called)
+            || node is BoundName { Symbol: var named } && IsVariantLibrary(named)
+            || node is BoundQualifiedName { Member: var qualified } && IsVariantLibrary(qualified);
 
     private static bool IsExtended(BoundNode node) => RuntimeExpressionEvaluator.ExtendedTypeOf(node) is not null;
 
@@ -1357,6 +1421,12 @@ internal sealed partial class ProcedureAnalysis
     // TryEvaluatePayloadAs: an extended intermediate converted to the destination from its 80 bits, anything else coerced from its payload.
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
+        // a function of the standard library returning a Variant, called in a typed form that returns a payload of the Variant's subtype.
+        if (IntrinsicOf(node) is { } intrinsic)
+        {
+            return Converted(intrinsic, destination);
+        }
+
         // a Variant's payload, of its subtype, converted to the destination as any payload is.
         if (IsVariant(node))
         {
@@ -1365,7 +1435,7 @@ internal sealed partial class ProcedureAnalysis
 
         if (IsExtended(node))
         {
-            return Extended(node) is { } extended ? new StoreNode(extended, destination) : null;
+            return Extended(node) is { } extended ? new StoreNode(extended, destination, ArithmeticSiteOf(node)) : null;
         }
 
         return Payload(node) is { } payload ? Converted(payload, destination) : null;
@@ -1423,7 +1493,7 @@ internal sealed partial class ProcedureAnalysis
                 return CompareText(compared);
 
             case BoundBinary or BoundUnary or BoundCall when IsExtended(node):
-                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
+                return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value, ArithmeticSiteOf(node)) : null;
 
             case BoundBinary binary when IsExtended(binary.Left) || IsExtended(binary.Right):
                 return PlanOf(binary) is { } extendedPlan ? OperateWithExtended(binary, extendedPlan) : null;
@@ -1502,6 +1572,14 @@ internal sealed partial class ProcedureAnalysis
                     ? new VariantIsEmptyNode(variant, LibraryCallOf(isEmpty, library, isEmpty.BoundArguments, isEmpty.ResultType) as LibraryCallNode)
                     : null;
 
+            // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types
+            // (ProcedureAnalysis.Intrinsics.cs).
+            case BoundCall call when ConversionOf(call) is { } letCoerced:
+                return letCoerced;
+
+            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+                return intrinsic;
+
             // a function of the standard library, called with its arguments or by its name, qualified or not (ProcedureAnalysis.Libraries.cs).
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsCompiledLibrary(library):
                 return LibraryCallOf(call, library, call.BoundArguments, call.ResultType);
@@ -1566,9 +1644,19 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
                 return new VariantFieldNode(field.Path);
 
-            // a function of the standard library that returns a Variant (ProcedureAnalysis.Libraries.cs).
+            // a function of the standard library that returns a Variant: in a typed form, the payload it returns, held in a Variant of its own subtype
+            // (ProcedureAnalysis.Intrinsics.cs); else as the interpreter calls it (ProcedureAnalysis.Libraries.cs).
+            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+                return new VariantOfNode(intrinsic);
+
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):
-                return LibraryVariantOf(call, library);
+                return LibraryVariantOf(call, library, call.BoundArguments);
+
+            case BoundQualifiedName { Member: VBTypeMemberSymbol library } qualified when IsVariantLibrary(library):
+                return LibraryVariantOf(qualified, library, ImmutableArray<BoundArgument>.Empty);
+
+            case BoundName { Symbol: VBTypeMemberSymbol library } name when IsVariantLibrary(library):
+                return LibraryVariantOf(name, library, ImmutableArray<BoundArgument>.Empty);
 
             default:
                 return Payload(node) is { } payload ? new VariantOfNode(payload) : null;
@@ -1654,7 +1742,7 @@ internal sealed partial class ProcedureAnalysis
         if (effective is not ScalarKind.Boolean && ScalarKinds.IsIntegral(effective)
             && plan.Operator is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.IntegerDivisionOp or Tokens.ModuloOp)
         {
-            return new IntegralNode(plan.Operator, l, r, effective);
+            return new IntegralNode(plan.Operator, l, r, effective, ArithmeticSiteOf(binary));
         }
 
         if (OperatorTokens.ComparisonOf(plan.Operator) is { } comparison)

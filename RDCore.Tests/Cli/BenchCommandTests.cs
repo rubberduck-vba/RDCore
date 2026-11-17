@@ -201,6 +201,19 @@ public sealed class BenchCommandTests
     }
 
     [TestMethod]
+    public async Task EachRun_HasWhatItAllocated_AndTheCollectionsMadeWhileItRan()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 2, Filter: "callsanobject"), _ => { });
+
+        var benchCase = report.Cases.Single();
+        Assert.IsNull(benchCase.Error);
+        Assert.IsNotNull(benchCase.Costs);
+        Assert.HasCount(2, benchCase.Costs, "a cost for each timed run");
+        Assert.IsTrue(benchCase.FastestCost!.Value.Bytes > 0, "a run that makes an object allocates");
+    }
+
+    [TestMethod]
     public async Task ACaseThatCallsAnObjectOfAClass_Runs()
     {
         var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
@@ -280,7 +293,8 @@ public sealed class BenchCommandTests
         }
 
         var line = text.Split(Environment.NewLine).Single(candidate => candidate.StartsWith("Cases.BenchCount", StringComparison.Ordinal));
-        StringAssert.Matches(line, new System.Text.RegularExpressions.Regex(@"^Cases\.BenchCount\s+2\s+[\d.]+ ms\s+[\d.]+ ms$"));
+        // the shape the bench job reads (.github/scripts/bench-figures.ps1): runs, fastest, median, then what the fastest run allocated and its collections
+        StringAssert.Matches(line, new System.Text.RegularExpressions.Regex(@"^Cases\.BenchCount\s+2\s+[\d.]+ ms\s+[\d.]+ ms\s+\d+ KB\s+\d+/\d+/\d+$"));
     }
 
     [TestMethod]

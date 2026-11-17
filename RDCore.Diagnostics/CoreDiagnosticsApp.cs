@@ -64,6 +64,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, LineContinuationBetweenKeywordsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureCanBeWrittenAsFunctionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SelfAssignedDeclarationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, FunctionReturnValueDiscardedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitNarrowingConversionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BitwiseSemanticsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AmbiguousConcatenationAnalyzer>();
@@ -75,6 +76,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, StringComparedWithANumberAsADoubleAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, TrueValueIsNotMinusOneAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LSetOfARecordWithAStringAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, NumberTextAnalyzer>();
 
         // the ones that read how the module is written.
         services.AddSingleton<IModuleAnalyzer, OptionBaseAnalyzer>();
@@ -153,6 +155,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, UnmatchedEventHandlerAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EncapsulatePublicFieldAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousPredeclaredInstanceAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ImplementedInterfaceMemberAnalyzer>();
 
         // what RD-VBA does not host: the code of a host's document, which is analyzed and does not run.
         services.AddSingleton<IModuleAnalyzer, HostedDocumentCodeAnalyzer>();
@@ -160,6 +163,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ImplementsInDocumentModuleAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UseMeaningfulIdentifierNamesAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, HungarianNotationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, KeywordUsedAsMemberNameAnalyzer>();
         // what calls a library that is not on every platform, wherever it runs.
         services.AddSingleton<IModuleAnalyzer, NativeCallReachableOnEveryPlatformAnalyzer>();
 

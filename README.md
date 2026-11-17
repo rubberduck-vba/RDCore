@@ -47,6 +47,23 @@ RDCore is in active **alpha** development. The **specification** and **documenta
 hover, inlay hints, semantic tokens, document and workspace symbols, folding and selection ranges, go to definition, declaration, type definition and
 implementation, references and highlights, call and type hierarchy, rename and code actions.
 
+### Performance
+
+The time RD-VBA takes to run the `rdc bench` corpus, as a multiple of the time MS-VBA takes for the same code in Excel (below 1× is faster). The RD-VBA
+figures are measured on every merge, against a reference run of MS-VBA on Excel 16 (64-bit), Windows 11 x64, 12 cores. The Excel automation cases need
+Excel, so they come from the reference run only. [Every case, and how they are measured](https://rubberduck-vba.github.io/RDCore/performance.html).
+
+| Group | Fastest | Median | Slowest |
+|---|---|---|---|
+| Calls | ![Calls, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-calls-best.json) | ![Calls, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-calls-median.json) | ![Calls, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-calls-worst.json) |
+| Statements | ![Statements, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-statements-best.json) | ![Statements, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-statements-median.json) | ![Statements, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-statements-worst.json) |
+| Arrays | ![Arrays, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-arrays-best.json) | ![Arrays, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-arrays-median.json) | ![Arrays, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-arrays-worst.json) |
+| Strings | ![Strings, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-strings-best.json) | ![Strings, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-strings-median.json) | ![Strings, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-strings-worst.json) |
+| Numeric | ![Numeric, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-numeric-best.json) | ![Numeric, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-numeric-median.json) | ![Numeric, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-numeric-worst.json) |
+| Variables and parameters | ![Variables and parameters, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-slots-best.json) | ![Variables and parameters, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-slots-median.json) | ![Variables and parameters, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-slots-worst.json) |
+| Standard library | ![Standard library, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-stdlib-best.json) | ![Standard library, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-stdlib-median.json) | ![Standard library, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-stdlib-worst.json) |
+| Excel automation (reference run) | ![Excel automation, fastest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-excel-best.json) | ![Excel automation, median](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-excel-median.json) | ![Excel automation, slowest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-excel-worst.json) |
+
 
 ---
 ### See also

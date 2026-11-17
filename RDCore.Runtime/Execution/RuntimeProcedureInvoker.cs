@@ -532,6 +532,12 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         => BodyOf(procedure, _activations.TryGetValue(procedure, out var activation) ? activation : _activations.GetOrAdd(procedure, ActivationOf));
 
     /// <summary>
+    /// The procedures of the program as this invoker runs them now, which a module loaded again replaces: while it is the same, so is the body of each
+    /// (<see cref="BodyOf(VBTypeMemberSymbol)"/>). <see langword="null"/> when the bodies are not a program's.
+    /// </summary>
+    internal object? Image => Bodies is ProgramImage program ? program.Procedures : null;
+
+    /// <summary>
     /// The activation of <paramref name="procedure"/> a call compiled code makes of it runs in, when it is compiled too and every parameter of it is a scalar
     /// passed by value: laid out, and on the call stack, as <see cref="InvokeScalars"/> would make it - but holding nothing. The callee's
     /// compiled code is given its arguments, and holds its parameters and its variables; it gives the frame their cells only when the activation is handed to

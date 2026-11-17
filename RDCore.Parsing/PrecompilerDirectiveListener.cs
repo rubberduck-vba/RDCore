@@ -267,8 +267,8 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
         }
         else if (context.DATELITERAL() is ITerminalNode dateNode)
         {
-            // MS-VBAL 3.3.3: date literals are locale-independent.
-            if (DateTime.TryParse(dateNode.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.None, out var rawValue))
+            // MS-VBAL §3.3.3: date literals are locale-independent, and one with no date is a time of 1899/12/30 (NoCurrentDateDefault, then ToOADate).
+            if (DateTime.TryParse(dateNode.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var rawValue))
             {
                 OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, new VBDateValue(rawValue.ToOADate())));
             }
