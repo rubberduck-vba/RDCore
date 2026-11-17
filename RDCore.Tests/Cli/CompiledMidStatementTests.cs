@@ -135,8 +135,8 @@ public sealed class CompiledMidStatementTests
             "    Mid(T, 2, 2) = \"XY\"",
             "End Sub"), [("Changed", 1)]);
 
-    // MidB, and a Mid statement of a Variant, are the interpreter's statements. The Let of the function's Variant result from V also goes to the
-    // interpreter when it runs, so Varied counts two recoveries.
+    // MidB, and a Mid statement of a Variant, are the interpreter's statements. The Let of the function's Variant result from V, which then holds a
+    // String, is compiled code's, so Varied counts one recovery.
     [TestMethod]
     public async Task AMidBStatementOrAVariantTarget_IsTheInterpreters()
         => await AssertAlikeAsync(Program(
@@ -155,5 +155,5 @@ public sealed class CompiledMidStatementTests
             "    V = P",
             "    Mid(V, 1, 1) = \"Q\"",
             "    Varied = V",
-            "End Function"), [("Bytes", 1), ("Varied", 2)]);
+            "End Function"), [("Bytes", 1), ("Varied", 1)]);
 }
