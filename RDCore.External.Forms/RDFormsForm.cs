@@ -3,7 +3,6 @@ using RDCore.External.Automation;
 using RDCore.Forms.Avalonia.Controls;
 using RDCore.Forms.Avalonia.Rendering;
 using RDCore.Forms.Menus;
-using RDCore.Forms.Model.VB;
 using RDCore.Forms.Model;
 using Model = RDCore.Forms.Model;
 
@@ -35,8 +34,8 @@ internal sealed class RDFormsForm : IComponentEventSink
     {
         Model = model;
         Unit = unit;
-        Window = new VBFormWindow(model) { UnloadRequestHandler = AskToUnload };
-        VBControl.SetEventSink(Window, this);
+        Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload };
+        RDFormsControl.SetEventSink(Window, this);
         Handle = HandleOf(model.Root);
         Controls = new RDFormsControls(this);
     }
@@ -46,7 +45,7 @@ internal sealed class RDFormsForm : IComponentEventSink
     // the unit the form's program reads and writes its components' positions and sizes in; the model holds them in pixels.
     public CodeUnit Unit { get; }
 
-    public VBFormWindow Window { get; }
+    public RDFormsFormWindow Window { get; }
 
     public RDFormsObject Handle { get; }
 
@@ -160,7 +159,7 @@ internal sealed class RDFormsForm : IComponentEventSink
         EndModal();
         _sinks.Clear();
         Pictures.ReleaseAll();
-        VBControl.SetEventSink(Window, null);
+        RDFormsControl.SetEventSink(Window, null);
 
         // closed from code, the window raises nothing: the program has unloaded the form already.
         Window.Close();
@@ -184,7 +183,7 @@ internal sealed class RDFormsForm : IComponentEventSink
         if (!_sinks.TryGetValue(source, out var sink))
         {
             if (source is not { Index: { } index }
-                || (source.Class == VBClasses.Menu ? FormMenuItem.Of(source).Array : (object?)Model.ArrayOf(source.Name)) is not { } array
+                || (source.Class == ComponentClasses.Menu ? FormMenuItem.Of(source).Array : (object?)Model.ArrayOf(source.Name)) is not { } array
                 || !_arraySinks.TryGetValue(array, out sink))
             {
                 return;

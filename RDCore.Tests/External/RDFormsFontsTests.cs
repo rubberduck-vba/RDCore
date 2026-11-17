@@ -1,7 +1,6 @@
 using RDCore.External.Automation;
 using RDCore.External.Forms.RDForms;
 using RDCore.Forms.Model;
-using RDCore.Forms.Model.VB;
 using System.Globalization;
 
 namespace RDCore.Tests.External;
@@ -12,7 +11,7 @@ namespace RDCore.Tests.External;
 [TestClass]
 public sealed class RDFormsFontsTests
 {
-    private static ComponentInstance Label(string name) => new(VBClasses.Label, name);
+    private static ComponentInstance Label(string name) => new(ComponentClasses.Label, name);
 
     private static void Assign(RDFormsFont font, string member, object value)
         => _ = RDFormsFontMembers.Invoke(font, member, AutomationInvocation.Let, [value], CultureInfo.InvariantCulture);
@@ -22,15 +21,15 @@ public sealed class RDFormsFontsTests
     {
         var label = Label("Label1");
         var fonts = new RDFormsFonts();
-        var font = fonts.FontOf(label, VBProperties.Font);
+        var font = fonts.FontOf(label, Properties.Font);
 
         Assign(font, "Bold", true);
         Assign(font, "Name", "Arial");
         Assign(font, "Size", 14m);
 
-        var drawn = label.Get(VBProperties.Font);
+        var drawn = label.Get(Properties.Font);
         Assert.AreEqual(("Arial", 14.25, FormFont.BoldWeight), (drawn.Name, drawn.Size, drawn.Weight));
-        Assert.AreSame(font, fonts.FontOf(label, VBProperties.Font));
+        Assert.AreSame(font, fonts.FontOf(label, Properties.Font));
     }
 
     [TestMethod]
@@ -39,16 +38,16 @@ public sealed class RDFormsFontsTests
         var first = Label("Label1");
         var second = Label("Label2");
         var fonts = new RDFormsFonts();
-        var own = fonts.FontOf(second, VBProperties.Font);
-        var shared = fonts.FontOf(first, VBProperties.Font);
+        var own = fonts.FontOf(second, Properties.Font);
+        var shared = fonts.FontOf(first, Properties.Font);
 
-        fonts.Share(second, VBProperties.Font, shared);
+        fonts.Share(second, Properties.Font, shared);
         Assign(shared, "Italic", true);
         Assign(own, "Underline", true);
 
-        Assert.IsTrue(first.Get(VBProperties.Font).Italic);
-        Assert.IsTrue(second.Get(VBProperties.Font).Italic);
-        Assert.IsFalse(second.Get(VBProperties.Font).Underline);
-        Assert.AreSame(shared, fonts.FontOf(second, VBProperties.Font));
+        Assert.IsTrue(first.Get(Properties.Font).Italic);
+        Assert.IsTrue(second.Get(Properties.Font).Italic);
+        Assert.IsFalse(second.Get(Properties.Font).Underline);
+        Assert.AreSame(shared, fonts.FontOf(second, Properties.Font));
     }
 }

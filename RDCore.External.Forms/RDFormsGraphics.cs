@@ -1,7 +1,6 @@
 using RDCore.External.Automation;
 using RDCore.Forms.Drawing;
 using RDCore.Forms.Model;
-using RDCore.Forms.Model.VB;
 using System.Globalization;
 
 namespace RDCore.External.Forms.RDForms;
@@ -22,7 +21,7 @@ internal static class RDFormsGraphics
         out object? result)
     {
         result = null;
-        if (component.Class != VBClasses.Form && component.Class != VBClasses.PictureBox)
+        if (component.Class != ComponentClasses.Form && component.Class != ComponentClasses.PictureBox)
         {
             return false;
         }

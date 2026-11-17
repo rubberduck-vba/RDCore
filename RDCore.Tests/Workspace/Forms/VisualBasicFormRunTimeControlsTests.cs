@@ -99,6 +99,29 @@ public sealed class VisualBasicFormRunTimeControlsTests
         CollectionAssert.AreEqual(new[] { "2 Frame1,Command1", "3 Frame1,Command1,cmdNew", "Frame1", "Command1", "cmdNew", "True" }, printed, string.Join(" | ", printed));
     }
 
+    // a form whose Form_Load adds a control by its VB6 ProgID, as a form that makes its captions at run time does: the control is there once the form is
+    // loaded, with the name it was given, of the VB library's class.
+    [TestMethod]
+    public async Task AControlAddedAtFormLoad_ByItsVB6ProgID_IsThere_WithTheNameItWasGiven()
+    {
+        var form1 = Form1().Replace("Public Sub AddButton()", string.Join("\r\n", [
+            "Private Sub Form_Load()",
+            "    Dim lbl As Object",
+            "    Set lbl = Me.Controls.Add(\"VB.Label\", \"lblCaption\")",
+            "    lbl.Caption = \"A\"",
+            "End Sub",
+            "Public Sub AddButton()"]), StringComparison.Ordinal);
+
+        var printed = await ModuleWorkspace.RunAsync([], Program([
+            "Load Form1",
+            "Debug.Print Form1.Controls.Count & \" \" & Order()",
+            "Debug.Print Form1.Controls(\"lblCaption\").Name & \" \" & TypeName(Form1.Controls(\"lblCaption\")) & \" \" & Form1.Controls(\"lblCaption\").Caption",
+            "Debug.Print TypeOf Form1.Controls(\"lblCaption\") Is VB.Label",
+            "Unload Form1"]), Libraries, [("Form1", form1, FormDesigner.Read(form1)!)], SupportedLanguages.VB6);
+
+        CollectionAssert.AreEqual(new[] { "3 Frame1,Command1,lblCaption", "lblCaption Label A", "True" }, printed, string.Join(" | ", printed));
+    }
+
     [TestMethod]
     public async Task AControlAdded_IsHidden_At0_0_1200By480_AndTakesTheNextTabIndex()
     {

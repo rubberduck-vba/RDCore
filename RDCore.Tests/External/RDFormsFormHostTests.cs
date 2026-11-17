@@ -443,7 +443,7 @@ public sealed class RDFormsFormHostTests
                 Handler = _ => OnceItPopsUp(RDFormsAutomationServer.HandleOf(form), popup =>
                 {
                     Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(popup).OfType<Avalonia.Controls.MenuItem>()
-                        .Single(item => RDCore.Forms.Avalonia.Controls.VBControl.GetInstance(item) is { Name: "mnuRecent", Index: 2 })
+                        .Single(item => RDCore.Forms.Avalonia.Controls.RDFormsControl.GetInstance(item) is { Name: "mnuRecent", Index: 2 })
                         .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.MenuItem.ClickEvent));
                     popup.Close();
                 }),
@@ -482,7 +482,7 @@ public sealed class RDFormsFormHostTests
 
     private static Avalonia.Controls.MenuItem ItemOf(Avalonia.Controls.ContextMenu popup, string name)
         => Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(popup).OfType<Avalonia.Controls.MenuItem>()
-            .Single(item => RDCore.Forms.Avalonia.Controls.VBControl.GetInstance(item)?.Name == name);
+            .Single(item => RDCore.Forms.Avalonia.Controls.RDFormsControl.GetInstance(item)?.Name == name);
 
     private static void PopupMenu(RDFormsFormHost host, object form, params object?[] arguments)
         => host.Server.Invoke(form, "PopupMenu", AutomationInvocation.Method, arguments, new bool[arguments.Length], CultureInfo.InvariantCulture);
