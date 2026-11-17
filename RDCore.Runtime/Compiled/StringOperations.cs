@@ -111,8 +111,9 @@ public static class StringOperations
         }
     }
 
-    // the characters the Mid statement replaces in a String of length characters (MS-VBAL §5.4.3.5): from index, as many as the least of the count given,
-    // the characters left from start and the characters of value. None when the statement raises 5: a start below 1 or past the end, or a negative count.
+    // the characters the Mid statement replaces in a String of length characters (MS-VBAL §5.4.3.5): from Index (from 0), Replaced of them, the least of
+    // the count given, the characters left from start and the characters of value. None when the statement raises 5: a start below 1 or past the end, or a
+    // negative count.
     internal static (int Index, int Replaced)? MidReplaced(int length, long start, long count, bool hasCount, string? value)
         => start <= length && count <= int.MaxValue
             && StdLib.StdStrings.MidRange(length, (int)Math.Max(start, 0), hasCount ? (int)count : null) is var (index, taken)

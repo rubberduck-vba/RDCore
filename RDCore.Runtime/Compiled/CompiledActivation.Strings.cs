@@ -10,7 +10,7 @@ public sealed partial class CompiledActivation
     /// The <c>Mid</c> statement of a <c>String</c> variable held in <paramref name="cell"/>, in characters (MS-VBAL §5.4.3.5): from
     /// <paramref name="start"/>, the next characters of the variable are replaced by the first characters of <paramref name="value"/>, as many as the least
     /// of the length, the characters left from <paramref name="start"/> and the characters of <paramref name="value"/>; the variable keeps its length. The
-    /// characters are replaced in <paramref name="appender"/> while it holds what was appended to the variable and not written into the cell yet; otherwise
+    /// characters are replaced in <paramref name="appender"/> while it holds what was appended to the variable that the cell does not hold; otherwise
     /// in the String the cell holds, after what the appender holds is written into it.
     /// </summary>
     /// <param name="appender">The activation's appender of the variable; <see langword="null"/> for a variable never appended to.</param>
