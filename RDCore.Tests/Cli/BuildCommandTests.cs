@@ -1265,6 +1265,7 @@ public sealed class BuildCommandTests
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
+                // the test's assertions are made before it cleans up, and a folder that stays is no failure: the wait changes only whether one is left behind.
                 await Task.Delay(250);
             }
         }

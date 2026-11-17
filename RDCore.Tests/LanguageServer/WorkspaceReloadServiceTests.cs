@@ -713,19 +713,16 @@ public sealed class WorkspaceReloadServiceTests
         await LoadAsync("A.bas");
         var changes = new WatchedFileChanges(reload, _documents, NullLogger<WatchedFileChanges>.Instance);
         var server = Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>();
+        var told = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.Window.When(window => window.SendNotification(Arg.Any<MediatR.IRequest>())).Do(_ => told.TrySetResult());
 
         // the host is not ready: the call returns, and the user has not been told that a program kept its session.
         await changes.ChangedAsync([new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, "A.bas")), Type = FileChangeType.Changed }], server);
         Assert.IsFalse(server.Window.ReceivedCalls().Any());
 
         done.SetResult(new WorkspaceReloadResult(0, 0, false, true, Reread: 1));
-        // the window is looked at until the user is told: the deadline only keeps a message that never comes from hanging the run.
-        var deadline = DateTime.UtcNow + SafetyCap;
-        while (!server.Window.ReceivedCalls().Any() && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(10);
-        }
-
+        // the cap only keeps a message that never comes from hanging the run: the wait ends when the user is told.
+        await told.Task.WaitAsync(SafetyCap);
         Assert.IsTrue(server.Window.ReceivedCalls().Any(), "the user is told once the work is done");
     }
 
