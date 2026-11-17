@@ -298,25 +298,7 @@ internal sealed class RenameWorkspace
             return new(null, Say(part, plan.Refusal!));
         }
 
-        // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
-        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
-        // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
-        var changes = plan.Edits
-            .GroupBy(edit => edit.Module.AbsoluteUri)
-            .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
-            .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
-            {
-                TextDocument = new OptionalVersionedTextDocumentIdentifier
-                {
-                    Uri = edited.Document.Id.Uri,
-                    Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
-                },
-                Edits = new TextEditContainer(plan.Edits
-                    .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
-                    .Select(edit => AnnotationOf(edit) is { } annotation
-                        ? new AnnotatedTextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText, AnnotationId = annotation }
-                        : new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
-            }));
+        var changes = DocumentChangesOf(part, plan.Edits);
 
         // the user confirms what a string says, and which member a late-bound access calls: a client that takes change annotations asks them; one that does
         // not is asked for, before it is sent the edit.
@@ -455,6 +437,49 @@ internal sealed class RenameWorkspace
     {
         [".frm"] = ".frx", [".ctl"] = ".ctx", [".dsr"] = ".dsx", [".pag"] = ".pgx", [".dob"] = ".dox",
     };
+
+    // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
+    // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
+    // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
+    private IEnumerable<WorkspaceEditDocumentChange> DocumentChangesOf(ProjectPart part, IReadOnlyList<RenameEdit> edits) => edits
+        .GroupBy(edit => edit.Module.AbsoluteUri)
+        .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
+        .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier
+            {
+                Uri = edited.Document.Id.Uri,
+                Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
+            },
+            Edits = new TextEditContainer(edits
+                .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
+                .Select(edit => AnnotationOf(edit) is { } annotation
+                    ? new AnnotatedTextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText, AnnotationId = annotation }
+                    : new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
+        }));
+
+    /// <summary>
+    /// The parameter declared at a position of a document, and the edits that remove it with its argument from every call (<see cref="ParameterRemoval"/>), or
+    /// why they are not made; <see langword="null"/> where no parameter is declared.
+    /// </summary>
+    public (string Name, RenameAnswer<WorkspaceEdit> Answer)? RemoveParameter(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return null;
+        }
+
+        var part = PartOf(module);
+        if (ParameterRemoval.Prepare(part.Context, module.Module, module.ToModulePosition(position)).Target is not { } target)
+        {
+            return null;
+        }
+
+        var plan = ParameterRemoval.Plan(part.Context, target);
+        return (target.Name, plan.IsValid
+            ? new(new WorkspaceEdit { DocumentChanges = new Container<WorkspaceEditDocumentChange>(DocumentChangesOf(part, plan.Edits)) }, null)
+            : new(null, plan.Refusal!.ToMessage(Locator(part))));
+    }
 
     private static ChangeAnnotationIdentifier? AnnotationOf(RenameEdit edit)
         => edit.IsInString ? InString : edit.IsLateBound ? edit.IsBacked ? LateBoundBacked : LateBound : null;

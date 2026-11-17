@@ -167,6 +167,7 @@ internal sealed class CodeActions(
         int? version = documents.TryGetDocument(documentUri, out var held) ? held.Version : null;
         var actions = new List<CodeAction>();
         var offered = new HashSet<Position>();
+        var parameters = new HashSet<Position>();
         var refactored = new HashSet<(string Kind, SourceRange Range)>();
         foreach (var diagnostic in request.Context.Diagnostics)
         {
@@ -203,6 +204,22 @@ internal sealed class CodeActions(
                 {
                     actions.Add(refactoring with { Diagnostics = new Container<Diagnostic>(diagnostic) });
                 }
+            }
+
+            // a parameter that the finding is fixed by removing is offered its removal, as an edit, when it can be made.
+            if (fixes?.Refactoring?.Kind is RefactoringKinds.RemoveParameter
+                && workspace.RemoveParameter(documentUri, diagnostic.Range.Start) is { Answer.Value: { } removal } removable
+                && ForTheClient(removal) is { } removed)
+            {
+                actions.Add(new CodeAction
+                {
+                    Title = ParameterRemovalRefusal.Title(removable.Name),
+                    Kind = CodeActionKind.QuickFix,
+                    Diagnostics = new Container<Diagnostic>(diagnostic),
+                    Edit = removed,
+                    IsPreferred = true,
+                });
+                parameters.Add(diagnostic.Range.Start);
             }
 
             // a change of the project that fixes the finding is a command this server runs, offered when it changes the project as it is now.
@@ -256,6 +273,21 @@ internal sealed class CodeActions(
         foreach (var (name, position) in workspace.Renamable(documentUri, request.Range).Where(renamable => !offered.Contains(renamable.Position)))
         {
             actions.Add(RenameCommand(documentUri, name, position, CodeActionHandler.RefactorRename, diagnostic: null));
+        }
+
+        // the parameter declared at the start of the range is offered its removal: as an edit when it can be made, or disabled, with why, to a client that shows it.
+        if (IsAsked(CodeActionHandler.RefactorRemoveParameter) && !parameters.Contains(request.Range.Start)
+            && workspace.RemoveParameter(documentUri, request.Range.Start) is { } parameter)
+        {
+            var title = ParameterRemovalRefusal.Title(parameter.Name);
+            if (parameter.Answer.Value is { } removal && ForTheClient(removal) is { } removed)
+            {
+                actions.Add(new CodeAction { Title = title, Kind = CodeActionHandler.RefactorRemoveParameter, Edit = removed });
+            }
+            else if (ShowsDisabled && parameter.Answer.Refusal is { } refusal)
+            {
+                actions.Add(new CodeAction { Title = title, Kind = CodeActionHandler.RefactorRemoveParameter, Disabled = new CodeActionDisabled { Reason = refusal } });
+            }
         }
 
         actions.AddRange(DisableActions(request.Context.Diagnostics, documentUri));

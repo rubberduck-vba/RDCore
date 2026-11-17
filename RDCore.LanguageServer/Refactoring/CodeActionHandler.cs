@@ -38,6 +38,11 @@ internal sealed class CodeActionHandler(
     public static readonly CodeActionKind RefactorConvertGoSub = new(RefactoringKinds.ConvertGoSub);
 
     /// <summary>
+    /// The kind of the action that removes a parameter (<see cref="RefactoringKinds.RemoveParameter"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorRemoveParameter = new(RefactoringKinds.RemoveParameter);
+
+    /// <summary>
     /// The kind of the action that moves a procedure above the one before it (<see cref="RefactoringKinds.MoveMemberUp"/>).
     /// </summary>
     public static readonly CodeActionKind RefactorMoveMemberUp = new(RefactoringKinds.MoveMemberUp);
@@ -89,7 +94,9 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorMoveMemberUp, RefactorMoveMemberDown, SourceSortMembers, RefactorEncapsulateField, RefactorImplementInterface, RefactorMoveCloserToUsage, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(
+                CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, RefactorRemoveParameter, RefactorMoveMemberUp, RefactorMoveMemberDown,
+                SourceSortMembers, RefactorEncapsulateField, RefactorImplementInterface, RefactorMoveCloserToUsage, SourceImportProject),
             ResolveProvider = true,
         };
     }
