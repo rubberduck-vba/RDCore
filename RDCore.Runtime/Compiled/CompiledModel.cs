@@ -295,6 +295,10 @@ internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
 // call does.
 internal sealed record class TypeNameTextNode(int Library, int? Slot) : TextNode;
 
+// a call of the typed form of a function of the standard library that returns a String (StdLibIntrinsicAttribute), given the payloads and texts of its
+// arguments as IntrinsicNode gives them: what the form returns.
+internal sealed record class IntrinsicTextNode(MethodInfo Method, IReadOnlyList<PayloadNode> Arguments) : TextNode;
+
 // a call of a function of the standard library that returns a String, each of whose parameters it gives an argument to is a String (Replace): the texts
 // given to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryText), and a parameter given none given what an omitted
 // argument is.
@@ -363,6 +367,10 @@ internal sealed record class VariantForNextStep(int Offset, int Opener, int Body
 
 // a Let of a String variable of the activation - not a fixed-length one: the text written into its cell as it is (MS-VBAL §5.4.3.8).
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
+
+// a Mid statement of a String variable of the activation, in characters (MS-VBAL §5.4.3.5): its start and its length (none when the statement gives none)
+// let-coerced to Long, and the text of the value, given to CompiledActivation.TryMid.
+internal sealed record class MidStep(int Offset, int Slot, PayloadNode Start, PayloadNode? Length, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a String variable of the activation that appends to it (S = S & ...): the texts appended, evaluated before anything is appended, then appended
 // together (StringOperations.TryAppend).
