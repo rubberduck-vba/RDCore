@@ -13,8 +13,8 @@ namespace RDCore.Runtime.Execution;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The model of a module is kept whether or not its code could be loaded: what is wrong with it is what a diagnostics extension is asking after. A module that is
-/// loaded again takes the place of its model. Reads see a consistent snapshot and never block.
+/// The model of a module is kept whether or not its code could be loaded: what is wrong with it is what a diagnostics extension is asking after. A
+/// module that is loaded again takes the place of its model. Reads see a consistent snapshot and never block.
 /// </para>
 /// <para>
 /// A model is stored as soon as the static pass has made it, and the facts that come of evaluating the code (<see cref="ProcedureSemanticModel.Runtime"/>) are
@@ -59,13 +59,13 @@ public sealed class SemanticModelStore
     /// </summary>
     /// <param name="model">The model of a module, as the static pass made it.</param>
     /// <param name="evaluate">
-    /// Finds the facts of the procedures of the module, by their <see cref="Symbol.SemanticId"/>; <see langword="null"/> when there is nothing to evaluate. It runs
-    /// on another thread, at most once - an evaluation still waiting for a thread when the module is stored again or removed never runs - and is given the token
-    /// that stops it: it reads nothing that the thread that stored the model goes on changing.
+    /// Finds the facts of the procedures of the module, by their <see cref="Symbol.SemanticId"/>; <see langword="null"/> when there is nothing to
+    /// evaluate. It runs on another thread, at most once (an evaluation still waiting for a thread when the module is stored again or removed never runs),
+    /// and is given the token that stops it: it reads nothing that the thread that stored the model goes on changing.
     /// </param>
     /// <param name="declarations">
-    /// The facts of the expressions in the module's declarations (the value of a constant, the bounds of an array) that the model was made with; <see langword="null"/>
-    /// when the module has none to give. <see cref="AcrossProject"/> counts the references they make.
+    /// The facts of the expressions in the module's declarations (the value of a constant, the bounds of an array) that the model was made with;
+    /// <see langword="null"/> when the module has none to give. <see cref="AcrossProject"/> counts the references they make.
     /// </param>
     /// <param name="excludedBranchNames">
     /// The names that the module's excluded <c>#If</c> branches write (<see cref="ExcludedBranchNames"/>); <see langword="null"/> when it has none.
@@ -172,8 +172,8 @@ public sealed class SemanticModelStore
     public IReadOnlyCollection<ModuleSemanticModel> All => _models.Values.Select(stored => stored.Model).ToList();
 
     /// <summary>
-    /// The model of every module whose code has been analyzed, with the references to a declaration that only the modules of a project can refer to counted over
-    /// all of them.
+    /// The model of every module whose code has been analyzed, with the references to a declaration that only the modules of a project can refer to
+    /// counted over all of them.
     /// </summary>
     /// <param name="project">The modules of the project.</param>
     /// <remarks>
@@ -195,8 +195,8 @@ public sealed class SemanticModelStore
     /// <param name="module">The <see cref="RDCore.SDK.Model.Symbols.Abstract.Symbol.Uri"/> of the module.</param>
     /// <param name="token">Stops the wait, and not the evaluation.</param>
     /// <remarks>
-    /// A module that is loaded again while this waits is waited for again: what the caller asked after is the module as it is when the wait is over. It is over
-    /// as well when the evaluation was stopped or failed, and then the model has no facts of the code (<see cref="ProcedureSemanticModel.Runtime"/>).
+    /// A module that is loaded again while this waits is waited for again: what the caller asked after is the module as it is when the wait is over. It is
+    /// over as well when the evaluation was stopped or failed, and then the model has no facts of the code (<see cref="ProcedureSemanticModel.Runtime"/>).
     /// </remarks>
     public async Task WhenEvaluatedAsync(Uri module, CancellationToken token = default)
     {
