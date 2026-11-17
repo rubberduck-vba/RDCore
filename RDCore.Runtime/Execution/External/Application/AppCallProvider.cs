@@ -16,23 +16,23 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Runtime.Execution.External.Application;
 
 /// <summary>
-/// Runs Visual Basic 6.0's <c>App</c> (of <c>VB.Global</c>) and the members of the one object it is, which the platform holds itself: what it says comes from the
-/// session's <see cref="SessionApplication"/>.
+/// Runs Visual Basic 6.0's <c>App</c> (of <c>VB.Global</c>) and the members of the one object it is, which the platform holds itself: what it says comes
+/// from the session's <see cref="SessionApplication"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>Path</c> and <c>EXEName</c> are the workspace project's folder and name under <c>rdc run</c>, and the executable's when <c>rdc build</c> built the program.
-/// <c>PrevInstance</c> is whether the same executable was already running, and <see langword="False"/> under <c>rdc run</c>.
+/// <c>Path</c> and <c>EXEName</c> are the workspace project's folder and name under <c>rdc run</c>, and the executable's when <c>rdc build</c> built the
+/// program. <c>PrevInstance</c> is whether the same executable was already running, and <c>False</c> under <c>rdc run</c>.
 /// </para>
 /// <para>
-/// <c>Title</c> is the project's name and the version is 1.0.0, with the six version strings empty, as a new Visual Basic 6.0 project has them. <c>StartMode</c>
-/// is <c>vbSModeStandalone</c>, <c>NonModalAllowed</c> is <see langword="True"/>, <c>RetainedProject</c> is <see langword="False"/>, and <c>UnattendedApp</c>
-/// is whether the program runs unattended (<see cref="IRuntimeSession.RunsUnattended"/>).
+/// <c>Title</c> is the project's name and the version is 1.0.0, with the six version strings empty, as a new Visual Basic 6.0 project has them.
+/// <c>StartMode</c> is <c>vbSModeStandalone</c>, <c>NonModalAllowed</c> is <c>True</c>, <c>RetainedProject</c> is <c>False</c>, and
+/// <c>UnattendedApp</c> is whether the program runs unattended (<see cref="IRuntimeSession.RunsUnattended"/>).
 /// </para>
 /// <para>
-/// <c>TaskVisible</c> and the <c>Ole*</c> properties keep what the program assigns, and change nothing. <c>ThreadID</c> is the operating system's identifier of
-/// the thread the program runs on. <c>hInstance</c> raises error 5 on an operating system other than Windows, and 6 in a 64-bit process, whose handle does not
-/// fit a <c>Long</c>.
+/// <c>TaskVisible</c> and the <c>Ole*</c> properties keep what the program assigns, and change nothing. <c>ThreadID</c> is the operating system's identifier
+/// of the thread the program runs on. <c>hInstance</c> raises error 5 on an operating system other than Windows, and 6 in a 64-bit process, whose handle
+/// does not fit a <c>Long</c>.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose program asks.</param>

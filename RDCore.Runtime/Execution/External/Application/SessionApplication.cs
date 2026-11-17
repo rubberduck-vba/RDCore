@@ -8,8 +8,8 @@ namespace RDCore.Runtime.Execution.External.Application;
 /// What Visual Basic 6.0's <c>App</c> object says of the program a session runs: where it is, its name, and the properties a program sets on it.
 /// </summary>
 /// <remarks>
-/// The host that composes the session says where the program is (<see cref="Runs"/>, <see cref="Built"/>). What the program assigns to <c>App</c> is kept by the
-/// session, which outlives the pipelines that run its programs, until the session is composed again.
+/// The host that composes the session says where the program is (<see cref="Runs"/>, <see cref="Built"/>). What the program assigns to <c>App</c> is kept
+/// by the session, which outlives the pipelines that run its programs, until the session is composed again.
 /// </remarks>
 public sealed class SessionApplication
 {
