@@ -340,9 +340,9 @@ public static class ParameterRemoval
         return (sites, null);
     }
 
-    // an argument whose evaluation does nothing but read a value (MS-VBAL §5.6.13.1): an omitted one, a literal, Me, or the name of a variable, a parameter or a
-    // constant; a constant or a member of an Enum qualified by its module or its Enum. Anything else may call a procedure or raise an error, which removing the
-    // argument would no longer do.
+    // an argument whose evaluation does nothing but read a value (MS-VBAL §5.6.13.1): an omitted one, a literal, Me, or the name of a variable, a
+    // parameter or a constant; a constant or a member of an Enum qualified by its module or its Enum. Anything else may call a procedure or raise an
+    // error, which removing the argument would no longer do.
     internal static bool IsInert(RenameContext context, ExpressionNode argument, Func<ExpressionNode, SemanticId?> bindingOf) => argument switch
     {
         MissingArgumentNode or LiteralExpressionNode or InstanceExpressionNode => true,

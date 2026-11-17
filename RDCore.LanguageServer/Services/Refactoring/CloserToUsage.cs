@@ -22,7 +22,8 @@ namespace RDCore.LanguageServer.Services.Refactoring;
 internal enum CloserToUsageRefusalKind
 {
     /// <summary>
-    /// What is named at the position is not a variable of a module's declaration section, nor a variable a procedure declares with <c>Dim</c> or <c>Static</c>.
+    /// What is named at the position is not a variable of a module's declaration section, nor a variable a procedure declares with <c>Dim</c> or
+    /// <c>Static</c>.
     /// </summary>
     NotAVariable,
 
@@ -271,7 +272,8 @@ internal static class CloserToUsage
         }
     }
 
-    // whether a declaration of a procedure is already where it would go: directly before the statement, with nothing but declarations between them, or after it.
+    // whether a declaration of a procedure is already where it would go: directly before the statement, with nothing but declarations between them,
+    // or after it.
     private static bool IsClose(VariableDeclarationNode declaration, SyntaxNode before, IReadOnlyList<SyntaxNode> list)
     {
         var (from, to) = (IndexOf(list, declaration), IndexOf(list, before));

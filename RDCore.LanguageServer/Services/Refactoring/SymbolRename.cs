@@ -421,8 +421,8 @@ public static class SymbolRename
             .Select(site => new RenameEdit(site.Module, site.Range, newName))], null);
     }
 
-    // where a name is written as a type's: its declaration, an As clause, the qualifier of an Enum's member (a value's place). With no type, every place the name
-    // is written as one.
+    // where a name is written as a type's: its declaration, an As clause, the qualifier of an Enum's member (a value's place). With no type, every place the
+    // name is written as one.
     // a name bound to the default instance of the class, which the class names.
     private static bool IsDefaultInstanceOf(RenameContext context, SemanticId binding, Symbol type)
         => NameOccurrences.SymbolOf(context, binding) is VBPredeclaredInstanceSymbol { ClassModule: var predeclaring } && predeclaring.SemanticId == type.SemanticId;
@@ -462,8 +462,8 @@ public static class SymbolRename
         }
     }
 
-    // MS-VBAL §5.2.3.3, §5.2.3.4: a Private Type or Enum is named as no other Type or Enum of its module; a Public one as no Public Type or Enum of its project, no
-    // module of it, no project and no library.
+    // MS-VBAL §5.2.3.3, §5.2.3.4: a Private Type or Enum is named as no other Type or Enum of its module; a Public one as no Public Type or Enum of its
+    // project, no module of it, no project and no library.
     private static RenameRefusal? TypeConflictOf(RenameContext context, Symbol type, string newName)
     {
         var declaring = NameOccurrences.ModuleOf(type.Uri);
@@ -508,8 +508,8 @@ public static class SymbolRename
     // MS-VBAL §4.2
     private const int MaxModuleName = 31;
 
-    // a module is named by its VB_Name attribute (MS-VBAL §4.2), where its name means it, in the Implements directives of the classes that implement it, and in
-    // the procedures that implement its members, which are named after it (MS-VBAL §5.3.1.9): only the part before the underscore is renamed.
+    // a module is named by its VB_Name attribute (MS-VBAL §4.2), where its name means it, in the Implements directives of the classes that implement it, and
+    // in the procedures that implement its members, which are named after it (MS-VBAL §5.3.1.9): only the part before the underscore is renamed.
     private static RenamePlan PlanModule(RenameContext context, VBModuleSymbol module, string newName)
     {
         if (newName.Length > MaxModuleName)
@@ -718,8 +718,8 @@ public static class SymbolRename
         }
     }
 
-    // MS-VBAL §4.2, §5.2.3.3, §5.2.3.4: a module is named as no other module of its project, no project it is in or references, and no Public Type or Enum of
-    // its project.
+    // MS-VBAL §4.2, §5.2.3.3, §5.2.3.4: a module is named as no other module of its project, no project it is in or references, and no Public Type or Enum
+    // of its project.
     private static RenameRefusal? ModuleConflictOf(RenameContext context, VBModuleSymbol module, string newName)
     {
         var declaring = NameOccurrences.ModuleOf(module.Uri);
@@ -898,8 +898,8 @@ public static class SymbolRename
     private static bool IsOwnProject(Symbol symbol) => symbol is VBProjectSymbol && symbol.GetProperty(SymbolProperties.Library) is null;
 
     // MS-VBAL §5.6.12: the workspace's project is renamed where its name qualifies a module or a type (Billing.Tools.Go), and in its project file. The new
-    // name is not that of a module of the project, nor of a library it references, which the same qualifier would mean. MS-VBAL §5.2.3.3, §5.2.3.4: nor is it
-    // that of a Public Type or Enum of the project or of a library it references.
+    // name is not that of a module of the project, nor of a library it references, which the same qualifier would mean. MS-VBAL §5.2.3.3, §5.2.3.4:
+    // nor is it that of a Public Type or Enum of the project or of a library it references.
     private static RenamePlan PlanProject(RenameContext context, Symbol project, string newName)
     {
         if (context.Modules.FirstOrDefault(module => string.Equals(SymbolUri.ModuleNameOf(module.Module), newName, StringComparison.OrdinalIgnoreCase)) is { } named)

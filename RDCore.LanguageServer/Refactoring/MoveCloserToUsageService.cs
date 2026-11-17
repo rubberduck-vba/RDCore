@@ -9,8 +9,8 @@ using RDCore.SDK.Semantics.Refactoring;
 namespace RDCore.LanguageServer.Refactoring;
 
 /// <summary>
-/// Move Closer To Usage (<see cref="RefactoringKinds.MoveCloserToUsage"/>), of the variable named at a position of a document: what it asks and what it refuses
-/// or changes, and the edit it makes with the user's answer.
+/// Move Closer To Usage (<see cref="RefactoringKinds.MoveCloserToUsage"/>), of the variable named at a position of a document: what it asks and what it
+/// refuses or changes, and the edit it makes with the user's answer.
 /// </summary>
 internal interface IMoveCloserToUsageService
 {

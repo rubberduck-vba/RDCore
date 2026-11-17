@@ -68,8 +68,8 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
             }
         }
 
-        // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit. The edit of a file once
-        // it is renamed (a designer's text naming its renamed binary file) goes with the rename.
+        // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit. The edit of a file
+        // once it is renamed (a designer's text naming its renamed binary file) goes with the rename.
         if (!TakesFileRenames(_client) && edit.DocumentChanges is { } documentChanges && documentChanges.Any(change => change.IsRenameFile))
         {
             var renamedTo = documentChanges.Where(change => change.IsRenameFile).Select(change => change.RenameFile!.NewUri.ToString()).ToHashSet(StringComparer.Ordinal);

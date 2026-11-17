@@ -341,8 +341,8 @@ internal sealed class RenameWorkspace
         if (plan.Module is { } renamedModule && part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == renamedModule.AbsoluteUri) is { } file
             && FileRenameOf(file, target.Name, newName) is { } renameFile)
         {
-            // a designer's binary file (Dialog.frx), which its text names, is renamed with it, then its text names the new one. Neither file is renamed over one
-            // that exists: the client refuses the edit, and the text does not name a file it was not renamed to.
+            // a designer's binary file (Dialog.frx), which its text names, is renamed with it, then its text names the new one. Neither file is renamed over
+            // one that exists: the client refuses the edit, and the text does not name a file it was not renamed to.
             if (CompanionOf(file, newName) is { } companion)
             {
                 renameFile = renameFile with { Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false } };
