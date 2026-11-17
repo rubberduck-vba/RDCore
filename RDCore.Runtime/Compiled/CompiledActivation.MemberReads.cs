@@ -90,21 +90,40 @@ public sealed partial class CompiledActivation
             && (held is VBVariantValue { TypedValue: var inner } ? inner : held) is VBObjectValue target && !target.IsNothing()
             && _session.Symbols.TryGetInstance(target.Value, out var instance) ? instance : null;
 
+    // the public variable the member access numbered number finds of instance, and its cell: found as the interpreter finds it (EvaluateBoundMember), and
+    // kept for the access until it is of another object or a module is defined again (MemberFieldCell). None when the class has a procedure for the member.
+    private MemberFieldCell? MemberFieldOf(int number, IObjectInstance instance)
+    {
+        var scopes = _session.Symbols.Scopes;
+        var known = _body.MemberFieldCells ??= new MemberFieldCell?[_body.MemberFields.Count];
+        if (known[number] is { } cached && cached.Object.Equals(instance.ObjectId) && ReferenceEquals(cached.Scopes, scopes))
+        {
+            return cached;
+        }
+
+        if (_executor.Expressions.MemberOf(_body.MemberFields[number].Site, instance.ClassModule) is not VBModuleFieldVariableMemberSymbol field
+            || !instance.TryResolve(field, out var held))
+        {
+            return null;
+        }
+
+        var found = new MemberFieldCell(instance.ObjectId, scopes, field, held, held is ScalarCell cell ? ScalarKinds.Of(cell.Type) : null);
+        known[number] = found;
+        return found;
+    }
+
     // the text of a String public variable of variable length of instance, in its cell.
     private bool TryReadTextOf(int number, IObjectInstance? instance, out string? text)
     {
         text = null;
-        var read = _body.MemberFields[number];
-        return instance is not null && _executor.Expressions.MemberOf(read.Site, instance.ClassModule) is VBModuleFieldVariableMemberSymbol { ResolvedType: VBStringType and not VBFixedStringType } field
-            && instance.TryResolve(field, out var held) && StringOperations.TryRead(held, out text);
+        return instance is not null && MemberFieldOf(number, instance) is { Field.ResolvedType: VBStringType and not VBFixedStringType } found
+            && StringOperations.TryRead(found.Held, out text);
     }
 
     private bool TryReadFieldOf(int number, IObjectInstance? instance, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        var read = _body.MemberFields[number];
-        if (instance is null || _executor.Expressions.MemberOf(read.Site, instance.ClassModule) is not VBModuleFieldVariableMemberSymbol field
-            || !instance.TryResolve(field, out var held) || held is not ScalarCell cell || ScalarKinds.Of(cell.Type) != read.Kind
+        if (instance is null || MemberFieldOf(number, instance) is not { Held: ScalarCell cell } found || found.Kind != _body.MemberFields[number].Kind
             || !cell.TryRead(out var payload))
         {
             return false;
@@ -141,10 +160,8 @@ public sealed partial class CompiledActivation
     // the value written in the cell of a scalar public variable of an instance, of the kind it was let-coerced to; nothing written when the cell is of another kind.
     private bool TryLetFieldOf(int number, IObjectInstance? instance, long integral, double floating)
     {
-        var let = _body.MemberFields[number];
-        if (FailsAccessAtRandom() || instance is null
-            || _executor.Expressions.MemberOf(let.Site, instance.ClassModule) is not VBModuleFieldVariableMemberSymbol field
-            || !instance.TryResolve(field, out var held) || held is not ScalarCell cell || ScalarKinds.Of(cell.Type) != let.Kind)
+        if (FailsAccessAtRandom() || instance is null || MemberFieldOf(number, instance) is not { Held: ScalarCell cell } found
+            || found.Kind != _body.MemberFields[number].Kind)
         {
             return false;
         }

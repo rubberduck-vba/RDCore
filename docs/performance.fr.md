@@ -134,12 +134,20 @@ le nombre d'appels qui décide du temps que prend le code.
 
 ## Comment les chiffres sont mesurés
 
-- **L'exécution de référence.** Sur la machine de référence, MS-VBA et RD-VBA exécutent le corpus en trois rondes alternées, MS-VBA en premier à chaque
-  ronde. Chaque cas s'exécute sept fois par ronde (cinq pour l'automatisation d'Excel), et le chiffre retenu est l'exécution la plus rapide.
-  L'exécution de référence est refaite quand le corpus change.
+- **L'exécution de référence.** Sur la machine de référence, MS-VBA et RD-VBA exécutent le corpus en cinq rondes alternées (MS-VBA en premier aux quatre
+  premières, RD-VBA en premier à la cinquième), et les cas d'automatisation d'Excel en trois rondes, MS-VBA en premier. Chaque cas s'exécute sept fois
+  par ronde (cinq pour l'automatisation d'Excel), et le chiffre retenu est l'exécution la plus rapide. L'exécution de référence est refaite quand le
+  corpus change.
 - **À chaque fusion.** Une machine de compilation Windows exécute le corpus en trois rondes alternées avec deux compilations de `rdc` : celle de la
   fusion, et celle de l'exécution de référence. Le temps de RD-VBA pour un cas est celui de l'exécution de référence, multiplié par le rapport entre les
-  deux compilations sur cette machine. Comparer les deux compilations sur une même machine écarte la vitesse propre de cette machine.
+  deux compilations sur cette machine. Comparer les deux compilations sur une même machine écarte la vitesse propre de cette machine. Le fichier des
+  chiffres (`bench.json`, sur la branche `badges`) nomme le processeur de cette machine.
+- **Chaque exécution part d'un tas récupéré.** Avant chaque exécution chronométrée, `rdc bench` lance une récupération de mémoire sur tout le tas :
+  qu'une récupération de mémoire tombe pendant une exécution ne dépend alors que de ce que cette exécution alloue et garde. Le temps d'une récupération
+  pendant une exécution fait partie du chiffre.
+- **Allocation.** Pour chaque cas, `rdc bench` donne aussi ce que son exécution la plus rapide a alloué et les récupérations de mémoire de chaque
+  génération faites pendant celle-ci (les colonnes `allocated` et `gc 0/1/2`). À chaque fusion, elles sont consignées à côté des temps dans le fichier
+  des chiffres, pour la compilation de la fusion. Elles ne dépendent pas de la vitesse de la machine. Les badges ne donnent que le rapport.
 - **Résolution.** `rdc bench` donne les temps au dixième de milliseconde : un cas qui prend moins d'une milliseconde est juste à environ ±0,05 ms.
 
 ## Écrire du code qui s'exécute bien
