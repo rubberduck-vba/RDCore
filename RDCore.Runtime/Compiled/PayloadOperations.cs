@@ -360,7 +360,7 @@ public static class PayloadOperations
 
         // MS-VBAL §5.5.1.2.1: a Double, or a Date's serial (§5.5.1.2.3), is the Single nearest it when it is within the magnitude range of a Single, and
         // otherwise an overflow, as the boxed coercion converts it (VBNumericType.IsWithinRange, then the Single the type makes of it). An infinity or a NaN
-        // is a Single as it is (MS-VBAL §2.4), which the boxed coercion lets through too.
+        // is made a Single as it is, as the boxed coercion makes it, where MS-VBAL §5.5.1.2.1 raises error 6 (ANonFiniteDouble_RaisesError6, ignored).
         if (from is ScalarKind.Double or ScalarKind.Date && to is ScalarKind.Single)
         {
             if (double.IsFinite(floating) && !VBNumericType.IsWithinRange(floating, (VBNumericType)ScalarKinds.TypeOf(to)))
