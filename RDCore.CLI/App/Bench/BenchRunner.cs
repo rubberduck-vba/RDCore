@@ -373,7 +373,7 @@ internal sealed class BenchRunner(
             // the parser reads text alone: a form's designer is set on its parse from its text and its companion file, as the language server sets it.
             var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
             {
-                Designer = FormDesigner.Read(module.Source, module.Companion, out var designerProblem),
+                Designer = FormDesigner.Read(module.RelativePath, module.Source, module.Companion, out var designerProblem),
             };
             if ((module.CompanionProblem ?? designerProblem) is { } problem)
             {

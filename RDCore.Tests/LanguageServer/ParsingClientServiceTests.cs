@@ -11,6 +11,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -126,6 +127,32 @@ public sealed class ParsingClientServiceTests
 
         Assert.AreEqual(ModuleType.ClassModule, ParsingClientService.ModuleTypeOf(classWithoutClsExtension));
         Assert.AreEqual(ModuleType.StdModule, ParsingClientService.ModuleTypeOf(standardWithClsExtension));
+    }
+
+    // a form ported to RDForms: its .rdform has no VERSION header, and its controls are in the .xaml beside it, the document's companion.
+    private const string PortedCode = "Attribute VB_Name = \"Form1\"\r\nAttribute VB_PredeclaredId = True\r\nOption Explicit\r\n";
+
+    private const string PortedDocument =
+        "<Form xmlns=\"https://rubberduckvba.ca/schemas/rdforms\" FormatVersion=\"1\" Name=\"Form1\" Caption=\"Ported\">\n" +
+        "  <TextBox Name=\"Text1\" Text=\"Text1\" TabIndex=\"0\" />\n" +
+        "</Form>\n";
+
+    [TestMethod]
+    public void ModuleTypeOf_APortedForm_IsAClassModule_ByItsRDFormExtension()
+        => Assert.AreEqual(ModuleType.ClassModule, ParsingClientService.ModuleTypeOf(new WorkspaceDocument("Forms/Form1.rdform", Root, PortedCode)));
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfAPortedForm_SetsTheFormItsDocumentDeclares()
+    {
+        FormDesigner.Register(RDCore.Forms.Xaml.FormXamlDocumentReader.Instance);
+        var (sut, _, documents) = Build();
+        var uri = new Uri("file:///c:/ws/Forms/Form1.rdform");
+        StubDocument(documents, uri, new WorkspaceDocument("Forms/Form1.rdform", Root, PortedCode) { Companion = System.Text.Encoding.UTF8.GetBytes(PortedDocument) });
+
+        var designer = (await sut.ParseDocumentAsync(uri, CancellationToken.None)).Designer;
+
+        Assert.AreEqual(FormDesignerKind.RDForms, designer?.Kind);
+        Assert.AreEqual("Text1", designer!.DeclaredControls().Single().Name);
     }
 
     [TestMethod]
