@@ -95,7 +95,8 @@ public static class ExternalProtocol
     public const string FormDoEvents = "rdcore/external/forms/doEvents";
 
     /// <summary>
-    /// <c>rdcore/external/forms/keepSystemTheme</c>: whether the forms' windows follow the application's theme (<see cref="Forms.IFormHost.KeepSystemTheme"/>).
+    /// <c>rdcore/external/forms/keepSystemTheme</c>: whether the forms' windows follow the application's theme
+    /// (<see cref="Forms.IFormHost.KeepSystemTheme"/>).
     /// </summary>
     public const string FormKeepSystemTheme = "rdcore/external/forms/keepSystemTheme";
 

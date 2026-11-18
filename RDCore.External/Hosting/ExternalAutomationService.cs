@@ -208,7 +208,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     /// <summary>
     /// Answers <see cref="ExternalProtocol.FormKeepSystemTheme"/>.
     /// </summary>
-    /// <param name="request">Whether the forms' windows follow the application's theme.</param>
+    /// <param name="request">The request, which says whether the forms' windows follow the application's theme.</param>
     public ExternalDoneResult KeepSystemTheme(FormKeepSystemThemeParams request) => Answer(request.HandlingEvent, () =>
     {
         _forms.KeepSystemTheme = request.KeepSystemTheme;
