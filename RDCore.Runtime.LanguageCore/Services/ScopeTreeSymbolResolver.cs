@@ -144,7 +144,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         var root = from is { Project: { } own, Library: { } ownLibrary } && string.Equals(ownLibrary, library, StringComparison.Ordinal)
             ? own
             : project.WorkspaceRoot;
-        return ResolveType(name, root, symbol => string.Equals(symbol.GetProperty(SymbolProperties.Library) ?? string.Empty, library, StringComparison.Ordinal));
+        return ResolveType(name, root,
+            symbol => string.Equals(symbol.GetProperty(SymbolProperties.Library) ?? string.Empty, library, StringComparison.Ordinal));
     }
 
     private SymbolResolutionResult ResolveType(string name, Uri handle, Func<Symbol, bool> isOfProject)

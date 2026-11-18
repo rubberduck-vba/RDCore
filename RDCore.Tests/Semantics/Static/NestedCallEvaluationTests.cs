@@ -49,7 +49,8 @@ public sealed class NestedCallEvaluationTests
         public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => resolver.ResolveType(name, scope, handle);
         public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle) => resolver.ResolveQualifier(name, scope, handle);
         public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name) => resolver.ResolveProjectType(project, name);
-        public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle) => resolver.ResolveProjectType(project, name, handle);
+        public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle)
+            => resolver.ResolveProjectType(project, name, handle);
         public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle) => resolver.ResolveConditionalConstant(name, scope, handle);
         public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle) => resolver.ResolveMember(owner, name, handle);
     }

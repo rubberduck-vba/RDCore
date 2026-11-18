@@ -223,8 +223,8 @@ public sealed class DefineSymbolsHandlerTests
             "the referenced project's procedure is not a member of the session's module");
     }
 
-    // what the referenced project keeps to itself is defined, since its own code runs in the session, and is no name of the project's: a class it does not
-    // expose (MS-VBAL §5.2.4.1.1), and a private procedure (MS-VBAL §5.3.1.1).
+    // what the referenced project keeps to itself is defined, since its own code runs in the session, and the project's code does not see it by name: a
+    // class it does not expose (MS-VBAL §5.2.4.1.1), and a private procedure (MS-VBAL §5.3.1.1).
     [TestMethod]
     public async Task WhatAReferencedProjectDoesNotExpose_IsDefined_AndIsNoNameOfTheProject()
     {
