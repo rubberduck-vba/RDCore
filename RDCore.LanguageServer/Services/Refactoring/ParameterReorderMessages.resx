@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Reorder Parameters: {0} is the procedure (or a parameter), {1} another name, {2} where. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ReorderParameters_Title" xml:space="preserve">
+    <value>Reorder the parameters of '{0}'</value>
+  </data>
+  <data name="ReorderParameters_Choice" xml:space="preserve">
+    <value>Parameters</value>
+  </data>
+  <data name="ReorderParameters_ChoiceDescription" xml:space="preserve">
+    <value>The order of the parameters. Every call passes its arguments in that order.</value>
+  </data>
+  <data name="ReorderParameters_NotAccepted" xml:space="preserve">
+    <value>The change is not accepted: {0}</value>
+  </data>
+  <data name="ReorderParameters_NoProcedure" xml:space="preserve">
+    <value>There is no procedure here whose parameters can be reordered.</value>
+  </data>
+  <data name="ReorderParameters_OneParameter" xml:space="preserve">
+    <value>'{0}' has fewer than two parameters to reorder.</value>
+  </data>
+  <data name="ReorderParameters_NotDeclaredByWorkspace" xml:space="preserve">
+    <value>'{0}' is not declared by the workspace: only what the workspace declares can be changed.</value>
+  </data>
+  <data name="ReorderParameters_Event" xml:space="preserve">
+    <value>'{0}' is an event: reordering the parameters of an event is not supported.</value>
+  </data>
+  <data name="ReorderParameters_Handler" xml:space="preserve">
+    <value>'{0}' handles an event, and takes the parameters of the event in their order: it keeps them.</value>
+  </data>
+  <data name="ReorderParameters_ExternalProcedure" xml:space="preserve">
+    <value>'{0}' is declared by its library: its parameters cannot be reordered.</value>
+  </data>
+  <data name="ReorderParameters_Order" xml:space="preserve">
+    <value>The new order must name each parameter of '{0}' once.</value>
+  </data>
+  <data name="ReorderParameters_Optional" xml:space="preserve">
+    <value>'{0}' is required, and would come after the optional parameter '{1}': optional parameters come last.</value>
+  </data>
+  <data name="ReorderParameters_ParamArray" xml:space="preserve">
+    <value>'{0}' is a ParamArray: it stays the last parameter.</value>
+  </data>
+  <data name="ReorderParameters_Mismatched" xml:space="preserve">
+    <value>The parameters of '{1}' are not those of the procedure it changes with: they cannot be reordered together.</value>
+  </data>
+  <data name="ReorderParameters_Evaluated" xml:space="preserve">
+    <value>The arguments of the call to '{0}' at {2} would be evaluated in another order, and they do more than read a value: reordering them can change what the code does.</value>
+  </data>
+  <data name="ReorderParameters_LateBound" xml:space="preserve">
+    <value>'{0}' may be called late-bound at {2}: the arguments passed there would not be reordered.</value>
+  </data>
+  <data name="ReorderParameters_CalledByName" xml:space="preserve">
+    <value>'{0}' is called by its name in a string at {2}: the arguments passed there would not be reordered.</value>
+  </data>
+  <data name="ReorderParameters_Unresolved" xml:space="preserve">
+    <value>What '{0}' refers to at {2} is not known: the change could miss it.</value>
+  </data>
+  <data name="ReorderParameters_MayEvaluate" xml:space="preserve">
+    <value>The call to '{0}' at {2} passes arguments that do more than read a value: another order can change what the code does.</value>
+  </data>
+</root>

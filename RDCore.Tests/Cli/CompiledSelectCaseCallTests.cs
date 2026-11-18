@@ -5,9 +5,9 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A call in the selector of a <c>Select Case</c>, made by compiled code: the selector is evaluated once each time the <c>Select</c> runs
-/// (MS-VBAL §5.4.2.10). A <c>Case</c> whose values call is the interpreter's, which compares its clauses in order until one matches. An error after a
-/// call is the interpreter's, given what compiled code evaluated: the call is not made again. A program runs the same either way.
+/// A call in the selector of a <c>Select Case</c>, or in a value of a <c>Case</c>, made by compiled code: the selector is evaluated once each time the
+/// <c>Select</c> runs, and the values of a <c>Case</c> as its clauses are compared, in order, until one matches (MS-VBAL §5.4.2.10). An error after a call
+/// is the interpreter's, given what compiled code evaluated: the call is not made again. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledSelectCaseCallTests
@@ -92,7 +92,6 @@ public sealed class CompiledSelectCaseCallTests
     // the values of a Case each a call: a clause is compared only until one matches, so that a call of a later one is not made; both ends of a To range
     // are called.
     [TestMethod]
-    [Ignore("a Case that calls is the interpreter's: the values of its range clauses are not among the nodes of its statement (CaseExpressionStatementNode.Children), which name what compiled code evaluated of it")]
     public async Task ACaseValueThatCallsAFunction_IsCalledOnlyWhenItsClauseIsCompared()
     {
         var result = await AssertAlikeAsync(Program([
@@ -116,7 +115,8 @@ public sealed class CompiledSelectCaseCallTests
         AssertNoneStepped(result);
     }
 
-    // an error in a value of a Case, after a call in it, under On Error GoTo: the call is made once, and the error goes to the handler.
+    // an error in a value of a Case, after a call in it, under On Error GoTo: the interpreter is given what compiled code called, and does not call it
+    // again; the error goes to the handler.
     [TestMethod]
     public async Task AnErrorInACaseValue_AfterACall_GoesToTheHandler_TheCallMadeOnce()
         => await AssertAlikeAsync(Program([

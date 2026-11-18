@@ -138,6 +138,8 @@ public static class WorkspaceSymbolResolver
                         HostClass = moduleType == ModuleType.DocumentModule && documentHosts?.TryGetValue(moduleName, out var super) == true
                             ? ModuleKinds.HostClassOf(super)
                             : null,
+                        // a UserControl's, a PropertyPage's or a UserDocument's code names the members of the class its designer block names.
+                        BaseClass = parseResult.Designer?.BaseClass,
                         Directives = directives,
                         ImplementedInterfaceNames = implementedInterfaceNames,
                         ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],

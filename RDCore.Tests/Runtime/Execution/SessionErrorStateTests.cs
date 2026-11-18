@@ -256,4 +256,17 @@ public sealed class SessionErrorStateTests
 
         Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, session.Errors.Current!.ErrorId);
     }
+
+    // every code an error can have, against the rule as the enum states it: a VBA run-time error's own message below RD-VBA's codes, 95 for any other code,
+    // and 440 outside the range of a standard error code.
+    [TestMethod]
+    public void TheHelpContext_IsTheMessageOfEachCode()
+    {
+        foreach (var number in Enumerable.Range(-2, 65540).Append(int.MinValue).Append(int.MaxValue))
+        {
+            var message = number is < 0 or > 65535 ? 440
+                : number < (int)VBRuntimeErrorId.NobodyToAnswer && Enum.IsDefined(typeof(VBRuntimeErrorId), number) ? number : 95;
+            Assert.AreEqual(1000000 + message, SessionErrorState.HelpContextOf(number), $"{number}");
+        }
+    }
 }

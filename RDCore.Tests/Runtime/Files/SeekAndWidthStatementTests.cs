@@ -14,6 +14,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// Together because they are the two statements the specification's own statement/mode table allows in every
 /// mode, and because each is one dial: where the next operation happens, and how long a line may get.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.3 Seek")]
 [TestCategory("MS-VBAL 5.4.5.7 Width")]

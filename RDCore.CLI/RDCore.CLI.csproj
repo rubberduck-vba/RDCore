@@ -68,6 +68,8 @@
   <ItemGroup>
     <!-- the corpus rdc bench runs when it is given no workspace. -->
     <EmbeddedResource Include="Bench\Corpus\*.bas;Bench\Corpus\*.cls" LogicalName="Bench/Corpus/%(Filename)%(Extension)" />
+    <!-- the Excel automation cases of rdc bench-msvba: ExcelCases.bas runs on both sides, Program.bas is the RD-VBA program that calls it. -->
+    <EmbeddedResource Include="Bench\Excel\*.bas" LogicalName="Bench/Excel/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

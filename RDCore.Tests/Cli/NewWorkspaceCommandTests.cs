@@ -6,6 +6,7 @@ using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Cli;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class NewWorkspaceCommandTests
 {

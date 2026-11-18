@@ -6,6 +6,7 @@ using RDCore.SDK.Extensibility;
 
 namespace RDCore.Tests.LanguageServer;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ExtensionFindingsTests
 {
