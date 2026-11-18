@@ -38,17 +38,20 @@ public sealed class RDFormsFailedStartTests
             "Attribute VB_Name = \"Program\"",
             "Option Explicit",
             "Public Sub Main()",
+            "    Dim f As Form1",
             "    On Error Resume Next",
-            "    Load Form1",
+            "    Set f = New Form1",
+            "    Load f",
             "    Debug.Print \"first: \" & Err.Number & \" \" & Err.Description",
             "    Err.Clear",
-            "    Load Form1",
+            "    Set f = New Form1",
+            "    Load f",
             "    Debug.Print \"again: \" & Err.Number & \" \" & Err.Description",
             "End Sub",
             string.Empty));
         File.WriteAllText(Path.Combine(workspace, ".rdproj"), """
             { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "Form1.frm" } ],
-              "SourceProject": "Probe.vbp" } }
+              "References": [ { "Name": "VB" }, { "Name": "VBRUN" } ] } }
             """);
 
         var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "rdc"))
