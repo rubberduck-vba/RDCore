@@ -25,7 +25,7 @@ internal sealed partial class ProcedureAnalysis
     private readonly SortedSet<int> _textSlots = [];
 
     // a String that holds the text it is assigned as it is.
-    private static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
+    internal static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
 
     // a String parameter or variable, held in the cell its frame holds it in.
     private void HoldText(int slot, Symbol symbol)

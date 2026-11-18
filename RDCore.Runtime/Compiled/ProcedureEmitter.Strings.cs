@@ -304,7 +304,7 @@ internal sealed partial class ProcedureEmitter
     private void EmitLibraryVariantText(LibraryVariantTextNode node, LocalBuilder text, Label failure)
     {
         var offset = _knowingAt;
-        var (payloads, values) = EmitLibraryArguments(node.Arguments, failure);
+        var (payloads, values) = EmitLibraryArguments(node.Library, node.Arguments, failure);
         LoadLibraryArguments(offset, node.Library, payloads, values);
         _il.Emit(OpCodes.Ldloca, text);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryCallLibraryVariantText))!);

@@ -148,6 +148,15 @@ internal sealed partial class ProcedureAnalysis
                 return null;
             }
 
+            // a call of the workspace that returns a String or a Variant, inside an instruction that calls inside an expression, given to a Variant parameter:
+            // what it returns, given as the interpreter gives it (CallValueNode).
+            if (parameter.ResolvedType is VBVariantType && arguments[i] is { Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } called }
+                && ValueCallOf(called) is { } valued)
+            {
+                values.Add(valued);
+                continue;
+            }
+
             // an expression of Strings given to a Variant parameter, which takes it by value, is given a Variant holding its text (VariantTextNode); given to a
             // String parameter, its text (StringArgumentNode). That is done only outside an instruction that calls inside an expression, whose known operands
             // are payloads. A String parameter takes nothing else.

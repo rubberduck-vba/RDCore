@@ -594,7 +594,33 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultVariant))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                break;
+            }
+
+            // a Variant, or the Variant result of the function, assigned what a member of a class of the standard library returns: a value of a scalar type
+            // written as a payload, as a VariantLetStep or a VariantResultLetStep writes one; anything else assigned by the call (EmitLibraryMemberCall).
+            case LibraryMemberLetStep memberLet:
+            {
+                var failure = RecoverAt(memberLet.Offset);
+                var value = _il.DeclareLocal(typeof(VariantPayload));
+                var assigned = _il.DefineLabel();
+                EmitLibraryMemberCall(memberLet.Call, value, failure, assigned);
+                if (memberLet.Slot is { } slot)
+                {
+                    _il.Emit(OpCodes.Ldloc, _variants[slot]);
+                    _il.Emit(OpCodes.Ldloc, value);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
+                }
+                else
+                {
+                    _il.Emit(OpCodes.Ldarg_0);
+                    _il.Emit(OpCodes.Ldloc, value);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultVariant))!);
+                }
+
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                _il.MarkLabel(assigned);
                 break;
             }
 
@@ -922,9 +948,11 @@ internal sealed partial class ProcedureEmitter
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
         // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has. A member given an object is called
         // through its binding, which gives the object to its parameter as the interpreter gives it, and so is one given a Variant it leaves out. One that
-        // returns an object is called through the invoker, which holds what it returns as the statement's temporary.
-        var direct = _analysis.Callees[call.Callee].ReturnsObject ? null : _directs[call.Callee];
-        if (direct is not null || call.IsOfAMember && !_analysis.Callees[call.Callee].Parameters.Contains(null) && !_analysis.Callees[call.Callee].ReturnsObject)
+        // returns an object, or a String or a Variant given to the standard library, is called through the invoker, which holds what it returns as the
+        // statement's temporary.
+        var returnsWhole = _analysis.Callees[call.Callee] is { ReturnsObject: true } or { ReturnsValue: true };
+        var direct = returnsWhole ? null : _directs[call.Callee];
+        if (direct is not null || call.IsOfAMember && !_analysis.Callees[call.Callee].Parameters.Contains(null) && !returnsWhole)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -1039,6 +1067,16 @@ internal sealed partial class ProcedureEmitter
             {
                 _il.Emit(OpCodes.Ldc_I4, call.Callee);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetOmitted))!);
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
+                continue;
+            }
+
+            // a Variant variable given by reference: its address. One compiled code can't give is the interpreter's, which makes the call.
+            if (call.Arguments[i] is VariantReferenceNode variant)
+            {
+                _il.Emit(OpCodes.Ldc_I4, call.Callee);
+                _il.Emit(OpCodes.Ldc_I4, variant.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetVariantReference))!);
                 _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
                 continue;
             }
@@ -1780,8 +1818,9 @@ internal sealed partial class ProcedureEmitter
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
 
-            // an optional Variant left out is given as the call is made (CompiledActivation.SetOmitted).
-            case OmittedArgumentNode:
+            // an optional Variant left out, and a Variant variable given by reference, are given as the call is made (CompiledActivation.SetOmitted,
+            // SetVariantReference).
+            case OmittedArgumentNode or VariantReferenceNode:
                 return default;
             default:
                 return EmitPayload(node, failure);
