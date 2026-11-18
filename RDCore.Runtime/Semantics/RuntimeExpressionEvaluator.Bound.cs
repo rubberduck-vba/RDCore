@@ -462,7 +462,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private static bool IsLateBoundAsLibraryClass(VBClassModuleSymbol actual, VBClassModuleSymbol declared)
         => Execution.External.Automation.LateBinding.IsLateBound(actual) && !Execution.External.Automation.LateBinding.IsLateBound(declared)
-            && declared.GetProperty(SymbolProperties.Library) is { Length: > 0 };
+            && SymbolProperties.IsOfALibraryProject(declared);
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundBinary(IRuntimeSession session, BoundBinary binary, RuntimeEvaluationContext context)
     {

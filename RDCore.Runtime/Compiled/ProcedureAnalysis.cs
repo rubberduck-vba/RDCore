@@ -825,7 +825,7 @@ internal sealed partial class ProcedureAnalysis
         bool returnsText = false)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
-            || procedure.GetProperty(SymbolProperties.Library) is not null || procedure.GetProperty(SymbolProperties.ExternalTarget) is not null
+            || SymbolProperties.IsOfALibraryProject(procedure) || procedure.GetProperty(SymbolProperties.ExternalTarget) is not null
             || IsDeclared(procedure) || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
         {
             return null;

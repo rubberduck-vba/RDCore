@@ -33,7 +33,8 @@ internal static class HeldDefinitions
 
     // LoadsCode: the request loads the module's code, and what it says is wrong with it is what the module fails to load with.
     // Held: a definition was held when it was made, and it was made against the declarations as they were.
-    private sealed record class Request(string Key, string Module, bool LoadsCode, bool Held, Func<ImmutableArray<string>> Again);
+    // LoadedAs: the name what is wrong with the module's code is said under (Define).
+    private sealed record class Request(string Key, string Module, bool LoadsCode, bool Held, Func<ImmutableArray<string>> Again, string LoadedAs);
 
     private sealed class Requests
     {
@@ -153,8 +154,12 @@ internal static class HeldDefinitions
     /// </param>
     /// <param name="define">What makes it.</param>
     /// <param name="again">What makes it again, and says what is wrong with the module's code the way the request did.</param>
+    /// <param name="loadedAs">
+    /// The name what is wrong with the module's code is said under, when it is not <paramref name="module"/>: a module of a referenced project, which is no
+    /// module the project gains, is named after its project.
+    /// </param>
     public static TResult Define<TResult>(IRuntimeSession session, string key, string module, Func<TResult, ImmutableArray<string>>? codeErrors, Func<TResult> define,
-        Func<ImmutableArray<string>> again)
+        Func<ImmutableArray<string>> again, string? loadedAs = null)
     {
         var received = ReceivedBySession.GetOrCreateValue(session);
         lock (received.Defining)
@@ -172,7 +177,7 @@ internal static class HeldDefinitions
             if (inProgress)
             {
                 // made again once the program is over, when a definition was held or the project gained a module (Release).
-                received.Add(new Request(key, module, codeErrors is not null, held, again));
+                received.Add(new Request(key, module, codeErrors is not null, held, again, loadedAs ?? module));
             }
             else
             {
@@ -182,7 +187,7 @@ internal static class HeldDefinitions
             if (!held && codeErrors is not null && !received.Added.ContainsKey(module))
             {
                 // what is wrong with the module's code is the request's to say now: nothing of the project runs while it does not load.
-                received.Loaded(module, codeErrors(result));
+                received.Loaded(loadedAs ?? module, codeErrors(result));
             }
 
             return result;
@@ -295,16 +300,18 @@ internal static class HeldDefinitions
             }
 
             var modules = requests.Select(request => request.Module).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            var errors = modules.ToDictionary(module => module, _ => new List<string>(), StringComparer.OrdinalIgnoreCase);
+            var errors = requests.Select(request => request.LoadedAs).Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(name => name, _ => new List<string>(), StringComparer.OrdinalIgnoreCase);
             foreach (var request in requests)
             {
-                errors[request.Module].AddRange(request.Again());
+                errors[request.LoadedAs].AddRange(request.Again());
             }
 
             // a module whose code no request loaded is as it was: a request of its symbols alone says nothing of its code.
-            foreach (var module in modules.Where(module => requests.Any(request => request.LoadsCode && string.Equals(request.Module, module, StringComparison.OrdinalIgnoreCase))))
+            foreach (var name in errors.Keys.Where(name
+                => requests.Any(request => request.LoadsCode && string.Equals(request.LoadedAs, name, StringComparison.OrdinalIgnoreCase))))
             {
-                received.Loaded(module, [.. errors[module]]);
+                received.Loaded(name, [.. errors[name]]);
             }
 
             if (applied.Any(symbol => symbol is VBUserDefinedTypeMemberSymbol or VBUserDefinedTypeFieldSymbol))

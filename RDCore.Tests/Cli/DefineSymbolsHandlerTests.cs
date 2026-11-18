@@ -223,10 +223,10 @@ public sealed class DefineSymbolsHandlerTests
             "the referenced project's procedure is not a member of the session's module");
     }
 
-    // what the referenced project keeps to itself is not a name of the session's: a class it does not expose, and a private procedure. A public member of
-    // a class it does not expose is defined, since an object of the class is reached through an Object.
+    // what the referenced project keeps to itself is defined, since its own code runs in the session, and is no name of the project's: a class it does not
+    // expose (MS-VBAL §5.2.4.1.1), and a private procedure (MS-VBAL §5.3.1.1).
     [TestMethod]
-    public async Task WhatAReferencedProjectDoesNotExpose_IsNotDefined()
+    public async Task WhatAReferencedProjectDoesNotExpose_IsDefined_AndIsNoNameOfTheProject()
     {
         var provider = new EnvironmentSessionProvider(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
@@ -243,10 +243,15 @@ public sealed class DefineSymbolsHandlerTests
             NavalLibRequest("Grid", ModuleType.ClassModule, new ModuleDirectives(Exposed: true), Procedure("Fire"), privateProcedure),
             CancellationToken.None);
 
-        Assert.AreEqual(2, hidden.Defined, "the project, and the public procedure of the class");
-        Assert.AreEqual(2, exposed.Defined, "the exposed class and its public procedure");
-        Assert.IsTrue(provider.Session.Symbols.TryGetModule("Grid", out _), "an exposed class is a module of the session");
-        Assert.IsFalse(provider.Session.Symbols.TryGetModule("Board", out _), "a class the project does not expose is not");
+        var symbols = provider.Session.Symbols;
+        Assert.IsTrue(symbols.TryGetModule("Mod1", out var mod1));
+        Assert.IsTrue(hidden.Defined > 0 && exposed.Defined > 0);
+        Assert.IsTrue(symbols.TryGetModule(SymbolUri.Member(NavalLibRoot, "Board"), out var board), "a class the project does not expose is defined");
+        Assert.IsTrue(symbols.TryGetModule(SymbolUri.Member(NavalLibRoot, "Grid"), out var grid));
+        Assert.IsNull(symbols.Resolver.ResolveType("Board", ScopeKind.Module, mod1.Uri).Symbol, "and is no type name of the project's");
+        Assert.AreSame(grid, symbols.Resolver.ResolveType("Grid", ScopeKind.Module, mod1.Uri).Symbol, "an exposed class is");
+        Assert.AreEqual(grid.Uri, symbols.Resolver.ResolveValue("Clear", ScopeKind.Module, grid.Uri).Symbol?.ParentUri, "a private procedure is defined");
+        Assert.AreEqual(board.Uri, symbols.Resolver.ResolveValue("Reset", ScopeKind.Module, board.Uri).Symbol?.ParentUri);
     }
 
     private static readonly (string File, string Name, ModuleType Kind) OwnMod1 = ("src/Mod1.bas", "Mod1", ModuleType.StdModule);

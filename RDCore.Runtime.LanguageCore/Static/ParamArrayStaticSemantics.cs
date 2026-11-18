@@ -21,9 +21,10 @@ public static class ParamArrayStaticSemantics
     public static VBCompileErrorInfo? ArgumentsError(
         StaticEvaluationContext context, VBTypeMemberSymbol member, ImmutableArray<VBParameterSymbol> parameters, IEnumerable<ExpressionNode> arguments)
     {
-        // a library's members, and a Declare's, are not the code's own: they take a ParamArray as what it is.
+        // a library project's members, and a Declare's, are no VBA code: they take a ParamArray as what it is. A referenced source project's are VBA code
+        // (MS-VBAL §4.1), as the project's own are.
         if (member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
-            || member.GetProperty(SymbolProperties.ExternalTarget) is not null || member.GetProperty(SymbolProperties.Library) is not null)
+            || member.GetProperty(SymbolProperties.ExternalTarget) is not null || SymbolProperties.IsOfALibraryProject(member))
         {
             return null;
         }

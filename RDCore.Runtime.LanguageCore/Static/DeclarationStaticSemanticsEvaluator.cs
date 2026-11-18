@@ -289,8 +289,18 @@ public static class DeclarationStaticSemanticsEvaluator
         if (type is VBClassType { Symbol: var classModule } && classModule.GetProperty(SymbolProperties.Library) is { } library
             && !classModule.GetProperty(SymbolProperties.Creatable))
         {
-            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, location,
-                string.Format(Exceptions.VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose, declared.Name, classModule.Name, library)));
+            // a class of a referenced source project (MS-VBAL §4.1) has an instancing mode (§5.2.4.1.1): one that is not creatable is created in its
+            // own project only.
+            if (SymbolProperties.IsOfALibraryProject(classModule))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, location,
+                    string.Format(Exceptions.VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose, declared.Name, classModule.Name, library)));
+            }
+            else if (!string.Equals(declared.WorkspaceRoot.AbsoluteUri, classModule.WorkspaceRoot.AbsoluteUri, StringComparison.Ordinal))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, location, string.Format(
+                    Exceptions.VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose, declared.Name, classModule.Name, library)));
+            }
         }
     }
 

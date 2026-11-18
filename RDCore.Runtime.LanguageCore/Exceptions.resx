@@ -510,6 +510,9 @@
   <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose" xml:space="preserve">
     <value>'{0}' is declared As New {1}, which the {2} library does not say can be created: an interface, or a class the library makes itself.</value>
   </data>
+  <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose" xml:space="preserve">
+    <value>'{0}' is declared As New {1}, a class of the {2} project that only its own project creates (Attribute VB_Creatable = False).</value>
+  </data>
   <data name="VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose" xml:space="preserve">
     <value>New {0}: the {1} library does not say {0} can be created: an interface, or a class the library makes itself.</value>
   </data>

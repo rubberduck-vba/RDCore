@@ -29,6 +29,9 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     private readonly ConcurrentDictionary<ValueResolutionKey, SymbolResolutionResult> _valueResolutions = ValueResolutionsOf(scopeTree);
 
+    // what the code of each project of the tree sees of the others'.
+    private readonly ScopeTreeProjects _projects = ScopeTreeProjects.Of(scopeTree);
+
     // the resolutions of a tree, made empty the first time a resolver of it is made.
     internal static ConcurrentDictionary<ValueResolutionKey, SymbolResolutionResult> ValueResolutionsOf(ScopeTree tree) => Resolutions.GetOrCreateValue(tree);
 
@@ -86,13 +89,16 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             return inheritedMember;
         }
 
+        // the code of a referenced project ranks its own project's names as the session's code ranks the session's, and sees what it can of the others'.
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
+        var from = _projects.OriginOf(origin);
+        bool IsOwn(Symbol symbol) => ScopeTreeProjects.IsOwn(symbol, from);
         (LexicalScope? Tier, Func<Symbol, bool> IsCandidate, bool Referenced)[] tiers =
         [
-            (global, symbol => symbol is VBProjectSymbol || symbol is VBStandardModuleSymbol && !IsOfALibrary(symbol), false),
-            (project, symbol => IsValueDeclaration(symbol) && !IsOfALibrary(symbol), false),
-            (global, symbol => symbol is VBStandardModuleSymbol && IsOfALibrary(symbol), false),
-            (project, symbol => IsValueDeclaration(symbol) && IsOfALibrary(symbol), true),
+            (global, symbol => symbol is VBProjectSymbol || symbol is VBStandardModuleSymbol && IsOwn(symbol), false),
+            (project, symbol => IsValueDeclaration(symbol) && IsOwn(symbol), false),
+            (global, symbol => symbol is VBStandardModuleSymbol && !IsOwn(symbol), false),
+            (project, symbol => IsValueDeclaration(symbol) && !IsOwn(symbol), true),
             (global, symbol => IsValueDeclaration(symbol) && !IsProjectOrProceduralModule(symbol), false),
         ];
 
@@ -106,7 +112,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             var declared = referenced
                 ? DeclaredAs(tier).Concat(ReferencedProjectsDeclaredAs(tier, name).Where(symbol => isLeftOut is null || !isLeftOut(symbol)))
                 : DeclaredAs(tier);
-            if (SelectTier(tier, ValuesOverEnumsOfEachModule(declared.Where(isCandidate))) is { } result)
+            var seen = declared.Where(symbol => isCandidate(symbol) && _projects.IsSeen(symbol, from));
+            if (SelectTier(tier, ValuesOverEnumsOfEachModule(seen), from.Library) is { } result)
             {
                 return result;
             }
@@ -135,13 +142,15 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
         var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
+        var from = _projects.OriginOf(origin);
+        bool IsAnotherProjectsProceduralModule(Symbol symbol) => symbol is VBStandardModuleSymbol && !ScopeTreeProjects.IsOwn(symbol, from);
         (LexicalScope? Tier, Func<Symbol, bool> IsCandidate, bool Referenced)[] tiers =
         [
             (origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Module), IsTypeDeclaration, false),
-            (global, symbol => IsProjectOrModule(symbol) && !IsALibrarysProceduralModule(symbol), false),
-            (project, symbol => IsTypeDeclaration(symbol) && !IsOfALibrary(symbol), false),
-            (global, IsALibrarysProceduralModule, false),
-            (project, symbol => IsTypeDeclaration(symbol) && IsOfALibrary(symbol), true),
+            (global, symbol => IsProjectOrModule(symbol) && !IsAnotherProjectsProceduralModule(symbol), false),
+            (project, symbol => IsTypeDeclaration(symbol) && ScopeTreeProjects.IsOwn(symbol, from), false),
+            (global, IsAnotherProjectsProceduralModule, false),
+            (project, symbol => IsTypeDeclaration(symbol) && !ScopeTreeProjects.IsOwn(symbol, from), true),
         ];
 
         foreach (var (tier, isCandidate, referenced) in tiers)
@@ -152,7 +161,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             }
 
             var declared = referenced ? tier.DeclaredAs(name).Concat(ReferencedProjectsDeclaredAs(tier, name)) : tier.DeclaredAs(name);
-            if (SelectTier(tier, declared.Where(isCandidate).Where(isOfProject)) is { } result)
+            var seen = declared.Where(symbol => isCandidate(symbol) && isOfProject(symbol) && _projects.IsSeen(symbol, from));
+            if (SelectTier(tier, seen, from.Library) is { } result)
             {
                 return result;
             }
@@ -163,9 +173,13 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle)
     {
-        var global = scopeTree.ScopeFor(handle).SelfAndAncestors().FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
+        var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
+        var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
+        var from = _projects.OriginOf(origin);
 
-        return global is not null && SelectTier(global, global.DeclaredAs(name).Where(IsProjectOrModule)) is { } result
+        return global is not null
+            && SelectTier(global, global.DeclaredAs(name).Where(symbol => IsProjectOrModule(symbol) && _projects.IsSeen(symbol, from)), from.Library)
+                is { } result
             ? result
             : SymbolResolutionResult.Unbound;
     }
@@ -192,8 +206,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         // a lookup from inside the module sees what is private to it, as an unqualified one does.
         var fromWithin = origin.Any(scope => scope.Kind == LexicalScopeKind.Module && scope.Uri.AbsoluteUri == module.Uri.AbsoluteUri);
-        var originProject = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Project)?.Uri;
-        bool IsSeen(Symbol candidate) => fromWithin || ProjectVisibility.Instance.IsVisibleFrom(candidate, module, originProject);
+        var from = _projects.OriginOf(origin);
+        bool IsSeen(Symbol candidate) => fromWithin || _projects.IsSeen(candidate, module, from);
 
         return SelectTier(moduleScope, ValuesOverEnums(moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && IsSeen(candidate))))
             ?? SymbolResolutionResult.Unbound;
@@ -203,23 +217,27 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     {
         var global = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Global);
         var projectScope = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Project);
+        var from = _projects.OriginOf(origin);
 
         // the tier shares its modules between the enclosing project and the library, so a candidate is the project's
-        // own only when it names the same library - or, for the enclosing project, none.
+        // own only when it names the same library - or, for the enclosing project, none. What the origin's project sees of it is a candidate.
         var library = project.GetProperty(SymbolProperties.Library);
         bool InProject(Symbol symbol)
-            => string.Equals(symbol.GetProperty(SymbolProperties.Library) ?? string.Empty, library ?? string.Empty, StringComparison.Ordinal);
+            => string.Equals(symbol.GetProperty(SymbolProperties.Library) ?? string.Empty, library ?? string.Empty, StringComparison.Ordinal)
+                && _projects.IsSeen(symbol, from);
 
         // 1. the enclosing project names the projects it can see.
         if (library is null && global is not null
-            && SelectTier(global, global.DeclaredAs(name).Where(candidate => candidate is VBProjectSymbol)) is { } referenced)
+            && SelectTier(global, global.DeclaredAs(name).Where(candidate => candidate is VBProjectSymbol && _projects.IsSeen(candidate, from)), from.Library)
+                is { } referenced)
         {
             return referenced;
         }
 
         // 2. a procedural module of the project.
         if (global is not null
-            && SelectTier(global, global.DeclaredAs(name).Where(candidate => candidate is VBStandardModuleSymbol && InProject(candidate))) is { } module)
+            && SelectTier(global, global.DeclaredAs(name).Where(candidate => candidate is VBStandardModuleSymbol && InProject(candidate)), from.Library)
+                is { } module)
         {
             return module;
         }
@@ -231,15 +249,16 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             : library is null ? projectScope.DeclaredAs(name)
             : projectScope.DeclaredAs(name).Concat(ReferencedProjectsDeclaredAs(projectScope, name));
         if (projectScope is not null
-            && SelectTier(projectScope, ValuesOverEnumsOfEachModule(declared.Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))))
-                is { } member)
+            && SelectTier(projectScope, ValuesOverEnumsOfEachModule(declared.Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))),
+                from.Library) is { } member)
         {
             return member;
         }
 
         return global is not null
-            && SelectTier(global, global.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && !IsProjectOrProceduralModule(candidate) && InProject(candidate)))
-                is { } instance
+            && SelectTier(global,
+                global.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && !IsProjectOrProceduralModule(candidate) && InProject(candidate)),
+                from.Library) is { } instance
                 ? instance
                 : SymbolResolutionResult.Unbound;
     }
@@ -298,7 +317,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
     // tier has none, so the caller moves on to the next one.
-    private static SymbolResolutionResult? SelectTier(LexicalScope lexicalScope, IEnumerable<Symbol> candidates)
+    // the library of the code the lookup is from (ProjectOrigin.Library) ranks as the workspace's own: none for the session's own project's.
+    private static SymbolResolutionResult? SelectTier(LexicalScope lexicalScope, IEnumerable<Symbol> candidates, string? ownLibrary = null)
     {
         var matches = candidates.ToArray();
         if (matches.Length == 0)
@@ -311,7 +331,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         // and a library that is referenced earlier one that is referenced later (MS-VBAL §4.1, RD-VBAL §2.3.1.3). Candidates of one rank are still a collision.
         if (matches.Length > 1 && lexicalScope.Kind is LexicalScopeKind.Project or LexicalScopeKind.Global)
         {
-            matches = Shadowing(matches);
+            matches = Shadowing(matches, ownLibrary);
         }
 
         // checked ahead of the single-match fast path too: a lone Property Let/Set with no parameters
@@ -336,12 +356,14 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // what shadows, the lowest rank first: a symbol of no library is the workspace's own and outranks any library's; then the standard library's, which comes
     // before every reference (MS-VBAL §4.1: the earlier reference has the higher precedence); then each library by the precedence of its reference; and a symbol
-    // of a library that carries no precedence comes after every one that does, so that it never ties with the standard library or the workspace.
-    private static Symbol[] Shadowing(Symbol[] candidates)
+    // of a library that carries no precedence comes after every one that does, so that it never ties with the standard library or the workspace. The code of
+    // a referenced project ranks its own project's symbols as the workspace's.
+    private static Symbol[] Shadowing(Symbol[] candidates, string? ownLibrary)
     {
-        static long Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) switch
+        long Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) switch
         {
             null => -1,
+            var library when string.Equals(library, ownLibrary, StringComparison.Ordinal) => -1,
             StandardLibrary.LibraryName => 0,
             _ => symbol.TryGetProperty(SymbolProperties.LibraryPriority, out var priority) ? priority : long.MaxValue,
         };
@@ -390,8 +412,6 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // a library's symbol says which library it is of; the enclosing project's say none, as Shadowing reads them.
     private static bool IsOfALibrary(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is not null;
-
-    private static bool IsALibrarysProceduralModule(Symbol symbol) => symbol is VBStandardModuleSymbol && IsOfALibrary(symbol);
 
     private static bool IsTypeDeclaration(Symbol symbol) => symbol is VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
 

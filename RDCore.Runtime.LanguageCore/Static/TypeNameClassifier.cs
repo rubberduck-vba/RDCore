@@ -36,7 +36,8 @@ internal static class TypeNameClassifier
         {
             { IsResolved: false } => (TypeNameClass.Unresolved, null),
             { Symbol: VBProjectSymbol project } => (TypeNameClass.Project, project),
-            { Symbol: VBStandardModuleSymbol module } when module.GetProperty(SymbolProperties.Library) is not null => (TypeNameClass.LibraryModule, module),
+            // MS-VBAL §4.1: a standard module of a referenced source project is a procedural module, as the project's own is.
+            { Symbol: VBStandardModuleSymbol module } when SymbolProperties.IsOfALibraryProject(module) => (TypeNameClass.LibraryModule, module),
             { Symbol: VBStandardModuleSymbol module } => (TypeNameClass.ProceduralModule, module),
             { Symbol: var symbol } => (TypeNameClass.Type, symbol),
         };

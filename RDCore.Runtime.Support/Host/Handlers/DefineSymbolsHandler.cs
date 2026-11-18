@@ -61,9 +61,11 @@ internal sealed class DefineSymbolsHandler(
         var target = new Target(session, sessionProvider.Image, IsRun: true);
         var loadsCode = !request.DeclareTypesOnly && request.ParseResultJson.Length > 0;
         // a referenced project's module of a name is another module than the session's own of that name, and none the project gains.
+        // what is wrong with its code refuses a run as a module of the project does, named after its project.
         var key = $"{request.Library}|{request.ModuleName}|{request.DeclareTypesOnly}|{request.CodeOnly}";
         var result = HeldDefinitions.Define(session, key, request.Library is null ? request.ModuleName : string.Empty,
-            loadsCode ? defined => [.. defined.CodeErrors] : null, () => Define(target, request), () => [.. Define(target, request).CodeErrors]);
+            loadsCode ? defined => [.. defined.CodeErrors] : null, () => Define(target, request), () => [.. Define(target, request).CodeErrors],
+            loadedAs: request.Library is { } library ? $"{library}.{request.ModuleName}" : null);
 
         // told once it is made: a statement typed at a stop from now on is given what the code as edited declares.
         ProgramEdits.Edited(session);
@@ -78,7 +80,7 @@ internal sealed class DefineSymbolsHandler(
         var session = target.Session;
         if (request.Library is not null)
         {
-            return DefineLibraryModule(session, request);
+            return DefineLibraryModule(target, request);
         }
 
         if (target.IsRun)
@@ -296,15 +298,21 @@ internal sealed class DefineSymbolsHandler(
         return null;
     };
 
-    // a module of a project the session's project references (DefineSymbolsParams.Library): the names that project gives the session's, beside the
-    // session's own modules; a module of the session's own project with the same name keeps the name. Nothing is done by the module's name, and its code
-    // is not loaded: a session runs its own project's code. Its types are declared, then bound, as a module of the session's own project's are. Of a name
-    // declared in several #If branches, the first site that carries them all is defined: the session's constants are not the referenced project's.
-    private static DefineSymbolsResult DefineLibraryModule(IRuntimeSession session, DefineSymbolsParams request)
+    // a module of a project the session's project references (DefineSymbolsParams.Library): every name it declares, under that project's root, beside the
+    // session's own modules; a module of the session's own project with the same name keeps the name. Nothing is done by the module's name. Its types are
+    // declared, then bound, as a module of the session's own project's are, and its code is loaded once every module is defined: the program calls into it.
+    // Of a name declared in several #If branches, the first site that carries them all is defined: the session's constants are not the referenced project's.
+    private DefineSymbolsResult DefineLibraryModule(Target target, DefineSymbolsParams request)
     {
-        if (request.CodeOnly || request.WorkspaceRoot is not { } workspaceRoot || SymbolDescriptorReader.LibraryModuleOf(request) is not { } module)
+        var session = target.Session;
+        if (request.WorkspaceRoot is not { } workspaceRoot || SymbolDescriptorReader.LibraryModuleOf(request) is not { } module)
         {
             return new DefineSymbolsResult();
+        }
+
+        if (request.CodeOnly)
+        {
+            return new DefineSymbolsResult { CodeErrors = LoadLibraryCode(target, request, module.Uri) };
         }
 
         var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -324,7 +332,7 @@ internal sealed class DefineSymbolsHandler(
             // type is bound once every module's types are declared, which is why the request that binds defines it again. A class's default instance is
             // defined once and stays, as the session's own are (DefineDefaultInstance): it keeps the object it holds.
             var bindsTypes = !request.DeclareTypesOnly && ReferenceEquals(phase, types);
-            foreach (var name in ReferencedProjectSymbols.Of(workspaceRoot, request.Library!, [module, .. members], request.LibraryPriority))
+            foreach (var name in ReferencedProjectSymbols.Defined(workspaceRoot, request.Library!, [module, .. members], request.LibraryPriority))
             {
                 if (session.Symbols.TryDefine(name, name.ScopeKind))
                 {
@@ -352,9 +360,8 @@ internal sealed class DefineSymbolsHandler(
             _ = session.Symbols.TryComposeClassModule(module.Uri, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
         }
 
-        // a class that is no longer predeclared, or no longer exposed, has no default instance in the session.
-        if (module is VBClassModuleSymbol classModule
-            && !(ReferencedProjectSymbols.IsAccessible(classModule) && classModule.GetProperty(SymbolProperties.PredeclaredId)))
+        // a class that is no longer predeclared has no default instance in the session.
+        if (module is VBClassModuleSymbol classModule && !classModule.GetProperty(SymbolProperties.PredeclaredId))
         {
             var instance = ReferencedProjectSymbols.DefaultInstanceOf((VBClassModuleSymbol)classModule.With(SymbolProperties.Library, request.Library!));
             _ = session.Symbols.TryUndefine(instance, instance.ScopeKind);
@@ -433,6 +440,19 @@ internal sealed class DefineSymbolsHandler(
         }
 
         return Load(target, request.ModuleName, module, parseResult);
+    }
+
+    // a referenced project's module is found by its address: the session's own module of its name is another module.
+    private ImmutableArray<string> LoadLibraryCode(Target target, DefineSymbolsParams request, Uri moduleUri)
+    {
+        if (request.ParseResultJson.Length == 0
+            || PlatformJson.Deserialize<ModuleParseResult>(request.ParseResultJson) is not { } parseResult
+            || !target.Session.Symbols.TryGetModule(moduleUri, out var module))
+        {
+            return [];
+        }
+
+        return Load(target, $"{request.Library}.{request.ModuleName}", module, parseResult);
     }
 
     private ImmutableArray<string> Load(Target target, string name, VBModuleSymbol module, ModuleParseResult parseResult)

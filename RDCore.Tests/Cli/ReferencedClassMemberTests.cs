@@ -9,6 +9,7 @@ using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
@@ -23,9 +24,10 @@ using System.IO.Abstractions.TestingHelpers;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <strong>MS-VBAL §5.6.12</strong>, RD-VBAL §2.2.3: a member of a class that a referenced project exposes is bound from the referencing project, through a
-/// variable of the class or of an interface the project exposes, and through the class's default instance; a name the class does not declare is still
-/// none of its members. A class of the project with the name of the referenced project's keeps its own members.
+/// <strong>MS-VBAL §4.1, §5.6.10, §5.6.12</strong>, RD-VBAL §2.2.3: the code of a project the project references runs in the project's session. A
+/// member of a class that a referenced project exposes is bound from the referencing project, through a variable of the class or of an interface the
+/// project exposes, and through the class's default instance; a name the class does not declare is still none of its members. A class of the project
+/// with the name of the referenced project's keeps its own members. The referenced project's code binds its names as its own project sees them.
 /// </summary>
 [TestClass]
 public sealed class ReferencedClassMemberTests
@@ -34,7 +36,6 @@ public sealed class ReferencedClassMemberTests
     private static readonly string Base = Path.Combine(Path.GetTempPath(), "rdcore-referenced-members");
     private static readonly string AppFolder = Path.Combine(Base, "App");
     private static readonly Uri AppRoot = Wire.FileUri(AppFolder);
-    private static readonly Uri LibraryRoot = Wire.FileUri(Path.Combine(Base, LibraryName));
 
     private static readonly Source[] Library =
     [
@@ -47,8 +48,24 @@ public sealed class ReferencedClassMemberTests
             "Public Property Get Name() As String", "End Property")),
         new("Switches", ModuleType.StdModule, ModuleWorkspace.StandardModule("Switches",
             "Option Explicit", "Public Enum ShipType", "    Cruiser = 3", "End Enum",
-            "Public Function HasSwitch(ByVal Line As String) As Boolean", "    HasSwitch = Len(Line) > 0", "End Function")),
+            "Public Function HasSwitch(ByVal Line As String) As Boolean", "    HasSwitch = Len(Line) > Secret()", "End Function",
+            "Private Function Secret() As Long", "End Function",
+            "Public Function Tag() As String", "    Tag = Left(\"abc\", 1)", "End Function")),
+        new("Text", ModuleType.StdModule, ModuleWorkspace.StandardModule("Text",
+            "Option Explicit", "Public Function Left(ByVal S As String, ByVal N As Long) As String", "    Left = \"own\"", "End Function")),
+        new("Internals", ModuleType.StdModule, ModuleWorkspace.StandardModule("Internals",
+            "Option Explicit", "Option Private Module", "Public Function Hidden() As Long", "End Function")),
+        new("Board", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Board",
+            "Attribute VB_PredeclaredId = True", "Attribute VB_Exposed = False", "Option Explicit", "Public Sub Reset()", "End Sub")),
+        new("GridCoord", ModuleType.ClassModule, ModuleWorkspace.ClassModule("GridCoord",
+            "Attribute VB_PredeclaredId = True", "Attribute VB_Exposed = True", "Option Explicit", "Private mX As Long",
+            "Public Function Create(ByVal X As Long, ByVal Y As Long) As GridCoord", "    Dim result As New GridCoord", "    result.X = X",
+            "    Set Create = result", "End Function",
+            "Public Property Get X() As Long", "    X = mX", "End Property",
+            "Public Property Let X(ByVal Value As Long)", "    mX = Value", "End Property")),
     ];
+
+    private static readonly Project NavalLib = new(LibraryName, Library, 1);
 
     // MS-VBAL §5.6.10: each project is a namespace of its own, and the referenced project's names are read from its own, after the project's.
     [TestMethod]
@@ -90,34 +107,269 @@ public sealed class ReferencedClassMemberTests
         Assert.AreEqual(0, errors.Count, string.Join("; ", errors));
     }
 
-    private sealed record class Source(string Name, ModuleType Type, string Text)
+    // MS-VBAL §4.1, §5.2.1.4, §5.2.3, §5.3.1.1, §5.2.4.1.1: the session defines every name of the referenced project, and the project sees only its
+    // public entities: a Private member is accessible within its module only, a private module's members and a class that is not exposed within its
+    // project only.
+    [TestMethod]
+    [DataRow("Debug.Print Secret()", "Secret", DisplayName = "a Private function")]
+    [DataRow("Debug.Print Switches.Secret()", "Secret", DisplayName = "a Private function, qualified")]
+    [DataRow("Debug.Print Hidden()", "Hidden", DisplayName = "a Public function of a private module")]
+    [DataRow("Debug.Print Internals.Hidden()", "Internals", DisplayName = "a private module")]
+    [DataRow("Board.Reset", "Board", DisplayName = "the default instance of a class that is not exposed")]
+    public async Task ANameTheReferencedProjectDoesNotMakeAccessible_IsNotBound(string statement, string name)
+    {
+        var errors = await LoadErrorsAsync([], statement);
+
+        Assert.IsTrue(errors.Any(error => error.Contains(name, StringComparison.Ordinal)), string.Join("; ", errors));
+    }
+
+    // a module of the project and one of the referenced project with the same name are each found at their own address.
+    [TestMethod]
+    public async Task TwoModulesWithOneName_AreEachFoundByTheirAddress_AndAnAddressOfNoModuleFindsNone()
+    {
+        var own = new Source("Widget", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Widget", "Option Explicit", "Public Sub Polish()", "End Sub"));
+        var (found, ownFound, unknown) = ((VBModuleSymbol?)null, (VBModuleSymbol?)null, true);
+
+        await LoadAsync([own], [NavalLib], run: false, inspect: provider =>
+        {
+            var symbols = provider.Session.Symbols;
+            _ = symbols.TryGetModule(new UriBuilder(NavalLib.Root) { Fragment = "Widget" }.Uri, out found);
+            _ = symbols.TryGetModule(new UriBuilder(AppRoot) { Fragment = "Widget" }.Uri, out ownFound);
+            unknown = symbols.TryGetModule(new UriBuilder(NavalLib.Root) { Fragment = "Nowhere" }.Uri, out var none) || none is not null;
+        });
+
+        Assert.AreEqual(LibraryName, found?.GetProperty(SymbolProperties.Library));
+        Assert.AreEqual(NavalLib.Root.AbsoluteUri, found!.WorkspaceRoot.AbsoluteUri);
+        Assert.IsNull(ownFound?.GetProperty(SymbolProperties.Library));
+        Assert.AreEqual(AppRoot.AbsoluteUri, ownFound!.WorkspaceRoot.AbsoluteUri);
+        Assert.IsFalse(unknown);
+    }
+
+    // the referenced project's procedure calls a Private function of its module, and its class's factory makes an object of the class and sets a Private
+    // field of it.
+    [TestMethod]
+    public async Task AReferencedProjectsCode_Runs_WhenTheProjectCallsIntoIt()
+    {
+        var run = await RunAsync([],
+            "Debug.Print HasSwitch(\"a\")", "Debug.Print NavalLib.Switches.HasSwitch(\"\")",
+            "Debug.Print TypeName(GridCoord)", "Debug.Print GridCoord.Create(2, 3).X");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "True", "False", "GridCoord", "2" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §5.6.10: the referenced project's code binds a name in its own project first, then in the libraries it references; the project's code, in
+    // the standard library before the referenced project.
+    [TestMethod]
+    public async Task AReferencedProjectsCode_BindsItsOwnProjectsNames_BeforeTheStandardLibrarys()
+    {
+        var run = await RunAsync([], "Debug.Print Tag()", "Debug.Print Left(\"abc\", 1)");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "own", "a" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §5.3.1.1: inside a function of the referenced project, the function's name is its result, written with its type character too.
+    [TestMethod]
+    public async Task AReferencedProjectsFunction_AssignsItsOwnName_WithAndWithoutItsTypeCharacter()
+    {
+        var labels = new Source("Labels", ModuleType.StdModule, ModuleWorkspace.StandardModule("Labels", "Option Explicit",
+            "Public Function Label$(ByVal N As Long)", "    Label$ = \"n\" & N", "End Function",
+            "Public Function Plain(ByVal N As Long) As String", "    Plain = \"p\" & N", "End Function"));
+
+        var run = await RunWithAsync(labels, "Debug.Print Label$(3)", "Debug.Print Plain(4)");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "n3", "p4" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §5.6.8, §5.4.3.9: New of the referenced project's class creates an object in the session, as one of the project's own class is, and Set
+    // assigns it to a variable declared as the class.
+    [TestMethod]
+    public async Task AReferencedProjectsCode_CreatesAnObjectOfItsClass_AndSetsItToAVariableOfTheClass()
+    {
+        var factory = new Source("Factory", ModuleType.StdModule, ModuleWorkspace.StandardModule("Factory", "Option Explicit",
+            "Public Function Fresh(ByVal X As Long) As GridCoord", "    Dim made As GridCoord", "    Set made = New GridCoord", "    made.X = X",
+            "    Set Fresh = made", "End Function"));
+
+        var run = await RunWithAsync(factory, "Debug.Print Fresh(7).X", "Debug.Print TypeName(Fresh(1))");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "7", "GridCoord" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §5.3.1.11: a ParamArray of the referenced project's function collects the arguments of the project's call.
+    [TestMethod]
+    public async Task AReferencedProjectsFunction_CollectsItsParamArray()
+    {
+        var sums = new Source("Sums", ModuleType.StdModule, ModuleWorkspace.StandardModule("Sums", "Option Explicit",
+            "Public Function Total(ParamArray Values() As Variant) As Long", "    Dim Item As Variant", "    For Each Item In Values",
+            "        Total = Total + Item", "    Next", "End Function"));
+
+        var run = await RunWithAsync(sums, "Debug.Print Total(1, 2, 3)");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "6" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §5.2.3.1.4, §5.2.4.1.1: an exposed class of the referenced project that is not creatable is created As New by the referenced project's code,
+    // and by none of the project's.
+    [TestMethod]
+    public async Task AClassAReferencedProjectDoesNotMakeCreatable_IsCreatedAsNewInItsOwnProjectOnly()
+    {
+        var ledger = new Source("Ledger", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Ledger",
+            "Attribute VB_Creatable = False", "Attribute VB_Exposed = True", "Option Explicit", "Public Sub Post()", "End Sub"));
+        var books = new Source("Books", ModuleType.StdModule, ModuleWorkspace.StandardModule("Books", "Option Explicit",
+            "Public Function Opened() As String", "    Dim l As New Ledger", "    l.Post", "    Opened = TypeName(l)", "End Function"));
+        var accounts = new Source("Accounts", ModuleType.StdModule, ModuleWorkspace.StandardModule("Accounts", "Option Explicit",
+            "Public Sub Start()", $"    Dim l As New {LibraryName}.Ledger", "End Sub"));
+
+        var (errors, _) = await LoadAsync([accounts], [NavalLib with { Modules = [.. Library, ledger, books] }], run: false);
+
+        Assert.IsTrue(errors.Any(error => IsOf(error, "Accounts", "Ledger")), string.Join("; ", errors));
+        Assert.IsFalse(errors.Any(error => error.StartsWith($"{LibraryName}.", StringComparison.Ordinal)), string.Join("; ", errors));
+    }
+
+    // MS-VBAL §4.1: no project references the project that references it, and the referenced project's code sees none of the project's names.
+    [TestMethod]
+    public async Task AReferencedProjectsCode_DoesNotSeeTheProjectsNames()
+    {
+        var own = new Source("AppTools", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("AppTools", "Option Explicit", "Public Sub AppOnly()", "End Sub"));
+        var caller = new Source("Caller", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Caller", "Option Explicit", "Public Sub Go()", "    AppOnly", "End Sub"));
+
+        var (errors, _) = await LoadAsync([own], [NavalLib with { Modules = [.. Library, caller] }], run: false);
+
+        Assert.IsTrue(errors.Any(error => IsOf(error, $"{LibraryName}.Caller", "AppOnly")), string.Join("; ", errors));
+    }
+
+    // RD-VBAL §2.6.1: a syntax error in the code of a referenced project refuses the run, as one in a module of the project does, and names the module.
+    [TestMethod]
+    public async Task ASyntaxErrorInAReferencedProjectsCode_RefusesTheRun_NamingTheModule()
+    {
+        var broken = new Source("Broken", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Broken", "Option Explicit", "Public Sub Go()", "    Debug.Print 1 +", "End Sub"), HasSyntaxErrors: true);
+
+        var (_, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, broken] }], run: true, "Debug.Print HasSwitch(\"a\")");
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, run!.Outcome, string.Join("; ", run.Output));
+        Assert.IsTrue(run.Diagnostics?.Any(error => error.StartsWith($"{LibraryName}.Broken: ", StringComparison.Ordinal)) is true,
+            string.Join("; ", run.Diagnostics ?? []));
+        Assert.IsEmpty(run.Output);
+    }
+
+    // MS-VBAL §4.1: a project reference is the referencing project's own. A project the project references and its referenced project does not, is no
+    // name of the referenced project's code.
+    [TestMethod]
+    [Ignore("The session has no references of a referenced project's own: its code binds against every project and library the project references.")]
+    public async Task AReferencedProjectsCode_DoesNotSeeAProjectOnlyTheProjectReferences()
+    {
+        var extras = new Project("Extras", [new("Sketches", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Sketches", "Option Explicit", "Public Function Sketch() As String", "End Function"))], 2);
+        var caller = new Source("Drawing", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Drawing", "Option Explicit", "Public Sub Draw()", "    Debug.Print Sketch()", "End Sub"));
+
+        var (errors, _) = await LoadAsync([], [NavalLib with { Modules = [.. Library, caller] }, extras], run: false);
+
+        Assert.IsTrue(errors.Any(error => IsOf(error, $"{LibraryName}.Drawing", "Sketch")), string.Join("; ", errors));
+    }
+
+    // MS-VBAL §4.1: the referenced project's code binds against its own references. NavalLib references Charts and the project does not: NavalLib's code
+    // that calls Plot loads, and the project's call into it runs.
+    [TestMethod]
+    [Ignore("The session has no references of a referenced project's own: its code that names one fails to load, and the run is refused.")]
+    public async Task AReferencedProjectsCode_ThatNamesItsOwnReference_LoadsAndRuns()
+    {
+        var charts = new Project("Charts", [new("Plots", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Plots", "Option Explicit", "Public Function Plot() As Long", "    Plot = 7", "End Function"))], 1);
+        var caller = new Source("Report", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Report", "Option Explicit", "Public Function Charted() As Long", "    Charted = Plot()", "End Function"));
+
+        var (errors, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, caller], References = [charts] }], run: true,
+            "Debug.Print Charted()");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "7" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §4.1: references are not followed. The project referenced by the project's reference is a name of that reference's code, and of none of the
+    // project's: NavalLib references Charts, and the project, which references NavalLib only, does not see Plot.
+    [TestMethod]
+    [Ignore("The session does not know which project references which: the names of every project defined in it are seen by every other.")]
+    public async Task AProjectTheReferencedProjectReferences_IsNoNameOfTheProjectsCode()
+    {
+        var charts = new Project("Charts", [new("Plots", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Plots", "Option Explicit", "Public Function Plot() As Long", "    Plot = 7", "End Function"))], 2);
+        var caller = new Source("Report", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Report", "Option Explicit", "Public Function Charted() As Long", "    Charted = Plot()", "End Function"));
+
+        var (errors, _) = await LoadAsync([], [NavalLib with { Modules = [.. Library, caller] }, charts], run: false,
+            "Debug.Print Charted()", "Debug.Print Plot()");
+
+        Assert.IsFalse(errors.Any(error => error.StartsWith($"{LibraryName}.Report: ", StringComparison.Ordinal)), string.Join("; ", errors));
+        Assert.IsTrue(errors.Any(error => IsOf(error, "Program", "Plot")), string.Join("; ", errors));
+    }
+
+    // an error of the module that names the name.
+    private static bool IsOf(string error, string module, string name)
+        => error.StartsWith($"{module}: ", StringComparison.Ordinal) && error.Contains(name, StringComparison.Ordinal);
+
+    private sealed record class Source(string Name, ModuleType Type, string Text, bool HasSyntaxErrors = false)
     {
         public string FileName => $"{Name}.{(Type is ModuleType.ClassModule ? "cls" : "bas")}";
     }
 
+    // a project the project references, in its folder beside the project's, its precedence, and the projects it references in turn, which the harness
+    // does not define in the session, as the language server does not.
+    private sealed record class Project(string Name, IReadOnlyList<Source> Modules, int Priority, IReadOnlyList<Project>? References = null)
+    {
+        public Uri Root => Wire.FileUri(Path.Combine(Base, Name));
+    }
+
     private sealed record class Module(string Name, ModuleType Type, Uri Uri, ModuleParseResult Parse);
 
-    // the referenced project's modules are defined in the session first, as the language server defines them, then the project's own, then the code of
-    // the project's own: what stopped a module of the project from loading.
-    private static async Task<IReadOnlyList<string>> LoadErrorsAsync(IReadOnlyList<Source> ownClasses, params string[] main)
+    private static async Task<IReadOnlyList<string>> LoadErrorsAsync(IReadOnlyList<Source> own, params string[] main)
+        => (await LoadAsync(own, [NavalLib], run: false, main)).Errors;
+
+    private static async Task<ExecuteResult> RunAsync(IReadOnlyList<Source> own, params string[] main)
+        => (await LoadAsync(own, [NavalLib], run: true, main)).Run!;
+
+    // the run of Program.Main, with one more module in the referenced project.
+    private static async Task<ExecuteResult> RunWithAsync(Source referenced, params string[] main)
+        => (await LoadAsync([], [NavalLib with { Modules = [.. Library, referenced] }], run: true, main)).Run!;
+
+    // the referenced projects' modules are defined in the session first, as the language server defines them, then the project's own, then the code of
+    // the project's own and of the referenced projects': what stopped a module from loading, each after its module's name, and the run of Program.Main.
+    private static async Task<(IReadOnlyList<string> Errors, ExecuteResult? Run)> LoadAsync(
+        IReadOnlyList<Source> ownModules, IReadOnlyList<Project> references, bool run, params string[] main)
+        => await LoadAsync(ownModules, references, run, inspect: null, main);
+
+    private static async Task<(IReadOnlyList<string> Errors, ExecuteResult? Run)> LoadAsync(
+        IReadOnlyList<Source> ownModules, IReadOnlyList<Project> references, bool run, Action<EnvironmentSessionProvider>? inspect, params string[] main)
     {
         var program = ModuleWorkspace.StandardModule("Program", ["Option Explicit", "Public Sub Main()", .. main, "End Sub"]);
-        Source[] own = [.. ownClasses, new("Program", ModuleType.StdModule, program)];
+        Source[] own = [.. ownModules, new("Program", ModuleType.StdModule, program)];
         var project = new ProjectFile(AppFolder, new RDCoreProject
         {
             Name = "App",
             Modules = [.. own.Select(module => new RDCoreModule { RelativeUri = module.FileName })],
         });
 
-        var library = Parsed(LibraryRoot, Library);
-        var libraryResolver = WorkspaceSymbolResolver.Compose(
-            LibraryRoot, library.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver(), LibraryName);
-        var librarySymbols = library.SelectMany(module => Symbols(LibraryRoot, module, libraryResolver)).ToArray();
+        var referenced = references.Select(reference =>
+        {
+            var modules = Parsed(reference.Root, reference.Modules);
+            var resolver = WorkspaceSymbolResolver.Compose(
+                reference.Root, modules.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver(), reference.Name);
+            return (Reference: reference, Modules: modules, Resolver: resolver,
+                Symbols: modules.SelectMany(module => Symbols(reference.Root, module, resolver)).ToArray());
+        }).ToArray();
 
         var app = Parsed(AppRoot, own);
         var appResolver = WorkspaceSymbolResolver.Compose(
             AppRoot, app.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver(), "App",
-            libraries: ReferencedProjectSymbols.Of(AppRoot, LibraryName, librarySymbols, 1));
+            libraries: [.. referenced.SelectMany(each => ReferencedProjectSymbols.Of(AppRoot, each.Reference.Name, each.Symbols, each.Reference.Priority))]);
 
         // the session reads the project's modules from its folder, as the host does.
         var files = own.ToDictionary(module => Path.Combine(AppFolder, module.FileName), module => new MockFileData(module.Text));
@@ -125,17 +377,23 @@ public sealed class ReferencedClassMemberTests
         using var provider = new EnvironmentSessionProvider(profile, new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(project.ProjectInfo, AppRoot);
 
+        DefineSymbolsParams AsReferenced(
+            Module module, (Project Reference, Module[] Modules, ISymbolResolver Resolver, Symbol[] Symbols) each, bool withSymbols)
+            => Request(module, withSymbols ? Symbols(each.Reference.Root, module, each.Resolver) : []) with
+            {
+                Library = each.Reference.Name,
+                LibraryPriority = each.Reference.Priority,
+                PrecompilerTriviaJson = string.Empty,
+            };
+
         foreach (var declareTypesOnly in new[] { true, false })
         {
-            foreach (var module in library)
+            foreach (var each in referenced)
             {
-                await DefineAsync(provider, Request(module, Symbols(LibraryRoot, module, libraryResolver)) with
+                foreach (var module in each.Modules)
                 {
-                    DeclareTypesOnly = declareTypesOnly,
-                    Library = LibraryName,
-                    LibraryPriority = 1,
-                    PrecompilerTriviaJson = string.Empty,
-                });
+                    await DefineAsync(provider, AsReferenced(module, each, withSymbols: true) with { DeclareTypesOnly = declareTypesOnly });
+                }
             }
 
             foreach (var module in app)
@@ -148,16 +406,39 @@ public sealed class ReferencedClassMemberTests
         foreach (var module in app)
         {
             var code = Request(module, []) with { ParseResultJson = PlatformJson.Serialize(module.Parse), CodeOnly = true };
-            errors.AddRange((await DefineAsync(provider, code)).CodeErrors);
+            errors.AddRange((await DefineAsync(provider, code)).CodeErrors.Select(error => $"{module.Name}: {error}"));
         }
 
-        return errors;
+        foreach (var each in referenced)
+        {
+            foreach (var module in each.Modules)
+            {
+                var code = AsReferenced(module, each, withSymbols: false) with { ParseResultJson = PlatformJson.Serialize(module.Parse), CodeOnly = true };
+                errors.AddRange((await DefineAsync(provider, code)).CodeErrors.Select(error => $"{each.Reference.Name}.{module.Name}: {error}"));
+            }
+        }
+
+        inspect?.Invoke(provider);
+        if (!run)
+        {
+            return (errors, null);
+        }
+
+        var entry = app.Single(module => module.Name == "Program");
+        var result = await new HostExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
+            .Handle(new HostExecuteParams
+            {
+                Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
+                ModuleName = "Program",
+                EntryPoint = "Main",
+            }, CancellationToken.None);
+        return (errors, result);
     }
 
     private static Module[] Parsed(Uri root, IEnumerable<Source> modules) => [.. modules.Select(module =>
     {
         var parse = new ModuleParser().Parse(new Uri(root, module.FileName), module.Text);
-        Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
+        Assert.AreEqual(!module.HasSyntaxErrors, parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
         return new Module(module.Name, module.Type, new UriBuilder(root) { Fragment = module.Name }.Uri, parse);
     })];
 
