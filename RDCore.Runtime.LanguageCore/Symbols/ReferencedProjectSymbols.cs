@@ -48,8 +48,8 @@ public static class ReferencedProjectSymbols
     // the project symbol first (addressed under the referencing project's root, as a library's is), then the accessible modules, the default instances
     // of the accessible predeclared classes, their accessible members, and the members of the accessible Enum types. Each is tagged with the project's
     // name (SymbolProperties.Library) and its reference precedence (SymbolProperties.LibraryPriority), which the referencing project's resolver ranks it
-    // by among the libraries. The rest of the symbols (the standard library's, the referenced project's own references, project symbol and default
-    // instances) is left out.
+    // by among the libraries. The rest of the symbols (the standard library's, the referenced project's own references, project symbol and the
+    // default instances it defines for itself) is left out.
     public static ImmutableArray<Symbol> Of(Uri workspaceRoot, string projectName, IEnumerable<Symbol> symbols, int priority)
     {
         ArgumentNullException.ThrowIfNull(workspaceRoot);
