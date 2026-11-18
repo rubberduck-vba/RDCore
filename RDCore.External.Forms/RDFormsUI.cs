@@ -32,7 +32,7 @@ internal static class RDFormsUI
     private static Dispatcher? _dispatcher;
     private static RDFormsPlatform _platform;
 
-    // why the windows could not be started, which every later start of the process is answered with. Avalonia's setup is made once a process
+    // why the windows could not be started, which every later start of the process is answered with. Avalonia's setup is made once per process
     // (AppBuilder.Setup marks it made before it begins), so one that failed cannot be made again, whatever changed since. Touched under Gate.
     private static string? _failure;
 
