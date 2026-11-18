@@ -494,6 +494,30 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>Variant</c> parameter passed by reference given
+    /// a <c>Variant</c> variable of the activation: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The parameter is a second
+    /// name for the variable, so what the callee assigns it is what the variable holds after the call, in the cell compiled code reads it from.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list.</param>
+    /// <param name="slot">The slot of the variable given.</param>
+    /// <returns>
+    /// <see langword="false"/> when the interpreter makes the call: the variable cannot be given an address, or it is a <c>Variant</c> parameter bound to
+    /// a variable of another type, which the interpreter hands on with that type.
+    /// </returns>
+    public bool SetVariantReference(int index, int slot)
+    {
+        var variable = _body.SlotSymbols[slot];
+        if (FailsAccessAtRandom() || Frame.TryGetReferencedType(variable, out _) || !Frame.TryGetAddress(variable, out var address))
+        {
+            Array.Clear(_references);
+            return false;
+        }
+
+        SetReference(index, new VBRuntimeReference(address));
+        return true;
+    }
+
+    /// <summary>
     /// Whether compiled code writes its variables into its frame before a call: under a debugger, which shows the frame of a caller while the program waits
     /// in its callee.
     /// </summary>

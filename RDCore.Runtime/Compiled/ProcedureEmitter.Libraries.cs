@@ -86,6 +86,21 @@ internal sealed partial class ProcedureEmitter
                 continue;
             }
 
+            // an element of an array of Variants: what it holds when it is read, in its cell, found where it is in the order. One outside its dimension,
+            // or that holds an array or a record, is the interpreter's.
+            if (arguments[i] is VariantElementValueNode element)
+            {
+                payloads[i] = _il.DeclareLocal(typeof(VariantPayload));
+                values[i] = _il.DeclareLocal(typeof(IRuntimeValue));
+                var cell = EmitElementCellOf(element.Element.Array, element.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
+                _il.Emit(OpCodes.Ldloc, cell);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.ValueOf))!);
+                _il.Emit(OpCodes.Dup);
+                _il.Emit(OpCodes.Stloc, values[i]!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                continue;
+            }
+
             // an expression of Strings: a Variant holding its text, or for a String parameter its text, where it is in the order.
             if (arguments[i] is VariantTextNode or StringArgumentNode)
             {

@@ -1023,6 +1023,21 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
+            // a Variant passed by reference, given a Variant variable of the activation: its address, which the parameter is a second name for, as the
+            // interpreter gives it (MS-VBAL §5.3.1.11). Any other argument of a Variant parameter is the interpreter's to give, which makes the call.
+            if (parameters[i] is not ParamArrayParameterSymbol && parameters[i].ResolvedType is VBVariantType)
+            {
+                if (arguments[i] is not { Passing: ArgumentPassing.Reference, Value: BoundVariable variable } || VariantSlotOf(variable) is not { } held)
+                {
+                    return null;
+                }
+
+                kinds.Add(null);
+                byReference.Add(true);
+                values.Add(new VariantReferenceNode(held));
+                continue;
+            }
+
             if (parameters[i] is ParamArrayParameterSymbol || ScalarKinds.Of(parameters[i].ResolvedType) is not { } kind || ArgumentOf(arguments[i], kind) is not { } value)
             {
                 return null;

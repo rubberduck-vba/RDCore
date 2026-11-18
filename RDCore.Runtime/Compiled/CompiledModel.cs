@@ -231,6 +231,10 @@ internal sealed record class VariantSlotNode(int Slot) : VariantNode;
 // argument is evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
 internal sealed record class VariantValueNode(int Slot) : VariantNode;
 
+// an element of an array of Variants given by value to a Variant parameter of a function of the standard library: what it holds when the argument is
+// evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
+internal sealed record class VariantElementValueNode(VariantElementNode Element) : VariantNode;
+
 // an expression of Strings given by value to a Variant parameter of a function of the standard library: a Variant holding the String, as the interpreter
 // gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
 internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
@@ -327,6 +331,10 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 // the argument of an object parameter passed by reference that is an object variable of the activation of the parameter's very type (MS-VBAL §5.3.1.11):
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+
+// the argument of a Variant parameter passed by reference that is a Variant variable of the activation (MS-VBAL §5.3.1.11): the variable's address, which
+// the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+internal sealed record class VariantReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // the argument of an optional Variant parameter the call leaves out (CompiledCallee.Parameters, null): what the interpreter gives it
 // (RuntimeExpressionEvaluator.OmittedArgument), the default the parameter declares or Missing, of the parameter of the procedure the call invokes, given as
@@ -516,8 +524,8 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
 /// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
-/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), and for an optional <c>Variant</c> the call leaves out
-/// (<see cref="OmittedArgumentNode"/>).
+/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), for a <c>Variant</c> given a <c>Variant</c> variable by reference, whose argument
+/// is the variable's address (<see cref="VariantReferenceNode"/>), and for an optional <c>Variant</c> the call leaves out (<see cref="OmittedArgumentNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>

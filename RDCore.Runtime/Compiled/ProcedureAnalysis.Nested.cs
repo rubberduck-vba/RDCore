@@ -351,7 +351,7 @@ internal sealed partial class ProcedureAnalysis
         // an element, read once its subscripts are evaluated, calls among them.
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
-        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or OmittedArgumentNode => true,
+        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or VariantReferenceNode or OmittedArgumentNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
         ConvertNode convert => Admits(convert.Operand),

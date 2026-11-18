@@ -1051,6 +1051,16 @@ internal sealed partial class ProcedureEmitter
                 continue;
             }
 
+            // a Variant variable given by reference: its address, which the callee's parameter is bound at. One compiled code can't give is the
+            // interpreter's, which makes the call.
+            if (call.Arguments[i] is VariantReferenceNode variant)
+            {
+                _il.Emit(OpCodes.Ldc_I4, variant.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetVariantReference))!);
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
+                continue;
+            }
+
             LoadAsBoth(arguments[i], call.Arguments[i].Kind);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetArgument))!);
         }
@@ -1780,6 +1790,10 @@ internal sealed partial class ProcedureEmitter
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
 
+            // a Variant variable is given its address as the call is made (CompiledActivation.SetVariantReference).
+            case VariantReferenceNode:
+                return default;
+
             // an optional Variant left out is given as the call is made (CompiledActivation.SetOmitted).
             case OmittedArgumentNode:
                 return default;
@@ -2170,6 +2184,7 @@ internal sealed partial class ProcedureEmitter
         VariantUnaryNode unary => MakesACall(unary.Operand),
         LibraryVariantNode library => library.Arguments.Any(MakesACall),
         VariantElementNode element => element.Subscripts.Any(MakesACall),
+        VariantElementValueNode value => MakesACall(value.Element),
         _ => false,
     };
 
