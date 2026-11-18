@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Options;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace.Services;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
