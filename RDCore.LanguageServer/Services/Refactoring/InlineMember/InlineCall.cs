@@ -178,7 +178,6 @@ internal static class InlineCall
                 InstructionKind.GoSub or InstructionKind.GoSubTable or InstructionKind.Return => InlineRefusalKind.GoSub,
                 InstructionKind.OnErrorGoTo or InstructionKind.OnErrorDisable or InstructionKind.OnErrorReset or InstructionKind.OnErrorResumeNext
                     or InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel => InlineRefusalKind.ErrorHandling,
-                InstructionKind.ExitProcedure when !IsLastStatement(declaration, instruction.Node) => InlineRefusalKind.UnsupportedConstruct,
                 _ => (InlineRefusalKind?)null,
             };
             if (kind is { } refusal)
@@ -229,9 +228,6 @@ internal static class InlineCall
         VBReturningMemberSymbol returning => returning.Parameters,
         _ => [],
     };
-
-    private static bool IsLastStatement(MemberDeclarationNode declaration, StatementNode? statement)
-        => statement is not null && declaration.Children.OfType<StatementNode>().LastOrDefault() == statement;
 
     // writes the inlined body at the call.
     private sealed class Writer(
@@ -429,11 +425,7 @@ internal static class InlineCall
                 }
             }
 
-            if (procedure.Instructions.Items.FirstOrDefault(instruction => instruction.Kind is InstructionKind.ExitProcedure) is { Node: { } exit })
-            {
-                edits.Add((new SourceRange(new SourcePosition(exit.SourceLocation.Range.Start.Line, 0), new SourcePosition(exit.SourceLocation.Range.End.Line + 1, 0)), string.Empty));
-            }
-
+            var closing = Exits(edits);
             var written = text.Of(body);
             var start = text.OffsetOf(body.Start);
             foreach (var (range, newText) in edits.DistinctBy(edit => edit.Range).OrderByDescending(edit => edit.Range.Start))
@@ -442,7 +434,66 @@ internal static class InlineCall
                 written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.OffsetOf(range.End) - start));
             }
 
-            return written.TrimEnd('\r', '\n').Split('\n').Select(line => line.TrimEnd('\r').TrimStart());
+            return written.TrimEnd('\r', '\n').Split('\n').Select(line => line.TrimEnd('\r').TrimStart()).Concat(closing);
+        }
+
+        // each Exit Sub, Function or Property (MS-VBAL §5.4.2.17-19) leaves the inlined body for what follows it: dropped when it is the body's last statement;
+        // the end of a top-level block If when it is the last statement of an If that has no other branch, the rest of the body then going in an Else of
+        // that If; a GoTo a label after the body anywhere else. The lines written after the body: the End If of each such If, then the label.
+        private List<string> Exits(List<(SourceRange Range, string NewText)> edits)
+        {
+            var closing = new List<string>();
+            string? label = null;
+            var statements = procedure.Declaration.Children.OfType<StatementNode>().ToArray();
+            foreach (var exit in procedure.Instructions.Items.Where(instruction => instruction.Kind is InstructionKind.ExitProcedure).Select(instruction => instruction.Node!))
+            {
+                var exitLine = LineOf(exit.SourceLocation.Range);
+                if (exit == statements.LastOrDefault())
+                {
+                    edits.Add((exitLine, string.Empty));
+                    continue;
+                }
+
+                if (statements.OfType<IfBlockStatementNode>().FirstOrDefault(each => each.ElseIfBlocks.IsEmpty && each.ElseBlock is null && each.Body.Children.LastOrDefault() == exit) is { } guard
+                    && procedure.Instructions.Items.Count(instruction => instruction.Kind is InstructionKind.ExitProcedure && Within(instruction.Node!.SourceLocation.Range, guard.SourceLocation.Range)) == 1)
+                {
+                    edits.Add((exitLine, string.Empty));
+                    if (guard != statements[^1])
+                    {
+                        edits.Add((LineOf(new SourceRange(guard.SourceLocation.Range.End, guard.SourceLocation.Range.End)), "Else" + text.NewLine));
+                        closing.Insert(0, "End If");
+                    }
+
+                    continue;
+                }
+
+                label ??= FreshLabel();
+                edits.Add((exit.SourceLocation.Range, $"GoTo {label}"));
+            }
+
+            if (label is not null)
+            {
+                closing.Add($"{label}:");
+            }
+
+            return closing;
+        }
+
+        private static SourceRange LineOf(SourceRange range) => new(new SourcePosition(range.Start.Line, 0), new SourcePosition(range.End.Line + 1, 0));
+
+        // a label no line of the caller has, and no name it writes (MS-VBAL §5.4.1.1: labels are unique within a procedure).
+        private string FreshLabel()
+        {
+            var labels = NameOccurrences.Walk(syntax.Syntax).Select(each => each.Node).OfType<LineLabelNode>()
+                .Where(each => Within(each.SourceLocation.Range, CallerRange())).Select(each => each.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var name = $"{callee.Name}_exit";
+            for (var index = 2; labels.Contains(name) || _taken.Contains(name) || NewNames.ValidityOf(name) is not NewNameValidity.Valid; index++)
+            {
+                name = $"{callee.Name}_exit{index}";
+            }
+
+            _taken.Add(name);
+            return name;
         }
 
         private static string NameOf(SemanticId id) => id.Uri.Fragment[(id.Uri.Fragment.LastIndexOf('.') + 1)..];
