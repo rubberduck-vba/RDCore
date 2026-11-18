@@ -134,10 +134,10 @@ A reference to a project (`IsProject`) names the one project of the workspace wh
 
 A `Friend` member is a name of its own project only. The names of what the referenced project references are not names of the project that references it. Projects that reference one another in a circle, directly or through other projects, are a circular reference of projects (`RDC31001`); the reference that closes the circle gives no names.
 
+The language server binds the names a referenced project gives, for completion and for the types that declarations name. The environment host defines them in the referencing project's session, beside the session's own modules: a `Module1` of the referenced project is another module than the session's own `Module1`, which keeps the name.
+
 > [!NOTE]
-> **Not implemented.** The language server binds the names a referenced project gives, for completion and for the types that declarations name. The environment host does not: it runs the primary project alone, and its analysis of a project does not see the names of the projects it references.
->
-> **Not implemented.** A referencing project does not bind the default instance of an exposed class (`VB_PredeclaredId = True`).
+> **Not implemented.** The environment host does not load or run a referenced project's code: a session runs its own project's code only. A referencing project does not bind the default instance of an exposed class (`VB_PredeclaredId = True`).
 
 A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 
