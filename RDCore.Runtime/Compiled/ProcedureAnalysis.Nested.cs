@@ -184,6 +184,9 @@ internal sealed partial class ProcedureAnalysis
         BoundQualifiedName { Member: var qualified } => IsCompiledLibrary(qualified) && !KeepsNothing(qualified),
         // a member of Err compiled code reads where the session holds it calls nothing.
         BoundMember member when ErrNumberOf(member) is not null || ErrTextOf(member) is not null => false,
+        // a pure member of a class of the standard library compiled code calls on an object calls nothing of the workspace: only what its arguments call.
+        // The interpreter makes it again when the instruction is handed to it (ProcedureAnalysis.LibraryMembers.cs).
+        (BoundMember or BoundIndex) and var library when LibraryMemberCallOf(library) is { Arguments: var given } => given.Any(argument => Calls(argument.Value)),
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
         // an element of an array field of a record, which calls what its subscripts call.
         BoundMember member when FieldElementOf(member) is { } element => Calls(element),
@@ -521,6 +524,7 @@ internal sealed partial class ProcedureAnalysis
         VariantBinaryNode binary => [.. OperandsOf(binary.Left), .. OperandsOf(binary.Right)],
         VariantUnaryNode unary => OperandsOf(unary.Operand),
         LibraryVariantNode library => library.Arguments.SelectMany(OperandsOf),
+        LibraryMemberNode member => member.Arguments.SelectMany(OperandsOf),
         _ => [],
     };
 
