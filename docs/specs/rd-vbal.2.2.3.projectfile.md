@@ -23,7 +23,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ```javascript
 {
-  "Version": "1.2",
+  "Version": "1.3",
   "Configuration": [],
   "ProjectInfo": RDCoreProject
 }
@@ -40,12 +40,20 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ## 2.2.3.0 The format's version
 
-A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.2`, which adds the project's `KeepSystemTheme`, its `Make` section and the `ConsoleApplication` output type ([§2.2.3.1](#2231-rdcoreproject)) to the format `1.1`, which adds its `build` section to the format `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.3`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
+A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.3`. Each version adds to the one before it:
+
+|Version|Adds|
+|---|---|
+|`1.1`|The project's `build` section ([§2.2.3.1](#2231-rdcoreproject)).|
+|`1.2`|The project's `KeepSystemTheme`, its `Make` section and the `ConsoleApplication` output type ([§2.2.3.1](#2231-rdcoreproject)).|
+|`1.3`|References to other projects of the workspace: a reference's `IsProject` ([§2.2.3.2](#2232-rdcorereference)).|
+
+A change that an older RDCore can still read, such as a new member, raises the second number: `1.4`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
 
 RDCore opens a project file whatever version it says:
 
 - **The same format, or an older one.** The project opens. An older file is written in the current format the next time RDCore saves it.
-- **A newer second number** (`1.3` when RDCore writes `1.2`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
+- **A newer second number** (`1.4` when RDCore writes `1.3`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
 - **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
 
 Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open. RDCore reads a `build` section in a file of the format `1.0` as the format `1.1` has it.
