@@ -9,8 +9,12 @@ cannot: code that has one does not compile, or stops when it runs, whatever the 
 
 ## With a quick fix
 
-A diagnostic that can be disabled comes with a quick fix, after its other fixes: **Disable RDC01001 in every workspace**. Choosing it adds the code to your
-list. In the shell, `DUCKY` offers it with the other actions for a line; in an editor, it is one of the diagnostic's quick fixes.
+A diagnostic that can be disabled comes with two quick fixes, after its other fixes:
+
+- **Disable RDC01001 in every workspace** adds the code to your list.
+- **Disable RDC01001 in this workspace** adds the code to the workspace's list ([For one workspace](#for-one-workspace)).
+
+In the shell, `DUCKY` offers them with the other actions for a line; in an editor, they are among the diagnostic's quick fixes.
 
 ## With CONFIG
 
@@ -44,7 +48,7 @@ A workspace can disable codes of its own, in the `Configuration` section of the 
 ```
 
 Whoever opens the workspace has these codes disabled as well as their own: the workspace's list adds to theirs and takes nothing from it. The platform reads
-the file when it starts.
+the file when it starts; a code added with the quick fix **Disable RDC01001 in this workspace** is disabled at once.
 
 See [Diagnostics](diagnostics/index.md) for the codes, and
 [**RD-VBAL §2.3.3** Configuration](specs/rd-vbal.2.3.3.configuration.md#disabled-diagnostics) for the setting.

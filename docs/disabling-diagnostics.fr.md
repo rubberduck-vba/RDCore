@@ -9,9 +9,13 @@ d'exécution (`VBR`, `VBA`) ne le peut pas : le code qui en a une ne compile pas
 
 ## Par un correctif rapide
 
-Un diagnostic qui peut être désactivé vient avec un correctif rapide, après ses autres correctifs : **Désactiver RDC01001 dans tous les espaces de
-travail**. Le choisir ajoute le code à votre liste. Dans le _shell_, `DUCKY` le propose avec les autres actions d'une ligne; dans un éditeur, c'est un
-des correctifs rapides du diagnostic.
+Un diagnostic qui peut être désactivé vient avec deux correctifs rapides, après ses autres correctifs :
+
+- **Désactiver RDC01001 dans tous les espaces de travail** ajoute le code à votre liste.
+- **Désactiver RDC01001 dans cet espace de travail** ajoute le code à la liste de l'espace de travail
+  ([Pour un seul espace de travail](#pour-un-seul-espace-de-travail)).
+
+Dans le _shell_, `DUCKY` les propose avec les autres actions d'une ligne; dans un éditeur, ils font partie des correctifs rapides du diagnostic.
 
 ## Par CONFIG
 
@@ -45,7 +49,8 @@ Un espace de travail peut désactiver ses propres codes, dans la section `Config
 ```
 
 Quiconque ouvre l'espace de travail a ces codes désactivés en plus des siens : la liste de l'espace de travail s'ajoute à la sienne et ne lui retire rien.
-La plateforme lit le fichier à son démarrage.
+La plateforme lit le fichier à son démarrage; un code ajouté par le correctif rapide **Désactiver RDC01001 dans cet espace de travail** est désactivé
+aussitôt.
 
 Voir [Diagnostics](diagnostics/index.md) pour les codes, et
 [**RD-VBAL §2.3.3** Configuration](specs/rd-vbal.2.3.3.configuration.md#disabled-diagnostics) pour le paramètre.

@@ -165,15 +165,12 @@ A live setting is set on the object the component reads its settings off, in pla
   every code is disabled is not run, and a finding of a disabled code is dropped
   ([`ModuleAnalyzerHost`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.ModuleAnalyzerHost.html)). A diagnostic
   the language server raises itself is not reported when its code is disabled either.
-- A diagnostic whose code can be disabled is offered a quick fix that adds its code to the user's list, after its other fixes. The language server asks the
-  client to make the change (`rdcore/settings/listValue`), as a client owns its user's settings: only a client that expects that request is offered the fix.
-  The shell makes it as `CONFIG` would.
-
-- A workspace's list ([Workspace Settings](#workspace-settings)) adds to the user's. The shell changes it when it is asked to change the workspace's list
-  (`rdcore/settings/listValue`, scope `Workspace`); the language server reads it again when the client says its settings changed.
-
-> [!NOTE]
-> **Not implemented.** No quick fix disables a code for the workspace only.
+- A diagnostic whose code can be disabled is offered two quick fixes, after its other fixes: one adds its code to the user's list (scope `Platform`), then
+  one adds it to the list of the document's workspace (scope `Workspace`). The language server asks the client to make the change
+  (`rdcore/settings/listValue`), as a client owns its configuration: only a client that expects that request is offered the fixes.
+- The shell changes the user's list as `CONFIG` would, and the workspace's list in the workspace's `appsettings.json`
+  ([Workspace Settings](#workspace-settings)), which adds to the user's. Either way it says its settings changed, and the language server reads both lists
+  again: the next analysis leaves the code out.
 
 ## Formatting
 

@@ -151,23 +151,29 @@ public sealed class CodeActionHandlerTests
     private static Diagnostic Coded(string code, Range range) => new() { Range = range, Code = code, Source = "RDCore", Message = code };
 
     [TestMethod]
-    public async Task ACodeOfTheDiagnosticsOfTheRange_IsOfferedTheActionThatDisablesIt_InEveryWorkspace_Once()
+    public async Task ACodeOfTheDiagnosticsOfTheRange_IsOfferedTheActionsThatDisableIt_InEveryWorkspace_ThenInThisWorkspace_Once()
     {
         ClientTakesListChanges();
         var first = Coded("RDC01002", new Range(0, 7, 0, 14));
         var second = Coded("RDC01002", new Range(3, 15, 3, 22));
 
-        var action = Assert.ContainsSingle(await ActionsAsync(new Range(0, 0, 3, 22), [CodeActionKind.QuickFix], first, second));
+        var actions = await ActionsAsync(new Range(0, 0, 3, 22), [CodeActionKind.QuickFix], first, second);
 
-        Assert.AreEqual("Disable RDC01002 in every workspace", action.Title);
-        Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
-        CollectionAssert.AreEqual(new[] { first, second }, action.Diagnostics!.ToArray());
-        Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
-        var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
-        Assert.AreEqual("Analysis.DisabledDiagnostics", (string?)change["key"]);
-        Assert.AreEqual("RDC01002", (string?)change["value"]);
-        Assert.AreEqual((int)RDCore.SDK.Platform.Protocol.SettingScope.Platform, (int?)change["scope"]);
-        Assert.IsFalse((bool?)change["remove"]);
+        Assert.HasCount(2, actions);
+        CollectionAssert.AreEqual(new[] { "Disable RDC01002 in every workspace", "Disable RDC01002 in this workspace" }, actions.Select(action => action.Title).ToArray());
+        var scopes = new[] { RDCore.SDK.Platform.Protocol.SettingScope.Platform, RDCore.SDK.Platform.Protocol.SettingScope.Workspace };
+        for (var index = 0; index < actions.Count; index++)
+        {
+            var action = actions[index];
+            Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
+            CollectionAssert.AreEqual(new[] { first, second }, action.Diagnostics!.ToArray());
+            Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
+            var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
+            Assert.AreEqual("Analysis.DisabledDiagnostics", (string?)change["key"]);
+            Assert.AreEqual("RDC01002", (string?)change["value"]);
+            Assert.AreEqual((int)scopes[index], (int?)change["scope"]);
+            Assert.IsFalse((bool?)change["remove"]);
+        }
     }
 
     [TestMethod]
