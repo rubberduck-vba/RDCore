@@ -14,6 +14,7 @@ namespace RDCore.Tests.Platform;
 /// <see cref="DiagnoseDocumentResult"/> comes back as plain LSP <see cref="Diagnostic"/>s the
 /// transport's own (Newtonsoft) serializer round-trips.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class DiagnoseDocumentSerializationTests
 {

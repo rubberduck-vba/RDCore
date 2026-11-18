@@ -41,7 +41,7 @@ public sealed class HostSessionStatusHandlerTests
         var provider = NewProvider();
         var project = new RDCoreProject
         {
-            Name = "Battleship",
+            Name = "NavalBattle",
             Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }, new RDCoreModule { RelativeUri = "src/Mod2.bas" }],
         };
         var session = provider.Compose(project, WorkspaceRoot);
@@ -50,7 +50,7 @@ public sealed class HostSessionStatusHandlerTests
         var result = await sut.Handle(new HostSessionStatusParams(), CancellationToken.None);
 
         Assert.IsTrue(result.IsComposed);
-        Assert.AreEqual("Battleship", result.ProjectName);
+        Assert.AreEqual("NavalBattle", result.ProjectName);
         Assert.AreEqual(2, result.ModuleCount);
         Assert.AreEqual(session.References.Count, result.ReferenceCount);
         // the numbers are the allocator's own, projected 1:1 - not re-derived here.

@@ -31,10 +31,11 @@ internal sealed class StackReplCommand : IReplCommand
         foreach (var frame in stack.Frames)
         {
             // and how it got to the line it is at, when it was by a GoSub: from the line of the last one it has not returned from, and the one before that.
-            var from = string.Concat(frame.ReturnLines.Select(line => $" from {Where(context.Program, frame.Module, line)}"));
+            var from = string.Concat(frame.ReturnLines.Select(line =>
+                " " + string.Format(Resources.Repl_Frame_FromGoSub, Where(context.Program, frame.Module, line))));
 
             // and, if it was an error that brought it to the handler it is in, the handler: the error itself is for the error metadata to say.
-            var handler = frame.Handler is { Length: > 0 } label ? $" in {label}" : string.Empty;
+            var handler = frame.Handler is { Length: > 0 } label ? " " + string.Format(Resources.Repl_Frame_InHandler, label) : string.Empty;
             context.Console.WriteLine($"#{frame.Id} {frame.Procedure} {Where(context.Program, frame.Module, frame.Line)}{handler}{from}".TrimEnd());
         }
 

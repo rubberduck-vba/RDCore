@@ -90,6 +90,13 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     public string? DesignerText { get; init; }
 
     /// <summary>
+    /// Whether the program that makes the form runs unattended, with nobody to see the form: a host that can make it where no screen shows it makes it there,
+    /// so that the program can load it and use it on a machine with no display. Its <c>Show</c> fails before it reaches the host, as any dialog of such a
+    /// program does. <see langword="false"/> unless said otherwise.
+    /// </summary>
+    public bool Unattended { get; init; }
+
+    /// <summary>
     /// The definition of the form a form module's designer declares: its state, and what its designer block says of its window.
     /// </summary>
     /// <param name="name">The name of the form's module.</param>

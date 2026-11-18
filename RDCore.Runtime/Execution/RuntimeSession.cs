@@ -63,7 +63,9 @@ internal sealed class RuntimeSession(
 
     public IObjectLifecycle? Lifecycle { get; set; }
 
-    public ISessionExternalObjects ExternalObjects { get; } = new SessionExternalObjects();
+    public ISessionExternalObjects ExternalObjects => LazyInitializer.EnsureInitialized(ref _externalObjects, () => new SessionExternalObjects(Turn));
+
+    private SessionExternalObjects? _externalObjects;
 
     public IExternalDispatcher? External { get; set; }
 

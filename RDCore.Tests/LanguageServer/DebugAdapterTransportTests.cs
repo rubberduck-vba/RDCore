@@ -5,6 +5,7 @@ namespace RDCore.Tests.LanguageServer;
 /// <summary>
 /// A client that is gone is known by the stream it spoke over having nothing more to say.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class DebugAdapterTransportTests
 {
