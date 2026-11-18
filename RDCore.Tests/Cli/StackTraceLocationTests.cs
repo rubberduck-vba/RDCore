@@ -251,6 +251,43 @@ public sealed class StackTraceLocationTests
         }
     }
 
+    // an error raised again and again through the same procedures, handled, then once more with nothing to handle it: the last trace locates every activation
+    // and names the module each is in, as the first did.
+    [TestMethod]
+    public async Task AnErrorRaisedAgainThroughTheSameProcedures_NamesTheModuleOfEachActivation()
+    {
+        var program = CompiledDirectCallTests.Program(
+            "Public Sub Main()",
+            "    Dim i As Long",
+            "    On Error Resume Next",
+            "    For i = 1 To 3",
+            "        Debug.Print Through(0)",
+            "    Next",
+            "    On Error GoTo 0",
+            "    Debug.Print Through(0)",
+            "End Sub",
+            "Private Function Through(ByVal x As Long) As Long",
+            "    Dim o As Divider",
+            "    Set o = New Divider",
+            "    Through = o.M(x)",
+            "End Function");
+
+        foreach (var (engine, result) in await RunAsync(program, Divider, "Through"))
+        {
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, engine.ToString());
+            CollectionAssert.AreEqual(
+                new[] { $"M@{result.ErrorLine}:{result.ErrorCharacter}", "Through@12:14", "Main@7:16" },
+                Frames(result),
+                engine.ToString());
+
+            var modules = result.StackTrace.Select(frame => frame.Module).ToArray();
+            Assert.AreEqual("Divider", modules[0], engine.ToString());
+            Assert.IsFalse(string.IsNullOrEmpty(modules[1]), engine.ToString());
+            Assert.AreNotEqual("Divider", modules[1], engine.ToString());
+            Assert.AreEqual(modules[1], modules[2], engine.ToString());
+        }
+    }
+
     // a function result assigned by the statement that calls it, to a Variant of the activation or to its own Variant result: the caller is located at the
     // call, the value of the statement's expression, and not at the variable assigned it.
     [TestMethod]

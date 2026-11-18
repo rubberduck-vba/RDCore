@@ -90,6 +90,13 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     public string? DesignerText { get; init; }
 
     /// <summary>
+    /// Whether the program that makes the form runs unattended, with nobody to see the form: a host that can make it where no screen shows it makes it there,
+    /// so that the program can load it and use it on a machine with no display. Its <c>Show</c> fails before it reaches the host, as any dialog of such a
+    /// program does. <see langword="false"/> unless said otherwise.
+    /// </summary>
+    public bool Unattended { get; init; }
+
+    /// <summary>
     /// The definition of the form a form module's designer declares: its state, and what its designer block says of its window.
     /// </summary>
     /// <param name="name">The name of the form's module.</param>
@@ -135,6 +142,19 @@ public interface IFormHost
     /// <c>New</c> of its class, and any use of its default instance that makes its form, raise 429. <see langword="false"/> unless the host says otherwise.
     /// </summary>
     bool HostsVisualBasic6Forms => false;
+
+    /// <summary>
+    /// Whether the windows of this host's forms follow the theme of the application, as <c>App.KeepSystemTheme</c> says: light unless it is
+    /// <see langword="true"/>. A value set is given to every form of the host, the ones it has made and the ones it makes, before any of them is shown.
+    /// </summary>
+    /// <remarks>
+    /// A host whose forms have no theme of their own ignores it: <see langword="false"/>, and setting it does nothing, unless the host says otherwise.
+    /// </remarks>
+    bool KeepSystemTheme
+    {
+        get => false;
+        set { }
+    }
 
     /// <summary>
     /// Creates a form from its definition, in a window that is not shown yet.

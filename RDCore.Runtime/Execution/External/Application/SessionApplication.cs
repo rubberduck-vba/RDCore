@@ -99,6 +99,12 @@ public sealed class SessionApplication
     public bool TaskVisible { get; set; } = true;
 
     /// <summary>
+    /// <c>App.KeepSystemTheme</c>: whether the program's forms follow the system's theme, or stay light. Its value starts as the project's, and the form host
+    /// is told each value it takes.
+    /// </summary>
+    public bool KeepSystemTheme { get; set; }
+
+    /// <summary>
     /// <c>App.OleServerBusyTimeout</c>, in milliseconds, which no automation call waits for.
     /// </summary>
     public int OleServerBusyTimeout { get; set; } = 10000;

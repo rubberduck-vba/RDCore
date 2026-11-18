@@ -110,12 +110,22 @@ public static class StringOperations
             appender.WriteInto(handle);
         }
     }
+
+    // the characters the Mid statement replaces in a String of length characters (MS-VBAL §5.4.3.5): from Index (from 0), Replaced of them, the least of
+    // the count given, the characters left from start and the characters of value. None when the statement raises 5: a start below 1 or past the end, or a
+    // negative count.
+    internal static (int Index, int Replaced)? MidReplaced(int length, long start, long count, bool hasCount, string? value)
+        => start <= length && count <= int.MaxValue
+            && StdLib.StdStrings.MidRange(length, (int)Math.Max(start, 0), hasCount ? (int)count : null) is var (index, taken)
+                ? (index, Math.Min(taken, value?.Length ?? 0))
+                : null;
 }
 
 /// <summary>
 /// The text compiled code appends to a <c>String</c> variable of an activation (<see cref="StringOperations.TryAppend"/>), held in a builder until it is
-/// written into the variable's cell (<see cref="StringOperations.WriteAppended"/>). No String is changed in place: the cell is given a new String made of
-/// the builder. A cell that holds a value other than the one the builder was made of was assigned by something else, and the builder is made again of it.
+/// written into the variable's cell (<see cref="StringOperations.WriteAppended"/>). A <c>Mid</c> statement of the variable replaces characters of the
+/// builder (<see cref="CompiledActivation.TryMid"/>). No String is changed in place: the cell is given a new String made of the builder. A cell that
+/// holds a value other than the one the builder was made of was assigned by something else, and the builder is made again of it.
 /// </summary>
 public sealed class TextAppender
 {
@@ -143,6 +153,25 @@ public sealed class TextAppender
 
         _ = _builder.Append(text);
         _behind = true;
+        return true;
+    }
+
+    // the Mid statement in the builder, while it holds the cell's value and what was appended to it since: the characters replaced where they are, so the
+    // String is not made of the builder for it. False when the builder is not in step with the cell, or the statement raises.
+    internal bool TryMid(ValueBindingHandle handle, long start, long count, bool hasCount, string? value)
+    {
+        if (_held is null || !ReferenceEquals(handle.Value, _held)
+            || StringOperations.MidReplaced(_builder.Length, start, count, hasCount, value) is not var (index, replaced))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < replaced; i++)
+        {
+            _builder[index + i] = value![i];
+        }
+
+        _behind |= replaced > 0;
         return true;
     }
 

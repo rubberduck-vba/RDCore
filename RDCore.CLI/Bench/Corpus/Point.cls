@@ -3,7 +3,9 @@ BEGIN
   MultiUse = -1  'True
 END
 Attribute VB_Name = "Point"
+' <Point>
 Option Explicit
 
 Public X As Long
 Public Y As Long
+' </Point>
