@@ -217,6 +217,22 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    private static List<(string Name, bool IsSynchronous)> Changes(Recorder recorder)
+    {
+        lock (recorder.Raised)
+        {
+            return [.. recorder.Raised.Where(e => e.Name == "Change")];
+        }
+    }
+
+    private static string Heard(Recorder recorder)
+    {
+        lock (recorder.Raised)
+        {
+            return string.Join(", ", recorder.Raised);
+        }
+    }
+
     // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a call of
     // the first, is no answer to a call of the second, which waits for none; the first program's form's event is the answer to the first's call.
     [TestMethod]
@@ -247,8 +263,9 @@ public sealed class RDFormsFormHostTests
 
             first.DoEvents();
             second.DoEvents();
-            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised), "raised during its own program's call, the event is its answer");
-            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised), "raised during another program's call, the event is no answer");
+            // the Change each assignment raises: a form a test running alongside shows can move the focus, and its LostFocus and GotFocus are no part of this.
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(Changes(myEvents)), $"raised during its own program's call, the event is its answer; heard: {Heard(myEvents)}");
+            Assert.AreEqual(("Change", false), Assert.ContainsSingle(Changes(theirEvents)), $"raised during another program's call, the event is no answer; heard: {Heard(theirEvents)}");
         }
         finally
         {
