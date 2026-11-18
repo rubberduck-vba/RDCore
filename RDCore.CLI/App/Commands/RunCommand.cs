@@ -34,8 +34,8 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
     private TextWriter Output => output ?? global::System.Console.Out;
     private TextWriter Error => error ?? global::System.Console.Error;
 
-    // the dialogs of the program (ProgramDialogs): an RDForms application's are RDForms', over its forms, and a console application's are asked at the console,
-    // as the shell asks them, on every operating system, unless the settings ask for Windows' own on Windows (AppOptions.NativeDialogs).
+    // the dialogs of the program (ProgramDialogs): an RDForms application's are RDForms', over its forms, and a console application's are asked at the
+    // console, as the shell asks them, on every operating system, unless the settings ask for Windows' own on Windows (AppOptions.NativeDialogs).
     private IUserInteraction? DialogsOf(ProjectBuild? build) => ProgramDialogs.DialogsOf(build, options?.Value.NativeDialogs ?? false, ConsoleDialogs);
 
     private ConsoleUserInteraction ConsoleDialogs() => output is null
