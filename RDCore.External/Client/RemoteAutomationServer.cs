@@ -44,6 +44,10 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     private bool _running;
     private Incarnation? _told;
 
+    // the program's App.KeepSystemTheme, as it was last said, and the incarnation last told it, as for the hold.
+    private bool _keepSystemTheme;
+    private Incarnation? _themeTold;
+
     [ThreadStatic]
     private static long _handlingEvent;
 
@@ -140,6 +144,8 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         // told first whether a program runs, false as well as true, so that what Microsoft Forms posts as it creates the form waits as it would in a host told.
         var incarnation = Connect();
         TellHold(incarnation, onlyIfUntold: true);
+        // and the theme its windows are in, so that the form is made in it.
+        TellTheme(incarnation, onlyIfUntold: true);
         var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
         return ObjectOf(incarnation, created.Handle);
     }
@@ -239,6 +245,63 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         lock (_holdGate)
         {
             _told = incarnation;
+        }
+    }
+
+    // kept here, and told to the external host when it runs: one that does not is not started for it, and is told when a form starts it (Create). A
+    // telling that fails leaves that incarnation untold, and its next form tells it again.
+    bool Forms.IFormHost.KeepSystemTheme
+    {
+        get
+        {
+            lock (_holdGate)
+            {
+                return _keepSystemTheme;
+            }
+        }
+        set
+        {
+            lock (_holdGate)
+            {
+                _keepSystemTheme = value;
+            }
+
+            if (_host.Running is { } incarnation)
+            {
+                try
+                {
+                    TellTheme(incarnation, onlyIfUntold: false);
+                }
+                catch (AutomationException)
+                {
+                    lock (_holdGate)
+                    {
+                        _themeTold = null;
+                    }
+                }
+            }
+        }
+    }
+
+    // says to an incarnation the theme its windows are in; one that was told already is not told again when only the untold are.
+    private void TellTheme(Incarnation incarnation, bool onlyIfUntold)
+    {
+        bool keep;
+        lock (_holdGate)
+        {
+            if (onlyIfUntold && ReferenceEquals(_themeTold, incarnation))
+            {
+                return;
+            }
+
+            keep = _keepSystemTheme;
+        }
+
+        _ = Send<FormKeepSystemThemeParams, ExternalDoneResult>(
+            incarnation, ExternalProtocol.FormKeepSystemTheme, new FormKeepSystemThemeParams { KeepSystemTheme = keep, HandlingEvent = _handlingEvent });
+        lock (_holdGate)
+        {
+            _themeTold = incarnation;
         }
     }
 
