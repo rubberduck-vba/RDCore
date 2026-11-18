@@ -149,8 +149,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             if (component.Class.Property(member) is { } property)
             {
                 // the class says which of its properties only a form's file and a designer set (382 on an assignment), and which a program cannot reach at
-                // all (393 on a read): the Timer's Left and Top are its class's, not the property's.
-                if (invocation is AutomationInvocation.Let or AutomationInvocation.Set && component.Class.IsReadOnlyAtRunTime(property))
+                // all (393 on a read): the Timer's Left and Top are its class's, not the property's. A VB6 form keeps VB6's rule; an RDForms form's program
+                // also sets what either library lets it (a TextBox's MultiLine, as MSForms does).
+                var readOnly = handle.Form.IsVisualBasic
+                    ? component.Class.IsReadOnlyAtRunTimeOnAVisualBasic6Form(property)
+                    : component.Class.IsReadOnlyAtRunTime(property);
+                if (invocation is AutomationInvocation.Let or AutomationInvocation.Set && readOnly)
                 {
                     throw FormFailure(FormError.SetNotSupportedAtRuntime);
                 }

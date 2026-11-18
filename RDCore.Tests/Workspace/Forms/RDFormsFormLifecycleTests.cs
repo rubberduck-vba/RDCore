@@ -80,4 +80,11 @@ public sealed class RDFormsFormLifecycleTests
     public async Task APortedFormsControl_LoadsItsForm()
         => CollectionAssert.AreEqual(new[] { "Initialize", "Load", "Text1", "QueryUnload 1", "Unload" },
             await RunAsync(Document, "Debug.Print Form2.Text1.Text", "Unload Form2"));
+
+    // a property writable in either library is writable on an RDForms form: an RDForms TextBox's MultiLine, which MSForms lets a program set, takes an
+    // early-bound assignment that runs, where a VB6 form's is a compile error and, late bound, 382.
+    [TestMethod]
+    public async Task APortedFormsTextBox_TakesAMultiLineAssignmentThatRuns()
+        => CollectionAssert.AreEqual(new[] { "Initialize", "Load", "True", "QueryUnload 1", "Unload" },
+            await RunAsync(Document, "Form2.Text1.MultiLine = True", "Debug.Print Form2.Text1.MultiLine", "Unload Form2"));
 }
