@@ -629,7 +629,7 @@
     <value>Si la console exécute les programmes sans surveillance (--unattended) : personne n'est là pour répondre à une boîte de dialogue, et un programme qui en ouvre une - MsgBox, InputBox, un formulaire affiché - échoue avec VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Si rdc run, et les programmes que rdc build construit, d'une application console affichent MsgBox et InputBox comme les boîtes de dialogue de la machine là où elle en a (Windows), plutôt que de les demander à la console. Tout autre programme affiche les boîtes de dialogue de la machine là où elle en a.</value>
+    <value>Si une application console, exécutée par rdc run ou construite par rdc build, affiche MsgBox et InputBox comme les boîtes de dialogue de la machine là où elle en a (Windows), plutôt que de les demander à la console. Tout autre programme affiche les boîtes de dialogue de la machine là où elle en a.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>Combien de lignes du programme sont listées au-dessus et au-dessous de la ligne où un programme s'est arrêté, après INTERRUPTION À LA LIGNE. 0 n'en liste aucune.</value>
