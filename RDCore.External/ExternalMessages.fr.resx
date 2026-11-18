@@ -55,9 +55,9 @@
     <value>Les fenêtres RDForms ne peuvent pas être démarrées : {0}</value>
   </data>
   <data name="RDFormsWindowsAreHeadless" xml:space="preserve">
-    <value>Les formulaires de cette session sont chargés sans écran pour les afficher, comme ceux d'un programme exécuté sans surveillance, et un formulaire ne peut pas être aussi affiché sur le bureau. Exécutez le programme dans une nouvelle session.</value>
+    <value>Les formulaires de cette session sont chargés sans écran pour les afficher, comme ceux d'un programme exécuté sans surveillance, et un formulaire ne peut pas aussi être affiché sur le bureau. Exécutez le programme dans une nouvelle session.</value>
   </data>
   <data name="RDFormsWindowsAreOnTheDesktop" xml:space="preserve">
-    <value>Les formulaires de cette session sont affichés sur le bureau, et un formulaire ne peut pas être aussi chargé sans écran pour l'afficher. Exécutez le programme dans une nouvelle session.</value>
+    <value>Les formulaires de cette session sont affichés sur le bureau, et un formulaire ne peut pas aussi être chargé sans écran pour l'afficher. Exécutez le programme dans une nouvelle session.</value>
   </data>
 </root>

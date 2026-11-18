@@ -71,8 +71,8 @@ internal static class RDFormsUI
 
             if (_dispatcher is not null)
             {
-                // Avalonia sets up one windowing platform a process, for good, so the windows cannot switch. No entry point mixes the two: a process runs its
-                // programs all unattended or all attended (--unattended, or the client's Unattended capability), and has one external host.
+                // Avalonia sets up one windowing platform per process, for good, so the windows cannot switch. No entry point mixes the two: a process
+                // runs its programs all unattended or all attended (--unattended, or the client's Unattended capability), and has one external host.
                 if (platform != _platform)
                 {
                     throw new AutomationException(Failed, _platform == RDFormsPlatform.Headless
