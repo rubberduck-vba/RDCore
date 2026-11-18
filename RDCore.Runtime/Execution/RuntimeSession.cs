@@ -383,6 +383,11 @@ internal sealed class SessionObjects : ISessionObjects
     /// </summary>
     internal int DestroyingHandlerCount => _destroying.Count;
 
+    /// <summary>
+    /// How many objects the session has.
+    /// </summary>
+    internal int ObjectCount => _roots.Count;
+
     public void NotifyDestroying(VBRuntimeObjectId instance)
     {
         // by their place, as many as there are now: a handler that lets go of what the object holds can destroy another object, which notifies again, and a

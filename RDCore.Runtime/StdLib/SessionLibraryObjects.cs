@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Runtime.CompilerServices;
 
@@ -68,4 +69,10 @@ internal sealed class SessionLibraryObjects
     /// The <c>Collection</c> objects.
     /// </summary>
     public StdCollection Collections { get; }
+
+    /// <summary>
+    /// The identity of the error object (<strong>MS-VBAL 6.1.3.2</strong>), once <c>Err</c> was evaluated: one object for the life of the session, whichever
+    /// dispatcher evaluates it, which a cell of the library's own holds. <see langword="default"/> until then.
+    /// </summary>
+    public VBRuntimeObjectId ErrorObject { get; set; }
 }
