@@ -212,6 +212,33 @@ public sealed class ReferencedClassMemberTests
         CollectionAssert.AreEqual(new[] { "Board" }, run.Output.Select(line => line.Trim()).ToArray());
     }
 
+    // MS-VBAL §5.2.4.2, §5.6.10: the interface a class implements is the one its own project names. NavalLib's Ship implements NavalLib's IShape, and
+    // the project's Hull the project's own IShape; the project has a Ship of its own too.
+    [TestMethod]
+    public async Task AClassOfEachProject_ImplementsTheInterfaceOfItsOwnProject_WhereBothHaveOneOfTheName()
+    {
+        var ship = new Source("Ship", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Ship",
+            "Attribute VB_Exposed = True", "Option Explicit", "Implements IShape",
+            "Private Property Get IShape_Name() As String", "    IShape_Name = \"ship\"", "End Property"));
+        var fleet = new Source("Fleet", ModuleType.StdModule, ModuleWorkspace.StandardModule("Fleet", "Option Explicit",
+            "Public Function ShapeName() As String", "    Dim s As IShape", "    Set s = New Ship", "    ShapeName = s.Name", "End Function"));
+        Source[] own =
+        [
+            new("IShape", ModuleType.ClassModule, ModuleWorkspace.ClassModule("IShape", "Option Explicit",
+                "Public Property Get Label() As String", "End Property")),
+            new("Hull", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Hull", "Option Explicit", "Implements IShape",
+                "Private Property Get IShape_Label() As String", "    IShape_Label = \"hull\"", "End Property")),
+            new("Ship", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Ship", "Option Explicit", "Public Sub Sail()", "End Sub")),
+        ];
+
+        var (errors, run) = await LoadAsync(own, [NavalLib with { Modules = [.. Library, ship, fleet] }], run: true,
+            "Debug.Print ShapeName()", "Dim h As IShape", "Set h = New Hull", "Debug.Print h.Label");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "ship", "hull" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
     // MS-VBAL §5.3.1.11: a ParamArray of the referenced project's function collects the arguments of the project's call.
     [TestMethod]
     public async Task AReferencedProjectsFunction_CollectsItsParamArray()
