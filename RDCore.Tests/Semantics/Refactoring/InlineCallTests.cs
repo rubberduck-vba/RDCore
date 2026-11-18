@@ -190,6 +190,63 @@ public class InlineCallTests
     }
 
     [TestMethod]
+    public async Task AnOmittedOptional_HasItsDefault_OrItsTypesDefault()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim i As Long\r\nFor i = 1 To n\r\n    Greet\r\nNext",
+            "Private Sub Greet(Optional ByVal times As Long = 2, Optional ByVal extra As Long)\r\n    Debug.Print times + extra\r\n    extra = extra + 1\r\nEnd Sub",
+            "Greet");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "times = 2");
+        StringAssert.Contains(module, "extra = 0");
+    }
+
+    [TestMethod]
+    public async Task IsMissing_OfAnOmittedVariant_IsTrue()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim i As Long\r\nFor i = 1 To n\r\n    Told\r\nNext",
+            "Private Sub Told(Optional ByVal v As Variant)\r\n    If IsMissing(v) Then Debug.Print \"none\" Else Debug.Print \"some\"\r\nEnd Sub",
+            "Told");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "If True Then");
+    }
+
+    [TestMethod]
+    public async Task IsMissing_OfAGivenArgument_IsFalse()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim i As Long\r\nFor i = 1 To n\r\n    Told i\r\nNext",
+            "Private Sub Told(Optional ByVal v As Variant)\r\n    If IsMissing(v) Then Debug.Print \"none\" Else Debug.Print v\r\nEnd Sub",
+            "Told i");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "If False Then");
+    }
+
+    [TestMethod]
+    public async Task AParamArray_IsAVariantArrayFromZero_OfTheArgumentsItCollects()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim t As Long\r\nt = Total(1, n, 3)\r\nDebug.Print t",
+            "Private Function Total(ParamArray values() As Variant) As Long\r\n    Dim item As Variant\r\n    For Each item In values\r\n        Total = Total + item\r\n    Next\r\n    Debug.Print LBound(values), UBound(values)\r\nEnd Function",
+            "Total(1, n, 3)");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "ReDim values(0 To 2)");
+    }
+
+    [TestMethod]
+    public async Task AnEmptyParamArray_IsMissing()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Listed\r\nListed n",
+            "Private Sub Listed(ParamArray items())\r\n    If IsMissing(items) Then Debug.Print \"none\" Else Debug.Print UBound(items)\r\nEnd Sub",
+            "Listed\r\n");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "If True Then");
+        StringAssert.Contains(module, "items = Array()");
+    }
+
+    [TestMethod]
     public async Task AnObjectLocal_IsLetGoOfWhereTheCallEnded()
     {
         var tracker = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Tracker\"\r\nOption Explicit\r\nPrivate Sub Class_Terminate()\r\n    Debug.Print \"terminated\"\r\nEnd Sub\r\n";
@@ -207,7 +264,9 @@ public class InlineCallTests
     [DataRow("Private Static Sub Again(ByVal x As Long)\r\n    Debug.Print x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Static, DisplayName = "Static procedure")]
     [DataRow("Private Sub Again(ByVal x As Long)\r\n    Static count As Long\r\n    count = count + x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Static, DisplayName = "Static local")]
     [DataRow("Private Sub Again(ByVal x As Long)\r\n    On Error Resume Next\r\n    Debug.Print 1 / x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.ErrorHandling, DisplayName = "On Error")]
-    [DataRow("Private Sub Again(Optional ByVal x As Long = 1)\r\n    Debug.Print x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "Optional")]
+    [DataRow("Private Sub Again(Optional ByVal x As Variant)\r\n    Debug.Print x\r\nEnd Sub", "Again\r\n", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "an omitted Optional Variant read")]
+    [DataRow("Private Sub Again(ParamArray x())\r\n    x(0) = Empty\r\nEnd Sub", "Again n", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "a ParamArray written")]
+    [DataRow("Private Sub Again(ByVal x As Long, Optional ByVal y As Variant)\r\n    y = x\r\n    Debug.Print IsMissing(y)\r\nEnd Sub", "Again n, 1", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "IsMissing of a parameter written")]
     [DataRow("Private Sub Again(ByRef x As Long)\r\n    x = 1\r\nEnd Sub\r\nPrivate Sub Caller()\r\n    Dim values(1 To 2) As Long\r\n    Again values(1)\r\nEnd Sub", "Again values(1)", (int)InlineRefusalKind.ByRefElement, DisplayName = "ByRef element")]
     public void TheMember_IsRefused(string declarations, string call, int kind)
     {

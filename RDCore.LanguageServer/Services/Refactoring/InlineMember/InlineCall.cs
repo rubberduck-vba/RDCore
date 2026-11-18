@@ -6,6 +6,7 @@ using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
@@ -166,11 +167,6 @@ internal static class InlineCall
             return new(InlineRefusalKind.Static, callee.Name);
         }
 
-        if (ParametersOf(callee).FirstOrDefault(parameter => parameter.IsOptional || parameter is ParamArrayParameterSymbol) is { } unsupported)
-        {
-            return new(InlineRefusalKind.UnsupportedParameter, unsupported.Name);
-        }
-
         foreach (var instruction in procedure.Instructions.Items)
         {
             var kind = instruction.Kind switch
@@ -239,6 +235,7 @@ internal static class InlineCall
         private readonly Dictionary<SemanticId, string> _replacements = [];
         private readonly List<string> _before = [];
         private readonly List<string> _after = [];
+        private readonly List<(SourceRange Range, string NewText)> _folds = [];
 
         public (InlinedCall? Inlined, InlineRefusal? Refusal) Write()
         {
@@ -288,17 +285,43 @@ internal static class InlineCall
             }
 
             var written = procedure.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry).Select(definition => definition.Variable).ToHashSet();
-            var read = procedure.Accesses.Uses.Select(use => use.Variable).ToHashSet();
             for (var index = 0; index < parameters.Length; index++)
             {
                 var parameter = procedure.Scope.Declarations.OfType<VBParameterSymbol>()
                     .First(symbol => symbol.Name.Equals(parameters[index].Name, StringComparison.OrdinalIgnoreCase));
-                var argument = mapped[index]!;
+                var missing = IsMissingOf(parameter);
+                if (parameter is ParamArrayParameterSymbol)
+                {
+                    if (ParamArray(parameter, map.ParamArrayArguments, missing, written) is { } refusal)
+                    {
+                        return refusal;
+                    }
+
+                    continue;
+                }
+
+                if (mapped[index] is not { } argument || argument is MissingArgumentNode)
+                {
+                    if (Omitted(parameter, missing, written) is { } refusal)
+                    {
+                        return refusal;
+                    }
+
+                    continue;
+                }
+
+                // IsMissing of a parameter the body writes is told by what it was written.
+                if (missing.Count > 0 && IsWrittenOtherwise(parameter, missing))
+                {
+                    return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, missing[0].SourceLocation);
+                }
+
                 var argumentText = text.Of(argument.SourceLocation.Range).Trim();
                 var type = (parameter as ITypedSymbol)?.ResolvedType;
                 var variable = VariableOf(argument);
                 if (BoundArgument.IsByRef(parameter) && variable is ITypedSymbol { ResolvedType: { } given } && (type is VBVariantType || SameType(given, type)))
                 {
+                    // the argument's variable keeps its own IsMissing answer: a caller's Optional Variant passed along is missing when it is.
                     _replacements[parameter.SemanticId] = argumentText;
                     continue;
                 }
@@ -313,8 +336,10 @@ internal static class InlineCall
                     return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, argument.SourceLocation);
                 }
 
+                // what is given is not missing (MS-VBAL §6.1.2.7.1.6): a Variant argument that could be is refused below.
+                Fold(missing, "False");
                 var isObject = type is VBClassType or VBObjectType;
-                if (!read.Contains(parameter.SemanticId) && !written.Contains(parameter.SemanticId) && (argument is LiteralExpressionNode || variable is not null))
+                if (!IsWrittenOtherwise(parameter, missing) && !IsReadOtherwise(parameter, missing) && (argument is LiteralExpressionNode || variable is not null))
                 {
                     continue;
                 }
@@ -333,6 +358,114 @@ internal static class InlineCall
 
             return null;
         }
+
+        // an Optional parameter given no argument has its default value, or its type's default when it declares none; a Variant that declares none is
+        // missing (MS-VBAL §5.3.1.5, §5.3.1.11). A body that reads the Missing value, other than to ask IsMissing, is refused.
+        private InlineRefusal? Omitted(VBParameterSymbol parameter, List<IndexExpressionNode> missing, HashSet<SemanticId> written)
+        {
+            var type = parameter.ResolvedType;
+            var isMissing = parameter.DefaultValue is null && type is VBVariantType;
+            Fold(missing, isMissing ? "True" : "False");
+            if (!IsWrittenOtherwise(parameter, missing) && !IsReadOtherwise(parameter, missing))
+            {
+                return null;
+            }
+
+            if (isMissing || type is null or VBArrayType or VBUserDefinedType or VBUnknownType or VBUnresolvedType)
+            {
+                return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, call.SourceLocation);
+            }
+
+            var local = Fresh(parameter.Name);
+            _replacements[parameter.SemanticId] = local;
+            _before.Add($"Dim {local} As {NameOfType(type)}");
+            if (parameter.DefaultValue is { } value)
+            {
+                // the default is a constant expression of the member's module, which a local of the caller with a name it uses would shadow.
+                if (NameOccurrences.NamesIn(syntax, value.SourceLocation.Range).Any(name => _callerScope.Declarations.Any(declared => declared.Name.Equals(name, StringComparison.OrdinalIgnoreCase))))
+                {
+                    return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, value.SourceLocation);
+                }
+
+                _before.Add($"{(type is VBClassType or VBObjectType ? "Set " : string.Empty)}{local} = {text.Of(value.SourceLocation.Range).Trim()}");
+                return null;
+            }
+
+            if (DefaultOf(type, local) is not { } reset)
+            {
+                return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, call.SourceLocation);
+            }
+
+            _before.Add(reset);
+            return null;
+        }
+
+        // a ParamArray is a new Variant array with a lower bound of 0 that holds the arguments it collects (MS-VBAL §5.3.1.11), built element by element:
+        // Array() follows Option Base. Its elements are the caller's variables, which a copy cannot write: a body that writes the array, or a variable it
+        // collects, is refused. It is missing when it collects nothing.
+        private InlineRefusal? ParamArray(VBParameterSymbol parameter, System.Collections.Immutable.ImmutableArray<ExpressionNode> elements, List<IndexExpressionNode> missing, HashSet<SemanticId> written)
+        {
+            if (IsWrittenOtherwise(parameter, missing))
+            {
+                return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, call.SourceLocation);
+            }
+
+            Fold(missing, elements.IsEmpty ? "True" : "False");
+            var variables = elements.Select(VariableOf).ToArray();
+            if (!IsReadOtherwise(parameter, missing) && elements.Zip(variables).All(each => each.First is LiteralExpressionNode || each.Second is not null))
+            {
+                return null;
+            }
+
+            var local = Fresh(parameter.Name);
+            _replacements[parameter.SemanticId] = local;
+            _before.Add($"Dim {local}() As Variant");
+            if (elements.IsEmpty)
+            {
+                if (syntax.Syntax.Children.OfType<ModuleOptionDirectiveNode>().Any(directive => directive.ModuleOption == ModuleOptions.OptionBase1))
+                {
+                    return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, call.SourceLocation);
+                }
+
+                _before.Add($"{local} = Array()");
+                return null;
+            }
+
+            _before.Add($"ReDim {local}(0 To {elements.Length - 1})");
+            for (var index = 0; index < elements.Length; index++)
+            {
+                // an element is assigned as it is given: Set for an object, Let for a value of an intrinsic type; a Variant could hold either.
+                var element = elements[index];
+                if (element is MissingArgumentNode || variables[index] is { } variable && written.Contains(variable.SemanticId)
+                    || TypeOf(element, variables[index]) is not { } type || type is VBVariantType || type is not (VBIntrinsicType or VBClassType))
+                {
+                    return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, element.SourceLocation);
+                }
+
+                _before.Add($"{(type is VBClassType or VBObjectType ? "Set " : string.Empty)}{local}({index}) = {text.Of(element.SourceLocation.Range).Trim()}");
+            }
+
+            return null;
+        }
+
+        // the calls of the library's IsMissing of a parameter in the body (MS-VBAL §6.1.2.7.1.6), found by what they are bound to.
+        private List<IndexExpressionNode> IsMissingOf(VBParameterSymbol parameter)
+            => [.. procedure.Declaration.Descendants().OfType<IndexExpressionNode>()
+                .Where(each => each.Arguments is [SimpleNameExpressionNode argument] && _bindings(argument) == parameter.SemanticId
+                    && _bindings(each.Callee) is { } bound && NameOccurrences.SymbolOf(context, bound) is { } function && NewNames.IsOfALibrary(function)
+                    && string.Equals(SymbolUri.QualifiedNameOf(function.Uri), "Information.IsMissing", StringComparison.OrdinalIgnoreCase))];
+
+        // whether the body reads a parameter other than to ask IsMissing of it.
+        private bool IsReadOtherwise(VBParameterSymbol parameter, List<IndexExpressionNode> missing)
+            => procedure.Accesses.Uses.Any(use => use.Variable == parameter.SemanticId
+                && !missing.Any(each => Within(use.Expression.SourceLocation.Range, each.SourceLocation.Range)));
+
+        // whether the body may write a parameter other than where it gives it to IsMissing, whose argument is a reference that IsMissing does not write.
+        private bool IsWrittenOtherwise(VBParameterSymbol parameter, List<IndexExpressionNode> missing)
+            => procedure.Accesses.Definitions.Any(definition => definition.Variable == parameter.SemanticId && definition.Kind is not VariableDefinitionKind.Entry
+                && (definition.Expression is not { } expression || !missing.Any(each => Within(expression.SourceLocation.Range, each.SourceLocation.Range))));
+
+        private void Fold(List<IndexExpressionNode> missing, string answer) => _folds.AddRange(missing.Select(each => (each.SourceLocation.Range, answer)));
 
         // a function's result variable, a distinct variable of each call initialized to its type's default (MS-VBAL §5.3.1): a local of the caller, reset before
         // the body, which the caller's assignment is then given. A call statement of a function discards it.
@@ -425,9 +558,13 @@ internal static class InlineCall
 
             Labels(edits);
             var closing = Exits(edits);
+            edits.AddRange(_folds);
             var written = text.Of(body);
             var start = text.OffsetOf(body.Start);
-            foreach (var (range, newText) in edits.DistinctBy(edit => edit.Range).OrderByDescending(edit => edit.Range.Start))
+            // an edit inside another one (a parameter's name in a folded IsMissing) goes with it.
+            foreach (var (range, newText) in edits.DistinctBy(edit => edit.Range)
+                .Where(edit => !edits.Any(other => other.Range != edit.Range && Within(edit.Range, other.Range)))
+                .OrderByDescending(edit => edit.Range.Start))
             {
                 var from = text.OffsetOf(range.Start) - start;
                 written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.OffsetOf(range.End) - start));
