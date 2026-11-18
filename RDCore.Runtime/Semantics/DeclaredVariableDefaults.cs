@@ -40,8 +40,8 @@ namespace RDCore.Runtime.Semantics;
 /// <param name="session">The session the variables are allocated in, which resolves what the bounds name.</param>
 /// <param name="bounds">Reduces a bound to an integer.</param>
 /// <param name="stop">
-/// Stops an analysis that is told to stop at the next element of a fixed-size array it makes: an element is made the first time it is used
-/// (<see cref="VBArrayValue.MadeCells"/>), and <see cref="OperationCanceledException"/> is what one made once the analysis is told to stop throws.
+/// Stops an analysis that is told to stop when it next makes an element of a fixed-size array: an element is made the first time it is used
+/// (<see cref="VBArrayValue.MadeCells"/>), and one made after the analysis is told to stop throws <see cref="OperationCanceledException"/>.
 /// </param>
 public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBoundEvaluator bounds, CancellationToken stop = default) : IVariableDefaults
 {
