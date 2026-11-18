@@ -1829,6 +1829,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     internal void CountFrameMade() => Interlocked.Increment(ref _framesMade);
 
+    private long _textsCopied;
+
+    /// <summary>
+    /// How many times a <c>Mid</c> statement of an activation of the body copied the <c>String</c> it changes: of a variable, into the builder it changes the
+    /// characters in, once for each <c>String</c> the variable is given (<see cref="CompiledActivation.TryMid"/>); of a parameter by reference, once for
+    /// each statement, into the new String its cell is given (<see cref="CompiledActivation.TryMidInCell"/>).
+    /// </summary>
+    public long TextsCopied => Interlocked.Read(ref _textsCopied);
+
+    internal void CountTextCopied() => Interlocked.Increment(ref _textsCopied);
+
     private long _activationsMade;
 
     /// <summary>

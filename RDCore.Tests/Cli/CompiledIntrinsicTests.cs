@@ -13,8 +13,8 @@ namespace RDCore.Tests.Cli;
 public sealed class CompiledIntrinsicTests
 {
     // the program run both ways, in the session's locale lcid: what it printed, the error it raised and where, alike; and each procedure named compiled,
-    // with as many statements recovered as said, and no call of the library's binding.
-    internal static async Task AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, int lcid = 0)
+    // with as many statements recovered as said, and no call of the library's binding. Answers what was compiled, by name.
+    internal static async Task<IReadOnlyDictionary<string, CompilationResult>> AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, int lcid = 0)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, lcid);
@@ -33,6 +33,8 @@ public sealed class CompiledIntrinsicTests
                     $"{name}'s recoveries; stepped: {string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail} {reason.Location}"))}");
             }
         }
+
+        return run.Compiled;
     }
 
     private static async Task<(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled)> RunAsync(

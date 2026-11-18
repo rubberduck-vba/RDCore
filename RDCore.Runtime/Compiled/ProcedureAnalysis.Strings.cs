@@ -37,10 +37,17 @@ internal sealed partial class ProcedureAnalysis
     }
 
     /// <summary>
-    /// The slots of the <c>String</c> variables a Let appends to (<see cref="TextAppendStep"/>), each held in an appender of the activation while it is
-    /// appended to.
+    /// The slots of the <c>String</c> variables a Let appends to (<see cref="TextAppendStep"/>) or a <c>Mid</c> statement changes (<see cref="MidStep"/>),
+    /// each held in an appender of the activation while it is appended to or changed. A parameter by reference is neither: it is the caller's variable,
+    /// which other names reach, and its cell holds what it is assigned at once.
     /// </summary>
-    public IReadOnlySet<int> AppendedTextSlots => Steps.OfType<TextAppendStep>().Select(step => step.Slot).ToHashSet();
+    public IReadOnlySet<int> AppendedTextSlots
+        => Steps.Select(step => step switch
+            {
+                TextAppendStep append => append.Slot,
+                MidStep mid when !IsPassedByReference(mid.Slot) => mid.Slot,
+                _ => (int?)null,
+            }).OfType<int>().ToHashSet();
 
     // S = S & a & b: the texts appended to S, in order, when what is assigned is S joined on its left. A parameter by reference is the caller's variable, which
     // the caller reads once the call returned: it is assigned the String joined.
