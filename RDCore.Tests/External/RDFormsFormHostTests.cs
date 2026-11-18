@@ -50,6 +50,15 @@ public sealed class RDFormsFormHostTests
 
             Handler?.Invoke(raised);
         }
+
+        // the events heard, in order, each synchronous (raised while the UI thread made a call) or posted: what a failed assertion names.
+        public override string ToString()
+        {
+            lock (Raised)
+            {
+                return string.Join(", ", Raised.Select(@event => $"{@event.Name} ({(@event.IsSynchronous ? "synchronous" : "posted")})"));
+            }
+        }
     }
 
     private static RDFormsFormHost Host() => new(new RDFormsAutomationServer(RDFormsPlatform.Headless));
@@ -188,28 +197,35 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    // the program's active form is the UI thread's, which every RDForms window shares: another test's form activated meanwhile would deactivate this one, and
+    // Text1 would raise its LostFocus to the sink. The test runs alone.
     [TestMethod]
+    [DoNotParallelize]
     public void AssigningAControlsProperty_RaisesItsEvent_InsideTheCall()
     {
         var host = Host();
         var form = host.Create(VisualBasicForm());
         try
         {
-            host.Show(form, modal: false);
-
-            // the window system activates a form shown modeless after Show returns, on the UI thread, and Text1 takes the focus there (GotFocus): that is
-            // done before the sink is advised, so that the sink hears only what the program's call raises.
-            host.DoEvents();
+            // the window system activates a form shown modeless after Show returns, on the UI thread, and Text1 takes the focus there: its GotFocus is heard
+            // before the call is made, so that the sink then hears only what the call raises.
+            using var focused = new ManualResetEventSlim();
             var text = Get(host, form, "Text1")!;
-            var sink = new Recorder();
+            var sink = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { focused.Set(); } } };
             host.Server.Advise(text, sink);
+            host.Show(form, modal: false);
+            Assert.IsTrue(focused.Wait(TimeSpan.FromMinutes(1)), $"Text1 did not take the focus; heard: {sink}");
+            lock (sink.Raised)
+            {
+                sink.Raised.Clear();
+            }
 
             Let(host, text, "Text", "typed");
 
             // what the UI thread has left to do is done too, so that an event the call did not raise reaches the sink before it is read.
             host.DoEvents();
             Assert.AreEqual("typed", Get(host, text, "Text"));
-            Assert.AreEqual(("Change", true), Assert.ContainsSingle(sink.Raised), "raised by the program's own call, the event is its answer");
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(sink.Raised, $"heard: {sink}"), "raised by the program's own call, the event is its answer");
         }
         finally
         {
