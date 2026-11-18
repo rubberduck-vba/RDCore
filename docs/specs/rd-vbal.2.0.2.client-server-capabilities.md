@@ -430,8 +430,9 @@ A procedure bound to what it implements or handles (**MS-VBAL §5.3.1.8**, **§5
 |The member of a class that other classes implement (`Draw`)|The procedures that implement it (`IShape_Draw` to `IShape_Paint`).|
 |An event (`Spun`)|The `RaiseEvent` statements of its class, and its handlers in every class, each bound to it by a `WithEvents` variable of its class (`source_Spun` to `source_Turned`).|
 |A `WithEvents` variable (`source`)|The handlers of its events, those of a library's class included (`source_Spun` to `watched_Spun`). A procedure named for an event its class does not have (`source_Turned`) keeps its name.|
+|A control of a Visual Basic 6.0 form (`Ok`)|Its name on the `Begin` line of its designer block, on each element's for a control array (`Begin VB.CommandButton Ok` to `Begin VB.CommandButton Accept`, [`FormDesigner.ControlNameRangesOf`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.Forms.FormDesigner.html)), and the handlers of its events (`Ok_Click` to `Accept_Click`).|
 
-A rename can start at either part of such a procedure's name: before the underscore, it renames the interface or the variable; after it, the member or the event. A procedure renamed with it must not take the name of another member of its class.
+A rename can start at either part of such a procedure's name: before the underscore, it renames the interface, the variable or the control; after it, the member or the event. A procedure renamed with it must not take the name of another member of its class.
 
 The module's file is renamed with it when the file has the module's name (`Helpers.bas`), after its text is edited (**LSP 3.17** `RenameFile`), and only when no file of the new name exists there already. A client that does not rename files (`workspace.workspaceEdit.resourceOperations`) is sent the rest of the edit. The module is named by its `VB_Name` attribute, so its file keeps its old name. A client that renames the file says so (`workspace/didRenameFiles`), and the server writes the project file.
 
@@ -467,10 +468,15 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The symbol is a module, and the new name is one MS-VBAL §4.2 does not allow: longer than 31 characters, or the name of another module, a `Public` type or a project|Two modules, or a module and a type, would have one name.|
 |The symbol is a document module|Its document names it, and would not be renamed with it.|
 |The symbol is the workspace's project, and the new name is that of one of its modules, of a project it references, or of a `Public` `Type` or `Enum` of the project or of one it references|A qualifier with the new name would mean the module or the other project. No `Public` `Type` or `Enum` is named as a project (**MS-VBAL §5.2.3.3**, **§5.2.3.4**).|
-|The symbol is a form's control|Its designer names it, and would not be renamed with it.|
+|The symbol is a control of a VBA UserForm|Its name is kept in the form's `.frx`, which the rename cannot read or write.|
+|The symbol is a control whose name a string property of its form, or of another of its controls, holds as its whole value (`DataSource = "Text1"`)|The property may name the control ([`FormDesigner.PropertiesNaming`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.Forms.FormDesigner.html)), and what renaming the control does to it is not known.|
+|The symbol is a control of a form that neither Visual Basic 6.0 nor Microsoft Forms designed|Its designer names it, and would not be renamed with it.|
 |The symbol is a procedure bound to an event it handles (of its own class or form, `Class_Initialize`, `UserForm_Click`, of its document's host, or of a control) or to an interface member it implements|Renamed whole, it would be bound to neither. Its source, or the event or member it is bound to, is renamed instead. A procedure that is only named like one (`Form_Foo` in a class that is not a form) is renamed like any other.|
 |The symbol is a procedure of a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for is not known, and the rename could make that call fail.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
+
+> [!NOTE]
+> **Not implemented.** Renaming the control of a VBA UserForm, in its `.frx`; and renaming a control whose name a property of its form holds, in that property.
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
 

@@ -19,6 +19,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
@@ -338,7 +339,7 @@ public static class SymbolRename
             return Refused(conflict);
         }
 
-        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName)).ToList();
+        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName)).Concat(DesignerEdits(context, symbols, newName)).ToList();
         if (BindingEdits(context, symbols, newName, named) is { } taken)
         {
             return Refused(taken);
@@ -763,22 +764,25 @@ public static class SymbolRename
             return null;
         }
 
-        var lines = source.Source.Split('\n');
-        for (var line = 0; line < lines.Length && !VbName.IsMatch(lines[line]); line++)
+        SourceRange? range;
+        try
         {
-            if (Designer.Match(lines[line]) is { Success: true } match)
-            {
-                var name = match.Groups["name"];
-                return string.Equals(name.Value, module.Name, StringComparison.OrdinalIgnoreCase)
-                    ? (source.Module, new SourceRange(line, name.Index, line, name.Index + name.Length))
-                    : null;
-            }
+            range = FormDesigner.FormNameRangeOf(source.Source);
+        }
+        catch (FormDesignerFormatException)
+        {
+            // a designer block that is not terminated names nothing the rename can find
+            return null;
         }
 
-        return null;
-    }
+        if (range is not { } name)
+        {
+            return null;
+        }
 
-    private static readonly Regex Designer = new(@"^Begin\s+\S+\s+(?<name>[^\s']+)", RegexOptions.CultureInvariant);
+        var written = source.Source.Split('\n')[name.Start.Line][name.Start.Character..name.End.Character];
+        return string.Equals(written, module.Name, StringComparison.OrdinalIgnoreCase) ? (source.Module, name) : null;
+    }
 
     // a line that opens a block of a class's or a designer's file: BEGIN, or Begin and what it describes.
     private static bool IsBegin(string line)
@@ -875,6 +879,34 @@ public static class SymbolRename
         return new([.. qualifiers.OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal).ThenBy(edit => edit.Range.Start)], null) { Project = project.Name };
     }
 
+    // a control is named in its form's designer block too: a Visual Basic 6.0 form's is the module's text, where the rename edits it; a UserForm's
+    // designer keeps its controls' names in the form's .frx, which the rename cannot write. A property of the form that holds the control's name may name
+    // it (an UpDown's BuddyControl), and what renaming the control does to it is not known: that rename is refused too.
+    private static RenameRefusal? ControlRefusalOf(RenameContext context, Symbol control)
+    {
+        return FormOf(context, control) switch
+        {
+            { Designer.Kind: FormDesignerKind.VisualBasic6 } form => FormDesigner.PropertiesNaming(form.Source, control.Name) is [var naming, ..]
+                ? new(RenameRefusalKind.ControlNamedByProperty, control.Name, $"{naming.Owner}.{naming.Property}")
+                : null,
+            { Designer.Kind: FormDesignerKind.MSForms } => new(RenameRefusalKind.UserFormControl, control.Name),
+            _ => new(RenameRefusalKind.Control, control.Name),
+        };
+    }
+
+    private static RenameModule? FormOf(RenameContext context, Symbol control)
+    {
+        var at = NameOccurrences.ModuleOf(control.Uri).AbsoluteUri;
+        return context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at);
+    }
+
+    // a Visual Basic 6.0 control's name on the Begin line of its designer block: each of them, for a control array's elements.
+    private static IEnumerable<RenameEdit> DesignerEdits(RenameContext context, IReadOnlyList<Symbol> symbols, string newName)
+        => symbols.Where(symbol => symbol.GetProperty(SymbolProperties.DesignerControl))
+            .SelectMany(control => FormOf(context, control) is { Designer.Kind: FormDesignerKind.VisualBasic6 } form
+                ? FormDesigner.ControlNameRangesOf(form.Source, control.Name).Select(range => new RenameEdit(form.Module, range, newName))
+                : []);
+
     // what makes a symbol one that is not renamed: what the workspace does not declare, a type, and a name that something else is named after.
     private static RenameRefusal? RefusalOf(RenameContext context, Symbol symbol)
     {
@@ -900,7 +932,7 @@ public static class SymbolRename
 
         if (symbol.GetProperty(SymbolProperties.DesignerControl))
         {
-            return new(RenameRefusalKind.Control, symbol.Name);
+            return ControlRefusalOf(context, symbol);
         }
 
         if (parent is not VBClassModuleSymbol owner || !IsProcedure(symbol))
