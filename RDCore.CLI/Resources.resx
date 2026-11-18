@@ -634,7 +634,7 @@
     <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Whether rdc run, and the programs rdc build builds, show MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console.</value>
+    <value>Whether rdc run, and the programs rdc build builds, of a console application show MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console. Any other program shows the machine's own dialogs where it has them.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>

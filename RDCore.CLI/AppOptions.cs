@@ -37,8 +37,9 @@ public class AppOptions
     public bool Unattended { get; init; }
 
     /// <summary>
-    /// Whether <c>rdc run</c>, and a program <c>rdc build</c> builds, show <c>MsgBox</c> and <c>InputBox</c> as the machine's own dialogs where it has them
-    /// (Windows), rather than asking them at the console. Off by default: a console program asks at its console on every operating system.
+    /// Whether <c>rdc run</c>, and a program <c>rdc build</c> builds, of a console application show <c>MsgBox</c> and <c>InputBox</c> as the machine's own
+    /// dialogs where it has them (Windows), rather than asking them at the console. Off by default: a console application asks at its console on every
+    /// operating system. Any other program shows the machine's own dialogs where it has them, whatever this says.
     /// </summary>
     [Setting(SettingReach.NextStart)]
     public bool NativeDialogs { get; init; }
