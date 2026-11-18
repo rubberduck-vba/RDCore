@@ -87,9 +87,9 @@ internal static class ExtractionVerification
     {
         var (text, written) = ExtractionText.Apply(before.Text, edit.Edits);
         var after = analyze(text);
-        if (!after.Parse.IsSuccess)
+        if (EditedModuleCheck.ParseOf(after) is { } unparsed)
         {
-            return new(ExtractionVerificationFailureKind.DoesNotParse, after.Parse.SyntaxErrors.FirstOrDefault()?.Verbose);
+            return FailureOf(unparsed);
         }
 
         if (before.Procedure(sourceProcedure, sourceKind) is not { } original)
@@ -105,19 +105,9 @@ internal static class ExtractionVerification
             return new(ExtractionVerificationFailureKind.DoesNotParse, edited is null ? sourceProcedure : name);
         }
 
-        // a variable declared by being named is one the source procedure had, whichever of the two now names it.
-        var implicitBefore = ImplicitNamesOf(original).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (ImplicitNamesOf(edited).Concat(ImplicitNamesOf(extracted)).FirstOrDefault(implicitName => !implicitBefore.Contains(implicitName)) is { } unbound)
+        if (EditedModuleCheck.Of(before, [original], after, [edited, extracted]) is { } problem)
         {
-            return new(ExtractionVerificationFailureKind.NameDoesNotBind, unbound);
-        }
-
-        // an error is new when there are more of its kind than there were: the edit moves where every error is.
-        var errorsBefore = before.DeclarationErrors.Concat(original.Model.CompileErrors).CountBy(error => error.ErrorId).ToDictionary();
-        var errorsAfter = after.DeclarationErrors.Concat(edited.Model.CompileErrors).Concat(extracted.Model.CompileErrors).ToArray();
-        if (errorsAfter.CountBy(error => error.ErrorId).FirstOrDefault(count => count.Value > errorsBefore.GetValueOrDefault(count.Key)) is { Key: var newError, Value: > 0 })
-        {
-            return new(ExtractionVerificationFailureKind.NewCompileError, errorsAfter.First(error => error.ErrorId == newError).Description);
+            return FailureOf(problem);
         }
 
         var editedText = new ExtractionText(text);
@@ -148,9 +138,9 @@ internal static class ExtractionVerification
         ExtractionProcedureAnalysis extracted)
     {
         var (text, written) = ExtractionText.Apply(before.Text, edit.Edits);
-        if (!after.Parse.IsSuccess)
+        if (EditedModuleCheck.ParseOf(after) is { } unparsed)
         {
-            return new(ExtractionVerificationFailureKind.DoesNotParse, after.Parse.SyntaxErrors.FirstOrDefault()?.Verbose);
+            return FailureOf(unparsed);
         }
 
         var procedure = duplicate.Source.Procedure;
@@ -159,17 +149,9 @@ internal static class ExtractionVerification
             return new(ExtractionVerificationFailureKind.DoesNotParse, procedure.Name);
         }
 
-        var implicitBefore = ImplicitNamesOf(original).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (ImplicitNamesOf(edited).FirstOrDefault(implicitName => !implicitBefore.Contains(implicitName)) is { } unbound)
+        if (EditedModuleCheck.Of(before, [original], after, [edited]) is { } problem)
         {
-            return new(ExtractionVerificationFailureKind.NameDoesNotBind, unbound);
-        }
-
-        var errorsBefore = before.DeclarationErrors.Concat(original.Model.CompileErrors).CountBy(error => error.ErrorId).ToDictionary();
-        var errorsAfter = after.DeclarationErrors.Concat(edited.Model.CompileErrors).ToArray();
-        if (errorsAfter.CountBy(error => error.ErrorId).FirstOrDefault(count => count.Value > errorsBefore.GetValueOrDefault(count.Key)) is { Key: var newError, Value: > 0 })
-        {
-            return new(ExtractionVerificationFailureKind.NewCompileError, errorsAfter.First(error => error.ErrorId == newError).Description);
+            return FailureOf(problem);
         }
 
         var index = Enumerable.Range(0, edit.Edits.Length).Single(each => edit.Edits[each].Kind is ExtractionTextEditKind.Replacement && edit.Edits[each].Range == call);
@@ -270,8 +252,12 @@ internal static class ExtractionVerification
 
     private static bool Names(SimpleNameExpressionNode callee, string name) => callee.IdentifierName.Equals(name, StringComparison.OrdinalIgnoreCase);
 
-    private static IEnumerable<string> ImplicitNamesOf(ExtractionProcedureAnalysis procedure)
-        => procedure.Scope.Declarations.OfType<VBLocalVariableSymbol>().Where(local => local.DeclaredBy.IsImplicit()).Select(local => local.Name);
+    private static ExtractionVerificationFailure FailureOf(EditedModuleProblem problem) => new(problem.Kind switch
+    {
+        EditedModuleProblemKind.DoesNotParse => ExtractionVerificationFailureKind.DoesNotParse,
+        EditedModuleProblemKind.NameDoesNotBind => ExtractionVerificationFailureKind.NameDoesNotBind,
+        _ => ExtractionVerificationFailureKind.NewCompileError,
+    }, problem.Detail);
 
     // what comes out of the call is what came out of the selection, and what it took in it still takes in, by the variables the source procedure had: the copy of
     // its result, and the code of an exit, are the call site's own. The object of a With block the selection is inside of is given to the new procedure, which

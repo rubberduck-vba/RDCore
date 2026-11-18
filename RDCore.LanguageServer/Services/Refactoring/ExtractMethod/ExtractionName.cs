@@ -115,7 +115,7 @@ internal static class ExtractionName
     /// <summary>
     /// The longest a name can be.
     /// </summary>
-    public const int MaximumLength = 255;
+    public const int MaximumLength = NewNames.MaximumLength;
 
     private const string Fallback = "ExtractedMethod";
 
@@ -131,19 +131,16 @@ internal static class ExtractionName
     public static ImmutableArray<ExtractionNameProblem> Validate(
         string name, ExtractionPlan plan, ExtractionSource source, RenameContext context, Uri module, ExtractionAccessibility accessibility = ExtractionAccessibility.Private)
     {
-        switch (VBIdentifier.Validate(name))
+        switch (NewNames.ValidityOf(name))
         {
-            case VBIdentifierValidity.Empty:
+            case NewNameValidity.Empty:
                 return [new(ExtractionNameProblemKind.Empty, name)];
-            case VBIdentifierValidity.NotAnIdentifier:
+            case NewNameValidity.NotAnIdentifier:
                 return [new(ExtractionNameProblemKind.NotAnIdentifier, name)];
-            case VBIdentifierValidity.Reserved:
+            case NewNameValidity.Reserved:
                 return [new(ExtractionNameProblemKind.Reserved, name)];
-        }
-
-        if (name.Length > MaximumLength)
-        {
-            return [new(ExtractionNameProblemKind.TooLong, name)];
+            case NewNameValidity.TooLong:
+                return [new(ExtractionNameProblemKind.TooLong, name)];
         }
 
         var moduleScope = context.ScopeTree.ScopeFor(module);
@@ -162,7 +159,7 @@ internal static class ExtractionName
             // the procedure of a standard module, and the enumeration of the exit codes, are the project's when they are Public; a member of a class is not.
             var isProjects = isPublic && (type is null || !declared.Equals(name, StringComparison.OrdinalIgnoreCase));
             IEnumerable<Symbol> projects = isProjects
-                ? moduleScope.SelfAndAncestors().Skip(1).SelectMany(outer => outer.DeclaredAs(declared)).Where(symbol => !IsOfALibrary(symbol))
+                ? moduleScope.SelfAndAncestors().Skip(1).SelectMany(outer => outer.DeclaredAs(declared)).Where(symbol => !NewNames.IsOfALibrary(symbol))
                 : [];
             if (procedureScope.DeclaredAs(declared).Concat(moduleScope.DeclaredAs(declared)).Concat(projects).FirstOrDefault() is { } existing)
             {
@@ -171,9 +168,9 @@ internal static class ExtractionName
             }
 
             IReadOnlyList<RenameModule> written = isProjects ? context.Modules : syntax is null ? [] : [syntax];
-            if (written.Select(each => RebindingOf(context, each, each.Module.AbsoluteUri == module.AbsoluteUri ? moduleScope : null, declared)).FirstOrDefault(rebinding => rebinding is not null) is { } rebinding)
+            if (written.Select(each => NewNames.RebindingOf(context, each, each.Module.AbsoluteUri == module.AbsoluteUri ? moduleScope : null, declared)).FirstOrDefault(rebinding => rebinding is not null) is { } rebinding)
             {
-                problems.Add(rebinding);
+                problems.Add(new(ExtractionNameProblemKind.Rebinds, declared, rebinding.Other, rebinding.Module, rebinding.Position));
                 continue;
             }
 
@@ -249,30 +246,9 @@ internal static class ExtractionName
 
     private static string Capitalized(string name) => name.Length == 0 ? name : $"{char.ToUpperInvariant(name[0])}{name[1..]}";
 
-    // where a module writes the name and means something not known, or something farther than the new declaration: outside the module the new procedure is
-    // declared in (moduleScope), or, in another module, a library's (null): the new declaration, nearer, would be meant instead.
-    private static ExtractionNameProblem? RebindingOf(RenameContext context, RenameModule syntax, LexicalScope? moduleScope, string name)
-    {
-        var occurrences = NameOccurrences.Find(context, name, [syntax]);
-        foreach (var occurrence in occurrences.Occurrences.Concat(occurrences.Unknown).Where(occurrence => occurrence.Kind is OccurrenceKind.Name))
-        {
-            var meant = occurrence.Binding is { } binding ? NameOccurrences.SymbolOf(context, binding) : null;
-            var nearest = moduleScope is null
-                ? occurrence.Scope.SelfAndAncestors().TakeWhile(scope => scope.Kind is not LexicalScopeKind.Project).Count() - 1
-                : occurrence.Scope.SelfAndAncestors().TakeWhile(scope => scope.Uri.AbsoluteUri != moduleScope.Uri.AbsoluteUri).Count();
-            if (meant is null || RenameBinding.ChainIndex(occurrence.Scope, meant) > nearest)
-            {
-                return new(ExtractionNameProblemKind.Rebinds, name, meant is null ? name : NameOccurrences.Describe(meant), occurrence.Module, occurrence.Range.Start);
-            }
-        }
-
-        return null;
-    }
-
-    // a library's symbol says which library it is of; the workspace's say none.
-    private static bool IsOfALibrary(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is not null;
-
     private static ExtractionNameProblem At(ExtractionNameProblemKind kind, string name, Symbol other)
-        => new(kind, name, NameOccurrences.Describe(other), other is WorkspaceSymbol ? NameOccurrences.ModuleOf(other.Uri) : null,
-            (other as WorkspaceSymbol)?.PrimarySelectionRange.Start ?? default);
+    {
+        var conflict = NewNames.ConflictWith(other);
+        return new(kind, name, conflict.Other, conflict.Module, conflict.Position);
+    }
 }
