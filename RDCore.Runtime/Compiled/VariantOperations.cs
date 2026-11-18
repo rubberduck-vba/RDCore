@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -78,27 +79,94 @@ public static class VariantOperations
     /// </returns>
     public static bool IsEmpty(object? cell, out bool empty)
     {
-        empty = false;
+        var known = TrySubtypeOf(cell, out var subtype);
+        empty = known && subtype == VBVarType.VBEmpty;
+        return known;
+    }
+
+    /// <summary>
+    /// <c>IsNull</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.7): whether it holds <c>Null</c>. A Variant that holds a value of a
+    /// scalar type, <c>Empty</c>, a <c>String</c> or an error does not.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="isNull">Whether the Variant holds <c>Null</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
+    /// <c>IsNull</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool IsNull(object? cell, out bool isNull)
+    {
+        var known = TrySubtypeOf(cell, out var subtype);
+        isNull = known && subtype == VBVarType.VBNull;
+        return known;
+    }
+
+    /// <summary>
+    /// <c>VarType</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.13): the subtype of the value of a scalar type, <c>Empty</c>,
+    /// <c>Null</c>, <c>String</c> or error it holds.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="varType">The subtype, as <c>VarType</c> returns it.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
+    /// <c>VarType</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool VarType(object? cell, out long varType)
+    {
+        var known = TrySubtypeOf(cell, out var subtype);
+        varType = (long)subtype;
+        return known;
+    }
+
+    /// <summary>
+    /// <c>TypeName</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.12): the name of the subtype of the value of a scalar type,
+    /// <c>Empty</c>, <c>Null</c>, <c>String</c> or error it holds, as the standard library names it (<see cref="StdInformation.NameOf"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="name">The name; <see langword="null"/> when the answer is the standard library's.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, which its class names, an array or a
+    /// record), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool TypeName(object? cell, out string? name)
+    {
+        name = TrySubtypeOf(cell, out var subtype) ? StdInformation.NameOf(subtype) : null;
+        return name is not null;
+    }
+
+    // the subtype of a payload, by its kind: what the standard library's VarType says of a value of the kind's type (VBVarTypeExtensions.VarType).
+    private static readonly VBVarType[] PayloadSubtypes = [.. Enum.GetValues<ScalarKind>().Select(kind => ScalarKinds.TypeOf(kind).VarType())];
+
+    // the subtype of what the Variant held in cell holds, as the standard library's VarType says it: of a payload, by its kind; of Empty, Null, a String or
+    // an error (Missing among them), by its type, held in the Variant or in a Variant it holds (StdInformation.Unwrapped). None of anything else, of a value
+    // that is not known, or of a Variant its frame holds in no Variant's cell.
+    private static bool TrySubtypeOf(object? cell, out VBVarType subtype)
+    {
+        subtype = VBVarType.VBEmpty;
         if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant)
         {
             return false;
         }
 
-        if (variant.TryRead(out _))
+        if (variant.TryRead(out var payload))
         {
+            if (payload.Kind is not { } kind)
+            {
+                return false;
+            }
+
+            subtype = PayloadSubtypes[(int)kind];
             return true;
         }
 
-        switch (variant.Value)
+        if (variant.Value is VBRuntimeVariantValue { WrappedValue: var wrapped }
+            && StdInformation.Unwrapped(wrapped) is (VBEmptyValue or VBNullValue or VBStringValue or VBErrorValue) and var held)
         {
-            case VBRuntimeVariantValue { WrappedValue: VBEmptyValue }:
-                empty = true;
-                return true;
-            case VBRuntimeVariantValue { WrappedValue: VBStringValue or VBNullValue or VBErrorValue }:
-                return true;
-            default:
-                return false;
+            subtype = held.TypeInfo.VarType();
+            return true;
         }
+
+        return false;
     }
 
     /// <summary>

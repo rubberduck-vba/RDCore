@@ -1577,14 +1577,14 @@ internal sealed partial class ProcedureAnalysis
                     && ScalarKinds.Of(conversion) is { } convertedTo:
                 return PayloadAs(argument, convertedTo);
 
-            // IsEmpty of a Variant compiled code reads in its cell, a Variant of the activation or an element of an array of Variants, as the cell says
-            // (VariantIsEmptyNode), and of one the cell says nothing of, the call of the standard library's function; never in an instruction that calls
-            // inside an expression, whose operands are known as they were read.
-            case BoundCall { Procedure: VBTypeMemberSymbol library, BoundArguments: [{ Value: { } tested, Elements.IsDefaultOrEmpty: true }] } isEmpty
-                when _nesting is null && IsCompiledLibrary(library) && library.GetProperty(SymbolProperties.ExternalTarget) == IsEmptyFunction
-                    && IsVariantInItsCell(tested):
+            // IsEmpty, IsNull or VarType of a Variant compiled code reads in its cell, a Variant of the activation or an element of an array of Variants, as
+            // the cell says (VariantInformationNode), and of one the cell says nothing of, the call of the standard library's function; never in an
+            // instruction that calls inside an expression, whose operands are known as they were read.
+            case BoundCall { Procedure: VBTypeMemberSymbol library, BoundArguments: [{ Value: { } tested, Elements.IsDefaultOrEmpty: true }] } information
+                when _nesting is null && IsCompiledLibrary(library) && VariantInformationOf(library) is { } function && IsVariantInItsCell(tested):
                 return VariantInItsCell(tested) is { } variant
-                    ? new VariantIsEmptyNode(variant, LibraryCallOf(isEmpty, library, isEmpty.BoundArguments, isEmpty.ResultType) as LibraryCallNode)
+                    ? new VariantInformationNode(variant, function,
+                        LibraryCallOf(information, library, information.BoundArguments, information.ResultType) as LibraryCallNode)
                     : null;
 
             // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types

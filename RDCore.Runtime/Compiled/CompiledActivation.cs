@@ -1876,6 +1876,16 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     internal void CountSupportCall() => Interlocked.Increment(ref _supportCallsMade);
 
+    private long _libraryCallsMade;
+
+    /// <summary>
+    /// How many calls the body made of a function of the standard library it calls inside an expression (<see cref="Libraries"/>), through the function's
+    /// binding or straight to the library. A typed form compiled code calls, or what it reads of a Variant's cell in place of a call, is not one.
+    /// </summary>
+    public long LibraryCallsMade => Interlocked.Read(ref _libraryCallsMade);
+
+    internal void CountLibraryCall() => Interlocked.Increment(ref _libraryCallsMade);
+
     /// <summary>The typed entry of the body: its compiled activation, then each parameter. Set once the body's type is created.</summary>
     public System.Reflection.MethodInfo? Entry { get; init; }
 
