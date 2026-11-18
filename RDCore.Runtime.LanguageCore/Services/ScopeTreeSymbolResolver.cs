@@ -116,7 +116,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     }
 
     // MS-VBAL §5.6.10: each project is a namespace of its own (ScopeTree.Projects). A lookup's project tier is its own project's scope; what another project
-    // gives it - a referenced project, whose names are of a library - is in that project's scope, read with the type libraries' at the library tier.
+    // gives it (a referenced project, whose names are of a library) is in that project's scope, read with the type libraries' at the library tier.
     private IEnumerable<Symbol> ReferencedProjectsDeclaredAs(LexicalScope? project, string name)
         => scopeTree.Projects.Where(other => !ReferenceEquals(other, project)).SelectMany(other => other.DeclaredAs(name).Where(IsOfALibrary));
 
