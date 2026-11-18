@@ -3,6 +3,7 @@ using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.Runtime.LanguageCore.Flow;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Refactoring;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -64,7 +65,7 @@ internal static class InlineCall
         }
 
         var occurrence = NameOccurrences.Find(context, name, [syntax]).Occurrences
-            .FirstOrDefault(each => each.Kind is OccurrenceKind.Name && each.Module.AbsoluteUri == module.AbsoluteUri && Contains(each.Range, position));
+            .FirstOrDefault(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Member && each.Module.AbsoluteUri == module.AbsoluteUri && Contains(each.Range, position));
         if (occurrence.Binding is not { } binding || NameOccurrences.SymbolOf(context, binding) is not { } callee)
         {
             return (null, new(InlineRefusalKind.NotAProcedure, name));
@@ -84,9 +85,15 @@ internal static class InlineCall
         }
 
         var calleeModule = NameOccurrences.ModuleOf(callee.Uri);
+        // a RaiseEvent raises an event of the class it is written in (MS-VBAL §5.4.2.20): an unqualified call in that class runs the member for the same
+        // object, and the inlined RaiseEvent raises the same event of it.
         if (calleeModule.AbsoluteUri != module.AbsoluteUri)
         {
-            return (null, new(InlineRefusalKind.OtherModule, callee.Name));
+            var raises = analysisOf(calleeModule)?.Procedure(callee.Name, kind.Value)?.Declaration.Descendants()
+                .OfType<KeywordStatementNode>().FirstOrDefault(node => node.Token == Tokens.RaiseEvent);
+            return (null, raises is not null
+                ? new(InlineRefusalKind.RaisesAnEvent, callee.Name, raises.SourceLocation)
+                : new(InlineRefusalKind.OtherModule, callee.Name));
         }
 
         if (SiteAt(syntax.Syntax, occurrence.Range) is not { } site)
@@ -288,15 +295,6 @@ internal static class InlineCall
             }
         }
 
-        foreach (var node in declaration.Descendants())
-        {
-            switch (node)
-            {
-                case KeywordStatementNode { Token: Tokens.RaiseEvent }:
-                    return new(InlineRefusalKind.RaisesAnEvent, callee.Name, node.SourceLocation);
-            }
-        }
-
         // the member reaches itself through what it calls.
         if (SymbolHierarchy.ItemOf(context, callee.SemanticId) is { } item)
         {
@@ -358,12 +356,12 @@ internal static class InlineCall
         return null;
     }
 
-    private static System.Collections.Immutable.ImmutableArray<VBParameterSymbol> ParametersOf(Symbol member) => member switch
+    private static System.Collections.Immutable.ImmutableArray<VBParameterSymbol> ParametersOf(Symbol member) => ParameterLists.WithoutMe(member switch
     {
         VBProcedureMemberSymbol procedure => procedure.Parameters,
         VBReturningMemberSymbol returning => returning.Parameters,
         _ => [],
-    };
+    });
 
     // writes the inlined body at the call.
     private sealed class Writer(

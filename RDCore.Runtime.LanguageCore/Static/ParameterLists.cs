@@ -56,7 +56,7 @@ internal static class ParameterLists
             || string.Equals(VBEnumType.AsDeclaredType(left).Name, VBEnumType.AsDeclaredType(right).Name, StringComparison.OrdinalIgnoreCase);
 
     // the implicit Me every member of a class module has at parameter 0 is not a parameter of its parameter list.
-    private static ImmutableArray<VBParameterSymbol> WithoutMe(ImmutableArray<VBParameterSymbol> parameters)
+    public static ImmutableArray<VBParameterSymbol> WithoutMe(ImmutableArray<VBParameterSymbol> parameters)
         => parameters is [{ Name: "Me" }, ..] ? parameters.RemoveAt(0) : parameters;
 
     private static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;

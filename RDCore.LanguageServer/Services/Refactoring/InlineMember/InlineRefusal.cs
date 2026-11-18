@@ -44,22 +44,27 @@ internal enum InlineRefusalKind
     ErrorHandling,
 
     /// <summary>
-    /// The member's body has a <c>RaiseEvent</c> (MS-VBAL §5.4.2.20), which raises the event of the object it runs for.
+    /// The member's body has a <c>RaiseEvent</c>, and the call is in another module: only the class module that declares an event raises it
+    /// (MS-VBAL §5.4.2.20).
     /// </summary>
     RaisesAnEvent,
 
     /// <summary>
-    /// The member's body has a construct the inlining does not write at a call site: a label or a line number, an exit before its last statement.
+    /// A local or the result of the member has a value the inlining cannot set at a call site: a type it writes no default value of, or a <c>Type</c> with a
+    /// field that may hold an object, which no statement lets go of.
     /// </summary>
     UnsupportedConstruct,
 
     /// <summary>
-    /// A parameter the inlining does not bind at a call site: an <c>Optional</c> one, or a <c>ParamArray</c>.
+    /// A parameter the inlining does not bind at a call site: an array, a <c>Type</c> or a type that does not resolve; a <c>Variant</c> given an argument
+    /// that may hold an object; an omitted <c>Optional</c> <c>Variant</c> read other than by <c>IsMissing</c>; a parameter the body writes and tests with
+    /// <c>IsMissing</c>; a <c>ParamArray</c> the body writes, or given an element it cannot copy.
     /// </summary>
     UnsupportedParameter,
 
     /// <summary>
-    /// The call is not a call statement of a procedure.
+    /// The call is where the inlining does not write the body: on a line with another statement, in a loop's condition, an <c>ElseIf</c> or a <c>Case</c>
+    /// clause, a function's result assigned to something other than a variable, a result that may hold an object read in a larger statement.
     /// </summary>
     UnsupportedSite,
 
@@ -87,13 +92,13 @@ internal enum InlineRefusalKind
 
     /// <summary>
     /// The call is under the caller's <c>On Error Resume Next</c>, and the body can raise an error. An error skipped the rest of the body, which inlined runs
-    /// after the statement that raised (<strong>MS-VBAL §5.4.4</strong>).
+    /// after the statement that raised (MS-VBAL §5.4.4).
     /// </summary>
     CallerResumesNext,
 
     /// <summary>
     /// A name of the body refers to something of the module or the project, and a parameter or a local of the caller has that name: written into the caller,
-    /// it would refer to the caller's (<strong>MS-VBAL §5.6.10</strong>).
+    /// it would refer to the caller's (MS-VBAL §5.6.10).
     /// </summary>
     Captured,
 
@@ -105,7 +110,7 @@ internal enum InlineRefusalKind
 
     /// <summary>
     /// An error the body can raise is caught by a handler of the caller that resumes. Its <c>Resume</c> ran the call again, and inlined runs the body's
-    /// statement that raised; its <c>Resume Next</c> went on after the call, and inlined goes on inside the body (<strong>MS-VBAL §5.4.4</strong>).
+    /// statement that raised; its <c>Resume Next</c> went on after the call, and inlined goes on inside the body (MS-VBAL §5.4.4).
     /// </summary>
     CallerHandlerResumes,
 

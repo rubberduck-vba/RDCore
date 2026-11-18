@@ -11,9 +11,9 @@ public class InlineCallTests
 {
     // the call written in Run's body as `call`, inlined: its module's text after the edits, or why it is not inlined. The declarations follow Run.
     private static (string Before, string? After, InlineRefusal? Refusal) Inlined(
-        string body, string declarations, string call, IReadOnlyList<(string Name, string Source)>? classes = null)
+        string body, string declarations, string call, IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, string moduleLevel = "")
     {
-        var analyzed = FlowFixture.Analyze(body, end: $"End Sub\r\n\r\n{declarations}", classes: classes);
+        var analyzed = FlowFixture.Analyze(body, end: $"End Sub\r\n\r\n{declarations}", declarations: moduleLevel, classes: classes, classModule: classModule);
         var offset = analyzed.Text.IndexOf(call, analyzed.Text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.IsTrue(offset >= 0, $"no {call} in Run");
         var position = new ExtractionText(analyzed.Text).PositionOf(offset + 1);
@@ -30,10 +30,10 @@ public class InlineCallTests
         return (await RunAsync(before, classes ?? []), await RunAsync(after!, classes ?? []), after!);
     }
 
-    private static async Task<string> RunAsync(string module, IReadOnlyList<(string Name, string Source)> classes)
+    private static async Task<string> RunAsync(string module, IReadOnlyList<(string Name, string Source)> classes, string main = "Public Sub Main()\r\nRun 3\r\nEnd Sub\r\n")
     {
-        var program = module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Program\"", StringComparison.Ordinal)
-            + "\r\nPublic Sub Main()\r\nRun 3\r\nEnd Sub\r\n";
+        var program = (module.Length == 0 ? "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n" : module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Program\"", StringComparison.Ordinal))
+            + $"\r\n{main}";
         string? output = null;
         try
         {
@@ -244,6 +244,44 @@ public class InlineCallTests
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "If True Then");
         StringAssert.Contains(module, "items = Array()");
+    }
+
+    // a listener of the class Source, which is the edited class module: Main runs Go, which runs Source's Run 3, and the handler writes its ByRef argument.
+    private const string Listener = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Listener\"\r\nOption Explicit\r\nPrivate WithEvents s As Source\r\nPublic Sub Go()\r\n    Set s = New Source\r\n    s.Run 3\r\nEnd Sub\r\nPrivate Sub s_Changed(x As Long)\r\n    Debug.Print \"changed \" & x\r\n    x = x + 100\r\nEnd Sub\r\n";
+
+    private static Task<string> RunAsSourceAsync(string module)
+        => RunAsync(string.Empty, [("Source", module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Source\"", StringComparison.Ordinal)), ("Listener", Listener)],
+            "Public Sub Main()\r\nDim l As New Listener\r\nl.Go\r\nEnd Sub\r\n");
+
+    [TestMethod]
+    public async Task ARaiseEvent_CalledInItsClass_RaisesTheEventOfTheSameObject()
+    {
+        var (before, after, refusal) = Inlined(
+            "Dim a As Long\r\na = n\r\nNotify a\r\nDebug.Print a",
+            "Private Sub Notify(ByVal x As Long)\r\n    RaiseEvent Changed(x)\r\n    Debug.Print x\r\nEnd Sub",
+            "Notify a", classModule: true, moduleLevel: "Public Event Changed(x As Long)");
+        Assert.IsNull(refusal, $"refused: {refusal}");
+        var ran = await RunAsSourceAsync(before);
+        StringAssert.Contains(ran, "changed 3 | 103 | 3");
+        Assert.AreEqual(ran, await RunAsSourceAsync(after!), after);
+    }
+
+    [TestMethod]
+    public void ACallOfAnObject_InTheMembersOwnClass_IsNotInlined()
+    {
+        var (_, _, refusal) = Inlined(
+            "Dim other As Main\r\nSet other = New Main\r\nother.Notify n",
+            "Public Sub Notify(ByVal x As Long)\r\n    RaiseEvent Changed(x)\r\nEnd Sub",
+            "Notify n", classModule: true, moduleLevel: "Public Event Changed(x As Long)");
+        Assert.AreEqual(InlineRefusalKind.UnsupportedSite, refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void ARaiseEvent_CalledFromAnotherModule_IsRefused()
+    {
+        var source = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Source\"\r\nOption Explicit\r\nPublic Event Changed(ByVal x As Long)\r\nPublic Sub Notify(ByVal x As Long)\r\n    RaiseEvent Changed(x)\r\nEnd Sub\r\n";
+        var (_, _, refusal) = Inlined("Dim s As New Source\r\ns.Notify n", string.Empty, "Notify n", classes: [("Source", source)]);
+        Assert.AreEqual(InlineRefusalKind.RaisesAnEvent, refusal?.Kind);
     }
 
     [TestMethod]
