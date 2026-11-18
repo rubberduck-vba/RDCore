@@ -132,7 +132,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return Invoke(assigned, DefaultMemberName, invocation, arguments, byReference, culture);
             }
 
-            // an RDForms form's program names a control it added again, as MSForms lets it; a control of the form's file keeps its name (382).
+            // an RDForms form's program renames a control it added, as MSForms lets it; a control of the form's file keeps its name (382).
             if (invocation is AutomationInvocation.Let && arguments.Length == 1 && !handle.Form.IsVisualBasic && component != handle.Form.Model.Root
                 && component.Class.Property(member) is null && string.Equals(member, NameMember, StringComparison.OrdinalIgnoreCase))
             {
