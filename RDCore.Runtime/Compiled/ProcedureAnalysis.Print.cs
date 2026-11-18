@@ -53,9 +53,9 @@ internal sealed partial class ProcedureAnalysis
         return new PrintStep(offset, items, EndsLine: print.Items.IsEmpty || print.Items[^1].Separator is null);
     }
 
-    // whether an output item is an expression of Strings Text translates: a String literal, a String variable, a member or a call that gives one, or Strings
-    // joined; one in parentheses is the one inside them. A number Text writes as its digits, which an output item is not: it is written with a space on
-    // each side (PrintOutputEvaluator.Padded).
+    // whether an output item is an expression of Strings Text translates: a String literal, a String variable, the result of the String function whose body
+    // this is, read by its name, a member or a call that gives one, or Strings joined; one in parentheses is the one inside them. A number Text writes as its
+    // digits, which an output item is not: it is written with a space on each side (PrintOutputEvaluator.Padded).
     private bool IsStringItem(BoundNode node)
     {
         while (node is BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed })
@@ -67,6 +67,7 @@ internal sealed partial class ProcedureAnalysis
         {
             BoundLiteral { Literal.StaticValue: VBStringValue } => true,
             BoundVariable variable => TextSlotOf(variable) is not null,
+            BoundName { Symbol: var function } when ResultIsText && IsOwnFunction(function) => true,
             BoundName { Symbol: var symbol } => IsTextConstant(node, symbol),
             BoundQualifiedName { Member: var member } => IsTextConstant(node, member),
             BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } => true,
