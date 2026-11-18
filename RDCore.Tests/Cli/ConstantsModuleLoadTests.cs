@@ -8,6 +8,7 @@ namespace RDCore.Tests.Cli;
 /// <strong>MS-VBAL §6.1.2.2</strong> the constants of the <c>Constants</c> module are declared names of the project: a module that names one under
 /// <c>Option Explicit</c> loads, and runs with its value.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.2 Constants Module")]
 public sealed class ConstantsModuleLoadTests

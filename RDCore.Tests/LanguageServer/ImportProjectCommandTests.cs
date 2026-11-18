@@ -21,6 +21,7 @@ namespace RDCore.Tests.LanguageServer;
 /// <c>rdcore.importProject</c> makes the <c>.rdproj</c> of a VB6 project in the folder of its <c>.vbp</c>: the one it names, or the one of a folder, which the
 /// user chooses among several; a project file there is replaced only once the user says so.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ImportProjectCommandTests
 {

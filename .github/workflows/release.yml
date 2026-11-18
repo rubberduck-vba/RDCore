@@ -6,7 +6,8 @@
 #      the tag (v0.1.0-rc.1 -> rc.1), the pull request (pr.<number>) or the run (ci.<run_number>); on a tag run, checks the
 #      tag is on main and the `release` environment is protected; writes the release notes.
 #   2. build, one job per RID, each on its own system (win-x64 on windows-latest, linux-x64 on ubuntu-latest, osx-x64 on
-#      macos-15-intel, osx-arm64 on macos-latest): tests, publishes the platform tree (PlatformPublish.ps1: Release, that
+#      macos-15-intel, osx-arm64 on macos-latest): tests (on macOS, the tests of the Wide category: tools/ci/Invoke-WideTests.ps1),
+#      publishes the platform tree (PlatformPublish.ps1: Release, that
 #      RID, framework-dependent), writes THIRD-PARTY-NOTICES.txt, SOURCE.md and release.json into it, gates it
 #      (tools/release/Test-PlatformTree.ps1), smoke-launches the language server, and archives it (a zip on Windows, a
 #      tar.gz elsewhere, which keeps the execute bit) with its release.json and SHA256SUMS alongside. The osx-arm64 job is
@@ -42,6 +43,7 @@ on:
       - '.github/workflows/release.yml'
       - 'PlatformPublish.ps1'
       - 'tools/release/**'
+      - 'tools/ci/**'
       - 'Directory.Build.props'
       - 'NOTICE.md'
       # a package bump changes the notices (exact-version overrides), and the smoke test waits for this file's log lines and
@@ -271,7 +273,17 @@ jobs:
       # source through [CallerFilePath], which deterministic source paths (/_/...) would point nowhere. The publish below
       # builds for the RID into output of its own, with deterministic paths.
       - name: Test
+        if: runner.os != 'macOS'
         run: dotnet test RDCore.slnx -c Release
+
+      # macOS runs the tests of the Wide category, as build.yml does there
+      - name: Build the tests
+        if: runner.os == 'macOS'
+        run: dotnet build RDCore.slnx -c Release
+
+      - name: Test (Wide)
+        if: runner.os == 'macOS'
+        run: ./tools/ci/Invoke-WideTests.ps1 -Configuration Release
 
       - name: Publish the platform tree
         env:

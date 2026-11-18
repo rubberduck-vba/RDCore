@@ -20,6 +20,7 @@ namespace RDCore.Tests.Server;
 /// <remarks>
 /// These change the process's default culture, which every test that runs at the same time would read: they run on their own.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [DoNotParallelize]
 public sealed class UserInterfaceLanguageTests
