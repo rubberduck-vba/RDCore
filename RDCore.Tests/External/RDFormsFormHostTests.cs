@@ -111,6 +111,88 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    private const string Document =
+        "<Form xmlns=\"https://rubberduckvba.ca/schemas/rdforms\" FormatVersion=\"1\" Name=\"Form1\" Caption=\"Ported\">\n" +
+        "  <TextBox Name=\"Text1\" Left=\"8\" Top=\"8\" Width=\"81\" Height=\"19\" Text=\"Text1\" TabIndex=\"0\" />\n" +
+        "</Form>\n";
+
+    // a form ported to RDForms: its code is a .rdform module, and its document the .xaml beside it.
+    private static FormDefinition PortedForm(string document = Document)
+        => new("Form1", ReadOnlyMemory<byte>.Empty) { Kind = FormDesignerKind.RDForms, Caption = "Form1", DesignerText = document };
+
+    [TestMethod]
+    public void AnRDFormsForm_IsReadFromItsDocument_AndItsComponentsAreOfRDFormsClasses()
+    {
+        var host = Host();
+        var ported = host.Create(PortedForm());
+        var unported = host.Create(VisualBasicForm());
+        try
+        {
+            var text = Get(host, ported, "Text1")!;
+            var legacy = Get(host, unported, "Text1")!;
+
+            Assert.AreEqual("Ported", host.GetCaption(ported));
+            Assert.AreEqual("Text1", Get(host, text, "Text"));
+            Assert.AreEqual("RDForms.TextBox", host.Server.ClassNameOf(text));
+            Assert.AreEqual("RDForms.Form", host.Server.ClassNameOf(ported));
+            Assert.IsTrue(host.Server.IsInstanceOf(text, "RDForms", "TextBox"));
+            Assert.IsFalse(host.Server.IsInstanceOf(text, "RDForms", "Label"));
+            Assert.IsNull(host.Server.IsInstanceOf(text, "VB", "TextBox"), "a ported form's control is no VB class's");
+            Assert.AreEqual("VB.TextBox", host.Server.ClassNameOf(legacy), "a VB6 form of the same program keeps VB's");
+            Assert.IsNull(host.Server.IsInstanceOf(legacy, "RDForms", "TextBox"));
+        }
+        finally
+        {
+            host.Destroy(ported);
+            host.Destroy(unported);
+        }
+    }
+
+    [TestMethod]
+    public void AnRDFormsControlsPositionAndSize_AreInPixels_AsItsDocumentHoldsThem()
+    {
+        var host = Host();
+        var form = host.Create(PortedForm());
+        try
+        {
+            var text = Get(host, form, "Text1")!;
+
+            Assert.AreEqual(8d, Get(host, text, "Left"));
+            Assert.AreEqual(81d, Get(host, text, "Width"));
+            Let(host, text, "Left", 24);
+            Assert.AreEqual(24d, Get(host, text, "Left"));
+        }
+        finally
+        {
+            host.Destroy(form);
+        }
+    }
+
+    [TestMethod]
+    public void AnRDFormsDocumentThatHoldsNoForm_IsNotCreated_AndTheFailureNamesTheForm()
+    {
+        var failure = Assert.ThrowsExactly<AutomationException>(() => Host().Create(PortedForm("<Form")));
+
+        Assert.AreEqual(unchecked((int)0x80004005), failure.HResult, "E_FAIL");
+        StringAssert.StartsWith(failure.Message, "Form1: its document cannot be read.");
+    }
+
+    [TestMethod]
+    public void AnExternalHost_HostsRDFormsFormsWithRDForms()
+    {
+        var (_, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { Headless = true });
+
+        var form = forms.Create(PortedForm());
+        try
+        {
+            Assert.AreEqual("Ported", forms.GetCaption(form));
+        }
+        finally
+        {
+            forms.Destroy(form);
+        }
+    }
+
     [TestMethod]
     public void AVisualBasicControlsPositionAndSize_AreInTwips_AsItsDesignerWritesThem()
     {

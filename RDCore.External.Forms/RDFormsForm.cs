@@ -45,6 +45,9 @@ internal sealed class RDFormsForm : IComponentEventSink
     // the unit the form's program reads and writes its components' positions and sizes in; the model holds them in pixels.
     public CodeUnit Unit { get; }
 
+    // whether the form is a VB6 form RDForms renders in place, whose code names its classes as VB's (VB.TextBox); an RDForms form's code names them as RDForms'.
+    public bool IsVisualBasic { get; init; }
+
     public RDFormsFormWindow Window { get; }
 
     public RDFormsObject Handle { get; }
