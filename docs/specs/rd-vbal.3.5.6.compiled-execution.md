@@ -76,7 +76,23 @@ A `String` constant is the text it holds (MS-VBAL §5.2.3.2). `vbNullString` rea
 Compiled code also reads, as such `String`s, `Err.Description` and `Err.Source` (MS-VBAL §6.1.3.2.2.1, §6.1.3.2.2.6), where the session keeps the
 error, and a `String` public variable of an object (see Objects, below). A `String` that ends with a lone byte (`ChrB(65)`) is the interpreter's to join
 and compare: compiled code hands it each statement that reads one. So is a call of a library function that takes or returns a `String`, such as
-`Len(S)` or `CStr(I)`, except `Chr$` of a whole number, `TypeName` and `Replace` (below).
+`CStr(I)`, except those that have a typed form and `TypeName` (below).
+
+These functions of the library (MS-VBAL §6.1.2.11.1, §6.1.2.3.1.21) have a typed form, which compiled code calls with no call of the library when each
+argument is a `String` it reads, as above, or a whole number where the function takes a number:
+
+- `Len` and `LenB`.
+- `Mid`, `Left`, `Right`, `Trim`, `LTrim`, `RTrim`, `UCase` and `LCase`, each with its `$` form. `UCase` and `LCase` case the text by the session's
+  regional settings.
+- `StrComp`. A call that leaves out its `Compare` compares under the calling module's `Option Compare` (MS-VBAL §5.2.1.1).
+- `InStr` with no `Compare`, from the first character or from a start, in a module that compares `Binary`.
+- `Asc` of a text whose first character is ASCII, and `AscW`.
+- `Val`.
+- `Replace` of three `String`s, in a module that compares `Binary` (below).
+- `Chr$` of a whole number (below).
+
+An argument the function refuses (a start below 1, a negative length, the zero-length text of `Asc`, a `Val` that overflows), a non-ASCII first character
+of `Asc`, and `InStr` or `Replace` in a module that compares `Text` are the interpreter's at that statement.
 
 A `Byte`, an `Integer`, a `Long` or a `LongLong` joined to a `String`, or assigned to one, is its digits, after a minus sign when it is negative
 (MS-VBAL §5.5.1.2.4): `"(" & X & "," & Y & ")"`. Regional settings do not change how a whole number is written. A `Currency`, a `Single`, a `Double`, a
