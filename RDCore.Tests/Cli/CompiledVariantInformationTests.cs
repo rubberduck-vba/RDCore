@@ -55,8 +55,7 @@ public sealed class CompiledVariantInformationTests
     }
 
     // MS-VBAL §6.1.2.7.1.13, §6.1.2.7.1.4, §6.1.2.7.1.7 and §6.1.2.7.1.12: VarType, IsEmpty and IsNull (Described), and TypeName (Named), of a Variant
-    // parameter that holds a value of each scalar subtype, Empty, Null, a String, an error and Missing. A parameter passed a String, an error or Missing is
-    // held in no Variant's cell, which leaves each function of it to the library: three of them, in each of two turns of the loop.
+    // parameter that holds a value of each scalar subtype, Empty, Null, a String, an error and Missing, each read in the parameter's cell.
     [TestMethod]
     public async Task TheInformationOfAVariant_IsReadInItsCell()
         => await AssertAlikeAsync(Program(
@@ -83,7 +82,7 @@ public sealed class CompiledVariantInformationTests
             "        S = TypeName(V)",
             "    Next",
             "    Named = S & \" \"",
-            "End Function"), [("Described", 3 * 2 * 3), ("Named", 3 * 2)]);
+            "End Function"), [("Described", 0), ("Named", 0)]);
 
     // a Variant variable assigned a String, then Null, in its cell: VarType and TypeName joined to a String, IsEmpty and IsNull added up.
     [TestMethod]

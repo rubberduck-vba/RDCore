@@ -146,7 +146,7 @@ public sealed partial class CompiledActivation
 
     /// <summary>
     /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
-    /// (<see cref="VariantCellOf"/>): a parameter passed a <c>String</c>, an error, an object or no argument by value.
+    /// (<see cref="VariantCellOf"/>): a parameter passed an object, an array or a record by value.
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>

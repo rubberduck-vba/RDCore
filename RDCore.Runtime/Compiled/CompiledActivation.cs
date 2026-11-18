@@ -1298,9 +1298,9 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
-    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed a <c>String</c> by value, a variable of another type
-    /// passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
-    /// runs each statement that does.
+    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed an object, an array or a record by value, a variable of
+    /// another type passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and
+    /// the interpreter runs each statement that does.
     /// </returns>
     public object? VariantCellOf(int slot)
     {
