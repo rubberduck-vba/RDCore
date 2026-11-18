@@ -17,8 +17,8 @@ using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
@@ -699,23 +699,10 @@ public static class SymbolRename
             return null;
         }
 
-        var lines = source.Source.Split('\n');
-        for (var line = 0; line < lines.Length; line++)
-        {
-            if (VbName.Match(lines[line]) is { Success: true } match)
-            {
-                var name = match.Groups["name"];
-                return (source.Module, new SourceRange(line, name.Index, line, name.Index + name.Length));
-            }
-        }
-
-        return null;
+        return ModuleHeader.NameRangeOf(source.Source) is { } name ? (source.Module, name) : null;
     }
 
-    private static readonly Regex VbName = new(@"^\s*Attribute\s+VB_Name\s*=\s*""(?<name>[^""]*)""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name, first of its header: after the VERSION line
-    // of a class's or a designer's file, the Object lines of the controls it uses and its Begin ... End block, or on the first line.
+    // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name, first of its attributes, after its header.
     private static RenameEdit? VbNameInsertion(RenameContext context, Symbol module, string newName)
     {
         var at = NameOccurrences.ModuleOf(module.Uri);
@@ -724,32 +711,7 @@ public static class SymbolRename
             return null;
         }
 
-        var lines = source.Source.Split('\n');
-        var line = 0;
-        if (lines[0].TrimStart().StartsWith("VERSION ", StringComparison.OrdinalIgnoreCase))
-        {
-            line = 1;
-            while (line < lines.Length - 1 && lines[line].TrimStart().StartsWith("Object ", StringComparison.OrdinalIgnoreCase))
-            {
-                line++;
-            }
-
-            if (IsBegin(lines[line]))
-            {
-                // the block ends at the End of its own Begin: a designer's blocks hold the blocks of its controls.
-                for (var depth = 0; line < lines.Length; line++)
-                {
-                    depth += IsBegin(lines[line]) ? 1 : lines[line].Trim().Equals("End", StringComparison.OrdinalIgnoreCase) ? -1 : 0;
-                    if (depth == 0)
-                    {
-                        break;
-                    }
-                }
-
-                line = Math.Min(line + 1, lines.Length - 1);
-            }
-        }
-
+        var line = ModuleHeader.AttributesLineOf(source.Source);
         var newLine = source.Source.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         return new RenameEdit(source.Module, new SourceRange(line, 0, line, 0), $"Attribute VB_Name = \"{newName}\"{newLine}");
     }
@@ -782,13 +744,6 @@ public static class SymbolRename
 
         var written = source.Source.Split('\n')[name.Start.Line][name.Start.Character..name.End.Character];
         return string.Equals(written, module.Name, StringComparison.OrdinalIgnoreCase) ? (source.Module, name) : null;
-    }
-
-    // a line that opens a block of a class's or a designer's file: BEGIN, or Begin and what it describes.
-    private static bool IsBegin(string line)
-    {
-        var trimmed = line.Trim();
-        return trimmed.StartsWith("Begin", StringComparison.OrdinalIgnoreCase) && (trimmed.Length == 5 || char.IsWhiteSpace(trimmed[5]));
     }
 
     // the name an Implements directive writes, where it is the module's.
