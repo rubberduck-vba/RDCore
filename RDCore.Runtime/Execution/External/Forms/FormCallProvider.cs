@@ -545,8 +545,9 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 
-    // a call of the form host is a call of a server, made with the turn given up as any other is: the thread the host makes it on can be handling an event of this
-    // session, which takes the turn, and a program that held it would wait for that thread while the thread waits for it. What the call is given is read first.
+    // a call of the form host is a call of a server, made with the turn given up as any other is: the thread the host makes it on can be handling
+    // an event of this session, which takes the turn, and a program that held it would wait for that thread while the thread waits for it. What the
+    // call is given is read first.
     private T Hosted<T>(Func<T> call)
     {
         using (session.Turn.Yield())

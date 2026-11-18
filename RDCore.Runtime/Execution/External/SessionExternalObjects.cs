@@ -9,8 +9,8 @@ namespace RDCore.Runtime.Execution.External;
 /// A handle is found again by reference: a provider that hands out the same handle for the same external object (a COM runtime-callable wrapper is one)
 /// gets the same object identity for it, and two variables holding it are the same object.
 /// </remarks>
-// a provider is a server, told of a release with the turn given up, as any call of it is made: what it does to let go - an RDForms form destroying its window
-// on the thread of its windows - can wait for a thread that is handling an event of this session, which takes the turn.
+// a provider is a server, told of a release with the turn given up, as any call of it is made: what it does to let go (an RDForms form destroying its window
+// on the thread of its windows) can wait for a thread that is handling an event of this session, which takes the turn.
 internal sealed class SessionExternalObjects(ISessionTurn turn) : ISessionExternalObjects
 {
     private readonly record struct Binding(IExternalObjectOwner Owner, object Handle);

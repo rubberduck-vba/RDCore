@@ -13,7 +13,7 @@ public sealed class SessionExternalObjectsTests
 {
     // a provider that, as it lets go, has an event of the session raised on a thread of its own and waits for it, as an RDForms form waits for the thread of
     // its windows to destroy its window while that thread handles an event of the session. The event is raised only when the turn is open to it, so that a
-    // provider told with the turn kept records it and returns instead of waiting for ever.
+    // provider told with the turn kept records it and returns instead of waiting forever.
     private sealed class WaitsForAnEvent(SessionTurn turn) : IExternalObjectOwner
     {
         public List<string> Said { get; } = [];
