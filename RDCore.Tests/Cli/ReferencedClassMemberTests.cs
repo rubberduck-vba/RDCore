@@ -7,6 +7,7 @@ using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Support.Host.Handlers;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
@@ -369,8 +370,6 @@ public sealed class ReferencedClassMemberTests
         public Uri Root => Wire.FileUri(Path.Combine(Base, Name));
     }
 
-    private sealed record class Module(string Name, ModuleType Type, Uri Uri, ModuleParseResult Parse);
-
     private static async Task<IReadOnlyList<string>> LoadErrorsAsync(IReadOnlyList<Source> own, params string[] main)
         => (await LoadAsync(own, [NavalLib], run: false, main)).Errors;
 
@@ -402,15 +401,14 @@ public sealed class ReferencedClassMemberTests
         {
             var modules = Parsed(reference.Root, reference.Modules);
             var resolver = WorkspaceSymbolResolver.Compose(
-                reference.Root, modules.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver(), reference.Name);
-            return (Reference: reference, Modules: modules, Resolver: resolver,
-                Symbols: modules.SelectMany(module => Symbols(reference.Root, module, resolver)).ToArray());
+                reference.Root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(), reference.Name);
+            return new ReferencedProjectModules(reference.Name, reference.Priority, reference.Root, modules, resolver);
         }).ToArray();
 
         var app = Parsed(AppRoot, own);
         var appResolver = WorkspaceSymbolResolver.Compose(
-            AppRoot, app.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver(), "App",
-            libraries: [.. referenced.SelectMany(each => ReferencedProjectSymbols.Of(AppRoot, each.Reference.Name, each.Symbols, each.Reference.Priority))]);
+            AppRoot, app.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(), "App",
+            libraries: [.. referenced.SelectMany(each => each.NamesFor(AppRoot, ImplicitDeclarationScope.Procedure))]);
 
         // the session reads the project's modules from its folder, as the host does.
         var files = own.ToDictionary(module => Path.Combine(AppFolder, module.FileName), module => new MockFileData(module.Text));
@@ -418,45 +416,17 @@ public sealed class ReferencedClassMemberTests
         using var provider = new EnvironmentSessionProvider(profile, new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(project.ProjectInfo, AppRoot);
 
-        DefineSymbolsParams AsReferenced(
-            Module module, (Project Reference, Module[] Modules, ISymbolResolver Resolver, Symbol[] Symbols) each, bool withSymbols)
-            => Request(module, withSymbols ? Symbols(each.Reference.Root, module, each.Resolver) : []) with
-            {
-                Library = each.Reference.Name,
-                LibraryPriority = each.Reference.Priority,
-                PrecompilerTriviaJson = string.Empty,
-            };
-
-        foreach (var declareTypesOnly in new[] { true, false })
-        {
-            foreach (var each in referenced)
-            {
-                foreach (var module in each.Modules)
-                {
-                    await DefineAsync(provider, AsReferenced(module, each, withSymbols: true) with { DeclareTypesOnly = declareTypesOnly });
-                }
-            }
-
-            foreach (var module in app)
-            {
-                await DefineAsync(provider, Request(module, Symbols(AppRoot, module, appResolver)) with { DeclareTypesOnly = declareTypesOnly });
-            }
-        }
-
         var errors = new List<string>();
-        foreach (var module in app)
+        foreach (var definition in SessionDefinitions.Of(AppRoot, app, appResolver, ImplicitDeclarationScope.Procedure, replace: true, referenced))
         {
-            var code = Request(module, []) with { ParseResultJson = PlatformJson.Serialize(module.Parse), CodeOnly = true };
-            errors.AddRange((await DefineAsync(provider, code)).CodeErrors.Select(error => $"{module.Name}: {error}"));
-        }
-
-        foreach (var each in referenced)
-        {
-            foreach (var module in each.Modules)
+            if (definition.ToRequest() is not { } request)
             {
-                var code = AsReferenced(module, each, withSymbols: false) with { ParseResultJson = PlatformJson.Serialize(module.Parse), CodeOnly = true };
-                errors.AddRange((await DefineAsync(provider, code)).CodeErrors.Select(error => $"{each.Reference.Name}.{module.Name}: {error}"));
+                continue;
             }
+
+            var defined = await DefineAsync(provider, request);
+            var name = definition.Referenced is { } each ? $"{each.Name}.{definition.Module.Name}" : definition.Module.Name;
+            errors.AddRange(defined.CodeErrors.Select(error => $"{name}: {error}"));
         }
 
         inspect?.Invoke(provider);
@@ -476,30 +446,12 @@ public sealed class ReferencedClassMemberTests
         return (errors, result);
     }
 
-    private static Module[] Parsed(Uri root, IEnumerable<Source> modules) => [.. modules.Select(module =>
+    private static ParsedModule[] Parsed(Uri root, IEnumerable<Source> modules) => [.. modules.Select(module =>
     {
         var parse = new ModuleParser().Parse(new Uri(root, module.FileName), module.Text);
         Assert.AreEqual(!module.HasSyntaxErrors, parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
-        return new Module(module.Name, module.Type, new UriBuilder(root) { Fragment = module.Name }.Uri, parse);
+        return new ParsedModule(new UriBuilder(root) { Fragment = module.Name }.Uri, module.Name, module.Type, parse);
     })];
-
-    private static IEnumerable<Symbol> Symbols(Uri root, Module module, ISymbolResolver resolver)
-        => new SyntaxTreeSymbolProvider(root, module.Uri, module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-
-    // a module of either project is defined in the session of the project, under the session's root.
-    private static DefineSymbolsParams Request(Module module, IEnumerable<Symbol> symbols) => new()
-    {
-        WorkspaceRoot = AppRoot,
-        ModuleUri = module.Uri,
-        ModuleName = module.Name,
-        ModuleType = module.Type,
-        Symbols = SymbolDescriptorProjector.Project([.. symbols], module.Uri),
-        Directives = ModuleKinds.DirectivesOf(module.Type, module.Parse.SyntaxTree!.GetModuleDirectives()),
-        ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-        ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
-        PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
-        Replace = true,
-    };
 
     private static Task<DefineSymbolsResult> DefineAsync(EnvironmentSessionProvider provider, DefineSymbolsParams request)
         => new DefineSymbolsHandler(
