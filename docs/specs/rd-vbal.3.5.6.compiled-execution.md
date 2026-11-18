@@ -475,10 +475,11 @@ Compiled code calls `Count` and `Item` of a `Collection` (**MS-VBAL §6.1.3.1.1.
 variables, of an object field of one of its records, or of a `With` block: named (`C.Count`, `C.Item("a")`, `.Count`), or `Item` as the default member
 given the arguments of an index expression (`C(1)`, MS-VBAL §5.6.13). It reads the object before it evaluates the arguments, as the interpreter does
 (MS-VBAL §5.6.13.1), and calls the member of the object's class as the interpreter calls it. An `Item` that no member answers to is error 9 for a
-position and error 5 for a key, and `Nothing` is error 91, each raised where the interpreter raises it. An `Item` that returns anything but a value of a
-scalar type (an object, an array, a `String`, `Empty` or `Null`) is the interpreter's, which assigns it as the statement says (MS-VBAL §5.4.3.8,
-§5.4.3.9), and so is an index expression with a named or an omitted argument. Neither member changes the collection, so when compiled code hands
-the statement to the interpreter, the interpreter calls it again.
+position and error 5 for a key, and `Nothing` is error 91, each raised where the interpreter raises it. The `Let` of a `Variant` whose whole value is
+an `Item` (`V = C(N)`) assigns an array, a `String`, `Empty` or `Null` as the interpreter assigns the value of a statement's expression (MS-VBAL
+§5.4.3.8). Any other `Item` that returns anything but a value of a scalar type, and an object in that `Let`, is the interpreter's, which assigns it
+as the statement says (MS-VBAL §5.4.3.8, §5.4.3.9), and so is an index expression with a named or an omitted argument. Neither member changes the
+collection, so when compiled code hands the statement to the interpreter, the interpreter calls it again.
 
 ### What compiled code does itself
 
