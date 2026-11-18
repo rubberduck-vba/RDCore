@@ -561,6 +561,9 @@ The language server answers `textDocument/documentSymbol` (**LSP 3.17** §Docume
 module declares, and the members of its `Enum`s and `Type`s under them. Each symbol's range is its whole declaration, and its selection range the name it
 declares. A procedure's locals are not in the outline. For a `.rdc` program, ranges are in its lines.
 
+The accessors of a property share its name and its kind, so each one's `detail` is the keywords it is declared with (`Property Get`, `Property Let` or
+`Property Set`, `ProcedureKeywords`). Any other symbol has no `detail`.
+
 It answers `workspace/symbol` (**LSP 3.17** §Workspace Symbols Request) with the symbols of the outline of every document it holds whose name matches the
 query (`SymbolSearch`), regardless of case. Each is named with what it is declared in
 (`containerName`: the module, or the module and its `Enum` or `Type`) and located at the name it declares.
