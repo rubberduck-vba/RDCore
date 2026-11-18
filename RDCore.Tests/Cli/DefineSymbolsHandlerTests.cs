@@ -6,6 +6,8 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Platform.Protocol;
@@ -174,6 +176,77 @@ public sealed class DefineSymbolsHandlerTests
 
         Assert.AreEqual(0, result.Defined);
         Assert.AreEqual(0, result.Skipped.Count);
+    }
+
+    private static readonly Uri NavalLibRoot = new("file:///c:/ws/NavalLib/");
+
+    private static DefineSymbolsParams NavalLibRequest(string moduleName, ModuleType kind, ModuleDirectives directives, params SymbolDescriptor[] symbols)
+        => Request(symbols) with
+        {
+            ModuleName = moduleName,
+            ModuleUri = SymbolUri.Member(NavalLibRoot, moduleName),
+            Library = "NavalLib",
+            LibraryPriority = 1,
+            ModuleType = kind,
+            Directives = directives,
+        };
+
+    // a module of a referenced project named as one of the session's own is another module: each name resolves to its own module's member, and the
+    // session's own module keeps the name.
+    [TestMethod]
+    public async Task AModuleOfAReferencedProject_StandsBesideTheSessionsOwnModuleOfTheSameName()
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(),
+            NullLogger<DefineSymbolsHandler>.Instance);
+        var symbols = provider.Session.Symbols;
+        Assert.IsTrue(symbols.TryGetModule("Mod1", out var own));
+
+        var library = await handler.Handle(
+            NavalLibRequest("Mod1", ModuleType.StdModule, ModuleDirectives.None, Procedure("PlaceShip")), CancellationToken.None);
+        await handler.Handle(Request(Procedure("DoWork")), CancellationToken.None);
+
+        Assert.AreEqual(3, library.Defined, "the project, its module and its procedure");
+        Assert.IsTrue(symbols.TryGetModule("Mod1", out var named));
+        Assert.AreSame(own, named, "the session's own module keeps its name");
+        Assert.AreEqual(own!.Uri, symbols.Resolver.ResolveValue("DoWork", ScopeKind.Module, own.Uri).Symbol!.ParentUri);
+
+        var placeShip = symbols.Resolver.ResolveValue("PlaceShip", ScopeKind.Module, own.Uri).Symbol;
+        Assert.IsNotNull(placeShip, "a public procedure of a module of the referenced project is a name of the session's");
+        Assert.AreEqual(SymbolUri.Member(NavalLibRoot, "Mod1"), placeShip.ParentUri);
+        Assert.AreEqual("NavalLib", placeShip.GetProperty(SymbolProperties.Library));
+        Assert.IsFalse(symbols.DeclaredIn(own.Uri).Any(symbol => symbol.Name == "PlaceShip"),
+            "the referenced project's procedure is not a member of the session's module");
+    }
+
+    // what the referenced project keeps to itself is not a name of the session's: a class it does not expose, and a private procedure. A public member of
+    // a class it does not expose is defined, since an object of the class is reached through an Object.
+    [TestMethod]
+    public async Task WhatAReferencedProjectDoesNotExpose_IsNotDefined()
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(),
+            NullLogger<DefineSymbolsHandler>.Instance);
+        var privateProcedure = Procedure("Clear") with { AccessModifier = AccessModifier.Private };
+
+        var hidden = await handler.Handle(
+            NavalLibRequest("Board", ModuleType.ClassModule, ModuleDirectives.None, Procedure("Reset")), CancellationToken.None);
+        var exposed = await handler.Handle(
+            NavalLibRequest("Grid", ModuleType.ClassModule, new ModuleDirectives(Exposed: true), Procedure("Fire"), privateProcedure),
+            CancellationToken.None);
+
+        Assert.AreEqual(2, hidden.Defined, "the project, and the public procedure of the class");
+        Assert.AreEqual(2, exposed.Defined, "the exposed class and its public procedure");
+        Assert.IsTrue(provider.Session.Symbols.TryGetModule("Grid", out _), "an exposed class is a module of the session");
+        Assert.IsFalse(provider.Session.Symbols.TryGetModule("Board", out _), "a class the project does not expose is not");
     }
 
     private sealed class RecordingLogger : Microsoft.Extensions.Logging.ILogger<DefineSymbolsHandler>

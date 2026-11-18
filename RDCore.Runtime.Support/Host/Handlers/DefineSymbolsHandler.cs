@@ -14,6 +14,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics.Precompiler;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
@@ -59,7 +60,9 @@ internal sealed class DefineSymbolsHandler(
         var session = sessionProvider.Session;
         var target = new Target(session, sessionProvider.Image, IsRun: true);
         var loadsCode = !request.DeclareTypesOnly && request.ParseResultJson.Length > 0;
-        var result = HeldDefinitions.Define(session, $"{request.ModuleName}|{request.DeclareTypesOnly}|{request.CodeOnly}", request.ModuleName,
+        // a referenced project's module of a name is another module than the session's own of that name, and none the project gains.
+        var key = $"{request.Library}|{request.ModuleName}|{request.DeclareTypesOnly}|{request.CodeOnly}";
+        var result = HeldDefinitions.Define(session, key, request.Library is null ? request.ModuleName : string.Empty,
             loadsCode ? defined => [.. defined.CodeErrors] : null, () => Define(target, request), () => [.. Define(target, request).CodeErrors]);
 
         // told once it is made: a statement typed at a stop from now on is given what the code as edited declares.
@@ -73,6 +76,11 @@ internal sealed class DefineSymbolsHandler(
     private DefineSymbolsResult Define(Target target, DefineSymbolsParams request)
     {
         var session = target.Session;
+        if (request.Library is not null)
+        {
+            return DefineLibraryModule(session, request);
+        }
+
         if (target.IsRun)
         {
             DefineClientModule(session, request);
@@ -193,37 +201,12 @@ internal sealed class DefineSymbolsHandler(
     {
         var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
 
-        VBType? ResolveType(string typeName)
-        {
-            if (IntrinsicVBTypes.TryResolve(typeName, session.Environment.Is64Bit, out var type))
-            {
-                return type;
-            }
-
-            // the standard library's own declared types are in this session too — the host injects them
-            // into every project whether or not a .rdproj mentions the library (RD-VBAL §6.1) — so
-            // `As VbDayOfWeek` and `As ErrObject` bind here instead of being reported unresolved. A
-            // workspace type may still not be defined yet, since this defines one module at a time, and
-            // stays unresolved until the module is read again.
-            // resolved as seen from the module being defined, not from the global scope: a standard
-            // module's members reach the project scope, and the project scope is only an ancestor of a
-            // module's own. A request that names no module has no such vantage point, and resolves
-            // intrinsics only.
-            if (request.ModuleUri is { } moduleUri
-                && DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, moduleUri, session.Environment.Is64Bit) is { } declared)
-            {
-                return declared;
-            }
-
-            unresolvedTypeNames.Add(typeName);
-            return null;
-        }
-
         // sites of different kinds are not fused - a variable and a procedure of one name are a name declared twice, which is reported - but a Sub and a
         // Function are of one kind: the headers of one procedure written once per branch may be either.
         var notDefined = new HashSet<string>(StringComparer.Ordinal);
         var definedHere = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => $"{symbol.Uri}|{KindOf(symbol)}"))
+        var resolveType = TypeResolver(session, request.ModuleUri, unresolvedTypeNames);
+        foreach (var group in SymbolDescriptorReader.Read(request, resolveType).GroupBy(symbol => $"{symbol.Uri}|{KindOf(symbol)}"))
         {
             var sites = group.ToList();
             var uri = sites[0].Uri.ToString();
@@ -282,6 +265,89 @@ internal sealed class DefineSymbolsHandler(
         }
 
         return (defined, replaced, merged, skipped);
+    }
+
+    private static Func<string, VBType?> TypeResolver(IRuntimeSession session, Uri? moduleUri, HashSet<string> unresolvedTypeNames) => typeName =>
+    {
+        if (IntrinsicVBTypes.TryResolve(typeName, session.Environment.Is64Bit, out var type))
+        {
+            return type;
+        }
+
+        // the standard library's own declared types are in this session too — the host injects them
+        // into every project whether or not a .rdproj mentions the library (RD-VBAL §6.1) — so
+        // `As VbDayOfWeek` and `As ErrObject` bind here instead of being reported unresolved. A
+        // workspace type may still not be defined yet, since this defines one module at a time, and
+        // stays unresolved until the module is read again.
+        // resolved as seen from the module being defined, not from the global scope: a standard
+        // module's members reach the project scope, and the project scope is only an ancestor of a
+        // module's own. A request that names no module has no such vantage point, and resolves
+        // intrinsics only.
+        if (moduleUri is not null && DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, moduleUri, session.Environment.Is64Bit) is { } declared)
+        {
+            return declared;
+        }
+
+        unresolvedTypeNames.Add(typeName);
+        return null;
+    };
+
+    // a module of a project the session's project references (DefineSymbolsParams.Library): the names that project gives the session's, beside the
+    // session's own modules; a module of the session's own project with the same name keeps the name. Nothing is done by the module's name, and its code
+    // is not loaded: a session runs its own project's code. Its types are declared, then bound, as a module of the session's own project's are. Of a name
+    // declared in several #If branches, the first site that carries them all is defined: the session's constants are not the referenced project's.
+    private static DefineSymbolsResult DefineLibraryModule(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        if (request.CodeOnly || request.WorkspaceRoot is not { } workspaceRoot || SymbolDescriptorReader.LibraryModuleOf(request) is not { } module)
+        {
+            return new DefineSymbolsResult();
+        }
+
+        var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var resolveType = TypeResolver(session, module.Uri, unresolvedTypeNames);
+        var types = request with { Symbols = [.. request.Symbols.Where(IsTypeDeclaration)] };
+        var rest = request with { Symbols = [.. request.Symbols.Where(descriptor => !IsTypeDeclaration(descriptor))] };
+        var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
+        DefineSymbolsParams[] phases = request.DeclareTypesOnly ? [types] : [types, rest];
+        foreach (var phase in phases)
+        {
+            var sites = SymbolDescriptorReader.Read(phase, resolveType).GroupBy(symbol => $"{symbol.Uri}|{KindOf(symbol)}").ToList();
+            merged += sites.Sum(group => group.Count() - 1);
+            var members = sites.Select(group
+                => group.FirstOrDefault(site => site is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false }) ?? group.First());
+
+            // the project's symbol is defined with its first module, and stays; the module is defined again with its directives as they are sent. A
+            // type is bound once every module's types are declared, which is why the request that binds defines it again.
+            var bindsTypes = !request.DeclareTypesOnly && ReferenceEquals(phase, types);
+            foreach (var name in ReferencedProjectSymbols.Of(workspaceRoot, request.Library!, [module, .. members], request.LibraryPriority))
+            {
+                if (session.Symbols.TryDefine(name, name.ScopeKind))
+                {
+                    defined++;
+                }
+                else if (name is VBProjectSymbol)
+                {
+                    continue;
+                }
+                else if ((request.Replace || bindsTypes || name is VBModuleSymbol) && session.Symbols.TryRedefine(name, name.ScopeKind))
+                {
+                    replaced++;
+                }
+                else
+                {
+                    skipped.Add(name.Name);
+                }
+            }
+        }
+
+        return new DefineSymbolsResult
+        {
+            Defined = defined,
+            Replaced = replaced,
+            Skipped = skipped,
+            UnresolvedTypeNames = [.. unresolvedTypeNames],
+            MergedDefinitions = merged,
+        };
     }
 
     // what fuses with what: a procedure's headers whatever their kind, and otherwise a symbol of the same type.

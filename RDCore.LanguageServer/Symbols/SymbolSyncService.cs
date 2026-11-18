@@ -313,7 +313,10 @@ internal sealed class SymbolSyncService(
             void Step(string message, string module) => progress?.Report(new WorkProgressStep(
                 string.Format(ProgressMessages.ItemOf, string.Format(message, module), step % modules.Count + 1, modules.Count), 100 * step++ / (3 * modules.Count)));
 
-            // every type exists before any declaration is bound to it, whichever module declares it and in whichever order the project lists them.
+            // every type exists before any declaration is bound to it, whichever module declares it and in whichever order the project lists them: those of
+            // the projects the project references, then its own.
+            var referenced = ReferencedProjectModules(token);
+            totalDefined += await DefineReferencedProjectsAsync(referenced, workspaceRoot, replace, declareTypesOnly: true, token);
             foreach (var module in modules)
             {
                 token.ThrowIfCancellationRequested();
@@ -330,6 +333,7 @@ internal sealed class SymbolSyncService(
                 }
             }
 
+            totalDefined += await DefineReferencedProjectsAsync(referenced, workspaceRoot, replace, declareTypesOnly: false, token);
             foreach (var module in modules)
             {
                 token.ThrowIfCancellationRequested();
@@ -474,6 +478,56 @@ internal sealed class SymbolSyncService(
             libraries: referencedProjects?.LibrariesOf(root, other.Root) ?? referencedLibraries.SymbolsOf(root, other.Project.ProjectInfo),
             documentHosts: hosts);
 
+    // a project of the workspace the primary project references, as its modules are defined in the primary project's session.
+    private sealed record class ReferencedModules(
+        ReferencedProject Referenced, Uri Root, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules, ISymbolResolver Resolver);
+
+    // the projects the primary project references, each with its modules and what their names are bound against, as its own analysis binds them.
+    private List<ReferencedModules> ReferencedProjectModules(CancellationToken token)
+    {
+        var referenced = new List<ReferencedModules>();
+        foreach (var project in referencedProjects?.ProjectsReferencedBy(documents.WorkspaceRoot) ?? [])
+        {
+            var root = SymbolUri.Root(project.Project.Root);
+            var (_, modules, hosts) = CollectModules(project.Project.Root, root, token);
+            referenced.Add(new ReferencedModules(project, root, modules, ResolverOf(root, project.Project, modules, hosts)));
+        }
+
+        return referenced;
+    }
+
+    // the modules of the projects the primary project references are defined in its session as names of those projects (DefineSymbolsParams.Library),
+    // beside its own modules: a Module1 of a project referenced is another module than the project's own Module1. Their code is not sent, and what fails
+    // is said, and is not of Unsynced: no module of them is one the program runs.
+    private async Task<int> DefineReferencedProjectsAsync(
+        List<ReferencedModules> referenced, Uri sessionRoot, bool replace, bool declareTypesOnly, CancellationToken token)
+    {
+        var defined = 0;
+        foreach (var (project, root, modules, projectResolver) in referenced)
+        {
+            foreach (var module in modules)
+            {
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    defined += await DefineModuleSymbolsAsync(
+                        root, module.Uri, module.Name, module.Kind, module.Parse, projectResolver, replace, withCode: false, token, declareTypesOnly,
+                        library: new LibraryModule(sessionRoot, project.Name, project.Priority));
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogError(exception, "❌ Module {module} of the referenced project {project} could not be defined; continuing.",
+                        module.Name, project.Name);
+                }
+            }
+        }
+
+        return defined;
+    }
+
+    // what the session a module of a referenced project is defined in calls it: the session's root, and the project's name and precedence.
+    private sealed record class LibraryModule(Uri SessionRoot, string Name, int Priority);
+
     // a sync that did not finish loaded only some of what it collected, and may not have reached the collecting at all: what the last sync did not load is not
     // loaded either, unless this one loaded it.
     private void Unfinished(Dictionary<string, string> failed, HashSet<string> loaded, IReadOnlyList<string> collected, string reason)
@@ -491,7 +545,8 @@ internal sealed class SymbolSyncService(
 
     private async Task<int> DefineModuleSymbolsAsync(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false, bool sessionModule = false)
+        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false, bool sessionModule = false,
+        LibraryModule? library = null)
     {
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
@@ -507,7 +562,7 @@ internal sealed class SymbolSyncService(
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             new DefineSymbolsParams
             {
-                WorkspaceRoot = workspaceRoot,
+                WorkspaceRoot = library?.SessionRoot ?? workspaceRoot,
                 ModuleUri = moduleUri,
                 ModuleName = moduleName,
                 Symbols = descriptors,
@@ -515,10 +570,13 @@ internal sealed class SymbolSyncService(
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = withCode ? ParserJson.Of(parseResult) : string.Empty,
-                PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult),
+                PrecompilerTriviaJson = library is null ? DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult) : string.Empty,
                 Replace = replace,
                 DeclareTypesOnly = declareTypesOnly,
                 SessionModule = sessionModule,
+                Library = library?.Name,
+                LibraryPriority = library?.Priority ?? 0,
+                ModuleType = moduleType,
             }, token);
 
         if (logger.IsEnabled(LogLevel.Information))
