@@ -87,7 +87,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09365`](../diagnostics/vbc09365.md)|Range has no values|an array is declared with an upper bound less than its lower bound|
 |[`VBC09366`](../diagnostics/vbc09366.md)|A module is not a valid type|a declaration is typed with the name of a standard module|
 |[`VBC09367`](../diagnostics/vbc09367.md)|Invalid use of AddressOf operator|an `AddressOf` expression names a method of a class module, or of an object|
-|[`VBC09368`](../diagnostics/vbc09368.md)|Invalid use of New keyword|a variable is declared `As New` of a type that is no class, of a library's class that cannot be created, of another project's class that is not creatable, or `WithEvents`|
+|[`VBC09368`](../diagnostics/vbc09368.md)|Invalid use of New keyword|a variable is declared `As New` of a type that is not a class, of a library's class that cannot be created, of another project's class that is not creatable, or `WithEvents`|
 |[`VBC09369`](../diagnostics/vbc09369.md)|Can't change data types of array elements|a `ReDim` gives an array elements of another type than it is declared with, `As New` included|
 |[`VBC09370`](../diagnostics/vbc09370.md)|Expected procedure, not variable|a call statement names a variable or a constant of a module, not a procedure|
 |[`VBC09371`](../diagnostics/vbc09371.md)|Array argument must be ByRef|an argument of an array parameter is written `ByVal`|
