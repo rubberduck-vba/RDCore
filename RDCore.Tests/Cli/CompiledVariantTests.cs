@@ -492,9 +492,9 @@ public sealed class CompiledVariantTests
             "    Counted = Counted & TypeName(I)",
             "End Function"), "Counted");
 
-    // a statement the interpreter runs alone in the middle of a speculated loop (a Let of a Variant holding a Double to a Single, which compiled code does
-    // not convert, exact or not), and compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
-    // F = V is a Double at each of the 6 passes; and the last Let joins Strings, which is the interpreter's: 7.
+    // a statement the interpreter runs alone in the middle of a speculated loop (a Let of a Variant holding a Currency to a Single, which compiled code
+    // leaves to the boxed coercion), and compiled code goes on after it, with what the Variant V then holds: never handed to the interpreter for good.
+    // F = C at each of the 6 passes; and the last Let joins Strings, which is the interpreter's: 7.
     [TestMethod]
     public async Task AStatementTheInterpreterRunsInASpeculatedLoop_IsGoneOnFrom()
         => await AssertAlikeAsync(Program(
@@ -505,12 +505,13 @@ public sealed class CompiledVariantTests
             "    Dim I As Long",
             "    Dim L As Long",
             "    Dim F As Single",
-            "    Dim V As Variant",
+            "    Dim V As Variant, C As Variant",
             "    V = 0",
+            "    C = 1.25@",
             "    For I = 1 To 6",
             "        V = V + 0.75",
             "        L = L + V",
-            "        F = V",
+            "        F = C",
             "    Next",
             "    Rounded = L & \" \" & V & \" \" & TypeName(V) & \" \" & F",
             "End Function"), "Rounded", recoveries: 7);
