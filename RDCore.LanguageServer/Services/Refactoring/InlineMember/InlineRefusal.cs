@@ -86,6 +86,18 @@ internal enum InlineRefusalKind
     HeldThroughAnError,
 
     /// <summary>
+    /// The call is under the caller's <c>On Error Resume Next</c>, and the body can raise an error. An error skipped the rest of the body, which inlined runs
+    /// after the statement that raised (<strong>MS-VBAL §5.4.4</strong>).
+    /// </summary>
+    CallerResumesNext,
+
+    /// <summary>
+    /// An error the body can raise is caught by a handler of the caller that resumes. Its <c>Resume</c> ran the call again, and inlined runs the body's
+    /// statement that raised; its <c>Resume Next</c> went on after the call, and inlined goes on inside the body (<strong>MS-VBAL §5.4.4</strong>).
+    /// </summary>
+    CallerHandlerResumes,
+
+    /// <summary>
     /// Several locals of the member may hold an object when the body ends, and the order MS-VBA lets go of a procedure's locals in, which decides the order
     /// their <c>Class_Terminate</c> run in, is not measured.
     /// </summary>

@@ -110,6 +110,11 @@ internal static class InlineCall
             return (null, refused);
         }
 
+        if (CallerRefusalOf(analysis, callee, procedure, syntax.Syntax, site.Statement) is { } changes)
+        {
+            return (null, changes);
+        }
+
         return new Writer(context, syntax, text, callee, procedure, site).Write();
     }
 
@@ -210,6 +215,42 @@ internal static class InlineCall
                         pending.Enqueue(called.Item);
                     }
                 }
+            }
+        }
+
+        return null;
+    }
+
+    // an error the body raises is the caller's to handle (MS-VBAL §5.4.4): with the call as the statement that raised, and inlined, with the body's statement
+    // that did. Under On Error Resume Next the rest of the body then runs, where it was skipped; a handler's Resume runs that statement again, or goes on
+    // inside the body, where it ran the call again or went on after it.
+    private static InlineRefusal? CallerRefusalOf(ExtractionModuleAnalysis analysis, Symbol callee, ExtractionProcedureAnalysis procedure, ModuleNode module, StatementNode statement)
+    {
+        if (!Enumerable.Range(0, procedure.Instructions.Items.Length).Any(procedure.Graph.CanRaise))
+        {
+            return null;
+        }
+
+        var range = statement.SourceLocation.Range;
+        if (module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.SourceLocation.Range.Start <= range.Start && range.End <= member.SourceLocation.Range.End) is not { } declaration
+            || analysis.Procedure(declaration.Name, declaration.MemberKind) is not { } caller || !caller.Instructions.TryGetOffset(statement.Identity, out var offset))
+        {
+            return new(InlineRefusalKind.UnsupportedSite, callee.Name, statement.SourceLocation);
+        }
+
+        var states = ErrorHandlingStates.Of(caller.Graph);
+        var at = states.At(offset);
+        if (at.Any(state => state is { Policy: ErrorHandlingPolicy.ResumeNext, IsHandling: false }))
+        {
+            return new(InlineRefusalKind.CallerResumesNext, callee.Name, statement.SourceLocation);
+        }
+
+        foreach (var handler in at.Select(state => state.CatchingHandler).OfType<int>().Distinct())
+        {
+            if (caller.Instructions.Items.FirstOrDefault(item => item.Kind is InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel
+                && states.At(item.Offset).Any(state => state.Handler == handler && state.IsHandling)) is { } resume)
+            {
+                return new(InlineRefusalKind.CallerHandlerResumes, callee.Name, resume.Location);
             }
         }
 

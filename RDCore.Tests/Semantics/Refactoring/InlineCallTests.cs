@@ -299,6 +299,33 @@ public class InlineCallTests
     }
 
     [TestMethod]
+    public async Task ACallUnderAHandlerThatDoesNotResume_IsInlined()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "On Error GoTo Handler\r\nShown n - 3\r\nDebug.Print \"done\"\r\nExit Sub\r\nHandler:\r\nDebug.Print \"handled\"",
+            "Private Sub Shown(ByVal x As Long)\r\n    Debug.Print 10 / x\r\n    Debug.Print \"rest\"\r\nEnd Sub",
+            "Shown n - 3");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(before, "handled");
+    }
+
+    [TestMethod]
+    [DataRow("On Error Resume Next\r\nShown n - 3\r\nDebug.Print \"done\"", (int)InlineRefusalKind.CallerResumesNext, DisplayName = "under On Error Resume Next")]
+    [DataRow("On Error GoTo Handler\r\nShown n - 3\r\nExit Sub\r\nHandler:\r\nResume Next", (int)InlineRefusalKind.CallerHandlerResumes, DisplayName = "a handler that resumes")]
+    public void ACallWhoseErrorTheCallerResumesFrom_IsRefused(string body, int kind)
+    {
+        var (_, _, refusal) = Inlined(body, "Private Sub Shown(ByVal x As Long)\r\n    Debug.Print 10 / x\r\n    Debug.Print \"rest\"\r\nEnd Sub", "Shown n - 3");
+        Assert.AreEqual((InlineRefusalKind)kind, refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void ABodyThatCannotRaise_IsInlined_UnderOnErrorResumeNext()
+    {
+        var (_, _, refusal) = Inlined("On Error Resume Next\r\nCounted", "Private Sub Counted()\r\n    Dim k As Long\r\n    k = 1\r\nEnd Sub", "Counted");
+        Assert.IsNull(refusal, refusal?.ToString());
+    }
+
+    [TestMethod]
     public void TwoObjectsLetGoOfAtTheEnd_AreRefused_UntilTheOrderIsKnown()
     {
         var (_, _, refusal) = Inlined(
