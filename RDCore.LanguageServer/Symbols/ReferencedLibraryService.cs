@@ -130,8 +130,8 @@ internal sealed class ReferencedLibraryService(
         }
     }
 
-    // a reference is the library its identity finds: the same name of another type library or version is another library. The implicit ones are in it, so a
-    // project that gains or loses an RDForms form loads its libraries again.
+    // a reference is the library its identity finds: the same name of another type library or version is another library. The key includes the implicit
+    // references, so a project that gains or loses an RDForms form loads its libraries again.
     private string KeyOf(RDCoreProject project)
         => string.Join('\n', [
             .. options.Value.Workspace.SupportedLanguage.ImplicitReferencesOf((project.Modules ?? []).Select(module => module?.RelativeUri)),
