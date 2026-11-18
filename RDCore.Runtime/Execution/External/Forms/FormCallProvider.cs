@@ -531,9 +531,9 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return Hosted(() => outside.Forms.Hide(hosted));
     }
 
-    // Show [Modal]: modal when it says vbModal, and as the designer's ShowModal says when it says nothing: a UserForm's is True unless its designer says otherwise,
-    // and a Visual Basic 6.0 form, or an RDForms form, has none, and is shown modeless (vbModeless). A modal form is waited for, and the program gives its turn
-    // up while it does: what the form raises meanwhile is the answer to the call.
+    // Show [Modal]: modal when it says vbModal, and as the designer's ShowModal says when it says nothing: a UserForm's is True unless its designer says
+    // otherwise, and a Visual Basic 6.0 form, or an RDForms form, has none, and is shown modeless (vbModeless). A modal form is waited for, and the
+    // program gives its turn up while it does: what the form raises meanwhile is the answer to the call.
     private RuntimeSemanticsEvaluationResult Show(object hosted, ExternalCallRequest request, string form)
     {
         var modal = request.Arguments.Length > 1 && VariantOf(request.Arguments[1]) is { } argument and not VBMissingValue

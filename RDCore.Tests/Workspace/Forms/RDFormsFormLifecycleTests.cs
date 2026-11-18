@@ -67,7 +67,7 @@ public sealed class RDFormsFormLifecycleTests
         Assert.IsFalse(forms.IsVisualBasic6(new SDK.Model.Symbols.VBClassModuleSymbol(root, new Uri(root, "UserForm1.frm"), "UserForm1")));
     }
 
-    private const string NoRDFormsLibrary = "RDForms describes no RDForms library: a ported form's class and its controls', of the RDForms.* classes, have no declared type.";
+    private const string NoRDFormsLibrary = "RDForms describes no RDForms library, so the RDForms.* classes of a ported form and of its controls have no declared type.";
 
     [TestMethod]
     [Ignore(NoRDFormsLibrary)]
