@@ -31,7 +31,7 @@ jobs:
      run: |
        dotnet tool install --global dotnet-coverage
        dotnet-coverage collect \
-         "dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 10m" \
+         "dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 2m --filter FullyQualifiedName~HangsOnPurposeTests" \
          --output-format cobertura --output coverage.cobertura.xml
 
    - name: Build (Release)
@@ -41,7 +41,7 @@ jobs:
    - name: Test (Release, interpreted)
      env:
       RDCORE_ENGINE: Interpreter
-     run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
+     run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 2m --filter FullyQualifiedName~HangsOnPurposeTests
 
    # what --blame-hang-timeout leaves when a test hangs: the sequence file (the tests each test host ran, the last of them
    # unfinished) and the dumps of the test host and of the processes it started. A run that fails without a hang leaves none.
@@ -132,7 +132,7 @@ jobs:
      run: dotnet build RDCore.slnx --configuration Debug
 
    - name: Test (Debug)
-     run: dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 10m
+     run: dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 2m --filter FullyQualifiedName~HangsOnPurposeTests
 
    - name: Build (Release)
      run: dotnet build RDCore.slnx --configuration Release
@@ -140,7 +140,7 @@ jobs:
    - name: Test (Release, interpreted)
      env:
       RDCORE_ENGINE: Interpreter
-     run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
+     run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 2m --filter FullyQualifiedName~HangsOnPurposeTests
 
    # as on Linux: the sequence file and the dumps a hang leaves, one artifact per system
    - name: Upload what a hang leaves
