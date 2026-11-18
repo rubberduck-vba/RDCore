@@ -47,6 +47,11 @@ public sealed record class FormCreateParams : AutomationRequest
     /// </summary>
     public string? DesignerText { get; init; }
 
+    /// <summary>
+    /// Whether the program that makes the form runs unattended (<see cref="FormDefinition.Unattended"/>).
+    /// </summary>
+    public bool Unattended { get; init; }
+
     /// <summary>The request for <paramref name="form"/>.</summary>
     /// <param name="form">The form.</param>
     /// <param name="handlingEvent">The event whose handler asks for it, if one does.</param>
@@ -62,6 +67,7 @@ public sealed record class FormCreateParams : AutomationRequest
         ClientHeight = form.ClientHeight,
         Kind = form.Kind,
         DesignerText = form.DesignerText,
+        Unattended = form.Unattended,
         HandlingEvent = handlingEvent,
     };
 
@@ -76,6 +82,7 @@ public sealed record class FormCreateParams : AutomationRequest
         ClientHeight = ClientHeight,
         Kind = Kind,
         DesignerText = DesignerText,
+        Unattended = Unattended,
     };
 }
 

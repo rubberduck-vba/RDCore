@@ -372,7 +372,8 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         object created;
         using (session.Turn.Yield())
         {
-            created = outside.Forms.Create(FormDefinition.Of(form, designer));
+            // a program run unattended shows no form (Show fails, above), and its host makes the form where no screen is needed to load it.
+            created = outside.Forms.Create(FormDefinition.Of(form, designer) with { Unattended = session.RunsUnattended });
         }
 
         session.ExternalObjects.Bind(identity, outside.Automation, created);
