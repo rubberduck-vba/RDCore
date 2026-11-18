@@ -169,6 +169,33 @@ namespace RDCore.External {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The RDForms windows cannot be started: {0}.
+        /// </summary>
+        internal static string RDFormsCannotStart {
+            get {
+                return ResourceManager.GetString("RDFormsCannotStart", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The forms of this session are loaded with no screen to show them, as those of a program run unattended are, and a form cannot be shown on the desktop as well. Run the program in a new session..
+        /// </summary>
+        internal static string RDFormsWindowsAreHeadless {
+            get {
+                return ResourceManager.GetString("RDFormsWindowsAreHeadless", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The forms of this session are shown on the desktop, and a form cannot be loaded with no screen to show it as well. Run the program in a new session..
+        /// </summary>
+        internal static string RDFormsWindowsAreOnTheDesktop {
+            get {
+                return ResourceManager.GetString("RDFormsWindowsAreOnTheDesktop", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to A value of kind &apos;{0}&apos; cannot cross to or from the external host..
         /// </summary>
         internal static string ValueCannotCross {
