@@ -1,11 +1,14 @@
 using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.Tests.Runtime.Libraries;
 
@@ -168,5 +171,36 @@ public sealed class ReferencedProjectSymbolsTests
         var names = ReferencedProjectSymbols.Of(ReferencingRoot, "NavalLib", symbols, priority: 1).Select(name => name.Name).ToArray();
 
         CollectionAssert.AreEqual(new[] { "NavalLib", "GameRules" }, names, string.Join(", ", names));
+    }
+
+    // what the environment host defines of a module of a referenced project: the module and its members as the reader makes them, and what of them the
+    // project gives.
+    [TestMethod]
+    public void AnExposedClassOfAReferencedProject_AndItsPublicMembers_AreNamesOfThatProject()
+    {
+        var request = new DefineSymbolsParams
+        {
+            WorkspaceRoot = ReferencingRoot,
+            ModuleUri = SymbolUri.Member(Root, "Module1"),
+            ModuleName = "Module1",
+            Library = "NavalLib",
+            LibraryPriority = 1,
+            ModuleType = ModuleType.ClassModule,
+            Directives = new ModuleDirectives(Exposed: true),
+            Symbols =
+            [
+                new SymbolDescriptor
+                {
+                    Name = "PlaceShip", Kind = SymbolDescriptorKind.Procedure, Scope = ScopeKind.Module, AccessModifier = AccessModifier.Public,
+                },
+            ],
+        };
+        var module = SymbolDescriptorReader.LibraryModuleOf(request)!;
+        var members = SymbolDescriptorReader.Read(request, name => IntrinsicVBTypes.TryResolve(name, out var type) ? type : null);
+
+        var names = ReferencedProjectSymbols.Of(ReferencingRoot, "NavalLib", [module, .. members], 1);
+
+        CollectionAssert.AreEqual(new[] { "NavalLib", "Module1", "PlaceShip" }, names.Select(name => name.Name).ToArray());
+        Assert.IsTrue(names.All(name => name.GetProperty(SymbolProperties.Library) == "NavalLib"));
     }
 }
