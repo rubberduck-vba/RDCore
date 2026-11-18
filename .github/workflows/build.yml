@@ -43,6 +43,19 @@ jobs:
       RDCORE_ENGINE: Interpreter
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
 
+   # what --blame-hang-timeout leaves when a test hangs: the sequence file (the tests each test host ran, the last of them
+   # unfinished) and the dumps of the test host and of the processes it started. A run that fails without a hang leaves none.
+   - name: Upload what a hang leaves
+     if: failure()
+     uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+     with:
+      name: blame-ubuntu-latest
+      path: |
+       **/TestResults/**/Sequence_*.xml
+       **/TestResults/**/*.dmp
+      if-no-files-found: ignore
+      retention-days: 3
+
    - name: Coverage badge
      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
      run: |
@@ -128,6 +141,18 @@ jobs:
      env:
       RDCORE_ENGINE: Interpreter
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
+
+   # as on Linux: the sequence file and the dumps a hang leaves, one artifact per system
+   - name: Upload what a hang leaves
+     if: failure()
+     uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+     with:
+      name: blame-${{ matrix.os }}
+      path: |
+       **/TestResults/**/Sequence_*.xml
+       **/TestResults/**/*.dmp
+      if-no-files-found: ignore
+      retention-days: 3
 
  # the performance table of the README: the built-in corpus of rdc bench (no Excel), timed with the merged commit's rdc and the reference commit's
  # (the commit of the MS-VBA reference run, RDCore.CLI/Bench/Reference/msvba.json) in alternated rounds on this one runner, so that its speed
