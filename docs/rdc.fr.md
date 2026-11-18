@@ -87,7 +87,8 @@ dans un module d'un espace de travail liste de la même façon les lignes du mod
 ## Les commandes
 
 Chaque commande prend un espace de travail, soit un dossier, avec ou sans `.rdproj`, soit un seul fichier de module. Sans espace de travail, elle
-travaille sur le dossier courant.
+travaille sur le dossier courant. Un dossier sans `.rdproj` est lu comme un éditeur le lit : chaque fichier de module qu'il contient, à toute profondeur,
+est un module, et un seul `.vbp` qui s'y trouve en fait un projet VB6 (voir [**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Commande|Alias|Ce qu'elle fait|
 |---|---|---|
