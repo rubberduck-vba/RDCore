@@ -43,7 +43,7 @@ A workspace can disable codes of its own, in the `Configuration` section of the 
 }
 ```
 
-Whoever opens the workspace has these codes disabled as well as their own: the workspace's list adds to yours and takes nothing from it. The platform reads
+Whoever opens the workspace has these codes disabled as well as their own: the workspace's list adds to theirs and takes nothing from it. The platform reads
 the file when it starts.
 
 See [Diagnostics](diagnostics/index.md) for the codes, and

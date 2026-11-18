@@ -101,7 +101,7 @@ Each component reads it after its deployed `appsettings.json`, and before the en
 |---|---|
 |`appsettings.json`, deployed with the component|Lowest.|
 |`user.settings.json`|Takes the place of the deployed value.|
-|The `Configuration` section of the workspace's `appsettings.json` ([Workspace Settings](#workspace-settings))|Takes the place of the user's value. A list adds to the user's.|
+|The workspace's settings ([Workspace Settings](#workspace-settings))|Takes the place of the user's value. A list adds to the user's.|
 |Environment variables (`Configuration__Server__Verbose`)|Take the place of the workspace's value.|
 |The command line|Highest.|
 
@@ -119,8 +119,8 @@ The same file holds the program's own settings, under `ProgramSettings`
 does not read that section.
 
 - A component reads the file when it starts, from the folder its command line names (`--workspace`).
-- A workspace cannot set a `Deployment` setting, or a trust-sensitive one: `Environment.AllowDllImports`, `Environment.AllowAutomation`,
-  `Environment.LegacyRegistrySettings`, `Platform.Extensions.*`. A workspace can come from anywhere, and grants itself no rights.
+- A workspace cannot set a `Deployment` setting, or a [trust-sensitive](#settings) one. A workspace can come from anywhere, and grants itself no
+  rights.
 - Only values the settings can be are read. A setting the component does not know of is not read.
 - A list is the user's items, followed by the workspace's items that are not among them.
 - While the platform runs, a live setting the workspace sets keeps the workspace's value, whatever the client says of the user's.

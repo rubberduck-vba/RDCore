@@ -44,7 +44,7 @@ Un espace de travail peut désactiver ses propres codes, dans la section `Config
 }
 ```
 
-Quiconque ouvre l'espace de travail a ces codes désactivés en plus des siens : la liste de l'espace de travail s'ajoute à la vôtre et ne lui retire rien.
+Quiconque ouvre l'espace de travail a ces codes désactivés en plus des siens : la liste de l'espace de travail s'ajoute à la sienne et ne lui retire rien.
 La plateforme lit le fichier à son démarrage.
 
 Voir [Diagnostics](diagnostics/index.md) pour les codes, et
