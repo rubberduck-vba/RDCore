@@ -176,10 +176,14 @@ internal sealed partial class ProcedureAnalysis
                 return null;
             }
 
-            // a Variant variable given to a Variant parameter is given what it holds, whatever it holds (VariantValueNode).
+            // a Variant variable given to a Variant parameter is given what it holds, whatever it holds (VariantValueNode), and so is an element of an array
+            // of Variants (VariantElementValueNode).
             if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value }
                 || (typed is { } destination ? PayloadAs(value, destination) is { } coerced ? new VariantOfNode(coerced) : null
-                    : value is BoundVariable variable && VariantSlotOf(variable) is { } slot ? new VariantValueNode(slot) : Dynamic(value)) is not { } argument)
+                    : value is BoundVariable variable && VariantSlotOf(variable) is { } slot ? new VariantValueNode(slot)
+                    : value is BoundIndex or BoundMember && IsVariantElement(value)
+                        ? VariantElement(ElementOf(value)!) is VariantElementNode element ? new VariantElementValueNode(element) : null
+                    : Dynamic(value)) is not { } argument)
             {
                 return null;
             }

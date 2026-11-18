@@ -2258,6 +2258,7 @@ internal sealed partial class ProcedureEmitter
         LibraryVariantNode library => library.Arguments.Any(MakesACall),
         LibraryMemberNode member => member.Arguments.Any(MakesACall),
         VariantElementNode element => element.Subscripts.Any(MakesACall),
+        VariantElementValueNode value => MakesACall(value.Element),
         _ => false,
     };
 

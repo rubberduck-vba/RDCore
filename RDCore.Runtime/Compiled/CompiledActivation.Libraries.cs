@@ -148,17 +148,20 @@ public sealed partial class CompiledActivation
 
     /// <summary>
     /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
-    /// (<see cref="VariantCellOf"/>): a parameter passed an object, an array or a record by value.
+    /// (<see cref="VariantCellOf"/>): a parameter passed an object, an array or a record by value; or a parameter passed by reference a variable of another
+    /// type (<c>CallStackFrame.TryGetReferencedType</c>), a <c>String</c> of variable length or a variable of a scalar type, which reads as a <c>Variant</c>
+    /// holding what that variable holds, as the interpreter reads it (MS-VBAL §5.3.1.11).
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
-    /// <see langword="null"/> when the frame holds no <c>Variant</c> there, or one whose value is unknown or holds an array or a record: the interpreter
-    /// is then given the call.
+    /// <see langword="null"/> when the frame holds no <c>Variant</c> there, or one whose value is unknown or holds an array or a record, or the parameter
+    /// is a second name for a variable of any other type: the interpreter is then given the call.
     /// </returns>
     public IRuntimeValue? VariantValueOf(int slot)
     {
         var frame = Frame;
-        if (!(frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)))
+        var symbol = _body.SlotSymbols[slot];
+        if (!(frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(symbol, out cell)))
         {
             return null;
         }
@@ -168,10 +171,17 @@ public sealed partial class CompiledActivation
             return VariantOperations.ValueOf(cell);
         }
 
-        return cell is not IKnowledgeBinding { IsKnown: false }
-            && cell.Value is VBRuntimeVariantValue { WrappedValue.TypeInfo: not (VBArrayType or VBUserDefinedType) } held
-                ? held
-                : null;
+        if (cell is IKnowledgeBinding { IsKnown: false })
+        {
+            return null;
+        }
+
+        if (frame.TryGetReferencedType(symbol, out var referenced))
+        {
+            return referenced is VBStringType and not VBFixedStringType || ScalarPayload.IsScalar(referenced) ? VariantCell.Holding(referenced, cell.Value) : null;
+        }
+
+        return cell.Value is VBRuntimeVariantValue { WrappedValue.TypeInfo: not (VBArrayType or VBUserDefinedType) } held ? held : null;
     }
 
     // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else (Null, Empty, a
