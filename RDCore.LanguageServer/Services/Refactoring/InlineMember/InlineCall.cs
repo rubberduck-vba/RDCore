@@ -289,7 +289,7 @@ internal static class InlineCall
                 _taken.Add(used);
             }
 
-            if ((Arguments() ?? Result() ?? Locals()) is { } refused)
+            if ((Arguments() ?? Result() ?? Locals() ?? Captured()) is { } refused)
             {
                 return (null, refused);
             }
@@ -715,6 +715,28 @@ internal static class InlineCall
                 foreach (var edge in graph.SuccessorsOf(node))
                 {
                     pending.Enqueue(edge.To);
+                }
+            }
+
+            return null;
+        }
+
+        // a name of the body bound to something of the module or the project is written into the caller as it is, where a parameter or a local of the caller
+        // with that name would be found first (MS-VBAL §5.6.10): refused.
+        private InlineRefusal? Captured()
+        {
+            var callers = _callerScope.Declarations.ToLookup(declared => declared.Name, StringComparer.OrdinalIgnoreCase);
+            foreach (var name in procedure.Declaration.Descendants().OfType<SimpleNameExpressionNode>())
+            {
+                if (_bindings(name) is not { } bound || _replacements.ContainsKey(bound) || bound == callee.SemanticId
+                    || _folds.Any(fold => Within(name.SourceLocation.Range, fold.Range)))
+                {
+                    continue;
+                }
+
+                if (callers[name.IdentifierName].FirstOrDefault(declared => declared.SemanticId != bound) is { } capturing)
+                {
+                    return new(InlineRefusalKind.Captured, capturing.Name, name.SourceLocation);
                 }
             }
 

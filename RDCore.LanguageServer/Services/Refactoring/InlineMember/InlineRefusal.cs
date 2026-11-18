@@ -92,6 +92,12 @@ internal enum InlineRefusalKind
     CallerResumesNext,
 
     /// <summary>
+    /// A name of the body refers to something of the module or the project, and a parameter or a local of the caller has that name: written into the caller,
+    /// it would refer to the caller's (<strong>MS-VBAL §5.6.10</strong>).
+    /// </summary>
+    Captured,
+
+    /// <summary>
     /// An error the body can raise is caught by a handler of the caller that resumes. Its <c>Resume</c> ran the call again, and inlined runs the body's
     /// statement that raised; its <c>Resume Next</c> went on after the call, and inlined goes on inside the body (<strong>MS-VBAL §5.4.4</strong>).
     /// </summary>

@@ -356,6 +356,7 @@ public class InlineCallTests
     [DataRow("Private Sub Again(ParamArray x())\r\n    x(0) = Empty\r\nEnd Sub", "Again n", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "a ParamArray written")]
     [DataRow("Private Sub Again(ByVal x As Long, Optional ByVal y As Variant)\r\n    y = x\r\n    Debug.Print IsMissing(y)\r\nEnd Sub", "Again n, 1", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "IsMissing of a parameter written")]
     [DataRow("Private Sub Again(ByRef x As Long)\r\n    x = 1\r\nEnd Sub\r\nPrivate Sub Caller()\r\n    Dim values(1 To 2) As Long\r\n    Again values(1)\r\nEnd Sub", "Again values(1)", (int)InlineRefusalKind.ByRefElement, DisplayName = "ByRef element")]
+    [DataRow("Private Sub Again(ByVal x As Long)\r\n    field = field + x\r\nEnd Sub\r\nPrivate Sub Caller()\r\n    Dim field As Long\r\n    Again field\r\nEnd Sub", "Again field", (int)InlineRefusalKind.Captured, DisplayName = "a module field a caller local captures")]
     public void TheMember_IsRefused(string declarations, string call, int kind)
     {
         // the call is in Run, unless the declarations have their own caller.
