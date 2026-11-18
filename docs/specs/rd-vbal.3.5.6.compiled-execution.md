@@ -447,7 +447,8 @@ interpreter does, through the same binding and with the session's locale. When a
 such as a `String`, the interpreter runs the statement on its own. A `Variant` parameter of the function is given what the argument holds, as the
 interpreter gives it (**MS-VBAL §5.3.1.11**), a `String`, `Empty`, `Null`, an error or an object among them, when the argument is a `Variant`
 parameter or variable of the procedure, an element of one of its arrays of `Variant`s, or an element of the array one of its `Variant`s holds. An
-element that holds an array or a record is the interpreter's. An error the function raises, such as the overflow of `CByte(300)`, is raised where the interpreter raises it.
+element that holds an array or a record is the interpreter's. An error the function raises, such as the overflow of `CByte(300)`, is raised where the
+interpreter raises it.
 `Abs` of the least value of a type, on which the function overflows, is the interpreter's: compiled code hands it the statement, and the interpreter
 decides the result by how the argument is written. Of the least `Long` written as a constant expression (`Abs(CLng(-2147483647) - 1)`) it is that
 `Long`, of a `Variant` it is the next wider type, and of a `Long` variable it is error 6.
