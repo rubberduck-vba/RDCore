@@ -32,9 +32,10 @@ public sealed class CompiledVariantReferenceArgumentTests
             "    Found = mItems(Key)",
             "    Err.Clear",
             "End Function",
-            "Public Sub Tagged(Value As Variant)",
+            "Public Function Tagged(Value As Variant) As Long",
             "    Value = Value & \"!\"",
-            "End Sub",
+            "    Tagged = 1",
+            "End Function",
             "Public Function IsHeld(Key As Variant) As Boolean",
             "    Dim Pair As Variant",
             "    Pair = Found(Key)",
@@ -57,39 +58,41 @@ public sealed class CompiledVariantReferenceArgumentTests
             if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.AreEqual(0L, result.Body.WalkBacks, $"{procedure}'s walk-backs, the last at {result.Body.LastWalkedBackAt}");
-                Assert.AreEqual(recoveries, result.Body.Recoveries, $"{procedure}'s recoveries");
-            }
+                Assert.AreEqual(recoveries, result.Body.Recoveries, $"{procedure}'s recoveries");            }
         }
     }
 
-    // a Variant variable given by reference to a procedure, at each turn of a loop: what the procedure assigns its parameter, a number then a String, is
+    // a Variant variable given by reference to a function, at each turn of a loop: what the function assigns its parameter, a number then a String, is
     // what the variable holds after the call, which it gives on to be shown.
     [TestMethod]
-    public async Task AVariantGivenByReference_ToAProcedure_HoldsWhatTheCalleeAssigns()
+    public async Task AVariantGivenByReference_ToAFunction_HoldsWhatTheCalleeAssigns()
         => await AssertRunAsync(Program(
             "Public Sub Main()",
-            "    Counted",
+            "    Debug.Print Counted()",
             "End Sub",
-            "Private Sub Counted()",
+            "Private Function Counted() As Long",
             "    Dim V As Variant",
-            "    Dim I As Long",
+            "    Dim I As Long, N As Long",
             "    V = 1",
             "    For I = 1 To 3",
-            "        Twice V",
+            "        N = N + Twice(V)",
             "    Next",
             "    Shown V",
-            "    Named V",
+            "    N = N + Named(V)",
             "    Shown V",
-            "End Sub",
-            "Private Sub Twice(X As Variant)",
+            "    Counted = N",
+            "End Function",
+            "Private Function Twice(X As Variant) As Long",
             "    X = X * 2",
-            "End Sub",
-            "Private Sub Named(ByRef X As Variant)",
+            "    Twice = 1",
+            "End Function",
+            "Private Function Named(ByRef X As Variant) As Long",
             "    X = \"eight\"",
-            "End Sub",
+            "    Named = 10",
+            "End Function",
             "Private Sub Shown(X As Variant)",
             "    Debug.Print TypeName(X) & \" \" & X",
-            "End Sub"), "Integer 8 ; String eight", ("Counted", 0));
+            "End Sub"), "Integer 8 ; String eight ; 13", ("Counted", 0));
 
     // a Variant parameter given on by reference: the callee assigns the caller's caller's variable.
     [TestMethod]
@@ -102,14 +105,15 @@ public sealed class CompiledVariantReferenceArgumentTests
             "    Debug.Print V",
             "End Sub",
             "Private Sub Relayed(Given As Variant)",
-            "    Dim I As Long",
+            "    Dim I As Long, Grew As Boolean",
             "    For I = 1 To 2",
-            "        Grown Given",
+            "        Grew = Grown(Given)",
             "    Next",
             "End Sub",
-            "Private Sub Grown(X As Variant)",
+            "Private Function Grown(X As Variant) As Boolean",
             "    X = X & \"y\"",
-            "End Sub"), "xyy", ("Relayed", 0));
+            "    Grown = True",
+            "End Function"), "xyy", ("Relayed", 0));
 
     // a Variant that holds an array, given by reference: the callee writes an element of the caller's array, and ReDims it.
     [TestMethod]
@@ -122,12 +126,13 @@ public sealed class CompiledVariantReferenceArgumentTests
             "    Debug.Print V(0) & \",\" & V(1) & \",\" & UBound(V)",
             "End Sub",
             "Private Sub Filled(Given As Variant)",
-            "    Marked Given",
+            "    Dim Mark As Long",
+            "    Mark = Marked(Given)",
             "    Grown Given",
             "End Sub",
-            "Private Sub Marked(X As Variant)",
+            "Private Function Marked(X As Variant) As Long",
             "    X(1) = 20",
-            "End Sub",
+            "End Function",
             "Private Sub Grown(X As Variant)",
             "    ReDim Preserve X(4)",
             "End Sub"), "1,20,4", ("Filled", 0));
@@ -233,9 +238,9 @@ public sealed class CompiledVariantReferenceArgumentTests
             "    Debug.Print V",
             "End Sub",
             "Private Sub Tags(ByVal L As Lookup, Given As Variant)",
-            "    Dim I As Long",
+            "    Dim I As Long, N As Long",
             "    For I = 1 To 3",
-            "        L.Tagged Given",
+            "        N = N + L.Tagged(Given)",
             "    Next",
             "End Sub"), "t!!!", ("Tags", 0));
 
