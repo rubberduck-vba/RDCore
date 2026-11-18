@@ -92,10 +92,13 @@ public sealed class VisualBasicFormLifecycleTests
         return new RDCore.External.ExternalWorld(automation, RDCore.External.Native.UnavailableNativeLibraryHost.Instance) { Forms = seen?.Invoke(forms) ?? forms };
     }
 
-    // the forms of a world, which record each form shown and the form its Show gave as its owner, by their names.
+    // the forms of a world, which record each form made and whether the program that made it runs unattended, and each form shown and the form its Show gave
+    // as its owner, by their names.
     private sealed class OwnersRecorded(RDCore.External.Forms.IFormHost forms) : RDCore.External.Forms.IFormHost
     {
         private readonly Dictionary<object, string> _names = new(ReferenceEqualityComparer.Instance);
+
+        public List<(string Form, bool Unattended)> Created { get; } = [];
 
         public List<(string Form, string? Owner)> Shown { get; } = [];
 
@@ -105,6 +108,7 @@ public sealed class VisualBasicFormLifecycleTests
 
         public object Create(RDCore.External.Forms.FormDefinition form)
         {
+            Created.Add((form.Name, form.Unattended));
             var created = forms.Create(form);
             _names[created] = form.Name;
             return created;
@@ -365,6 +369,50 @@ public sealed class VisualBasicFormLifecycleTests
         var printed = await RunAsync("On Error GoTo h", "FailInitialize = True", "Form2.pub = 1", "Exit Sub", "h:", "Debug.Print \"caught \" & Err.Number");
 
         CollectionAssert.AreEqual(new[] { "Initialize", "caught 11" }, printed);
+    }
+
+    // the form host is told whether the program that makes a form runs unattended: RDForms loads an unattended program's forms where no screen is needed, and
+    // the program loads and unloads them as any other.
+    [TestMethod]
+    [DataRow(false, DisplayName = "attended")]
+    [DataRow(true, DisplayName = "unattended")]
+    public async Task AFormLoadedAndUnloaded_IsMadeAsItsProgramRuns(bool unattended)
+    {
+        OwnersRecorded? recorded = null;
+        var libraries = Libraries with { Outside = RDFormsWorld(forms => recorded = new OwnersRecorded(forms)) };
+        var program = Program(["Load Form2", "Unload Form2", "Debug.Print \"after\""]);
+        string[] printed;
+        if (unattended)
+        {
+            var result = await ModuleWorkspace.RunUnattendedAsync([], program, libraries, Forms(), SupportedLanguages.VB6);
+            Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+            printed = result.Output.Select(line => line.Trim()).ToArray();
+        }
+        else
+        {
+            printed = await ModuleWorkspace.RunAsync([], program, libraries, Forms(), SupportedLanguages.VB6);
+        }
+
+        CollectionAssert.AreEqual(new[] { "Initialize", "Load", "QueryUnload 1", "Unload", "after" }, printed);
+        CollectionAssert.AreEqual(new[] { ("Form2", unattended) }, recorded!.Created);
+    }
+
+    // a form an unattended program loaded, then shows, is a dialog nobody answers: the run fails before the host is asked to show it, whatever handler the
+    // program has (VBR50001).
+    [TestMethod]
+    public async Task AFormLoaded_ThenShown_Unattended_FailsTheRun_BeforeTheHostShowsIt()
+    {
+        OwnersRecorded? recorded = null;
+        var libraries = Libraries with { Outside = RDFormsWorld(forms => recorded = new OwnersRecorded(forms)) };
+
+        var result = await ModuleWorkspace.RunUnattendedAsync([], Program(["On Error Resume Next", "Load Form2", "Form2.Show vbModeless", "Debug.Print \"after\""]),
+            libraries, Forms(), SupportedLanguages.VB6);
+
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, result.ErrorMessage);
+        Assert.AreEqual(("VBR50001", 50001), (result.ErrorCode, result.ErrorNumber), result.ErrorMessage);
+        Assert.DoesNotContain("after", result.Output.Select(line => line.Trim()));
+        CollectionAssert.AreEqual(new[] { ("Form2", true) }, recorded!.Created);
+        Assert.IsEmpty(recorded.Shown);
     }
 
     [TestMethod]
