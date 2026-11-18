@@ -706,7 +706,7 @@ internal sealed partial class ProcedureAnalysis
                 {
                     BoundCall resultCall when !IsCompiledLibrary(resultCall.Procedure) && !IsVariantLibrary(resultCall.Procedure)
                         => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
-                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember when ErrNumberOf(resultMember) is null
+                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember when ErrNumberOf(resultMember) is null && LibraryMemberCallOf(resultMember) is null
                         => MemberCallOf(resultMember, -1, offset, result)
                         ?? RefusedCall(resultMember.Access, assignment.SourceLocation),
                     _ => PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null,
@@ -716,7 +716,7 @@ internal sealed partial class ProcedureAnalysis
                 {
                     BoundCall slotCall when !IsCompiledLibrary(slotCall.Procedure) && !IsVariantLibrary(slotCall.Procedure)
                         => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
-                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember when ErrNumberOf(slotMember) is null
+                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember when ErrNumberOf(slotMember) is null && LibraryMemberCallOf(slotMember) is null
                         => MemberCallOf(slotMember, slot, offset, _slots[slot])
                         ?? RefusedCall(slotMember.Access, assignment.SourceLocation),
                     _ => PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null,
@@ -852,7 +852,8 @@ internal sealed partial class ProcedureAnalysis
         var call = assigned switch
         {
             BoundCall bound => CallOf(bound, CallStep.NoResult, offset, resultKind: null, assigns: true),
-            BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } member => MemberCallOf(member, CallStep.NoResult, offset, resultKind: null, assigns: true),
+            BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } member when LibraryMemberCallOf(member) is null
+                => MemberCallOf(member, CallStep.NoResult, offset, resultKind: null, assigns: true),
             BoundName { Symbol: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol named } when !IsOwnFunction(named)
                 => BareCallOf(named, offset, kind: null, assigned.Expression, assigns: true),
             _ => null,
@@ -1407,9 +1408,9 @@ internal sealed partial class ProcedureAnalysis
 
     // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), an element of an
     // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant, called with its arguments or named
-    // with none (Now, VBA.DateTime.Time).
+    // with none (Now, VBA.DateTime.Time), or a member of a class of the library, called on an object (Collection.Item).
     private bool IsVariant(BoundNode node)
-        => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType }
+        => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType } || IsLibraryMemberVariant(node)
             || node is BoundCall { Procedure: var called } && IsVariantLibrary(called)
             || node is BoundName { Symbol: var named } && IsVariantLibrary(named)
             || node is BoundQualifiedName { Member: var qualified } && IsVariantLibrary(qualified);
@@ -1535,6 +1536,11 @@ internal sealed partial class ProcedureAnalysis
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
 
+            // a pure member of a class of the standard library called on an object, which returns a value of a scalar type
+            // (ProcedureAnalysis.LibraryMembers.cs).
+            case BoundMember or BoundIndex when LibraryMemberCallOf(node) is { Member: var libraryMember } && ScalarKinds.Of(ReturnedType(libraryMember)) is { } returned:
+                return LibraryMemberOf(node) is { } libraryCall ? new UnvariantNode(libraryCall, returned) : null;
+
             // an element of an array field of a record of the activation.
             case BoundMember member when FieldElementOf(member) is { } fieldElement:
                 return Element(fieldElement) is { } fieldElementRead ? Read(fieldElementRead, member) : null;
@@ -1617,6 +1623,10 @@ internal sealed partial class ProcedureAnalysis
             // MS-VBAL §5.3.1: the name of a function in its own body is its function result variable, a Variant its frame holds.
             case BoundName { Symbol: var function } when ResultIsVariant && IsOwnFunction(function):
                 return new VariantResultNode();
+
+            // a pure member of a class of the standard library called on an object (ProcedureAnalysis.LibraryMembers.cs).
+            case BoundMember or BoundIndex when LibraryMemberCallOf(node) is not null:
+                return LibraryMemberOf(node);
 
             case BoundIndex or BoundMember when IsVariantElement(node):
                 return VariantElement(ElementOf(node)!);
