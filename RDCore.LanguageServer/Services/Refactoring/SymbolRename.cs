@@ -702,7 +702,8 @@ public static class SymbolRename
         return ModuleHeader.NameRangeOf(source.Source) is { } name ? (source.Module, name) : null;
     }
 
-    // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name, first of its attributes, after its header.
+    // a module's name is its VB_Name (MS-VBAL §4.2), and a module whose source writes none is named by its file. Its rename writes its VB_Name, first of
+    // its attributes, after its header.
     private static RenameEdit? VbNameInsertion(RenameContext context, Symbol module, string newName)
     {
         var at = NameOccurrences.ModuleOf(module.Uri);
