@@ -34,11 +34,12 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
     private TextWriter Output => output ?? global::System.Console.Out;
     private TextWriter Error => error ?? global::System.Console.Error;
 
-    // the dialogs of the program: a console application's are asked at the console, as the shell asks them, on every operating system; an RDForms
-    // application's, or one whose settings ask for them (AppOptions.NativeDialogs), are the machine's own where it has them.
-    private IUserInteraction? DialogsOf(ProjectBuild? build)
-        => ProgramDialogs.ShowsNative(ProgramDialogs.WantsNative(build, options?.Value.NativeDialogs ?? false)) ? null
-        : output is null ? ConsoleUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
+    // the dialogs of the program (ProgramDialogs): a console application's are asked at the console, as the shell asks them, on every operating system, unless
+    // its settings ask for the machine's own (AppOptions.NativeDialogs); an RDForms application's are RDForms', over its forms.
+    private IUserInteraction? DialogsOf(ProjectBuild? build) => ProgramDialogs.DialogsOf(build, options?.Value.NativeDialogs ?? false, ConsoleDialogs);
+
+    private ConsoleUserInteraction ConsoleDialogs() => output is null
+        ? ConsoleUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
         : new ConsoleUserInteraction(keys ?? new SystemConsoleKeys(), output);
 
     public string Name => CommandNames.RunCommand.Name;

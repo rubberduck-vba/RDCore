@@ -227,6 +227,55 @@ public sealed class StdInteractionTests
         Assert.AreEqual((int)VBMsgBoxResult.VBCancel, result.Result!.Value);
     }
 
+    // the help topic the program names goes with the dialog: its help file and the topic's context number (MS-VBAL 6.1.2.8.1.13, 6.1.2.8.1.12).
+    [TestMethod]
+    public void ADialog_NamesTheHelpTopicTheProgramGivesIt()
+    {
+        var interaction = Substitute.For<IUserInteraction>();
+        var file = Path.Combine(Path.GetTempPath(), "app.chm");
+
+        Run(With(interaction),
+            $"MsgBox \"x\", vbOKOnly + vbMsgBoxHelpButton, \"T\", \"{file}\", 42",
+            $"Debug.Print InputBox(\"Name?\", \"Who\", \"you\", , , \"{file}\", \"7\")");
+
+        interaction.Received().ShowMessage(
+            new MessageBoxRequest("x", "T", VBMsgBoxStyle.VBOKOnly | VBMsgBoxStyle.VBMsgBoxHelpButton, file, 42), Arg.Any<CancellationToken>());
+        interaction.Received().Prompt(Arg.Is<InputBoxRequest>(request => request.HelpFile == file && request.Context == 7 && request.HasHelp),
+            Arg.Any<CancellationToken>());
+    }
+
+    // whatever opens the help file can run in another directory: one the program names relative to its current directory is named in full.
+    [TestMethod]
+    public void ARelativeHelpFile_IsTakenFromTheCurrentDirectory()
+    {
+        var interaction = Substitute.For<IUserInteraction>();
+        var session = Substitute.For<IRuntimeSession>();
+        var current = Path.GetTempPath();
+        session.Files.TryGetCurrentDirectory(Arg.Any<string?>(), out Arg.Any<string>()).Returns(call =>
+        {
+            call[1] = current;
+            return null;
+        });
+        var module = new StdInteraction(session, With(interaction));
+
+        _ = module.MsgBox(new VBVariantValue(new VBStringValue("x")), VBMsgBoxStyle.VBOKOnly, helpFile: new VBVariantValue(new VBStringValue("app.chm")),
+            helpContext: new VBVariantValue(new VBLongValue(42)));
+
+        interaction.Received().ShowMessage(Arg.Is<MessageBoxRequest>(request => request.HelpFile == Path.Combine(current, "app.chm") && request.Context == 42),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public void ADialogWithNoHelpTopic_NamesNone()
+    {
+        var interaction = Substitute.For<IUserInteraction>();
+
+        Run(With(interaction), "MsgBox \"x\"", "Debug.Print InputBox(\"Name?\")");
+
+        interaction.Received().ShowMessage(Arg.Is<MessageBoxRequest>(request => request.HelpFile == null && request.Context == null), Arg.Any<CancellationToken>());
+        interaction.Received().Prompt(Arg.Is<InputBoxRequest>(request => !request.HasHelp), Arg.Any<CancellationToken>());
+    }
+
     // ---- InputBox ----
 
     [TestMethod]

@@ -49,7 +49,7 @@ internal sealed record class BuiltModule(string RelativeUri, string Name, Module
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
 // runs, so that it runs with no parser and no resolver, and with no source: Modules are what the build read of each. Root is what the identities of its
 // symbols are relative to. NativeDialogs: whether the program shows the machine's own dialogs where it has them, as its project and the settings said when
-// it was built (ProgramDialogs); an image that does not say asks at the console.
+// it was built (ProgramDialogs): a console application that does not say asks at the console.
 internal sealed record class BuiltProgramImage(
     RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions,
     IReadOnlyList<BuiltModule> Modules, bool NativeDialogs = false)
@@ -141,7 +141,9 @@ public static class BuiltProgram
         var fileSystem = new FileSystem();
         using var provider = new EnvironmentSessionProvider(image.Environment.Profile, fileSystem, NullLogger<EnvironmentSessionProvider>.Instance,
             libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
-            DialogsOf(image.NativeDialogs, keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
+            ProgramDialogs.DialogsOf(image.Project.Build, image.NativeDialogs, () => ConsoleDialogsOf(keys, output)) is { } dialogs
+                ? MachineExternal.World with { Interaction = dialogs }
+                : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
         // App is the program's executable, or its assembly when it runs with dotnet; it is another instance when one of the same executable holds its name.
         var executable = ExecutableOf(program) ?? Path.Combine(AppContext.BaseDirectory, program.GetName().Name!);
@@ -170,12 +172,10 @@ public static class BuiltProgram
         return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended, token);
     }
 
-    // the dialogs of the program: asked at the console, as rdc run and the shell ask them, on every operating system; the machine's own where it has them,
-    // when the program was built to show them (native). A terminal that is not redirected, and whose TERM names a terminal other than "dumb", understands
-    // ANSI escape sequences.
-    private static ConsoleUserInteraction? DialogsOf(bool native, IConsoleKeys? keys, TextWriter output)
-        => ProgramDialogs.ShowsNative(native) ? null
-            : keys is not null ? new ConsoleUserInteraction(keys, output)
+    // the dialogs of the program asked at the console, as rdc run and the shell ask them. A terminal that is not redirected, and whose TERM names a terminal
+    // other than "dumb", understands ANSI escape sequences.
+    private static ConsoleUserInteraction ConsoleDialogsOf(IConsoleKeys? keys, TextWriter output)
+        => keys is not null ? new ConsoleUserInteraction(keys, output)
             : ConsoleUserInteraction.OfTheConsole(new SystemConsoleKeys(),
                 ansi: !global::System.Console.IsOutputRedirected && Environment.GetEnvironmentVariable("TERM") is { Length: > 0 } and not "dumb");
 

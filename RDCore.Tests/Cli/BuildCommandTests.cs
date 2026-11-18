@@ -1048,14 +1048,14 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // a machine with no dialogs of its own asks at the console, whatever the settings ask for, for an RDForms application too: RDForms has no dialogs.
+    // a machine with no dialogs of its own asks a console application's at the console, whatever the settings ask for.
     [TestMethod]
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    public async Task Run_OfAnRDFormsApplication_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
+    public async Task Run_OfAConsoleApplication_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
-        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, new AppOptions { NativeDialogs = true }, Root);
+        var run = await RunAsync(ConsoleApplication(Files(("Program.bas", AsksAndAsksAgain))), keys, new AppOptions { NativeDialogs = true }, Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         Assert.IsTrue(run.Output.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
@@ -1064,8 +1064,8 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // the program keeps what its project and the settings said of the machine's own dialogs when it was built: an RDForms application's are the machine's,
-    // and a console application's only when the settings asked for them.
+    // the program keeps what its project and the settings said of the machine's own dialogs when it was built: an RDForms application wants them where its
+    // forms show none, and a console application only when the settings asked for them.
     [TestMethod]
     [DataRow(true, false, false, DisplayName = "a console application")]
     [DataRow(true, true, true, DisplayName = "a console application whose settings ask for them")]
@@ -1088,7 +1088,10 @@ public sealed class BuildCommandTests
         {
             var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
 
-            Assert.AreEqual(expected, BuiltProgram.ImageOf(assembly).NativeDialogs);
+            var image = BuiltProgram.ImageOf(assembly);
+            Assert.AreEqual(expected, image.NativeDialogs);
+            // what the program's dialogs are chosen by when it runs, as rdc run chooses them (ProgramDialogs).
+            Assert.AreEqual(console, ProgramDialogs.IsConsole(image.Project.Build), "the project's build section is kept");
         }
         finally
         {
@@ -1132,6 +1135,23 @@ public sealed class BuildCommandTests
     {
         Assert.IsFalse(ProgramDialogs.IsConsole(null));
         Assert.IsTrue(ProgramDialogs.WantsNative(null, native: false));
+        Assert.AreEqual(DialogSource.Forms, ProgramDialogs.SourceOf(null, native: false));
+    }
+
+    // the dialogs of a program rdc runs or builds: an RDForms application's are RDForms', whatever the settings ask for; a console application's are its
+    // console's, unless the settings ask for the machine's own and the machine has them.
+    [TestMethod]
+    [DataRow(ProjectOutputType.Application, false, DisplayName = "an RDForms application")]
+    [DataRow(ProjectOutputType.Application, true, DisplayName = "an RDForms application whose settings ask for the machine's own")]
+    [DataRow(ProjectOutputType.ConsoleApplication, false, DisplayName = "a console application")]
+    [DataRow(ProjectOutputType.ConsoleApplication, true, DisplayName = "a console application whose settings ask for the machine's own")]
+    public void TheDialogsOfAProgram_AreItsFormsOwn_OrItsConsoles(ProjectOutputType output, bool native)
+    {
+        var expected = output == ProjectOutputType.Application ? DialogSource.Forms
+            : native && OperatingSystem.IsWindows() ? DialogSource.Machine
+            : DialogSource.Console;
+
+        Assert.AreEqual(expected, ProgramDialogs.SourceOf(new ProjectBuild { OutputType = output }, native));
     }
 
     // a program rdc builds of a console application asks its dialogs as rdc run does: at the console, on every operating system.

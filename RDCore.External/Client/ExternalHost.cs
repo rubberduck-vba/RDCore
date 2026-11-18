@@ -146,6 +146,7 @@ public sealed class ExternalHost : IDisposable
                 incarnation.IsAutomationAvailable = status.IsAvailable;
                 incarnation.IsFormHostAvailable = status.IsFormHostAvailable;
                 incarnation.HostsVisualBasic6Forms = status.HostsVisualBasic6Forms;
+                incarnation.HasDialogs = status.HasDialogs;
             }
             catch (Exception exception) when (exception is not ExternalHostUnavailableException)
             {
@@ -304,6 +305,11 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     /// Whether the process creates the forms a Visual Basic 6.0 designer wrote.
     /// </summary>
     public bool HostsVisualBasic6Forms { get; set; }
+
+    /// <summary>
+    /// Whether the process shows the program's dialogs beside its forms.
+    /// </summary>
+    public bool HasDialogs { get; set; }
 
     /// <summary>
     /// Says the process has stopped.
