@@ -6,6 +6,7 @@ namespace RDCore.Tests.Platform;
 /// <summary>
 /// What a round trip of the symbols of a module that is not read back says of itself: which end's buffer was overwritten.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WireTests
 {

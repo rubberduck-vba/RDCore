@@ -85,6 +85,8 @@ jobs:
  # the same two runs on Windows and macOS, without coverage: what differs from Linux there is the file system, the processes and
  # the pipes the platform starts and talks through; the language is the same. win-x64 and osx-x64 (macos-15-intel, GitHub's Intel
  # image) run for every pull request; osx-arm64 (macos-latest) runs on main only, where it is too slow to hold a pull request up.
+ # Windows runs the whole suite. macOS runs the tests of the Wide category, at most 1000 (tools/ci/Invoke-WideTests.ps1): a few of
+ # each part of the platform, which the whole suite on Windows and Linux runs in depth.
  build-and-test-os:
   strategy:
    fail-fast: false
@@ -119,15 +121,29 @@ jobs:
      run: dotnet build RDCore.slnx --configuration Debug
 
    - name: Test (Debug)
+     if: runner.os != 'macOS'
      run: dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 10m
+
+   - name: Test (Debug, Wide)
+     if: runner.os == 'macOS'
+     shell: pwsh
+     run: ./tools/ci/Invoke-WideTests.ps1 -Configuration Debug
 
    - name: Build (Release)
      run: dotnet build RDCore.slnx --configuration Release
 
    - name: Test (Release, interpreted)
+     if: runner.os != 'macOS'
      env:
       RDCORE_ENGINE: Interpreter
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
+
+   - name: Test (Release, interpreted, Wide)
+     if: runner.os == 'macOS'
+     env:
+      RDCORE_ENGINE: Interpreter
+     shell: pwsh
+     run: ./tools/ci/Invoke-WideTests.ps1 -Configuration Release
 
  # the performance table of the README: the built-in corpus of rdc bench (no Excel), timed with the merged commit's rdc and the reference commit's
  # (the commit of the MS-VBA reference run, RDCore.CLI/Bench/Reference/msvba.json) in alternated rounds on this one runner, so that its speed

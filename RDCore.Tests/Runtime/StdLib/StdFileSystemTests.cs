@@ -14,6 +14,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 /// open, and nothing about the language stops two parts of one program each opening files. It reads the same
 /// channel table the <c>Open</c> statement writes to, which is why both live on the session.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class StdFileSystemTests
 {

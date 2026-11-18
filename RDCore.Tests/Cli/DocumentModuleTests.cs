@@ -10,6 +10,7 @@ namespace RDCore.Tests.Cli;
 /// class module whose code names the members of its host's class, analyzed and never run. RD-VBA hosts no document: nothing makes one of its objects, and no
 /// name stands for the document in another module.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("RD-VBAL §2.2.3.3 RDCoreModule")]
 public sealed class DocumentModuleTests

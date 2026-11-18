@@ -4,6 +4,7 @@ namespace RDCore.Tests.Client;
 /// The platform root the tests that start the language server share (<see cref="TestPlatformRoot"/>): a copy that fails leaves nothing behind, and a root a
 /// stopped run left is taken away by a later one.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class TestPlatformRootTests
 {

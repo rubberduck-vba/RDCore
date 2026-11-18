@@ -17,6 +17,7 @@ using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.LanguageServer;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceLoaderTests
 {

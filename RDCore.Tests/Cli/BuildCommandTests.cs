@@ -27,6 +27,7 @@ namespace RDCore.Tests.Cli;
 /// <c>rdc build</c>: a workspace built into a program (its assembly, its debugging information, its runtime configuration, its executable and the runtime it
 /// runs on), and the program run from its assembly as the interpreter runs the workspace.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class BuildCommandTests
 {

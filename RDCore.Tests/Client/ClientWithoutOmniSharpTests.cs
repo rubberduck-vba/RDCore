@@ -14,6 +14,7 @@ namespace RDCore.Tests.Client;
 /// The language server, started as an IDE starts it, with a client that is not OmniSharp's: one that writes and reads JSON-RPC itself, as HexIDE's does. The requests the
 /// language server sends it are answered, and the answers reach what is waiting for them.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("Platform")]
 public sealed class ClientWithoutOmniSharpTests
