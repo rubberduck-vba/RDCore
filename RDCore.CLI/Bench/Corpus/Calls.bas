@@ -2,10 +2,13 @@ Attribute VB_Name = "Calls"
 Option Explicit
 ' Calls: to a procedure of the workspace, to the members of an object, and to the standard library.
 
+' <Add>
 Private Function Add(ByVal A As Long, ByVal B As Long) As Long
     Add = A + B
 End Function
+' </Add>
 
+' <BenchRecursion>
 Private Function Fib(ByVal N As Long) As Long
     If N < 2 Then
         Fib = N
@@ -19,7 +22,9 @@ Public Sub BenchRecursion()
     Dim S As Long
     S = Fib(25)
 End Sub
+' </BenchRecursion>
 
+' <BenchProcedureCalls>
 Public Sub BenchProcedureCalls()
     Dim I As Long
     Dim S As Long
@@ -27,7 +32,9 @@ Public Sub BenchProcedureCalls()
         S = Add(I, 1)
     Next
 End Sub
+' </BenchProcedureCalls>
 
+' <BenchByRefCalls>
 Private Sub Increment(ByRef N As Long)
     N = N + 1
 End Sub
@@ -40,7 +47,9 @@ Public Sub BenchByRefCalls()
         Increment S
     Next
 End Sub
+' </BenchByRefCalls>
 
+' <BenchClassMemberCalls>
 Public Sub BenchClassMemberCalls()
     Dim C As Counter
     Set C = New Counter
@@ -51,7 +60,9 @@ Public Sub BenchClassMemberCalls()
     Dim Total As Long
     Total = C.Value
 End Sub
+' </BenchClassMemberCalls>
 
+' <BenchInterfaceMemberCalls>
 Public Sub BenchInterfaceMemberCalls()
     Dim C As ICounter
     Set C = New InterfaceCounter
@@ -62,7 +73,9 @@ Public Sub BenchInterfaceMemberCalls()
     Dim Total As Long
     Total = C.Value
 End Sub
+' </BenchInterfaceMemberCalls>
 
+' <BenchStandardLibraryCalls>
 Public Sub BenchStandardLibraryCalls()
     Dim I As Long
     Dim N As Long
@@ -70,7 +83,9 @@ Public Sub BenchStandardLibraryCalls()
         N = Len(CStr(I)) + CLng(I)
     Next
 End Sub
+' </BenchStandardLibraryCalls>
 
+' <BenchFactoryCalls>
 ' a factory method off a class's default instance: a new object on every call, given its state by the factory.
 Public Sub BenchFactoryCalls()
     Dim G As Gadget
@@ -79,7 +94,9 @@ Public Sub BenchFactoryCalls()
         Set G = Gadget.Create(I)
     Next
 End Sub
+' </BenchFactoryCalls>
 
+' <BenchDefaultInstanceCalls>
 ' a member called on the default instance itself.
 Public Sub BenchDefaultInstanceCalls()
     Dim I As Long
@@ -88,7 +105,9 @@ Public Sub BenchDefaultInstanceCalls()
         S = Gadget.Twice(I)
     Next
 End Sub
+' </BenchDefaultInstanceCalls>
 
+' <BenchSiblingCalls>
 ' a member that calls a private member of its own class by its bare name, which is a call on the current instance.
 Public Sub BenchSiblingCalls()
     Dim G As Gadget
@@ -98,4 +117,5 @@ Public Sub BenchSiblingCalls()
     For I = 1 To 100000
         S = G.Scaled(2)
     Next
-End Sub
+End Sub
+' </BenchSiblingCalls>

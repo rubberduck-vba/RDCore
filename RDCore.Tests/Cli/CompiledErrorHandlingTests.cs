@@ -124,9 +124,9 @@ public sealed class CompiledErrorHandlingTests
     }
 
     // MS-VBAL §5.6.9.3.5: a / by 0 raises error 11; a Single product past the range of a Single, error 6. A Single or Double variable is assigned what
-    // IEEE 754 arithmetic made of it first, an infinity, and a Long is left as it was (StatementRuntimeSemanticsProvider.AssignFloatingPointValue). Of the
-    // 7 instructions the interpreter runs alone, 5 are the errors; the Let of 3E+38 to the Single and a comparison of an infinity are the other 2, which
-    // compiled code declines to evaluate.
+    // IEEE 754 arithmetic made of it first, an infinity, and a Long is left as it was (StatementRuntimeSemanticsProvider.AssignFloatingPointValue). The 5
+    // instructions the interpreter runs alone are the errors. Compiled code lets 3E+38 to the Single, and compares the infinity with 3E+38 as Singles, the
+    // type a Single and a Double are compared in (MS-VBAL §5.6.9.5).
     [TestMethod]
     public async Task AFloatingPointOperationThatFails_AssignsWhatIeeeMadeOfIt_AndRaisesItsErrorFromCompiledCode()
     {
@@ -162,7 +162,7 @@ public sealed class CompiledErrorHandlingTests
             "    L = L / (I - I)",
             "    If Err.Number = 11 Then Raised = Raised + 1",
             "    Floating = Errors & \" \" & Raised & \" \" & Infinite & \" \" & L",
-            "End Function"), "Floating", recoveries: 7, expected: "2 3 2 5");
+            "End Function"), "Floating", recoveries: 5, expected: "2 3 2 5");
         if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(5, result.Body!.RaisedErrors, "Floating's errors raised from compiled code");

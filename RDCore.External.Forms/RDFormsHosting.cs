@@ -32,7 +32,9 @@ public sealed class FormsOptions
     public VisualBasicFormsHost VB { get; set; } = VisualBasicFormsHost.RDForms;
 
     /// <summary>
-    /// Whether the RDForms windows are headless, shown on no screen (<c>Forms:Headless</c>). <see langword="false"/> unless said otherwise.
+    /// Whether the RDForms windows are headless, shown on no screen (<c>Forms:Headless</c>). <see langword="false"/> unless said otherwise. A program run
+    /// unattended (<c>--unattended</c>) shows no form, and the windows its forms are loaded in are headless whatever this says, unless the process has
+    /// windows already.
     /// </summary>
     public bool Headless { get; set; }
 }

@@ -355,6 +355,8 @@ public sealed class EnvironmentSessionProvider(
 
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
         var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], output, libraries: source);
+        // a predefined constant the project defines has the project's value on every platform a #If is evaluated for, and not that platform's.
+        RDCore.Runtime.Semantics.Precompiler.ProjectConditionalConstants.Set(session, project.PrecompilerConstants.Select(constant => constant.Key));
         // an error raised with no source is the project's (Err.Source).
         if (project.Name is { Length: > 0 } name)
         {

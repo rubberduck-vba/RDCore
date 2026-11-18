@@ -79,7 +79,15 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         }
 
         var root = RootOf(form);
-        RDFormsUI.Start(Server.Platform);
+        if (form.Unattended)
+        {
+            RDFormsUI.StartUnattended();
+        }
+        else
+        {
+            RDFormsUI.Start(Server.Platform);
+        }
+
         return RDFormsUI.Run(() =>
         {
             // a VB6 form's code reads a control's position and size in its container's scale (twips in a Frame), and the form's own in twips.

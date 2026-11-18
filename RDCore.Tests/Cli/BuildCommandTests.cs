@@ -27,6 +27,7 @@ namespace RDCore.Tests.Cli;
 /// <c>rdc build</c>: a workspace built into a program (its assembly, its debugging information, its runtime configuration, its executable and the runtime it
 /// runs on), and the program run from its assembly as the interpreter runs the workspace.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class BuildCommandTests
 {
@@ -1458,6 +1459,7 @@ public sealed class BuildCommandTests
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
+                // the test's assertions are made before it cleans up, and a folder that stays fails nothing: the wait changes only whether one is left behind.
                 await Task.Delay(250);
             }
         }

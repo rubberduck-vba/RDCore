@@ -11,6 +11,7 @@ namespace RDCore.Tests.Workspace;
 /// A VB6 project file (<c>.vbp</c>) makes a <c>.rdproj</c> project: its name, its modules, classes and forms, the libraries it references by their
 /// type library's identifier, and its conditional compilation arguments; what a <c>.rdproj</c> cannot say is noted.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class VbpProjectImporterTests
 {

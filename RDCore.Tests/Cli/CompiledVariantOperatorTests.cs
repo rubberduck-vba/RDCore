@@ -54,8 +54,8 @@ public sealed class CompiledVariantOperatorTests
             "End Function"]),
             [("Arithmetic", 138)]);
 
-    // = <> < <= > >= of each pair, each a Boolean: compared in the type of their subtypes. The 36 recoveries are the comparisons compiled code leaves to
-    // the interpreter.
+    // = <> < <= > >= of each pair, each a Boolean: compared in the type of their subtypes. The 24 recoveries are the comparisons compiled code leaves to
+    // the interpreter. A Single and a Double are compared as Singles (MS-VBAL §5.6.9.5), the Double made the nearest Single, which compiled code does.
     [TestMethod]
     public async Task AComparisonOfTwoVariants_IsDoneInTheTypeOfTheirSubtypes()
         => await AssertAlikeAsync(Program([.. Values,
@@ -76,7 +76,7 @@ public sealed class CompiledVariantOperatorTests
             "End Function",
             "Private Function Bits(V() As Variant) As Long",
             "End Function"]),
-            [("Compared", 36)]);
+            [("Compared", 24)]);
 
     // And Or Xor Eqv Imp of each pair: the bits of each, a Single, a Double, a Currency and a Date rounded to a Long first. The 160 recoveries are the
     // logical operations compiled code leaves to the interpreter.
