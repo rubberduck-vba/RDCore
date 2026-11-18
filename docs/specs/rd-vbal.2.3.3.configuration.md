@@ -85,8 +85,9 @@ It sets the language only. How a number or a date is written and read stays with
 ([**RD-VBAL §5.5.1.2** Regional settings](rd-vbal.5.5.1.2.runtime-semantics.md#regional-settings)), and `Environment.Lcid` still decides how text compares and
 what `Format` writes. Under `fr`, `CStr(2.5)` is `2.5`.
 
-> [!NOTE]
-> **Not implemented.** The description of a run-time error (`Err.Description`) is in English under every language: error 11 is `Division by zero` under `fr`.
+The description of a run-time error is in that language too: `Err.Description`, the `Error` function's text, and the stack trace the shell and the debug
+console show. Under `fr`, error 11 is `Division par zéro`. A program that compares `Err.Description` with a text reads it in the user's language, as it does
+in MS-VBA; `Err.Number` is the same under every language.
 
 ## User Settings
 

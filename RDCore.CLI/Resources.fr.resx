@@ -356,10 +356,10 @@
     <value>{0} DANS {1} À LA LIGNE {2}</value>
   </data>
   <data name="Repl_RuntimeError_Source" xml:space="preserve">
-    <value>SOURCE: {0}</value>
+    <value>SOURCE : {0}</value>
   </data>
   <data name="Repl_RuntimeError_StackTrace" xml:space="preserve">
-    <value>PILE D'APPELS:</value>
+    <value>PILE D'APPELS :</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
     <value>ERREUR: NON IMPLÉMENTÉ</value>
@@ -462,6 +462,12 @@
   </data>
   <data name="Repl_Frame_InModuleLine" xml:space="preserve">
     <value>({0} à la ligne {1})</value>
+  </data>
+  <data name="Repl_Frame_FromGoSub" xml:space="preserve">
+    <value>depuis {0}</value>
+  </data>
+  <data name="Repl_Frame_InHandler" xml:space="preserve">
+    <value>dans {0}</value>
   </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>il n'y a pas de session d'exécution</value>

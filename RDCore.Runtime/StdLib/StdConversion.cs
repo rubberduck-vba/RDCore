@@ -42,10 +42,6 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     // MS-VBAL 6.1.2.3.1.14: "If the resulting data value is not in the inclusive range 0 to 65535, Error 5 is raised."
     private const int LargestErrorCode = 65535;
 
-    // MS-VBAL 6.1.2.3.1.15: "Otherwise, the data value is "Application-defined or object-defined error."" - the period ends the specification's
-    // sentence: MS-VBA's text is error 1004's, which has none (recorded in Excel: Error(42)).
-    private static string UnknownErrorText => VBRuntimeErrorInfo.VBRuntimeErrors[VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError];
-
     private static RuntimeSemanticsEvaluationResult<TValue> Fail<TValue>(VBRuntimeErrorId id, string verbose)
         where TValue : VBTypedValue
         => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(id, default, verbose));
@@ -210,9 +206,9 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             return Fail<VBStringValue>(VBRuntimeErrorId.Overflow, $"{code} is not an error number.");
         }
 
-        var text = code == 0
-            ? string.Empty
-            : VBRuntimeErrorInfo.VBRuntimeErrors.TryGetValue((VBRuntimeErrorId)code, out var known) ? known : UnknownErrorText;
+        // MS-VBAL §6.1.2.3.1.15: "Otherwise, the data value is "Application-defined or object-defined error."" The period ends the specification's
+        // sentence. MS-VBA's text is error 1004's, which has none (observed in Excel: Error(42)). GetErrorString falls back to that text.
+        var text = code == 0 ? string.Empty : VBRuntimeErrorInfo.GetErrorString((VBRuntimeErrorId)code);
         return Succeed(new VBStringValue(text));
     }
 
