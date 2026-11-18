@@ -71,8 +71,8 @@ internal sealed class SessionLibraryObjects
     public StdCollection Collections { get; }
 
     /// <summary>
-    /// The identity of the error object (<strong>MS-VBAL 6.1.3.2</strong>), once <c>Err</c> was evaluated: one object for the life of the session, whichever
-    /// dispatcher evaluates it, which a cell of the library's own holds. <see langword="default"/> until then.
+    /// The identity of the error object (<strong>MS-VBAL §6.1.3.2</strong>): one object for the life of the session, whichever dispatcher evaluates
+    /// <c>Err</c>, held by a cell of the library's own. <see langword="default"/> until <c>Err</c> is first evaluated.
     /// </summary>
     public VBRuntimeObjectId ErrorObject { get; set; }
 }
