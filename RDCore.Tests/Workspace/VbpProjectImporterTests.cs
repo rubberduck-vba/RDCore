@@ -28,6 +28,7 @@ public sealed class VbpProjectImporterTests
         Module=modShared; ..\Shared\modShared.bas
         Module=modAbsolute; C:\Elsewhere\modAbsolute.bas
         UserControl=ctlGauge.ctl
+        Designer=deScores.dsr
         RelatedDoc=README.txt
         ResFile32="NavalBattle.RES"
         Startup="Sub Main"
@@ -95,17 +96,19 @@ public sealed class VbpProjectImporterTests
     }
 
     [TestMethod]
-    public void TheModules_ClassesAndForms_AreTheProjectsModules_InTheFoldersTheyAreIn()
+    public void TheModules_ClassesAndDesignedModules_AreTheProjectsModules_InTheFoldersTheyAreIn()
     {
         var project = Import().Project;
 
-        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls" }, project.Modules.Select(module => module.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls", "ctlGauge.ctl" },
+            project.Modules.Select(module => module.RelativeUri).ToArray(), "a form and a UserControl are designed modules");
         CollectionAssert.Contains(project.Folders, "Classes");
     }
 
+    // a Designer is a file of the project, not a module: its designer's objects are in its binary .dsx.
     [TestMethod]
     public void WhatIsNotAModule_IsAFileOfTheProject()
-        => CollectionAssert.AreEqual(new[] { "ctlGauge.ctl", "README.txt", "NavalBattle.RES" }, Import().Project.OtherFiles.Select(file => file.RelativeUri).ToArray());
+        => CollectionAssert.AreEqual(new[] { "deScores.dsr", "README.txt", "NavalBattle.RES" }, Import().Project.OtherFiles.Select(file => file.RelativeUri).ToArray());
 
     [TestMethod]
     public void ALibrary_IsReferencedByTheNameThePlatformShipsItUnder_ForItsIdentifier()
@@ -255,13 +258,13 @@ public sealed class VbpProjectImporterTests
 
         var info = project.ProjectInfo;
         Assert.AreEqual("NavalBattle", info.Name);
-        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls" }, info.Modules.Select(module => module.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls", "ctlGauge.ctl" }, info.Modules.Select(module => module.RelativeUri).ToArray());
         Assert.AreEqual(DocClassType.ExcelWorkbook, info.Modules.Single(module => module.RelativeUri == "modMain.bas").Super, "kept by its path, in any case");
         CollectionAssert.AreEqual(new[] { "stdole", "Scripting" }, info.References.Select(reference => reference.Name).ToArray(),
             "ADODB is no longer referenced, and VBA is no reference: every project has it");
         Assert.AreEqual("scrrun.json", info.References.Single(reference => reference.Name == "Scripting").TypeLibInfoPath);
         Assert.AreEqual(new Guid("420B2830-E718-11CF-893D-00A0C9054228"), info.References.Single(reference => reference.Name == "Scripting").Guid, "the .vbp's");
-        CollectionAssert.AreEqual(new[] { "ctlGauge.ctl", "README.txt", "NavalBattle.RES" }, info.OtherFiles.Select(file => file.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(new[] { "deScores.dsr", "README.txt", "NavalBattle.RES" }, info.OtherFiles.Select(file => file.RelativeUri).ToArray());
         CollectionAssert.AreEquivalent(new[] { "DEBUG", "TRACE" }, info.PrecompilerConstants.Keys.ToArray());
     }
 
@@ -278,7 +281,7 @@ public sealed class VbpProjectImporterTests
             OtherFiles = [new RDCoreFile { RelativeUri = "readme.txt", ExtensionData = Said("""{ "Preview": true }""") }],
         }) with
         {
-            Version = "1.1",
+            Version = "1.3",
         };
 
         var info = Import().Into(existing, @"C:\ws").ProjectInfo;
@@ -347,7 +350,7 @@ public sealed class VbpProjectImporterTests
             (VbpImportNoteKind.Control, "MSCOMCTL.OCX"),
             (VbpImportNoteKind.OutsideProjectFolder, @"..\Shared\modShared.bas"),
             (VbpImportNoteKind.AbsolutePath, @"C:\Elsewhere\modAbsolute.bas"),
-            (VbpImportNoteKind.NotAModule, "ctlGauge.ctl"),
+            (VbpImportNoteKind.NotAModule, "deScores.dsr"),
             (VbpImportNoteKind.Startup, "Sub Main"),
         }, import.Notes.Select(note => (note.Kind, note.Subject)).ToArray());
         Assert.IsFalse(import.Project.Modules.Any(module => module.RelativeUri.Contains("modShared") || module.RelativeUri.Contains("modAbsolute")));
