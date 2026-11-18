@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Platform.Protocol;
+﻿using RDCore.Runtime.Support.Host;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
@@ -282,6 +283,90 @@ public sealed class VisualBasicFormLifecycleTests
         await ModuleWorkspace.RunAsync([], Program(["Form3.Show", show, "Unload Form2", "Unload Form3"]), libraries, Forms(), SupportedLanguages.VB6);
 
         CollectionAssert.AreEqual(new (string, string?)[] { ("Form3", null), ("Form2", owner) }, recorded!.Shown);
+    }
+
+    // the form host is a server, called with the program's turn given up as any server is: the thread it makes its calls on can be handling an event of the
+    // session, which takes the turn, and a program that kept it would wait for that thread while the thread waits for it. The second run is the one recorded,
+    // in the session the first ran in.
+    [TestMethod]
+    public async Task TheFormHost_IsCalledWithTheProgramsTurnGivenUp()
+    {
+        EnvironmentSessionProvider? recording = null;
+        TurnRecorded? recorded = null;
+        var libraries = new ModuleWorkspace.WorkspaceLibraries([], Shipped) with
+        {
+            Outside = RDFormsWorld(forms => recorded = new TurnRecorded(forms, () => recording?.Session.Turn)),
+        };
+
+        await ModuleWorkspace.InspectAsync([], Program([
+            "Form2.Show", "Form2.Caption = \"Shown\"", "Debug.Print Form2.Caption", "Debug.Print Form2.Visible", "Form2.Hide", "Debug.Print Form2.Visible",
+            "Unload Form2"]), async (provider, first, again) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+            recording = provider;
+            var second = await again();
+            Assert.AreEqual(ExecutionOutcome.Completed, second.Outcome, second.ErrorMessage);
+        }, libraries: libraries, language: SupportedLanguages.VB6, forms: Forms());
+
+        var calls = recorded!.Calls.Select(call => call.Call).Distinct().ToArray();
+        CollectionAssert.IsSubsetOf(new[] { "Show", "SetCaption", "GetCaption", "IsShown", "Hide" }, calls, string.Join(", ", calls));
+        var kept = recorded.Calls.Where(call => !call.TurnGivenUp).Select(call => call.Call).ToArray();
+        Assert.IsEmpty(kept, string.Join(", ", kept));
+    }
+
+    // the forms of a world, which record each call the program makes of them, and whether the program's turn was given up for it then.
+    private sealed class TurnRecorded(RDCore.External.Forms.IFormHost forms, Func<ISessionTurn?> turn) : RDCore.External.Forms.IFormHost
+    {
+        public List<(string Call, bool TurnGivenUp)> Calls { get; } = [];
+
+        public bool IsAvailable => forms.IsAvailable;
+
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
+        public object Create(RDCore.External.Forms.FormDefinition form) => Record(nameof(Create), () => forms.Create(form));
+
+        public void Show(object form, bool modal, object? owner = null) => Record(nameof(Show), () => forms.Show(form, modal, owner));
+
+        public void Hide(object form) => Record(nameof(Hide), () => forms.Hide(form));
+
+        public bool IsShown(object form) => Record(nameof(IsShown), () => forms.IsShown(form));
+
+        public string GetCaption(object form) => Record(nameof(GetCaption), () => forms.GetCaption(form));
+
+        public void SetCaption(object form, string caption) => Record(nameof(SetCaption), () => forms.SetCaption(form, caption));
+
+        public RDCore.External.Forms.FormBounds GetBounds(object form) => Record(nameof(GetBounds), () => forms.GetBounds(form));
+
+        public void SetBounds(object form, RDCore.External.Forms.FormBounds bounds) => Record(nameof(SetBounds), () => forms.SetBounds(form, bounds));
+
+        public void Leave(object form) => Record(nameof(Leave), () => forms.Leave(form));
+
+        public void Destroy(object form) => Record(nameof(Destroy), () => forms.Destroy(form));
+
+        // told as the program takes the turn or gives it back, which waits for no window's thread.
+        public void Hold(bool running) => forms.Hold(running);
+
+        public void DoEvents() => Record(nameof(DoEvents), forms.DoEvents);
+
+        // a call the program makes: the turn is open to events then only when the program gave it up.
+        private T Record<T>(string call, Func<T> made)
+        {
+            if (turn() is { IsRunning: true } running)
+            {
+                lock (Calls)
+                {
+                    Calls.Add((call, running.IsOpenForEvents));
+                }
+            }
+
+            return made();
+        }
+
+        private void Record(string call, Action made) => Record(call, () =>
+        {
+            made();
+            return true;
+        });
     }
 
     [TestMethod]
