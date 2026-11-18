@@ -279,6 +279,11 @@ internal sealed record class TextConstantNode(string? Text) : TextNode;
 // a String variable of the activation, by its slot: the text its cell holds (StringOperations.TryRead).
 internal sealed record class TextSlotNode(int Slot) : TextNode;
 
+// a Variant parameter or variable of the activation, by its slot, read in a text: the String it holds, whose let-coercion to String is a copy of it
+// (MS-VBAL §5.5.1.2.4), as the interpreter reads it (CompiledActivation.TryReadVariantText). One that holds anything else is the interpreter's, which
+// let-coerces a number or a date in the regional settings of the session.
+internal sealed record class VariantSlotTextNode(int Slot) : TextNode;
+
 // two Strings joined, by & or by + of two Strings (MS-VBAL §5.6.9.4, §5.6.5).
 internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNode;
 

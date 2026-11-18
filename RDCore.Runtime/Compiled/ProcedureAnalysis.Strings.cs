@@ -89,6 +89,9 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when TextSlotOf(variable) is { } slot:
                 return new TextSlotNode(slot);
 
+            case BoundVariable variant when VariantSlotOf(variant) is { } variantSlot:
+                return new VariantSlotTextNode(variantSlot);
+
             case BoundMember member when RecordFieldOf(member) is var (path, type) && IsText(type):
                 return new FieldTextNode(path);
 

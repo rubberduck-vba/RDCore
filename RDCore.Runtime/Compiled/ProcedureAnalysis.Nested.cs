@@ -321,7 +321,7 @@ internal sealed partial class ProcedureAnalysis
             case TextConstantNode:
                 return true;
 
-            case TextSlotNode or MemberTextNode or ErrTextNode:
+            case TextSlotNode or VariantSlotTextNode or MemberTextNode or ErrTextNode:
                 return !calledAfter;
 
             case ConcatNode concat:

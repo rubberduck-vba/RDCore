@@ -153,6 +153,14 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
 
+            case VariantSlotTextNode variant:
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, variant.Slot);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReadVariantText))!);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                break;
+
             case FieldTextNode field:
                 EmitFieldText(field, text, failure);
                 break;
