@@ -100,14 +100,22 @@ internal static class InlineCall
         }
 
         var text = new ExtractionText(syntax.Source);
-        if (!IsAloneOnItsLines(text, site.Statement))
-        {
-            return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation));
-        }
-
         if (RefusalOf(context, callee, procedure) is { } refused)
         {
             return (null, refused);
+        }
+
+        // the expression form is the call's value where the call is: the statement that raised an error is the same one.
+        var writer = new Writer(context, syntax, text, callee, procedure, site);
+        if (site.Call is not null && writer.WriteExpression() is { } expression)
+        {
+            return expression;
+        }
+
+        // the statement form writes the body in place of the statement, which hoisting a call out of a larger one would need first.
+        if (site.Call is not null && site.Assignment is null || !IsAloneOnItsLines(text, site.Statement))
+        {
+            return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation));
         }
 
         if (CallerRefusalOf(analysis, callee, procedure, syntax.Syntax, site.Statement) is { } changes)
@@ -115,17 +123,19 @@ internal static class InlineCall
             return (null, changes);
         }
 
-        return new Writer(context, syntax, text, callee, procedure, site).Write();
+        return writer.Write();
     }
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
 
-    // a call whose callee is the name, unqualified: a call statement (Call F(a), F a), or the whole value of an assignment (x = F(a), Set x = F, x = F).
-    private sealed record class Site(StatementNode Statement, ImmutableArray<ExpressionNode> Arguments, AssignmentStatementNode? Assignment);
+    // a call whose callee is the name, unqualified: a call statement (Call F(a), F a), the whole value of an assignment (x = F(a), Set x = F, x = F), or a
+    // call in any other expression of a statement (Debug.Print F(a) + 1), whose expression is Call.
+    private sealed record class Site(StatementNode Statement, ImmutableArray<ExpressionNode> Arguments, AssignmentStatementNode? Assignment, ExpressionNode? Call = null);
 
     private static Site? SiteAt(ModuleNode module, SourceRange name)
     {
-        foreach (var node in NameOccurrences.Walk(module).Select(each => each.Node))
+        var nodes = NameOccurrences.Walk(module).Select(each => each.Node).ToArray();
+        foreach (var node in nodes)
         {
             switch (node)
             {
@@ -135,16 +145,24 @@ internal static class InlineCall
                     switch (assignment.Value)
                     {
                         case SimpleNameExpressionNode value when value.SourceLocation.Range == name:
-                            return new(assignment, [], assignment);
+                            return new(assignment, [], assignment, value);
                         case IndexExpressionNode { Callee: SimpleNameExpressionNode callee } value when callee.SourceLocation.Range == name:
-                            return new(assignment, value.Arguments, assignment);
+                            return new(assignment, value.Arguments, assignment, value);
                     }
 
                     break;
             }
         }
 
-        return null;
+        // the innermost statement the call is in: a block statement's own expressions are its, and not its body's.
+        var expression = nodes.OfType<IndexExpressionNode>().FirstOrDefault(each => each.Callee is SimpleNameExpressionNode callee && callee.SourceLocation.Range == name)
+            ?? (ExpressionNode?)nodes.OfType<SimpleNameExpressionNode>().FirstOrDefault(each => each.SourceLocation.Range == name);
+        var statement = nodes.OfType<StatementNode>()
+            .Where(each => each.SourceLocation.Range.Start <= name.Start && name.End <= each.SourceLocation.Range.End)
+            .MinBy(each => (each.SourceLocation.Range.End.Line - each.SourceLocation.Range.Start.Line, each.SourceLocation.Range.End.Character - each.SourceLocation.Range.Start.Character));
+        return expression is null || statement is null
+            ? null
+            : new(statement, expression is IndexExpressionNode index ? index.Arguments : [], null, expression);
     }
 
     // the statement is the only code of the lines it spans: no other statement on them, as one of a line of statements separated by colons, or the
@@ -296,6 +314,112 @@ internal static class InlineCall
 
             var inlined = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after, .. _result]);
             return (new InlinedCall(syntax.Module, callee, [new RefactorTextEdit { Range = call.SourceLocation.Range, NewText = inlined }]), null);
+        }
+
+        // the expression form (the call replaced by its value, in parentheses), when the body is one Let of the result of a value of the function's type, and
+        // each parameter can be the argument itself: a literal, or a variable of the parameter's type that the body does not write, which evaluating at the
+        // parameter's place does nothing else than evaluating before the body; a literal is written with the type character of the parameter's type when it
+        // has another. Null when the body is not one.
+        public (InlinedCall? Inlined, InlineRefusal? Refusal)? WriteExpression()
+        {
+            // what was bound for the expression form is not the statement form's.
+            if (ExpressionForm() is { } written)
+            {
+                return written;
+            }
+
+            _replacements.Clear();
+            return null;
+        }
+
+        private (InlinedCall? Inlined, InlineRefusal? Refusal)? ExpressionForm()
+        {
+            var declaration = procedure.Declaration;
+            var type = (callee as ITypedSymbol)?.ResolvedType;
+            if (callee is VBProcedureMemberSymbol || site.Call is not { } called
+                || declaration.Children.OfType<StatementNode>().ToArray() is not [AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode target, Value: var value }]
+                || declaration.Children.OfType<LineLabelNode>().Any() || _bindings(target) != callee.SemanticId
+                || procedure.Scope.Declarations.Any(symbol => symbol is not VBParameterSymbol)
+                || type is not VBIntrinsicType || type is VBVariantType or VBObjectType || DeclaredTypeOf(value) is not { } valueType || !SameType(valueType, type))
+            {
+                return null;
+            }
+
+            var parameters = ParametersOf(callee);
+            var map = ArgumentMapping.Map(parameters, site.Arguments);
+            if (map.Error is not ArgumentMappingError.None || map.Mapped is not { } mapped || parameters.Any(parameter => parameter is ParamArrayParameterSymbol))
+            {
+                return null;
+            }
+
+            var names = value.Descendants().Prepend(value).OfType<SimpleNameExpressionNode>().ToArray();
+            for (var index = 0; index < parameters.Length; index++)
+            {
+                var parameter = procedure.Scope.Declarations.OfType<VBParameterSymbol>()
+                    .First(symbol => symbol.Name.Equals(parameters[index].Name, StringComparison.OrdinalIgnoreCase));
+                if (mapped[index] is not { } argument || argument is MissingArgumentNode || IsMissingOf(parameter).Count > 0 || IsWrittenOtherwise(parameter, []))
+                {
+                    return null;
+                }
+
+                var variable = VariableOf(argument);
+                var argumentText = text.Of(argument.SourceLocation.Range).Trim();
+                if (argument is not LiteralExpressionNode && variable is null || TypeOf(argument, variable) is not { } given)
+                {
+                    return null;
+                }
+
+                if (!SameType(given, parameter.ResolvedType))
+                {
+                    if (argument is not LiteralExpressionNode || TypedLiteral(argumentText, parameter.ResolvedType) is not { } typed)
+                    {
+                        return null;
+                    }
+
+                    argumentText = typed;
+                }
+
+                _replacements[parameter.SemanticId] = argument is LiteralExpressionNode && argumentText.StartsWith('-') ? $"({argumentText})" : argumentText;
+            }
+
+            // the function's own name in the expression is its result, which the expression form has none of.
+            if (names.Any(name => _bindings(name) == callee.SemanticId) || Captured() is not null)
+            {
+                return null;
+            }
+
+            var edits = names.Where(name => _bindings(name) is { } bound && _replacements.ContainsKey(bound))
+                .Select(name => (Range: name.SourceLocation.Range, NewText: _replacements[_bindings(name)!.Value])).OrderByDescending(edit => edit.Range.Start);
+            var written = text.Of(value.SourceLocation.Range).Trim();
+            var start = text.OffsetOf(value.SourceLocation.Range.Start) + (text.Of(value.SourceLocation.Range).Length - text.Of(value.SourceLocation.Range).TrimStart().Length);
+            foreach (var (range, newText) in edits)
+            {
+                var from = text.OffsetOf(range.Start) - start;
+                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.OffsetOf(range.End) - start));
+            }
+
+            return (new InlinedCall(syntax.Module, callee, [new RefactorTextEdit { Range = called.SourceLocation.Range, NewText = $"({written})" }]), null);
+        }
+
+        // a decimal literal written as a literal of a numeric type, by its type character, when its value is one of that type (MS-VBAL §3.3.2).
+        private static string? TypedLiteral(string literal, VBType? type)
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(literal, @"^-?\d+(\.\d+)?$"))
+            {
+                return null;
+            }
+
+            var integral = !literal.Contains('.');
+            return type?.Name switch
+            {
+                "Integer" when integral && long.TryParse(literal, out var value) && value is >= short.MinValue and <= short.MaxValue => literal + "%",
+                "Long" when integral && long.TryParse(literal, out var value) && value is >= int.MinValue and <= int.MaxValue => literal + "&",
+                "LongLong" when integral && long.TryParse(literal, out _) => literal + "^",
+                "Single" => literal + "!",
+                "Double" => literal + "#",
+                "Currency" => literal + "@",
+                _ => null,
+            };
         }
 
         // the lines of the body, after the header and before End Sub; the lines of a procedure are its own, from their start.

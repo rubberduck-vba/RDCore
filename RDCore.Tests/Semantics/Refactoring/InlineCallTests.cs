@@ -374,11 +374,49 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim a As Long\r\na = Doubled(n)\r\nDebug.Print a",
-            "Private Function Doubled(ByVal x As Long) As Long\r\n    Doubled = x * 2\r\nEnd Function",
+            Stepwise,
             "Doubled(n)");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "a = Doubled_result");
     }
+
+    // a function the expression form can't write: its body is more than the assignment of its result.
+    private const string Stepwise = "Private Function Doubled(ByVal x As Long) As Long\r\n    Dim twice As Long\r\n    twice = x * 2\r\n    Doubled = twice\r\nEnd Function";
+
+    private const string OneLiner = "Private Function Doubled(ByVal x As Long) As Long\r\n    Doubled = x * 2\r\nEnd Function";
+
+    [TestMethod]
+    public async Task ACallInAnExpression_OfAOneLiner_IsItsValueInParentheses()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync("Debug.Print Doubled(n) + 1", OneLiner, "Doubled(n)");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Debug.Print (n * 2) + 1");
+    }
+
+    [TestMethod]
+    public async Task ALiteralArgument_OfAnotherType_IsWrittenOfTheParametersType()
+    {
+        // 20000 is an Integer, which doubled in Integer arithmetic overflows; given to a Long parameter, it is doubled as a Long.
+        var (before, after, module) = await BeforeAndAfterAsync("Debug.Print Doubled(20000)", OneLiner, "Doubled(20000)");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Debug.Print (20000& * 2)");
+        StringAssert.Contains(before, "40000");
+    }
+
+    [TestMethod]
+    public async Task ACallInALoopCondition_OfAOneLiner_IsInlined()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim i As Long\r\nDo While Doubled(i) < 7\r\n    i = i + 1\r\nLoop\r\nDebug.Print i", OneLiner, "Doubled(i)");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Do While (i * 2) < 7");
+    }
+
+    [TestMethod]
+    [DataRow("Debug.Print Doubled(n) + 1", "Doubled(n)", false, DisplayName = "a body of more than its result")]
+    [DataRow("Debug.Print Doubled(G()) + 1", "Doubled(G())", true, DisplayName = "an argument that is a call")]
+    public void ACallInAnExpression_TheExpressionFormCantWrite_IsRefused(string body, string call, bool oneLiner)
+        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite, Inlined(body, oneLiner ? OneLiner : Stepwise, call).Refusal?.Kind);
 
     [TestMethod]
     public async Task AFunction_ThatReadsItsResult_ReadsTheResultLocal()
@@ -424,9 +462,14 @@ public class InlineCallTests
     }
 
     [TestMethod]
-    public void AFunction_AssignedToAnElement_IsNotInlined()
-        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite, Inlined(
-            "Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)",
-            "Private Function Doubled(ByVal x As Long) As Long\r\n    Doubled = x * 2\r\nEnd Function",
-            "Doubled(n)").Refusal?.Kind);
+    public void AFunction_AssignedToAnElement_IsNotInlined_InTheStatementForm()
+        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite, Inlined("Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)", Stepwise, "Doubled(n)").Refusal?.Kind);
+
+    [TestMethod]
+    public async Task AOneLiner_AssignedToAnElement_IsItsValue()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync("Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)\r\nDebug.Print values(1)", OneLiner, "Doubled(n)");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "values(1) = (n * 2)");
+    }
 }
