@@ -57,6 +57,10 @@ public sealed class SymbolHierarchyTests
         "    Answer = 41",
         "    Answer = Answer + 1",
         "End Function",
+        "Public Function Filled() As Collection",
+        "    Set Filled = New Collection",
+        "    Filled.Add 1",
+        "End Function",
         "Public Sub Ping(ByVal n As Long)",
         "    If n > 0 Then Pong n - 1",
         "End Sub",
@@ -127,6 +131,10 @@ public sealed class SymbolHierarchyTests
     [TestMethod]
     public void AFunctionGivenItsResult_AndReadingIt_CallsNothing()
         => Assert.IsEmpty(SymbolHierarchy.OutgoingCalls(Workspace(), Calls(Workspace(), "Public Function Answer", "Answer", "Module2")));
+
+    [TestMethod]
+    public void AFunctionThatCallsAMemberOfItsResult_CallsNothingOfItsOwn()
+        => Assert.IsEmpty(SymbolHierarchy.OutgoingCalls(Workspace(), Calls(Workspace(), "Public Function Filled", "Filled", "Module2")));
 
     [TestMethod]
     public void AProcedureThatCallsItselfThroughAnother_IsTheOthersCallee()
