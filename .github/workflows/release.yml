@@ -17,7 +17,8 @@
 #      and release.json, creates a draft prerelease and uploads the assets. The draft stays a draft: a maintainer publishes it.
 # A manual run (workflow_dispatch) is a dry run: everything up to the archives, uploaded as short-lived workflow artifacts,
 # and no release. A pull request that touches the release plumbing builds and packages too, without osx-arm64, but uploads
-# only the metadata: never an archive or the binaries.
+# only the metadata: never an archive or the binaries. On any run, a failed Test step also uploads what a test hang left (the
+# blame collector's sequence file and dumps), for 3 days.
 #
 # ── One-time setup before this works (a maintainer, before the first tag) ─────────────────────
 #   • Settings → Environments: create `release`, with a Required reviewers protection rule and, under Deployment
@@ -272,9 +273,11 @@ jobs:
       # without ContinuousIntegrationBuild, as build.yml tests: the golden-master tests find their snapshots next to their
       # source through [CallerFilePath], which deterministic source paths (/_/...) would point nowhere. The publish below
       # builds for the RID into output of its own, with deterministic paths.
+      # a test that hangs fails the step after 10 minutes, as in build.yml, rather than holding the job to its timeout
       - name: Test
+        id: test
         if: runner.os != 'macOS'
-        run: dotnet test RDCore.slnx -c Release
+        run: dotnet test RDCore.slnx -c Release --blame-hang-timeout 10m
 
       # macOS runs the tests of the Wide category, as build.yml does there
       - name: Build the tests
@@ -282,8 +285,21 @@ jobs:
         run: dotnet build RDCore.slnx -c Release
 
       - name: Test (Wide)
+        id: wide
         if: runner.os == 'macOS'
         run: ./tools/ci/Invoke-WideTests.ps1 -Configuration Release
+
+      # what the hang leaves, as build.yml uploads it: the sequence file and the dumps of the test host and of the processes it started
+      - name: Upload what a hang leaves
+        if: failure() && (steps.test.outcome == 'failure' || steps.wide.outcome == 'failure')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blame-${{ matrix.rid }}
+          path: |
+            **/TestResults/**/Sequence_*.xml
+            **/TestResults/**/*.dmp
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Publish the platform tree
         env:
