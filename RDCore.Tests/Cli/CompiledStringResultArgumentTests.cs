@@ -6,9 +6,9 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The result of a <c>String</c> function, read by its name in the function's own body (<strong>MS-VBAL §5.3.1</strong>), given to a function of the
-/// standard library that takes a <c>String</c>, such as <c>Len</c> or <c>Mid$</c> (<strong>MS-VBAL §6.1.2.11.1.26</strong>), or printed: compiled code
-/// gives the function the text the result holds, where the frame holds it, as the interpreter gives it. A program runs the same either way, and nothing
-/// of the function is handed to the interpreter.
+/// standard library that takes a <c>String</c>, such as <c>Len</c> or <c>Mid$</c> (<strong>MS-VBAL §6.1.2.11.1.22, §6.1.2.11.1.26</strong>), or
+/// printed: compiled code gives the function the text the result holds, where the frame holds it, as the interpreter gives it. A program runs the same
+/// either way, and nothing of the function is handed to the interpreter.
 /// </summary>
 [TestClass]
 public sealed class CompiledStringResultArgumentTests
