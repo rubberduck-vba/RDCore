@@ -115,4 +115,28 @@ public sealed class RDFormsUnattendedTests
         CollectionAssert.IsSubsetOf(new[] { "Load", "probe", "Unload", "end" }, printed, context);
         Assert.IsLessThan(Array.IndexOf(printed, "end"), Array.IndexOf(printed, "Unload"), context);
     }
+
+    // a form shown, after it is loaded, and the dialogs of the standard library, are what nobody answers: the run fails with VBR50001, whatever handler the
+    // program has, and not for want of a display.
+    [TestMethod]
+    [DataRow("f.Show", DisplayName = "Show, of a form loaded")]
+    [DataRow("MsgBox \"Done\"", DisplayName = "MsgBox")]
+    [DataRow("Dim name As String: name = InputBox(\"Name?\")", DisplayName = "InputBox")]
+    public async Task ADialog_Unattended_WithNoDisplay_FailsTheRunWithNobodyToAnswer(string dialog)
+    {
+        var (exit, printed, errors) = await RunUnattendedAsync(
+            "Dim f As Form1",
+            "On Error Resume Next",
+            "Set f = New Form1",
+            "Load f",
+            dialog,
+            "Debug.Print \"after\"");
+
+        var context = $"{string.Join("\n", printed)}\n{errors}";
+        Assert.AreNotEqual(0, exit, context);
+        StringAssert.Contains(context, "VBR50001", context);
+        Assert.IsFalse(context.Contains("XOpenDisplay", StringComparison.Ordinal), context);
+        CollectionAssert.Contains(printed, "Load", context);
+        CollectionAssert.DoesNotContain(printed, "after", context);
+    }
 }
