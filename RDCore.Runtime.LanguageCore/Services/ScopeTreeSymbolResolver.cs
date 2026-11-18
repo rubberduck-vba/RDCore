@@ -85,18 +85,26 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
-        (LexicalScope? Tier, Func<Symbol, bool> IsCandidate)[] tiers =
+        (LexicalScope? Tier, Func<Symbol, bool> IsCandidate, bool Referenced)[] tiers =
         [
-            (global, symbol => symbol is VBProjectSymbol || symbol is VBStandardModuleSymbol && !IsOfALibrary(symbol)),
-            (project, symbol => IsValueDeclaration(symbol) && !IsOfALibrary(symbol)),
-            (global, symbol => symbol is VBStandardModuleSymbol && IsOfALibrary(symbol)),
-            (project, symbol => IsValueDeclaration(symbol) && IsOfALibrary(symbol)),
-            (global, symbol => IsValueDeclaration(symbol) && !IsProjectOrProceduralModule(symbol)),
+            (global, symbol => symbol is VBProjectSymbol || symbol is VBStandardModuleSymbol && !IsOfALibrary(symbol), false),
+            (project, symbol => IsValueDeclaration(symbol) && !IsOfALibrary(symbol), false),
+            (global, symbol => symbol is VBStandardModuleSymbol && IsOfALibrary(symbol), false),
+            (project, symbol => IsValueDeclaration(symbol) && IsOfALibrary(symbol), true),
+            (global, symbol => IsValueDeclaration(symbol) && !IsProjectOrProceduralModule(symbol), false),
         ];
 
-        foreach (var (tier, isCandidate) in tiers)
+        foreach (var (tier, isCandidate, referenced) in tiers)
         {
-            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(DeclaredAs(tier).Where(isCandidate))) is { } result)
+            if (tier is null)
+            {
+                continue;
+            }
+
+            var declared = referenced
+                ? DeclaredAs(tier).Concat(ReferencedProjectsDeclaredAs(tier, name).Where(symbol => isLeftOut is null || !isLeftOut(symbol)))
+                : DeclaredAs(tier);
+            if (SelectTier(tier, ValuesOverEnumsOfEachModule(declared.Where(isCandidate))) is { } result)
             {
                 return result;
             }
@@ -104,6 +112,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         return SymbolResolutionResult.Unbound;
     }
+
+    // MS-VBAL §5.6.10: each project is a namespace of its own (ScopeTree.Projects). A lookup's project tier is its own project's scope; what another project
+    // gives it - a referenced project, whose names are of a library - is in that project's scope, read with the type libraries' at the library tier.
+    private IEnumerable<Symbol> ReferencedProjectsDeclaredAs(LexicalScope? project, string name)
+        => scopeTree.Projects.Where(other => !ReferenceEquals(other, project)).SelectMany(other => other.DeclaredAs(name).Where(IsOfALibrary));
 
     // MS-VBAL §5.6.4, §5.6.10
     public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => ResolveType(name, handle, _ => true);
@@ -120,18 +133,24 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
         var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
-        (LexicalScope? Tier, Func<Symbol, bool> IsCandidate)[] tiers =
+        (LexicalScope? Tier, Func<Symbol, bool> IsCandidate, bool Referenced)[] tiers =
         [
-            (origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Module), IsTypeDeclaration),
-            (global, symbol => IsProjectOrModule(symbol) && !IsALibrarysProceduralModule(symbol)),
-            (project, symbol => IsTypeDeclaration(symbol) && !IsOfALibrary(symbol)),
-            (global, IsALibrarysProceduralModule),
-            (project, symbol => IsTypeDeclaration(symbol) && IsOfALibrary(symbol)),
+            (origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Module), IsTypeDeclaration, false),
+            (global, symbol => IsProjectOrModule(symbol) && !IsALibrarysProceduralModule(symbol), false),
+            (project, symbol => IsTypeDeclaration(symbol) && !IsOfALibrary(symbol), false),
+            (global, IsALibrarysProceduralModule, false),
+            (project, symbol => IsTypeDeclaration(symbol) && IsOfALibrary(symbol), true),
         ];
 
-        foreach (var (tier, isCandidate) in tiers)
+        foreach (var (tier, isCandidate, referenced) in tiers)
         {
-            if (tier is not null && SelectTier(tier, tier.DeclaredAs(name).Where(isCandidate).Where(isOfProject)) is { } result)
+            if (tier is null)
+            {
+                continue;
+            }
+
+            var declared = referenced ? tier.DeclaredAs(name).Concat(ReferencedProjectsDeclaredAs(tier, name)) : tier.DeclaredAs(name);
+            if (SelectTier(tier, declared.Where(isCandidate).Where(isOfProject)) is { } result)
             {
                 return result;
             }
@@ -178,7 +197,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             ?? SymbolResolutionResult.Unbound;
     }
 
-    private static SymbolResolutionResult ResolveProjectMember(VBProjectSymbol project, string name, LexicalScope[] origin)
+    private SymbolResolutionResult ResolveProjectMember(VBProjectSymbol project, string name, LexicalScope[] origin)
     {
         var global = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Global);
         var projectScope = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Project);
@@ -205,8 +224,12 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         // 3. otherwise the member exactly one of its procedural modules has - a class's default instance variable among them, which §5.2.4.1.2 declares
         // as if at module level, under the class's name (MVVM.AppContext.Create), and which the global scope holds as it does for the name unqualified.
+        // a referenced project's members are in its own project's scope.
+        IEnumerable<Symbol> declared = projectScope is null ? []
+            : library is null ? projectScope.DeclaredAs(name)
+            : projectScope.DeclaredAs(name).Concat(ReferencedProjectsDeclaredAs(projectScope, name));
         if (projectScope is not null
-            && SelectTier(projectScope, ValuesOverEnumsOfEachModule(projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))))
+            && SelectTier(projectScope, ValuesOverEnumsOfEachModule(declared.Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))))
                 is { } member)
         {
             return member;
