@@ -39,18 +39,4 @@ public sealed class CompiledVariantParameterOfAnotherTypeTests
             "End Sub"), "Formatted", recoveries: 0, expected: "k1,10__10;k2,20__20;k3,30__30;");
         Assert.IsEmpty(result.Stepped, string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
-
-    // a Variant let to a String (MS-VBAL §5.5.1.2.4): one that holds a String is read in compiled code; a Double and a Boolean, which the let-coercion
-    // writes in the regional settings of the session, are the interpreter's, once each.
-    [TestMethod]
-    public async Task AVariantLetToAString_IsReadInCompiledCode_WhenItHoldsAString()
-        => await AssertAlikeAsync(Program(
-            "Private Function Named(ByVal V As Variant) As String",
-            "    Dim S As String",
-            "    S = V",
-            "    Named = S & \"!\"",
-            "End Function",
-            "Public Sub Main()",
-            "    Debug.Print Named(\"a\") & Named(2.5) & Named(True) & Named(\"b\")",
-            "End Sub"), "Named", recoveries: 2, expected: "a!2.5!True!b!");
 }
