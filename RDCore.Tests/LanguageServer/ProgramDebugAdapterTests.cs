@@ -885,16 +885,33 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
+    // the title and the description are the environment host's, in its language; the form they are said in is the debug adapter's.
     [TestMethod]
-    public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas()
+    [DataRow("en-US", "Run-time error", "Division by zero", "Run-time error '11': Division by zero", DisplayName = "en-US")]
+    [DataRow("fr-CA", "Erreur d'exécution", "Division par zéro", "Erreur d'exécution '11' : Division par zéro", DisplayName = "fr-CA")]
+    public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas(string culture, string title, string description, string said)
+    {
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(culture);
+        try
+        {
+            await AProgramThatRaisesAnError_IsSaid(title, description, said);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+    }
+
+    private async Task AProgramThatRaisesAnError_IsSaid(string title, string description, string said)
     {
         await using var session = new Session();
         session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             ErrorNumber = 11,
-            ErrorMessage = "Division by zero",
-            ErrorTitle = "Run-time error",
+            ErrorMessage = description,
+            ErrorTitle = title,
             ErrorLine = 4,
         }));
         await session.StartAsync();
@@ -904,7 +921,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new ConfigurationDoneArguments());
 
         var output = await session.NextAsync<OutputEvent>();
-        StringAssert.Contains(output.Output, "Run-time error '11': Division by zero");
+        StringAssert.Contains(output.Output, said);
         Assert.AreEqual(OutputEventCategory.StandardError, output.Category);
         Assert.AreEqual(5, output.Line, "the line of the error, as the client numbers them");
         Assert.AreEqual(Path, output.Source!.Path);

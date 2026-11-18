@@ -7,6 +7,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// <strong>MS-VBAL §6.1.2.5</strong> the FileSystem module, and <c>GetAttr</c>: what MS-VBA gives and raises, observed in Excel, against
 /// a fake file system. Paths are rooted because the platform's CI runs on Linux.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class FileSystemModuleTests
 {

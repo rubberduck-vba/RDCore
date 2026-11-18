@@ -1158,6 +1158,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("HostLibraryNotReferenced_Fix", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared on every platform, and no library is on every platform: a call of it where its library is not raises run-time error 53. Write it in a #If on the platform constants..
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_Message {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This call of &apos;{0}&apos; is compiled on every platform, and no library is on every platform. Write it in a #If on the platform constants..
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_CallEverywhere_Message {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_CallEverywhere_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This call of &apos;{0}&apos; is compiled on a platform &apos;{0}&apos; is not declared on, where it refers to nothing. Write it in a #If on the platform constants that declare it..
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_CallNotDeclared_Message {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_CallNotDeclared_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write the Declare statement in #If {0} Then.
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_Fix {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA..

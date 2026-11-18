@@ -31,6 +31,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// The snapshot is <c>GoldenMasters/static-semantics.txt.gz</c>, next to this file, recorded and compared as <see cref="GoldenMaster"/> says.
 /// </para>
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9 Operators")]
 public sealed class StaticSemanticsGoldenMasterTests : LetCoercionRuntimeSemanticsTests

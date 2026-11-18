@@ -43,6 +43,8 @@ dotnet test RDCore.slnx
 
 Une exécution réussie **doit rapporter un nombre de tests non nul**: une exécution qui ne découvre aucun test n'est pas une exécution réussie. L'option `--configuration Release` bâtit et teste de la même manière; l'intégration continue valide les deux configurations.
 
+L'intégration continue exécute tous les tests sous Windows et Linux. Sous macOS, elle n'exécute que les classes de tests marquées `[TestCategory(TestCategories.Wide)]`, au plus 1 000 tests : quelques-uns pour le système de fichiers, pour les processus et les canaux nommés, pour un programme exécuté depuis sa source et pour les diagnostics. Pour exécuter la même sélection localement, utilisez `dotnet test RDCore.slnx --filter TestCategory=Wide`.
+
 ### Bancs d'essai
 
 `RDCore.Benchmarks` mesure, avec BenchmarkDotNet, l'analyse syntaxique, la sérialisation JSON de l'arbre syntaxique et les analyseurs de diagnostics. C'est un outil de contributeur, comme `RDCore.Tests` : il ne fait pas partie de la plateforme et n'est pas une commande `rdc`. À partir de la racine du référentiel :
@@ -105,6 +107,8 @@ dotnet test RDCore.slnx
 ```
 
 A successful run **must report a non-zero test count**: a run that discovers no tests is not a passing run. The `--configuration Release` switch builds and tests the same way; continuous integration validates both configurations.
+
+Continuous integration runs every test on Windows and Linux. On macOS it runs only the test classes marked `[TestCategory(TestCategories.Wide)]`, at most 1000 tests: a few each for the file system, the processes and pipes, a program run from its source, and diagnostics. To run the same selection locally, use `dotnet test RDCore.slnx --filter TestCategory=Wide`.
 
 ### Benchmarks
 
