@@ -1577,12 +1577,12 @@ internal sealed partial class ProcedureAnalysis
                     ? new VariantIsEmptyNode(variant, LibraryCallOf(isEmpty, library, isEmpty.BoundArguments, isEmpty.ResultType) as LibraryCallNode)
                     : null;
 
-            // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types
-            // (ProcedureAnalysis.Intrinsics.cs).
+            // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types, called with them or by its
+            // name (ProcedureAnalysis.Intrinsics.cs).
             case BoundCall call when ConversionOf(call) is { } letCoerced:
                 return letCoerced;
 
-            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+            case BoundCall or BoundName or BoundQualifiedName when IntrinsicOf(node) is { } intrinsic:
                 return intrinsic;
 
             // a function of the standard library, called with its arguments or by its name, qualified or not (ProcedureAnalysis.Libraries.cs).
@@ -1649,9 +1649,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
                 return new VariantFieldNode(field.Path);
 
-            // a function of the standard library that returns a Variant: in a typed form, the payload it returns, held in a Variant of its own subtype
-            // (ProcedureAnalysis.Intrinsics.cs); else as the interpreter calls it (ProcedureAnalysis.Libraries.cs).
-            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+            // a function of the standard library that returns a Variant, called with its arguments or by its name: in a typed form, the payload it
+            // returns, held in a Variant of its own subtype (ProcedureAnalysis.Intrinsics.cs); else as the interpreter calls it
+            // (ProcedureAnalysis.Libraries.cs).
+            case BoundCall or BoundName or BoundQualifiedName when IntrinsicOf(node) is { } intrinsic:
                 return new VariantOfNode(intrinsic);
 
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):

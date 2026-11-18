@@ -32,12 +32,18 @@ internal sealed partial class ProcedureAnalysis
         .Where(type => type.Namespace == typeof(StdStrings).Namespace)
         .SelectMany(type => type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
         .SelectMany(method => method.GetCustomAttributes<StdLibIntrinsicAttribute>(), (method, intrinsic) => (Method: method, Intrinsic: intrinsic))
-        .Select(marked => (marked.Method, marked.Intrinsic, Declaration: marked.Intrinsic.Module.GetMethod(marked.Intrinsic.Member)!))
+        .Select(marked => (marked.Method, marked.Intrinsic, Declaration: DeclarationOf(marked.Intrinsic)))
         .GroupBy(
             marked => StdLibSymbolReader.ExternalTargetOf(marked.Intrinsic.Module, marked.Declaration),
             marked => new IntrinsicForm(marked.Method,
                 [.. marked.Declaration.GetParameters().Select(parameter => marked.Intrinsic.LetCoerces || parameter.ParameterType != typeof(VBVariantValue))]))
         .ToImmutableDictionary(group => group.Key, group => group.ToImmutableArray(), StringComparer.Ordinal);
+
+    // the member a typed form is of, as its module declares it: the one of its name that returns a value, a function or a property's Get, which is one of
+    // two members of that name where the property also has a Let (Time).
+    private static MethodInfo DeclarationOf(StdLibIntrinsicAttribute intrinsic)
+        => intrinsic.Module.GetMethods().Single(method => method.Name == intrinsic.Member
+            && method.GetCustomAttribute<StdLibMemberAttribute>()?.Kind is null or StdLibMemberKind.Procedure or StdLibMemberKind.PropertyGet);
 
     // a call of a function of the library that has a typed form of the types of its arguments that returns a number: the call of that form. None when the
     // function has none of those types; nothing is refused then, and the call is made as any other.
@@ -56,7 +62,7 @@ internal sealed partial class ProcedureAnalysis
     {
         // Abs, Int or Fix of an extended intermediate is itself one, computed on its 80 bits (Extended): never a typed form, which is given the argument
         // stored.
-        if (_nesting is not null || IsExtended(node) || node is not BoundCall { Procedure: var function, BoundArguments: { } arguments }
+        if (_nesting is not null || IsExtended(node) || CalledOf(node) is not (var function, var arguments)
             || !StandardLibrary.IsLibraryMember(function) || function.GetProperty(SymbolProperties.ExternalTarget) is not { } target
             || !Intrinsics.TryGetValue(target, out var methods))
         {
@@ -73,6 +79,16 @@ internal sealed partial class ProcedureAnalysis
 
         return null;
     }
+
+    // the function a call calls and its arguments; and a function named with no arguments, qualified or not (Now, VBA.DateTime.Time), which is called with
+    // none.
+    private static (Symbol Function, ImmutableArray<BoundArgument> Arguments)? CalledOf(BoundNode node) => node switch
+    {
+        BoundCall { Procedure: var function, BoundArguments: { } arguments } => (function, arguments),
+        BoundName { Symbol: VBTypeMemberSymbol function } => (function, ImmutableArray<BoundArgument>.Empty),
+        BoundQualifiedName { Member: VBTypeMemberSymbol function } => (function, ImmutableArray<BoundArgument>.Empty),
+        _ => null,
+    };
 
     // what a typed form returns, whether it is returned or given back in an out parameter: its type, and the return value or the parameter it is; and that of
     // a payload's kind.
