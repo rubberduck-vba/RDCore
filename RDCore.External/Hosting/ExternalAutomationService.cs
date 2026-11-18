@@ -27,8 +27,8 @@ namespace RDCore.External.Hosting;
 /// <see cref="ExternalProtocol.AutomationInvoke"/> of one. A platform that hosts no forms is told so when one is asked for.
 /// </param>
 /// <param name="dialogs">
-/// The dialogs shown beside the forms (<see cref="ExternalProtocol.FormMessageBox"/>, <see cref="ExternalProtocol.FormInputBox"/>); <see langword="null"/> when
-/// the external host shows none, which <see cref="Status"/> says.
+/// The dialogs shown beside the forms (<see cref="ExternalProtocol.FormMessageBox"/>, <see cref="ExternalProtocol.FormInputBox"/>);
+/// <see langword="null"/> when the external host shows none, which <see cref="Status"/> says.
 /// </param>
 public sealed class ExternalAutomationService(IAutomationServer platform, Forms.IFormHost? forms = null, Interaction.IUserInteraction? dialogs = null)
 {
@@ -179,8 +179,8 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     };
 
     /// <summary>
-    /// Answers <see cref="ExternalProtocol.FormMessageBox"/>, once the dialog is closed: by one of its buttons, or by <see cref="ExternalProtocol.FormCloseDialog"/>,
-    /// which answers what its close button does.
+    /// Answers <see cref="ExternalProtocol.FormMessageBox"/>, once the dialog is closed: by one of its buttons, or by
+    /// <see cref="ExternalProtocol.FormCloseDialog"/>, which answers what its close button does.
     /// </summary>
     /// <param name="request">The message box.</param>
     public FormMessageBoxResult MessageBox(FormMessageBoxParams request) => Answer(request.HandlingEvent, () =>

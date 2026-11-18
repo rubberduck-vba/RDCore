@@ -12,7 +12,7 @@ namespace RDCore.External.Client;
 /// <remarks>
 /// A dialog is answered once it is closed, as a modal form is: what the forms raise meanwhile is handled as it comes. A run that is stopped while a dialog is
 /// open has the external host close it, and stops waiting for it. An external host that shows no dialogs, cannot be started, or cannot start the windows it
-/// shows them in (<see cref="ExternalProtocol.NoDialogs"/>) leaves them to <c>fallback</c>.
+/// shows them in (<see cref="ExternalProtocol.NoDialogs"/>) leaves them to <paramref name="fallback"/>.
 /// </remarks>
 /// <param name="servers">The external host's servers, which host the program's forms.</param>
 /// <param name="fallback">The dialogs shown when the external host shows none.</param>

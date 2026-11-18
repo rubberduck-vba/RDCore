@@ -193,8 +193,8 @@ public sealed class RDFormsUserInteractionTests
         Assert.ThrowsExactly<OperationCanceledException>(() => dialogs.Prompt(new InputBoxRequest(Prompt(), "T"), stop.Token));
     }
 
-    // the active form owns the dialog, and the other forms wait until it is closed, as they do for a modal form. The activation is the UI thread's, which every
-    // RDForms window shares: the test runs alone.
+    // the active form owns the dialog, and the other forms wait until it is closed, as they do for a modal form. The activation is the UI thread's, which
+    // every RDForms window shares: the test runs alone.
     [TestMethod]
     [DoNotParallelize]
     public void ADialog_IsShownOverTheActiveForm_WhileTheOtherFormsWait()
