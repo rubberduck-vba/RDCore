@@ -1,3 +1,5 @@
+using RDCore.SDK.Platform;
+using RDCore.Tests.Runtime.Libraries;
 using System.Diagnostics;
 
 namespace RDCore.Tests.Cli;
@@ -65,6 +67,9 @@ public sealed class RDFormsUnattendedTests
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+
+        // the libraries the project references (VB, VBRUN, and DAO, which VB needs) are in the Symbols folder of the platform's root, the repository's here.
+        start.Environment[PlatformEnvironment.RootEnvironmentVariable] = Path.GetDirectoryName(ShippedLibrariesTests.Symbols);
 
         // no display to open: a desktop's windows could not be started.
         start.Environment.Remove("DISPLAY");
