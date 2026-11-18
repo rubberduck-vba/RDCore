@@ -77,7 +77,7 @@ public sealed class CompiledCallInIndexTests
             "    Debug.Print Found; L.Item(\"a\"); L.Item(2); IsEmpty(L.Item(\"z\"))",
             "End Sub"), expected: "303  1 twoTrue", "GetKeyValue", "Exists");
 
-    // an item of each kind a Collection holds - a number, a String, an array - assigned whole to the Variant result of a function, and to a Variant
+    // an item of each kind a Collection holds (a number, a String, an array) assigned whole to the Variant result of a function, and to a Variant
     // variable, by a key a function of the module makes: the number written as compiled code writes one, the others assigned as the interpreter assigns them.
     [TestMethod]
     public async Task AnItemOfAnyKind_AssignedWholeToAVariant_IsCompiled()

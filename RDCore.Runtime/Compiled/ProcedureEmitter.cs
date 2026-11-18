@@ -1071,7 +1071,7 @@ internal sealed partial class ProcedureEmitter
                 continue;
             }
 
-            // a Variant variable given by reference: its address. One compiled code can't give is the interpreter's, which makes the call.
+            // a Variant variable given by reference: its address. One compiled code cannot give is the interpreter's, which makes the call.
             if (call.Arguments[i] is VariantReferenceNode variant)
             {
                 _il.Emit(OpCodes.Ldc_I4, call.Callee);

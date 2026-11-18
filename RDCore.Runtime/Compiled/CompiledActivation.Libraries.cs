@@ -174,8 +174,8 @@ public sealed partial class CompiledActivation
                 : null;
     }
 
-    // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else - Null, Empty, a
-    // String, an array, which a Variant holds in no binding of its own - is the interpreter's.
+    // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else (Null, Empty, a
+    // String, an array, which a Variant holds in no binding of its own) is the interpreter's.
     private bool TryCallLibrary(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second, VariantPayload third,
         IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out ScalarPayload payload)
     {

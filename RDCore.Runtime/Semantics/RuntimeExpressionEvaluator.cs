@@ -2510,7 +2510,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return null;
             }
 
-            // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5" (StdLibByAddressAttribute).
+            // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5"
+            // (StdLibByAddressAttribute).
             // An object is one as it is: ObjPtr(New Thing) is the address of the new object's interface.
             if (typedByAddress && !(parameter.ResolvedType is VBObjectType && HeldObject(passed) is not null))
             {

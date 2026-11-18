@@ -849,7 +849,7 @@ internal sealed partial class ProcedureAnalysis
             returnsValue);
     }
 
-    // whether the whole value a Variant - a variable of the activation, or the result of its own function - is assigned is a call of a member of a class of
+    // whether the whole value a Variant (a variable of the activation, or the result of its own function) is assigned is a call of a member of a class of
     // the standard library compiled code calls (LibraryMemberCallOf): what it returns is assigned whatever it is, an array or a String included, as the
     // interpreter assigns it (LibraryMemberLetStep).
     private bool IsLibraryMemberCall(BoundNode assigned) => assigned is BoundMember or BoundIndex && LibraryMemberCallOf(assigned) is not null;

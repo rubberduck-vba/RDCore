@@ -43,7 +43,8 @@ internal sealed partial class ProcedureAnalysis
     /// <summary>
     /// Whether <paramref name="step"/> calls a function or a <c>Property Get</c> that returns an object (<see cref="ObjectCallNode"/>), or a function that
     /// returns a String or a Variant given to the standard library (<see cref="CallValueNode"/>), or makes an object (<see cref="NewNode"/>): the statement
-    /// is begun before its first call, and ended once it is over (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>).
+    /// is begun before its first call, and ended once it is over (<see cref="CompiledActivation.BeginStatement"/>,
+    /// <see cref="CompiledActivation.EndStatement"/>).
     /// </summary>
     /// <param name="step">The step.</param>
     internal static bool CallsForAnObject(CompiledStep step)
