@@ -115,7 +115,9 @@ internal sealed class DefineSymbolsHandler(
 
                 // a class module's symbol is composed from a project without being read; what makes it the class its members declare, and the one that
                 // implements the interfaces its directives name, is this, once its members are bound. A module that is not a class has nothing to compose.
-                session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
+                _ = request.ModuleUri is { } moduleUri
+                    ? session.Symbols.TryComposeClassModule(moduleUri, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges)
+                    : session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
 
                 // MS-VBAL §5.2.4.1.2: a class module with VB_PredeclaredId = True has a default instance variable named after it, which the code of every
                 // module names - so it is there before any code is loaded, which is after every module's symbols are.
@@ -339,6 +341,13 @@ internal sealed class DefineSymbolsHandler(
                     skipped.Add(name.Name);
                 }
             }
+        }
+
+        // MS-VBAL §5.2.4.2: a class is composed from what is defined under it once its members are bound, as one of the session's own project is, so that
+        // the members of an object of it, and of its default instance, are bound from the session's code.
+        if (!request.DeclareTypesOnly && module is VBClassModuleSymbol)
+        {
+            _ = session.Symbols.TryComposeClassModule(module.Uri, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
         }
 
         // a class that is no longer predeclared, or no longer exposed, has no default instance in the session.
