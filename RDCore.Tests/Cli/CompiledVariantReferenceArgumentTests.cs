@@ -9,7 +9,7 @@ namespace RDCore.Tests.Cli;
 /// the variable's address, which the parameter is a second name for, so that what the callee assigns it is what the caller holds after, an array included.
 /// A <c>Variant</c> parameter bound to a variable of another type is handed on by the interpreter, with that type. A function of the standard library
 /// given an element of an array of <c>Variant</c>s, or of the array a <c>Variant</c> holds, is given what the element holds, whatever it holds
-/// (MS-VBAL §5.3.1.11). A program runs the same either way.
+/// (MS-VBAL §5.3.1.11), and <c>IsEmpty</c> of a <c>Variant</c> that holds an array is False. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledVariantReferenceArgumentTests
@@ -34,7 +34,14 @@ public sealed class CompiledVariantReferenceArgumentTests
             "End Function",
             "Public Sub Tagged(Value As Variant)",
             "    Value = Value & \"!\"",
-            "End Sub")),
+            "End Sub",
+            "Public Function IsHeld(Key As Variant) As Boolean",
+            "    Dim Pair As Variant",
+            "    Pair = Found(Key)",
+            "    If Not IsEmpty(Pair) Then",
+            "        If Not VBA.IsObject(Pair(1)) Then IsHeld = True",
+            "    End If",
+            "End Function")),
     ];
 
     // the program run both ways, printing what MS-VBA prints, each procedure named compiled with the recoveries it says, and no walk-back.
@@ -141,6 +148,36 @@ public sealed class CompiledVariantReferenceArgumentTests
             "        Debug.Print IsEmpty(R)",
             "    Next",
             "End Sub"), "second 7 ; True ; second 7 ; True ; second 7 ; True", ("Find", 0));
+
+    // the rest of the dictionary's lookup: IsEmpty of the array a function of the class returned, then IsObject of an element of it, a String; Empty
+    // when it returned nothing. IsHeld recovers nothing.
+    [TestMethod]
+    public async Task IsEmptyAndIsObjectOfTheArrayAFunctionReturned_AreCompiled()
+        => await AssertRunAsync(Program(
+            "Public Sub Main()",
+            "    Dim L As New Lookup",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        Debug.Print L.IsHeld(\"a\") & \" \" & L.IsHeld(\"c\")",
+            "    Next",
+            "End Sub"), "True False ; True False ; True False", ("IsHeld", 0));
+
+    // IsEmpty of a Variant that holds an array, and of an element that holds one: neither is Empty, which compiled code reads in the Variant.
+    [TestMethod]
+    public async Task IsEmptyOfAVariantThatHoldsAnArray_IsFalse()
+        => await AssertRunAsync(Program(
+            "Public Sub Main()",
+            "    Dim V As Variant",
+            "    V = Array(1, Array(2, 3), Empty)",
+            "    Debug.Print Filled(V)",
+            "End Sub",
+            "Private Function Filled(Given As Variant) As Long",
+            "    Dim I As Long",
+            "    If Not IsEmpty(Given) Then Filled = 100",
+            "    For I = 0 To 2",
+            "        If Not IsEmpty(Given(I)) Then Filled = Filled + I + 1",
+            "    Next",
+            "End Function"), "103", ("Filled", 0));
 
     // a function of the standard library given an element of the array a Variant holds, whatever the element holds: a String, Empty, an object or a
     // number; IsObject is True of the object alone, and IsNumeric of the number and of the Strings of numbers.
