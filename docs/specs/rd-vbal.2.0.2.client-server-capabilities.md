@@ -407,6 +407,38 @@ What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.
 
 The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together.
 
+A `Type` or an `Enum` is renamed where its name means it: its declaration, its `As` clauses (**MS-VBAL §5.6.16.7**), and where it qualifies a member of the `Enum` (`Color.Red`). A variable or a procedure with the same name is a value, and keeps its name. The new name follows **MS-VBAL §5.2.3.3** and **§5.2.3.4**:
+
+- a `Private` `Type` or `Enum` is named as no other `Type` or `Enum` of its module;
+- a `Public` one is named as no `Public` `Type` or `Enum` of its project, no module of the project, no project and no library it references.
+
+Where it qualifies a member of the `Enum`, the new name must mean no value, or the member would be read from that value.
+
+A standard module, a class module, a form or another module with a designer (a user control, a property page) is renamed where its name means it, the same way, its default instance included (`VB_PredeclaredId`, **MS-VBAL §5.2.4.1.2**), and also:
+
+- in its `VB_Name` attribute (**MS-VBAL §4.2**), where a rename can start too. A module whose source has no `VB_Name` is named by its file: the rename writes `Attribute VB_Name = "<new name>"` first of its header, after the `VERSION` line, the `Object` lines and the `Begin` … `End` block of a class's or a designer's file;
+- in the first `Begin` line of a designer's text, which names the module (`Begin VB.Form Picker`, `Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog`). A caption is text, and stays as it is;
+- in the `Implements` directives of the classes that implement it (**MS-VBAL §5.2.4.2**);
+- in the procedures that implement its members, whose names start with its name (`IShape_Draw`, **MS-VBAL §5.3.1.9**). Only that part is renamed, where each is declared and called.
+
+The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, of the project, or of a library the project references (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
+
+A procedure named after what it implements or handles (**MS-VBAL §5.3.1.8**, **§5.3.1.9**) is renamed with it. Only the part of its name that is the renamed symbol's changes, where the procedure is declared and called:
+
+|Renamed|With it|
+|---|---|
+|The member of a class that other classes implement (`Draw`)|The procedures that implement it (`IShape_Draw` to `IShape_Paint`).|
+|An event (`Spun`)|The `RaiseEvent` statements of its class, and the handlers of the `WithEvents` variables of its class (`source_Spun` to `source_Turned`).|
+|A `WithEvents` variable (`source`)|The handlers of its events, those of a library's class included (`source_Spun` to `watched_Spun`). A procedure named after it that handles none of its events keeps its name.|
+
+A rename can start at either part of such a procedure's name: before the underscore, it renames the interface or the variable; after it, the member or the event. A procedure renamed with it must not take the name of another member of its class.
+
+The module's file is renamed with it when the file has the module's name (`Helpers.bas`), after its text is edited (**LSP 3.17** `RenameFile`), and only when no file of the new name exists there already. A client that does not rename files (`workspace.workspaceEdit.resourceOperations`) is sent the rest of the edit. The module is named by its `VB_Name` attribute, so its file keeps its old name. A client that renames the file says so (`workspace/didRenameFiles`), and the server writes the project file.
+
+A designer's binary file (`.frx` of a `.frm`, `.ctx` of a `.ctl`, `.dsx`, `.pgx`, `.dox`) is renamed with it when the designer's text names it as the file of the same name (`OleObjectBlob = "Dialog.frx":0000`). Once both files are renamed, the renamed text names the new binary file. Neither file is renamed over a file that exists: the client refuses the edit, so the text never names a file it was not renamed to. A client that does not rename files is sent neither rename, and the text keeps the old name.
+
+A project of the workspace is renamed where its name qualifies a module or a member (`Billing.Tools.Go`, **MS-VBAL §5.6.12**), and in its project file, where the file writes its `Name` ([`ProjectFile.NameRangeIn`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectFile.html)). A project file the server cannot read is left as it is, and the project keeps its old name there. A referenced library is not renamed.
+
 A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A string left as it is names nothing the call can find, and the call fails only when the code runs.
 
 A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's name is renamed too, when the symbol is a member of a class that code outside the class can call (not `Private`). Which member the access calls is only known when the code runs (**MS-VBAL §5.6.12**), so the user confirms these edits as well. What is known of the classes the object may hold decides which accesses are proposed (`PossibleClasses`):
@@ -431,9 +463,12 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The new name means something nearer, or as near, where the code refers to the symbol|The code would refer to that instead.|
 |The symbol would be nearer, or as near, than what the new name means where the code writes it already|The code would refer to the symbol instead.|
 |What a name written as the symbol's refers to is not known|The rename could miss it.|
-|The symbol is a module, a class, a `Type` or an `Enum`|A type is not renamed.|
-|The symbol is an event, a `WithEvents` variable, a form's control, or a member of a class another implements|What is named after it would not be renamed with it.|
-|The symbol is a procedure of a class module with an underscore in its name|It is named after the event it handles or the member it implements.|
+|The new name is one that MS-VBAL §5.2.3.3 or §5.2.3.4 does not allow for a `Type` or an `Enum`|Two types, or a type and a module, would have one name.|
+|The symbol is a module, and the new name is one MS-VBAL §4.2 does not allow: longer than 31 characters, or the name of another module, a `Public` type or a project|Two modules, or a module and a type, would have one name.|
+|The symbol is a document module|Its document names it, and would not be renamed with it.|
+|The symbol is the workspace's project, and the new name is that of one of its modules, of a project it references, or of a `Public` `Type` or `Enum` of the project or of one it references|A qualifier with the new name would mean the module or the other project. No `Public` `Type` or `Enum` is named as a project (**MS-VBAL §5.2.3.3**, **§5.2.3.4**).|
+|The symbol is a form's control|Its designer names it, and would not be renamed with it.|
+|The symbol is a procedure that handles an event of its own class or form (`Class_Initialize`, `UserForm_Click`) or of a control, or a procedure of a document module|It is named after the event it handles.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
@@ -499,6 +534,20 @@ statement, or after a `.` calls it again, and is a reference.
 `textDocument/documentHighlight` (**LSP 3.17** §Document Highlights Request) answers every name in the document that a rename of the symbol would rename
 there, its declaration and every procedure of a property included, each of kind `Text`: a name that reads the symbol and one that assigns it are not told apart.
 
+### `textDocument/linkedEditingRange`
+
+The language server answers `textDocument/linkedEditingRange` (**LSP 3.17** §Linked Editing Range) for the documents it holds
+(`linkedEditingRangeProvider`). At the name of a local variable (**MS-VBAL §5.4.3.1**), a parameter (**MS-VBAL §5.3.1.5**) or a line label
+(**MS-VBAL §5.4.1.1**), it answers each place the procedure writes that name, in any case, for the client to edit them as one while the user types.
+It answers no ranges for:
+
+- a name of the module or of another module, which a [rename](#textdocumentrename-and-textdocumentpreparerename) changes everywhere it is named;
+- a parameter that a named argument names outside its procedure (**MS-VBAL §5.6.13.1**);
+- a name written in brackets;
+- any name of a procedure that writes a name whose meaning is not known.
+
+The answer carries no `wordPattern`: the client checks the edited name with its own.
+
 ### `textDocument/declaration`
 
 The language server answers `textDocument/declaration` (**LSP 3.17** §Goto Declaration Request) the way it answers `textDocument/definition`, with one place:
@@ -528,7 +577,7 @@ Names that match alike come by name. An empty query matches every symbol. At mos
 
 ### `textDocument/codeAction`
 
-The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename`, `refactor.extract.method`, `refactor.extract.gosub`, `refactor.move.member.up`, `refactor.move.member.down`, `refactor.rewrite.encapsulateField`, `refactor.rewrite.implementInterface`, `source.sortMembers` and `source.rdcore.importProject`. A client that asks for some kinds only (`context.only`) is answered those and the kinds under them. A document whose procedures are not sorted is answered the sort, by kind, then by name. An extraction, a conversion of a `GoSub` routine, a move of a procedure, a sort, an encapsulation of a field and an implementation of an interface are the actions that can be resolved (`resolveProvider = true`, `codeAction/resolve`); every other action is complete as it is answered. A client that shows an action it cannot take (`codeAction.disabledSupport`) is also answered a refused extraction, conversion, move, encapsulation or implementation, with the refusal as its `disabled.reason`, and one that would change what the code does, with the change as its reason, when the client cannot ask its user to accept the change; one whose range holds nothing to refactor (no statement to extract, no `GoSub` routine at the position, no field named at its start, no `Implements` directive or `WithEvents` variable with procedures left to write on its first line) is not answered.
+The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename`, `refactor.extract.method`, `refactor.extract.gosub`, `refactor.rewrite.removeParameter`, `refactor.rewrite.reorderParameters`, `refactor.move.member.up`, `refactor.move.member.down`, `refactor.move.closerToUsage`, `refactor.rewrite.encapsulateField`, `refactor.rewrite.implementInterface`, `source.sortMembers` and `source.rdcore.importProject`. A client that asks for some kinds only (`context.only`) is answered those and the kinds under them. A document whose procedures are not sorted is answered the sort, by kind, then by name. An extraction, a conversion of a `GoSub` routine, a move of a procedure, a sort, an encapsulation of a field and an implementation of an interface are the actions that can be resolved (`resolveProvider = true`, `codeAction/resolve`); every other action is complete as it is answered. A client that shows an action it cannot take (`codeAction.disabledSupport`) is also answered a refused extraction, conversion, removal of a parameter, reordering of parameters, move, move of a declaration, encapsulation or implementation, with the refusal as its `disabled.reason`, and an extraction, conversion or encapsulation that would change what the code does, with the change as its reason, when the client cannot ask its user to accept the change; one whose range holds nothing to refactor (no statement to extract, no `GoSub` routine or variable at the position, no field named at its start, no `Implements` directive or `WithEvents` variable with procedures left to write on its first line) is not answered.
 
 An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
 
@@ -538,11 +587,15 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rub
 |A rename that fixes a diagnostic, to a name the user chooses|`quickfix`|Its `command` is `rdcore.rename`.|
 |A rename of each name the range declares, or of the name at the position of an empty range|`refactor.rename`|Its `command` is `rdcore.rename`.|
 |An import of each VB6 project (`.vbp`) of the workspace's folder, when it has no `.rdproj`|`source.rdcore.importProject`|Its `command` is `rdcore.importProject`, with the URI of the `.vbp`. Offered in every document.|
-|An extraction of the statements of a selection as a procedure, when nothing refuses it|`refactor.extract.method`|For a client that expects [`Refactoring`](#rdcorerefactorprepare-and-rdcorerefactorapply), its `command` is `rdcore.refactor`. For any other, offered only when it changes nothing the user would have to accept: its `edit` is made with the defaults and verified. A client that resolves an action's `edit` (`dataSupport`, and `edit` among `resolveSupport.properties`) is offered the action without its `edit`, which is made when the client resolves the action; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to select the statements again.|
+|An extraction of the statements of a selection as a procedure, when nothing refuses it|`refactor.extract.method`|For a client that expects [`Refactoring`](#rdcorerefactorprepare-rdcorerefactorcheckidentifier-and-rdcorerefactorapply), its `command` is `rdcore.refactor`. For any other, offered only when it changes nothing the user would have to accept: its `edit` is made with the defaults and verified. A client that resolves an action's `edit` (`dataSupport`, and `edit` among `resolveSupport.properties`) is offered the action without its `edit`, which is made when the client resolves the action; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to select the statements again.|
+|A removal of the parameter declared at the start of the range ([below](#removing-a-parameter))|`refactor.rewrite.removeParameter`|Its `edit` removes the parameter. A refused one is offered disabled, as above.|
+|A removal of a parameter that fixes a diagnostic|`quickfix`, preferred|The same `edit`. Offered only when the removal can be made.|
+|A reordering of the parameters of the procedure named at the start of the range, or whose parameter is declared there, when it has two or more ([below](#reordering-parameters))|`refactor.rewrite.reorderParameters`|Offered only to a client that expects [`Refactoring`](#rdcorerefactorprepare-rdcorerefactorcheckidentifier-and-rdcorerefactorapply): its `command` is `rdcore.refactor`. A refused one is offered disabled, as above.|
 |A conversion of a `GoSub` routine to a procedure, when nothing refuses it (an `On…GoSub` of the routine in a single-line `If` does): at a position on its label, on a `GoSub` that names it or on one of its `Return`s, and for a selection whose extraction is refused for a `GoSub` to the routine or one of its `Return`s|`refactor.extract.gosub`|As an extraction: `rdcore.refactor` for a client that expects `Refactoring`, the `edit` with the defaults for any other, resolved the same way. One resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to ask for the conversion again.|
 |A move of the procedure the range is in above the procedure before it, or below the one after it, with its comments and its `Attribute` lines; the `Property Get`, `Let` and `Set` of one name written together move together. A move that would take the procedure into a branch of an `#If` block or out of one is refused.|`refactor.move.member.up`, `refactor.move.member.down`|Its `edit` is made and verified. Resolved as an extraction is; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to ask for the move again.|
 |An encapsulation of the `Public` field named at the start of the range, from its declaration or from a reference to it: properties named after it, its value held by a member of a private user-defined type of its module, which the references inside the module are written through. A field declared `WithEvents`, in a branch of an `#If` block, or of a user-defined type that a reference outside the module writes, is refused.|`refactor.rewrite.encapsulateField`|As an extraction: `rdcore.refactor` for a client that expects `Refactoring`, the `edit` with the defaults, verified, for any other, unless a call outside the module may write the field through a `ByRef` parameter, a change the user accepts. Resolved the same way; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to ask for the encapsulation again.|
 |An implementation of an interface, on a line of an `Implements` directive of a class module: a `Private` procedure for each member of the interface the class does not implement. On a line of a `WithEvents` variable's declaration, a handler for each event of its class that the class does not handle. A procedure calls the class's own `Public` member of the same name, kind, parameters and type where the class has one, and raises error 5 where it has none; a handler is an `Exit Sub` with a comment, so that no empty procedure is reported and no error reaches the code that raises the event. Procedures that would be written in a branch of an `#If` block are refused.|`refactor.rewrite.implementInterface`, preferred|Its `edit` is made and verified. It fixes the diagnostics of the range that say the directive's interface is not implemented (`VBC09329`). Resolved as an extraction is; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to ask for the implementation again.|
+|A move of the declaration of the variable at a position, or named by a selection on one line, to its first use ([Moving a declaration closer to its usage](#moving-a-declaration-closer-to-its-usage))|`refactor.move.closerToUsage`|`rdcore.refactor` for a client that expects `Refactoring`. For any other, its `edit`, with `Static` for a variable of a module, offered only when that changes nothing the user would have to accept.|
 
 `rdcore.rename` ([`RefactoringCommands.Rename`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
 
@@ -550,12 +603,53 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rub
 |---|---|
 |[RDC01001](../diagnostics/rdc01001.md): a name that does not say what it is|A rename to a name the user chooses.|
 |[RDC01002](../diagnostics/rdc01002.md): Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
+|[RDC01013](../diagnostics/rdc01013.md): a parameter not used|A removal of the parameter.|
 
 The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It asks for the kinds it can take, and no others (`context.only`): `quickfix` and `refactor.rename`. It is offered no other action, so none that would move code out of the lines `LIST` shows, such as an extraction. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document (in a shell attached to a workspace, a program that was neither loaded nor saved) is to be saved first, which `DUCKY` says.
 
+#### Removing a parameter
+
+A parameter is removed from its declaration, and its argument from every call that passes it, by position or by name (**MS-VBAL §5.3.1.5**, **§5.6.13.1**). An omitted argument stays omitted (`F a, , c` without `a` is `F , c`), and a call left with no argument loses its parentheses (`Call F(a)` becomes `Call F`). With it, the parameter is removed:
+
+- from every accessor of a property (`Get`, `Let`, `Set`), whose value stays last (**MS-VBAL §5.3.1.7**);
+- from the procedures that implement a member of a class that other classes implement (`IShape_Draw`, **MS-VBAL §5.3.1.9**), where a removal can start too.
+
+|Refused|Because|
+|---|---|
+|The procedure, or a procedure that changes with it, uses the parameter|Its uses would refer to nothing.|
+|An argument passed for it does more than read a value: a call, a property, an operation|What its evaluation does (a call, an error) would not happen.|
+|A call to the procedure is late-bound, by its name in a string, or not known|The argument passed there would not be removed.|
+|The parameter is a `ParamArray`, or the value of a `Property Let` or `Set`|A `ParamArray` takes every argument after it; a `Let` or a `Set` always takes the value.|
+|The procedure is an event, a handler of an event, or a `Declare`|The event, or the library, decides the parameters.|
+
+> [!NOTE]
+> **Not implemented.** The parameter of an event is not removed, with its `RaiseEvent` arguments and its handlers.
+
+#### Reordering parameters
+
+The parameters of a procedure are written in the order the user puts them in, and so are the arguments that every call passes by position (**MS-VBAL §5.3.1.5**, **§5.6.13.1**). The procedures that change with it are those of a removal: the accessors of a property, whose value stays last, and the procedures that implement a member of a class that other classes implement.
+
+- An argument passed by name stays where it is written, unless its parameter moves before one whose argument is passed by position: it is then passed by position too. `F 1, b:=2` with `b` first is `F 2, 1`.
+- An omitted argument stays omitted where its parameter goes: `F 1` with `a` last of three parameters is `F , , 1`.
+- The arguments that a `ParamArray` takes stay after the others.
+
+Its choice is a `List` of the parameters (`parameters`), each item a parameter by its name, labeled with its declaration.
+
+|Refused|Because|
+|---|---|
+|A required parameter comes after an optional one, or a `ParamArray` is not last|A parameter list declares them in that order (**MS-VBAL §5.3.1.5**).|
+|A call to the procedure is late-bound, by its name in a string, or not known|The arguments passed there would not be reordered.|
+|The procedure is an event, a handler of an event, or a `Declare`|The event, or the library, decides the parameters.|
+|A procedure that changes with it has other parameters|They cannot be put in one order.|
+
+A call that passes two arguments that do more than read a value is a `Change` (`reorderParameters.evaluated`), which `rdcore/refactor/prepare` lists. The arguments are evaluated in the order they are written and assigned in the order of the parameters (**MS-VBAL §5.3.1.11**), so another order can change what the call does. `rdcore/refactor/apply` refuses an order that changes it, unless the user accepts the change.
+
+> [!NOTE]
+> **Not implemented.** The parameters of an event are not reordered, with its `RaiseEvent` arguments and its handlers.
+
 ### `rdcore/refactor/prepare`, `rdcore/refactor/checkIdentifier` and `rdcore/refactor/apply`
 
-A refactoring is offered to any client as a code action, which completes with its defaults. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html), and asks with the requests below, the same for every refactoring. The language server provides the capability, and serves Extract Method (`refactor.extract.method`), Convert GoSub to Procedure (`refactor.extract.gosub`) and Encapsulate Field (`refactor.rewrite.encapsulateField`) with them. Encapsulate Field encapsulates the field named at the start of the range.
+A refactoring is offered to any client as a code action, which completes with its defaults, unless only its user can answer it: Reorder Parameters is offered only to a client with a dialog. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html), and asks with the requests below, the same for every refactoring. The language server provides the capability, and serves Extract Method (`refactor.extract.method`), Convert GoSub to Procedure (`refactor.extract.gosub`) and Encapsulate Field (`refactor.rewrite.encapsulateField`) with them, and Move Closer To Usage (`refactor.move.closerToUsage`) and Reorder Parameters (`refactor.rewrite.reorderParameters`) with `prepare` and `apply`: they ask no name. Encapsulate Field encapsulates the field named at the start of the range.
 
 **`rdcore/refactor/prepare`** ([`RefactorPrepareParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorPrepareParams.html)) names the refactoring by the kind of its code action, with the document and the range. It is answered what the refactoring asks its user, each choice with the answer it takes by default, and its notices ([`RefactorPrepareResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorPrepareResult.html)):
 
@@ -584,6 +678,31 @@ Encapsulate Field asks what holds the value (`mode`: `this`, a member of the mod
 When the module has other `Public` fields, Encapsulate Field also asks which of them are encapsulated in the same edit (`fields`, a `List` with an item for each, whose `id` is the field's name). Each item has its own choices: `encapsulate` (`false` by default), `readOnly` and `backingField`. The other choices are those of the field named, so the fields picked are held the same way. What refuses an item, or what it would change, is a notice of that item's `encapsulate` choice (`choice` and `item`); a name typed for an item's `backingField` is checked the same way, with the item. Encapsulate Field also offers a second code action, Encapsulate all fields, which picks every item with the defaults and is offered as an edit to any client. It is offered disabled, with why, when one of the fields is refused or the edit would change what the code does.
 
 **`rdcore/refactor/apply`** ([`RefactorApplyParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorApplyParams.html)) sends the same kind, document and range, with the answers and the codes of the changes the user accepts. A choice that is not answered takes its default. It is answered the edit ([`RefactorWorkspaceEdit`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorWorkspaceEdit.html)): the documents it creates, then the text edits of each document, of the version the client has. The client applies it as one change. A refactoring that is refused, or that would make a change the user did not accept, is answered with an error (`RequestFailed`, -32803) whose message says why, in the language of the user interface.
+
+#### Moving a declaration closer to its usage
+
+The range is on the declaration of a variable or on a use of it. The declaration moves to a line of its own before the statement that first uses the variable, indented as that statement is, in the innermost block that holds every use of it. A use in the condition of an `If` or the bounds of a loop keeps it before that statement. A declaration is not executed ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)), so a variable of a procedure is the same wherever it is declared before its first use.
+
+- A variable of a procedure keeps its keyword, `Dim` or `Static`.
+- A `Private` variable of a module that a single procedure uses moves into that procedure. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
+
+|A variable of a module, declared|Changes|Code|
+|---|---|---|
+|`Static`, in a standard module|Nothing: it keeps its value between calls.|None.|
+|`Static`, in a class module|Its extent: a variable of the class has object extent, a `Static` variable module extent (**MS-VBAL §2.3**, **§5.4.3.1**).|`moveCloserToUsage.moduleExtent`|
+|`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
+
+`rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
+
+|Refused|Code|
+|---|---|
+|A variable of a module that is `Public`, `Global` or `Friend`|`moveCloserToUsage.notPrivate`|
+|A variable declared `WithEvents`|`moveCloserToUsage.withEvents`|
+|A variable that nothing uses|`moveCloserToUsage.notUsed`|
+|A variable of a module used by more than one procedure|`moveCloserToUsage.severalProcedures`|
+|A declaration, or a first use, in a branch of an `#If` block|`moveCloserToUsage.conditional`|
+|A variable of a procedure declared before its first use with nothing but declarations between them|`moveCloserToUsage.alreadyClose`|
+|A declaration that is the only one of a statement sharing its line with another statement|`moveCloserToUsage.sharesItsLine`|
 
 The messages are plain records of `RDCore.SDK.Protocol`, with no OmniSharp type: a client that has only that package writes and reads them.
 
@@ -701,6 +820,17 @@ The interactive shell folds blocks only. `FOLD <line>` folds the block that star
 `NO FOLDING EXISTS AT <line>`. `LIST` has two lanes in its margin: a breakpoint's mark at the edge, then the mark of a block
 (▽ open, ▲ folded; `-` and `+` on a console that draws no Unicode), next to the line. A folded block is listed as its first line, with how many lines it hides before its text (`20 [4 lines] If X < 0 Then`), faint as ghost text and cut with `…` to the console's
 width. A breakpoint it hides shows in the margin of that line, an enabled one first, when the line has none of its own. A fold is on a line number, as a breakpoint is, and `NEW` and `LOAD` clear them.
+
+### `textDocument/inlineValue`
+
+A client sends `textDocument/inlineValue` (**LSP 3.17** §Inline Value Request) while the program is stopped. The language server answers with a variable
+lookup for each name of a variable written in the procedure the program is stopped in: a local variable (**MS-VBAL §5.4.3.1**), a parameter (§5.3.1.5),
+or a variable of the module (§5.2.3.1). The client looks each name up in the stopped frame of the debug adapter, without regard to case, and shows its
+value beside the name.
+
+Only the names in the range asked for, from the procedure's first line to the line of the stop (`context.stoppedLocation`), are looked up: the lines below
+the stop have not run. A call, a constant, a declaration and a name of another procedure have no lookup. A stop in no procedure of the document is answered
+with no lookups.
 
 ### `workspace/didChangeWatchedFiles`
 

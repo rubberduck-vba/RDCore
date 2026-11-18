@@ -494,30 +494,6 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>Variant</c> parameter passed by reference given
-    /// a <c>Variant</c> variable of the activation: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The parameter is a second
-    /// name for the variable, so what the callee assigns it is what the variable holds after the call, in the cell compiled code reads it from.
-    /// </summary>
-    /// <param name="index">The argument's position in the callee's parameter list.</param>
-    /// <param name="slot">The slot of the variable given.</param>
-    /// <returns>
-    /// <see langword="false"/> when the interpreter makes the call: the variable cannot be given an address, or it is a <c>Variant</c> parameter bound to
-    /// a variable of another type, which the interpreter hands on with that type.
-    /// </returns>
-    public bool SetVariantReference(int index, int slot)
-    {
-        var variable = _body.SlotSymbols[slot];
-        if (FailsAccessAtRandom() || Frame.TryGetReferencedType(variable, out _) || !Frame.TryGetAddress(variable, out var address))
-        {
-            Array.Clear(_references);
-            return false;
-        }
-
-        SetReference(index, new VBRuntimeReference(address));
-        return true;
-    }
-
-    /// <summary>
     /// Whether compiled code writes its variables into its frame before a call: under a debugger, which shows the frame of a caller while the program waits
     /// in its callee.
     /// </summary>
@@ -653,8 +629,11 @@ public sealed partial class CompiledActivation : ILightActivation
         var returned = ScalarKinds.Of(returnedType);
         if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
-            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject
+            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject && !called.ReturnsText
+                && !called.ReturnsValue
             || (called.ReturnsObject ? returnedType is not (SDK.Model.Types.VBObjectType or VBClassType)
+                : called.ReturnsText ? !ProcedureAnalysis.IsText(returnedType)
+                : called.ReturnsValue ? returnedType is not SDK.Model.Types.VBVariantType && !ProcedureAnalysis.IsText(returnedType)
                 : called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
                 : called.Result is { } read ? returned != read
                 : returnedType is { } discarded && returned is null && discarded is not SDK.Model.Types.VBVariantType))
@@ -667,14 +646,16 @@ public sealed partial class CompiledActivation : ILightActivation
             var parameter = parameters[i + 1];
             var omitted = i < called.Omitted.Count && called.Omitted[i];
             var passed = i < called.ObjectParameters.Count ? called.ObjectParameters[i] : null;
+            var variant = i < called.VariantReferences.Count && called.VariantReferences[i];
             // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject). A Variant the call
-            // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted). A scalar the call leaves out is given the
+            // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted), and so is one given a variable's address, passed
+            // by reference as the call's is (SetVariantReference). A scalar the call leaves out is given the
             // default the member it was bound to declares, which is this member's: an implemented member declares the defaults of the interface member
             // (MS-VBAL §5.3.1.9), and one that does not is refused before the program runs.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
                 || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
                 || called.Parameters[i] is null && (passed is not null ? !passed.Type.Equals(parameter.ResolvedType)
-                    : !omitted || parameter.ResolvedType is not SDK.Model.Types.VBVariantType))
+                    : !(omitted || variant) || parameter.ResolvedType is not SDK.Model.Types.VBVariantType))
             {
                 return false;
             }
@@ -724,10 +705,19 @@ public sealed partial class CompiledActivation : ILightActivation
             return false;
         }
 
-        // an object, which the statement's temporaries hold (RuntimeProcedureInvoker.ReleaseLocals): compiled code takes it (TakeReturnedObject).
-        if (called.ReturnsObject)
+        // an object, a String or a Variant, which the statement's temporaries hold (RuntimeProcedureInvoker.ReleaseLocals): compiled code takes it
+        // (TakeReturnedObject, TakeReturnedValue).
+        if (called.ReturnsObject || called.ReturnsValue)
         {
             _returnedObject = result.Result;
+            _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
+            return result.Result is not null;
+        }
+
+        // a String, which compiled code takes whole (TakeReturnedText).
+        if (called.ReturnsText)
+        {
+            _returnedText = result.Result;
             _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
             return result.Result is not null;
         }
@@ -989,8 +979,21 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of, and one
-        // whose statement assigns what it returns is assigned it.
+        // whose statement assigns what it returns is assigned it. One that returns a String inside a text returns the frame's function result, which compiled
+        // code takes whole (TakeReturnedText).
         var called = _body.Callees[call];
+        if (called.ReturnsText)
+        {
+            _returnedText = ReturnedBy(callee);
+            if (_returnedText is null)
+            {
+                _failed = RuntimeExecutionOutcome.InternalError;
+                return false;
+            }
+
+            return true;
+        }
+
         if (called.Result is null)
         {
             return AssignReturned(called, called.AssignsResult ? ReturnedBy(callee) : null);
@@ -1300,9 +1303,9 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
-    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed a <c>String</c> by value, a variable of another type
-    /// passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
-    /// runs each statement that does.
+    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed an object, an array or a record by value, a variable of
+    /// another type passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and
+    /// the interpreter runs each statement that does.
     /// </returns>
     public object? VariantCellOf(int slot)
     {
@@ -1879,8 +1882,9 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     private long _libraryCallsMade;
 
     /// <summary>
-    /// How many calls the body made of a function of the standard library it calls inside an expression (<see cref="Libraries"/>), through the function's
-    /// binding or straight to the library. A typed form compiled code calls, or what it reads of a Variant's cell in place of a call, is not one.
+    /// How many calls the body made of a function of the standard library, or of a member of one of its classes, that it calls inside an expression
+    /// (<see cref="Libraries"/>), through the binding or straight to the library. A typed form compiled code calls, or what it reads of a Variant's cell
+    /// in place of a call, is not one.
     /// </summary>
     public long LibraryCallsMade => Interlocked.Read(ref _libraryCallsMade);
 

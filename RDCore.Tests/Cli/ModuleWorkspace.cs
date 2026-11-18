@@ -161,12 +161,13 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="libraries">The libraries the project references; only the standard library when omitted.</param>
     /// <param name="forms">The forms of the workspace, whose parse has what their designer declares.</param>
+    /// <param name="language">The language of the project; RD-VBA when omitted.</param>
     public static async Task<ExecuteResult> RunUnattendedAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries? libraries = null,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, SupportedLanguage? language = null)
     {
         ExecuteResult? ran = null;
-        await RunCoreAsync(classes, program, errorsOnly: false, inspect: (_, result, _) =>
+        await RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: (_, result, _) =>
         {
             ran = result;
             return Task.CompletedTask;

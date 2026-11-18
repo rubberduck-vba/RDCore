@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RDCore.External;
 using RDCore.External.Client;
@@ -28,16 +29,36 @@ internal static class ExternalHosts
     /// <param name="canStart">Whether the host can be started now.</param>
     public static ExternalHost New(Func<bool> canStart)
     {
-        var options = Options.Create(new SdkAppOptions());
+        // what the host writes is the test's output, and not the test process's own streams: a host a test takes down on purpose says so in that test's
+        // output, and not in what the test run reports when its process ends.
+        var options = Options.Create(new SdkAppOptions { Server = { CaptureChildOutput = true } });
         return new ExternalHost(
             () => canStart()
                 ? new ChildConnection(
-                    new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, NullLogger<RDCoreServerProcess>.Instance),
+                    new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, ChildOutput.Instance),
                     new RDCorePlatformDefaultTransportLayer(options),
                     NullLogger<ChildConnection>.Instance)
                 : throw new InvalidOperationException("The external host is not to be started yet."),
             ExternalHost.DefaultExecutable,
             NullLogger<ExternalHost>.Instance);
+    }
+
+    // the lines the host writes, which the server process logs as they come, written to the standard error of the test that started it.
+    private sealed class ChildOutput : ILogger<RDCoreServerProcess>
+    {
+        public static ChildOutput Instance { get; } = new();
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel is LogLevel.Trace;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel))
+            {
+                Console.Error.WriteLine(formatter(state, exception));
+            }
+        }
     }
 
     /// <summary>

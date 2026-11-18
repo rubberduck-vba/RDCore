@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Variant</c> variable given to a <c>Variant</c> parameter passed by reference of a procedure or a member compiled code calls (MS-VBAL §5.3.1.11):
 /// the variable's address, which the parameter is a second name for, so that what the callee assigns it is what the caller holds after, an array included.
-/// A <c>Variant</c> parameter bound to a variable of another type is handed on by the interpreter, with that type. A function of the standard library
+/// A <c>Variant</c> parameter bound to a variable of another type is given on with that type. A function of the standard library
 /// given an element of an array of <c>Variant</c>s, or of the array a <c>Variant</c> holds, is given what the element holds, whatever it holds
 /// (MS-VBAL §5.3.1.11), and <c>IsEmpty</c> of a <c>Variant</c> that holds an array is False. A program runs the same either way.
 /// </summary>
@@ -244,10 +244,10 @@ public sealed class CompiledVariantReferenceArgumentTests
             "    Next",
             "End Sub"), "t!!!", ("Tags", 0));
 
-    // a Variant parameter bound to a Long of its caller is a Variant reference to a Long, which the interpreter hands on as one: the callee's
-    // assignment is let-coerced to Long, and the call is the interpreter's, once at each turn.
+    // a Variant parameter bound to a Long of its caller is a Variant reference to a Long, which compiled code gives on as one, with that type: the
+    // callee's assignment is let-coerced to Long.
     [TestMethod]
-    public async Task AVariantParameterBoundToALong_IsHandedOnByTheInterpreter()
+    public async Task AVariantParameterBoundToALong_IsGivenOnWithItsType()
         => await AssertRunAsync(Program(
             "Public Sub Main()",
             "    Dim N As Long",
@@ -263,5 +263,5 @@ public sealed class CompiledVariantReferenceArgumentTests
             "End Sub",
             "Private Sub Halved(X As Variant)",
             "    X = X + 2.6",
-            "End Sub"), "Long 7", ("Relayed", 2));
+            "End Sub"), "Long 7", ("Relayed", 0));
 }

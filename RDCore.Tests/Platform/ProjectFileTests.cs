@@ -6,6 +6,7 @@ namespace RDCore.Tests.Platform;
 /// The repository's project files name a path under the folder NuGet restores packages to through a property that ends in a separator: NuGet gives
 /// <c>NuGetPackageRoot</c> as a NuGet.config <c>globalPackagesFolder</c> writes it, which can end without one.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ProjectFileTests
 {

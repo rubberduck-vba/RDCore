@@ -199,6 +199,68 @@ public static class VariantOperations
     }
 
     /// <summary>
+    /// The text the Variant held in <paramref name="cell"/> is let-coerced to as a <c>String</c>, as the interpreter's let-coercion writes it
+    /// (<see cref="TextOf"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the interpreter let-coerces it: the Variant holds anything <see cref="TextOf"/> writes no text of, its value is not
+    /// known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool ReadText(object? cell, out string? text)
+    {
+        text = null;
+        if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant)
+        {
+            return false;
+        }
+
+        return variant.TryRead(out var payload) ? TryWriteWhole(payload, out text) : TextOf(variant.Value, out text);
+    }
+
+    /// <summary>
+    /// The text a Variant that holds <paramref name="value"/> is let-coerced to as a <c>String</c>, as the interpreter's let-coercion writes it: a copy of
+    /// the <c>String</c> it holds (<strong>MS-VBAL §5.5.1.2.4</strong>), the zero-length string of <c>Empty</c> (<strong>MS-VBAL §5.5.1.2.11</strong>),
+    /// and the digits of a <c>Byte</c>, an <c>Integer</c>, a <c>Long</c> or a <c>LongLong</c>, after a minus sign when it is negative, which no regional
+    /// setting changes (<see cref="StringOperations.OfWhole"/>).
+    /// </summary>
+    /// <param name="value">What the Variant holds (<see cref="CompiledActivation.VariantValueOf"/>); <see langword="null"/> when it is not known.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the interpreter let-coerces it: the Variant holds <c>Null</c>, which raises error 94
+    /// (<strong>MS-VBAL §5.5.1.2.10</strong>); a <c>Date</c>, a <c>Boolean</c> or any other number, which is written in the regional settings of the
+    /// session; an error or an object; or its value is not known.
+    /// </returns>
+    public static bool TextOf(IRuntimeValue? value, out string? text)
+    {
+        text = null;
+        switch (value)
+        {
+            case VBRuntimeVariantValue { WrappedValue: VBEmptyValue }:
+                text = string.Empty;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> held } }:
+                text = held.StoredValue;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: { IsIndeterminate: false } scalar }
+                when ScalarPayload.IsScalar(scalar.TypeInfo) && ScalarPayload.TryOf(scalar.TypeInfo, scalar.RuntimeValue, out var payload):
+                return TryWriteWhole(payload, out text);
+            default:
+                return false;
+        }
+    }
+
+    // a whole number's digits (StringOperations.OfWhole); none of any other payload.
+    private static bool TryWriteWhole(ScalarPayload payload, out string? text)
+    {
+        text = ScalarKinds.Of(payload.Type) is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong
+            ? StringOperations.OfWhole(payload.Integral)
+            : null;
+        return text is not null;
+    }
+
+    /// <summary>
     /// Let-assigns <paramref name="value"/> to the Variant held in <paramref name="cell"/>, as the interpreter's assignment on payloads does: not over an
     /// object, an array or a record, which the assignment lets go of; nor into a Variant its frame holds in no Variant's cell (<see cref="Read"/>).
     /// </summary>
@@ -226,6 +288,46 @@ public static class VariantOperations
     /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
     /// <returns>Whether <c>Null</c> was assigned: when not, the interpreter runs the assignment.</returns>
     public static bool WriteNull(object? cell) => Store(cell, new VBRuntimeVariantValue(VBNullType.TypeInfo.VarType(), new VBNullValue()));
+
+    /// <summary>
+    /// Let-assigns to the Variant held in <paramref name="target"/> what the Variant held in <paramref name="source"/> holds, when that is a <c>String</c>
+    /// or <c>Null</c>: the target then holds a copy of it (<strong>MS-VBAL §5.5.1.2.12</strong>), as the interpreter's assignment makes it. A value of a
+    /// scalar type is assigned as a payload instead (<see cref="Read"/>, <see cref="Write"/>).
+    /// </summary>
+    /// <param name="target">The cell of the Variant assigned; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="source">The cell of the Variant read; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <returns>
+    /// Whether the value was assigned. When not, the interpreter runs the assignment: the source holds anything else (<c>Empty</c>, an error, an object,
+    /// an array), a String that ends with a lone byte, or a value that is not known; or the target holds an object, an array or a record, which the
+    /// assignment lets go of.
+    /// </returns>
+    public static bool CopyTextOrNull(object? target, object? source)
+        => TextOrNullOf(source, out var text, out var isNull) && (isNull ? WriteNull(target) : WriteText(target, text));
+
+    // what the Variant held in cell holds when it is a String, known and of whole characters (its text, null for vbNullString), or Null; never a payload.
+    internal static bool TextOrNullOf(object? cell, out string? text, out bool isNull)
+    {
+        (text, isNull) = (null, false);
+        if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant || variant.TryRead(out _))
+        {
+            return false;
+        }
+
+        switch (variant.Value)
+        {
+            case VBRuntimeVariantValue
+            {
+                WrappedValue: VBStringValue { IsIndeterminate: false, TrailingByte: null, RuntimeValue: VBRuntimeValue<string> held } and not VBFixedStringValue
+            }:
+                text = held.StoredValue;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: VBNullValue }:
+                isNull = true;
+                return true;
+            default:
+                return false;
+        }
+    }
 
     // a String or Null, stored in the Variant's cell when it holds no object, array or record (VariantCell.HoldsNoObject), as the interpreter's
     // assignment stores it.
