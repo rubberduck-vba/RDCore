@@ -100,6 +100,7 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver>(provider => new IntrinsicSymbolResolver(
                 provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RDCore.SDK.Server.Configuration.SdkAppOptions>>().Value.Environment.Is64Bit))
             .AddSingleton<IReferencedLibraryService, ReferencedLibraryService>()
+            .AddSingleton<IReferencedProjectService, ReferencedProjectService>()
             .AddSingleton<ISymbolSyncService, SymbolSyncService>()
             .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
             .AddSingleton<IWorkspaceFileOperationService, WorkspaceFileOperationService>()
