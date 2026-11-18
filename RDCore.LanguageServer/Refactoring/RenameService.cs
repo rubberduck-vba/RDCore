@@ -210,7 +210,7 @@ internal sealed class RenameService(
             projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
-            [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source))],
+            [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source, module.Parse.Designer))],
             new StaticEnvironment(options.Value.Environment.Is64Bit));
         return new RenameWorkspace.ProjectPart(context, modules, Recompose);
     }
