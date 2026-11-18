@@ -216,7 +216,7 @@ internal sealed partial class ProcedureAnalysis
 
     /// <summary>
     /// Whether the function result variable is a <c>String</c> of variable length, which its frame holds: compiled code assigns it a text where the
-    /// interpreter assigns it (<see cref="TextResultLetStep"/>), and reads nothing of it.
+    /// interpreter assigns it (<see cref="TextResultLetStep"/>), and reads the text it holds (<see cref="TextResultNode"/>).
     /// </summary>
     public bool ResultIsText { get; private set; }
 

@@ -89,6 +89,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when TextSlotOf(variable) is { } slot:
                 return new TextSlotNode(slot);
 
+            case BoundName { Symbol: var function } when ResultIsText && IsOwnFunction(function):
+                NeedsFrame = true;
+                return new TextResultNode();
+
             case BoundMember member when RecordFieldOf(member) is var (path, type) && IsText(type):
                 return new FieldTextNode(path);
 
