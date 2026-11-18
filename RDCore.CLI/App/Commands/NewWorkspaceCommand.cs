@@ -33,12 +33,8 @@ internal sealed class NewWorkspaceCommand(
     IFileSystem fileSystem,
     IProjectFileWriter projectWriter) : ICliCommand
 {
-    // VB module file kinds; the rest of a workspace's files are OtherFiles. Could move to the SDK
-    // once another consumer needs it.
-    private static readonly HashSet<string> ModuleExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".bas", ".cls", ".frm", ".doccls",
-    };
+    // the files of a workspace written in the language are its modules, and the rest are OtherFiles.
+    private static readonly SupportedLanguage Language = SupportedLanguages.RDVBA;
 
     public string Name => CommandNames.NewWorkspaceCommand.Name;
     public IReadOnlyList<string> Aliases => [CommandNames.NewWorkspaceCommand.Alias];
@@ -101,7 +97,7 @@ internal sealed class NewWorkspaceCommand(
                 continue;
             }
 
-            if (ModuleExtensions.Contains(fileSystem.Path.GetExtension(file)))
+            if (Language.IsSourceFile(file))
             {
                 modules.Add(new RDCoreModule { RelativeUri = relative });
             }

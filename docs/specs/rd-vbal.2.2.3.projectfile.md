@@ -8,6 +8,8 @@ RD-VBA discovers a _file system folder_ as a _workspace folder_ when the folder 
 A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes one in memory ([`IProjectFileLoader.LoadOrSynthesizeAsync`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.IProjectFileLoader.html)), and opening the folder writes nothing into it.
 
 - Every source file of the workspace's language (**RD-VBAL §2.0.2.1.1**) under the folder, at any depth, is a module. A folder whose name starts with a dot (`.git`, `.github`) is not searched, nor a link to another folder.
+- A folder that holds exactly one Visual Basic 6 project (a `.vbp`) directly under it, and no project group (a `.vbg`), is that project's: the synthesized project names the `.vbp` as its `SourceProject`, so its language is VB6.
+- No module has a `Super`: a `.doccls` is the class or standard module its text makes it, and the code of no host's document.
 - Each folder that holds a module, at any depth, is a folder of the project.
 - Paths are relative to the root, separated by `/`, in ordinal order. Of two files that declare the same `VB_Name`, the first in that order is the module (**RD-VBAL §2.2.3.3**).
 - The project is named after the folder when the folder's name is a valid _identifier name_ other than `VBA`, and `VBAProject` otherwise, as the VBE names a new project.

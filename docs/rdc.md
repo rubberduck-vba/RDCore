@@ -81,7 +81,9 @@ program, then says `BREAK IN`, the module and its line. A stop at an error in a 
 ---
 ## Commands
 
-Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder.
+Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder. A folder
+without a `.rdproj` is read as an editor reads it: every module file under it, at any depth, is a module, and a single `.vbp` in it makes it a VB6 project (see
+[**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Command|Alias|What it does|
 |---|---|---|
