@@ -7,6 +7,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
 using RDCore.Runtime.LanguageCore.Services;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Execution;
 
@@ -88,7 +89,7 @@ internal sealed class SymbolTable
     /// <summary>
     /// The scope tree of the symbols as they are now.
     /// </summary>
-    public ScopeTree ScopeTree => _scopeTree ??= ScopeTreeBuilder.Build(All());
+    public ScopeTree ScopeTree => _scopeTree ??= ProjectVisibility.ScopeTreeOf(All());
 
     /// <summary>
     /// Finds the module of this name, a standard module or a class module: the project's, or a library's when the project has none of the name.

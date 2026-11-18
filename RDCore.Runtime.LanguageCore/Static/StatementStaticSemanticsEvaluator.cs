@@ -18,6 +18,7 @@ using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
@@ -1122,7 +1123,9 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         var name = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-        return DeclaredTypes.Resolve(context.Resolver, name, context.Scope.Uri, is64Bit: true) is { } type and not VBUnknownType ? type : null;
+        var resolved = DeclaredTypes.Resolve(
+            context.Resolver, name, context.Scope.Uri, is64Bit: true, ProjectVisibility.Instance, ProjectVisibility.ProjectOf(context.Scope));
+        return resolved is { } type and not VBUnknownType ? type : null;
     }
 
     // what a ReDim's target names: a name, or a member of a project or a procedural module (`Globals.Items`).
@@ -1192,7 +1195,7 @@ public static class StatementStaticSemanticsEvaluator
     private static VBCompileErrorInfo? NoTypeErrorOf(StaticEvaluationContext context, AsTypeExpressionNode asType)
     {
         var (bound, _) = TypeNameClassifier.Classify(asType.QualifierName is { Length: > 0 } ? asType.QualifierName : null, asType.TypeName,
-            context.Scope.Uri, context.Resolver);
+            context.Scope.Uri, context.Resolver, ProjectVisibility.ProjectOf(context.Scope));
         var written = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
         return DeclarationStaticSemanticsEvaluator.NoTypeError(bound, written, asType.Location);
     }

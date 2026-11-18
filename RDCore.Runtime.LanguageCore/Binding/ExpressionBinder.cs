@@ -16,6 +16,7 @@ using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Plans;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Binding;
@@ -127,7 +128,9 @@ public sealed class ExpressionBindings
             // the class a TypeOf … Is tests against, by its name - bare, or qualified by its project - resolved as the evaluation resolves it.
             TypeOfIsExpressionNode typeOf
                 when NodeOf(typeOf.Operand) is { } operand && QualifiedTypeName(typeOf.TypeExpression) is var (qualifier, typeName)
-                    && VBProjectSymbol.ResolveQualifiedType(context.Resolver, qualifier, typeName, context.Scope.Uri).Symbol is VBClassModuleSymbol target
+                    && VBProjectSymbol.ResolveQualifiedType(
+                        context.Resolver, qualifier, typeName, context.Scope.Uri, ProjectVisibility.Instance, ProjectVisibility.ProjectOf(context.Scope))
+                        .Symbol is VBClassModuleSymbol target
                 => new BoundTypeOf(typeOf, operand, target),
 
             PrecompilerNameExpressionNode precompilerName => new BoundPrecompilerName(precompilerName),

@@ -285,7 +285,9 @@ internal sealed class DefineSymbolsHandler(
         // module's members reach the project scope, and the project scope is only an ancestor of a
         // module's own. A request that names no module has no such vantage point, and resolves
         // intrinsics only.
-        if (moduleUri is not null && DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, moduleUri, session.Environment.Is64Bit) is { } declared)
+        if (moduleUri is not null
+            && DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, moduleUri, session.Environment.Is64Bit,
+                ProjectVisibility.Instance, ProjectVisibility.ProjectOf(session.Symbols, moduleUri)) is { } declared)
         {
             return declared;
         }

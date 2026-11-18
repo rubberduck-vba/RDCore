@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
@@ -40,7 +41,8 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
 
-        var result = VBProjectSymbol.ResolveQualifiedType(context.Resolver, qualifier, typeName, context.Scope.Uri);
+        var result = VBProjectSymbol.ResolveQualifiedType(
+            context.Resolver, qualifier, typeName, context.Scope.Uri, ProjectVisibility.Instance, ProjectVisibility.ProjectOf(context.Scope));
         if (result.IsError)
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(result.ErrorId!.Value, expression.Location,

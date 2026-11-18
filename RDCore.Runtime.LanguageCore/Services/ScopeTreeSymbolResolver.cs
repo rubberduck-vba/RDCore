@@ -15,6 +15,7 @@ using System.Runtime.CompilerServices;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Services;
 
@@ -190,10 +191,10 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         // a lookup from inside the module sees what is private to it, as an unqualified one does.
         var fromWithin = origin.Any(scope => scope.Kind == LexicalScopeKind.Module && scope.Uri.AbsoluteUri == module.Uri.AbsoluteUri);
+        var originProject = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Project)?.Uri;
+        bool IsSeen(Symbol candidate) => fromWithin || ProjectVisibility.Instance.IsVisibleFrom(candidate, module, originProject);
 
-        return SelectTier(
-            moduleScope,
-            ValuesOverEnums(moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate)))))
+        return SelectTier(moduleScope, ValuesOverEnums(moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && IsSeen(candidate))))
             ?? SymbolResolutionResult.Unbound;
     }
 

@@ -307,7 +307,7 @@ public static class DeclarationStaticSemanticsEvaluator
             return;
         }
 
-        var (bound, _) = TypeNameClassifier.Classify(name, module.Uri, resolver);
+        var (bound, _) = TypeNameClassifier.Classify(name, module.Uri, resolver, module.WorkspaceRoot);
         if (bound is TypeNameClass.Type || onlyAModule && bound is TypeNameClass.Unresolved)
         {
             return;
