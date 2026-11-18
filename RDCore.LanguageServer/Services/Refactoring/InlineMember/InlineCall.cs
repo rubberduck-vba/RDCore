@@ -1,0 +1,439 @@
+﻿using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.Runtime.LanguageCore.Flow;
+using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Refactoring;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Semantics;
+
+namespace RDCore.LanguageServer.Services.Refactoring.InlineMember;
+
+/// <summary>
+/// One call of a member, inlined: the edits of the module the call is in.
+/// </summary>
+/// <param name="Module">The module the call is in.</param>
+/// <param name="Callee">The member.</param>
+/// <param name="Edits">The edits of <paramref name="Module"/>, unindented: the lines they write are indented by the module's formatting.</param>
+internal sealed record class InlinedCall(Uri Module, Symbol Callee, IReadOnlyList<RefactorTextEdit> Edits);
+
+/// <summary>
+/// Inlines one call of a procedure: the call statement is replaced by the procedure's body, its parameters bound to the call's arguments, its locals declared
+/// in the caller, under names that mean nothing else there.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The arguments are mapped to the parameters by MS-VBAL §5.3.1.11 and evaluated once each, in parameter order, before the body, as the call evaluates them. A
+/// <c>ByRef</c> parameter given a variable of its declared type, or any variable when it is a <c>Variant</c>, becomes that variable: what the body writes
+/// to it is written to the variable, as through the reference. Any other parameter becomes a new local, assigned its argument; one the body never reads is
+/// dropped when its argument is a literal or a name, which evaluating does nothing.
+/// </para>
+/// <para>
+/// Each call of a procedure has locals of its own, initialized to their type's default (MS-VBAL §5.3.1, §5.4.3.1). A local the body may read before it
+/// writes it is set to its default before the body, and an object local is set to <c>Nothing</c> after it, where the call ended and let go of it.
+/// </para>
+/// </remarks>
+internal static class InlineCall
+{
+    /// <summary>
+    /// The call at <paramref name="position"/> inlined, or why it is not.
+    /// </summary>
+    /// <param name="context">The workspace, whose modules are bound.</param>
+    /// <param name="analysisOf">The analysis of a module of the workspace, by its address in <paramref name="context"/>.</param>
+    /// <param name="module">The address of the module the call is in.</param>
+    /// <param name="position">A position in the name of the called member.</param>
+    public static (InlinedCall? Inlined, InlineRefusal? Refusal) At(RenameContext context, Func<Uri, ExtractionModuleAnalysis?> analysisOf, Uri module, SourcePosition position)
+    {
+        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } syntax
+            || NameOccurrences.NameAt(syntax, position) is not { } name)
+        {
+            return (null, new(InlineRefusalKind.NotAProcedure));
+        }
+
+        var occurrence = NameOccurrences.Find(context, name, [syntax]).Occurrences
+            .FirstOrDefault(each => each.Kind is OccurrenceKind.Name && each.Module.AbsoluteUri == module.AbsoluteUri && Contains(each.Range, position));
+        if (occurrence.Binding is not { } binding || NameOccurrences.SymbolOf(context, binding) is not { } callee)
+        {
+            return (null, new(InlineRefusalKind.NotAProcedure, name));
+        }
+
+        switch (callee)
+        {
+            case VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol:
+                return (null, new(InlineRefusalKind.PropertyAssignment, callee.Name));
+            case VBFunctionMemberSymbol or VBPropertyGetMemberSymbol:
+                return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name));
+            case not VBProcedureMemberSymbol:
+                return (null, new(InlineRefusalKind.NotAProcedure, callee.Name));
+        }
+
+        var calleeModule = NameOccurrences.ModuleOf(callee.Uri);
+        if (calleeModule.AbsoluteUri != module.AbsoluteUri)
+        {
+            return (null, new(InlineRefusalKind.OtherModule, callee.Name));
+        }
+
+        if (CallStatementAt(syntax.Syntax, occurrence.Range) is not { } call)
+        {
+            return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, new SourceLocation(module, occurrence.Range)));
+        }
+
+        if (analysisOf(calleeModule) is not { } analysis || analysis.Procedure(callee.Name, MemberKind.Procedure) is not { } procedure)
+        {
+            return (null, new(InlineRefusalKind.NotAProcedure, callee.Name));
+        }
+
+        var text = new ExtractionText(syntax.Source);
+        if (!IsAloneOnItsLines(text, call))
+        {
+            return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, call.SourceLocation));
+        }
+
+        if (RefusalOf(context, callee, procedure) is { } refused)
+        {
+            return (null, refused);
+        }
+
+        return new Writer(context, syntax, text, callee, procedure, call).Write();
+    }
+
+    private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
+
+    // the call statement whose callee is the name, unqualified: Call F(a), or F a.
+    private static CallStatementNode? CallStatementAt(ModuleNode module, SourceRange name)
+        => NameOccurrences.Walk(module).Select(each => each.Node).OfType<CallStatementNode>()
+            .FirstOrDefault(call => call.Callee is SimpleNameExpressionNode callee && callee.SourceLocation.Range == name);
+
+    // the statement is the only code of the lines it spans: no other statement on them, as one of a line of statements separated by colons, or the
+    // statement of a single-line If.
+    private static bool IsAloneOnItsLines(ExtractionText text, CallStatementNode call)
+    {
+        var range = call.SourceLocation.Range;
+        var before = text.Of(new SourceRange(new SourcePosition(range.Start.Line, 0), range.Start));
+        var lineEnd = text.Of(new SourceRange(range.End, new SourcePosition(range.End.Line + 1, 0))).TrimEnd('\r', '\n').Trim();
+        return before.Trim().Length == 0 && (lineEnd.Length == 0 || lineEnd.StartsWith('\''));
+    }
+
+    // what in the member itself is not inlined, wherever it is called.
+    private static InlineRefusal? RefusalOf(RenameContext context, Symbol callee, ExtractionProcedureAnalysis procedure)
+    {
+        var declaration = procedure.Declaration;
+        if (NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(callee.Uri))) is VBClassModuleSymbol owner
+            && (owner.IsDocument || callee.Name.Contains('_')) && SymbolRename.IsNamedByConvention(context, owner, callee))
+        {
+            return new(InlineRefusalKind.CalledByTheRuntime, callee.Name);
+        }
+
+        if (declaration.IsStatic || declaration.Descendants().OfType<VariableDeclarationNode>().Any(variable => variable.IsStatic))
+        {
+            return new(InlineRefusalKind.Static, callee.Name);
+        }
+
+        if (ParametersOf(callee).FirstOrDefault(parameter => parameter.IsOptional || parameter is ParamArrayParameterSymbol) is { } unsupported)
+        {
+            return new(InlineRefusalKind.UnsupportedParameter, unsupported.Name);
+        }
+
+        foreach (var instruction in procedure.Instructions.Items)
+        {
+            var kind = instruction.Kind switch
+            {
+                InstructionKind.GoSub or InstructionKind.GoSubTable or InstructionKind.Return => InlineRefusalKind.GoSub,
+                InstructionKind.OnErrorGoTo or InstructionKind.OnErrorDisable or InstructionKind.OnErrorReset or InstructionKind.OnErrorResumeNext
+                    or InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel => InlineRefusalKind.ErrorHandling,
+                InstructionKind.ExitProcedure when !IsLastStatement(declaration, instruction.Node) => InlineRefusalKind.UnsupportedConstruct,
+                _ => (InlineRefusalKind?)null,
+            };
+            if (kind is { } refusal)
+            {
+                return new(refusal, callee.Name, instruction.Location);
+            }
+        }
+
+        foreach (var node in declaration.Descendants())
+        {
+            switch (node)
+            {
+                case KeywordStatementNode { Token: Tokens.RaiseEvent }:
+                    return new(InlineRefusalKind.RaisesAnEvent, callee.Name, node.SourceLocation);
+                case LineLabelNode or LineNumberNode:
+                    return new(InlineRefusalKind.UnsupportedConstruct, callee.Name, node.SourceLocation);
+            }
+        }
+
+        // the member reaches itself through what it calls.
+        if (SymbolHierarchy.ItemOf(context, callee.SemanticId) is { } item)
+        {
+            var seen = new HashSet<SemanticId>();
+            var pending = new Queue<HierarchyItem>([item]);
+            while (pending.TryDequeue(out var caller))
+            {
+                foreach (var called in SymbolHierarchy.OutgoingCalls(context, caller))
+                {
+                    if (called.Item.Symbol.SemanticId == callee.SemanticId)
+                    {
+                        return new(InlineRefusalKind.Recursive, callee.Name);
+                    }
+
+                    if (seen.Add(called.Item.Symbol.SemanticId))
+                    {
+                        pending.Enqueue(called.Item);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static System.Collections.Immutable.ImmutableArray<VBParameterSymbol> ParametersOf(Symbol member) => member switch
+    {
+        VBProcedureMemberSymbol procedure => procedure.Parameters,
+        VBReturningMemberSymbol returning => returning.Parameters,
+        _ => [],
+    };
+
+    private static bool IsLastStatement(MemberDeclarationNode declaration, StatementNode? statement)
+        => statement is not null && declaration.Children.OfType<StatementNode>().LastOrDefault() == statement;
+
+    // writes the inlined body at the call.
+    private sealed class Writer(
+        RenameContext context, RenameModule syntax, ExtractionText text, Symbol callee, ExtractionProcedureAnalysis procedure, CallStatementNode call)
+    {
+        private readonly Func<ExpressionNode, SemanticId?> _bindings = NameOccurrences.BindingsOf(context, syntax);
+        private readonly LexicalScope _callerScope = NameOccurrences.ScopeOf(context, syntax, call.SourceLocation.Range.Start);
+        private readonly HashSet<string> _taken = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<SemanticId, string> _replacements = [];
+        private readonly List<string> _before = [];
+        private readonly List<string> _after = [];
+
+        public (InlinedCall? Inlined, InlineRefusal? Refusal) Write()
+        {
+            // the names the caller writes, and those the body writes that are not its own parameters and locals, which it takes along.
+            var body = BodyRange();
+            var own = procedure.Scope.Declarations.Select(symbol => symbol.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var used in NameOccurrences.NamesIn(syntax, body).Where(used => !own.Contains(used)).Concat(NameOccurrences.NamesIn(syntax, CallerRange())))
+            {
+                _taken.Add(used);
+            }
+
+            if ((Arguments() ?? Locals()) is { } refused)
+            {
+                return (null, refused);
+            }
+            var inlined = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after]);
+            return (new InlinedCall(syntax.Module, callee, [new RefactorTextEdit { Range = call.SourceLocation.Range, NewText = inlined }]), null);
+        }
+
+        // the lines of the body, after the header and before End Sub; the lines of a procedure are its own, from their start.
+        private SourceRange BodyRange()
+        {
+            var declaration = procedure.Declaration;
+            var header = declaration.ParameterListRange?.End.Line ?? declaration.NameRange?.End.Line ?? declaration.SourceLocation.Range.Start.Line;
+            while (text.Of(new SourceRange(new SourcePosition(header, 0), new SourcePosition(header + 1, 0))).TrimEnd('\r', '\n').EndsWith(" _", StringComparison.Ordinal))
+            {
+                header++;
+            }
+
+            return new SourceRange(new SourcePosition(header + 1, 0), new SourcePosition(declaration.EndRange?.Start.Line ?? declaration.SourceLocation.Range.End.Line, 0));
+        }
+
+        private SourceRange CallerRange()
+            => NameOccurrences.Walk(syntax.Syntax).Select(each => each.Node).OfType<MemberDeclarationNode>()
+                .First(member => member.SourceLocation.Range.Start <= call.SourceLocation.Range.Start && call.SourceLocation.Range.End <= member.SourceLocation.Range.End)
+                .SourceLocation.Range;
+
+        // each parameter bound to its argument, in parameter order (MS-VBAL §5.3.1.11).
+        private InlineRefusal? Arguments()
+        {
+            var parameters = ParametersOf(callee);
+            var map = ArgumentMapping.Map(parameters, call.Arguments);
+            if (map.Error is not ArgumentMappingError.None || map.Mapped is not { } mapped)
+            {
+                return new(InlineRefusalKind.ArgumentsDoNotMap, callee.Name, call.SourceLocation);
+            }
+
+            var written = procedure.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry).Select(definition => definition.Variable).ToHashSet();
+            var read = procedure.Accesses.Uses.Select(use => use.Variable).ToHashSet();
+            for (var index = 0; index < parameters.Length; index++)
+            {
+                var parameter = procedure.Scope.Declarations.OfType<VBParameterSymbol>()
+                    .First(symbol => symbol.Name.Equals(parameters[index].Name, StringComparison.OrdinalIgnoreCase));
+                var argument = mapped[index]!;
+                var argumentText = text.Of(argument.SourceLocation.Range).Trim();
+                var type = (parameter as ITypedSymbol)?.ResolvedType;
+                var variable = VariableOf(argument);
+                if (BoundArgument.IsByRef(parameter) && variable is ITypedSymbol { ResolvedType: { } given } && (type is VBVariantType || SameType(given, type)))
+                {
+                    _replacements[parameter.SemanticId] = argumentText;
+                    continue;
+                }
+
+                if (BoundArgument.IsByRef(parameter) && argument is IndexExpressionNode or MemberAccessExpressionNode && IsStorage(argument))
+                {
+                    return new(InlineRefusalKind.ByRefElement, parameter.Name, argument.SourceLocation);
+                }
+
+                if (type is null or VBArrayType or VBUserDefinedType or VBUnknownType or VBUnresolvedType)
+                {
+                    return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, argument.SourceLocation);
+                }
+
+                var isObject = type is VBClassType or VBObjectType;
+                if (!read.Contains(parameter.SemanticId) && !written.Contains(parameter.SemanticId) && (argument is LiteralExpressionNode || variable is not null))
+                {
+                    continue;
+                }
+
+                // a Variant takes an object as it is given one, which an assignment does not know when the argument is not of a known intrinsic type.
+                if (type is VBVariantType && TypeOf(argument, variable) is not (VBIntrinsicType and not VBVariantType and not VBObjectType))
+                {
+                    return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, argument.SourceLocation);
+                }
+
+                var local = Fresh(parameter.Name);
+                _replacements[parameter.SemanticId] = local;
+                _before.Add($"Dim {local} As {NameOfType(type)}");
+                _before.Add($"{(isObject ? "Set " : string.Empty)}{local} = {argumentText}");
+            }
+
+            return null;
+        }
+
+        // the locals of the body, renamed where their names mean something else at the call; reset when the body may read them before writing them, and let
+        // go of after it when they are objects.
+        private InlineRefusal? Locals()
+        {
+            var live = LiveVariables.Of(procedure.Graph, procedure.Accesses).LiveBefore(procedure.Graph.Entry);
+            foreach (var local in procedure.Scope.Declarations.Where(symbol => symbol is not VBParameterSymbol))
+            {
+                var name = Fresh(local.Name);
+                _replacements[local.SemanticId] = name;
+                if (local is VBLocalVariableSymbol variable && variable.DeclaredBy.IsImplicit())
+                {
+                    _before.Add($"Dim {name}");
+                }
+
+                var type = (local as ITypedSymbol)?.ResolvedType;
+                if (local is VBLocalVariableSymbol && live.Contains(local.SemanticId))
+                {
+                    if (DefaultOf(type, name) is not { } reset)
+                    {
+                        return new(InlineRefusalKind.UnsupportedConstruct, local.Name);
+                    }
+
+                    _before.Add(reset);
+                }
+
+                if (local is VBLocalVariableSymbol && type is VBClassType or VBObjectType)
+                {
+                    _after.Add($"Set {name} = Nothing");
+                }
+            }
+
+            return null;
+        }
+
+        // the lines of the body, its names bound to the parameters and locals written as the call site names them, and its Exit Sub, when it is its last
+        // statement, dropped.
+        private IEnumerable<string> BodyLines(SourceRange body)
+        {
+            var edits = new List<(SourceRange Range, string NewText)>();
+            foreach (var group in _replacements.GroupBy(each => NameOf(each.Key)))
+            {
+                foreach (var occurrence in NameOccurrences.Find(context, group.Key, [syntax]).Occurrences
+                    .Where(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Declaration && Within(each.Range, body) && each.Binding is { } bound && _replacements.ContainsKey(bound)))
+                {
+                    var replacement = _replacements[occurrence.Binding!.Value];
+                    var declared = text.Of(occurrence.Range);
+                    edits.Add((occurrence.Range, occurrence.Kind is OccurrenceKind.Declaration ? replacement + declared[NameLength(declared)..] : replacement));
+                }
+            }
+
+            if (procedure.Instructions.Items.FirstOrDefault(instruction => instruction.Kind is InstructionKind.ExitProcedure) is { Node: { } exit })
+            {
+                edits.Add((new SourceRange(new SourcePosition(exit.SourceLocation.Range.Start.Line, 0), new SourcePosition(exit.SourceLocation.Range.End.Line + 1, 0)), string.Empty));
+            }
+
+            var written = text.Of(body);
+            var start = text.OffsetOf(body.Start);
+            foreach (var (range, newText) in edits.DistinctBy(edit => edit.Range).OrderByDescending(edit => edit.Range.Start))
+            {
+                var from = text.OffsetOf(range.Start) - start;
+                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.OffsetOf(range.End) - start));
+            }
+
+            return written.TrimEnd('\r', '\n').Split('\n').Select(line => line.TrimEnd('\r').TrimStart());
+        }
+
+        private static string NameOf(SemanticId id) => id.Uri.Fragment[(id.Uri.Fragment.LastIndexOf('.') + 1)..];
+
+        private static int NameLength(string written) => written.TakeWhile(character => char.IsLetterOrDigit(character) || character == '_').Count();
+
+        private static bool Within(SourceRange range, SourceRange body) => body.Start <= range.Start && range.End <= body.End;
+
+        // the variable an argument names, alone: a local, a parameter or a field.
+        private Symbol? VariableOf(ExpressionNode argument)
+            => argument is SimpleNameExpressionNode && _bindings(argument) is { } id && NameOccurrences.SymbolOf(context, id) is { } symbol
+               && symbol is VBLocalVariableSymbol or VBParameterSymbol or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol
+                ? symbol
+                : null;
+
+        // an element of an array or a field of a Type that a reference can be to, which no variable stands for at the call.
+        private bool IsStorage(ExpressionNode argument)
+            => _bindings(argument) is not { } id
+               || NameOccurrences.SymbolOf(context, id) is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol or VBExternalFunctionMemberSymbol);
+
+        private VBType? TypeOf(ExpressionNode argument, Symbol? variable) => argument switch
+        {
+            LiteralExpressionNode literal => literal.StaticValue?.TypeInfo,
+            _ => (variable as ITypedSymbol)?.ResolvedType,
+        };
+
+        private static bool SameType(VBType given, VBType? type)
+            => type is not null && given.GetType() == type.GetType() && given.Name.Equals(type.Name, StringComparison.OrdinalIgnoreCase);
+
+        private static string NameOfType(VBType type) => type is VBFixedStringType ? "String" : type.Name;
+
+        // the statement that gives a local its type's default value (MS-VBAL §5.4.3.1); none for a type that has none to give.
+        private static string? DefaultOf(VBType? type, string name) => type switch
+        {
+            VBClassType or VBObjectType => $"Set {name} = Nothing",
+            VBStringType => $"{name} = vbNullString",
+            VBBooleanType => $"{name} = False",
+            VBVariantType => $"{name} = Empty",
+            VBDateType or VBNumericType => $"{name} = 0",
+            _ => null,
+        };
+
+        // the name of the callee's, or the name followed by a number: one that nothing at the call, or in the body, means already.
+        private string Fresh(string name)
+        {
+            var candidate = name;
+            for (var index = 2; !IsFree(candidate); index++)
+            {
+                candidate = $"{name}{index}";
+            }
+
+            _taken.Add(candidate);
+            return candidate;
+        }
+
+        private bool IsFree(string name)
+            => !_taken.Contains(name)
+               && NewNames.ValidityOf(name) is NewNameValidity.Valid
+               && !_callerScope.SelfAndAncestors().Any(scope => scope.DeclaredAs(name).Any())
+               && NewNames.RebindingOf(context, syntax, _callerScope, name) is null;
+    }
+}
