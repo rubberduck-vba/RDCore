@@ -423,6 +423,15 @@ internal sealed class DefineSymbolsHandler(
             return [];
         }
 
+        // a UserControl's, a PropertyPage's or a UserDocument's code names the members of the class its designer block names (VBClassModuleSymbol.BaseClass):
+        // the project's symbol of the module is made without its source being read, and is given its base class before the code is bound.
+        if (module is VBClassModuleSymbol classModule && !Equals(parseResult.Designer?.BaseClass, classModule.BaseClass)
+            && session.Symbols.TryRedefine(classModule with { BaseClass = parseResult.Designer?.BaseClass }, classModule.ScopeKind)
+            && session.Symbols.TryGetModule(request.ModuleName, out var based))
+        {
+            module = based;
+        }
+
         return Load(target, request.ModuleName, module, parseResult);
     }
 

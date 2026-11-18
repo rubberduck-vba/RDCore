@@ -24,6 +24,7 @@ namespace RDCore.Tests.LanguageServer;
 /// A client that opens several folders (<strong>LSP 3.17</strong> <c>workspaceFolders</c>): each folder that is a project's is loaded as one, a folder that only
 /// holds the sources a project lists is not, and a file no folder holds is refused.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceFoldersLoadTests
 {

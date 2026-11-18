@@ -12,6 +12,7 @@ namespace RDCore.Tests.Client;
 /// <c>--pipe-name {pipe} --workspace {workspaceUri}</c>) from the pre-launch preparation (<see cref="RDCoreLanguageServerLaunch"/>), answers the LSP
 /// <c>initialize</c> request, and then the platform handshake, over the IDE's own LSP connection.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("Platform")]
 public sealed class LanguageServerStartedByAnIdeTests

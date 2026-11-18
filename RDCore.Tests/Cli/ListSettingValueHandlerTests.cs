@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using RDCore.CLI.App.Configuration;
 using RDCore.SDK.Extensibility;
@@ -10,13 +11,17 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The shell takes the change of a list of its user's settings the language server asks for (<c>rdcore/settings/listValue</c>): a code disabled by a code action
-/// is added to the user's list, as <c>CONFIG</c> would add it, and the language server told the settings changed. A list of a workspace's settings is not the shell's.
+/// is added to the user's list, as <c>CONFIG</c> would add it, and the language server told the settings changed. A list of the workspace's settings is
+/// changed in the file of the shell's workspace.
 /// </summary>
 [TestClass]
 public sealed class ListSettingValueHandlerTests
 {
     private const string Key = "Analysis.DisabledDiagnostics";
     private static readonly string UserFolder = Path.Combine(Path.GetTempPath(), "rdcore-listvalue-user");
+    private static readonly string WorkspaceFolder = Path.Combine(Path.GetTempPath(), "rdcore-listvalue-ws");
+
+    private readonly MockFileSystem _fileSystem = new();
 
     private readonly PlatformSettings _settings;
     private readonly ILiveSettings _live = Substitute.For<ILiveSettings>();
@@ -28,10 +33,11 @@ public sealed class ListSettingValueHandlerTests
         environment.UserDataDirectory.Returns(UserFolder);
         var extensions = Substitute.For<IExtensionsProvider>();
         extensions.Discover().Returns([]);
-        _settings = new PlatformSettings(new MockFileSystem(), environment, extensions);
+        _settings = new PlatformSettings(_fileSystem, environment, extensions);
     }
 
-    private ListSettingValueHandler Sut() => new(_settings, _live, new LiveSettingsNotifier(_ => { _told++; return Task.CompletedTask; }));
+    private ListSettingValueHandler Sut() => new(_settings, _live, new LiveSettingsNotifier(_ => { _told++; return Task.CompletedTask; }),
+        Options.Create(new SdkAppOptions { Workspace = new() { WorkspaceUri = WorkspaceFolder } }));
 
     private static ListSettingValueRequest Change(string value, bool remove = false, SettingScope scope = SettingScope.Platform)
         => new(new ListSettingValueParams { Key = Key, Value = value, Scope = scope, Remove = remove, Document = new Uri("file:///c:/ws/Module1.bas") });
@@ -76,12 +82,35 @@ public sealed class ListSettingValueHandlerTests
     }
 
     [TestMethod]
-    public async Task AChangeOfAWorkspacesList_IsNotTheShells_AndIsNotApplied()
+    public async Task AChangeOfTheWorkspacesList_IsMadeInTheWorkspacesFile_AndNotInTheUsers()
     {
-        var answer = await Sut().Handle(Change("RDC01002", scope: SettingScope.Workspace), CancellationToken.None);
+        _fileSystem.AddFile(WorkspaceSettingsStore.PathIn(WorkspaceFolder), new MockFileData("""{ "ProgramSettings": { "MyApp": { "Theme": "Dark" } } }"""));
+
+        var answer = await Sut().Handle(Change("rdc01002", scope: SettingScope.Workspace), CancellationToken.None);
+        await Sut().Handle(Change("RDC01003", scope: SettingScope.Workspace), CancellationToken.None);
+        await Sut().Handle(Change("RDC01003", remove: true, scope: SettingScope.Workspace), CancellationToken.None);
+
+        Assert.IsTrue(answer.Applied);
+        Assert.IsNull(Listed());
+        CollectionAssert.AreEqual(new[] { "RDC01002" }, _settings.Workspace.Read(new Uri(WorkspaceFolder), Key).ToArray());
+        StringAssert.Contains(_fileSystem.File.ReadAllText(WorkspaceSettingsStore.PathIn(WorkspaceFolder)), "Dark");
+        Assert.AreEqual(3, _told);
+    }
+
+    [TestMethod]
+    public async Task AWorkspace_IsNotAskedToKeepATrustSensitiveList()
+    {
+        var request = new ListSettingValueRequest(new ListSettingValueParams
+        {
+            Key = "Platform.Extensions.Allowed",
+            Value = "Anything",
+            Scope = SettingScope.Workspace,
+        });
+
+        var answer = await Sut().Handle(request, CancellationToken.None);
 
         Assert.IsFalse(answer.Applied);
-        Assert.IsNull(Listed());
+        Assert.IsFalse(_fileSystem.File.Exists(WorkspaceSettingsStore.PathIn(WorkspaceFolder)));
         Assert.AreEqual(0, _told);
         _live.DidNotReceive().Refresh();
     }

@@ -25,6 +25,7 @@ namespace RDCore.Tests.Cli.Repl;
 /// A question the language server asks the shell (<c>window/showMessageRequest</c>) over the shell's own language client: it is answered whatever else the
 /// server sends while the user is asked.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ReplQuestionWireTests
 {

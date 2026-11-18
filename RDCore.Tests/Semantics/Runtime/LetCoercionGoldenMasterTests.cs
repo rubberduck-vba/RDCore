@@ -39,6 +39,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// The snapshot is <c>GoldenMasters/let-coercions.txt.gz</c>, next to this file, recorded and compared as <see cref="GoldenMaster"/> says.
 /// </para>
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.5.1.2 Let-coercion")]
 public sealed class LetCoercionGoldenMasterTests : LetCoercionRuntimeSemanticsTests

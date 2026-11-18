@@ -296,6 +296,9 @@ public sealed class EnvironmentSessionProvider(
         ModuleCount = project.Modules.Length;
         // App says the program is the workspace project, run from its folder; a built program says otherwise once it is composed.
         SessionApplication.Of(_session).Runs(project.Name, FolderOf(workspaceRoot) ?? string.Empty);
+        // and its forms keep the system's theme as the project says, until the program says otherwise: the host knows it before it makes the first one.
+        SessionApplication.Of(_session).KeepSystemTheme = project.KeepSystemTheme;
+        Outside.Forms.KeepSystemTheme = project.KeepSystemTheme;
         _directoryBefore = CurrentDirectory();
         EnterWorkspaceRoot(workspaceRoot);
 
@@ -352,6 +355,8 @@ public sealed class EnvironmentSessionProvider(
 
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
         var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], output, libraries: source);
+        // a predefined constant the project defines has the project's value on every platform a #If is evaluated for, and not that platform's.
+        RDCore.Runtime.Semantics.Precompiler.ProjectConditionalConstants.Set(session, project.PrecompilerConstants.Select(constant => constant.Key));
         // an error raised with no source is the project's (Err.Source).
         if (project.Name is { Length: > 0 } name)
         {

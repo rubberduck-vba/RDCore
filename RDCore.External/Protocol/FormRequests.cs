@@ -47,6 +47,11 @@ public sealed record class FormCreateParams : AutomationRequest
     /// </summary>
     public string? DesignerText { get; init; }
 
+    /// <summary>
+    /// Whether the program that makes the form runs unattended (<see cref="FormDefinition.Unattended"/>).
+    /// </summary>
+    public bool Unattended { get; init; }
+
     /// <summary>The request for <paramref name="form"/>.</summary>
     /// <param name="form">The form.</param>
     /// <param name="handlingEvent">The event whose handler asks for it, if one does.</param>
@@ -62,6 +67,7 @@ public sealed record class FormCreateParams : AutomationRequest
         ClientHeight = form.ClientHeight,
         Kind = form.Kind,
         DesignerText = form.DesignerText,
+        Unattended = form.Unattended,
         HandlingEvent = handlingEvent,
     };
 
@@ -76,6 +82,7 @@ public sealed record class FormCreateParams : AutomationRequest
         ClientHeight = ClientHeight,
         Kind = Kind,
         DesignerText = DesignerText,
+        Unattended = Unattended,
     };
 }
 
@@ -104,6 +111,17 @@ public sealed record class FormHoldParams : AutomationRequest
 /// <summary>Request for <see cref="ExternalProtocol.FormDoEvents"/>.</summary>
 public sealed record class FormDoEventsParams : AutomationRequest
 {
+}
+
+/// <summary>
+/// Request for <see cref="ExternalProtocol.FormKeepSystemTheme"/>.
+/// </summary>
+public sealed record class FormKeepSystemThemeParams : AutomationRequest
+{
+    /// <summary>
+    /// Whether the forms' windows follow the application's theme.
+    /// </summary>
+    public bool KeepSystemTheme { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.FormHide"/> and <see cref="ExternalProtocol.FormIsShown"/>.</summary>

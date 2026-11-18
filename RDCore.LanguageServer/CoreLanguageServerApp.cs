@@ -142,6 +142,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<RefactorIdentifierCheckHandler>();
         builder.WithHandler<Server.Handlers.Workspace.ExecuteCommandHandler>();
         builder.WithHandler<InlayHintHandler>();
+        builder.WithHandler<Debugging.InlineValueHandler>();
+        builder.WithHandler<LinkedEditingRangeHandler>();
         builder.WithHandler<CodeLensHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
