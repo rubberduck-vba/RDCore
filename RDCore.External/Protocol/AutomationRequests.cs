@@ -94,6 +94,11 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/forms/doEvents</c>: dispatches the messages that wait in the forms' windows (<see cref="Forms.IFormHost.DoEvents"/>).</summary>
     public const string FormDoEvents = "rdcore/external/forms/doEvents";
 
+    /// <summary>
+    /// <c>rdcore/external/forms/keepSystemTheme</c>: whether the forms' windows follow the application's theme (<see cref="Forms.IFormHost.KeepSystemTheme"/>).
+    /// </summary>
+    public const string FormKeepSystemTheme = "rdcore/external/forms/keepSystemTheme";
+
     /// <summary><c>rdcore/external/native/call</c>: calls a function of a native library, as a <c>Declare</c> names it.</summary>
     public const string NativeCall = "rdcore/external/native/call";
 

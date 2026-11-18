@@ -277,7 +277,7 @@ public sealed class VbpProjectImporterTests
             OtherFiles = [new RDCoreFile { RelativeUri = "readme.txt", ExtensionData = Said("""{ "Preview": true }""") }],
         }) with
         {
-            Version = "1.1",
+            Version = "1.3",
         };
 
         var info = Import().Into(existing, @"C:\ws").ProjectInfo;

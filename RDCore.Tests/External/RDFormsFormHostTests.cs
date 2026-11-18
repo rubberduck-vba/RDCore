@@ -639,6 +639,97 @@ public sealed class RDFormsFormHostTests
         Assert.AreEqual(unchecked((int)0x80040154), failure.HResult);
     }
 
+    // whether the window of a form of the host follows the application's theme, as the window says on the UI thread.
+    private static bool KeepsSystemTheme(object form) => RDFormsUI.Run(() => ((RDFormsObject)form).Form.Window.KeepSystemTheme);
+
+    // the value said before the host makes its first form is that form's window's before anything shows it, and one said after is every window's.
+    [TestMethod]
+    public void KeepSystemTheme_SaidBeforeAFormIsMade_IsItsWindows_AndSaidAfter_IsEveryWindows()
+    {
+        var host = Host();
+        host.KeepSystemTheme = true;
+        var first = host.Create(VisualBasicForm());
+        var second = host.Create(VisualBasicForm());
+        try
+        {
+            Assert.IsTrue(KeepsSystemTheme(first));
+            Assert.IsTrue(KeepsSystemTheme(second));
+
+            host.KeepSystemTheme = false;
+
+            Assert.IsFalse(host.KeepSystemTheme);
+            Assert.IsFalse(KeepsSystemTheme(first));
+            Assert.IsFalse(KeepsSystemTheme(second));
+        }
+        finally
+        {
+            host.Destroy(first);
+            host.Destroy(second);
+        }
+    }
+
+    // an external host's forms: RDForms' follow the value, and a UserForm's host, whose forms have no theme, is never told it.
+    [TestMethod]
+    public void AnExternalHost_GivesKeepSystemTheme_ToTheRDFormsWindows_AndNotToTheUserFormsHost()
+    {
+        var userForms = NSubstitute.Substitute.For<IFormHost>();
+        var (_, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, userForms, new FormsOptions { Headless = true });
+
+        forms.KeepSystemTheme = true;
+        var form = forms.Create(VisualBasicForm());
+        try
+        {
+            Assert.IsTrue(forms.KeepSystemTheme);
+            Assert.IsTrue(KeepsSystemTheme(form));
+            Assert.IsFalse(NSubstitute.SubstituteExtensions.ReceivedCalls(userForms)
+                .Any(call => call.GetMethodInfo().Name.EndsWith(nameof(IFormHost.KeepSystemTheme), StringComparison.Ordinal)));
+        }
+        finally
+        {
+            forms.Destroy(form);
+        }
+    }
+
+    // with RDForms turned off, an external host hosts no form that has a theme: the value is not kept, and nothing fails.
+    [TestMethod]
+    public void AnExternalHost_WithRDFormsTurnedOff_KeepsNoTheme()
+    {
+        var (_, forms) = RDFormsHosting.Compose(
+            UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { VB = VisualBasicFormsHost.Off });
+
+        forms.KeepSystemTheme = true;
+
+        Assert.IsFalse(forms.KeepSystemTheme);
+    }
+
+    // what the environment host asks over the wire is what the external host's forms are given.
+    [TestMethod]
+    [DataRow(true, DisplayName = "follow the application's theme")]
+    [DataRow(false, DisplayName = "stay light")]
+    public void AnExternalHost_AskedToKeepTheSystemTheme_GivesItToItsForms(bool keep)
+    {
+        var forms = NSubstitute.Substitute.For<IFormHost>();
+
+        var answered = new ExternalAutomationService(UnavailableAutomationServer.Instance, forms)
+            .KeepSystemTheme(new FormKeepSystemThemeParams { KeepSystemTheme = keep });
+
+        Assert.IsNotNull(answered);
+        Assert.AreEqual(keep, forms.KeepSystemTheme);
+    }
+
+    // the environment host's client of an external host keeps the value, and an external host that is not running is not started to be told it.
+    [TestMethod]
+    public void TheClientOfAnExternalHost_KeepsKeepSystemTheme_WithoutStartingIt()
+    {
+        using var host = ExternalHosts.New(canStart: () => false);
+        IFormHost forms = new RDCore.External.Client.RemoteAutomationServer(host);
+
+        forms.KeepSystemTheme = true;
+
+        Assert.IsTrue(forms.KeepSystemTheme);
+        Assert.IsNull(host.Running);
+    }
+
     // what an external host tells its environment host, which raises 429 at the New of a Visual Basic 6.0 form's class where nothing hosts its form.
     [TestMethod]
     [DataRow(VisualBasicFormsHost.RDForms, true, DisplayName = "RDForms hosts them")]
