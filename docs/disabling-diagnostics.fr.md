@@ -32,8 +32,20 @@ Un code qui ne peut pas être désactivé est refusé. `rdc config` règle la m�
 Tout de suite, pendant que la plateforme tourne : la prochaine analyse d'un document laisse de côté les codes désactivés, et les diagnostics déjà affichés
 sont rafraîchis. Une liste réglée avec `rdc config`, sans plateforme en marche, s'applique au prochain démarrage de la plateforme.
 
-> [!NOTE]
-> **Non implémenté.** Un diagnostic ne peut pas être désactivé pour un seul espace de travail.
+## Pour un seul espace de travail
+
+Un espace de travail peut désactiver ses propres codes, dans la section `Configuration` du fichier `appsettings.json` à sa racine :
+
+```json
+{
+  "Configuration": {
+    "Analysis": { "DisabledDiagnostics": [ "RDC01001" ] }
+  }
+}
+```
+
+Quiconque ouvre l'espace de travail a ces codes désactivés en plus des siens : la liste de l'espace de travail s'ajoute à la vôtre et ne lui retire rien.
+La plateforme lit le fichier à son démarrage.
 
 Voir [Diagnostics](diagnostics/index.md) pour les codes, et
 [**RD-VBAL §2.3.3** Configuration](specs/rd-vbal.2.3.3.configuration.md#disabled-diagnostics) pour le paramètre.

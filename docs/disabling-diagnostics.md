@@ -31,8 +31,20 @@ A code that cannot be disabled is refused. `rdc config` sets the same list from 
 At once, while the platform runs: the next analysis of a document leaves the disabled codes out, and the diagnostics already shown are refreshed. A list
 set with `rdc config`, with no platform running, applies when the platform next starts.
 
-> [!NOTE]
-> **Not implemented.** A diagnostic cannot be disabled for one workspace only.
+## For one workspace
+
+A workspace can disable codes of its own, in the `Configuration` section of the `appsettings.json` at its root:
+
+```json
+{
+  "Configuration": {
+    "Analysis": { "DisabledDiagnostics": [ "RDC01001" ] }
+  }
+}
+```
+
+Whoever opens the workspace has these codes disabled as well as their own: the workspace's list adds to yours and takes nothing from it. The platform reads
+the file when it starts.
 
 See [Diagnostics](diagnostics/index.md) for the codes, and
 [**RD-VBAL §2.3.3** Configuration](specs/rd-vbal.2.3.3.configuration.md#disabled-diagnostics) for the setting.

@@ -101,13 +101,29 @@ Each component reads it after its deployed `appsettings.json`, and before the en
 |---|---|
 |`appsettings.json`, deployed with the component|Lowest.|
 |`user.settings.json`|Takes the place of the deployed value.|
-|Environment variables (`Configuration__Server__Verbose`)|Take the place of the user's value.|
+|The `Configuration` section of the workspace's `appsettings.json` ([Workspace Settings](#workspace-settings))|Takes the place of the user's value. A list adds to the user's.|
+|Environment variables (`Configuration__Server__Verbose`)|Take the place of the workspace's value.|
 |The command line|Highest.|
 
 Of the file, only values the settings can be are read: a value a setting cannot be, a value of a `Deployment` setting, and a file that is not JSON are not read.
 A file written by hand never keeps the platform from starting. A setting the component does not know of is read as it is: it is another component's.
 
 A component reads the file when it starts, and not again: that is when a `NextStart` setting takes effect.
+
+## Workspace Settings
+
+A workspace sets values for itself in the `Configuration` section of the `appsettings.json` at its root, for whoever opens it
+([`WorkspaceSettingsConfiguration`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.WorkspaceSettingsConfiguration.html)).
+The same file holds the program's own settings, under `ProgramSettings`
+([**RD-VBAL §2.1.1.1** Workspace Application Settings](rd-vbal.2.1.implicit-storage.md#2111-workspace-application-settings)); the platform
+does not read that section.
+
+- A component reads the file when it starts, from the folder its command line names (`--workspace`).
+- A workspace cannot set a `Deployment` setting, or a trust-sensitive one: `Environment.AllowDllImports`, `Environment.AllowAutomation`,
+  `Environment.LegacyRegistrySettings`, `Platform.Extensions.*`. A workspace can come from anywhere, and grants itself no rights.
+- Only values the settings can be are read. A setting the component does not know of is not read.
+- A list is the user's items, followed by the workspace's items that are not among them.
+- While the platform runs, a live setting the workspace sets keeps the workspace's value, whatever the client says of the user's.
 
 ## Live Settings
 
@@ -153,8 +169,11 @@ A live setting is set on the object the component reads its settings off, in pla
   client to make the change (`rdcore/settings/listValue`), as a client owns its user's settings: only a client that expects that request is offered the fix.
   The shell makes it as `CONFIG` would.
 
+- A workspace's list ([Workspace Settings](#workspace-settings)) adds to the user's. The shell changes it when it is asked to change the workspace's list
+  (`rdcore/settings/listValue`, scope `Workspace`); the language server reads it again when the client says its settings changed.
+
 > [!NOTE]
-> **Not implemented.** A workspace has no list of its own: a request to change a workspace's list is declined.
+> **Not implemented.** No quick fix disables a code for the workspace only.
 
 ## Formatting
 
