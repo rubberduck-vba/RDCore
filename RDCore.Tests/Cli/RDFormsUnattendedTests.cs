@@ -5,9 +5,9 @@ using System.Diagnostics;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The RDForms forms of a program run unattended (<c>rdc run --unattended</c>): nobody sees them, so they are loaded where no screen is needed, and a program's
-/// tests that load and unload forms run on a machine with no display. Showing one is a dialog nobody answers. The windows are the process's once, so each
-/// program runs in an <c>rdc</c> of its own, with no display to open.
+/// The RDForms forms of a program run unattended (<c>rdc run --unattended</c>): nobody sees them, so they are loaded where no screen is needed, and a
+/// program's tests that load and unload forms run on a machine with no display. Showing one is a dialog nobody answers. The windows are the process's
+/// once, so each program runs in an <c>rdc</c> of its own, with no display to open.
 /// </summary>
 [TestClass]
 [TestCategory("External host")]

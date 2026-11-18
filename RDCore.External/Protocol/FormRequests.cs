@@ -48,7 +48,7 @@ public sealed record class FormCreateParams : AutomationRequest
     public string? DesignerText { get; init; }
 
     /// <summary>
-    /// <see cref="FormDefinition.Unattended"/>.
+    /// Whether the program that makes the form runs unattended (<see cref="FormDefinition.Unattended"/>).
     /// </summary>
     public bool Unattended { get; init; }
 
