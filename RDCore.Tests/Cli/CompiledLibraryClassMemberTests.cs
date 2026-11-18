@@ -257,7 +257,7 @@ public sealed class CompiledLibraryClassMemberTests
             "    Held = TypeName(V)",
             "End Function"]), "Held", expected: "Holder ; 13", walkBacks: 1);
 
-    // an Item that is no scalar, let and set (MS-VBAL §5.4.3.8, §5.4.3.9): an array a Variant held as it was added, a Long array copied into one, a
+    // an Item of a type other than a scalar one, let and set (MS-VBAL §5.4.3.8, §5.4.3.9): an array a Variant held as it was added, a Long array copied into one, a
     // Collection, and a scalar; each assigned as the interpreter assigns it, the error of a let or a set it cannot make included.
     [TestMethod]
     [DataRow("Dim Found As Variant ;; Found = C(\"a\") ;; Probe = TypeName(Found) & UBound(Found)", DisplayName = "a Variant let a Variant's array")]
