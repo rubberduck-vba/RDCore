@@ -39,8 +39,8 @@ public sealed class CompiledLibraryClassMemberTests
             "End Property")),
     ];
 
-    // the lines that make a Collection of items no scalar is, but the last, in C: an array of Variants, an array of Longs, a Variant holding an array
-    // of Variants that hold Strings, an object whose default member is a Long, and an Integer.
+    // the lines that make a Collection, in C, of items that are not scalars, but the last: an array of Variants, an array of Longs, a Variant holding an
+    // array of Variants that hold Strings, an object whose default member is a Long, and an Integer.
     private static readonly string[] Unscalar =
     [
         "    Dim C As Collection",
@@ -58,7 +58,7 @@ public sealed class CompiledLibraryClassMemberTests
     ];
 
     // the program run both ways, printing expected; the procedure named compiled, its activations handed to the interpreter walkBacks times: once for
-    // each that reads an item no scalar is, which the interpreter assigns, and then runs the rest of the activation.
+    // each that reads an item that is not a scalar, which the interpreter assigns, and then runs the rest of the activation.
     private static async Task AssertHandedOverAsync(string program, string procedure, string expected, int walkBacks)
     {
         var compiled = await AssertAlikeAsync(program, Classes, expected);
@@ -194,8 +194,8 @@ public sealed class CompiledLibraryClassMemberTests
             "    Counted = C.Count",
             "End Function"), "Counted", expected: "91", raises: true);
 
-    // an item no scalar is, let to a Variant: an array, of Variants or of Longs, is copied into it as it is (MS-VBAL §5.5.1.2.12), and an object is
-    // let as its default member's value (MS-VBAL §5.6.2.2). The interpreter assigns each; the Integer is compiled code's.
+    // an item that is not a scalar, let to a Variant: an array, of Variants or of Longs, is copied into it as it is (MS-VBAL §5.5.1.2.12), and an
+    // object is let as its default member's value (MS-VBAL §5.6.2.2). The interpreter assigns each; the Integer is compiled code's.
     [TestMethod]
     public async Task AnItemNoScalarIs_LetToAVariant_IsAssignedByTheInterpreter()
         => await AssertHandedOverAsync(Program([
@@ -223,7 +223,7 @@ public sealed class CompiledLibraryClassMemberTests
             "    Second = V(1)",
             "End Function"]), "Second", expected: "2y", walkBacks: 2);
 
-    // an item no scalar is, let to a Double: an array is error 13, which the interpreter raises, and the caller's handler handles; an object is its
+    // an item that is not a scalar, let to a Double: an array is error 13, which the interpreter raises, and the caller's handler handles; an object is its
     // default member's value.
     [TestMethod]
     public async Task AnArrayItem_LetToADouble_RaisesError13()
