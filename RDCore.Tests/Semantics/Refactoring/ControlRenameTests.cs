@@ -153,7 +153,7 @@ public sealed class ControlRenameTests
         Assert.AreEqual(RenameRefusalKind.Conflict, SymbolRename.Plan(context, preparation.Target!, "Choice").Refusal?.Kind);
     }
 
-    // what renaming the control does to a property that holds its name is not known: whether Visual Basic 6.0 edits it is to be measured.
+    // what renaming the control does to a property that holds its name is not known: whether Visual Basic 6.0 edits it is not measured.
     [TestMethod]
     public void AVisualBasic6Control_WhoseNameAPropertyOfItsFormHolds_IsNotRenamed_ForThatReason()
     {
@@ -166,7 +166,7 @@ public sealed class ControlRenameTests
     }
 
     [TestMethod]
-    [Ignore("Not supported yet: renaming a control that a property of its form names (Label1.DataSource names Text1); VB6's own behavior is to be measured.")]
+    [Ignore("Not supported yet: renaming a control that a property of its form names (Label1.DataSource names Text1); VB6's own behavior is not measured.")]
     public void AVisualBasic6Control_WhoseNameAPropertyOfItsFormHolds_IsRenamedThereToo()
     {
         var context = Compose("Picker", Code);
