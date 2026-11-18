@@ -117,17 +117,26 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
     /// Writes the corpus built into <c>rdc</c> to a folder of its own for a session to read, as any workspace is.
     /// </summary>
     /// <returns>The folder, which the caller deletes.</returns>
-    internal static string ExtractCorpus(IFileSystem fileSystem)
+    internal static string ExtractCorpus(IFileSystem fileSystem) => ExtractResources(fileSystem, CorpusResourcePrefix, "bench");
+
+    /// <summary>
+    /// Writes the files embedded in <c>rdc</c> under <paramref name="prefix"/> to a folder of their own, named for <paramref name="name"/> and this process.
+    /// </summary>
+    /// <param name="fileSystem">The file system the folder is made on.</param>
+    /// <param name="prefix">The prefix of the names of the embedded files; each file is written under its name without it.</param>
+    /// <param name="name">The folder's parent, under the <c>RDCore</c> folder of the temporary folder.</param>
+    /// <returns>The folder, which the caller deletes.</returns>
+    internal static string ExtractResources(IFileSystem fileSystem, string prefix, string name)
     {
-        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", name, Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
         fileSystem.Directory.CreateDirectory(folder);
 
         var assembly = typeof(BenchCommand).Assembly;
-        foreach (var resource in assembly.GetManifestResourceNames().Where(name => name.StartsWith(CorpusResourcePrefix, StringComparison.Ordinal)))
+        foreach (var resource in assembly.GetManifestResourceNames().Where(each => each.StartsWith(prefix, StringComparison.Ordinal)))
         {
             using var stream = assembly.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);
-            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[CorpusResourcePrefix.Length..]), reader.ReadToEnd());
+            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[prefix.Length..]), reader.ReadToEnd());
         }
 
         return folder;

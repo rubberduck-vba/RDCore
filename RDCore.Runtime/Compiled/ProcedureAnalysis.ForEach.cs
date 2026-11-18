@@ -26,8 +26,8 @@ internal sealed partial class ProcedureAnalysis
     // MS-VBAL §5.4.2.4: the For Each statement, which evaluates the collection and assigns the control variable its first element, or skips the loop; and its
     // Next, which assigns it the next one, or ends the loop. The interpreter runs either for compiled code (CompiledActivation.StepForEach), the enumerator and
     // the array it reads held in the frame, where the interpreter holds them. The control variable is a Variant or an object, which the frame holds too. One
-    // compiled code holds in a local of its own (a scalar) is the interpreter's to assign, which steps the instruction. A statement inside a With block is
-    // evaluated against the block's object, which the interpreter steps too; its Next evaluates nothing.
+    // compiled code holds in a local of its own (a scalar) is the interpreter's to assign, which steps the instruction. A For Each inside a With block is
+    // evaluated against the block's object, and the interpreter steps it too; its Next evaluates nothing.
     private CompiledStep? ForEachStepOf(Instruction instruction)
     {
         if (instruction is { Kind: InstructionKind.ForEachNext, Matching: { } opener, Target: { } body })

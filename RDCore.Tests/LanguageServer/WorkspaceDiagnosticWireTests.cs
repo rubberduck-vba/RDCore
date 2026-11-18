@@ -25,6 +25,7 @@ namespace RDCore.Tests.LanguageServer;
 /// <c>workspace/diagnostic</c> over the wire: a report for every module, open or not; unchanged for a module the client has the result of; each streamed
 /// to a client that gives a partial result token; and the pull given up for a change to any document.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceDiagnosticWireTests
 {

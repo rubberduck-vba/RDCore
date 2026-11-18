@@ -12,6 +12,7 @@ namespace RDCore.Tests.Cli;
 /// did not know was a mistake. For a verb that made every option of its own one: <c>describe-ext … --description x</c>
 /// failed with "Option 'description' is unknown", and so did the publish script that calls it.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class CommandModeCommandLineTests
 {

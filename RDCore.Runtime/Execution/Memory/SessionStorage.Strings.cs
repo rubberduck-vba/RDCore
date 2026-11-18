@@ -84,6 +84,9 @@ internal sealed partial class SessionStorage
         return true;
     }
 
+    // whether any String is in a BSTR (StrPtr): compiled code's Mid statement leaves the statement to the interpreter then, which writes one in place.
+    internal bool HasStringBlocks => _stringBlocks.Count > 0;
+
     /// <summary>
     /// The <c>BSTR</c> <paramref name="text"/>, the very <c>String</c>, is in, if it is in one: what the <c>Mid</c> statement writes the characters of in place.
     /// </summary>

@@ -7,6 +7,7 @@ namespace RDCore.Tests.Workspace;
 /// Which folders of a workspace are projects and which hold the sources a project lists: the first folder is a project, and so is a folder with a <c>.rdproj</c> of its
 /// own, whatever lists files in it; a folder with none is a source folder when a project before it lists files in it.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceFolderRolesTests
 {

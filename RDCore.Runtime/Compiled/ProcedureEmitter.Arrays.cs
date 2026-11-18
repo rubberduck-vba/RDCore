@@ -313,28 +313,36 @@ internal sealed partial class ProcedureEmitter
                 return AsBoolean();
             }
 
-            // IsEmpty of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls, or the interpreter.
-            case VariantIsEmptyNode isEmpty:
+            // IsEmpty, IsNull or VarType of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls, or the
+            // interpreter.
+            case VariantInformationNode information:
             {
-                var empty = _il.DeclareLocal(typeof(bool));
+                var answer = _il.DeclareLocal(information.Function is VariantInformation.VarType ? typeof(long) : typeof(bool));
                 var result = _il.DeclareLocal(typeof(long));
                 var called = _il.DefineLabel();
                 var done = _il.DefineLabel();
-                _il.Emit(OpCodes.Ldloc, isEmpty.Variant is VariantElementNode element
-                    ? EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure)
-                    : _variants[((VariantSlotNode)isEmpty.Variant).Slot]);
-                _il.Emit(OpCodes.Ldloca, empty);
-                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.IsEmpty))!);
-                _il.Emit(OpCodes.Brfalse, isEmpty.Library is null ? failure : called);
-                _il.Emit(OpCodes.Ldloc, empty);
-                _il.Emit(OpCodes.Neg);
-                _il.Emit(OpCodes.Conv_I8);
+                _il.Emit(OpCodes.Ldloc, EmitVariantCellOf(information.Variant, failure));
+                _il.Emit(OpCodes.Ldloca, answer);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(information.Function switch
+                {
+                    VariantInformation.IsEmpty => nameof(VariantOperations.IsEmpty),
+                    VariantInformation.IsNull => nameof(VariantOperations.IsNull),
+                    _ => nameof(VariantOperations.VarType),
+                })!);
+                _il.Emit(OpCodes.Brfalse, information.Library is null ? failure : called);
+                _il.Emit(OpCodes.Ldloc, answer);
+                if (information.Function is not VariantInformation.VarType)
+                {
+                    _il.Emit(OpCodes.Neg);
+                    _il.Emit(OpCodes.Conv_I8);
+                }
+
                 _il.Emit(OpCodes.Stloc, result);
                 _il.Emit(OpCodes.Br, done);
                 _il.MarkLabel(called);
-                if (isEmpty.Library is { } library)
+                if (information.Library is { } library)
                 {
-                    Load(EmitLibraryCall(library, failure), ScalarKind.Boolean);
+                    Load(EmitLibraryCall(library, failure), information.Kind);
                     _il.Emit(OpCodes.Stloc, result);
                 }
 
@@ -360,6 +368,11 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
         _il.Emit(OpCodes.Brfalse, failure);
     }
+
+    // the cell a Variant compiled code reads in its cell is held in, in a local: a Variant's of the activation, or an element's of an array of Variants.
+    private LocalBuilder EmitVariantCellOf(VariantNode variant, Label failure) => variant is VariantElementNode element
+        ? EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure)
+        : _variants[((VariantSlotNode)variant).Slot];
 
     // the cell an object operand of Is or TypeOf is held in, in a local: an object variable's, a Variant's, or an element's, none when it is outside its
     // dimension, which ObjectOperations reads no reference in.

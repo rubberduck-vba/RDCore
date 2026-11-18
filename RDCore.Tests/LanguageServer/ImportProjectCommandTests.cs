@@ -21,13 +21,14 @@ namespace RDCore.Tests.LanguageServer;
 /// <c>rdcore.importProject</c> makes the <c>.rdproj</c> of a VB6 project in the folder of its <c>.vbp</c>: the one it names, or the one of a folder, which the
 /// user chooses among several; a project file there is replaced only once the user says so.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ImportProjectCommandTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-import-ws");
     private static readonly string Other = Path.Combine(Path.GetTempPath(), "rdcore-import-other");
 
-    private const string Battleship = "Name=\"Battleship\"\r\nModule=modMain; modMain.bas\r\nObject={831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0; MSCOMCTL.OCX\r\n";
+    private const string NavalBattle = "Name=\"NavalBattle\"\r\nModule=modMain; modMain.bas\r\nObject={831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0; MSCOMCTL.OCX\r\n";
 
     private readonly MockFileSystem _fileSystem = new();
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
@@ -70,17 +71,17 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AVbpOfTheWorkspacesFolder_IsTheWorkspacesProject_AsTheServerWritesIt()
     {
-        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Root, "NavalBattle.vbp"), NavalBattle);
 
-        var answer = (JObject)(await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Root, "Battleship.vbp"))), _context, CancellationToken.None))!;
+        var answer = (JObject)(await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Root, "NavalBattle.vbp"))), _context, CancellationToken.None))!;
 
         var change = (Func<ProjectFile, ProjectFile>)_reload.ReceivedCalls().Single().GetArguments()[0]!;
         var project = change(new ProjectFile(Root)).ProjectInfo;
-        Assert.AreEqual("Battleship", project.Name);
+        Assert.AreEqual("NavalBattle", project.Name);
         CollectionAssert.AreEqual(new[] { "modMain.bas" }, project.Modules.Select(module => module.RelativeUri).ToArray());
         await _writer.DidNotReceive().SaveAsync(Arg.Any<ProjectFile>(), Arg.Any<CancellationToken>());
 
-        Assert.AreEqual("Battleship", answer.Value<string>("name"));
+        Assert.AreEqual("NavalBattle", answer.Value<string>("name"));
         Assert.AreEqual(Uri(Path.Combine(Root, ProjectFile.FileName)), answer.Value<string>("projectFile"));
         var note = (JObject)answer["notes"]!.Single();
         Assert.AreEqual("Control", note.Value<string>("kind"));
@@ -94,26 +95,26 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AReimportThatOverwrites_AsksNothing_AndKeepsWhatTheVbpDoesNotDescribe()
     {
-        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Other, "NavalBattle.vbp"), NavalBattle);
         await new ProjectFileWriter(_fileSystem).SaveAsync(new ProjectFile(Other, new RDCoreProject { Name = "Old" }) with { Configuration = ["rdcore.settings.json"] });
 
-        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "NavalBattle.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
 
         Assert.IsEmpty(_context.Asked, "no window/showMessageRequest");
-        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.ProjectInfo.Name == "Battleship"
+        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.ProjectInfo.Name == "NavalBattle"
             && project.Configuration.SequenceEqual(new[] { "rdcore.settings.json" })), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
     public async Task AReimportOfTheWorkspacesFolder_KeepsWhatTheVbpDoesNotDescribe()
     {
-        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Root, "NavalBattle.vbp"), NavalBattle);
 
-        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "NavalBattle.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
 
         var change = (Func<ProjectFile, ProjectFile>)_reload.ReceivedCalls().Single().GetArguments()[0]!;
         var project = change(new ProjectFile(Root, new RDCoreProject { Name = "Old" }) with { Configuration = ["rdcore.settings.json"] });
-        Assert.AreEqual("Battleship", project.ProjectInfo.Name);
+        Assert.AreEqual("NavalBattle", project.ProjectInfo.Name);
         CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration);
     }
 
@@ -124,14 +125,14 @@ public sealed class ImportProjectCommandTests
     public async Task AProjectFileThatCannotBeWritten_IsARefusal_OnOneLine(bool workspace)
     {
         var folder = workspace ? Root : Other;
-        Write(Path.Combine(folder, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(folder, "NavalBattle.vbp"), NavalBattle);
         var denied = new UnauthorizedAccessException($"Access to the path '{Path.Combine(folder, ProjectFile.FileName)}' is denied.");
         _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>())
             .Returns<WorkspaceReloadResult?>(_ => throw new ProjectFileNotWrittenException(denied));
         _writer.SaveAsync(Arg.Any<ProjectFile>(), Arg.Any<CancellationToken>()).Returns(_ => throw denied);
 
         var refused = await Assert.ThrowsAsync<ServerCommandRefusedException>(() => Sut().ExecuteAsync(
-            Argument(new JObject { ["uri"] = Uri(Path.Combine(folder, "Battleship.vbp")), ["text"] = Battleship, ["overwrite"] = true }), _context, CancellationToken.None));
+            Argument(new JObject { ["uri"] = Uri(Path.Combine(folder, "NavalBattle.vbp")), ["text"] = NavalBattle, ["overwrite"] = true }), _context, CancellationToken.None));
 
         // the path is the one of the .vbp's URI, whose drive a file URI spells in lowercase.
         Assert.AreEqual(VbpImportText.NotWritten(Path.Combine(folder, ProjectFile.FileName), denied), refused.Message, ignoreCase: true);
@@ -142,12 +143,12 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AModuleThatCannotBeReadOnceTheProjectFileIsWritten_IsARefusal_ThatSaysTheFileWasWritten()
     {
-        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Root, "NavalBattle.vbp"), NavalBattle);
         var locked = new IOException("The process cannot access the file 'modMain.bas' because it is being used by another process.");
         _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>()).Returns<WorkspaceReloadResult?>(_ => throw locked);
 
         var refused = await Assert.ThrowsAsync<ServerCommandRefusedException>(() => Sut().ExecuteAsync(
-            Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["text"] = Battleship, ["overwrite"] = true }), _context, CancellationToken.None));
+            Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "NavalBattle.vbp")), ["text"] = NavalBattle, ["overwrite"] = true }), _context, CancellationToken.None));
 
         Assert.AreEqual(VbpImportText.NotReloaded(Path.Combine(Root, ProjectFile.FileName), locked), refused.Message, ignoreCase: true);
         StringAssert.Contains(VbpImportText.NotReloaded("ws/.rdproj", locked, System.Globalization.CultureInfo.InvariantCulture), "was written");
@@ -157,7 +158,7 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AVbpThatCannotBeRead_IsARefusal_OnOneLine()
     {
-        _fileSystem.AddFile(Path.Combine(Other, "Locked.vbp"), new MockFileData(Battleship) { AllowedFileShare = FileShare.None });
+        _fileSystem.AddFile(Path.Combine(Other, "Locked.vbp"), new MockFileData(NavalBattle) { AllowedFileShare = FileShare.None });
 
         var refused = await Assert.ThrowsAsync<ServerCommandRefusedException>(
             () => Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Locked.vbp"))), _context, CancellationToken.None));
@@ -179,12 +180,12 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AProjectFileThatCannotBeRead_IsReplacedWhole()
     {
-        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Other, "NavalBattle.vbp"), NavalBattle);
         Write(Path.Combine(Other, ProjectFile.FileName), "this is no JSON");
 
-        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "NavalBattle.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
 
-        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.ProjectInfo.Name == "Battleship" && project.Configuration.Length == 0),
+        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.ProjectInfo.Name == "NavalBattle" && project.Configuration.Length == 0),
             Arg.Any<CancellationToken>());
     }
 
@@ -195,18 +196,18 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AFileInAnotherWorkspaceFolder_IsAModuleOfTheProject_AndOneInNoneIsNoted()
     {
-        Write(Path.Combine(Root, "Battleship.vbp"),
-            $"Name=\"Battleship\"\r\nModule=Util; ..\\{Path.GetFileName(Other)}\\Util.bas\r\nModule=Gone; ..\\rdcore-import-elsewhere\\Gone.bas\r\n");
+        Write(Path.Combine(Root, "NavalBattle.vbp"),
+            $"Name=\"NavalBattle\"\r\nModule=Util; ..\\{Path.GetFileName(Other)}\\Util.bas\r\nModule=Gone; ..\\rdcore-import-elsewhere\\Gone.bas\r\n");
         var projects = Substitute.For<IWorkspaceProjects>();
         projects.Folders.Returns(new WorkspaceFolders([Root, Other]));
 
-        var answer = (JObject)(await Sut(projects).ExecuteAsync(Argument(Uri(Path.Combine(Root, "Battleship.vbp"))), _context, CancellationToken.None))!;
+        var answer = (JObject)(await Sut(projects).ExecuteAsync(Argument(Uri(Path.Combine(Root, "NavalBattle.vbp"))), _context, CancellationToken.None))!;
 
         var change = (Func<ProjectFile, ProjectFile>)_reload.ReceivedCalls().Single().GetArguments()[0]!;
         var imported = change(new ProjectFile(Root)).ProjectInfo;
         CollectionAssert.AreEqual(new[] { $"../{Path.GetFileName(Other)}/Util.bas" }, imported.Modules.Select(module => module.RelativeUri).ToArray());
-        Assert.AreEqual("Battleship.vbp", imported.SourceProject);
-        Assert.AreEqual("Battleship.vbp", change(new ProjectFile(Root, imported)).ProjectInfo.SourceProject);
+        Assert.AreEqual("NavalBattle.vbp", imported.SourceProject);
+        Assert.AreEqual("NavalBattle.vbp", change(new ProjectFile(Root, imported)).ProjectInfo.SourceProject);
         var note = (JObject)answer["notes"]!.Single();
         Assert.AreEqual(nameof(VbpImportNoteKind.OutsideProjectFolder), note.Value<string>("kind"));
         Assert.AreEqual(@"..\rdcore-import-elsewhere\Gone.bas", note.Value<string>("subject"));
@@ -215,13 +216,13 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AVbpOfAnotherFolder_IsWrittenThere()
     {
-        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Other, "NavalBattle.vbp"), NavalBattle);
 
-        await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None);
+        await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "NavalBattle.vbp"))), _context, CancellationToken.None);
 
         // the folder is the one of the .vbp's URI, whose drive a file URI spells in lowercase.
-        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => string.Equals(project.Uri, Other, StringComparison.OrdinalIgnoreCase) && project.ProjectInfo.Name == "Battleship"
-            && project.ProjectInfo.SourceProject == "Battleship.vbp"),
+        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => string.Equals(project.Uri, Other, StringComparison.OrdinalIgnoreCase) && project.ProjectInfo.Name == "NavalBattle"
+            && project.ProjectInfo.SourceProject == "NavalBattle.vbp"),
             Arg.Any<CancellationToken>());
         await _reload.DidNotReceive().ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>());
     }
@@ -240,11 +241,11 @@ public sealed class ImportProjectCommandTests
     [DataRow("Cancel", DisplayName = "the user cancels")]
     public async Task AProjectFileThere_IsNotReplaced_UnlessTheUserSaysSo(string? answer)
     {
-        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Other, "NavalBattle.vbp"), NavalBattle);
         Write(Path.Combine(Other, ProjectFile.FileName), "{}");
         _context.Next.Enqueue(answer);
 
-        await Assert.ThrowsAsync<ServerCommandRefusedException>(() => Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None));
+        await Assert.ThrowsAsync<ServerCommandRefusedException>(() => Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "NavalBattle.vbp"))), _context, CancellationToken.None));
 
         Assert.HasCount(1, _context.Asked);
         CollectionAssert.AreEqual(new[] { VbpImportText.Replace(), VbpImportText.Cancel() }, _context.Asked[0].Choices.ToArray());
@@ -254,12 +255,12 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task AProjectFileThere_IsReplaced_WhenTheUserSaysSo_OrTheClientSaysOverwrite()
     {
-        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Other, "NavalBattle.vbp"), NavalBattle);
         Write(Path.Combine(Other, ProjectFile.FileName), "{}");
         _context.Next.Enqueue(VbpImportText.Replace());
 
-        await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None);
-        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+        await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "NavalBattle.vbp"))), _context, CancellationToken.None);
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "NavalBattle.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
 
         Assert.HasCount(1, _context.Asked, "overwrite asks nothing");
         await _writer.Received(2).SaveAsync(Arg.Any<ProjectFile>(), Arg.Any<CancellationToken>());
@@ -281,7 +282,7 @@ public sealed class ImportProjectCommandTests
     [TestMethod]
     public async Task NoArgument_IsTheWorkspacesFolder()
     {
-        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Root, "NavalBattle.vbp"), NavalBattle);
 
         await Sut().ExecuteAsync(null, _context, CancellationToken.None);
 
