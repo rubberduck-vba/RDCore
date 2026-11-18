@@ -3,9 +3,13 @@ using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
+using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
@@ -83,7 +87,10 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     /// </summary>
     internal static int HelpContextOf(int number)
         => 1000000 + (number is < 0 or > 65535 ? (int)VBRuntimeErrorId.AutomationError
-            : number < (int)VBRuntimeErrorId.NobodyToAnswer && Enum.IsDefined(typeof(VBRuntimeErrorId), number) ? number : 95);
+            : number < (int)VBRuntimeErrorId.NobodyToAnswer && MessageCodes.Contains(number) ? number : 95);
+
+    // the codes of VBA's run-time error messages, looked up at every error raised: read from VBRuntimeErrorId once, and not by reflection at each error.
+    private static readonly FrozenSet<int> MessageCodes = Enum.GetValues<VBRuntimeErrorId>().Select(id => (int)id).ToFrozenSet();
 
     /// <inheritdoc/>
     public bool Clear(bool keepLineNumber = false)
@@ -118,16 +125,34 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     // suspended at, the call expression or call statement that was running. The GoSubs every activation has not returned from are its own, and are
     // captured now: by the time anyone reads the trace they are popped. So is the module each is in, which a position alone does not say: the position is
     // in the module's source, and the module is the parent of the procedure the activation is of.
+    //
+    // code that raises in a loop pays for the capture at every error, so the trace is one array of the stack's depth, filled in place, and the trace holds
+    // that array.
     private VBStackTrace Capture(IVBRaisableError error)
-        => new(
-        [
-            .. callStack.Frames.Select((frame, depth)
-                => new VBStackTraceFrame(frame.StaticSymbol.Name, depth == 0 ? error.Location : (frame as CallStackFrame)?.CurrentLocation, GoSubsOf(frame))
-                {
-                    Module = frame is CallStackFrame { Procedure: { } procedure } ? SymbolUri.ModuleNameOf(procedure.ParentUri) : string.Empty,
-                }),
-        ]);
+    {
+        var frames = callStack.Frames;
+        var trace = new VBStackTraceFrame[frames is IReadOnlyCollection<ICallStackFrame> collection ? collection.Count : frames.Count()];
+        var depth = 0;
+        foreach (var frame in frames)
+        {
+            var activation = frame as CallStackFrame;
+            trace[depth] = new VBStackTraceFrame(frame.StaticSymbol.Name, depth == 0 ? error.Location : activation?.CurrentLocation, GoSubsOf(activation))
+            {
+                Module = activation?.Procedure is { } procedure ? ModuleOf(procedure) : string.Empty,
+            };
+            depth++;
+        }
 
-    private static ImmutableArray<SourceLocation> GoSubsOf(ICallStackFrame frame)
-        => frame is CallStackFrame activation ? [.. activation.GoSubLocations().OfType<SourceLocation>()] : [];
+        return new(ImmutableCollectionsMarshal.AsImmutableArray(trace));
+    }
+
+    // an activation in no GoSub, as most are, has none to look for.
+    private static ImmutableArray<SourceLocation> GoSubsOf(CallStackFrame? activation)
+        => activation is { GoSubDepth: > 0 } ? [.. activation.GoSubLocations().OfType<SourceLocation>()] : [];
+
+    // the name of the module a procedure is in, read from its address once for each procedure an error is raised through, and not at every error.
+    private static readonly ConditionalWeakTable<VBTypeMemberSymbol, string> ModuleNames = new();
+
+    private static string ModuleOf(VBTypeMemberSymbol procedure)
+        => ModuleNames.GetValue(procedure, static procedure => SymbolUri.ModuleNameOf(procedure.ParentUri));
 }

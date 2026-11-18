@@ -11,6 +11,7 @@ namespace RDCore.Tests.Platform;
 /// A <see cref="PlatformJson"/> payload writes the document of a location or a node's identity where it changes, and not in every node, and is read back to
 /// the same model: every location and identity has its document again (RD-VBAL §2.0.2).
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class PayloadDocumentsTests
 {

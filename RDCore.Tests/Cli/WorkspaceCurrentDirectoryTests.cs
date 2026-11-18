@@ -24,6 +24,7 @@ namespace RDCore.Tests.Cli;
 /// where a relative path finds the workspace's files, and <c>ChDir</c> moves it. The session's directory is the process's, so these tests run alone, in a workspace
 /// on disk, and put the test host's directory back.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [DoNotParallelize]
 [TestCategory("MS-VBAL 6.1.2.5 FileSystem")]

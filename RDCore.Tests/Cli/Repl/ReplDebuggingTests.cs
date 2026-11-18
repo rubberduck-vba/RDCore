@@ -129,7 +129,9 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
-    public async Task ARunTimeError_InsideGoSubs_SaysInItsStackTraceWhichGoSubsItCameFrom()
+    [DataRow("en-US", "STACK TRACE:", "Main 30 from 20 from 10", DisplayName = "en-US")]
+    [DataRow("fr-CA", "PILE D'APPELS :", "Main 30 depuis 20 depuis 10", DisplayName = "fr-CA")]
+    public async Task ARunTimeError_InsideGoSubs_SaysInItsStackTraceWhichGoSubsItCameFrom(string culture, string heading, string frame)
     {
         // source lines 1..3 are program lines 10..30: the error at 30, in the GoSub of 20, which the GoSub of 10 called.
         ExecuteReturns(new ExecuteResult
@@ -141,10 +143,25 @@ public sealed class ReplDebuggingTests
             StackTrace = [new ExecuteStackFrame("Main", 3, 0, [2, 1])],
         });
 
-        await RunAsync();
+        await InTheLanguageOf(culture, () => RunAsync());
 
         _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(),
-            Arg.Is<string>(detail => detail.Contains("Main 30 from 20 from 10")));
+            Arg.Is<string>(detail => detail.Contains($"{heading}{Environment.NewLine}    {frame}")));
+    }
+
+    // the shell's user interface in a language, for what one call says.
+    private static async Task InTheLanguageOf(string culture, Func<Task> call)
+    {
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(culture);
+        try
+        {
+            await call();
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
     }
 
     // the details the runtime records are not shown yet: an error that carries them is said as one that does not, to the character.
@@ -674,7 +691,9 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
-    public async Task AStack_SaysWhichHandlerAnActivationIsRunning_BeforeHowItGotThere()
+    [DataRow("en-US", "#0 Main 30 in 900 from 10", DisplayName = "en-US")]
+    [DataRow("fr-CA", "#0 Main 30 dans 900 depuis 10", DisplayName = "fr-CA")]
+    public async Task AStack_SaysWhichHandlerAnActivationIsRunning_BeforeHowItGotThere(string culture, string said)
     {
         ExecuteReturns(SuspendedAt(3));
         await RunAsync();
@@ -683,9 +702,9 @@ public sealed class ReplDebuggingTests
             Frames = [new DebugStackFrame(0, "Main", "Program", 3, 0, [1], Handler: "900")],
         }));
 
-        await CommandAsync(new StackReplCommand());
+        await InTheLanguageOf(culture, () => CommandAsync(new StackReplCommand()));
 
-        _console.Received().WriteLine("#0 Main 30 in 900 from 10");
+        _console.Received().WriteLine(said);
     }
 
     [TestMethod]

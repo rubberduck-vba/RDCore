@@ -15,6 +15,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// whole file when it was locked in ranges — or for a range when the whole file was locked — is an error the
 /// specification requires. That bookkeeping is what these cover.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.4 Lock")]
 [TestCategory("MS-VBAL 5.4.5.5 Unlock")]
