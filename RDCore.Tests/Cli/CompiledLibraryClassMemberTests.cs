@@ -46,9 +46,8 @@ public sealed class CompiledLibraryClassMemberTests
         "    C.Add 4, \"c\"",
     ];
 
-    // the program run both ways, printing expected; the procedure named compiled with no statement stepped but a With statement, which is the
-    // interpreter's (it evaluates and holds the block's object), and, when it raises nothing, with no instruction handed to the interpreter but the With
-    // statements it runs, withs of them.
+    // the program run both ways, printing expected; the procedure named compiled with no statement stepped and, when it raises nothing, with nothing
+    // handed to the interpreter but withs With statements, of a target that stays stepped (a record or a Variant).
     private static async Task AssertNoneSteppedAsync(string program, string procedure, string expected, bool raises = false, int withs = 0)
     {
         var compiled = await AssertAlikeAsync(program, Classes, expected);
@@ -114,7 +113,7 @@ public sealed class CompiledLibraryClassMemberTests
             "    With C",
             "        Last = .Item(.Count)",
             "    End With",
-            "End Function"]), "Last", expected: "4", withs: 1);
+            "End Function"]), "Last", expected: "4");
 
     // the Item at a position no member is at: error 9, which the interpreter raises, and the caller's handler handles.
     [TestMethod]

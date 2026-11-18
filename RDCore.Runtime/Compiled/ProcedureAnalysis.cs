@@ -342,7 +342,8 @@ internal sealed partial class ProcedureAnalysis
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
         bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep
             or TextResultLetStep or MidStep or FieldLetStep or VariantFieldLetStep or FieldTextLetStep or ElementLetStep or VariantElementLetStep
-            or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
+            or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+            or WithStep or EndWithStep
             or PrintStep
             || (step is SelectStep or TextSelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
@@ -644,6 +645,9 @@ internal sealed partial class ProcedureAnalysis
 
             case InstructionKind.Return:
                 return new ReturnStep(instruction.Offset);
+
+            case InstructionKind.With:
+                return WithOf(instruction) ?? Refused(instruction);
 
             case InstructionKind.EndWith:
                 return EndWithOf(instruction) ?? Refused(instruction);
