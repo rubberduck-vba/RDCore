@@ -123,8 +123,8 @@ public static class StringOperations
 }
 
 /// <summary>
-/// The text compiled code appends to a <c>String</c> variable of an activation (<see cref="StringOperations.TryAppend"/>), or changes the characters of
-/// with a <c>Mid</c> statement (<see cref="CompiledActivation.TryMid"/>), held in a builder until it is written into the variable's cell
+/// The text of a <c>String</c> variable of an activation that compiled code appends to (<see cref="StringOperations.TryAppend"/>) or changes the
+/// characters of with a <c>Mid</c> statement (<see cref="CompiledActivation.TryMid"/>), held in a builder until it is written into the variable's cell
 /// (<see cref="StringOperations.WriteAppended"/>). A <c>Mid</c> statement replaces characters of the builder where they are. No String is changed in
 /// place: the cell is given a new String made of the builder, which no other variable holds. A cell that holds a value other than the one the builder
 /// was made of was assigned by something else, and the builder is made again of it.
