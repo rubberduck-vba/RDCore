@@ -460,7 +460,9 @@ internal static class ModuleWorkspace
         [
             .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
             .. (documents ?? []).Select(module => (module.Name, "doccls", ModuleKinds.Of(module.Super, module.Source), module.Source)),
-            .. (forms ?? []).Select(module => (module.Name, "frm", ModuleType.ClassModule, module.Source)),
+            // a form ported to RDForms is a .rdform, as its project has it.
+            .. (forms ?? []).Select(module => (module.Name,
+                module.Designer.Kind == FormDesignerKind.RDForms ? ProjectModuleKinds.RDFormsModuleExtension[1..] : "frm", ModuleType.ClassModule, module.Source)),
             .. (modules ?? []).Select(module => (module.Name, "bas", ModuleType.StdModule, module.Source)),
         ];
         (string Name, string Extension, ModuleType Type, string Source) programModule = ("Program", "bas", ModuleType.StdModule, program);
@@ -499,7 +501,7 @@ internal static class ModuleWorkspace
         var librarySymbols = libraries is null
             ? null
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
-                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References, language)).ProvideSymbols()];
+                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo, language)).ProvideSymbols()];
         var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
             [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers,
             syntaxErrors: syntaxErrors);

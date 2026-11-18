@@ -397,7 +397,7 @@ internal sealed class BenchRunner(
         // they are bound in the environment the session was composed for: the profile's language and pointer width, which need not be the runner's.
         stopwatch.Restart();
         var composed = provider.Session.Environment;
-        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, composed.Language);
+        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project, composed.Language);
         IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, composed.Is64Bit).ProvideSymbols()];
         var scope = composed.Language.ImplicitDeclarationScope;
 

@@ -67,10 +67,8 @@ public sealed class RDFormsFormLifecycleTests
         Assert.IsFalse(forms.IsVisualBasic6(new SDK.Model.Symbols.VBClassModuleSymbol(root, new Uri(root, "UserForm1.frm"), "UserForm1")));
     }
 
-    private const string NoRDFormsLibrary = "RDForms describes no RDForms library, so the RDForms.* classes of a ported form and of its controls have no declared type.";
-
+    // the project's .rdproj lists no reference to RDForms: a project with an RDForms form references it implicitly.
     [TestMethod]
-    [Ignore(NoRDFormsLibrary)]
     [DataRow(new[] { "Debug.Print Form2.Caption", "Unload Form2" }, new[] { "Initialize", "Load", "Ported", "QueryUnload 1", "Unload" },
         DisplayName = "a member of its form loads it, and Unload asks it")]
     [DataRow(new[] { "Form2.Show", "Debug.Print Form2.Visible", "Unload Form2" }, new[] { "Initialize", "Load", "True", "QueryUnload 1", "Unload" },
@@ -79,7 +77,6 @@ public sealed class RDFormsFormLifecycleTests
         => CollectionAssert.AreEqual(printed, await RunAsync(FormOnly, body));
 
     [TestMethod]
-    [Ignore(NoRDFormsLibrary)]
     public async Task APortedFormsControl_LoadsItsForm()
         => CollectionAssert.AreEqual(new[] { "Initialize", "Load", "Text1", "QueryUnload 1", "Unload" },
             await RunAsync(Document, "Debug.Print Form2.Text1.Text", "Unload Form2"));

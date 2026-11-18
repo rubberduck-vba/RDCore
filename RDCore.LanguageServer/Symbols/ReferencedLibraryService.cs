@@ -72,14 +72,14 @@ internal sealed class ReferencedLibraryService(
     {
         get
         {
-            var references = project.Project?.ProjectInfo?.References ?? [];
-            var key = KeyOf(references);
+            var info = project.Project?.ProjectInfo ?? new RDCoreProject();
+            var key = KeyOf(info);
 
             lock (_loading)
             {
                 if (_loaded is not { } loaded || loaded.Key != key)
                 {
-                    var libraries = LibrarySymbolProvider.Load(source, references, options.Value.Workspace.SupportedLanguage);
+                    var libraries = LibrarySymbolProvider.Load(source, info, options.Value.Workspace.SupportedLanguage);
                     foreach (var problem in libraries.Problems)
                     {
                         logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
@@ -111,13 +111,12 @@ internal sealed class ReferencedLibraryService(
 
     public IReadOnlyList<Symbol> SymbolsOf(Uri workspaceRoot, RDCoreProject project)
     {
-        var references = project.References ?? [];
-        var key = (workspaceRoot.AbsoluteUri, KeyOf(references));
+        var key = (workspaceRoot.AbsoluteUri, KeyOf(project));
         lock (_loading)
         {
             if (!_others.TryGetValue(key, out var symbols))
             {
-                var libraries = LibrarySymbolProvider.Load(source, references, options.Value.Workspace.SupportedLanguage);
+                var libraries = LibrarySymbolProvider.Load(source, project, options.Value.Workspace.SupportedLanguage);
                 foreach (var problem in libraries.Problems)
                 {
                     logger.LogWarning("📚 The library '{library}' that {project} references could not be loaded ({kind}); a type of it is not a type of that project.",
@@ -131,9 +130,12 @@ internal sealed class ReferencedLibraryService(
         }
     }
 
-    // a reference is the library its identity finds: the same name of another type library or version is another library.
-    private static string KeyOf(IEnumerable<RDCoreReference> references)
-        => string.Join('\n', references.Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}"));
+    // a reference is the library its identity finds: the same name of another type library or version is another library. The implicit ones are in it, so a
+    // project that gains or loses an RDForms form loads its libraries again.
+    private string KeyOf(RDCoreProject project)
+        => string.Join('\n', [
+            .. options.Value.Workspace.SupportedLanguage.ImplicitReferencesOf((project.Modules ?? []).Select(module => module?.RelativeUri)),
+            .. (project.References ?? []).Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}")]);
 
     public IReadOnlyList<Symbol> DescribedSymbolsOf(Uri workspaceRoot, string library)
     {
