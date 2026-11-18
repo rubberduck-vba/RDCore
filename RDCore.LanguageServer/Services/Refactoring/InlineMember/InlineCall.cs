@@ -17,6 +17,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using System.Collections.Immutable;
 
 namespace RDCore.LanguageServer.Services.Refactoring.InlineMember;
 
@@ -68,14 +69,17 @@ internal static class InlineCall
             return (null, new(InlineRefusalKind.NotAProcedure, name));
         }
 
-        switch (callee)
+        var kind = callee switch
         {
-            case VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol:
-                return (null, new(InlineRefusalKind.PropertyAssignment, callee.Name));
-            case VBFunctionMemberSymbol or VBPropertyGetMemberSymbol:
-                return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name));
-            case not VBProcedureMemberSymbol:
-                return (null, new(InlineRefusalKind.NotAProcedure, callee.Name));
+            VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol => (MemberKind?)null,
+            VBFunctionMemberSymbol => MemberKind.Function,
+            VBPropertyGetMemberSymbol => MemberKind.PropertyGet,
+            VBProcedureMemberSymbol => MemberKind.Procedure,
+            _ => null,
+        };
+        if (kind is null)
+        {
+            return (null, new(callee is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? InlineRefusalKind.PropertyAssignment : InlineRefusalKind.NotAProcedure, callee.Name));
         }
 
         var calleeModule = NameOccurrences.ModuleOf(callee.Uri);
@@ -84,20 +88,20 @@ internal static class InlineCall
             return (null, new(InlineRefusalKind.OtherModule, callee.Name));
         }
 
-        if (CallStatementAt(syntax.Syntax, occurrence.Range) is not { } call)
+        if (SiteAt(syntax.Syntax, occurrence.Range) is not { } site)
         {
             return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, new SourceLocation(module, occurrence.Range)));
         }
 
-        if (analysisOf(calleeModule) is not { } analysis || analysis.Procedure(callee.Name, MemberKind.Procedure) is not { } procedure)
+        if (analysisOf(calleeModule) is not { } analysis || analysis.Procedure(callee.Name, kind.Value) is not { } procedure)
         {
             return (null, new(InlineRefusalKind.NotAProcedure, callee.Name));
         }
 
         var text = new ExtractionText(syntax.Source);
-        if (!IsAloneOnItsLines(text, call))
+        if (!IsAloneOnItsLines(text, site.Statement))
         {
-            return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, call.SourceLocation));
+            return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation));
         }
 
         if (RefusalOf(context, callee, procedure) is { } refused)
@@ -105,19 +109,41 @@ internal static class InlineCall
             return (null, refused);
         }
 
-        return new Writer(context, syntax, text, callee, procedure, call).Write();
+        return new Writer(context, syntax, text, callee, procedure, site).Write();
     }
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
 
-    // the call statement whose callee is the name, unqualified: Call F(a), or F a.
-    private static CallStatementNode? CallStatementAt(ModuleNode module, SourceRange name)
-        => NameOccurrences.Walk(module).Select(each => each.Node).OfType<CallStatementNode>()
-            .FirstOrDefault(call => call.Callee is SimpleNameExpressionNode callee && callee.SourceLocation.Range == name);
+    // a call whose callee is the name, unqualified: a call statement (Call F(a), F a), or the whole value of an assignment (x = F(a), Set x = F, x = F).
+    private sealed record class Site(StatementNode Statement, ImmutableArray<ExpressionNode> Arguments, AssignmentStatementNode? Assignment);
+
+    private static Site? SiteAt(ModuleNode module, SourceRange name)
+    {
+        foreach (var node in NameOccurrences.Walk(module).Select(each => each.Node))
+        {
+            switch (node)
+            {
+                case CallStatementNode { Callee: SimpleNameExpressionNode callee } call when callee.SourceLocation.Range == name:
+                    return new(call, call.Arguments, null);
+                case AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet or AssignmentKind.Set } assignment:
+                    switch (assignment.Value)
+                    {
+                        case SimpleNameExpressionNode value when value.SourceLocation.Range == name:
+                            return new(assignment, [], assignment);
+                        case IndexExpressionNode { Callee: SimpleNameExpressionNode callee } value when callee.SourceLocation.Range == name:
+                            return new(assignment, value.Arguments, assignment);
+                    }
+
+                    break;
+            }
+        }
+
+        return null;
+    }
 
     // the statement is the only code of the lines it spans: no other statement on them, as one of a line of statements separated by colons, or the
     // statement of a single-line If.
-    private static bool IsAloneOnItsLines(ExtractionText text, CallStatementNode call)
+    private static bool IsAloneOnItsLines(ExtractionText text, StatementNode call)
     {
         var range = call.SourceLocation.Range;
         var before = text.Of(new SourceRange(new SourcePosition(range.Start.Line, 0), range.Start));
@@ -209,10 +235,12 @@ internal static class InlineCall
 
     // writes the inlined body at the call.
     private sealed class Writer(
-        RenameContext context, RenameModule syntax, ExtractionText text, Symbol callee, ExtractionProcedureAnalysis procedure, CallStatementNode call)
+        RenameContext context, RenameModule syntax, ExtractionText text, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
     {
+        private readonly StatementNode call = site.Statement;
         private readonly Func<ExpressionNode, SemanticId?> _bindings = NameOccurrences.BindingsOf(context, syntax);
-        private readonly LexicalScope _callerScope = NameOccurrences.ScopeOf(context, syntax, call.SourceLocation.Range.Start);
+        private readonly LexicalScope _callerScope = NameOccurrences.ScopeOf(context, syntax, site.Statement.SourceLocation.Range.Start);
+        private readonly List<string> _result = [];
         private readonly HashSet<string> _taken = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<SemanticId, string> _replacements = [];
         private readonly List<string> _before = [];
@@ -228,11 +256,12 @@ internal static class InlineCall
                 _taken.Add(used);
             }
 
-            if ((Arguments() ?? Locals()) is { } refused)
+            if ((Arguments() ?? Result() ?? Locals()) is { } refused)
             {
                 return (null, refused);
             }
-            var inlined = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after]);
+
+            var inlined = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after, .. _result]);
             return (new InlinedCall(syntax.Module, callee, [new RefactorTextEdit { Range = call.SourceLocation.Range, NewText = inlined }]), null);
         }
 
@@ -258,7 +287,7 @@ internal static class InlineCall
         private InlineRefusal? Arguments()
         {
             var parameters = ParametersOf(callee);
-            var map = ArgumentMapping.Map(parameters, call.Arguments);
+            var map = ArgumentMapping.Map(parameters, site.Arguments);
             if (map.Error is not ArgumentMappingError.None || map.Mapped is not { } mapped)
             {
                 return new(InlineRefusalKind.ArgumentsDoNotMap, callee.Name, call.SourceLocation);
@@ -306,6 +335,45 @@ internal static class InlineCall
                 _replacements[parameter.SemanticId] = local;
                 _before.Add($"Dim {local} As {NameOfType(type)}");
                 _before.Add($"{(isObject ? "Set " : string.Empty)}{local} = {argumentText}");
+            }
+
+            return null;
+        }
+
+        // a function's result variable, a distinct variable of each call initialized to its type's default (MS-VBAL §5.3.1): a local of the caller, reset before
+        // the body, which the caller's assignment is then given. A call statement of a function discards it.
+        private InlineRefusal? Result()
+        {
+            if (callee is VBProcedureMemberSymbol)
+            {
+                return null;
+            }
+
+            var type = (callee as ITypedSymbol)?.ResolvedType;
+            var name = Fresh($"{callee.Name}_result");
+            if (type is null or VBUnknownType or VBUnresolvedType || DefaultOf(type, name) is not { } reset)
+            {
+                return new(InlineRefusalKind.UnsupportedConstruct, callee.Name);
+            }
+
+            if (site.Assignment is { Target: var target } && target is not SimpleNameExpressionNode)
+            {
+                return new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Assignment.SourceLocation);
+            }
+
+            var isObject = type is VBClassType or VBObjectType;
+            _replacements[callee.SemanticId] = name;
+            _before.Add($"Dim {name} As {NameOfType(type)}");
+            _before.Add(reset);
+            if (site.Assignment is { } assignment)
+            {
+                var keyword = assignment.Kind switch { AssignmentKind.Set => "Set ", AssignmentKind.ExplicitLet => "Let ", _ => string.Empty };
+                _result.Add($"{keyword}{text.Of(assignment.Target.SourceLocation.Range).Trim()} = {name}");
+            }
+
+            if (isObject)
+            {
+                _result.Add($"Set {name} = Nothing");
             }
 
             return null;

@@ -152,6 +152,52 @@ public class InlineCallTests
     }
 
     [TestMethod]
-    public void AFunction_IsNotInlinedAsAStatement()
-        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite, Inlined("G", string.Empty, "G").Refusal?.Kind);
+    public async Task AFunction_AssignedToAVariable_GivesItsResultLocalToTheAssignment()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim a As Long\r\na = Doubled(n)\r\nDebug.Print a",
+            "Private Function Doubled(ByVal x As Long) As Long\r\n    Doubled = x * 2\r\nEnd Function",
+            "Doubled(n)");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "a = Doubled_result");
+    }
+
+    [TestMethod]
+    public async Task AFunction_ThatReadsItsResult_ReadsTheResultLocal()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim a As Long\r\na = Answer\r\nDebug.Print a",
+            "Private Function Answer() As Long\r\n    Answer = 41\r\n    Answer = Answer + 1\r\nEnd Function",
+            "Answer");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(after, "42");
+    }
+
+    [TestMethod]
+    public async Task AFunctionOfAnObject_IsSetAssigned()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim items As Collection\r\nSet items = Filled(n)\r\nDebug.Print items.Count",
+            "Private Function Filled(ByVal count As Long) As Collection\r\n    Dim i As Long\r\n    Set Filled = New Collection\r\n    For i = 1 To count\r\n        Filled.Add i\r\n    Next\r\nEnd Function",
+            "Filled(n)");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Set items = Filled_result");
+    }
+
+    [TestMethod]
+    public async Task AFunction_CalledAsAStatement_DiscardsItsResult()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Shown n",
+            "Private Function Shown(ByVal x As Long) As Long\r\n    Debug.Print x\r\n    Shown = x\r\nEnd Function",
+            "Shown n");
+        Assert.AreEqual(before, after, module);
+    }
+
+    [TestMethod]
+    public void AFunction_AssignedToAnElement_IsNotInlined()
+        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite, Inlined(
+            "Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)",
+            "Private Function Doubled(ByVal x As Long) As Long\r\n    Doubled = x * 2\r\nEnd Function",
+            "Doubled(n)").Refusal?.Kind);
 }
