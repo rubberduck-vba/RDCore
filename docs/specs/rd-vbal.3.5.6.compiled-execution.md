@@ -569,6 +569,10 @@ variable it passes `ByRef`, in a cell for the whole activation, and the activati
 The same is true when either is handed to the interpreter, when a debugger reads or assigns the variable, and when the same variable is passed to two
 parameters. A parameter bound to something other than a variable's cell, such as a field or an element of an array, is the interpreter's from the start.
 
+A `Variant` parameter bound to a variable of another type is a second name for that variable, and reads as a `Variant` that holds its value. Compiled
+code reads it so when the variable is a `String` of variable length or has a scalar type: as an argument of the standard library's functions
+(`IsObject`, `VarType`) and in what it assigns (`K = Key`). Bound to a variable of any other type, it is the interpreter's.
+
 ## The semantics are the interpreter's
 
 Compiled code evaluates an expression exactly as the interpreter evaluates it on payloads. It calls the same operations, in

@@ -147,7 +147,7 @@ public sealed partial class CompiledActivation
     /// <summary>
     /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
     /// (<see cref="VariantCellOf"/>): a parameter passed an object, an array or a record by value; or a parameter passed by reference a variable of another
-    /// type (<c>CallStackFrame.TryGetReferencedType</c>), a <c>String</c> of variable length or a value of a scalar type, which reads as a <c>Variant</c>
+    /// type (<c>CallStackFrame.TryGetReferencedType</c>), a <c>String</c> of variable length or a variable of a scalar type, which reads as a <c>Variant</c>
     /// holding what that variable holds, as the interpreter reads it (MS-VBAL §5.3.1.11).
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
