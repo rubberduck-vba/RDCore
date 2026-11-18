@@ -140,7 +140,7 @@ A reference to a project (`IsProject`) names the one project of the workspace wh
 
 |Module|Its names that the referencing project sees|
 |---|---|
-|Class module with `VB_Exposed = True` (**MS-VBAL §5.2.4.1.1**)|The class, and its `Public` variables, procedures and `Enum`s.|
+|Class module with `VB_Exposed = True` (**MS-VBAL §5.2.4.1.1**)|The class, its default instance when its `VB_PredeclaredId` is `True` (below), and its `Public` variables, procedures and `Enum`s.|
 |Procedural module without `Option Private Module` (**MS-VBAL §5.2.1.4**)|The module, and its `Public` or `Global` variables, constants, procedures, `Enum`s and user-defined types (**MS-VBAL §5.2.3**, and **MS-VBAL §5.3.1** for procedures).|
 |Any other module|None.|
 
@@ -148,8 +148,10 @@ A `Friend` member is a name of its own project only. The names of what the refer
 
 The language server binds the names a referenced project gives, for completion and for the types that declarations name. The environment host defines them in the referencing project's session, beside the session's own modules: a `Module1` of the referenced project is another module than the session's own `Module1`, which keeps the name.
 
+The default instance of an exposed class whose `VB_PredeclaredId` is `True` (**MS-VBAL §5.2.4.1.2**) is a name of the referencing project too, named as the class: `Board.Reset` calls `Reset` on the default instance of the referenced project's `Board` (`ReferencedProjectSymbols.DefaultInstanceOf`, at the address [`SymbolUri.DefaultInstance`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.SymbolUri.html) gives it). This is an RD-VBA addition: among a referenced project's names, **MS-VBAL §5.6.10** lists the members of a global class module's default instance, and no default instance itself. The session's own default instance of the same name keeps the name. The environment host defines the referenced instance once and keeps the object it holds, until the class is sent again without `VB_PredeclaredId` or without `VB_Exposed`, which removes it.
+
 > [!NOTE]
-> **Not implemented.** The environment host does not load or run a referenced project's code: a session runs its own project's code only. A referencing project does not bind the default instance of an exposed class (`VB_PredeclaredId = True`).
+> **Not implemented.** The environment host does not load or run a referenced project's code: a session runs its own project's code only, so a call of a member through a referenced project's default instance does not run. The members of a referenced project's global class module (`VB_GlobalNamespace = True`) are not names of the referencing project.
 
 A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 

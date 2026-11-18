@@ -136,6 +136,51 @@ public sealed class ReferencedProjectSymbolsTests
         Assert.AreEqual(rules.Uri, names[1].Uri, "a module is the referenced project's own");
     }
 
+    private static VBClassModuleSymbol Predeclared(string name, bool exposed)
+        => (VBClassModuleSymbol)Class(name, exposed).With(SymbolProperties.PredeclaredId, true);
+
+    [TestMethod]
+    public void TheDefaultInstanceOfAnExposedPredeclaredClass_IsANameOfTheProject_AndAPrivateClassHasNone()
+    {
+        var board = Predeclared("Board", exposed: true);
+        var cell = Predeclared("Cell", exposed: false);
+        Symbol[] symbols = [board, cell, new VBPredeclaredInstanceSymbol(board), new VBPredeclaredInstanceSymbol(cell)];
+
+        var names = ReferencedProjectSymbols.Of(ReferencingRoot, "NavalLib", symbols, priority: 2);
+
+        var instance = names.OfType<VBPredeclaredInstanceSymbol>().Single();
+        Assert.AreEqual("Board", instance.Name);
+        Assert.AreEqual(board.Uri, instance.ClassModule.Uri);
+        Assert.AreEqual("NavalLib", instance.ClassModule.GetProperty(SymbolProperties.Library), "its class is the referenced project's");
+        Assert.AreEqual("NavalLib", instance.GetProperty(SymbolProperties.Library));
+        Assert.AreEqual(2, instance.GetProperty(SymbolProperties.LibraryPriority));
+        Assert.IsTrue(instance.GetProperty(SymbolProperties.AutoInstantiated));
+    }
+
+    // the referencing project's own Board, and its default instance, are other symbols: the referenced one's default instance has an address of its own.
+    [TestMethod]
+    public void TheDefaultInstanceOfAReferencedProjectsClass_IsAddressedUnderItsClass_AndIsAGlobalVariable()
+    {
+        var board = Predeclared("Board", exposed: true);
+        var own = new VBPredeclaredInstanceSymbol(new VBClassModuleSymbol(ReferencingRoot, ReferencingRoot, "Board"));
+
+        var instance = ReferencedProjectSymbols.Of(ReferencingRoot, "NavalLib", [board], priority: 1).OfType<VBPredeclaredInstanceSymbol>().Single();
+
+        Assert.AreNotEqual(own.Uri.AbsoluteUri, instance.Uri.AbsoluteUri);
+        Assert.AreNotEqual(board.Uri.AbsoluteUri, instance.Uri.AbsoluteUri, "the class keeps its address");
+        Assert.AreEqual(SymbolUri.DefaultInstance(board.Uri).AbsoluteUri, instance.Uri.AbsoluteUri);
+        Assert.AreEqual("Board", SymbolUri.NameOf(instance.Uri));
+        Assert.AreEqual("Board", SymbolUri.ModuleNameOf(instance.Uri));
+        Assert.AreEqual(StaticSymbol.GlobalUri, instance.ParentUri);
+        Assert.AreEqual(ScopeKind.Global, instance.ScopeKind);
+    }
+
+    [TestMethod]
+    public void TheDefaultInstanceOfAClassOfNoReferencedProject_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => ReferencedProjectSymbols.DefaultInstanceOf(Predeclared("Board", exposed: true)));
+    }
+
     [TestMethod]
     public void TheMembersOfAnAccessibleEnum_AreNamesOfTheProject_AndAPrivateEnumsAreNot()
     {

@@ -249,6 +249,88 @@ public sealed class DefineSymbolsHandlerTests
         Assert.IsFalse(provider.Session.Symbols.TryGetModule("Board", out _), "a class the project does not expose is not");
     }
 
+    private static readonly (string File, string Name, ModuleType Kind) OwnMod1 = ("src/Mod1.bas", "Mod1", ModuleType.StdModule);
+
+    // the session's own modules, of the kinds given: their source is not read.
+    private static (EnvironmentSessionProvider Provider, DefineSymbolsHandler Handler) WithOwnModules(
+        params (string File, string Name, ModuleType Kind)[] modules)
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(
+            new RDCoreProject { Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = module.File })] },
+            WorkspaceRoot,
+            modules.ToDictionary(module => module.File, module => (module.Name, module.Kind)));
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(),
+            NullLogger<DefineSymbolsHandler>.Instance);
+        return (provider, handler);
+    }
+
+    // a predeclared class the referenced project exposes has its default instance, a name of the session's: the class's name binds to it, and the members
+    // of the class are reached through it.
+    [TestMethod]
+    public async Task TheDefaultInstanceOfAnExposedPredeclaredClassOfAReferencedProject_IsANameOfTheSession()
+    {
+        var (provider, handler) = WithOwnModules(OwnMod1);
+        var mod1 = provider.Session.Symbols.TryGetModule("Mod1", out var own) ? own! : throw new AssertFailedException("Mod1");
+
+        var fleet = await handler.Handle(
+            NavalLibRequest("Fleet", ModuleType.ClassModule, new ModuleDirectives(PredeclaredId: true, Exposed: true), Procedure("Reset")),
+            CancellationToken.None);
+
+        Assert.AreEqual(4, fleet.Defined, "the project, the class, its default instance and its procedure");
+        var instance = provider.Session.Symbols.Resolver.ResolveValue("Fleet", ScopeKind.Module, mod1.Uri).Symbol as VBPredeclaredInstanceSymbol;
+        Assert.IsNotNull(instance, "the class's name binds to its default instance");
+        Assert.AreEqual("NavalLib", instance.GetProperty(SymbolProperties.Library));
+        Assert.AreEqual(SymbolUri.Member(NavalLibRoot, "Fleet"), instance.ClassModule.Uri);
+    }
+
+    // the session's own predeclared class of the same name keeps the name, as the session's own module does; the referenced one's default instance is
+    // another variable beside it.
+    [TestMethod]
+    public async Task TheSessionsOwnDefaultInstance_ShadowsAReferencedProjectsOfTheSameName()
+    {
+        var (provider, handler) = WithOwnModules(OwnMod1, ("src/Board.cls", "Board", ModuleType.ClassModule));
+        var predeclared = new ModuleDirectives(PredeclaredId: true, Exposed: true);
+        await handler.Handle(Request() with { ModuleName = "Board", Directives = predeclared }, CancellationToken.None);
+        var mod1 = provider.Session.Symbols.TryGetModule("Mod1", out var own) ? own! : throw new AssertFailedException("Mod1");
+
+        var library = await handler.Handle(
+            NavalLibRequest("Board", ModuleType.ClassModule, predeclared, Procedure("Reset")), CancellationToken.None);
+
+        Assert.AreEqual(4, library.Defined, "the project, the class, its default instance and its procedure: none takes the place of the session's own");
+        var resolution = provider.Session.Symbols.Resolver.ResolveValue("Board", ScopeKind.Module, mod1.Uri);
+        var bound = resolution.Symbol as VBPredeclaredInstanceSymbol;
+        Assert.IsNotNull(bound, $"{resolution.Symbol?.Uri} {resolution.ErrorCode}");
+        Assert.IsNull(bound.GetProperty(SymbolProperties.Library), "the session's own default instance");
+        Assert.AreEqual(SymbolUri.Member(WorkspaceRoot, "Board"), bound.ClassModule.Uri);
+    }
+
+    // a class sent again as no longer predeclared, or no longer exposed, has no default instance in the session; one that still is keeps its own.
+    [TestMethod]
+    [DataRow(false, true, DisplayName = "no longer predeclared")]
+    [DataRow(true, false, DisplayName = "no longer exposed")]
+    public async Task AReferencedClassThatNoLongerHasADefaultInstance_LeavesNoneInTheSession(bool predeclared, bool exposed)
+    {
+        var (provider, handler) = WithOwnModules(OwnMod1);
+        var mod1 = provider.Session.Symbols.TryGetModule("Mod1", out var own) ? own! : throw new AssertFailedException("Mod1");
+        await handler.Handle(
+            NavalLibRequest("Fleet", ModuleType.ClassModule, new ModuleDirectives(PredeclaredId: true, Exposed: true)), CancellationToken.None);
+        var before = provider.Session.Symbols.Resolver.ResolveValue("Fleet", ScopeKind.Module, mod1.Uri).Symbol;
+        await handler.Handle(
+            NavalLibRequest("Fleet", ModuleType.ClassModule, new ModuleDirectives(PredeclaredId: true, Exposed: true)) with { Replace = true },
+            CancellationToken.None);
+        Assert.AreSame(before, provider.Session.Symbols.Resolver.ResolveValue("Fleet", ScopeKind.Module, mod1.Uri).Symbol, "sent again, it stays");
+
+        await handler.Handle(
+            NavalLibRequest("Fleet", ModuleType.ClassModule, new ModuleDirectives(PredeclaredId: predeclared, Exposed: exposed)) with { Replace = true },
+            CancellationToken.None);
+
+        Assert.IsNotInstanceOfType<VBPredeclaredInstanceSymbol>(provider.Session.Symbols.Resolver.ResolveValue("Fleet", ScopeKind.Module, mod1.Uri).Symbol);
+    }
+
     private sealed class RecordingLogger : Microsoft.Extensions.Logging.ILogger<DefineSymbolsHandler>
     {
         public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message)> Entries { get; } = [];

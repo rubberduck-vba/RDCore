@@ -10,8 +10,10 @@ namespace RDCore.Runtime.LanguageCore.Symbols;
 // A procedural module is accessible unless it is a private module (§5.2.1.4); a class module when it is exposed (VB_Exposed, §5.2.4.1.1).
 // A member is accessible when it is Public or Global, or has no access modifier where that makes it public (a procedure, an Enum, a user-defined type),
 // and its module allows it (§5.3.1): a variable, a procedure or an Enum in a class module or a procedural module that is not private, a constant or a
-// user-defined type in a procedural module that is not private. A Friend member is accessible within its project only, and a class's default instance
-// (VB_PredeclaredId) is a name of its own project only.
+// user-defined type in a procedural module that is not private. A Friend member is accessible within its project only.
+// RD-VBA addition: the default instance of an accessible predeclared class (§5.2.4.1.2) is a name of the referencing projects too, as it is of its own,
+// so Board.Reset calls Reset on the default instance of a class Board of a referenced project. §5.6.10 lists only the members of a global class's
+// default instance among a referenced project's names.
 public static class ReferencedProjectSymbols
 {
     public static bool IsAccessible(VBModuleSymbol module)
@@ -43,10 +45,11 @@ public static class ReferencedProjectSymbols
         return isPublic && (!isClass || member is not (VBConstantMemberSymbol or VBUserDefinedTypeMemberSymbol));
     }
 
-    // the project symbol first (addressed under the referencing project's root, as a library's is), then the accessible modules, their accessible
-    // members, and the members of the accessible Enum types. Each is tagged with the project's name (SymbolProperties.Library) and its reference
-    // precedence (SymbolProperties.LibraryPriority), which the referencing project's resolver ranks it by among the libraries. The rest of the symbols
-    // (the standard library's, the referenced project's own references, project symbol and default instances) is left out.
+    // the project symbol first (addressed under the referencing project's root, as a library's is), then the accessible modules, the default instances
+    // of the accessible predeclared classes, their accessible members, and the members of the accessible Enum types. Each is tagged with the project's
+    // name (SymbolProperties.Library) and its reference precedence (SymbolProperties.LibraryPriority), which the referencing project's resolver ranks it
+    // by among the libraries. The rest of the symbols (the standard library's, the referenced project's own references, project symbol and the
+    // default instances it defines for itself) is left out.
     public static ImmutableArray<Symbol> Of(Uri workspaceRoot, string projectName, IEnumerable<Symbol> symbols, int priority)
     {
         ArgumentNullException.ThrowIfNull(workspaceRoot);
@@ -61,7 +64,11 @@ public static class ReferencedProjectSymbols
 
         var names = ImmutableArray.CreateBuilder<Symbol>();
         names.Add(Tagged(new VBProjectSymbol(workspaceRoot, projectName)));
-        names.AddRange(modules.Values.Where(IsAccessible).Select(Tagged));
+        var accessible = modules.Values.Where(IsAccessible).Select(Tagged).ToArray();
+        names.AddRange(accessible);
+        names.AddRange(accessible.OfType<VBClassModuleSymbol>()
+            .Where(module => module.GetProperty(SymbolProperties.PredeclaredId))
+            .Select(DefaultInstanceOf));
 
         // an enum's members parent to the enum, which parents to its module: they are accessible where it is.
         var enums = new HashSet<string>(StringComparer.Ordinal);
@@ -82,5 +89,26 @@ public static class ReferencedProjectSymbols
         return names.ToImmutable();
 
         Symbol Tagged(Symbol symbol) => symbol.With(SymbolProperties.Library, projectName).With(SymbolProperties.LibraryPriority, priority);
+    }
+
+    // a global variable named after the class, declared as the class, with the library and the precedence of the class module (as Of tags it). It is
+    // addressed under its class module (SymbolUri.DefaultInstance), so a class of the same name of another project has its instance at another address,
+    // and parents to the global scope, as the default instance of a class of the project itself does.
+    public static VBPredeclaredInstanceSymbol DefaultInstanceOf(VBClassModuleSymbol classModule)
+    {
+        ArgumentNullException.ThrowIfNull(classModule);
+        if (classModule.GetProperty(SymbolProperties.Library) is not { Length: > 0 } library)
+        {
+            throw new ArgumentException("The class module is of no referenced project: it has no library.", nameof(classModule));
+        }
+
+        var instance = new VBPredeclaredInstanceSymbol(classModule)
+        {
+            Uri = SymbolUri.DefaultInstance(classModule.Uri),
+        };
+
+        return (VBPredeclaredInstanceSymbol)instance
+            .With(SymbolProperties.Library, library)
+            .With(SymbolProperties.LibraryPriority, classModule.GetProperty(SymbolProperties.LibraryPriority));
     }
 }
