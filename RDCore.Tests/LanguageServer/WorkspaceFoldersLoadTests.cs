@@ -432,8 +432,8 @@ public sealed class WorkspaceFoldersLoadTests
         CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, roles);
     }
 
-    // RD-VBAL 2.2.2: a client opened on the app of a .rdworkspace that lists its library first gives the app as the root, and the folders in the file's
-    // order: both are projects, and the app is the primary one.
+    // RD-VBAL §2.2.2: a client opened on the app of a .rdworkspace that lists its library first gives the app as the root, and the folders in the
+    // file's order: both are projects, and the app is the primary one.
     [TestMethod]
     public async Task AWorkspaceFilesLibraryListedFirst_IsAProject_AndTheAppTheClientOpenedIsThePrimary()
     {
@@ -456,7 +456,7 @@ public sealed class WorkspaceFoldersLoadTests
         CollectionAssert.AreEqual(new[] { "Main" }, loaded.Names(App));
     }
 
-    // RD-VBAL 2.2.2: an entry of a .rdworkspace's folders that is not loaded is named by a diagnostic, published against the .rdworkspace.
+    // RD-VBAL §2.2.2: an entry of a .rdworkspace's folders that is not loaded is named by a diagnostic, published against the .rdworkspace.
     [TestMethod]
     [Ignore("RDC31002 WorkspaceFolderRefused is reserved and not implemented: "
         + "the language server does not read the .rdworkspace, and the client logs a refused entry as a warning")]

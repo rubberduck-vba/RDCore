@@ -243,8 +243,8 @@ public sealed class WorkspaceCurrentDirectoryTests
         Assert.AreEqual(start, CurrentDirectoryOf(provider));
     }
 
-    // RD-VBAL 2.2.2: a project that a .rdworkspace lists is in that workspace, whose root is the file's folder; the program starts there, and App.Path is
-    // still the folder of the project that runs.
+    // RD-VBAL §2.2.2: a project that a .rdworkspace lists is in that workspace, whose root is the file's folder; the program starts there, and App.Path
+    // is still the folder of the project that runs.
     [TestMethod]
     public async Task AProjectAWorkspaceFileLists_StartsInTheWorkspaceFilesFolder_AndAppPathIsItsOwnFolder()
     {
