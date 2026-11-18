@@ -53,14 +53,13 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
     private static readonly Func<DateTime, int> MinutePart = static value => value.Minute;
     private static readonly Func<DateTime, int> SecondPart = static value => value.Second;
 
+    private DateTime SystemNow => SystemNowOf(session);
+
     // the session's clock, to the second: a date of the system has no fraction of a second.
-    private DateTime SystemNow
+    private static DateTime SystemNowOf(IRuntimeSession session)
     {
-        get
-        {
-            var now = session.Clock.Now;
-            return now.AddTicks(-(now.Ticks % TimeSpan.TicksPerSecond));
-        }
+        var now = session.Clock.Now;
+        return now.AddTicks(-(now.Ticks % TimeSpan.TicksPerSecond));
     }
 
     #region 6.1.2.4.1 Public Functions
@@ -388,6 +387,33 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
     /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, which <see cref="Second"/> raises error 5 for.</returns>
     [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Second))]
     public static bool SecondOf([StdLibDate] double time, out short second) => TryPartOf(time, SecondPart, out second);
+
+    /// <summary>
+    /// <c>Date</c> (<strong>MS-VBAL §6.1.2.4.2.2</strong>): the serial of the <c>Date</c> <see cref="Date()"/> returns, the day of the session's clock.
+    /// Compiled code calls it in place of <see cref="Date()"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose clock is read.</param>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Date))]
+    [return: StdLibDate]
+    public static double DateOf(IRuntimeSession session) => SystemNowOf(session).Date.ToOADate();
+
+    /// <summary>
+    /// <c>Now</c> (<strong>MS-VBAL §6.1.2.4.2.3</strong>): the serial of the <c>Date</c> <see cref="Now"/> returns, the session's clock to the second.
+    /// Compiled code calls it in place of <see cref="Now"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose clock is read.</param>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Now))]
+    [return: StdLibDate]
+    public static double NowOf(IRuntimeSession session) => SystemNowOf(session).ToOADate();
+
+    /// <summary>
+    /// <c>Time</c> (<strong>MS-VBAL §6.1.2.4.2.4</strong>): the serial of the <c>Date</c> <see cref="Time()"/> returns, the time of the session's clock to
+    /// the second, on the day of serial 0. Compiled code calls it in place of <see cref="Time()"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose clock is read.</param>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(Time))]
+    [return: StdLibDate]
+    public static double TimeOf(IRuntimeSession session) => (SerialZero + SystemNowOf(session).TimeOfDay).ToOADate();
 
     // a part of the day and time a Date's serial is, to the nearest second; none for a serial that is not a day.
     private static bool TryPartOf(double serial, Func<DateTime, int> part, out short value)

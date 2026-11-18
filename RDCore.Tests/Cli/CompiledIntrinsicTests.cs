@@ -576,4 +576,24 @@ public sealed class CompiledIntrinsicTests
             "    Next",
             "    Made = R",
             "End Function"), [("Made", 0)]);
+
+    // MS-VBAL §6.1.2.4.2.2 to §6.1.2.4.2.4: Now, Date and Time, named with no arguments, qualified or not, or with an empty list, assigned to a Date and to
+    // a Variant, each read from the session's clock: what Read adds up depends only on how they relate, which is the same on each run, and Main prints the
+    // subtype each returns, a Date (MS-VBAL §6.1.2.7.1.13).
+    [TestMethod]
+    public async Task NowDateAndTime_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Read(2); VarType(Now); VarType(Date); VarType(Time)",
+            "End Sub",
+            "Private Function Read(ByVal N As Long) As Long",
+            "    Dim I As Long, T As Date, D As Date, H As Date, V As Variant",
+            "    For I = 1 To N",
+            "        T = Now",
+            "        D = VBA.DateTime.Date",
+            "        H = Time()",
+            "        V = Now",
+            "        Read = Read * 100 - (T - D > -1) - (T - D < 1) * 2 - (H >= 0) * 4 - (H < 1) * 8 - (Int(D) = D) * 16 - (V > T - 1) * 32",
+            "    Next",
+            "End Function"), [("Read", 0)]);
 }
