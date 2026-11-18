@@ -112,10 +112,15 @@ internal static class InlineCall
             return expression;
         }
 
-        // the statement form writes the body in place of the statement, which hoisting a call out of a larger one would need first.
-        if (site.Call is not null && site.Assignment is null || !IsAloneOnItsLines(text, site.Statement))
+        // the statement form writes the body in place of the statement, or before it, for a call in a larger one.
+        if (!IsAloneOnItsLines(text, site.Statement))
         {
             return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation));
+        }
+
+        if (site.IsInAnExpression && HoistingRefusalOf(context, syntax, callee, procedure, site) is { } unhoisted)
+        {
+            return (null, unhoisted);
         }
 
         if (CallerRefusalOf(analysis, callee, procedure, syntax.Syntax, site.Statement) is { } changes)
@@ -130,7 +135,85 @@ internal static class InlineCall
 
     // a call whose callee is the name, unqualified: a call statement (Call F(a), F a), the whole value of an assignment (x = F(a), Set x = F, x = F), or a
     // call in any other expression of a statement (Debug.Print F(a) + 1), whose expression is Call.
-    private sealed record class Site(StatementNode Statement, ImmutableArray<ExpressionNode> Arguments, AssignmentStatementNode? Assignment, ExpressionNode? Call = null);
+    private sealed record class Site(StatementNode Statement, ImmutableArray<ExpressionNode> Arguments, AssignmentStatementNode? Assignment, ExpressionNode? Call = null)
+    {
+        public bool IsInAnExpression => Call is not null && Assignment is null;
+    }
+
+    // the body of a call in a larger statement runs before the statement, once: where the call's expression is evaluated once each time the statement runs,
+    // and when nothing else the statement evaluates has an effect, or reads what the body can write, so that it can't tell the body ran first (MS-VBAL leaves
+    // the order of an operator's operands open). A loop's condition is evaluated at each turn, an ElseIf's only when the conditions before it are False, a Case clause's until one
+    // matches (MS-VBAL §5.4.2.2, §5.4.2.6, §5.4.2.8, §5.4.2.10).
+    private static InlineRefusal? HoistingRefusalOf(RenameContext context, RenameModule syntax, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
+    {
+        if (callee is VBProcedureMemberSymbol
+            || site.Statement is DoLoopUntilStatementNode or DoLoopWhileStatementNode or DoUntilLoopStatementNode or DoWhileLoopStatementNode or WhileWendStatementNode
+                or ElseIfBlockStatementNode or CaseExpressionStatementNode)
+        {
+            return new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation);
+        }
+
+        // what the body can write of the caller's: the module's variables it writes, and any it calls something that may.
+        var bindings = NameOccurrences.BindingsOf(context, syntax);
+        var own = procedure.Scope.Declarations.Select(symbol => symbol.SemanticId).Append(callee.SemanticId).ToHashSet();
+        var writes = procedure.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry && !own.Contains(definition.Variable))
+            .Select(definition => definition.Variable).ToHashSet();
+        var calls = procedure.Declaration.Descendants().Any(node => node is CallStatementNode or MemberAccessExpressionNode
+            || node is SimpleNameExpressionNode && bindings((ExpressionNode)node) is { } bound && NameOccurrences.SymbolOf(context, bound) is VBProcedureMemberSymbol or VBReturningMemberSymbol
+                and not (VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol or VBConstantMemberSymbol));
+
+        foreach (var node in OtherOperands(site.Statement, site.Call!))
+        {
+            var symbol = node is SimpleNameExpressionNode or IndexExpressionNode && bindings(node is IndexExpressionNode index ? index.Callee : node) is { } id
+                ? NameOccurrences.SymbolOf(context, id)
+                : null;
+            var harmless = node switch
+            {
+                LiteralExpressionNode => true,
+                MemberAccessExpressionNode => false,
+                SimpleNameExpressionNode or IndexExpressionNode => symbol switch
+                {
+                    VBLocalVariableSymbol or VBParameterSymbol => !writes.Contains(symbol.SemanticId),
+                    VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol => !calls && !writes.Contains(symbol.SemanticId),
+                    VBLocalConstantSymbol or VBConstantMemberSymbol => true,
+                    _ => false,
+                },
+                _ => true,
+            };
+            if (!harmless)
+            {
+                return new(InlineRefusalKind.EvaluationOrder, callee.Name, node.SourceLocation);
+            }
+        }
+
+        return null;
+    }
+
+    // the expressions a statement evaluates besides the call, without those of the statements in its body.
+    private static IEnumerable<ExpressionNode> OtherOperands(SyntaxNode node, ExpressionNode call)
+    {
+        foreach (var child in node.Children)
+        {
+            if (child == call || child is StatementNode)
+            {
+                continue;
+            }
+
+            if (child is ExpressionNode expression)
+            {
+                yield return expression;
+            }
+
+            // the arguments and indexes of an element are evaluated; a name is what it names.
+            if (child is not SimpleNameExpressionNode)
+            {
+                foreach (var nested in OtherOperands(child, call))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
 
     private static Site? SiteAt(ModuleNode module, SourceRange name)
     {
@@ -310,6 +393,23 @@ internal static class InlineCall
             if ((Arguments() ?? Result() ?? Locals() ?? Captured()) is { } refused)
             {
                 return (null, refused);
+            }
+
+            if (site.IsInAnExpression)
+            {
+                // the statement reads the result local where the call was: one that holds an object would be let go of after the statement.
+                if (_result.Count > 0)
+                {
+                    return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Call!.SourceLocation));
+                }
+
+                var line = new SourcePosition(call.SourceLocation.Range.Start.Line, 0);
+                var hoisted = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after]) + text.NewLine;
+                return (new InlinedCall(syntax.Module, callee,
+                [
+                    new RefactorTextEdit { Range = new SourceRange(line, line), NewText = hoisted },
+                    new RefactorTextEdit { Range = site.Call!.SourceLocation.Range, NewText = _replacements[callee.SemanticId] },
+                ]), null);
             }
 
             var inlined = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after, .. _result]);

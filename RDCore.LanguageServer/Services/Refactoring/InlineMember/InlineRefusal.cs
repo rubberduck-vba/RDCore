@@ -98,6 +98,12 @@ internal enum InlineRefusalKind
     Captured,
 
     /// <summary>
+    /// The call is in a larger statement, which evaluates something else that has an effect or reads what the body can write. The body written before the
+    /// statement would run before it, where MS-VBAL leaves the order of an operator's operands open.
+    /// </summary>
+    EvaluationOrder,
+
+    /// <summary>
     /// An error the body can raise is caught by a handler of the caller that resumes. Its <c>Resume</c> ran the call again, and inlined runs the body's
     /// statement that raised; its <c>Resume Next</c> went on after the call, and inlined goes on inside the body (<strong>MS-VBAL §5.4.4</strong>).
     /// </summary>

@@ -413,10 +413,25 @@ public class InlineCallTests
     }
 
     [TestMethod]
-    [DataRow("Debug.Print Doubled(n) + 1", "Doubled(n)", false, DisplayName = "a body of more than its result")]
-    [DataRow("Debug.Print Doubled(G()) + 1", "Doubled(G())", true, DisplayName = "an argument that is a call")]
-    public void ACallInAnExpression_TheExpressionFormCantWrite_IsRefused(string body, string call, bool oneLiner)
-        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite, Inlined(body, oneLiner ? OneLiner : Stepwise, call).Refusal?.Kind);
+    [DataRow("Debug.Print Doubled(n) + 1", "Doubled(n)", false, "Debug.Print Doubled_result + 1", DisplayName = "a body of more than its result")]
+    [DataRow("Debug.Print Doubled(G()) + 1", "Doubled(G())", true, "x = G()", DisplayName = "an argument that is a call")]
+    [DataRow("Dim i As Long\r\nFor i = 1 To Doubled(n)\r\n    Debug.Print i\r\nNext", "Doubled(n)", false, "For i = 1 To Doubled_result", DisplayName = "a For loop's end")]
+    public async Task ACallInAnExpression_TheExpressionFormCantWrite_IsHoisted(string body, string call, bool oneLiner, string written)
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(body, oneLiner ? OneLiner : Stepwise, call);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, written);
+    }
+
+    private const string Bumped = "Private Function Bumped(ByVal x As Long) As Long\r\n    field = field + 1\r\n    Bumped = x + field\r\nEnd Function";
+
+    [TestMethod]
+    [DataRow("Debug.Print G() + Doubled(n)", Stepwise, "Doubled(n)", (int)InlineRefusalKind.EvaluationOrder, DisplayName = "another call in the statement")]
+    [DataRow("Debug.Print field + Bumped(n)", Bumped, "Bumped(n)", (int)InlineRefusalKind.EvaluationOrder, DisplayName = "a module variable the body writes")]
+    [DataRow("Dim i As Long\r\nDo While Doubled(i) < 7\r\n    i = i + 1\r\nLoop", Stepwise, "Doubled(i)", (int)InlineRefusalKind.UnsupportedSite, DisplayName = "a loop's condition")]
+    [DataRow("If n = 0 Then\r\n    Debug.Print 0\r\nElseIf Doubled(n) > 4 Then\r\n    Debug.Print 1\r\nEnd If", Stepwise, "Doubled(n)", (int)InlineRefusalKind.UnsupportedSite, DisplayName = "an ElseIf condition")]
+    public void ACallInAnExpression_ThatCantBeHoisted_IsRefused(string body, string declarations, string call, int kind)
+        => Assert.AreEqual((InlineRefusalKind)kind, Inlined(body, declarations, call).Refusal?.Kind);
 
     [TestMethod]
     public async Task AFunction_ThatReadsItsResult_ReadsTheResultLocal()
