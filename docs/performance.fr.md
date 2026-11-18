@@ -141,7 +141,7 @@ donnent la date de cette exécution plutôt qu'un chiffre à jour. Leur source e
 | Bloc de 100 000 × 10, parcours | La boucle sur `V(R, C)`, sans appel à Excel | ![Excel.Block100000x10.Pass](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Pass.json) |
 | Bloc de 100 000 × 10, écriture | `Range(...).Value = V` | ![Excel.Block100000x10.Write](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Write.json) |
 | Bloc de 100 000 × 10, total | Lecture, parcours et écriture | ![Excel.Block100000x10.Total](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Total.json) |
-| **Total - Automatisation d'Excel** | Les lignes de total de la section ensemble : la somme des temps de RD-VBA sur la somme de ceux de MS-VBA | ![Total - Automatisation d'Excel](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-excel-total.json) |
+| **Total - Automatisation d'Excel** | Les cas de la section ensemble, chaque bloc par sa ligne de total : la somme des temps de RD-VBA sur la somme de ceux de MS-VBA | ![Total - Automatisation d'Excel](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-excel-total.json) |
 
 Chaque appel au modèle objet d'Excel passe du processus du programme à celui d'Excel, puis revient, avec MS-VBA comme avec RD-VBA. Ce passage coûte
 bien plus cher que le travail de la plupart des appels : c'est le nombre d'appels qui décide du temps que prend le code. Le cas cellule par cellule
@@ -165,8 +165,8 @@ appelle Excel quatre fois par cellule, 40 000 fois en tout, alors qu'un bloc se 
   fusion, et ce sont les colonnes Alloué et GC 0/1/2 des tableaux. Elles ne dépendent pas de la vitesse de la machine. Les cas d'automatisation d'Excel
   n'en ont pas.
 - **Totaux.** La ligne de total d'une section est la somme des temps de RD-VBA de ses cas sur la somme de leurs temps MS-VBA : un cas long pèse donc
-  plus qu'un cas court. Ses colonnes Alloué et GC 0/1/2 sont les sommes de celles des cas. Dans la section d'automatisation d'Excel, les lignes de
-  total valent pour leurs lignes de lecture, de passage et d'écriture : seules elles sont additionnées.
+  plus qu'un cas court. Ses colonnes Alloué et GC 0/1/2 sont les sommes de celles des cas. Dans la section d'automatisation d'Excel, la ligne de
+  total d'un bloc vaut pour ses lignes de lecture, de parcours et d'écriture : seule elle est additionnée.
 - **Résolution.** `rdc bench` donne les temps au dixième de milliseconde : un cas qui prend moins d'une milliseconde est juste à environ ±0,05 ms.
 
 ## Écrire du code qui s'exécute bien

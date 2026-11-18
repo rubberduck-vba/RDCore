@@ -139,7 +139,7 @@ source is on the [Excel automation](benchmarks/excel-automation.md) page.
 | Block of 100,000 × 10, pass | The loop over `V(R, C)`, no call to Excel | ![Excel.Block100000x10.Pass](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Pass.json) |
 | Block of 100,000 × 10, write | `Range(...).Value = V` | ![Excel.Block100000x10.Write](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Write.json) |
 | Block of 100,000 × 10, total | Read, pass and write | ![Excel.Block100000x10.Total](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-Excel.Block100000x10.Total.json) |
-| **Total - Excel automation** | The section's total rows together: the sum of RD-VBA's times over the sum of MS-VBA's | ![Total - Excel automation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-excel-total.json) |
+| **Total - Excel automation** | The section's cases together, each block by its total row: the sum of RD-VBA's times over the sum of MS-VBA's | ![Total - Excel automation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/bench-excel-total.json) |
 
 Every call to Excel's object model crosses from the program's process to Excel's and back, in MS-VBA and in RD-VBA. A crossing costs far more than the
 work most calls do, so the number of calls decides how long the code takes: the cell-by-cell case calls Excel four times a cell, 40,000 times in all,
@@ -160,8 +160,8 @@ while a block is read in four calls and written in four.
   (the `allocated` and `gc 0/1/2` columns). On every merge they are recorded for the merged build, and they are the Allocated and GC 0/1/2 columns of
   the tables. They do not depend on the machine's speed. The Excel automation cases have none.
 - **Totals.** A section's total row is the sum of its cases' RD-VBA times over the sum of their MS-VBA times, so a long case weighs more than a short
-  one. Its Allocated and GC 0/1/2 are the sums of the cases'. In the Excel automation section, the total rows stand for their read, pass and write
-  rows, so only they are summed.
+  one. Its Allocated and GC 0/1/2 are the sums of the cases'. In the Excel automation section, a block's total row stands for its read, pass and
+  write rows, so only it is summed.
 - **Resolution.** `rdc bench` gives times to a tenth of a millisecond, so a case that takes under a millisecond is good to about ±0.05 ms.
 
 ## Writing code that runs well
