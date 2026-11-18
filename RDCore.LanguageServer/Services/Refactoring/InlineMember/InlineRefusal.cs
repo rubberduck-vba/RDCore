@@ -80,6 +80,18 @@ internal enum InlineRefusalKind
     OtherModule,
 
     /// <summary>
+    /// A local of the member may hold an object when an error leaves the body. The callee's activation let go of it before the caller's handler ran, and so
+    /// ran its <c>Class_Terminate</c> then; a local of the caller is let go of later.
+    /// </summary>
+    HeldThroughAnError,
+
+    /// <summary>
+    /// Several locals of the member may hold an object when the body ends, and the order MS-VBA lets go of a procedure's locals in, which decides the order
+    /// their <c>Class_Terminate</c> run in, is not measured.
+    /// </summary>
+    ReleaseOrder,
+
+    /// <summary>
     /// The edited module, checked before the edit is offered, is not what the call did: it does not parse, a name binds to something else, it has a new
     /// compile error.
     /// </summary>

@@ -228,7 +228,7 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim t As Long\r\nt = Total(1, n, 3)\r\nDebug.Print t",
-            "Private Function Total(ParamArray values() As Variant) As Long\r\n    Dim item As Variant\r\n    For Each item In values\r\n        Total = Total + item\r\n    Next\r\n    Debug.Print LBound(values), UBound(values)\r\nEnd Function",
+            "Private Function Total(ParamArray values() As Variant) As Long\r\n    Dim i As Long\r\n    For i = LBound(values) To UBound(values)\r\n        Total = Total + values(i)\r\n    Next\r\n    Debug.Print LBound(values), UBound(values)\r\nEnd Function",
             "Total(1, n, 3)");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "ReDim values(0 To 2)");
@@ -249,13 +249,74 @@ public class InlineCallTests
     [TestMethod]
     public async Task AnObjectLocal_IsLetGoOfWhereTheCallEnded()
     {
-        var tracker = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Tracker\"\r\nOption Explicit\r\nPrivate Sub Class_Terminate()\r\n    Debug.Print \"terminated\"\r\nEnd Sub\r\n";
         var (before, after, module) = await BeforeAndAfterAsync(
             "Track\r\nDebug.Print \"after\"",
-            "Private Sub Track()\r\n    Dim o As Tracker\r\n    Set o = New Tracker\r\n    Debug.Print \"body\"\r\nEnd Sub",
-            "Track", classes: [("Tracker", tracker)]);
+            "Private Sub Track()\r\n    Dim o As Tracker\r\n    Debug.Print \"body\"\r\n    Set o = New Tracker\r\nEnd Sub",
+            "Track", classes: [("Tracker", Tracker)]);
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(before, "body | terminated | after");
+        StringAssert.Contains(module, "Set o = Nothing");
+    }
+
+    private const string Tracker = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Tracker\"\r\nOption Explicit\r\nPrivate Sub Class_Terminate()\r\n    Debug.Print \"terminated\"\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public async Task AVariant_GivenAnArrayOfObjects_IsLetGoOfWhereTheCallEnded()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Track\r\nDebug.Print \"after\"",
+            "Private Sub Track()\r\n    Dim v As Variant\r\n    Debug.Print \"body\"\r\n    v = Array(New Tracker)\r\nEnd Sub",
+            "Track", classes: [("Tracker", Tracker)]);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(before, "body | terminated | after");
+        StringAssert.Contains(module, "v = Empty");
+    }
+
+    [TestMethod]
+    public void ALocalNeverGivenAnObject_IsNotLetGoOf()
+    {
+        var (_, after, refusal) = Inlined(
+            "Track",
+            "Private Sub Track()\r\n    Dim v As Variant\r\n    Dim o As Tracker\r\n    v = 1\r\n    Debug.Print v, o Is Nothing\r\nEnd Sub",
+            "Track", [("Tracker", Tracker)]);
+        Assert.IsNull(refusal, refusal?.ToString());
+
+        // o is read before it is written, and so reset before the body; nothing is let go of after it.
+        var last = after!.IndexOf("Debug.Print v, o Is Nothing", StringComparison.Ordinal);
+        var tail = after[last..after.IndexOf("End Sub", last, StringComparison.Ordinal)];
+        Assert.IsFalse(tail.Contains("v = Empty", StringComparison.Ordinal) || tail.Contains("Set o = Nothing", StringComparison.Ordinal), after);
+    }
+
+    [TestMethod]
+    public async Task AnObjectLocal_HeldWhenAnErrorLeavesTheBody_IsRefused_ForItWasLetGoOfBeforeTheHandlerRan()
+    {
+        const string body = "On Error GoTo Handler\r\nTrack n - 3\r\nExit Sub\r\nHandler:\r\nDebug.Print \"handled\"";
+        const string declarations = "Private Sub Track(ByVal x As Long)\r\n    Dim o As Tracker\r\n    Set o = New Tracker\r\n    Debug.Print 1 / x\r\nEnd Sub";
+        var (before, _, refusal) = Inlined(body, declarations, "Track n - 3", [("Tracker", Tracker)]);
+
+        Assert.AreEqual(InlineRefusalKind.HeldThroughAnError, refusal?.Kind);
+        StringAssert.Contains(await RunAsync(before, [("Tracker", Tracker)]), "terminated | handled");
+    }
+
+    [TestMethod]
+    public void TwoObjectsLetGoOfAtTheEnd_AreRefused_UntilTheOrderIsKnown()
+    {
+        var (_, _, refusal) = Inlined(
+            "Pair New Tracker, New Tracker",
+            "Private Sub Pair(ByVal first As Tracker, ByVal second As Tracker)\r\n    Dim k As Long\r\n    k = 1\r\nEnd Sub",
+            "Pair New Tracker", [("Tracker", Tracker)]);
+        Assert.AreEqual(InlineRefusalKind.ReleaseOrder, refusal?.Kind);
+    }
+
+    [TestMethod]
+    [Ignore("The order MS-VBA lets go of a procedure's locals in is not measured in MS-VBA; the inline is refused until it is.")]
+    public async Task TwoObjectsLetGoOfAtTheEnd_AreLetGoOfInTheOrderTheCalleeLetGoOfThem()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Pair New Tracker, New Tracker\r\nDebug.Print \"after\"",
+            "Private Sub Pair(ByVal first As Tracker, ByVal second As Tracker)\r\n    Dim k As Long\r\n    k = 1\r\nEnd Sub",
+            "Pair New Tracker", [("Tracker", Tracker)]);
+        Assert.AreEqual(before, after, module);
     }
 
     [TestMethod]
@@ -307,10 +368,21 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim items As Collection\r\nSet items = Filled(n)\r\nDebug.Print items.Count",
-            "Private Function Filled(ByVal count As Long) As Collection\r\n    Dim i As Long\r\n    Set Filled = New Collection\r\n    For i = 1 To count\r\n        Filled.Add i\r\n    Next\r\nEnd Function",
+            "Private Function Filled(ByVal count As Long) As Collection\r\n    Debug.Print count\r\n    Set Filled = New Collection\r\nEnd Function",
             "Filled(n)");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "Set items = Filled_result");
+        StringAssert.Contains(module, "Set Filled_result = Nothing");
+    }
+
+    [TestMethod]
+    public void AnObjectTheBodyHoldsWhereItCanRaise_IsRefused()
+    {
+        var (_, _, refusal) = Inlined(
+            "Dim items As Collection\r\nSet items = Filled(n)",
+            "Private Function Filled(ByVal count As Long) As Collection\r\n    Dim i As Long\r\n    Set Filled = New Collection\r\n    For i = 1 To count\r\n        Filled.Add i\r\n    Next\r\nEnd Function",
+            "Filled(n)");
+        Assert.AreEqual(InlineRefusalKind.HeldThroughAnError, refusal?.Kind);
     }
 
     [TestMethod]

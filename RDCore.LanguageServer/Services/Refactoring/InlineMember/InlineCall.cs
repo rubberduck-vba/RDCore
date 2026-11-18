@@ -236,6 +236,7 @@ internal static class InlineCall
         private readonly List<string> _before = [];
         private readonly List<string> _after = [];
         private readonly List<(SourceRange Range, string NewText)> _folds = [];
+        private int _released;
 
         public (InlinedCall? Inlined, InlineRefusal? Refusal) Write()
         {
@@ -354,6 +355,22 @@ internal static class InlineCall
                 _replacements[parameter.SemanticId] = local;
                 _before.Add($"Dim {local} As {NameOfType(type)}");
                 _before.Add($"{(isObject ? "Set " : string.Empty)}{local} = {argumentText}");
+
+                // the copy of an object the caller holds in no variable of its own (`New Tracker`, a function's result) is the callee's to let go of.
+                if (isObject && variable is null && argument is not LiteralExpressionNode)
+                {
+                    if (RaisingAfter([]) is { } raising)
+                    {
+                        return new(InlineRefusalKind.HeldThroughAnError, parameter.Name, procedure.Instructions.Items[raising].Location);
+                    }
+
+                    _after.Add($"Set {local} = Nothing");
+                    _released++;
+                }
+                else if (Release(parameter, type, local, OfObjects(parameter.SemanticId)) is { } refused)
+                {
+                    return refused;
+                }
             }
 
             return null;
@@ -388,7 +405,7 @@ internal static class InlineCall
                 }
 
                 _before.Add($"{(type is VBClassType or VBObjectType ? "Set " : string.Empty)}{local} = {text.Of(value.SourceLocation.Range).Trim()}");
-                return null;
+                return Release(parameter, type, local, OfObjects(parameter.SemanticId));
             }
 
             if (DefaultOf(type, local) is not { } reset)
@@ -397,7 +414,7 @@ internal static class InlineCall
             }
 
             _before.Add(reset);
-            return null;
+            return Release(parameter, type, local, OfObjects(parameter.SemanticId));
         }
 
         // a ParamArray is a new Variant array with a lower bound of 0 that holds the arguments it collects (MS-VBAL §5.3.1.11), built element by element:
@@ -498,9 +515,21 @@ internal static class InlineCall
                 _result.Add($"{keyword}{text.Of(assignment.Target.SourceLocation.Range).Trim()} = {name}");
             }
 
-            if (isObject)
+            // the result the caller is given, or discards, is let go of after it, as the caller let go of the value of the call; one held when an error leaves
+            // the body would have been let go of with the callee's activation.
+            if (OfObjects(callee.SemanticId) is { Count: > 0 } givenAnObjectAt)
             {
-                _result.Add($"Set {name} = Nothing");
+                if (RaisingAfter(givenAnObjectAt) is { } raising)
+                {
+                    return new(InlineRefusalKind.HeldThroughAnError, callee.Name, procedure.Instructions.Items[raising].Location);
+                }
+
+                if (ReleaseOf(type, name) is not { } release)
+                {
+                    return new(InlineRefusalKind.UnsupportedConstruct, callee.Name);
+                }
+
+                _result.Add(release);
             }
 
             return null;
@@ -531,9 +560,120 @@ internal static class InlineCall
                     _before.Add(reset);
                 }
 
-                if (local is VBLocalVariableSymbol && type is VBClassType or VBObjectType)
+                if (local is VBLocalVariableSymbol && Release(local, type, name, OfObjects(local.SemanticId)) is { } refused)
                 {
-                    _after.Add($"Set {name} = Nothing");
+                    return refused;
+                }
+            }
+
+            // the order MS-VBA lets go of a procedure's locals in, when several may run a Class_Terminate, is not measured.
+            return _released > 1 ? new(InlineRefusalKind.ReleaseOrder, callee.Name, call.SourceLocation) : null;
+        }
+
+        // a local that may hold an object when the body ends is let go of after it, where the call ended and the callee's activation let go of it (MS-VBAL
+        // §5.3.1): every way out of the body goes there. One that holds it when an error leaves the body would have been let go of before the caller's handler
+        // ran, which a local of the caller is not: refused.
+        private InlineRefusal? Release(Symbol local, VBType? type, string name, IReadOnlyList<int> givenAnObjectAt)
+        {
+            if (givenAnObjectAt.Count == 0)
+            {
+                return null;
+            }
+
+            if (RaisingAfter(givenAnObjectAt) is { } raising)
+            {
+                return new(InlineRefusalKind.HeldThroughAnError, local.Name, procedure.Instructions.Items[raising].Location);
+            }
+
+            if (ReleaseOf(type, name) is not { } release)
+            {
+                return new(InlineRefusalKind.UnsupportedConstruct, local.Name);
+            }
+
+            _after.Add(release);
+            _released++;
+            return null;
+        }
+
+        // the statement that lets go of what a variable holds; none for a Type, which has no statement that empties it.
+        private static string? ReleaseOf(VBType? type, string name) => type switch
+        {
+            VBClassType or VBObjectType => $"Set {name} = Nothing",
+            VBArrayType => $"Erase {name}",
+            VBVariantType => $"{name} = Empty",
+            _ => null,
+        };
+
+        // the instructions of the body that may give a variable an object (an object, an array of them, a Variant that holds either, a Type with a field that
+        // can), by the type of what they write it: Mid, LSet and RSet write a string or the bytes of a Type, a For loop a number.
+        private List<int> OfObjects(SemanticId variable)
+        {
+            var symbol = NameOccurrences.SymbolOf(context, variable);
+            if (!CanHoldAnObject((symbol as ITypedSymbol)?.ResolvedType))
+            {
+                return [];
+            }
+
+            return [.. procedure.Accesses.Definitions.Where(definition => definition.Variable == variable && GivesAnObject(definition)).Select(definition => definition.Offset).Distinct()];
+        }
+
+        private bool GivesAnObject(VariableDefinition definition)
+        {
+            // the value an activation starts with is not an instruction's; an IsMissing that is folded away is no longer there.
+            if (definition.Kind is VariableDefinitionKind.Entry || definition.Offset < 0 || definition.Offset >= procedure.Instructions.Items.Length
+                || definition.Expression is { } written && _folds.Any(fold => Within(written.SourceLocation.Range, fold.Range)))
+            {
+                return false;
+            }
+
+            var instruction = procedure.Instructions.Items[definition.Offset];
+            return definition.Kind switch
+            {
+                VariableDefinitionKind.Redimension or VariableDefinitionKind.FileInput => false,
+                VariableDefinitionKind.LoopControl => instruction.Kind is InstructionKind.ForEachOpener or InstructionKind.ForEachNext,
+                VariableDefinitionKind.ByRefArgument => true,
+                _ => instruction.Node switch
+                {
+                    AssignmentStatementNode { Kind: AssignmentKind.LSet or AssignmentKind.RSet } or MidStatementNode => false,
+                    AssignmentStatementNode assignment => CanHoldAnObject(DeclaredTypeOf(assignment.Value)),
+                    _ => true,
+                },
+            };
+        }
+
+        private VBType? DeclaredTypeOf(ExpressionNode expression)
+            => procedure.Model.Expressions.TryGetValue(expression.Identity, out var fact) ? fact.DeclaredType : null;
+
+        // a type whose values can hold an object reference; one not known can.
+        private static bool CanHoldAnObject(VBType? type) => type switch
+        {
+            null or VBVariantType or VBObjectType or VBClassType or VBUnknownType or VBUnresolvedType => true,
+            VBArrayType array => CanHoldAnObject(array.ItemType),
+            VBUserDefinedType record => record.Members.Any(member => CanHoldAnObject((member as ITypedSymbol)?.ResolvedType)),
+            _ => false,
+        };
+
+        // an instruction that can raise an error, reached from after one of these, or from the start of the body when there are none to start from.
+        private int? RaisingAfter(IReadOnlyList<int> starts)
+        {
+            var graph = procedure.Graph;
+            var seen = new HashSet<int>();
+            var pending = new Queue<int>(starts.Count == 0 ? [graph.Entry] : starts.SelectMany(start => graph.SuccessorsOf(start).Select(edge => edge.To)));
+            while (pending.TryDequeue(out var node))
+            {
+                if (node >= graph.Exit || !seen.Add(node))
+                {
+                    continue;
+                }
+
+                if (graph.CanRaise(node))
+                {
+                    return node;
+                }
+
+                foreach (var edge in graph.SuccessorsOf(node))
+                {
+                    pending.Enqueue(edge.To);
                 }
             }
 
