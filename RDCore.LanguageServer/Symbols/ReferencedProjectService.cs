@@ -30,7 +30,22 @@ internal interface IReferencedProjectService
     /// <param name="projectRoot">The folder of the project.</param>
     /// <param name="token">Stops the collecting of the modules of a project referenced.</param>
     IReadOnlyList<Symbol> LibrariesOf(Uri workspaceRoot, string projectRoot, CancellationToken token = default);
+
+    /// <summary>
+    /// The projects of the workspace a project references, whose names <see cref="LibrariesOf"/> gives it: each reference that names one project of the
+    /// workspace other than itself, in the order of the references.
+    /// </summary>
+    /// <param name="projectRoot">The folder of the project.</param>
+    IReadOnlyList<ReferencedProject> ProjectsReferencedBy(string projectRoot) => [];
 }
+
+/// <summary>
+/// A project of the workspace that a project references.
+/// </summary>
+/// <param name="Project">The project referenced.</param>
+/// <param name="Name">Its name, as the reference names it.</param>
+/// <param name="Priority">The reference precedence of the project among the referencing project's references.</param>
+internal sealed record class ReferencedProject(WorkspaceProject Project, string Name, int Priority);
 
 /// <inheritdoc cref="IReferencedProjectService"/>
 /// <remarks>
@@ -118,17 +133,42 @@ internal sealed class ReferencedProjectService(
         }
     }
 
-    // the symbols of the composition of the one project of the workspace with the name; none when no project, or more than one, has it.
-    private IReadOnlyList<Symbol>? SymbolsOf(string projectName, HashSet<string> composing, CancellationToken token)
+    public IReadOnlyList<ReferencedProject> ProjectsReferencedBy(string projectRoot)
+    {
+        if (projectRoot.Length == 0 || documents.WorkspaceRoot.Length == 0
+            || projects.Projects.FirstOrDefault(candidate => WorkspacePaths.Same(candidate.Root, projectRoot))?.Project.ProjectInfo is not { } project)
+        {
+            return [];
+        }
+
+        var primary = WorkspacePaths.Same(projectRoot, documents.WorkspaceRoot);
+        var priorities = (primary ? libraries.Libraries : libraries.LibrariesOf(project)).Priorities;
+        return
+        [
+            .. (project.References ?? [])
+                .Where(reference => reference.IsProject && !string.Equals(reference.Name, project.Name, StringComparison.OrdinalIgnoreCase))
+                .Select(reference => (reference, Named: NamedProject(reference.Name)))
+                .Where(pair => pair.Named is not null && priorities.ContainsKey(pair.reference.Name))
+                .Select(pair => new ReferencedProject(pair.Named!, pair.reference.Name, priorities[pair.reference.Name])),
+        ];
+    }
+
+    // the one project of the workspace with the name; none when no project, or more than one, has it.
+    private WorkspaceProject? NamedProject(string projectName)
     {
         var named = projects.Projects
             .Where(candidate => string.Equals(candidate.Project.ProjectInfo.Name, projectName, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (named.Count != 1)
+        return named.Count == 1 ? named[0] : null;
+    }
+
+    // the symbols of the composition of the one project of the workspace with the name; none when no project, or more than one, has it.
+    private IReadOnlyList<Symbol>? SymbolsOf(string projectName, HashSet<string> composing, CancellationToken token)
+    {
+        if (NamedProject(projectName) is not { } project)
         {
             return null;
         }
 
-        var project = named[0];
         var root = SymbolUri.Root(WorkspacePaths.Same(project.Root, documents.WorkspaceRoot) ? documents.WorkspaceRoot : project.Root);
         var (_, modules, hosts) = ProjectModules.Collect(documents, parsing, project.Root, root, token);
         var composition = _compositions.GetOrCompose(
