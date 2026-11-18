@@ -202,7 +202,8 @@ jobs:
        $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
        $l3 = if ($cpu.L3CacheSize -gt 0) { "$([Math]::Round($cpu.L3CacheSize / 1024.0, 1)) MB L3" } else { 'L3 not reported' }
        $runnerCpu = "$($cpu.Name.Trim()) · $([Environment]::ProcessorCount) logical processors · $l3"
-       ./.github/scripts/bench-figures.ps1 -Runs bench-runs -ReferenceData RDCore.CLI/Bench/Reference/msvba.json -Out bench-badge -Commit $env:GITHUB_SHA -RunnerCpu $runnerCpu
+       ./.github/scripts/bench-figures.ps1 -Runs bench-runs -ReferenceData RDCore.CLI/Bench/Reference/msvba.json -Out bench-badge -Commit $env:GITHUB_SHA -RunnerCpu $runnerCpu `
+         -RunUrl "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" -RunNumber $env:GITHUB_RUN_NUMBER
 
    - name: Upload bench badges
      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
