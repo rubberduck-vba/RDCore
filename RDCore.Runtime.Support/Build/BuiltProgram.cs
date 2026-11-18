@@ -48,8 +48,8 @@ internal sealed record class BuiltModule(string RelativeUri, string Name, Module
 
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
 // runs, so that it runs with no parser and no resolver, and with no source: Modules are what the build read of each. Root is what the identities of its
-// symbols are relative to. NativeDialogs: whether the program shows the machine's own dialogs where it has them, as its project and the settings said when
-// it was built (ProgramDialogs): a console application whose settings do not ask for them asks at the console.
+// symbols are relative to. NativeDialogs: whether the settings asked for the machine's own dialogs when the program was built, which it shows where the
+// machine has them (ProgramDialogs); an image that does not say shows RDForms' dialogs, or asks at the console for a console application.
 internal sealed record class BuiltProgramImage(
     RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions,
     IReadOnlyList<BuiltModule> Modules, bool NativeDialogs = false)
