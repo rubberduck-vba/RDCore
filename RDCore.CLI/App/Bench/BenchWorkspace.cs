@@ -22,6 +22,13 @@ internal sealed record class BenchModule(string Name, ModuleType Type, string Re
     Exception? CompanionProblem = null);
 
 /// <summary>
+/// A project of the workspace that the benchmarked project references (<strong>RD-VBAL §2.2.3.2</strong>).
+/// </summary>
+/// <param name="Name">The name of the project, as the reference gives it.</param>
+/// <param name="Workspace">The project's folder, read as a workspace of its own: its modules and its project file.</param>
+internal sealed record class BenchReferencedProject(string Name, BenchWorkspace Workspace);
+
+/// <summary>
 /// The code <c>rdc bench</c> runs: the modules of a workspace, and the project they make.
 /// </summary>
 /// <remarks>
@@ -33,6 +40,12 @@ internal sealed record class BenchModule(string Name, ModuleType Type, string Re
 /// <param name="Modules">The modules, in the order the project lists them.</param>
 internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, IReadOnlyList<BenchModule> Modules)
 {
+    /// <summary>
+    /// The projects of the workspace the project references, in the order of its references: each one's name as the reference gives it, and its folder
+    /// read as a workspace of its own. Its own references are not read.
+    /// </summary>
+    public IReadOnlyList<BenchReferencedProject> ReferencedProjects { get; init; } = [];
+
     /// <summary>The extensions of the module files of a folder that has no <c>.rdproj</c>.</summary>
     public static readonly IReadOnlyList<string> ModuleExtensions = [".bas", ".cls"];
 
@@ -59,6 +72,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// <param name="path">The file or the folder.</param>
     /// <param name="token">A token that cancels the reading.</param>
     /// <exception cref="FileNotFoundException">There is no such file or folder.</exception>
+    /// <exception cref="InvalidOperationException">A reference of the project to a project names no project of the workspace, or more than one.</exception>
     public static async Task<BenchWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default)
     {
         var full = fileSystem.Path.GetFullPath(path);
@@ -77,7 +91,10 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
         if (projects.TryLocate(full, out _))
         {
             var project = (await projects.LoadAsync(full, token)).ProjectInfo;
-            return Compose(fileSystem, full, project, project.Modules);
+            return Compose(fileSystem, full, project, project.Modules) with
+            {
+                ReferencedProjects = await ReferencedAsync(fileSystem, projects, full, project, token),
+            };
         }
 
         var files = ModuleExtensions
@@ -87,6 +104,58 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             .ToArray();
         return Compose(fileSystem, full, new RDCoreProject { Name = fileSystem.Path.GetFileName(full.TrimEnd(fileSystem.Path.DirectorySeparatorChar)) },
             [.. files.Select(file => new RDCoreModule { RelativeUri = file })]);
+    }
+
+    // RD-VBAL §2.2.3.2: a reference to a project names the one project of the workspace with that name (ProjectReferences), among the folders the
+    // .rdworkspace lists (WorkspaceFolderList.Read); with no .rdworkspace, the project is the workspace's only one. A reference that names no project, or
+    // more than one, refuses the load, naming it. A reference to the project itself closes a circle of references, and gives no names.
+    private static async Task<IReadOnlyList<BenchReferencedProject>> ReferencedAsync(
+        IFileSystem fileSystem, IProjectFileLoader projects, string root, RDCoreProject project, CancellationToken token)
+    {
+        if (!project.ProjectReferences.Any())
+        {
+            return [];
+        }
+
+        var workspace = new List<(string Root, RDCoreProject Project)>();
+        foreach (var folder in WorkspaceFolderList.Read(fileSystem, root)?.Folders ?? [])
+        {
+            if (WorkspacePaths.Same(folder.Path, root))
+            {
+                workspace.Add((root, project));
+            }
+            else if (projects.TryLocate(folder.Path, out _))
+            {
+                workspace.Add((folder.Path, (await projects.LoadAsync(folder.Path, token)).ProjectInfo));
+            }
+        }
+
+        if (!workspace.Any(each => WorkspacePaths.Same(each.Root, root)))
+        {
+            workspace.Insert(0, (root, project));
+        }
+
+        var resolutions = ProjectReferences.Of(project, [.. workspace.Select(each => each.Project)]);
+        var refused = resolutions.Where(resolution => !resolution.IsResolved).Select(resolution => resolution.ToMessage(project.Name)).ToArray();
+        if (refused.Length > 0)
+        {
+            throw new InvalidOperationException(string.Join(Environment.NewLine, refused));
+        }
+
+        var referenced = new List<BenchReferencedProject>();
+        foreach (var resolution in resolutions)
+        {
+            var (folder, info) = workspace[resolution.Index];
+            var again = referenced.Any(each => string.Equals(each.Name, resolution.Reference.Name, StringComparison.OrdinalIgnoreCase));
+            if (WorkspacePaths.Same(folder, root) || again)
+            {
+                continue;
+            }
+
+            referenced.Add(new BenchReferencedProject(resolution.Reference.Name, Compose(fileSystem, folder, info, info.Modules)));
+        }
+
+        return referenced;
     }
 
     // the project lists the modules by where they are, and says which are document modules; the session reads the same files, a form's companion file with its

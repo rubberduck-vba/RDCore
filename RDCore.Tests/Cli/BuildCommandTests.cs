@@ -460,6 +460,36 @@ public sealed class BuildCommandTests
         }
     }
 
+    // RD-VBAL §2.2.3.2: the built program runs what rdc run runs, the code of the project the project references with it, from the definitions it replays.
+    [TestMethod]
+    public async Task TheBuiltProgramOfAProjectThatReferencesAProject_RunsTheReferencedProjectsCode()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files();
+        ReferencedProjectRunTests.WriteNavalWorkspace(fileSystem, Root);
+        var (command, messages) = Command(fileSystem);
+        Assert.AreEqual(0, await command.ExecuteAsync([Path.Combine(Root, "NavalConsole"), "--name", "Naval", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Naval.dll"))));
+            var output = new StringWriter();
+            var error = new StringWriter();
+
+            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None);
+
+            Assert.AreEqual(0, exit, error.ToString());
+            CollectionAssert.AreEqual(ReferencedProjectRunTests.Printed,
+                output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray());
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
     // a Stop between two lines it prints, each a call that compiled code runs.
     private static readonly string Stops = Module("Program",
         "Public Sub Main()",
