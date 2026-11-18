@@ -217,6 +217,46 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a call of
+    // the first, is no answer to a call of the second, which waits for none; the first program's form's event is the answer to the first's call.
+    [TestMethod]
+    public void AnEventRaisedDuringACallOfAnotherProgram_IsNotTheAnswerToACall()
+    {
+        var first = Host();
+        var second = Host();
+        var mine = first.Create(VisualBasicForm());
+        var theirs = second.Create(VisualBasicForm());
+        try
+        {
+            first.Show(mine, modal: false);
+            second.Show(theirs, modal: false);
+            first.DoEvents();
+            second.DoEvents();
+            var myText = Get(first, mine, "Text1")!;
+            var theirText = Get(second, theirs, "Text1")!;
+            var myEvents = new Recorder();
+            var theirEvents = new Recorder();
+            first.Server.Advise(myText, myEvents);
+            second.Server.Advise(theirText, theirEvents);
+
+            RDFormsUI.Run(first.Server, () =>
+            {
+                RDFormsAutomationServer.HandleOf(theirText).Component.Set(RDCore.Forms.Model.Properties.Text, "theirs");
+                RDFormsAutomationServer.HandleOf(myText).Component.Set(RDCore.Forms.Model.Properties.Text, "mine");
+            });
+
+            first.DoEvents();
+            second.DoEvents();
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised), "raised during its own program's call, the event is its answer");
+            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised), "raised during another program's call, the event is no answer");
+        }
+        finally
+        {
+            first.Destroy(mine);
+            second.Destroy(theirs);
+        }
+    }
+
     [TestMethod]
     public void AValueAPropertyCannotTake_IsError380_AndOneOfTheWrongType_Error13()
     {
@@ -304,7 +344,7 @@ public sealed class RDFormsFormHostTests
             // focus, as the user's click would after it.
             var control = RDFormsAutomationServer.HandleOf(text);
             var window = control.Form.Window;
-            var focused = RDFormsUI.Run(() =>
+            var focused = RDFormsUI.Run(host.Server, () =>
             {
                 window.Activate();
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -354,7 +394,7 @@ public sealed class RDFormsFormHostTests
             host.Show(form, modal: false, owner);
 
             var ownerWindow = RDFormsAutomationServer.HandleOf(owner).Form.Window;
-            var actual = RDFormsUI.Run(() => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
+            var actual = RDFormsUI.Run(host.Server, () => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
             Assert.AreEqual(owned, ReferenceEquals(ownerWindow, actual));
             Assert.IsTrue(owned || actual is null, "a form not owned has no owner");
         }

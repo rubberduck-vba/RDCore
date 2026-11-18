@@ -30,10 +30,11 @@ internal sealed class RDFormsForm : IComponentEventSink
     private readonly Dictionary<object, IAutomationEventSink> _arraySinks = new(ReferenceEqualityComparer.Instance);
     private DispatcherFrame? _modal;
 
-    public RDFormsForm(Model.FormDefinition model, CodeUnit unit)
+    public RDFormsForm(Model.FormDefinition model, CodeUnit unit, object program)
     {
         Model = model;
         Unit = unit;
+        Program = program;
         Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload };
         RDFormsControl.SetEventSink(Window, this);
         Handle = HandleOf(model.Root);
@@ -44,6 +45,9 @@ internal sealed class RDFormsForm : IComponentEventSink
 
     // the unit the form's program reads and writes its components' positions and sizes in; the model holds them in pixels.
     public CodeUnit Unit { get; }
+
+    // the server of the program the form is an object of, whose calls the form's events are the answer to (RDFormsUI.IsInCallOf).
+    public object Program { get; }
 
     public RDFormsFormWindow Window { get; }
 
@@ -194,7 +198,7 @@ internal sealed class RDFormsForm : IComponentEventSink
         }
 
         object?[] raised = [.. first == 1 ? [element] : Array.Empty<object?>(), .. arguments.Select(argument => RDFormsValues.ToNeutral(argument, HandleOf))];
-        sink.OnEvent(new AutomationEvent(definition.Name, raised, RDFormsUI.IsInCall, _ => RDFormsUI.Serve()));
+        sink.OnEvent(new AutomationEvent(definition.Name, raised, RDFormsUI.IsInCallOf(Program), _ => RDFormsUI.Serve()));
         for (var index = 0; index < arguments.Length; index++)
         {
             arguments[index] = RDFormsValues.FromNeutral(raised[first + index], arguments[index]);
@@ -216,6 +220,6 @@ internal sealed class RDFormsForm : IComponentEventSink
             return;
         }
 
-        sink.OnEvent(new AutomationEvent(FormWindowEvents.Close, [(short)mode], RDFormsUI.IsInCall, _ => RDFormsUI.Serve()));
+        sink.OnEvent(new AutomationEvent(FormWindowEvents.Close, [(short)mode], RDFormsUI.IsInCallOf(Program), _ => RDFormsUI.Serve()));
     }
 }

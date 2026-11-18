@@ -32,8 +32,10 @@ internal static class RDFormsUI
     private static Dispatcher? _dispatcher;
     private static RDFormsPlatform _platform;
 
-    // how many calls of the program the UI thread is making: an event raised while it makes one is the answer to that call. Touched on the UI thread only.
-    private static int _calls;
+    // the programs whose calls the UI thread is making, the innermost last: an event a form raises while it makes a call of the form's own program is the answer
+    // to that call, and one of another program's form is not, since that program waits for no call of it. Every program of the process shares the thread. Touched
+    // on the UI thread only.
+    private static readonly List<object?> Callers = [];
 
     // how many form hosts hold the windows' messages because a program of theirs runs. While one does, the UI thread makes the programs' calls and dispatches
     // nothing else, as a VB6 program's own thread does: what a window posts, such as the focus SetFocus moves, waits until the program waits for it (DoEvents, a
@@ -48,8 +50,8 @@ internal static class RDFormsUI
     private static bool _inHold;
     private static bool _holdAfterCall;
 
-    // whether the UI thread is making a call of the program, which is what makes an event it raises synchronous.
-    public static bool IsInCall => _calls > 0;
+    // whether the UI thread is making a call of `program`, which is what makes an event of that program's forms synchronous.
+    public static bool IsInCallOf(object program) => Callers.Contains(program);
 
     public static Dispatcher Dispatcher => _dispatcher ?? throw new InvalidOperationException("The RDForms UI thread is not started.");
 
@@ -131,16 +133,17 @@ internal static class RDFormsUI
         _ => RDFormsApplication.Configure().UsePlatformDetect(),
     };
 
-    // makes a call of the program on the UI thread, and answers what it returned. What fails there fails the call, as a server's failure does.
-    public static T Run<T>(Func<T> call)
+    // makes a call of `program` on the UI thread, and answers what it returned: the program is the server the call is made of, whose forms' events are the
+    // answer to it. What fails there fails the call, as a server's failure does.
+    public static T Run<T>(object program, Func<T> call)
     {
         var dispatcher = Dispatcher;
         if (dispatcher.CheckAccess())
         {
-            return Make(call);
+            return Make(program, call);
         }
 
-        var operation = dispatcher.InvokeAsync(() => Make(call), DispatcherPriority.Send);
+        var operation = dispatcher.InvokeAsync(() => Make(program, call), DispatcherPriority.Send);
         if (_holding)
         {
             _ = Arrived.Release();
@@ -152,15 +155,15 @@ internal static class RDFormsUI
 #pragma warning restore VSTHRD002
     }
 
-    public static void Run(Action call) => Run(() =>
+    public static void Run(object program, Action call) => Run(program, () =>
     {
         call();
         return true;
     });
 
-    private static T Make<T>(Func<T> call)
+    private static T Make<T>(object program, Func<T> call)
     {
-        _calls++;
+        Callers.Add(program);
         try
         {
             return call();
@@ -171,8 +174,8 @@ internal static class RDFormsUI
         }
         finally
         {
-            _calls--;
-            if (_calls == 0 && _holdAfterCall)
+            Callers.RemoveAt(Callers.Count - 1);
+            if (Callers.Count == 0 && _holdAfterCall)
             {
                 _holdAfterCall = false;
                 Dispatcher.Post(HoldMessages, DispatcherPriority.Send);
@@ -219,7 +222,7 @@ internal static class RDFormsUI
             return;
         }
 
-        if (_calls > 0)
+        if (Callers.Count > 0)
         {
             _holdAfterCall = true;
             return;
