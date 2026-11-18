@@ -81,8 +81,8 @@ namespace RDCore.Runtime.Compiled;
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's: the selector is evaluated once into a local, and each <c>Case</c>
 /// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>). So is one of a <c>String</c> selector of variable length:
-/// its text, which each <c>Case</c> compares with the text of a value, as two Strings are compared. A call in the selector is made as a call inside any
-/// expression is (<c>ProcedureAnalysis.Nested.cs</c>); a <c>Case</c> whose values call is the interpreter's.
+/// its text, which each <c>Case</c> compares with the text of a value, as two Strings are compared. A call in the selector, or in a value of a
+/// <c>Case</c>, is made as a call inside any expression is (<c>ProcedureAnalysis.Nested.cs</c>).
 /// </para>
 /// <para>
 /// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation,
@@ -216,7 +216,7 @@ internal sealed partial class ProcedureAnalysis
 
     /// <summary>
     /// Whether the function result variable is a <c>String</c> of variable length, which its frame holds: compiled code assigns it a text where the
-    /// interpreter assigns it (<see cref="TextResultLetStep"/>), and reads nothing of it.
+    /// interpreter assigns it (<see cref="TextResultLetStep"/>), and reads the text it holds (<see cref="TextResultNode"/>).
     /// </summary>
     public bool ResultIsText { get; private set; }
 
@@ -340,8 +340,10 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or FieldTextLetStep or ElementLetStep or VariantElementLetStep
-            or LibraryMemberLetStep or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or VariantTextLetStep or VariantNullLetStep or TextLetStep or TextAppendStep
+            or TextResultLetStep or MidStep or FieldLetStep or VariantFieldLetStep or FieldTextLetStep or ElementLetStep or VariantElementLetStep
+            or LibraryMemberLetStep or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep
+            or VariantForNextStep or WithStep or EndWithStep
             or PrintStep
             || (step is SelectStep or TextSelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
@@ -551,8 +553,12 @@ internal sealed partial class ProcedureAnalysis
         var location = instruction.Node?.SourceLocation;
         switch (instruction.Kind)
         {
+            // a Let of what a function of an object returns, indexed, which compiled code does not evaluate, is the interpreter's statement, run as a support
+            // call (IndexesWhatACallReturns).
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment:
-                return AnalyzeLet(instruction.Offset, assignment);
+                var letMark = _reasons.Count;
+                return AnalyzeLet(instruction.Offset, assignment)
+                    ?? (IndexesWhatACallReturns(Bind(assignment.Value)) ? SupportCallOf(instruction, letMark) : null);
 
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.Set } set:
                 return AnalyzeSet(instruction, set);
@@ -579,6 +585,10 @@ internal sealed partial class ProcedureAnalysis
 
             case InstructionKind.Simple when instruction.Node is DebugPrintStatementNode print:
                 return PrintOf(instruction.Offset, print);
+
+            // MS-VBAL §5.4.3.5: a Mid statement of a String variable of the activation (ProcedureAnalysis.Strings.cs).
+            case InstructionKind.Simple when instruction.Node is MidStatementNode mid:
+                return MidOf(instruction.Offset, mid);
 
             case InstructionKind.Simple:
                 Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
@@ -635,6 +645,9 @@ internal sealed partial class ProcedureAnalysis
 
             case InstructionKind.Return:
                 return new ReturnStep(instruction.Offset);
+
+            case InstructionKind.With:
+                return WithOf(instruction) ?? Refused(instruction);
 
             case InstructionKind.EndWith:
                 return EndWithOf(instruction) ?? Refused(instruction);
@@ -805,6 +818,11 @@ internal sealed partial class ProcedureAnalysis
     /// <summary>The procedures the body calls, by the number its call steps know each by.</summary>
     public List<CompiledCallee> Callees { get; } = [];
 
+    // a procedure declared with Declare, which only the interpreter calls (DeclaredProcedureProvider: the external host, the ANSI copy of a String and
+    // its write-back, Err.LastDllError): no call step makes it. Its call statement is a support call, and a statement that calls it in an expression is
+    // stepped, so the procedure goes on compiled after it.
+    private static bool IsDeclared(VBTypeMemberSymbol procedure) => procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol;
+
     // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind, none a Variant, and given an
     // argument of its kind, or a String given Strings (TextArgumentOf); of a function returning resultKind when what it returns is read, and of a scalar
     // kind when it is not - what it returns is let go of as a temporary of the statement, which compiled code holds none of. A parameter passed by
@@ -814,11 +832,11 @@ internal sealed partial class ProcedureAnalysis
     // (CellReference, VBRuntimeReference) when any is passed by reference. A member of the class whose code runs, named bare, is called on Me as
     // MemberCallOf calls one (OwnMemberReceiver), a Property Get of it for what it returns.
     private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind, bool assigns = false, bool returnsObject = false,
-        bool returnsValue = false)
+        bool returnsText = false, bool returnsValue = false)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
             || procedure.GetProperty(SymbolProperties.Library) is not null || procedure.GetProperty(SymbolProperties.ExternalTarget) is not null
-            || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
+            || IsDeclared(procedure) || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
         {
             return null;
         }
@@ -827,7 +845,8 @@ internal sealed partial class ProcedureAnalysis
         int? receiver = null;
         if (parameters is [{ Name: Tokens.Me }, ..])
         {
-            if (OwnMemberReceiver(procedure, call.Call.Callee) is not { } me || procedure is VBPropertyGetMemberSymbol && resultKind is null && !assigns && !returnsValue)
+            if (OwnMemberReceiver(procedure, call.Call.Callee) is not { } me
+                || procedure is VBPropertyGetMemberSymbol && resultKind is null && !assigns && !returnsText && !returnsValue)
             {
                 return null;
             }
@@ -846,7 +865,7 @@ internal sealed partial class ProcedureAnalysis
         }
 
         return CallWith(procedure, parameters, arguments, result, offset, resultKind, site: null, receiver, assigns, call.Call.SourceLocation, returnsObject,
-            returnsValue);
+            returnsText, returnsValue);
     }
 
     // whether the whole value a Variant (a variable of the activation, or the result of its own function) is assigned is a call of a member of a class of
@@ -893,9 +912,9 @@ internal sealed partial class ProcedureAnalysis
     // called on the object the session holds for it; one that holds none yet is the interpreter's, which makes the object (MS-VBAL §5.2.3.1.4). A member of
     // an object field of one of the procedure's records (this.Owner.Name) is called on the object the field holds, found where the record holds it.
     private CallStep? MemberCallOf(BoundMember call, int result, int offset, ScalarKind? resultKind, bool assigns = false, bool returnsObject = false,
-        bool returnsValue = false)
+        bool returnsText = false, bool returnsValue = false)
     {
-        if (call.Member is VBPropertyGetMemberSymbol && resultKind is null && !assigns && !returnsObject && !returnsValue)
+        if (call.Member is VBPropertyGetMemberSymbol && resultKind is null && !assigns && !returnsObject && !returnsText && !returnsValue)
         {
             return null;
         }
@@ -904,20 +923,24 @@ internal sealed partial class ProcedureAnalysis
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundInstance { Slot: { } me }, IsLateBound: false }
             && MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot)
         {
-            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns, returnsObject, returnsValue);
+            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns, returnsObject, returnsText, returnsValue);
         }
 
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: null, IsLateBound: false }
             && _enclosingWith is { } with)
         {
-            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns, returnsObject, returnsValue) is { } made ? made with { WithAt = with } : null;
+            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns, returnsObject, returnsText, returnsValue) is { } made
+                ? made with { WithAt = with }
+                : null;
         }
 
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundMember field,
                 IsLateBound: false }
             && ObjectFieldOf(field) is { } path)
         {
-            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns, returnsObject, returnsValue) is { } made ? made with { ReceiverField = path } : null;
+            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns, returnsObject, returnsText, returnsValue) is { } made
+                ? made with { ReceiverField = path }
+                : null;
         }
 
         // a member of what a call returns (`S.Pos.Distance(X)`, `Make().Pos`): that call is made first (ProcedureAnalysis.ObjectCalls.cs).
@@ -925,7 +948,9 @@ internal sealed partial class ProcedureAnalysis
                 IsLateBound: false }
             && ObjectCallOf(called) is { } returned)
         {
-            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns, returnsObject, returnsValue) is { } made ? made with { ReceiverCall = returned } : null;
+            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns, returnsObject, returnsText, returnsValue) is { } made
+                ? made with { ReceiverCall = returned }
+                : null;
         }
 
         if (call is not { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundVariable owner,
@@ -935,7 +960,7 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return MemberCallWith(call, result, offset, resultKind, receiver, assigns, returnsObject, returnsValue);
+        return MemberCallWith(call, result, offset, resultKind, receiver, assigns, returnsObject, returnsText, returnsValue);
     }
 
     // the default instance of a class of the workspace a member is called on, held as an object field is: a member of one of the standard library's is no
@@ -944,7 +969,7 @@ internal sealed partial class ProcedureAnalysis
         => RuntimeProcedureInvoker.GetParameters(member) is [{ Name: Tokens.Me }, ..] ? FieldSlotOf(owner, receiver: true) : null;
 
     private CallStep? MemberCallWith(BoundMember call, int result, int offset, ScalarKind? resultKind, int? receiver, bool assigns, bool returnsObject = false,
-        bool returnsValue = false)
+        bool returnsText = false, bool returnsValue = false)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(call.Member!);
         if (parameters is not [{ Name: Tokens.Me }, ..])
@@ -962,20 +987,22 @@ internal sealed partial class ProcedureAnalysis
         }
 
         return CallWith(call.Member!, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver, assigns,
-            ((SyntaxNode?)call.Arguments ?? call.Access).SourceLocation, returnsObject, returnsValue);
+            ((SyntaxNode?)call.Arguments ?? call.Access).SourceLocation, returnsObject, returnsText, returnsValue);
     }
 
     // at: where the call expression is, which the activation is located at while the callee runs (CompiledCallee.CallLocation); none for a call written
     // nowhere, located by its statement.
     private CallStep? CallWith(VBTypeMemberSymbol procedure, ReadOnlySpan<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments, int result, int offset,
-        ScalarKind? resultKind, BoundMember? site, int? receiver, bool assigns, SourceLocation? at, bool returnsObject = false, bool returnsValue = false)
+        ScalarKind? resultKind, BoundMember? site, int? receiver, bool assigns, SourceLocation? at, bool returnsObject = false, bool returnsText = false,
+        bool returnsValue = false)
     {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar or a Variant: what the Variant holds is let go of when the statement is over, as the interpreter
         // lets go of it (CompiledActivation.EndStatement); an object, or a String, it returned otherwise would be held by the statement until it ends. A
-        // call whose result the statement assigns returns a Variant, a scalar or a String. One whose result compiled code calls a member of returns an object;
-        // one whose result it gives to the standard library, a String or a Variant.
+        // call whose result the statement assigns returns a Variant, a scalar or a String. One whose result compiled code calls a member of returns an object,
+        // one whose result is part of a text returns a String, and one whose result it gives to the standard library, a String or a Variant.
         if (returnsObject ? !IsObjectType(ReturnedType(procedure))
+            : returnsText ? !IsText(ReturnedType(procedure))
             : returnsValue ? ReturnedType(procedure) is not VBVariantType && !IsText(ReturnedType(procedure))
             : assigns ? !ReturnsAssignable(procedure)
             : resultKind is { } read ? ReturnedType(procedure) is not { } returned || ScalarKinds.Of(returned) != read
@@ -1083,6 +1110,7 @@ internal sealed partial class ProcedureAnalysis
             AssignsResult = assigns,
             HoldsWhatItReturns = assigns || resultKind is null && ReturnedType(procedure) is VBVariantType,
             ReturnsObject = returnsObject,
+            ReturnsText = returnsText,
             ReturnsValue = returnsValue,
             ObjectParameters = objects ?? [],
             Omitted = omitted ?? [],
@@ -1349,7 +1377,15 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return Text(Bind(value)) is { } text ? new TextCompareNode(comparison, new TextSelectorNode(select), text) : null;
+        // a Variant is compared as its value type says (MS-VBAL §5.6.9.5), which may be a number: the interpreter compares it.
+        var bound = Bind(value);
+        if (IsVariant(bound))
+        {
+            Refuse(IneligibilityKind.VariantOperand, token, value.Location);
+            return null;
+        }
+
+        return Text(bound) is { } text ? new TextCompareNode(comparison, new TextSelectorNode(select), text) : null;
     }
 
     // an expression bound as the interpreter binds it where it is written: in a With block, a member with no object before the dot is a member of the
@@ -1605,22 +1641,22 @@ internal sealed partial class ProcedureAnalysis
                     && ScalarKinds.Of(conversion) is { } convertedTo:
                 return PayloadAs(argument, convertedTo);
 
-            // IsEmpty of a Variant compiled code reads in its cell, a Variant of the activation or an element of an array of Variants, as the cell says
-            // (VariantIsEmptyNode), and of one the cell says nothing of, the call of the standard library's function; never in an instruction that calls
-            // inside an expression, whose operands are known as they were read.
-            case BoundCall { Procedure: VBTypeMemberSymbol library, BoundArguments: [{ Value: { } tested, Elements.IsDefaultOrEmpty: true }] } isEmpty
-                when _nesting is null && IsCompiledLibrary(library) && library.GetProperty(SymbolProperties.ExternalTarget) == IsEmptyFunction
-                    && IsVariantInItsCell(tested):
+            // IsEmpty, IsNull or VarType of a Variant compiled code reads in its cell, a Variant of the activation or an element of an array of Variants, as
+            // the cell says (VariantInformationNode), and of one the cell says nothing of, the call of the standard library's function; never in an
+            // instruction that calls inside an expression, whose operands are known as they were read.
+            case BoundCall { Procedure: VBTypeMemberSymbol library, BoundArguments: [{ Value: { } tested, Elements.IsDefaultOrEmpty: true }] } information
+                when _nesting is null && IsCompiledLibrary(library) && VariantInformationOf(library) is { } function && IsVariantInItsCell(tested):
                 return VariantInItsCell(tested) is { } variant
-                    ? new VariantIsEmptyNode(variant, LibraryCallOf(isEmpty, library, isEmpty.BoundArguments, isEmpty.ResultType) as LibraryCallNode)
+                    ? new VariantInformationNode(variant, function,
+                        LibraryCallOf(information, library, information.BoundArguments, information.ResultType) as LibraryCallNode)
                     : null;
 
-            // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types
-            // (ProcedureAnalysis.Intrinsics.cs).
+            // a conversion of a whole number, and a function of the standard library with a typed form of its arguments' types, called with them or by its
+            // name (ProcedureAnalysis.Intrinsics.cs).
             case BoundCall call when ConversionOf(call) is { } letCoerced:
                 return letCoerced;
 
-            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+            case BoundCall or BoundName or BoundQualifiedName when IntrinsicOf(node) is { } intrinsic:
                 return intrinsic;
 
             // a function of the standard library, called with its arguments or by its name, qualified or not (ProcedureAnalysis.Libraries.cs).
@@ -1691,9 +1727,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
                 return new VariantFieldNode(field.Path);
 
-            // a function of the standard library that returns a Variant: in a typed form, the payload it returns, held in a Variant of its own subtype
-            // (ProcedureAnalysis.Intrinsics.cs); else as the interpreter calls it (ProcedureAnalysis.Libraries.cs).
-            case BoundCall call when IntrinsicOf(call) is { } intrinsic:
+            // a function of the standard library that returns a Variant, called with its arguments or by its name: in a typed form, the payload it
+            // returns, held in a Variant of its own subtype (ProcedureAnalysis.Intrinsics.cs); else as the interpreter calls it
+            // (ProcedureAnalysis.Libraries.cs).
+            case BoundCall or BoundName or BoundQualifiedName when IntrinsicOf(node) is { } intrinsic:
                 return new VariantOfNode(intrinsic);
 
             case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):

@@ -5,6 +5,7 @@ using RDCore.SDK.Server;
 
 namespace RDCore.Tests.Server;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public class HealthCheckTargetTests
 {

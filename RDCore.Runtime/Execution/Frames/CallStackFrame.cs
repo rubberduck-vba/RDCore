@@ -996,7 +996,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>
     /// The cell a variable that starts as <paramref name="value"/> is held in - a local's, a field's of an object: a variable of a scalar type holds its value
     /// as a payload, which an expression of it is evaluated on, in a cell made of the value as it is; a Variant that holds a scalar (or
-    /// nothing yet) holds it as a payload too, which its subtype is the type of; anything else is a fresh copy of the value
+    /// nothing yet) holds it as a payload too, which its subtype is the type of, and a Variant that holds <c>Null</c>, a <c>String</c> or an error holds it in
+    /// a Variant's cell as the value it is; anything else is a fresh copy of the value
     /// (<see cref="SymbolAddressTable.FreshBinding"/>).
     /// </summary>
     internal static IBindingHandle CellFor(VBTypedValue value)
@@ -1008,8 +1009,10 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                     ? variant!
                     : SymbolAddressTable.FreshBinding(value);
 
-    // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null.
-    private static bool IsImmutable(VBTypedValue value) => ScalarPayload.IsScalar(value.TypeInfo) || value is VBEmptyValue or VBNullValue;
+    // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null, a String, an error (Missing among
+    // them). A Mid statement assigns the new String it makes; an object, an array or a record can be changed in place.
+    private static bool IsImmutable(VBTypedValue value)
+        => ScalarPayload.IsScalar(value.TypeInfo) || value is VBEmptyValue or VBNullValue or VBErrorValue || value is VBStringValue and not VBFixedStringValue;
 
     /// <summary>
     /// Declares the parameter <paramref name="symbol"/> on this frame, holding <paramref name="value"/> - the argument a call passes by value, already
@@ -1544,11 +1547,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return false;
     }
 
+    // an element that is passed by reference was given its cell when it was passed: one that has no cell yet is not bound to anything.
     private static bool IsCellOf(VBArrayValue array, IBindingHandle handle)
     {
-        for (var index = 0; index < array.Length; index++)
+        foreach (var (_, cell) in array.MadeCells)
         {
-            if (ReferenceEquals(array.CellAt(index), handle))
+            if (ReferenceEquals(cell, handle))
             {
                 return true;
             }
@@ -1558,7 +1562,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // passing the element does (MS-VBA, observed in Excel).
         if (array.ItemType is VBUserDefinedType)
         {
-            for (var index = 0; index < array.Length; index++)
+            foreach (var (index, _) in array.MadeCells)
             {
                 if (array.ElementAt(index) is VBUserDefinedTypeValue record && IsFieldOf(record, handle))
                 {

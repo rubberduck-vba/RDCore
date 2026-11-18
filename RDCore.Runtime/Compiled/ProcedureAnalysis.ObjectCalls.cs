@@ -49,6 +49,7 @@ internal sealed partial class ProcedureAnalysis
     /// <param name="step">The step.</param>
     internal static bool CallsForAnObject(CompiledStep step)
         => step is CallStep { ReceiverCall: not null } or SetStep { SourceCall: not null } or SetStep { SourceNew: not null }
+            or WithStep { SourceCall: not null } or WithStep { SourceNew: not null }
         || PayloadsOf(step).SelectMany(Within).Any(node => ReceiverCallsOf(node).Any())
         || ValueCallsOf(step).Any();
 

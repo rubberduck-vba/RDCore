@@ -23,7 +23,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ```javascript
 {
-  "Version": "1.1",
+  "Version": "1.2",
   "Configuration": [],
   "ProjectInfo": RDCoreProject
 }
@@ -40,12 +40,12 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ## 2.2.3.0 The format's version
 
-A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.1`, which adds the project's `build` section ([§2.2.3.1](#2231-rdcoreproject)) to the format `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.2`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
+A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.2`, which adds the project's `KeepSystemTheme`, its `Make` section and the `ConsoleApplication` output type ([§2.2.3.1](#2231-rdcoreproject)) to the format `1.1`, which adds its `build` section to the format `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.3`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
 
 RDCore opens a project file whatever version it says:
 
 - **The same format, or an older one.** The project opens. An older file is written in the current format the next time RDCore saves it.
-- **A newer second number** (`1.2` when RDCore writes `1.1`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
+- **A newer second number** (`1.3` when RDCore writes `1.2`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
 - **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
 
 Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open. RDCore reads a `build` section in a file of the format `1.0` as the format `1.1` has it.
@@ -75,7 +75,9 @@ Who is asked:
   "OtherFiles": [RDCoreFile],
   "Folders": [],
   "SourceProject": "MyProj.vbp",
-  "build": { "entryPoint": "Module1.Main" }
+  "build": { "entryPoint": "Module1.Main" },
+  "KeepSystemTheme": true,
+  "Make": { "Title": "Inventory", "Major": 1, "Minor": 2, "Revision": 0, "CompanyName": "Contoso" }
 }
 ```
 
@@ -87,7 +89,9 @@ Who is asked:
 |`OtherFiles`|array of [`RDCoreFile`](#2234-rdcorefile)|Any non-source files included in the project.|
 |`Folders`|array of `string`|The names of all the folders in the project, whether they contain source code files or not.|
 |`SourceProject`|`string`, optional|The Visual Basic 6 project (`.vbp`) the project was imported from, by its path relative to the folder of the `.rdproj`. The import writes it, a second import of the project keeps it, and nothing else changes it. It is what makes a project an _imported_ one: a `.vbp` next to a `.rdproj` that does not record it is not an import. Absent for a project that was not imported.|
-|`build`|object, optional|What the project builds into, and where its program starts ([`ProjectBuild`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectBuild.html)). Its `outputType` is `Application`, a program, or `Library`, which is not run. Any other value, or none, is `Application`. Its `entryPoint` is the procedure `rdc run` and `rdc build` start the program at, as `Module.Procedure` or `Procedure`. With none, the program starts at the `Sub Main` of the one standard module that declares one. A `build` that is not an object is no section. Absent for a program that starts at its `Sub Main`. Added in the format `1.1`.|
+|`build`|object, optional|What the project builds into, and where its program starts ([`ProjectBuild`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectBuild.html)). Its `outputType`, read in any case, is `Application`, a program, `ConsoleApplication`, a console program, or `Library`, which is not run. Any other value, or none, is `Application`. A console program starts as any program does, and its run gets the console's user interface: `InputBox` prompts and `MsgBox` shows its message in the console, as the `rdc` shell does. Its `entryPoint` is the procedure `rdc run` and `rdc build` start the program at, as `Module.Procedure` or `Procedure`. With none, the program starts at the `Sub Main` of the one standard module that declares one. A `build` that is not an object is no section. Absent for a program that starts at its `Sub Main`. Added in the format `1.1`. `ConsoleApplication` is in the format `1.2`: an RDCore of the format `1.1` reads it, and writes it, as `Application`.|
+|`KeepSystemTheme`|`boolean`, optional|Whether the program's forms follow the system's theme (`true`) or stay light, as Visual Basic 6.0 shows them (`false`). It is the program's `App.KeepSystemTheme` when the program starts ([**RD-VBAL §6.3**](rd-vbal.6.3.vb-app-object.md)), and the program can change it as it runs. Any value other than the JSON `true`, such as `"true"` or `1`, is `false`, and a project file is never refused for it. Written only when it is `true`. Added in the format `1.2`.|
+|`Make`|object, optional|What Visual Basic 6.0's Make tab has ([`ProjectMake`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectMake.html)): the program's `Title`, its version as `Major`, `Minor` and `Revision`, and its six version strings `Comments`, `CompanyName`, `FileDescription`, `LegalCopyright`, `LegalTrademarks` and `ProductName`, each named as the `App` property that gives it. Each member is optional, and written only when it is set. A version number is read only as a whole number from 0 to 9999, the range Visual Basic 6.0 takes, and a title or a version string only as a string; any other value is ignored, and a project file is never refused for it. A `Make` that is not an object is ignored. A member the platform does not know is kept. Absent for a project that has none. Added in the format `1.2`.|
 
 > [!IMPORTANT]
 > The `Name` of a project **must** be a valid _identifier name_. It **should not** be `VBA`, or any other _reserved identifier_ name.
@@ -152,7 +156,7 @@ A module whose `Super` is set is a _document module_, whatever its text and its 
 
 A client can open several folders (**LSP 3.17** `workspaceFolders`). The first is the project the platform runs, and each other folder that is a project's is a project that is analyzed - diagnostics, navigation, completion - and not run. The first folder is always a project. A later folder that holds a `.rdproj` of its own is a project, imported or native, even when another project lists files in it: a file two projects list is a module of each. A later folder that holds no `.rdproj` is only a place for sources when a project loaded before it lists files in it, and a project when none does. This is read when the workspace is loaded. The folders are the bounds of the workspace: a module path that climbs out of the project's folder (`..\Shared\Util.bas`) is accepted when a folder of the workspace holds the file, and is refused, and reported to the client, otherwise. Only the first project is run: the others get the language server's analysis, and not the environment host's. A file that two projects list is one document, and a module of each project - with a copy of its own, as in Visual Basic 6: each project reaches its own copy's `Friend` members and `Private` classes, with module-level state of its own. The diagnostics of the document are the first project's that loaded it, since a client keeps one set of diagnostics for a document. A file the client renames (`workspace/didRenameFiles`) is listed under its new path by every project that lists it, each in its own `.rdproj`; a project other than the first is not reloaded by the other file operations (create, delete) yet. _Known limit:_ only the first project's libraries are resolved: the other projects see the standard library and their own modules, and a name from a library they reference is not found (nothing tells the client yet).
 
-A module's name is its `VB_Name` _attribute_ (see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)), not its file name: a project file doesn't say it.
+A module's name is its `VB_Name` _attribute_ (see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)), not its file name: a project file does not say it.
 
 ### 2.2.3.3.1 DocClassType Enum
 
@@ -209,7 +213,8 @@ A VB6 project (`.vbp`) is imported as the `RDCoreProject` of its folder ([`VbpPr
 |`Name`|The project's `Name`.|
 |`Module`, `Class`|A module: the file after the `;`.|
 |`Form`|A module.|
-|`UserControl`, `PropertyPage`, `UserDocument`, `Designer`|A file of the project (`OtherFiles`), which is not compiled; the import says so.|
+|`UserControl`, `PropertyPage`, `UserDocument`|A module: a class module built on the class its designer block names.|
+|`Designer`|A file of the project (`OtherFiles`), which is not compiled; the import says so. Its objects are in its binary `.dsx`, which the platform does not read.|
 |`RelatedDoc`, `ResFile32`|A file of the project.|
 |`Reference` (`*\G{GUID}#version#lcid#path#description`)|A reference to the library the platform ships with that GUID, at the version (written in hexadecimal: `2.a` is 2.10). `VBA`, the standard library, is no reference ([§2.2.3.1](#2231-rdcoreproject)): a `.vbp` line that references VBA's type library adds none.|
 |`CondComp`|The project's `PrecompilerConstants` (`"DEBUG = 1 : TRACE = 0"`): `name = n` arguments separated by colons, spaces optional, each a name and a whole number from -32768 to 32767 with an optional sign. As vb6.exe does, a line with any other argument - a string, `&H10`, `True`, `1.5`, a name without a value, a colon at the end - is refused whole, and the import says so.|

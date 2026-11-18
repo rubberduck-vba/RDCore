@@ -552,7 +552,27 @@ internal sealed partial class ProcedureEmitter
 
                 // after a call inside the value, a Let the interpreter runs is given what was evaluated (Fail): the call is not made again.
                 var value = _il.DeclareLocal(typeof(VariantPayload));
-                EmitVariantInto(variantLet.Value, value, failure);
+                if (variantLet.Value is VariantSlotNode source)
+                {
+                    // a Variant that holds a String or Null, which has no payload, is copied as it is (MS-VBAL §5.5.1.2.12).
+                    var read = _il.DefineLabel();
+                    assigned = _il.DefineLabel();
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Ldloca, value);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
+                    _il.Emit(OpCodes.Brtrue, read);
+                    _il.Emit(OpCodes.Ldloc, _variants[variantLet.Slot]);
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.CopyTextOrNull))!);
+                    _il.Emit(OpCodes.Brfalse, failure);
+                    _il.Emit(OpCodes.Br, assigned.Value);
+                    _il.MarkLabel(read);
+                }
+                else
+                {
+                    EmitVariantInto(variantLet.Value, value, failure);
+                }
+
                 _il.Emit(OpCodes.Ldloc, _variants[variantLet.Slot]);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
@@ -585,16 +605,36 @@ internal sealed partial class ProcedureEmitter
                 break;
 
             // the result of a function of the Variant type, assigned where its frame holds it: one the interpreter's assignment would let go of an object
-            // to, the interpreter runs alone, and compiled code goes on after it.
+            // to, the interpreter runs alone, and compiled code goes on after it. A Variant variable that holds a String or Null is copied as it is.
             case VariantResultLetStep resultLet:
             {
                 var failure = RecoverAt(resultLet.Offset);
                 var value = _il.DeclareLocal(typeof(VariantPayload));
-                EmitVariantInto(resultLet.Value, value, failure);
+                var assigned = _il.DefineLabel();
+                if (resultLet.Value is VariantSlotNode source)
+                {
+                    var read = _il.DefineLabel();
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Ldloca, value);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
+                    _il.Emit(OpCodes.Brtrue, read);
+                    _il.Emit(OpCodes.Ldarg_0);
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultTextOrNull))!);
+                    _il.Emit(OpCodes.Brfalse, failure);
+                    _il.Emit(OpCodes.Br, assigned);
+                    _il.MarkLabel(read);
+                }
+                else
+                {
+                    EmitVariantInto(resultLet.Value, value, failure);
+                }
+
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultVariant))!);
                 _il.Emit(OpCodes.Brfalse, Fail(failure));
+                _il.MarkLabel(assigned);
                 break;
             }
 
@@ -656,6 +696,10 @@ internal sealed partial class ProcedureEmitter
                 EmitTextLet(textLet);
                 break;
 
+            case MidStep mid:
+                EmitMid(mid);
+                break;
+
             case TextResultLetStep textResultLet:
                 EmitTextResultLet(textResultLet);
                 break;
@@ -666,6 +710,10 @@ internal sealed partial class ProcedureEmitter
 
             case SupportCallStep support:
                 EmitSupportCall(support);
+                break;
+
+            case WithStep with:
+                EmitWith(with);
                 break;
 
             case EndWithStep endWith:
@@ -1480,7 +1528,7 @@ internal sealed partial class ProcedureEmitter
 
     private static bool ReadsVariant(PayloadNode node) => node switch
     {
-        UnvariantNode or TruthNode or VariantIsEmptyNode => true,
+        UnvariantNode or TruthNode or VariantInformationNode => true,
         ConvertNode convert => ReadsVariant(convert.Operand),
         IntegralNode integral => ReadsVariant(integral.Left) || ReadsVariant(integral.Right),
         LogicalNode logical => ReadsVariant(logical.Left) || ReadsVariant(logical.Right),

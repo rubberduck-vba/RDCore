@@ -22,9 +22,9 @@ internal sealed partial class ProcedureAnalysis
     private StatementNode? _nesting;
 
     // a Let of a scalar, String or Variant variable of the activation or of the function result variable, of a field of a record, of a member of an object,
-    // or of an element of an array, a call statement, a Debug.Print, a condition of an If or a loop, the bounds of a For, or the selector of a Select Case,
-    // that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode). Every other instruction
-    // is translated as any instruction is.
+    // or of an element of an array, a call statement, a Debug.Print, a condition of an If or a loop, the bounds of a For, the selector of a Select Case or
+    // the values of a Case, that calls a function inside an expression, is translated with what it reads and what it calls known (CallNode, KnownNode).
+    // Every other instruction is translated as any instruction is.
     private CompiledStep? AnalyzeInstruction(Instruction instruction)
     {
         _nesting = NestingOf(instruction);
@@ -85,6 +85,12 @@ internal sealed partial class ProcedureAnalysis
             // a Set of an object variable, or of the function result variable, to what a call returns, or to a New, whose Initialize is a call.
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
                 => Bind(assignment.Value) is var value && (value is BoundNew || Calls(value)),
+            // a Set of a property of an object to what a call returns, which is given to its Property Set (AccessorCallOf).
+            { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: MemberAccessExpressionNode } assignment }
+                => Bind(assignment.Target) is BoundMember { Member: VBPropertyGetMemberSymbol or VBPropertySetMemberSymbol } && Calls(Bind(assignment.Value)),
+            // a With of what a call returns, or of a New, whose Initialize is a call.
+            { Kind: InstructionKind.With, Node: WithStatementNode with }
+                => Bind(with.WithExpression) is var target && (target is BoundNew || Calls(target)),
             { Kind: InstructionKind.Simple, Node: CallStatementNode call }
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
@@ -93,14 +99,24 @@ internal sealed partial class ProcedureAnalysis
             { Kind: InstructionKind.ForOpener, Node: ForStatementNode forStatement }
                 => Calls(Bind(forStatement.StartExpression)) || Calls(Bind(forStatement.EndExpression))
                 || forStatement.StepExpression is { } step && Calls(Bind(step)),
-            // the selector of a Select Case, evaluated once (MS-VBAL §5.4.2.10). The values of a Case are not among the nodes of
-            // its statement (KnownOperands.IndexOf), so a Case that calls is the interpreter's.
+            // the selector of a Select Case, evaluated once (MS-VBAL §5.4.2.10); and the values of a Case, each evaluated as its clause is compared, in
+            // order, until one matches.
             { Kind: InstructionKind.Select, Node: SelectCaseStatementNode selectCase } => Calls(Bind(selectCase.ControlExpression)),
+            { Kind: InstructionKind.ConditionalBranch, Matching: not null, Node: CaseExpressionStatementNode caseBlock }
+                => caseBlock.RangeClauses.SelectMany(ValuesOf).Any(value => Calls(Bind(value))),
             _ => false,
         };
 
         return nests ? instruction.Node : null;
     }
+
+    private static IEnumerable<ExpressionNode> ValuesOf(CaseRangeClauseNode clause) => clause switch
+    {
+        CaseValueRangeClauseNode value => [value.Value],
+        CaseComparisonRangeClauseNode comparison => [comparison.Value],
+        CaseToRangeClauseNode range => [range.Start, range.End],
+        _ => [],
+    };
 
     // what a Let that calls inside its value, or inside a subscript of its target, assigns: a variable (IsScalarTarget); a field of a record, a member of an
     // object, or an element of an array of a scalar type or of Variants, each found once the value is evaluated, after its calls, as the interpreter finds
@@ -223,6 +239,49 @@ internal sealed partial class ProcedureAnalysis
         };
     }
 
+    // the function or the Property Get of the workspace node calls, inside an instruction that calls, when it returns a String of variable length: called
+    // with arguments, as a member of an object, or by its bare name (the procedure's own name is its result variable). None of the standard library, nor a
+    // Declare.
+    private VBTypeMemberSymbol? TextCalledBy(BoundNode node)
+    {
+        var function = _nesting is null ? null : node switch
+        {
+            BoundCall { Procedure: VBTypeMemberSymbol called } => called,
+            BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } => called,
+            BoundName { Symbol: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } when !IsOwnFunction(called) => called,
+            _ => null,
+        };
+
+        return function is not null && function.GetProperty(SymbolProperties.Library) is null && function.GetProperty(SymbolProperties.ExternalTarget) is null
+            && IsText(ReturnedType(function))
+                ? function
+                : null;
+    }
+
+    // a function of the workspace that returns a String, called inside the text of an instruction that calls, as NestedCall calls one of a scalar type: what
+    // it returns is the String itself (CompiledCallee.ReturnsText), which the interpreter is given as it is, by where the call is in its statement.
+    private TextCallNode? TextCallOf(BoundNode node, VBTypeMemberSymbol function)
+    {
+        var syntax = KnownOperands.IndexOf(_nesting!, node.Expression);
+        var made = syntax < 0 ? null : node switch
+        {
+            BoundCall call => CallOf(call, CallStep.NoResult, -1, resultKind: null, returnsText: true),
+            BoundMember member => MemberCallOf(member, CallStep.NoResult, -1, resultKind: null, returnsText: true),
+            _ => BareCallOf(function, -1, kind: null, node.Expression, returnsText: true),
+        };
+
+        if (made is null)
+        {
+            _ = Unsupported(node);
+            return null;
+        }
+
+        return new TextCallNode(made.Callee, made.Arguments, made.Receiver, syntax)
+        {
+            WithAt = made.WithAt, ReceiverField = made.ReceiverField, ReceiverCall = made.ReceiverCall,
+        };
+    }
+
     // a function of the workspace that returns a String or a Variant, called inside an expression for the argument of a Variant parameter of the standard
     // library, which takes it by value: called as NestedCall calls one, by where it is in its statement, what it returns given to the parameter as the
     // interpreter gives it (CallValueNode). Only in an instruction that calls inside an expression, and not when the instruction is translated with the
@@ -260,13 +319,14 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10); and a member of the class whose code runs
-    // named so, called on Me (OwnMemberReceiver): a Function or a Property Get for what it returns, whose result the statement assigns (AssignedCallOf), or
-    // for the object it returns (ObjectCallOf), and a Sub or a Function as a statement, whose kind is null.
+    // named so, called on Me (OwnMemberReceiver): a Function or a Property Get for what it returns, whose result the statement assigns (AssignedCallOf), for
+    // the object it returns (ObjectCallOf), for the String it returns inside a text (TextCallOf), or for what it returns to the standard library
+    // (ValueCallOf), and a Sub or a Function as a statement, whose kind is null.
     private CallStep? BareCallOf(VBTypeMemberSymbol function, int offset, ScalarKind? kind, ExpressionNode named, bool assigns = false, bool returnsObject = false,
-        bool returnsValue = false)
+        bool returnsText = false, bool returnsValue = false)
     {
-        var read = kind is not null || assigns || returnsObject || returnsValue;
-        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null)
+        var read = kind is not null || assigns || returnsObject || returnsText || returnsValue;
+        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null || IsDeclared(function))
         {
             return null;
         }
@@ -293,7 +353,7 @@ internal sealed partial class ProcedureAnalysis
             = parameters.IsEmpty ? [] : ArgumentMapping.Bind([.. parameters], [], static _ => null, static _ => null) ?? default;
         return !arguments.IsDefault && arguments.Length == parameters.Length
             ? CallWith(function, parameters, arguments, CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject,
-                returnsValue)
+                returnsText, returnsValue)
             : null;
     }
 
@@ -328,10 +388,13 @@ internal sealed partial class ProcedureAnalysis
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         SetStep { SourceCall: { } source } => Admits(source),
         SetStep { SourceNew: not null } => true,
+        WithStep { SourceCall: { } source } => Admits(source),
+        WithStep { SourceNew: not null } => true,
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
         SelectStep select => Admits(select.Selector),
+        CaseStep caseStep => caseStep.Clauses.All(clause => Admits(clause.Lower) && (clause.Upper is not { } upper || Admits(upper))),
         TextLetStep let => Admits(let.Value),
         TextResultLetStep let => Admits(let.Value),
         PrintStep print => Admits(print.Items),
@@ -340,13 +403,15 @@ internal sealed partial class ProcedureAnalysis
 
     private static bool Admits(TextNode node) => Admits(new[] { node });
 
-    // texts evaluated one after the other, the last first.
+    // the items of a Debug.Print, which compiled code evaluates all before it writes the first. The interpreter writes each item before it evaluates the next
+    // (MS-VBAL §5.4.5.8): an item after the first that calls is the interpreter's, since what the call writes, or an error it raises, comes after the items
+    // left of it are written.
     private static bool Admits(IReadOnlyList<TextNode> texts)
     {
-        var calledAfter = false;
-        for (var i = texts.Count - 1; i >= 0; i--)
+        for (var i = 0; i < texts.Count; i++)
         {
-            if (!Admits(texts[i], ref calledAfter))
+            var calls = false;
+            if (!Admits(texts[i], ref calls) || calls && i > 0)
             {
                 return false;
             }
@@ -365,7 +430,7 @@ internal sealed partial class ProcedureAnalysis
             case TextConstantNode:
                 return true;
 
-            case TextSlotNode or MemberTextNode or ErrTextNode:
+            case TextSlotNode or TextResultNode or MemberTextNode or ErrTextNode:
                 return !calledAfter;
 
             case ConcatNode concat:
@@ -376,6 +441,27 @@ internal sealed partial class ProcedureAnalysis
 
             case ChrTextNode { Code: var code }:
                 return Admits(code, ref calledAfter);
+
+            // TypeName of an object field of a record: the field is read as the call is made. One with a call right of it is the interpreter's, which reads
+            // the field before that call, since the call may put another object in it.
+            case FieldTypeNameTextNode:
+                return !calledAfter;
+
+            // TypeName of an object variable or of Me: the object is read as the call is made. One with a call right of it is the interpreter's, which reads
+            // the object before that call. Of Nothing, nothing is read.
+            case TypeNameTextNode { Slot: var slot }:
+                return slot is null || !calledAfter;
+
+            // TypeName of a value (LibraryVariantTextOf, the only call of VariantTextLibraryFunctions inside such an instruction): its arguments evaluated
+            // before the call.
+            case LibraryVariantTextNode { Arguments: var arguments }:
+                calledAfter |= arguments.SelectMany(OperandsOf).SelectMany(Within).Any(each => each is CallNode || ReceiverCallsOf(each).Any());
+                return arguments.All(Admits);
+
+            // a call that returns a String, made after the calls among its arguments: a String left of it is read after it.
+            case TextCallNode call:
+                calledAfter = true;
+                return call.Arguments.All(Admits) && Admits(call.ReceiverCall);
 
             default:
                 return false;
@@ -395,7 +481,8 @@ internal sealed partial class ProcedureAnalysis
         // an element, read once its subscripts are evaluated, calls among them.
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
-        KnownNode or ConstantNode or ReferenceNode or VariantReferenceNode or ObjectArgumentNode or ObjectReferenceNode or OmittedArgumentNode => true,
+        // the selector of a Select Case is what its Select evaluated, which no call changes.
+        KnownNode or ConstantNode or ReferenceNode or VariantReferenceNode or ObjectArgumentNode or ObjectReferenceNode or SelectorNode or OmittedArgumentNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value) || argument is CallValueNode && Admits(argument)),
         ConvertNode convert => Admits(convert.Operand),
@@ -450,14 +537,21 @@ internal sealed partial class ProcedureAnalysis
     // can be the same variable as one the procedure was given by reference, or any call, of a field - inside the same expression, where MS-VBA may read it
     // after the call: in an argument of a call,
     // whose value is taken when the call is made, or in an expression that computes anything of a type MS-VBA reads when its operation is computed. When it
-    // is read there is the interpreter's to say.
+    // is read there is the interpreter's to say. A read a String Let or a Debug.Print makes after every call of the statement is not (ReadAfterEveryCall).
     private KnownNode? ReadAndPassed(CompiledStep step)
     {
+        var after = ReadAfterEveryCall(step);
         var nodes = PayloadsOf(step).SelectMany(Within).ToList();
         // the arguments of each call: of one inside the expression, and of the call of the statement itself - a call statement, a function whose result
         // is assigned whole.
         var given = nodes.OfType<CallNode>().Select(call => call.Arguments).ToList();
         given.AddRange(nodes.SelectMany(ReceiverCallsOf).Select(call => call.Arguments));
+        foreach (var call in TextCallsOf(step))
+        {
+            given.Add(call.Arguments);
+            given.AddRange(ObjectCallsOf(call.ReceiverCall).Select(made => made.Arguments));
+        }
+
         given.AddRange(ValueCallsOf(step).Select(call => call.Arguments));
         given.AddRange(ValueCallsOf(step).SelectMany(call => ObjectCallsOf(call.ReceiverCall)).Select(call => call.Arguments));
         if (step is CallStep statement)
@@ -466,7 +560,7 @@ internal sealed partial class ProcedureAnalysis
             given.AddRange(ObjectCallsOf(statement.ReceiverCall).Select(call => call.Arguments));
         }
 
-        if (step is SetStep { SourceCall: { } source })
+        if (((step as SetStep)?.SourceCall ?? (step as WithStep)?.SourceCall) is { } source)
         {
             given.AddRange(ObjectCallsOf(source).Select(call => call.Arguments));
         }
@@ -479,10 +573,72 @@ internal sealed partial class ProcedureAnalysis
 
         var byReference = Parameters.Where(parameter => parameter.ByReference).Select(parameter => parameter.Slot).ToHashSet();
         var aliased = passed.Overlaps(byReference);
-        return nodes.OfType<KnownNode>().FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
+        return nodes.OfType<KnownNode>().FirstOrDefault(read => !after.Contains(read) && (read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
             && (passed.Contains(slot) || aliased && byReference.Contains(slot) || FieldSlots.Contains(slot))
             // a field of a record, an element of an array, and a public variable of an object, which any call may change, as a field.
-            || read.Value is FieldNode or ElementNode or MemberFieldNode && (!early || arguments.Contains(read)));
+            || read.Value is FieldNode or ElementNode or MemberFieldNode && (!early || arguments.Contains(read))));
+    }
+
+    // the reads of a String Let or of the items of a Debug.Print that no call of the statement comes after, in the order the text is evaluated: the left of
+    // a & before its right, an item before the next. MS-VBA reads such an operand when its operation is computed (RD-VBAL §5.6.9.2), after every call,
+    // and so does compiled code: it reads it where it is written, after the calls, in the cell the variable is held in. A Static has module extent and
+    // outlives the activation (MS-VBAL §5.4.3.1, §2.3), so its cell is the one a call of the procedure itself writes it in. What a call left it is
+    // what each reads. A text compiled code does not know of is taken to call: what is read left of it is left to the rule above.
+    private static HashSet<KnownNode> ReadAfterEveryCall(CompiledStep step)
+    {
+        var after = new HashSet<KnownNode>(ReferenceEqualityComparer.Instance);
+        IReadOnlyList<TextNode> texts = step switch
+        {
+            TextLetStep let => [let.Value],
+            TextResultLetStep let => [let.Value],
+            PrintStep print => print.Items,
+            _ => [],
+        };
+
+        var calledAfter = false;
+        for (var i = texts.Count - 1; i >= 0; i--)
+        {
+            Collect(texts[i]);
+        }
+
+        return after;
+
+        // the text walked right to left, so that whether a call comes after a read is known when the read is reached.
+        void Collect(TextNode node)
+        {
+            switch (node)
+            {
+                case TextConstantNode or TextSlotNode or MemberTextNode or ErrTextNode or TypeNameTextNode:
+                    return;
+                case ConcatNode concat:
+                    Collect(concat.Right);
+                    Collect(concat.Left);
+                    return;
+                case WholeTextNode { Value: var whole }:
+                    CollectPayload(whole);
+                    return;
+                case ChrTextNode { Code: var code }:
+                    CollectPayload(code);
+                    return;
+                default:
+                    calledAfter = true;
+                    return;
+            }
+        }
+
+        // a payload that calls is read before its own call, or as its argument: none of its reads is after every call.
+        void CollectPayload(PayloadNode payload)
+        {
+            var within = Within(payload).ToList();
+            if (within.Exists(each => each is CallNode || ReceiverCallsOf(each).Any()))
+            {
+                calledAfter = true;
+            }
+            else if (!calledAfter)
+            {
+                after.UnionWith(within.OfType<KnownNode>());
+            }
+        }
     }
 
     // the types of an operand MS-VBA reads where it is written, before a call right of it changes it (RD-VBAL §5.6.9.2): what compiled code reads, and the
@@ -515,22 +671,43 @@ internal sealed partial class ProcedureAnalysis
         VariantElementLetStep let => [.. OperandsOf(let.Value), .. let.Element.Subscripts],
         CallStep call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
         SetStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
+        WithStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
         BranchStep branch => [branch.Condition],
         LoopBackStep loop => [loop.Condition],
         ForOpenStep open => [open.Start, open.End, open.Step],
         SelectStep select => [select.Selector],
+        CaseStep caseStep => caseStep.Clauses.SelectMany(clause => clause.Upper is { } upper ? new[] { clause.Lower, upper } : [clause.Lower]),
         TextLetStep let => PayloadsOf(let.Value),
         TextResultLetStep let => PayloadsOf(let.Value),
         PrintStep print => print.Items.SelectMany(PayloadsOf),
         _ => [],
     };
 
-    // the payloads a text is made of: the whole numbers joined to it, and the codes of Chr$.
+    // the payloads a text is made of: the whole numbers joined to it, the codes of Chr$, the arguments of TypeName of a value, and what the calls that
+    // return a String are given.
     private static IEnumerable<PayloadNode> PayloadsOf(TextNode node) => node switch
     {
         ConcatNode concat => [.. PayloadsOf(concat.Left), .. PayloadsOf(concat.Right)],
         WholeTextNode whole => [whole.Value],
         ChrTextNode chr => [chr.Code],
+        LibraryVariantTextNode library => library.Arguments.SelectMany(OperandsOf),
+        TextCallNode call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
+        _ => [],
+    };
+
+    // the calls that return a String inside the text of a String Let or of the items of a Debug.Print.
+    private static IEnumerable<TextCallNode> TextCallsOf(CompiledStep step) => step switch
+    {
+        TextLetStep let => TextCallsOf(let.Value),
+        TextResultLetStep let => TextCallsOf(let.Value),
+        PrintStep print => print.Items.SelectMany(TextCallsOf),
+        _ => [],
+    };
+
+    private static IEnumerable<TextCallNode> TextCallsOf(TextNode node) => node switch
+    {
+        ConcatNode concat => [.. TextCallsOf(concat.Left), .. TextCallsOf(concat.Right)],
+        TextCallNode call => [call],
         _ => [],
     };
 

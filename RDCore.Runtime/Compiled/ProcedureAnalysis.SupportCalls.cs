@@ -1,7 +1,9 @@
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.VBProject;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -28,6 +30,13 @@ internal sealed partial class ProcedureAnalysis
         _reasons.RemoveRange(mark, _reasons.Count - mark);
         return new SupportCallStep(instruction.Offset);
     }
+
+    // MS-VBAL §5.6.13: an index expression whose callee is a function or a Property Get of an object that takes no parameter, so that what it returns
+    // is indexed: an array for its element, an object through its default member. The interpreter's statement calls it once, and indexes and
+    // let-coerces what it returns, raising the errors of both itself (CompiledActivation.RunStatement).
+    private bool IndexesWhatACallReturns(BoundNode value)
+        => value is BoundMember { Member: null, DeclaredClass: null, Arguments: not null, Access: var access }
+            && Bind(access) is BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol };
 
     // a support call that gave no reason, as the report names it: a call by the name of what it calls, as RefusedCall names it; a Set, or a statement of a
     // keyword, by its keyword.

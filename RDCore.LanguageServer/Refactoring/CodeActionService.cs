@@ -50,7 +50,8 @@ internal interface ICodeActionService
 internal sealed class CodeActionService(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null) : ICodeActionService
+    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null) : ICodeActionService
 {
     public Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionParams request, ClientCapabilities? client, CancellationToken cancellationToken)
         => For(client).ActionsAsync(request, cancellationToken);
@@ -58,7 +59,8 @@ internal sealed class CodeActionService(
     public Task<CodeAction> ResolveAsync(CodeAction request, ClientCapabilities? client, CancellationToken cancellationToken)
         => For(client).ResolveAsync(request, cancellationToken);
 
-    private CodeActions For(ClientCapabilities? client) => new(client, rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField, implementInterface);
+    private CodeActions For(ClientCapabilities? client) => new(client, rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField, implementInterface,
+        closerToUsage, parameterReorder);
 }
 
 /// <summary>
@@ -91,6 +93,13 @@ internal sealed class CodeActionService(
 /// it or on one of its <c>Return</c>s, and for a selection whose extraction is refused for a <c>GoSub</c> to it or one of its <c>Return</c>s.
 /// </para>
 /// <para>
+/// A parameter declared at the start of the range is offered its removal (<see cref="ParameterRemoval"/>), as an edit, and so is the parameter of a diagnostic
+/// fixed by removing it, as a preferred quick fix. The procedure named at the start of the range, or whose parameter is declared there, is offered the
+/// reordering of its parameters (<see cref="IParameterReorderService"/>) when it has two or more: a command (<see cref="RefactoringCommands.Refactor"/>) that
+/// a client expecting <see cref="SDK.Client.Refactoring"/> runs with its user's order. A refused one is offered disabled, with why, to a client that shows it
+/// so.
+/// </para>
+/// <para>
 /// The diagnostics of a code that can be disabled are offered, once for the code and after their fixes, a quick fix that disables it in every workspace of the
 /// user (<c>Analysis.DisabledDiagnostics</c>): a command (<see cref="Workspace.ListSettingValueCommand"/>) that asks the client to add it to the user's list. Only a
 /// client that expects <see cref="SDK.Client.ListSettingValue"/> is offered it.
@@ -119,6 +128,11 @@ internal sealed class CodeActionService(
 /// disabled, with why, to a client that shows it so.
 /// </para>
 /// <para>
+/// A variable named at a position, or by a selection on one line, is offered a refactoring that moves its declaration closer to its usage
+/// (<see cref="IMoveCloserToUsageService"/>): as a command to a client that expects <see cref="SDK.Client.Refactoring"/>, and to any other as its edit, with
+/// <c>Static</c> for a variable of a module, when that changes nothing the user would have to accept.
+/// </para>
+/// <para>
 /// An extraction, a conversion, a move, a sort, an encapsulation and an implementation are the actions that are resolved (<c>resolveProvider = true</c>): a
 /// client that resolves an action's edit (<strong>LSP 3.17</strong> §Code Action Resolve Request) is answered them without their edit, which is made and verified
 /// when it resolves the action, and refused when the document has changed since. Any other client is answered every action complete.
@@ -128,7 +142,8 @@ internal sealed class CodeActions(
     ClientCapabilities? client,
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
-    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null)
+    ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null)
 {
     // LSP "RequestFailed": the request is valid, and is refused.
     private const int RequestFailedCode = -32803;
@@ -159,6 +174,7 @@ internal sealed class CodeActions(
         int? version = documents.TryGetDocument(documentUri, out var held) ? held.Version : null;
         var actions = new List<CodeAction>();
         var offered = new HashSet<Position>();
+        var parameters = new HashSet<Position>();
         var refactored = new HashSet<(string Kind, SourceRange Range)>();
         foreach (var diagnostic in request.Context.Diagnostics)
         {
@@ -195,6 +211,22 @@ internal sealed class CodeActions(
                 {
                     actions.Add(refactoring with { Diagnostics = new Container<Diagnostic>(diagnostic) });
                 }
+            }
+
+            // a parameter that the finding is fixed by removing is offered its removal, as an edit, when it can be made.
+            if (fixes?.Refactoring?.Kind is RefactoringKinds.RemoveParameter
+                && workspace.RemoveParameter(documentUri, diagnostic.Range.Start) is { Answer.Value: { } removal } removable
+                && ForTheClient(removal) is { } removed)
+            {
+                actions.Add(new CodeAction
+                {
+                    Title = ParameterRemovalRefusal.Title(removable.Name),
+                    Kind = CodeActionKind.QuickFix,
+                    Diagnostics = new Container<Diagnostic>(diagnostic),
+                    Edit = removed,
+                    IsPreferred = true,
+                });
+                parameters.Add(diagnostic.Range.Start);
             }
 
             // a change of the project that fixes the finding is a command this server runs, offered when it changes the project as it is now.
@@ -250,6 +282,45 @@ internal sealed class CodeActions(
             actions.Add(RenameCommand(documentUri, name, position, CodeActionHandler.RefactorRename, diagnostic: null));
         }
 
+        // the parameter declared at the start of the range is offered its removal: as an edit when it can be made, or disabled, with why, to a client
+        // that shows it.
+        if (IsAsked(CodeActionHandler.RefactorRemoveParameter) && !parameters.Contains(request.Range.Start)
+            && workspace.RemoveParameter(documentUri, request.Range.Start) is { } parameter)
+        {
+            var title = ParameterRemovalRefusal.Title(parameter.Name);
+            if (parameter.Answer.Value is { } removal && ForTheClient(removal) is { } removed)
+            {
+                actions.Add(new CodeAction { Title = title, Kind = CodeActionHandler.RefactorRemoveParameter, Edit = removed });
+            }
+            else if (ShowsDisabled && parameter.Answer.Refusal is { } refusal)
+            {
+                actions.Add(new CodeAction { Title = title, Kind = CodeActionHandler.RefactorRemoveParameter, Disabled = new CodeActionDisabled { Reason = refusal } });
+            }
+        }
+
+        // the procedure named at the start of the range, or one of its parameters declared there, is offered the reordering of its parameters: a
+        // command that a client with a dialog runs, which asks its user the order. It is not offered to another client: the order it would take by
+        // default is the one the parameters have.
+        if (IsAsked(CodeActionHandler.RefactorReorderParameters) && parameterReorder is not null && clientCapabilities.Expects(capabilities => capabilities.Refactoring)
+            && await parameterReorder.OfferAsync(documentUri, new SourcePosition(request.Range.Start.Line, request.Range.Start.Character), cancellationToken) is { } reorder)
+        {
+            if (reorder.Refusal is null)
+            {
+                var start = new SourcePosition(request.Range.Start.Line, request.Range.Start.Character);
+                var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.ReorderParameters, Uri = documentUri, Range = new SourceRange(start, start) };
+                actions.Add(new CodeAction
+                {
+                    Title = reorder.Title,
+                    Kind = CodeActionHandler.RefactorReorderParameters,
+                    Command = new Command { Name = RefactoringCommands.Refactor, Title = reorder.Title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+                });
+            }
+            else if (ShowsDisabled)
+            {
+                actions.Add(new CodeAction { Title = reorder.Title, Kind = CodeActionHandler.RefactorReorderParameters, Disabled = new CodeActionDisabled { Reason = reorder.Refusal } });
+            }
+        }
+
         actions.AddRange(DisableActions(request.Context.Diagnostics, documentUri));
         actions.AddRange(ImportProjectActions());
 
@@ -295,6 +366,13 @@ internal sealed class CodeActions(
             && await ImplementInterfaceActionAsync(request.TextDocument.Uri, range, request.Context.Diagnostics, cancellationToken) is { } implementation)
         {
             actions.Add(implementation);
+        }
+
+        // the variable named at a position, or by a selection on one line.
+        if (range.Start.Line == range.End.Line && IsAsked(CodeActionHandler.RefactorMoveCloserToUsage)
+            && await CloserToUsageActionAsync(request.TextDocument.Uri, range.Start, cancellationToken) is { } moved)
+        {
+            actions.Add(moved);
         }
 
         return [.. actions.Where(action => IsAsked(action.Kind))];
@@ -689,6 +767,45 @@ internal sealed class CodeActions(
         {
             throw new RpcErrorException(RequestFailedCode, error: null!, unsupported.Message);
         }
+    }
+
+    // the action that moves the declaration of the variable named at a position closer to its usage. A client with a dialog of its own runs it as a
+    // command, which asks the keyword of a variable of a module and the changes to accept; any other is sent the edit, with Static, when that changes
+    // nothing. A refused one is offered disabled, with why, to a client that shows it so.
+    private async Task<CodeAction?> CloserToUsageActionAsync(DocumentUri lspUri, SourcePosition position, CancellationToken token)
+    {
+        var documentUri = lspUri.ToUri();
+        if (closerToUsage is null || await closerToUsage.OfferAsync(documentUri, position, token) is not { } offer)
+        {
+            return null;
+        }
+
+        var (title, refusal, changes) = offer;
+        if (refusal is not null)
+        {
+            return ShowsDisabled ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorMoveCloserToUsage, Disabled = new CodeActionDisabled { Reason = refusal } } : null;
+        }
+
+        if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
+        {
+            var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.MoveCloserToUsage, Uri = documentUri, Range = new SourceRange(position, position) };
+            return new CodeAction
+            {
+                Title = title,
+                Kind = CodeActionHandler.RefactorMoveCloserToUsage,
+                Command = new Command { Name = RefactoringCommands.Refactor, Title = title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+            };
+        }
+
+        if (changes)
+        {
+            return null;
+        }
+
+        var answer = await closerToUsage.ApplyAsync(documentUri, position, [], [], token);
+        return answer.Edit is not null && ForTheClient(LspEditOf(answer.Edit)) is { } applicable
+            ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorMoveCloserToUsage, Edit = applicable }
+            : null;
     }
 
     // the data of an action a client resolves: a client sends the action back as it holds it, and may drop a kind it does not know, so the data names the

@@ -24,6 +24,7 @@ namespace RDCore.Tests.Cli;
 /// workspace's modules are defined with their code, and a module is then run that calls into them. Without the
 /// code the host keeps of the modules it is not asked to run, the class members an object is made of have nothing to run.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ClassModuleHostExecutionTests
 {

@@ -122,7 +122,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, _variants[held.Slot]);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.ValueOf))!);
 
-                // a Variant the frame holds in no Variant's cell (a parameter passed a String, an error, an object or nothing) is read from the frame.
+                // a Variant the frame holds in no Variant's cell (a parameter passed an object, an array or a record by value) is read from the frame.
                 var read = _il.DefineLabel();
                 _il.Emit(OpCodes.Dup);
                 _il.Emit(OpCodes.Brtrue, read);

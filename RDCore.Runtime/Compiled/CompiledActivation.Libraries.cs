@@ -148,7 +148,7 @@ public sealed partial class CompiledActivation
 
     /// <summary>
     /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
-    /// (<see cref="VariantCellOf"/>): a parameter passed a <c>String</c>, an error, an object or no argument by value.
+    /// (<see cref="VariantCellOf"/>): a parameter passed an object, an array or a record by value.
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
@@ -175,13 +175,14 @@ public sealed partial class CompiledActivation
     }
 
     // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else (Null, Empty, a
-    // String, an array, which a Variant holds in no binding of its own) is the interpreter's.
+    // String, an object, an array, a record) is the interpreter's, which assigns it as the statement says. Only the value of a scalar is read: an array
+    // and a record have no binding of one value to read.
     private bool TryCallLibrary(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second, VariantPayload third,
         IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out ScalarPayload payload)
     {
         payload = default;
         return TryCallLibraryValue(pc, library, receiver, count, first, second, third, firstValue, secondValue, thirdValue, out var value)
-            && value.Handle is not InvalidBindingHandle && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
+            && ScalarKinds.Of(value.TypeInfo) is not null && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
     }
 
     // the call made, and what it returned (for a Variant, what it holds); none when the call failed, or returned nothing. A member of a class is called on
@@ -269,12 +270,15 @@ public sealed partial class CompiledActivation
     // (ExternalCallPipeline.TryCallLibraryDirectly, TryCallLibraryMemberDirectly), through the pipeline otherwise.
     private RuntimeSemanticsEvaluationResult LibraryCall(
         ICallableBindingFactory bindings, CompiledLibraryCall called, VBTypeMemberSymbol function, IRuntimeValue[] arguments)
-        => bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
+    {
+        _body.CountLibraryCall();
+        return bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
             && (called.OnAnObject
                 ? pipeline.TryCallLibraryMemberDirectly(function, arguments, _session.Symbols.Resolver, out var direct)
                 : pipeline.TryCallLibraryDirectly(function, arguments, _session.Symbols.Resolver, out direct))
                 ? direct
                 : bindings.ForMember(function).Call(_session.Symbols.Resolver, arguments);
+    }
 
     // the member of the receiver's class the interpreter calls for the member compiled code calls, by its name or as the default member (MS-VBAL §5.6.12,
     // §5.6.13): the same member of the library, which its key names, whatever declaration of the class the call was bound through. None for Nothing,
@@ -341,7 +345,7 @@ public sealed partial class CompiledActivation
     /// <returns>
     /// Whether the <c>Variant</c> holds a value of a scalar type. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>): with the
     /// error the member raised (5 or 9, of an <c>Item</c> no member of the collection answers to), which it raises; or to make the call itself, when the
-    /// member returns an object or a <c>String</c>, or when the member is not called on the receiver here.
+    /// member returns anything but a value of a scalar type (an object, an array, a <c>String</c>), or when the member is not called on the receiver here.
     /// </returns>
     public bool CallLibraryMember(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second,
         VariantPayload third, IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out VariantPayload value)
@@ -386,8 +390,8 @@ public sealed partial class CompiledActivation
             return 0;
         }
 
-        // what a Variant holds that is held in no binding of its own (an array) is no payload.
-        if (held.Handle is not InvalidBindingHandle && ScalarPayload.TryOf(held.TypeInfo, held.RuntimeValue, out var payload))
+        // only the value of a scalar is a payload: an array and a record have no binding of one value to read.
+        if (ScalarKinds.Of(held.TypeInfo) is not null && ScalarPayload.TryOf(held.TypeInfo, held.RuntimeValue, out var payload))
         {
             value = new VariantPayload(payload);
             return 1;
