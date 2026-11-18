@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Variant</c> variable given to a <c>Variant</c> parameter passed by reference of a procedure or a member compiled code calls (MS-VBAL §5.3.1.11):
 /// the variable's address, which the parameter is a second name for, so that what the callee assigns it is what the caller holds after, an array included.
-/// A <c>Variant</c> parameter bound to a variable of another type is given on with that type. A function of the standard library
+/// A <c>Variant</c> parameter bound to a variable of another type passes that variable on, with its type. A function of the standard library
 /// given an element of an array of <c>Variant</c>s, or of the array a <c>Variant</c> holds, is given what the element holds, whatever it holds
 /// (MS-VBAL §5.3.1.11), and <c>IsEmpty</c> of a <c>Variant</c> that holds an array is False. A program runs the same either way.
 /// </summary>
