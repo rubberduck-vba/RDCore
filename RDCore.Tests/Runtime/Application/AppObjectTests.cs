@@ -1,16 +1,22 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using RDCore.External.Forms;
 using RDCore.Runtime.Execution.External.Application;
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
 using System.IO.Abstractions;
+using System.IO.Abstractions.TestingHelpers;
+using System.Text.Json;
 
 namespace RDCore.Tests.Runtime.Application;
 
@@ -22,23 +28,33 @@ namespace RDCore.Tests.Runtime.Application;
 [TestCategory("RD-VBAL 6.3 App Object")]
 public sealed class AppObjectTests
 {
-    private static ModuleWorkspace.WorkspaceLibraries Shipped => new([], RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform);
+    // the program's forms are a host of the test's own: what App tells the form host is never the machine's, which the tests that run alongside share.
+    private static ModuleWorkspace.WorkspaceLibraries Shipped(IFormHost forms)
+        => new([], RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform, Outside: MachineExternal.World with { Forms = forms });
 
     // a Visual Basic 6.0 project, which references the Visual Basic objects and procedures (VB.Global's App) without listing them.
-    private static async Task<string[]> RunAsync(bool unattended, params string[] lines)
+    private static async Task<string[]> RunAsync(bool unattended, IFormHost forms, params string[] lines)
     {
         ExecuteResult? ran = null;
         await ModuleWorkspace.InspectAsync([], Source(lines), (_, result, _) =>
         {
             ran = result;
             return Task.CompletedTask;
-        }, libraries: Shipped, language: SupportedLanguages.VB6, unattended: unattended);
+        }, libraries: Shipped(forms), language: SupportedLanguages.VB6, unattended: unattended);
 
         Assert.AreEqual(ExecutionOutcome.Completed, ran!.Outcome, $"{ran.ErrorMessage} {string.Join("; ", ran.Diagnostics)}");
         return [.. ran.Output.Select(line => line.Trim())];
     }
 
+    private static Task<string[]> RunAsync(bool unattended, params string[] lines) => RunAsync(unattended, Substitute.For<IFormHost>(), lines);
+
     private static Task<string[]> RunAsync(params string[] lines) => RunAsync(unattended: false, lines);
+
+    // each value the form host was told for App.KeepSystemTheme, in order.
+    private static bool[] ToldTheme(IFormHost forms)
+        => [.. forms.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == "set_" + nameof(IFormHost.KeepSystemTheme))
+            .Select(call => (bool)call.GetArguments()[0]!)];
 
     private static string Source(string[] lines) => string.Join("\r\n",
     [
@@ -132,6 +148,7 @@ public sealed class AppObjectTests
 
     [TestMethod]
     [DataRow("TaskVisible", "True", "False", DisplayName = "TaskVisible")]
+    [DataRow("KeepSystemTheme", "False", "True", DisplayName = "KeepSystemTheme, with no form")]
     [DataRow("OleServerBusyTimeout", "10000", "1", DisplayName = "OleServerBusyTimeout")]
     [DataRow("OleRequestPendingTimeout", "5000", "2", DisplayName = "OleRequestPendingTimeout")]
     [DataRow("OleServerBusyRaiseError", "False", "True", DisplayName = "OleServerBusyRaiseError")]
@@ -143,6 +160,40 @@ public sealed class AppObjectTests
         => Printed(
             [initially, assigned.Trim('"'), "0"],
             await RunAsync($"Debug.Print App.{property}", $"App.{property} = {assigned}", $"Debug.Print App.{property}", "Debug.Print Err.Number"));
+
+    // the session's value is told as it is composed, and each the program assigns as it assigns it.
+    [TestMethod]
+    public async Task App_KeepSystemTheme_TellsTheFormHostEachValueTheProgramAssigns()
+    {
+        var forms = Substitute.For<IFormHost>();
+
+        Printed(["True", "False"], await RunAsync(unattended: false, forms,
+            "App.KeepSystemTheme = True", "Debug.Print App.KeepSystemTheme", "App.KeepSystemTheme = False", "Debug.Print App.KeepSystemTheme"));
+
+        CollectionAssert.AreEqual(new[] { false, true, false }, ToldTheme(forms));
+    }
+
+    // the project's value is App's until the program assigns another, and the form host is told it as the session is composed: before any form is made.
+    [TestMethod]
+    [DataRow(true, DisplayName = "the project keeps the system's theme")]
+    [DataRow(false, DisplayName = "the project stays light")]
+    public void App_KeepSystemTheme_IsTheProjects_AndTheFormHostIsToldIt_AsTheSessionIsComposed(bool keep)
+    {
+        var forms = Substitute.For<IFormHost>();
+        var project = new RDCoreProject { Name = "Project1", KeepSystemTheme = keep };
+        var files = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(ModuleWorkspace.Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(new ProjectFile(ModuleWorkspace.Root, project))),
+        });
+        using var provider = new EnvironmentSessionProvider(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), files,
+            NullLogger<EnvironmentSessionProvider>.Instance, outside: MachineExternal.World with { Forms = forms });
+
+        var session = provider.Compose(project, new Uri(ModuleWorkspace.Root));
+
+        Assert.AreEqual(keep, SessionApplication.Of(session).KeepSystemTheme);
+        CollectionAssert.AreEqual(new[] { keep }, ToldTheme(forms));
+        Assert.IsFalse(forms.ReceivedCalls().Any(call => call.GetMethodInfo().Name == nameof(IFormHost.Create)), "no form is made as a session is composed");
+    }
 
     [TestMethod]
     public async Task App_IsOneObject()

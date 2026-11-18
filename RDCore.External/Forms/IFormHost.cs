@@ -144,6 +144,19 @@ public interface IFormHost
     bool HostsVisualBasic6Forms => false;
 
     /// <summary>
+    /// Whether the windows of this host's forms follow the theme of the application, as <c>App.KeepSystemTheme</c> says: light unless it is
+    /// <see langword="true"/>. A value set is given to every form of the host, the ones it has made and the ones it makes, before any of them is shown.
+    /// </summary>
+    /// <remarks>
+    /// A host whose forms have no theme of their own ignores it: <see langword="false"/>, and setting it does nothing, unless the host says otherwise.
+    /// </remarks>
+    bool KeepSystemTheme
+    {
+        get => false;
+        set { }
+    }
+
+    /// <summary>
     /// Creates a form from its definition, in a window that is not shown yet.
     /// </summary>
     /// <param name="form">The form.</param>
