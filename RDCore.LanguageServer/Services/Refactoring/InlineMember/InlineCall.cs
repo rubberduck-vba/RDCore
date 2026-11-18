@@ -192,8 +192,6 @@ internal static class InlineCall
             {
                 case KeywordStatementNode { Token: Tokens.RaiseEvent }:
                     return new(InlineRefusalKind.RaisesAnEvent, callee.Name, node.SourceLocation);
-                case LineLabelNode or LineNumberNode:
-                    return new(InlineRefusalKind.UnsupportedConstruct, callee.Name, node.SourceLocation);
             }
         }
 
@@ -409,8 +407,8 @@ internal static class InlineCall
             return null;
         }
 
-        // the lines of the body, its names bound to the parameters and locals written as the call site names them, and its Exit Sub, when it is its last
-        // statement, dropped.
+        // the lines of the body, its names bound to the parameters and locals written as the call site names them, its labels renamed and its exits
+        // rewritten; then the lines that close what the exits opened.
         private IEnumerable<string> BodyLines(SourceRange body)
         {
             var edits = new List<(SourceRange Range, string NewText)>();
@@ -425,6 +423,7 @@ internal static class InlineCall
                 }
             }
 
+            Labels(edits);
             var closing = Exits(edits);
             var written = text.Of(body);
             var start = text.OffsetOf(body.Start);
@@ -447,17 +446,16 @@ internal static class InlineCall
             var statements = procedure.Declaration.Children.OfType<StatementNode>().ToArray();
             foreach (var exit in procedure.Instructions.Items.Where(instruction => instruction.Kind is InstructionKind.ExitProcedure).Select(instruction => instruction.Node!))
             {
-                var exitLine = LineOf(exit.SourceLocation.Range);
                 if (exit == statements.LastOrDefault())
                 {
-                    edits.Add((exitLine, string.Empty));
+                    edits.Add(Removal(exit.SourceLocation.Range));
                     continue;
                 }
 
                 if (statements.OfType<IfBlockStatementNode>().FirstOrDefault(each => each.ElseIfBlocks.IsEmpty && each.ElseBlock is null && each.Body.Children.LastOrDefault() == exit) is { } guard
                     && procedure.Instructions.Items.Count(instruction => instruction.Kind is InstructionKind.ExitProcedure && Within(instruction.Node!.SourceLocation.Range, guard.SourceLocation.Range)) == 1)
                 {
-                    edits.Add((exitLine, string.Empty));
+                    edits.Add(Removal(exit.SourceLocation.Range));
                     if (guard != statements[^1])
                     {
                         edits.Add((LineOf(new SourceRange(guard.SourceLocation.Range.End, guard.SourceLocation.Range.End)), "Else" + text.NewLine));
@@ -467,7 +465,7 @@ internal static class InlineCall
                     continue;
                 }
 
-                label ??= FreshLabel();
+                label ??= FreshLabel($"{callee.Name}_exit");
                 edits.Add((exit.SourceLocation.Range, $"GoTo {label}"));
             }
 
@@ -481,15 +479,84 @@ internal static class InlineCall
 
         private static SourceRange LineOf(SourceRange range) => new(new SourcePosition(range.Start.Line, 0), new SourcePosition(range.End.Line + 1, 0));
 
+        // the edit that removes what a range holds: its whole line when nothing else is written on it, the range alone otherwise.
+        private (SourceRange Range, string NewText) Removal(SourceRange range)
+        {
+            var line = LineOf(range);
+            var rest = string.Concat(text.Of(new SourceRange(line.Start, range.Start)), text.Of(new SourceRange(range.End, line.End)));
+            return (rest.Trim().Length == 0 ? line : range, string.Empty);
+        }
+
+        // the labels of the body, which are unique within the procedure the body goes into (MS-VBAL §5.4.1.1): a named label renamed to a fresh label; a
+        // line number removed, unless a jump goes to it and no named label is where it is, when it becomes a fresh label. Each jump is renamed with the
+        // label it goes to, which the instruction list resolved. The inlined lines are then unnumbered: Erl after an error in them reports the line of the
+        // caller it reported before.
+        private void Labels(List<(SourceRange Range, string NewText)> edits)
+        {
+            var instructions = procedure.Instructions;
+            var targets = instructions.Items.Where(item => item.Kind is InstructionKind.Jump).Select(item => item.Target)
+                .Concat(instructions.Items.Where(item => item.Kind is InstructionKind.JumpTable).SelectMany(item => item.Targets)).OfType<int>().ToHashSet();
+            var labels = procedure.Declaration.Descendants().OfType<LineLabelNode>().Where(label => instructions.TryGetLabelOffset(label.Name, out _)).ToArray();
+            var named = new Dictionary<int, string>();
+            foreach (var label in labels.Where(label => label is not LineNumberNode).Concat(labels.Where(label => label is LineNumberNode)))
+            {
+                instructions.TryGetLabelOffset(label.Name, out var offset);
+                if (label is not LineNumberNode)
+                {
+                    var name = FreshLabel(label.Name);
+                    named.TryAdd(offset, name);
+                    edits.Add((label.NameRange ?? label.SourceLocation.Range, name));
+                }
+                else if (targets.Contains(offset) && !named.ContainsKey(offset))
+                {
+                    var name = FreshLabel($"{callee.Name}_{label.Name.TrimStart('-')}");
+                    named.Add(offset, name);
+                    edits.Add((label.SourceLocation.Range, $"{name}:"));
+                }
+                else
+                {
+                    edits.Add(Removal(label.SourceLocation.Range));
+                }
+            }
+
+            foreach (var item in instructions.Items)
+            {
+                switch (item.Node)
+                {
+                    case GoToStatementNode jump when item.Kind is InstructionKind.Jump && item.Target is { } offset && named.TryGetValue(offset, out var name):
+                        // `If x Then 10` goes to line 10 with a line number alone, which a label can't be written as.
+                        edits.Add(jump.LabelExpression.SourceLocation.Range == jump.SourceLocation.Range
+                            ? (jump.SourceLocation.Range, $"GoTo {name}")
+                            : (jump.LabelExpression.SourceLocation.Range, name));
+                        break;
+                    case OnGoToStatementNode table when item.Kind is InstructionKind.JumpTable:
+                        for (var index = 0; index < table.Labels.Length && index < item.Targets.Length; index++)
+                        {
+                            if (item.Targets[index] is { } offset && named.TryGetValue(offset, out var target))
+                            {
+                                edits.Add((table.Labels[index].SourceLocation.Range, target));
+                            }
+                        }
+
+                        break;
+                }
+            }
+        }
+
         // a label no line of the caller has, and no name it writes (MS-VBAL §5.4.1.1: labels are unique within a procedure).
-        private string FreshLabel()
+        private string FreshLabel(string stem)
         {
             var labels = NameOccurrences.Walk(syntax.Syntax).Select(each => each.Node).OfType<LineLabelNode>()
                 .Where(each => Within(each.SourceLocation.Range, CallerRange())).Select(each => each.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var name = $"{callee.Name}_exit";
+            if (NewNames.ValidityOf(stem) is not NewNameValidity.Valid)
+            {
+                stem = $"{callee.Name}_label";
+            }
+
+            var name = stem;
             for (var index = 2; labels.Contains(name) || _taken.Contains(name) || NewNames.ValidityOf(name) is not NewNameValidity.Valid; index++)
             {
-                name = $"{callee.Name}_exit{index}";
+                name = $"{stem}{index}";
             }
 
             _taken.Add(name);

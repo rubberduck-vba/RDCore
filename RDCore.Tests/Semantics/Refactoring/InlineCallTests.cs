@@ -153,6 +153,43 @@ public class InlineCallTests
     }
 
     [TestMethod]
+    public async Task ALabel_WhoseNameTheCallerHas_IsRenamed_WithTheJumpsToIt()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim i As Long\r\nAgain:\r\nFor i = 1 To n\r\n    Retry i\r\nNext",
+            "Private Sub Retry(ByVal x As Long)\r\n    Dim tries As Long\r\nAgain:\r\n    tries = tries + 1\r\n    If tries < x Then GoTo Again\r\n    Debug.Print tries\r\nEnd Sub",
+            "Retry i");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Again2:");
+        StringAssert.Contains(module, "Then GoTo Again2");
+    }
+
+    [TestMethod]
+    public async Task TheLabelsOfAnOnGoTo_AreRenamed_InTheirOrder()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim i As Long\r\nFor i = 0 To n\r\n    Picked i\r\nNext\r\nOne:",
+            "Private Sub Picked(ByVal x As Long)\r\n    On x GoTo One, Two\r\n    Debug.Print \"neither\"\r\n    Exit Sub\r\nOne:\r\n    Debug.Print \"one\"\r\n    Exit Sub\r\nTwo:\r\n    Debug.Print \"two\"\r\nEnd Sub",
+            "Picked i");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "On x GoTo One2, Two");
+    }
+
+    [TestMethod]
+    public async Task ALineNumber_IsRemoved_UnlessAJumpGoesToIt()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim i As Long\r\nFor i = 0 To n\r\n    Numbered i\r\nNext",
+            "Private Sub Numbered(ByVal x As Long)\r\n10 Debug.Print x\r\n20 If x = 1 Then 40\r\n30 Debug.Print \"not one\"\r\n40 Debug.Print \"done\"\r\nEnd Sub",
+            "Numbered i");
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "If x = 1 Then GoTo Numbered_40");
+        StringAssert.Contains(module, "Numbered_40: Debug.Print \"done\"");
+        var run = module[module.IndexOf("Public Sub Run", StringComparison.Ordinal)..module.IndexOf("Private Sub Numbered", StringComparison.Ordinal)];
+        Assert.IsFalse(run.Contains("10 Debug", StringComparison.Ordinal) || run.Contains("30 Debug", StringComparison.Ordinal), run);
+    }
+
+    [TestMethod]
     public async Task AnObjectLocal_IsLetGoOfWhereTheCallEnded()
     {
         var tracker = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Tracker\"\r\nOption Explicit\r\nPrivate Sub Class_Terminate()\r\n    Debug.Print \"terminated\"\r\nEnd Sub\r\n";
