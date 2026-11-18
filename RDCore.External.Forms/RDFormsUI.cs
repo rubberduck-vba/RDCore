@@ -124,6 +124,19 @@ internal static class RDFormsUI
         }
     }
 
+    // starts the UI thread for a program run unattended, which shows no window: the windows the process has, whichever they are, or headless ones, which need
+    // no screen, when it has none yet.
+    public static void StartUnattended()
+    {
+        lock (Gate)
+        {
+            if (_dispatcher is null)
+            {
+                Start(RDFormsPlatform.Headless);
+            }
+        }
+    }
+
     // RDForms' own application, which its controls' look is made for, on the platform asked for.
     private static AppBuilder BuilderFor(RDFormsPlatform platform) => platform switch
     {
