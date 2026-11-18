@@ -591,7 +591,8 @@ public static class SymbolRename
 
     // MS-VBAL §5.3.1.8, §5.3.1.9: the procedures bound to a renamed symbol are renamed with it, in the part of their name that is its: after the underscore
     // for the event they handle or the interface member they implement, before it for the WithEvents variable whose event they handle or the interface they
-    // implement. A handler that does not match its event is bound to none, and a procedure that is only named like one is bound to nothing: neither is renamed.
+    // implement. A handler that does not match its event is bound to none, and a procedure that is only named like one is bound to nothing: neither is
+    // renamed.
     private static RenameRefusal? BindingEdits(RenameContext context, IReadOnlyList<Symbol> symbols, string newName, List<RenameEdit> edits)
     {
         var renamed = symbols.DistinctBy(symbol => symbol.SemanticId).ToDictionary(symbol => symbol.SemanticId);
@@ -923,10 +924,10 @@ public static class SymbolRename
     internal static bool HasUnknownHost(RenameContext context, Symbol procedure)
         => NameOccurrences.SymbolOf(context, new SemanticId(procedure.ParentUri)) is VBClassModuleSymbol owner && HasUnknownHost(context, owner);
 
-    // MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10: a procedure bound to the event it handles or the interface member it implements is called through that binding:
-    // the handler of an event of the class itself (Class_Initialize), of its form (UserForm_Click, Form_Load), of its document's host, of a WithEvents variable
-    // or a control, and the implementation of a member of an interface. A procedure of a document module whose host is not known may be one. A procedure that
-    // is only named like one is a procedure like any other.
+    // MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10: a procedure bound to the event it handles or the interface member it implements is called through that
+    // binding: the handler of an event of the class itself (Class_Initialize), of its form (UserForm_Click, Form_Load), of its document's host, of a
+    // WithEvents variable or a control, and the implementation of a member of an interface. A procedure of a document module whose host is not known may be
+    // one. A procedure that is only named like one is a procedure like any other.
     internal static bool IsBound(RenameContext context, VBClassModuleSymbol owner, Symbol procedure)
         => HasUnknownHost(context, owner) || BindingOf(context, owner, procedure) is not null;
 

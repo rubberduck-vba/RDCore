@@ -622,7 +622,7 @@ A parameter is removed from its declaration, and its argument from every call th
 |A call to the procedure is late-bound, by its name in a string, or not known|The argument passed there would not be removed.|
 |The parameter is a `ParamArray`, or the value of a `Property Let` or `Set`|A `ParamArray` takes every argument after it; a `Let` or a `Set` always takes the value.|
 |The procedure is an event, a handler bound to an event, or a `Declare`|The event, or the library, decides the parameters.|
-|The procedure is a document module's whose host is not known, or whose host's class the project does not resolve|What the host calls it for, and with which arguments, is not known.|
+|The procedure is in a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for, and with which arguments, is not known.|
 
 > [!NOTE]
 > **Not implemented.** The parameter of an event is not removed, with its `RaiseEvent` arguments and its handlers.
@@ -642,7 +642,7 @@ Its choice is a `List` of the parameters (`parameters`), each item a parameter b
 |A required parameter comes after an optional one, or a `ParamArray` is not last|A parameter list declares them in that order (**MS-VBAL §5.3.1.5**).|
 |A call to the procedure is late-bound, by its name in a string, or not known|The arguments passed there would not be reordered.|
 |The procedure is an event, a handler bound to an event, or a `Declare`|The event, or the library, decides the parameters.|
-|The procedure is a document module's whose host is not known, or whose host's class the project does not resolve|What the host calls it for, and with which arguments, is not known.|
+|The procedure is in a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for, and with which arguments, is not known.|
 |A procedure that changes with it has other parameters|They cannot be put in one order.|
 
 A call that passes two arguments that do more than read a value is a `Change` (`reorderParameters.evaluated`), which `rdcore/refactor/prepare` lists. The arguments are evaluated in the order they are written and assigned in the order of the parameters (**MS-VBAL §5.3.1.11**), so another order can change what the call does. `rdcore/refactor/apply` refuses an order that changes it, unless the user accepts the change.
