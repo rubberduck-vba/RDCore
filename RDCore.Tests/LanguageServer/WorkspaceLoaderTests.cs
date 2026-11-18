@@ -163,7 +163,7 @@ public sealed class WorkspaceLoaderTests
             }))),
             [Path.Combine(Root, "src", "Mod1.bas")] = new MockFileData("Public Sub Foo()\r\nEnd Sub"),
             [Path.Combine(Root, "res", "App.res")] = new MockFileData([0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0xFF, 0xFF]),
-            [Path.Combine(Root, "README.md")] = new MockFileData("# Battleship"),
+            [Path.Combine(Root, "README.md")] = new MockFileData("# NavalBattle"),
         });
         var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
         var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);

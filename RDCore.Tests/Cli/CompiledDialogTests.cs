@@ -19,7 +19,7 @@ public sealed class CompiledDialogTests
     private static readonly string[] Prompt =
     [
         "    Const message As String = \"Not implemented.\" & vbNewLine & \"Will you implement it?\"",
-        "    If MsgBox(message, vbInformation + vbYesNo, \"Battleship\") = vbYes Then",
+        "    If MsgBox(message, vbInformation + vbYesNo, \"NavalBattle\") = vbYes Then",
         "        Stop",
         "        End",
         "    End If",

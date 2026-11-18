@@ -30,7 +30,7 @@ public sealed class DocumentModuleTests
 
     // what legacy Rubberduck exported of a worksheet's module: the text its code pane shows, no header and no attribute.
     private static readonly string GameSheet = string.Join("\r\n",
-        "'@Folder(\"Battleship.View\")",
+        "'@Folder(\"NavalBattle.View\")",
         "Option Explicit",
         "Private Sub Worksheet_Change(ByVal Target As Range)",
         "    If Target.Row = 1 Then Exit Sub",
@@ -72,7 +72,7 @@ public sealed class DocumentModuleTests
         var libraries = new LibrarySymbolProvider(root, LibrarySymbolProvider.Load(excel.Source, [new RDCoreReference { Name = "Excel" }])).ProvideSymbols().ToList();
 
         var resolver = RDCore.Symbols.WorkspaceSymbolResolver.Compose(root, [(moduleUri, SDK.Model.AST.Declarations.ModuleType.DocumentModule, parse)],
-            new RDCore.Symbols.IntrinsicSymbolResolver(), "Battleship", libraries: libraries,
+            new RDCore.Symbols.IntrinsicSymbolResolver(), "NavalBattle", libraries: libraries,
             documentHosts: new Dictionary<string, DocClassType> { [name] = DocClassType.ExcelWorksheet });
         var reset = resolver.ResolveValue("Reset", SDK.Model.Symbols.Abstract.ScopeKind.Global, moduleUri).Symbol!;
 

@@ -38,7 +38,7 @@ public sealed class DocumentModuleDiagnosticsTests
     }
 
     private static readonly string GameSheet = string.Join("\r\n",
-        "'@Folder(\"Battleship.View\")",
+        "'@Folder(\"NavalBattle.View\")",
         "Option Explicit",
         "Private Sub Worksheet_Change(ByVal Target As Range)",
         "    If Target.Row = 1 Then Exit Sub",

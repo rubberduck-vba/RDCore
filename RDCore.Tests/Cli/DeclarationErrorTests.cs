@@ -46,7 +46,7 @@ public sealed class DeclarationErrorTests
     [TestMethod]
     public async Task AnEnumAndAPropertyOfTheSameName_AreEachDeclaredOnce_TheyAreNamesOfDifferentThings()
     {
-        // the shape of a real module (IPlayer.cls of OOPBattleship): `Property Get PlayerType() As PlayerType`.
+        // the shape of a module of a real-project test workspace: `Property Get PlayerType() As PlayerType`.
         var errors = await ModuleWorkspace.LoadErrorsAsync(
             [("IPlayer", ModuleWorkspace.ClassModule("IPlayer",
                 "Public Enum PlayerType", "HumanControlled", "ComputerControlled", "End Enum",
