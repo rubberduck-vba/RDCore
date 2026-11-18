@@ -24,10 +24,10 @@ public sealed class WorkspaceLanguageTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws-language");
 
     [TestMethod]
-    [DataRow("Battleship.vbp", null, "vb6", DisplayName = "a project imported from a .vbp, with no language named, is VB6")]
-    [DataRow("Battleship.vbp", "{ \"Language\": \"vba\" }", "vba", DisplayName = "the language the client names wins")]
-    [DataRow("Battleship.vbp", "{ \"Unattended\": true }", "vb6", DisplayName = "options that name no language leave it to the project")]
-    [DataRow("Battleship.vbp", "{ \"Language\": \"cobol\" }", "vb6", DisplayName = "a language the platform does not serve is not named")]
+    [DataRow("NavalBattle.vbp", null, "vb6", DisplayName = "a project imported from a .vbp, with no language named, is VB6")]
+    [DataRow("NavalBattle.vbp", "{ \"Language\": \"vba\" }", "vba", DisplayName = "the language the client names wins")]
+    [DataRow("NavalBattle.vbp", "{ \"Unattended\": true }", "vb6", DisplayName = "options that name no language leave it to the project")]
+    [DataRow("NavalBattle.vbp", "{ \"Language\": \"cobol\" }", "vb6", DisplayName = "a language the platform does not serve is not named")]
     [DataRow(null, null, "vba", DisplayName = "a project that was not imported stays RD-VBA")]
     public async Task TheLanguageOfTheWorkspace_IsTheClientsOrElseTheProjectFilesOrElseTheServersOwn(string? sourceProject, string? options, string expected)
     {
@@ -35,7 +35,7 @@ public sealed class WorkspaceLanguageTests
         var request = options is null ? new InitializeParams() : new InitializeParams { InitializationOptions = JObject.Parse(options) };
         var sut = Service(FileSystemWith(new RDCoreProject
         {
-            Name = "Battleship",
+            Name = "NavalBattle",
             SourceProject = sourceProject,
             Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }],
         }), () => workspace.SupportedLanguage);
@@ -72,7 +72,7 @@ public sealed class WorkspaceLanguageTests
     public async Task AProjectFileReadAgain_ThatSaysAnotherLanguage_MakesTheWorkspaceItsLanguage_Once()
     {
         var workspace = new SdkWorkspaceOptions { WorkspaceUri = Root };
-        var fs = FileSystemWith(new RDCoreProject { Name = "Battleship", Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }] });
+        var fs = FileSystemWith(new RDCoreProject { Name = "NavalBattle", Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }] });
         var (sut, projectFiles) = ServiceAndProjectFiles(fs, () => workspace.SupportedLanguage);
         await sut.LoadAsync(Root, [Root], ask: null, CancellationToken.None, CoreLanguageServerApp.LanguageTakerOf(new InitializeParams(), workspace));
         var before = sut.RetakeLanguage();
@@ -93,7 +93,7 @@ public sealed class WorkspaceLanguageTests
     {
         var workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" };
         var request = new InitializeParams { InitializationOptions = JObject.Parse("{ \"Language\": \"vba\" }") };
-        var fs = FileSystemWith(new RDCoreProject { Name = "Battleship", Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }] });
+        var fs = FileSystemWith(new RDCoreProject { Name = "NavalBattle", Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }] });
         var (sut, projectFiles) = ServiceAndProjectFiles(fs, () => workspace.SupportedLanguage);
         await sut.LoadAsync(Root, [Root], ask: null, CancellationToken.None, CoreLanguageServerApp.LanguageTakerOf(request, workspace));
 
@@ -108,8 +108,8 @@ public sealed class WorkspaceLanguageTests
     private static void Imported(MockFileSystem fs)
         => fs.AddFile(Path.Combine(Root, ProjectFile.FileName), new MockFileData(JsonSerializer.Serialize(new ProjectFile(Root, new RDCoreProject
         {
-            Name = "Battleship",
-            SourceProject = "Battleship.vbp",
+            Name = "NavalBattle",
+            SourceProject = "NavalBattle.vbp",
             Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }],
         }))));
 
