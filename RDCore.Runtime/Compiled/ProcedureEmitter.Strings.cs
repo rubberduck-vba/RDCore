@@ -105,6 +105,42 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
+    // the Mid statement (CompiledActivation.TryMid), in the String's appender while it holds what was appended, else in its cell. The start, the length
+    // and the value are evaluated before it is changed; one the statement declines is the interpreter's, given what was appended (EmitSpill).
+    private void EmitMid(MidStep mid)
+    {
+        var failure = RecoverAt(mid.Offset);
+        var start = EmitPayload(mid.Start, failure);
+        var length = mid.Length is { } given ? EmitPayload(given, failure) : default(Operand?);
+        var value = EmitTextInto(mid.Value, failure);
+        _il.Emit(OpCodes.Ldarg_0);
+        if (_appenders.TryGetValue(mid.Slot, out var appender))
+        {
+            _il.Emit(OpCodes.Ldloc, appender);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldnull);
+        }
+
+        _il.Emit(OpCodes.Ldloc, _texts[mid.Slot]);
+        Load(start, mid.Start.Kind);
+        if (length is { } counted)
+        {
+            Load(counted, mid.Length!.Kind);
+            _il.Emit(OpCodes.Ldc_I4_1);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldc_I8, 0L);
+            _il.Emit(OpCodes.Ldc_I4_0);
+        }
+
+        _il.Emit(OpCodes.Ldloc, value);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryMid))!);
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
+    }
+
     // the text assigned to the function result variable where its frame holds it (CompiledActivation.TryAssignResultText).
     private void EmitTextResultLet(TextResultLetStep resultLet)
     {
@@ -207,6 +243,10 @@ internal sealed partial class ProcedureEmitter
 
             case TypeNameTextNode typeName:
                 EmitTypeName(typeName, text);
+                break;
+
+            case IntrinsicTextNode typed:
+                EmitIntrinsicText(typed, text, failure);
                 break;
 
             case LibraryTextNode library:

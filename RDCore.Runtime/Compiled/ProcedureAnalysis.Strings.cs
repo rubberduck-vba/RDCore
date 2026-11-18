@@ -1,5 +1,6 @@
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
@@ -67,12 +68,34 @@ internal sealed partial class ProcedureAnalysis
         return new TextAppendStep(offset, slot, appended);
     }
 
+    // MS-VBAL §5.4.3.5: a Mid statement of a String variable of the activation, in characters: its start and its length let-coerced to Long, as the
+    // interpreter coerces them, and the text of the value. MidB, and any other target (a Variant, a fixed-length String, a field, an element), are the
+    // interpreter's.
+    private MidStep? MidOf(int offset, MidStatementNode mid)
+    {
+        if (mid.IsByteMode || Bind(mid.Target) is not BoundVariable variable || TextSlotOf(variable) is not { } slot)
+        {
+            Refuse(IneligibilityKind.Statement, StatementNameOf(mid), mid.SourceLocation);
+            return null;
+        }
+
+        PayloadNode? length = null;
+        if (PayloadAs(Bind(mid.Start), ScalarKind.Long) is not { } start
+            || mid.Length is { } given && (length = PayloadAs(Bind(given), ScalarKind.Long)) is null
+            || Text(Bind(mid.Value)) is not { } value)
+        {
+            return null;
+        }
+
+        return new MidStep(offset, slot, start, length, value);
+    }
+
     private int? TextSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
     // TryEvaluateText, case for case: a String literal, a String variable of the activation or a String field of one of its records, parentheses, and two
-    // of them joined by & (or by +, of two Strings); and a whole number and the library's Chr$ of one, which TryEvaluateText leaves to the let-coercion
-    // and the call. Strings joined that are all literals are the text they make, joined once.
+    // of them joined by & (or by +, of two Strings); and a whole number, the library's Chr$ of one and the typed form of a function of the library, which
+    // TryEvaluateText leaves to the let-coercion and the call. Strings joined that are all literals are the text they make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -116,6 +139,10 @@ internal sealed partial class ProcedureAnalysis
             // the library's Chr$ of a whole number: any other argument is let-coerced to a Long by the interpreter's call.
             case BoundCall { Procedure: var chr, BoundArguments: [{ Value: { } code }] } when IsChrString(chr) && WholeOf(code) is { } whole:
                 return new ChrTextNode(whole);
+
+            // a function of the library whose typed form returns a String, of its arguments (ProcedureAnalysis.Intrinsics.cs): Mid$, Left$, Trim$.
+            case BoundCall typed when IntrinsicTextOf(typed) is { } formed:
+                return formed;
 
             case BoundCall typeName when IsTypeName(typeName.Procedure):
                 return TypeNameOf(typeName);
