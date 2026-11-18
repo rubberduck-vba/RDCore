@@ -46,8 +46,8 @@ public sealed class CompiledLibraryClassMemberTests
         "    C.Add 4, \"c\"",
     ];
 
-    // the program run both ways, printing expected; the procedure named compiled with no statement stepped and, when it raises nothing, with nothing
-    // handed to the interpreter but withs With statements, of a target that stays stepped (a record or a Variant).
+    // the program run both ways, printing expected; the procedure named compiled with no statement stepped but a With of a target that stays stepped (a
+    // record or a Variant) and, when it raises nothing, with nothing handed to the interpreter but those With statements, withs of them.
     private static async Task AssertNoneSteppedAsync(string program, string procedure, string expected, bool raises = false, int withs = 0)
     {
         var compiled = await AssertAlikeAsync(program, Classes, expected);

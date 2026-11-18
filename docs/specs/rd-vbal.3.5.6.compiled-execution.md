@@ -511,7 +511,7 @@ value, and a whole number as its digits. Any other value, such as a `Double`, wh
 interpreter's: it runs that `Case` on its own, with the selector compiled code evaluated. So is a `Case` whose values call a function. Two `String`s
 compared (`Select Case L = R`) are a `Boolean` selector, which is a scalar.
 
-The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` compiled code does not run, its
+The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` compiled code does not run, an
 `End With` when letting go of the block's object destroys it, and each statement in the block that uses its object other than as compiled code does (see
 Members of objects and `With` blocks, above); a `For Each` statement inside a `With` block, which is evaluated against the block's object; and a
 `Select Case` and its `Case`s when the selector is a `Variant`, a fixed-length `String`, or a scalar compiled code cannot evaluate, such as `Len(S)`
