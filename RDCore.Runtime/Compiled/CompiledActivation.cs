@@ -1877,8 +1877,9 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     private long _libraryCallsMade;
 
     /// <summary>
-    /// How many calls the body made of a function of the standard library it calls inside an expression (<see cref="Libraries"/>), through the function's
-    /// binding or straight to the library. A typed form compiled code calls, or what it reads of a Variant's cell in place of a call, is not one.
+    /// How many calls the body made of a function of the standard library, or of a member of one of its classes, that it calls inside an expression
+    /// (<see cref="Libraries"/>), through the binding or straight to the library. A typed form compiled code calls, or what it reads of a Variant's cell
+    /// in place of a call, is not one.
     /// </summary>
     public long LibraryCallsMade => Interlocked.Read(ref _libraryCallsMade);
 

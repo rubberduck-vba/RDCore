@@ -543,9 +543,20 @@ internal sealed record class IntrinsicNode(MethodInfo Method, IReadOnlyList<Payl
 // instruction, given what compiled code read and called for its arguments.
 internal sealed record class LibraryVariantNode(int Library, IReadOnlyList<VariantNode> Arguments) : VariantNode;
 
+// a call of a pure member of a class of the standard library (Collection.Item, Collection.Count) on the object an object variable holds (Receiver), an
+// object field of a record holds (ReceiverField), or the With block opened at WithAt holds: the object read first, then the arguments evaluated as a
+// LibraryVariantNode's are, then the call made (CompiledActivation.CallLibraryMember). What it returns is the Variant's payload, of its own subtype. The
+// interpreter makes it again when it is handed the instruction.
+internal sealed record class LibraryMemberNode(int Library, int? Receiver, IReadOnlyList<VariantNode> Arguments) : VariantNode
+{
+    public int? WithAt { get; init; }
+
+    public FieldPath? ReceiverField { get; init; }
+}
+
 /// <summary>
 /// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>, <see cref="LibraryVariantNode"/>,
-/// <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>, <see cref="LibraryVariantTextNode"/>).
+/// <see cref="LibraryMemberNode"/>, <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>, <see cref="LibraryVariantTextNode"/>).
 /// </summary>
 /// <param name="Function">The function, as the call was bound to it.</param>
 /// <param name="Parameters">
@@ -554,7 +565,14 @@ internal sealed record class LibraryVariantNode(int Library, IReadOnlyList<Varia
 /// </param>
 /// <param name="Site">Where the call is written, which the activation is located at while the function runs, as the interpreter's is.</param>
 internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Function,
-    System.Collections.Immutable.ImmutableArray<SDK.Model.Symbols.VBProject.VBParameterSymbol> Parameters, SDK.Model.Source.SourceLocation Site);
+    System.Collections.Immutable.ImmutableArray<SDK.Model.Symbols.VBProject.VBParameterSymbol> Parameters, SDK.Model.Source.SourceLocation Site)
+{
+    /// <summary>
+    /// Whether <see cref="Function"/> is a member of a class, called on an object (<see cref="LibraryMemberNode"/>): <see cref="Parameters"/> are those
+    /// after its implicit <c>Me</c>, which is given the object.
+    /// </summary>
+    public bool OnAnObject { get; init; }
+}
 
 /// <summary>
 /// A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.
