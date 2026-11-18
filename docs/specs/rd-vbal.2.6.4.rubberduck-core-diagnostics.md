@@ -144,6 +144,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 |[`RDC30001`](../diagnostics/rdc30001.md)|No entry point|Error|`rdc run` and `rdc build`, on standard error: `ProgramEntryPoint.Of` resolves none (`NotFound`, `Library`)|
 |[`RDC30002`](../diagnostics/rdc30002.md)|More than one entry point|Error|`rdc run` and `rdc build`, on standard error: `ProgramEntryPoint.Of` resolves several (`Ambiguous`, its `Candidates` named)|
+|[`RDC31001`](../diagnostics/rdc31001.md)|Circular reference of projects|Error|the language server, on each `.rdproj` on the cycle, as the workspace loads and reloads: [`ProjectReferenceCycles.Find`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectReferenceCycles.html) over the workspace's projects|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same
 extension, from the same model. Likewise, a run-time error that evaluating the code finds an instruction raises *whenever it runs* (`RuntimeFacts.Errors`) is reported

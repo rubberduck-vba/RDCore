@@ -169,6 +169,11 @@ public enum RDCoreDiagnosticId
     */
     NoEntryPoint = 30001, // no Sub Main, the entry point the .rdproj names declared nowhere, or a Library project: the program has nowhere to start
     AmbiguousEntryPoint = 30002, // more than one standard module declares the Sub Main, and the .rdproj names none
+
+    /*
+     * [31000-31999]: the workspace and its project files, issued by the language server against a project's .rdproj
+    */
+    CircularProjectReference = 31001, // NavalLib references NavalWindow, which references NavalLib: a project references itself, through other projects or not
 }
 
 public static class RDCoreDiagnosticIds

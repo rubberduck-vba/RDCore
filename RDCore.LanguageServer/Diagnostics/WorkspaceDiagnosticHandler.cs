@@ -48,7 +48,8 @@ internal sealed class WorkspaceDiagnosticHandler(
     IncomingDocumentChanges incoming,
     ILanguageServerFacade server,
     ISerializer serializer,
-    OpenDialogs dialogs) : WorkspaceDiagnosticHandlerBase
+    OpenDialogs dialogs,
+    IProjectFileDiagnostics? projectFiles = null) : WorkspaceDiagnosticHandlerBase
 {
     public override async Task<WorkspaceDiagnosticReport> Handle(WorkspaceDiagnosticParams request, CancellationToken cancellationToken)
     {
@@ -75,9 +76,16 @@ internal sealed class WorkspaceDiagnosticHandler(
                 Answer(await ReportOfAsync(module, previous.GetValueOrDefault(module.Id.Uri), token));
             }
 
+            // a project's .rdproj that has something wrong with it (RDC31001); one that has nothing now, and was reported, is cleared as a module that is gone.
+            var projectReports = projectFiles?.Current() ?? [];
+            foreach (var (uri, items) in projectReports)
+            {
+                Answer(ReportOf(uri, items, previous.GetValueOrDefault(uri)));
+            }
+
             // a module the client has a result of and the workspace no longer has - taken out of the project, deleted - has nothing wrong with it any more: its
             // findings are cleared, with no result id to send again. A document the server still holds is the document pull's.
-            var reported = modules.Select(module => module.Id.Uri).ToHashSet();
+            var reported = modules.Select(module => module.Id.Uri).Concat(projectReports.Select(report => report.Uri)).ToHashSet();
             foreach (var gone in previous.Keys.Where(uri => !reported.Contains(uri) && !documents.TryGetDocument(uri.ToUri(), out _)))
             {
                 Answer(new WorkspaceFullDocumentDiagnosticReport { Uri = gone, Version = null, Items = new Container<Diagnostic>() });
@@ -110,6 +118,16 @@ internal sealed class WorkspaceDiagnosticHandler(
         return result.Unchanged
             ? new WorkspaceUnchangedDocumentDiagnosticReport { Uri = module.Id.Uri, Version = version, ResultId = result.ResultId }
             : new WorkspaceFullDocumentDiagnosticReport { Uri = module.Id.Uri, Version = version, ResultId = result.ResultId, Items = new Container<Diagnostic>(result.Diagnostics) };
+    }
+
+    // a .rdproj's report, which no client has open as a document: its result id is what it says, so the client sends it back and is told when it changes.
+    private static WorkspaceDocumentDiagnosticReport ReportOf(DocumentUri uri, IReadOnlyList<Diagnostic> items, string? previousResultId)
+    {
+        var resultId = "rdproj:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(string.Join('\n', items.Select(item => $"{item.Code?.String}|{item.Message}")))))[..16];
+        return resultId == previousResultId
+            ? new WorkspaceUnchangedDocumentDiagnosticReport { Uri = uri, Version = null, ResultId = resultId }
+            : new WorkspaceFullDocumentDiagnosticReport { Uri = uri, Version = null, ResultId = resultId, Items = new Container<Diagnostic>(items) };
     }
 
     protected override DiagnosticsRegistrationOptions CreateRegistrationOptions(DiagnosticWorkspaceClientCapabilities capability, ClientCapabilities clientCapabilities)

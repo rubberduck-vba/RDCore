@@ -94,6 +94,7 @@ internal static class LanguageServerServices
                 provider.GetRequiredService<IOptions<SdkAppOptions>>(), provider.GetRequiredService<ILiveSettings>(), provider.GetRequiredService<IWorkspaceRefresh>(),
                 () => provider.GetRequiredService<IWorkspaceDocumentService>().WorkspaceRoot, provider.GetService<IWorkspaceSettings>()))
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
+            .AddSingleton<IProjectFileDiagnostics, ProjectFileDiagnostics>()
             .AddSingleton<IWorkspaceRefresh>(_ => new WorkspaceRefresh(WorkspaceRefresh.Burst))
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()
             // intrinsic-only type resolution until project/library symbols can be composed.

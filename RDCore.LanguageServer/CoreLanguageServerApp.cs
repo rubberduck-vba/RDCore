@@ -62,7 +62,8 @@ internal sealed class CoreLanguageServerApp(
     ISessionStopRelay stops,
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
-    ILogger<CoreLanguageServerApp> logger)
+    ILogger<CoreLanguageServerApp> logger,
+    IProjectFileDiagnostics? projectFiles = null)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
@@ -411,6 +412,7 @@ internal sealed class CoreLanguageServerApp(
     {
         // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
         await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, _workspaceExpected, token);
+        projectFiles?.Publish();
 
         using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
         await RunDiagnosticsBringUpAsync(token, analyzingWork);

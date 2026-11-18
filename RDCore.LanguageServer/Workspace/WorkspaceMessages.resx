@@ -30,4 +30,7 @@
   <data name="PullDeclinedWhileADialogIsOpen" xml:space="preserve">
     <value>The program waits for a dialog to be answered: its diagnostics are given once the dialog is closed.</value>
   </data>
+  <data name="CircularProjectReference" xml:space="preserve">
+    <value>The project {0} is on a circular reference of projects: {1}. Remove one of the references on the path.</value>
+  </data>
 </root>

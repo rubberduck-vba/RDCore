@@ -61,6 +61,15 @@ namespace RDCore.LanguageServer.Workspace {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The project {0} is on a circular reference of projects: {1}. Remove one of the references on the path..
+        /// </summary>
+        internal static string CircularProjectReference {
+            get {
+                return ResourceManager.GetString("CircularProjectReference", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is not in the project: the project has a module named {1} already, and a module name is unique in a project..
         /// </summary>
         internal static string FileNotAddedModuleNameTaken {
