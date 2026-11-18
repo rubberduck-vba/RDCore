@@ -197,7 +197,7 @@ public sealed class CompiledLibraryClassMemberTests
     // object is let as its default member's value (MS-VBAL §5.6.2.2). An array is assigned as the interpreter assigns the value of the statement's
     // expression, and the object handed to the interpreter; the Integer is compiled code's.
     [TestMethod]
-    public async Task AnItemNoScalarIs_LetToAVariant_IsAssignedByTheInterpreter()
+    public async Task AnItemNoScalarIs_LetToAVariant_ObjectIsAssignedByTheInterpreter()
         => await AssertHandedOverAsync(Program([
             "Public Sub Main()",
             .. Unscalar,
