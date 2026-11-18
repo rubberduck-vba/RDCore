@@ -83,6 +83,61 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.IsFalse(result.Diagnostics.Any(diagnostic => diagnostic.Code?.String == "RDC20001"));
     }
 
+    // the quick fix that disables a code in this workspace, end to end: its command asks the shell, which keeps the code in the workspace's file and says the
+    // settings changed; the language server reads the workspace's list again, and the next pass has no finding of the code. The user's list is not changed.
+    [TestMethod]
+    public async Task ACodeDisabledInThisWorkspace_HasNoFindingOnTheNextPass()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
+        {
+            Suspended = true,
+            Edits = [new DebugEdit { Name = "Mod1", Kind = DebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
+        });
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+        Assert.IsTrue(await editStatus.CheckAsync(CancellationToken.None));
+
+        // the shell, and the language server's live settings, which the shell's notice of a change raises.
+        var fileSystem = new System.IO.Abstractions.TestingHelpers.MockFileSystem();
+        var live = Substitute.For<RDCore.SDK.Server.Configuration.ILiveSettings>();
+        var environment = Substitute.For<RDCore.SDK.Platform.IPlatformEnvironment>();
+        environment.UserDataDirectory.Returns(Path.Combine(Root, "user"));
+        var extensions = Substitute.For<IExtensionsProvider>();
+        extensions.Discover().Returns([]);
+        var userSettings = new RDCore.CLI.App.Configuration.PlatformSettings(fileSystem, environment, extensions);
+        var shell = new RDCore.CLI.App.Configuration.ListSettingValueHandler(userSettings, Substitute.For<RDCore.SDK.Server.Configuration.ILiveSettings>(),
+            new RDCore.CLI.App.Configuration.LiveSettingsNotifier(_ => { live.Changed += Raise.Event(); return Task.CompletedTask; }),
+            Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions { Workspace = new() { WorkspaceUri = Root } }));
+        var server = Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>();
+        server.SendRequest(Arg.Any<ListSettingValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call => shell.Handle(call.Arg<ListSettingValueRequest>(), CancellationToken.None));
+        var capabilities = new RDCore.SDK.Server.Services.PlatformClientCapabilitiesService();
+        capabilities.Record(new PlatformInitializeParams
+        {
+            Expected = new CorePlatformClientCapabilities { LanguageServer = new LanguageServerCapabilities { ListSettingValue = new ListSettingValue(true) } },
+        });
+        using var disabled = new DisabledDiagnostics(Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions()), live, _refresh,
+            () => Root, new RDCore.SDK.Server.Configuration.WorkspaceSettingsStore(fileSystem, RDCore.SDK.Server.Configuration.SettingsSchema.Platform));
+
+        var before = await Sut(editStatus, disabled).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+        var change = new ListSettingValueParams
+        {
+            Key = "Analysis.DisabledDiagnostics", Value = "RDC20001", Scope = SettingScope.Workspace, Document = document.Id.Uri.ToUri(),
+        };
+        var answer = await new ListSettingValueCommand(server, capabilities)
+            .ExecuteAsync(ListSettingValueCommand.ArgumentsOf(change), Substitute.For<RDCore.SDK.Server.Commands.IServerCommandContext>(), CancellationToken.None);
+        var after = await Sut(editStatus, disabled).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual(1, before.Diagnostics.Count(diagnostic => diagnostic.Code?.String == "RDC20001"));
+        Assert.IsTrue((bool?)answer!["applied"]);
+        Assert.IsFalse(after.Diagnostics.Any(diagnostic => diagnostic.Code?.String == "RDC20001"));
+        Assert.IsEmpty(userSettings.Store.Read(), "the user's list is not changed");
+    }
+
     private static WorkspaceDocument Document(int version = 1)
         => new("src/Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub", version);
 
