@@ -1010,7 +1010,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                     : SymbolAddressTable.FreshBinding(value);
 
     // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null, a String, an error (Missing among
-    // them). A Mid statement assigns the new String it makes; an object, an array or a record is what is changed where it is.
+    // them). A Mid statement assigns the new String it makes; an object, an array or a record can be changed in place.
     private static bool IsImmutable(VBTypedValue value)
         => ScalarPayload.IsScalar(value.TypeInfo) || value is VBEmptyValue or VBNullValue or VBErrorValue || value is VBStringValue and not VBFixedStringValue;
 

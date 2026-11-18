@@ -136,8 +136,8 @@ it is read.
 
 Compiled code also tests a `Variant` parameter or variable of the procedure with `TypeOf`, where its frame keeps it. A `Variant` that holds an object is
 tested for that object, and one that holds no object (a number, `Empty`, `Null`, a `String` or an error value, `Missing` among them) is an instance of no
-class, so the test is `False`. A `Variant` that holds
-`Nothing` is the interpreter's, which raises error 91. So is a `Variant` parameter given an object by value.
+class, so the test is `False`. A `Variant` that holds `Nothing` is the interpreter's, which raises error 91. So is a `Variant`
+parameter given an object by value.
 
 Compiled code does a `Set` of such a variable or field, or of the result of a function that returns an object, to another such variable or field, to `Me` or to `Nothing`
 (MS-VBAL §5.4.3.9). It Set-coerces the object to the declared type of what it is assigned to, stores it, and counts the reference as the interpreter does
