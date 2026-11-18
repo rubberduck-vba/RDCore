@@ -30,15 +30,16 @@ public static class SymbolHierarchy
     public static IReadOnlyList<HierarchyCall> IncomingCalls(RenameContext context, HierarchyItem item)
     {
         var calls = new List<(HierarchyItem From, SourceRange Range)>();
+        var results = new Dictionary<string, IReadOnlyDictionary<SourcePosition, NameAccess>>(StringComparer.Ordinal);
         foreach (var occurrence in NameOccurrences.Find(context, item.Symbol.Name, context.Modules).Occurrences)
         {
-            if (occurrence.Kind is OccurrenceKind.Declaration or OccurrenceKind.Attribute || occurrence.Binding != item.Symbol.SemanticId)
+            if (occurrence.Kind is OccurrenceKind.Declaration or OccurrenceKind.Attribute || occurrence.Binding != item.Symbol.SemanticId
+                || IsResult(context, results, occurrence))
             {
                 continue;
             }
 
-            // a function's own name in its body is how it is given its result, as often as it is a call: the procedure is not its own caller.
-            if (CallerAt(context, occurrence.Module, occurrence.Scope) is { } caller && caller.Symbol.SemanticId != item.Symbol.SemanticId)
+            if (CallerAt(context, occurrence.Module, occurrence.Scope) is { } caller)
             {
                 calls.Add((caller, occurrence.Range));
             }
@@ -61,12 +62,13 @@ public static class SymbolHierarchy
         }
 
         var calls = new List<(HierarchyItem To, SourceRange Range)>();
+        var results = new Dictionary<string, IReadOnlyDictionary<SourcePosition, NameAccess>>(StringComparer.Ordinal);
         foreach (var name in NameOccurrences.NamesIn(source, item.Range))
         {
             foreach (var occurrence in NameOccurrences.Find(context, name, [source]).Occurrences)
             {
                 if (occurrence.Kind is not (OccurrenceKind.Name or OccurrenceKind.Member) || !Contains(item.Range, occurrence.Range)
-                    || occurrence.Binding is not { } binding || binding == item.Symbol.SemanticId
+                    || occurrence.Binding is not { } binding || IsResult(context, results, occurrence)
                     || NameOccurrences.SymbolOf(context, binding) is not { } callee || !IsCallable(context, callee))
                 {
                     continue;
@@ -88,6 +90,22 @@ public static class SymbolHierarchy
         => item.Symbol is VBClassModuleSymbol type
             ? [.. SymbolNavigation.ImplementersOf(context, type).Select(implementer => ItemOf(context, implementer)).OrderBy(found => found.Symbol.Name, StringComparer.OrdinalIgnoreCase)]
             : [];
+
+    // a function's or a Property Get's own name in its body, read or assigned without arguments, is its result variable (MS-VBAL §5.3.1, §5.6.2.1), not a call
+    // of it: with arguments, as a call statement, it is a call, as it is in a procedure, which has no result variable.
+    private static bool IsResult(RenameContext context, Dictionary<string, IReadOnlyDictionary<SourcePosition, NameAccess>> results, NameOccurrence occurrence)
+    {
+        if (!results.TryGetValue(occurrence.Module.AbsoluteUri, out var accesses))
+        {
+            accesses = context.Modules.FirstOrDefault(each => each.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is { } module
+                ? NameOccurrences.AssignedIn(module)
+                : new Dictionary<SourcePosition, NameAccess>();
+            results[occurrence.Module.AbsoluteUri] = accesses;
+        }
+
+        return accesses.TryGetValue(occurrence.Range.Start, out var access) && access is NameAccess.Result
+            && CallerAt(context, occurrence.Module, occurrence.Scope)?.Symbol.SemanticId == occurrence.Binding;
+    }
 
     // a procedure, a function or a procedure of a property, that the workspace declares.
     private static bool IsCallable(RenameContext context, Symbol symbol) => SignatureDescription.Of(symbol) is not null && NameOccurrences.IsDeclaredBy(context, symbol);
