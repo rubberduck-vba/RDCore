@@ -663,7 +663,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             logger.LogWarning(problem, "⚠️ The companion file of '{path}' could not be read.", path);
         }
 
-        // what a rename staged beside the companion and no edit put in place - a server that ended before its client applied the edit - is deleted.
+        // what a rename staged beside the companion and no edit put in place (a server that ended before its client applied the edit) is deleted.
         if (staged is not null && !companion.IsEmpty && FormDesigner.CompanionPathOf(path, text) is { } companionPath)
         {
             try
