@@ -131,10 +131,20 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => ResolveType(name, handle, _ => true);
 
     // MS-VBAL §5.6.12
-    public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name)
+    public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name) => ResolveProjectType(project, name, from: null);
+
+    // MS-VBAL §5.6.12, §5.2.4.1.1: the code of a referenced project names its project's types from its own project scope, the classes it does not expose
+    // among them.
+    public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle)
+        => ResolveProjectType(project, name, _projects.OriginOf(scopeTree.ScopeFor(handle).SelfAndAncestors()));
+
+    private SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, ProjectOrigin? from)
     {
         var library = project.GetProperty(SymbolProperties.Library) ?? string.Empty;
-        return ResolveType(name, project.WorkspaceRoot, symbol => string.Equals(symbol.GetProperty(SymbolProperties.Library) ?? string.Empty, library, StringComparison.Ordinal));
+        var root = from is { Project: { } own, Library: { } ownLibrary } && string.Equals(ownLibrary, library, StringComparison.Ordinal)
+            ? own
+            : project.WorkspaceRoot;
+        return ResolveType(name, root, symbol => string.Equals(symbol.GetProperty(SymbolProperties.Library) ?? string.Empty, library, StringComparison.Ordinal));
     }
 
     private SymbolResolutionResult ResolveType(string name, Uri handle, Func<Symbol, bool> isOfProject)

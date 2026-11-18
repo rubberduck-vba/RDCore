@@ -263,6 +263,9 @@ internal sealed class SymbolTable
         public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name)
             => Resolver.ResolveProjectType(project, name);
 
+        public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle)
+            => Resolver.ResolveProjectType(project, name, handle);
+
         public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle)
             => Resolver.ResolveConditionalConstant(name, scope, handle);
 

@@ -198,6 +198,20 @@ public sealed class ReferencedClassMemberTests
         CollectionAssert.AreEqual(new[] { "7", "GridCoord" }, run.Output.Select(line => line.Trim()).ToArray());
     }
 
+    // MS-VBAL §5.6.12, §5.2.4.1.1: the referenced project's code names its own class that it does not expose, qualified by its project's name.
+    [TestMethod]
+    public async Task AReferencedProjectsCode_NamesItsClassItDoesNotExpose_QualifiedByItsProject()
+    {
+        var boards = new Source("Boards", ModuleType.StdModule, ModuleWorkspace.StandardModule("Boards", "Option Explicit",
+            "Public Function Which() As String", $"    Dim b As {LibraryName}.Board", "    Set b = Board", "    b.Reset", "    Which = TypeName(b)",
+            "End Function"));
+
+        var run = await RunWithAsync(boards, "Debug.Print Which()");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "Board" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
     // MS-VBAL §5.3.1.11: a ParamArray of the referenced project's function collects the arguments of the project's call.
     [TestMethod]
     public async Task AReferencedProjectsFunction_CollectsItsParamArray()
