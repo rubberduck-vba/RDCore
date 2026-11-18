@@ -521,8 +521,8 @@ public sealed class CompiledIntrinsicTests
             "End Function"), [("Made", 0)]);
 
     // MS-VBAL §6.1.2.4.2.2 to §6.1.2.4.2.4: Now, Date and Time, named with no arguments, qualified or not, or with an empty list, assigned to a Date and to
-    // a Variant, each read from the session's clock: what Read adds up is of how they relate, which is the same on each run, and Main prints the subtype
-    // each returns, a Date (MS-VBAL §6.1.2.7.1.13).
+    // a Variant, each read from the session's clock: what Read adds up depends only on how they relate, which is the same on each run, and Main prints the
+    // subtype each returns, a Date (MS-VBAL §6.1.2.7.1.13).
     [TestMethod]
     public async Task NowDateAndTime_AreTheirTypedForms()
         => await AssertAlikeAsync(Program(
