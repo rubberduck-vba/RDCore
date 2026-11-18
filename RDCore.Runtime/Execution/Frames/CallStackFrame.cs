@@ -1544,11 +1544,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return false;
     }
 
+    // an element that is passed by reference was given its cell when it was passed: one that has no cell yet is not bound to anything.
     private static bool IsCellOf(VBArrayValue array, IBindingHandle handle)
     {
-        for (var index = 0; index < array.Length; index++)
+        foreach (var (_, cell) in array.MadeCells)
         {
-            if (ReferenceEquals(array.CellAt(index), handle))
+            if (ReferenceEquals(cell, handle))
             {
                 return true;
             }
@@ -1558,7 +1559,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // passing the element does (MS-VBA, observed in Excel).
         if (array.ItemType is VBUserDefinedType)
         {
-            for (var index = 0; index < array.Length; index++)
+            foreach (var (index, _) in array.MadeCells)
             {
                 if (array.ElementAt(index) is VBUserDefinedTypeValue record && IsFieldOf(record, handle))
                 {

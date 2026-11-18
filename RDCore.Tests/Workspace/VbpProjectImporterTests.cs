@@ -27,12 +27,13 @@ public sealed class VbpProjectImporterTests
         Module=modShared; ..\Shared\modShared.bas
         Module=modAbsolute; C:\Elsewhere\modAbsolute.bas
         UserControl=ctlGauge.ctl
+        Designer=deScores.dsr
         RelatedDoc=README.txt
-        ResFile32="Battleship.RES"
+        ResFile32="NavalBattle.RES"
         Startup="Sub Main"
-        Name="Battleship"
+        Name="NavalBattle"
         CondComp="DEBUG = 1 : TRACE = -1"
-        ExeName32="Battleship.exe"
+        ExeName32="NavalBattle.exe"
 
         [MS Transaction Server]
         AutoRefresh=1
@@ -43,15 +44,15 @@ public sealed class VbpProjectImporterTests
         new LibraryDescription { Name = "stdole", Origin = new LibraryOrigin { Guid = "{00020430-0000-0000-C000-000000000046}" } },
         new LibraryDescription { Name = "Scripting", Origin = new LibraryOrigin { Guid = "{420B2830-E718-11CF-893D-00A0C9054228}" } });
 
-    private static VbpImport Import(string vbp = Vbp) => VbpProjectImporter.Import(vbp.Replace("\n", "\r\n"), "Battleship.vbp", Libraries);
+    private static VbpImport Import(string vbp = Vbp) => VbpProjectImporter.Import(vbp.Replace("\n", "\r\n"), "NavalBattle.vbp", Libraries);
 
     [TestMethod]
     public void TheProject_IsNamed_AsTheVbpNamesIt()
-        => Assert.AreEqual("Battleship", Import().Project.Name);
+        => Assert.AreEqual("NavalBattle", Import().Project.Name);
 
     [TestMethod]
     public void AProjectThatNamesItselfNothing_IsNamedForItsFile()
-        => Assert.AreEqual("Battleship", Import("Module=modMain; modMain.bas").Project.Name);
+        => Assert.AreEqual("NavalBattle", Import("Module=modMain; modMain.bas").Project.Name);
 
     // the .vbp's folder, as the language server and rdc import know it: an absolute path the CI's Linux runner has too.
     private static readonly string MyProj = Path.Combine(Path.GetTempPath(), "src", "MyProj");
@@ -94,17 +95,19 @@ public sealed class VbpProjectImporterTests
     }
 
     [TestMethod]
-    public void TheModules_ClassesAndForms_AreTheProjectsModules_InTheFoldersTheyAreIn()
+    public void TheModules_ClassesAndDesignedModules_AreTheProjectsModules_InTheFoldersTheyAreIn()
     {
         var project = Import().Project;
 
-        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls" }, project.Modules.Select(module => module.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls", "ctlGauge.ctl" },
+            project.Modules.Select(module => module.RelativeUri).ToArray(), "a form and a UserControl are designed modules");
         CollectionAssert.Contains(project.Folders, "Classes");
     }
 
+    // a Designer is a file of the project, not a module: its designer's objects are in its binary .dsx.
     [TestMethod]
     public void WhatIsNotAModule_IsAFileOfTheProject()
-        => CollectionAssert.AreEqual(new[] { "ctlGauge.ctl", "README.txt", "Battleship.RES" }, Import().Project.OtherFiles.Select(file => file.RelativeUri).ToArray());
+        => CollectionAssert.AreEqual(new[] { "deScores.dsr", "README.txt", "NavalBattle.RES" }, Import().Project.OtherFiles.Select(file => file.RelativeUri).ToArray());
 
     [TestMethod]
     public void ALibrary_IsReferencedByTheNameThePlatformShipsItUnder_ForItsIdentifier()
@@ -121,17 +124,17 @@ public sealed class VbpProjectImporterTests
     // VB6 writes a library's file relative to the .vbp's folder when they are on one drive: the project file has it resolved, so that it names the same file
     // wherever the project is moved to.
     [TestMethod]
-    [DataRow(@"C:\Users\me\Documents\Projects\Battleship", @"..\..\..\..\..\Windows\System32\FM20.DLL", @"C:\Windows\System32\FM20.DLL", DisplayName = "a system library, out to the drive")]
-    [DataRow(@"C:\Projects\Battleship", @"Libraries\.\custom.tlb", @"C:\Projects\Battleship\Libraries\custom.tlb", DisplayName = "a library of the project's folder")]
-    [DataRow(@"\\server\share\Battleship", @"..\Libraries\custom.tlb", @"\\server\share\Libraries\custom.tlb", DisplayName = "a share")]
-    [DataRow("/home/me/Battleship", @"..\Libraries\custom.tlb", "/home/me/Libraries/custom.tlb", DisplayName = "a Unix folder")]
-    [DataRow(@"C:\Projects\Battleship", @"C:\Windows\System32\FM20.DLL", @"C:\Windows\System32\FM20.DLL", DisplayName = "an absolute path, as it is")]
+    [DataRow(@"C:\Users\me\Documents\Projects\NavalBattle", @"..\..\..\..\..\Windows\System32\FM20.DLL", @"C:\Windows\System32\FM20.DLL", DisplayName = "a system library, out to the drive")]
+    [DataRow(@"C:\Projects\NavalBattle", @"Libraries\.\custom.tlb", @"C:\Projects\NavalBattle\Libraries\custom.tlb", DisplayName = "a library of the project's folder")]
+    [DataRow(@"\\server\share\NavalBattle", @"..\Libraries\custom.tlb", @"\\server\share\Libraries\custom.tlb", DisplayName = "a share")]
+    [DataRow("/home/me/NavalBattle", @"..\Libraries\custom.tlb", "/home/me/Libraries/custom.tlb", DisplayName = "a Unix folder")]
+    [DataRow(@"C:\Projects\NavalBattle", @"C:\Windows\System32\FM20.DLL", @"C:\Windows\System32\FM20.DLL", DisplayName = "an absolute path, as it is")]
     [DataRow(@"C:\Projects", @"..\..\FM20.DLL", @"..\..\FM20.DLL", DisplayName = "out past the drive, as it is")]
     [DataRow(@"\\server\share", @"..\FM20.DLL", @"..\FM20.DLL", DisplayName = "out past the share, as it is")]
     [DataRow(null, @"..\..\Windows\System32\FM20.DLL", @"..\..\Windows\System32\FM20.DLL", DisplayName = "a folder that is not known, as it is")]
     public void ALibrarysFile_IsWrittenResolvedAgainstTheVbpsFolder(string? folder, string path, string expected)
     {
-        var import = VbpProjectImporter.Import($@"Reference=*\G{{420B2830-E718-11CF-893D-00A0C9054228}}#1.0#0#{path}#Microsoft Scripting Runtime", "Battleship.vbp",
+        var import = VbpProjectImporter.Import($@"Reference=*\G{{420B2830-E718-11CF-893D-00A0C9054228}}#1.0#0#{path}#Microsoft Scripting Runtime", "NavalBattle.vbp",
             Libraries, folder);
 
         Assert.AreEqual(expected, import.Project.References.Single().AbsolutePath);
@@ -143,10 +146,10 @@ public sealed class VbpProjectImporterTests
         const string forms = "{0D452EE1-E08F-101A-852E-02608C4D0BB4}";
         var libraries = new InMemoryLibrarySource(new LibraryDescription { Name = "MSForms", Origin = new LibraryOrigin { Guid = forms } });
         var import = VbpProjectImporter.Import($@"Reference=*\G{forms}#2.0#0#..\..\..\..\Windows\System32\FM20.DLL#Microsoft Forms 2.0 Object Library",
-            "Battleship.vbp", libraries, @"C:\Users\me\Projects\Battleship");
+            "NavalBattle.vbp", libraries, @"C:\Users\me\Projects\NavalBattle");
 
         // the project file, written where the import made it, read from a folder one level deeper.
-        var moved = Path.Combine(Path.GetTempPath(), "rdcore-import-moved", "Archive", "Battleship");
+        var moved = Path.Combine(Path.GetTempPath(), "rdcore-import-moved", "Archive", "NavalBattle");
         var written = System.Text.Json.JsonSerializer.Serialize(new ProjectFile(moved, import.Project));
         var fileSystem = new System.IO.Abstractions.TestingHelpers.MockFileSystem(new Dictionary<string, System.IO.Abstractions.TestingHelpers.MockFileData>
         {
@@ -253,14 +256,14 @@ public sealed class VbpProjectImporterTests
         CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration, "the platform's own settings");
 
         var info = project.ProjectInfo;
-        Assert.AreEqual("Battleship", info.Name);
-        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls" }, info.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.AreEqual("NavalBattle", info.Name);
+        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls", "ctlGauge.ctl" }, info.Modules.Select(module => module.RelativeUri).ToArray());
         Assert.AreEqual(DocClassType.ExcelWorkbook, info.Modules.Single(module => module.RelativeUri == "modMain.bas").Super, "kept by its path, in any case");
         CollectionAssert.AreEqual(new[] { "stdole", "Scripting" }, info.References.Select(reference => reference.Name).ToArray(),
             "ADODB is no longer referenced, and VBA is no reference: every project has it");
         Assert.AreEqual("scrrun.json", info.References.Single(reference => reference.Name == "Scripting").TypeLibInfoPath);
         Assert.AreEqual(new Guid("420B2830-E718-11CF-893D-00A0C9054228"), info.References.Single(reference => reference.Name == "Scripting").Guid, "the .vbp's");
-        CollectionAssert.AreEqual(new[] { "ctlGauge.ctl", "README.txt", "Battleship.RES" }, info.OtherFiles.Select(file => file.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(new[] { "deScores.dsr", "README.txt", "NavalBattle.RES" }, info.OtherFiles.Select(file => file.RelativeUri).ToArray());
         CollectionAssert.AreEquivalent(new[] { "DEBUG", "TRACE" }, info.PrecompilerConstants.Keys.ToArray());
     }
 
@@ -277,7 +280,7 @@ public sealed class VbpProjectImporterTests
             OtherFiles = [new RDCoreFile { RelativeUri = "readme.txt", ExtensionData = Said("""{ "Preview": true }""") }],
         }) with
         {
-            Version = "1.1",
+            Version = "1.3",
         };
 
         var info = Import().Into(existing, @"C:\ws").ProjectInfo;
@@ -285,7 +288,7 @@ public sealed class VbpProjectImporterTests
         Assert.IsTrue(info.References.Single(reference => reference.Name == "Scripting").ExtensionData!["Pinned"].GetBoolean());
         Assert.AreEqual("core", info.Modules.Single(module => module.RelativeUri == "modMain.bas").ExtensionData!["Tags"][0].GetString());
         Assert.IsTrue(info.OtherFiles.Single(file => file.RelativeUri == "README.txt").ExtensionData!["Preview"].GetBoolean(), "kept by its path, in any case");
-        Assert.IsNull(info.OtherFiles.Single(file => file.RelativeUri == "Battleship.RES").ExtensionData);
+        Assert.IsNull(info.OtherFiles.Single(file => file.RelativeUri == "NavalBattle.RES").ExtensionData);
     }
 
     [TestMethod]
@@ -294,7 +297,7 @@ public sealed class VbpProjectImporterTests
         var project = Import().Into(null, @"C:\ws");
 
         Assert.AreEqual(@"C:\ws", project.Uri);
-        Assert.AreEqual("Battleship", project.ProjectInfo.Name);
+        Assert.AreEqual("NavalBattle", project.ProjectInfo.Name);
         Assert.IsEmpty(project.Configuration);
     }
 
@@ -303,12 +306,12 @@ public sealed class VbpProjectImporterTests
     {
         var imported = Import().Into(null, @"C:\ws");
 
-        Assert.AreEqual("Battleship.vbp", imported.ProjectInfo.SourceProject, "the .vbp is in the folder of the .rdproj: its path relative to it is its name");
+        Assert.AreEqual("NavalBattle.vbp", imported.ProjectInfo.SourceProject, "the .vbp is in the folder of the .rdproj: its path relative to it is its name");
         Assert.IsTrue(imported.ProjectInfo.IsImported);
         Assert.IsFalse(Path.IsPathRooted(imported.ProjectInfo.SourceProject!));
 
         var edited = imported with { ProjectInfo = imported.ProjectInfo.WithModule(new RDCoreModule { RelativeUri = "Extra.bas" }).WithName("Renamed") };
-        Assert.AreEqual("Battleship.vbp", edited.ProjectInfo.SourceProject, "nothing but an import changes it");
+        Assert.AreEqual("NavalBattle.vbp", edited.ProjectInfo.SourceProject, "nothing but an import changes it");
     }
 
     [TestMethod]
@@ -318,9 +321,9 @@ public sealed class VbpProjectImporterTests
         var again = Import().Into(imported, @"C:\ws");
         var native = new ProjectFile(@"C:\ws", new RDCoreProject { Name = "Native" });
 
-        Assert.AreEqual("Battleship.vbp", again.ProjectInfo.SourceProject);
+        Assert.AreEqual("NavalBattle.vbp", again.ProjectInfo.SourceProject);
         Assert.IsFalse(native.ProjectInfo.IsImported, "a project file that was written by hand, or by the platform, is no import");
-        Assert.AreEqual("Battleship.vbp", Import().Into(native, @"C:\ws").ProjectInfo.SourceProject, "until a .vbp is imported into it");
+        Assert.AreEqual("NavalBattle.vbp", Import().Into(native, @"C:\ws").ProjectInfo.SourceProject, "until a .vbp is imported into it");
     }
 
     [TestMethod]
@@ -329,7 +332,7 @@ public sealed class VbpProjectImporterTests
         var imported = System.Text.Json.JsonSerializer.Serialize(Import().Into(null, @"C:\ws"));
         var native = System.Text.Json.JsonSerializer.Serialize(new ProjectFile(@"C:\ws", new RDCoreProject { Name = "Native" }));
 
-        StringAssert.Contains(imported, "\"SourceProject\":\"Battleship.vbp\"");
+        StringAssert.Contains(imported, "\"SourceProject\":\"NavalBattle.vbp\"");
         Assert.DoesNotContain("SourceProject", native);
     }
 
@@ -346,7 +349,7 @@ public sealed class VbpProjectImporterTests
             (VbpImportNoteKind.Control, "MSCOMCTL.OCX"),
             (VbpImportNoteKind.OutsideProjectFolder, @"..\Shared\modShared.bas"),
             (VbpImportNoteKind.AbsolutePath, @"C:\Elsewhere\modAbsolute.bas"),
-            (VbpImportNoteKind.NotAModule, "ctlGauge.ctl"),
+            (VbpImportNoteKind.NotAModule, "deScores.dsr"),
             (VbpImportNoteKind.Startup, "Sub Main"),
         }, import.Notes.Select(note => (note.Kind, note.Subject)).ToArray());
         Assert.IsFalse(import.Project.Modules.Any(module => module.RelativeUri.Contains("modShared") || module.RelativeUri.Contains("modAbsolute")));
@@ -379,14 +382,14 @@ public sealed class VbpProjectImporterTests
 
     // the folder of the .vbp, and the folders of the workspace: one beside it (Shared) the client opened too, one (Elsewhere) it did not.
     private static readonly string Projects = Path.Combine(Path.GetTempPath(), "rdcore-import-bounds");
-    private static readonly string Battleship = Path.Combine(Projects, "Battleship");
+    private static readonly string NavalBattle = Path.Combine(Projects, "NavalBattle");
     private static readonly string Shared = Path.Combine(Projects, "Shared");
 
     private static bool InWorkspace(string path)
-        => new WorkspaceFolders([Battleship, Shared]).Contains(path);
+        => new WorkspaceFolders([NavalBattle, Shared]).Contains(path);
 
     private static VbpImport ImportBounded(string vbp, bool withWorkspace = true)
-        => VbpProjectImporter.Import(vbp, "Battleship.vbp", Libraries, Battleship, withWorkspace ? InWorkspace : null);
+        => VbpProjectImporter.Import(vbp, "NavalBattle.vbp", Libraries, NavalBattle, withWorkspace ? InWorkspace : null);
 
     [TestMethod]
     public void AFileInAnotherWorkspaceFolder_IsAModuleOfTheProject_ByItsRelativePath()
@@ -401,7 +404,7 @@ public sealed class VbpProjectImporterTests
     [TestMethod]
     public void AnAbsolutePathInAWorkspaceFolder_IsWrittenRelative_AndOneInTheProjectsOwnToo()
     {
-        var import = ImportBounded($"Module=Util; {Path.Combine(Shared, "Util.bas")}\r\nModule=Main; {Path.Combine(Battleship, "Main.bas")}");
+        var import = ImportBounded($"Module=Util; {Path.Combine(Shared, "Util.bas")}\r\nModule=Main; {Path.Combine(NavalBattle, "Main.bas")}");
 
         CollectionAssert.AreEqual(new[] { "../Shared/Util.bas", "Main.bas" }, import.Project.Modules.Select(module => module.RelativeUri).ToArray(),
             "nothing a project file lists is absolute");
