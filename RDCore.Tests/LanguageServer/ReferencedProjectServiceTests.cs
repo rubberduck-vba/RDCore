@@ -98,6 +98,24 @@ public sealed class ReferencedProjectServiceTests
             "the project is named in the one referencing it");
     }
 
+    // an exposed class whose VB_PredeclaredId is True: its default instance is a name of the referencing project, beside the class.
+    [TestMethod]
+    public void TheDefaultInstanceOfAnExposedPredeclaredClass_IsANameOfTheReferencingProject()
+    {
+        Add(Lib, "Board.cls", "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Board\"\r\n"
+            + "Attribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = False\r\nAttribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\n"
+            + "Public Sub Reset()\r\nEnd Sub\r\n");
+
+        var symbols = Sut().LibrariesOf(SymbolUri.Root(ConsoleRoot), ConsoleRoot);
+
+        var instance = symbols.OfType<VBPredeclaredInstanceSymbol>().Single();
+        Assert.AreEqual("Board", instance.Name);
+        Assert.AreEqual("NavalLib", instance.GetProperty(SymbolProperties.Library));
+        Assert.AreEqual(1, instance.GetProperty(SymbolProperties.LibraryPriority));
+        Assert.AreEqual(SymbolUri.Member(SymbolUri.Root(Lib), "Board").AbsoluteUri, instance.ClassModule.Uri.AbsoluteUri);
+        CollectionAssert.AreEquivalent(new[] { "NavalLib", "Grid", "PlaceShip", "Board", "Board", "Reset" }, NamesOf(symbols, "NavalLib"));
+    }
+
     [TestMethod]
     public void AProjectThatReferencesNoProject_IsBoundAmongItsLibraries()
     {

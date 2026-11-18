@@ -317,7 +317,8 @@ internal sealed class DefineSymbolsHandler(
                 => group.FirstOrDefault(site => site is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false }) ?? group.First());
 
             // the project's symbol is defined with its first module, and stays; the module is defined again with its directives as they are sent. A
-            // type is bound once every module's types are declared, which is why the request that binds defines it again.
+            // type is bound once every module's types are declared, which is why the request that binds defines it again. A class's default instance is
+            // defined once and stays, as the session's own are (DefineDefaultInstance): it keeps the object it holds.
             var bindsTypes = !request.DeclareTypesOnly && ReferenceEquals(phase, types);
             foreach (var name in ReferencedProjectSymbols.Of(workspaceRoot, request.Library!, [module, .. members], request.LibraryPriority))
             {
@@ -325,7 +326,7 @@ internal sealed class DefineSymbolsHandler(
                 {
                     defined++;
                 }
-                else if (name is VBProjectSymbol)
+                else if (name is VBProjectSymbol or VBPredeclaredInstanceSymbol)
                 {
                     continue;
                 }
@@ -338,6 +339,14 @@ internal sealed class DefineSymbolsHandler(
                     skipped.Add(name.Name);
                 }
             }
+        }
+
+        // a class that is no longer predeclared, or no longer exposed, has no default instance in the session.
+        if (module is VBClassModuleSymbol classModule
+            && !(ReferencedProjectSymbols.IsAccessible(classModule) && classModule.GetProperty(SymbolProperties.PredeclaredId)))
+        {
+            var instance = ReferencedProjectSymbols.DefaultInstanceOf((VBClassModuleSymbol)classModule.With(SymbolProperties.Library, request.Library!));
+            _ = session.Symbols.TryUndefine(instance, instance.ScopeKind);
         }
 
         return new DefineSymbolsResult
