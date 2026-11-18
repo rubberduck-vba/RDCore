@@ -32,9 +32,9 @@ internal static class RDFormsUI
     private static Dispatcher? _dispatcher;
     private static RDFormsPlatform _platform;
 
-    // the programs whose calls the UI thread is making, the innermost last: an event a form raises while it makes a call of the form's own program is the answer
-    // to that call, and one of another program's form is not, since that program waits for no call of it. Every program of the process shares the thread. Touched
-    // on the UI thread only.
+    // the programs whose calls the UI thread is making, the innermost last: an event a form raises while it makes a call of the form's own program is the
+    // answer to that call, and one of another program's form is not, since that program waits for no call of it. Every program of the process shares the
+    // thread. Touched on the UI thread only.
     private static readonly List<object?> Callers = [];
 
     // how many form hosts hold the windows' messages because a program of theirs runs. While one does, the UI thread makes the programs' calls and dispatches
