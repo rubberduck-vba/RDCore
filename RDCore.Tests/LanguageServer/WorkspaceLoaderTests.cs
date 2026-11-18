@@ -180,7 +180,8 @@ public sealed class WorkspaceLoaderTests
     // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
     // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and only there.
     [TestMethod]
-    [DataRow("\"1.1\"", null, DisplayName = "1.1, this platform's format")]
+    [DataRow("\"1.2\"", null, DisplayName = "1.2, this platform's format")]
+    [DataRow("\"1.1\"", LogLevel.Information, DisplayName = "1.1, the format before KeepSystemTheme: an older minor")]
     [DataRow("\"1.0.0\"", LogLevel.Information, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0, an older one")]
     [DataRow("\"1.0\"", LogLevel.Information, DisplayName = "1.0, the format before the build section")]
     [DataRow("\"0.1.3\"", LogLevel.Information, DisplayName = "0.1.3, as the next builds stamped it: an older format")]
