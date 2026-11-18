@@ -183,7 +183,8 @@ internal enum DocumentChangeOutcome
 
 internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProvider, ILogger<WorkspaceDocumentService> logger,
     System.IO.Abstractions.IPath ioPath,
-    System.IO.Abstractions.IFile ioFile) : IWorkspaceDocumentService
+    System.IO.Abstractions.IFile ioFile,
+    RDCore.SDK.Server.StagedFiles? staged = null) : IWorkspaceDocumentService
 {
     // the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync), while requests the server answers in parallel look them up: a plain
     // dictionary written and read at once gave those requests an internal error.
@@ -660,6 +661,22 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         if (problem is not null)
         {
             logger.LogWarning(problem, "⚠️ The companion file of '{path}' could not be read.", path);
+        }
+
+        // what a rename staged beside the companion and no edit put in place - a server that ended before its client applied the edit - is deleted.
+        if (staged is not null && !companion.IsEmpty && FormDesigner.CompanionPathOf(path, text) is { } companionPath)
+        {
+            try
+            {
+                if (staged.Sweep(DocumentUri.FromFileSystemPath(companionPath)) is > 0 and var swept)
+                {
+                    logger.LogInformation("🧹 Deleted {count} staged file(s) left beside '{path}'.", swept, companionPath);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                logger.LogWarning(exception, "⚠️ The staged files left beside '{path}' could not be deleted.", companionPath);
+            }
         }
 
         return companion;

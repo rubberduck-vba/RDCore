@@ -72,6 +72,8 @@ internal static class LanguageServerServices
             // the workspace as it was composed last, which completion, signature help and rename reuse for as long as no module changed.
             .AddSingleton(_ => new RDCore.Symbols.WorkspaceCompositionCache())
             .AddSingleton<ICompletionService, CompletionService>()
+            // the files a rename stages beside the files it replaces (a UserForm's .frx), deleted with the server.
+            .AddSingleton(sp => new RDCore.SDK.Server.StagedFiles(sp.GetRequiredService<IFileSystem>()))
             .AddSingleton<IRenameService, RenameService>()
             .AddSingleton<RDCore.LanguageServer.Symbols.ISemanticsDescriptionService, RDCore.LanguageServer.Symbols.SemanticsDescriptionService>()
             // the tools an assistant calls (rdcore/tools/*): each reads what the handler of the same LSP request reads.

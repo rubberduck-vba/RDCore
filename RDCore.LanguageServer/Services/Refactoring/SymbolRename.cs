@@ -49,6 +49,9 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 
     // the name of the workspace's project that is renamed, which its project file writes.
     public string? Project { get; init; }
+
+    // a UserForm's control that is renamed, whose name the form's .frx keeps: the form's module, and the control's name there.
+    public (Uri Form, string Name)? Control { get; init; }
 }
 
 // a name whose meaning cannot be told is refused, never guessed at; late-bound and in-string edits are flagged for the user to confirm, since only the running
@@ -360,7 +363,7 @@ public static class SymbolRename
             .DistinctBy(edit => (edit.Module.AbsoluteUri, edit.Range))
             .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start);
-        return new([.. edits], null);
+        return new([.. edits], null) { Control = UserFormControlOf(context, symbols) };
     }
 
     private static RenamePlan Refused(RenameRefusal refusal) => new([], refusal);
@@ -836,8 +839,8 @@ public static class SymbolRename
     }
 
     // a control is named in its form's designer block too: a Visual Basic 6.0 form's is the module's text, where the rename edits it; a UserForm's
-    // designer keeps its controls' names in the form's .frx, which the rename cannot write. A property of the form that holds the control's name may name
-    // it (an UpDown's BuddyControl), and what renaming the control does to it is not known: that rename is refused too.
+    // designer keeps its controls' names in the form's .frx, which the rename's service writes (UserFormControlOf). A property of a Visual Basic 6.0 form
+    // that holds the control's name may name it (an UpDown's BuddyControl), and what renaming the control does to it is not known: that rename is refused.
     private static RenameRefusal? ControlRefusalOf(RenameContext context, Symbol control)
     {
         return FormOf(context, control) switch
@@ -845,10 +848,21 @@ public static class SymbolRename
             { Designer.Kind: FormDesignerKind.VisualBasic6 } form => FormDesigner.PropertiesNaming(form.Source, control.Name) is [var naming, ..]
                 ? new(RenameRefusalKind.ControlNamedByProperty, control.Name, $"{naming.Owner}.{naming.Property}")
                 : null,
-            { Designer.Kind: FormDesignerKind.MSForms } => new(RenameRefusalKind.UserFormControl, control.Name),
+            { Designer.Kind: FormDesignerKind.MSForms } => null,
             _ => new(RenameRefusalKind.Control, control.Name),
         };
     }
+
+    // whether what a rename renames is a UserForm's control, whose name its form's .frx keeps.
+    internal static bool IsUserFormControl(RenameContext context, RenameTarget target)
+        => UserFormControlOf(context, [.. target.Symbols.Select(id => NameOccurrences.SymbolOf(context, id)).OfType<Symbol>()]) is not null;
+
+    // the UserForm's control a rename renames, whose name its form's .frx keeps.
+    private static (Uri Form, string Name)? UserFormControlOf(RenameContext context, IReadOnlyList<Symbol> symbols)
+        => symbols.FirstOrDefault(symbol => symbol.GetProperty(SymbolProperties.DesignerControl)) is { } control
+            && FormOf(context, control) is { Designer.Kind: FormDesignerKind.MSForms } form
+            ? (form.Module, control.Name)
+            : null;
 
     private static RenameModule? FormOf(RenameContext context, Symbol control)
     {

@@ -177,16 +177,27 @@ public sealed class ControlRenameTests
     [TestMethod]
     [DataRow("    Ok.Caption", "Ok", DisplayName = "where the code names it")]
     [DataRow("Private Sub Ok_Click", "Ok", DisplayName = "in the part of a handler's name that is its")]
-    public void AUserFormControl_IsNotRenamed_ItsNameIsInTheFormsFrx(string line, string text)
+    public void AUserFormControl_IsRenamedInItsFormsFrx_WhichThePlanNames(string line, string text)
     {
         var context = Compose("Dialog", DialogCode, DialogDesigner);
+        var preparation = Prepare(context, "Dialog", line, text);
 
-        Assert.AreEqual(RenameRefusalKind.UserFormControl, Prepare(context, "Dialog", line, text).Refusal?.Kind);
+        Assert.IsTrue(SymbolRename.IsUserFormControl(context, preparation.Target!));
+        Assert.AreEqual((ModuleUri("Dialog"), "Ok"), SymbolRename.Plan(context, preparation.Target!, "Accept").Control);
+    }
+
+    [TestMethod]
+    public void AVisualBasic6Control_IsNotAUserFormControl_ThePlanNamesNoFrx()
+    {
+        var context = Compose("Picker", Code);
+        var preparation = Prepare(context, "Picker", "    Ok.Caption", "Ok");
+
+        Assert.IsFalse(SymbolRename.IsUserFormControl(context, preparation.Target!));
+        Assert.IsNull(SymbolRename.Plan(context, preparation.Target!, "Accept").Control);
     }
 
     // Rubberduck renames a UserForm's control through the VBE, which writes the form's .frx: the code and the handlers are renamed with it.
     [TestMethod]
-    [Ignore("Not supported yet: renaming the control of a UserForm, whose name is in the form's .frx, needs the SDK's .frx site-name writer.")]
     public void AUserFormControl_IsRenamedWhereTheCodeNamesIt_AndInItsHandlers()
     {
         var context = Compose("Dialog", DialogCode, DialogDesigner);

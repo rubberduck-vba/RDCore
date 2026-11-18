@@ -187,6 +187,9 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<DidCreateWorkspaceFilesHandler>();
         builder.WithHandler<DidRenameWorkspaceFilesHandler>();
         builder.WithHandler<DidDeleteWorkspaceFilesHandler>();
+
+        // and the files it is about to rename that a rename staged: one whose file changed since is deleted, and the rename of it fails.
+        builder.WithHandler<WillRenameStagedFilesHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -199,6 +202,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<Formatting.ICodeFormattingService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IRenameService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<RDCore.SDK.Server.StagedFiles>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IExtractMethodService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IMoveMemberService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IEncapsulateFieldService>());
@@ -314,10 +318,11 @@ internal sealed class CoreLanguageServerApp(
     {
         LogIfEnabled(LogLevel.Information, "🤝 LSP initialization handshake completed");
 
-        // workspace/didRenameFiles is read by a handler of the platform's own, which OmniSharp does not state the server has.
+        // workspace/didRenameFiles and willRenameFiles are read by handlers of the platform's own, which OmniSharp does not state the server has.
         response.Capabilities.Workspace ??= new();
         response.Capabilities.Workspace.FileOperations ??= new();
         response.Capabilities.Workspace.FileOperations.DidRename = WorkspaceFileOperationFilters.DidRename;
+        response.Capabilities.Workspace.FileOperations.WillRename = RDCore.SDK.Server.StagedFiles.WillRename;
 
         // the client owns the file system: one that does not say it watches files is watched for, unless the setting says never.
         if (workspaceDocuments.WorkspaceRoot is { Length: > 0 } root)

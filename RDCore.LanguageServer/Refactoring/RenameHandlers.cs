@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Server.Services;
 
@@ -36,7 +37,7 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
 
     public override async Task<WorkspaceEdit?> Handle(RenameParams request, CancellationToken cancellationToken)
     {
-        var answer = await rename.RenameAsync(request.TextDocument.Uri.ToUri(), request.Position, request.NewName, cancellationToken);
+        var answer = await rename.RenameAsync(request.TextDocument.Uri.ToUri(), request.Position, request.NewName, cancellationToken, _client);
         var edit = answer.ValueOrRefusal();
         foreach (var question in answer.Questions ?? [])
         {
@@ -64,6 +65,7 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
             }
             else if (chosen?.Title != question.Leave)
             {
+                Discard();
                 return null;
             }
         }
@@ -87,9 +89,13 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
         }
         catch (WorkspaceEditNotSupportedException refused)
         {
+            Discard();
             throw new RpcErrorException(RenameAnswer<WorkspaceEdit>.RequestFailedCode, error: null!, refused.Message);
         }
     }
+
+    // a rename the client is not sent puts no staged file in place: the files staged for it are deleted.
+    private void Discard() => (services.GetService(typeof(StagedFiles)) as StagedFiles)?.Discard();
 
     private static bool TakesFileRenames(ClientCapabilities? client)
         => client.TakesDocumentChanges()
@@ -134,10 +140,16 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
 /// </summary>
 internal sealed class PrepareRenameHandler(IRenameService rename) : PrepareRenameHandlerBase
 {
+    // what the client said it can do, as it initialized: a UserForm's control is renamed only for a client that puts its .frx back when the edit fails.
+    private ClientCapabilities? _client;
+
     public override async Task<RangeOrPlaceholderRange?> Handle(PrepareRenameParams request, CancellationToken cancellationToken)
-        => new((await rename.PrepareAsync(request.TextDocument.Uri.ToUri(), request.Position, cancellationToken)).ValueOrRefusal());
+        => new((await rename.PrepareAsync(request.TextDocument.Uri.ToUri(), request.Position, cancellationToken, _client)).ValueOrRefusal());
 
     // the prepare request is the rename request's own: it registers as the rename does.
     protected override RenameRegistrationOptions CreateRegistrationOptions(RenameCapability capability, ClientCapabilities clientCapabilities)
-        => new() { PrepareProvider = true };
+    {
+        _client = clientCapabilities;
+        return new() { PrepareProvider = true };
+    }
 }
