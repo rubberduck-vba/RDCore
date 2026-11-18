@@ -171,6 +171,11 @@ public sealed record class AutomationStatusResult : ExternalResult
 
     /// <summary>Whether the external host can host forms: <see cref="Forms.IFormHost.IsAvailable"/>.</summary>
     public bool IsFormHostAvailable { get; init; }
+
+    /// <summary>
+    /// Whether the external host creates the forms a Visual Basic 6.0 designer wrote: <see cref="Forms.IFormHost.HostsVisualBasic6Forms"/>.
+    /// </summary>
+    public bool HostsVisualBasic6Forms { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
