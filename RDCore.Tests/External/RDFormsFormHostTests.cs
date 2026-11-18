@@ -225,9 +225,9 @@ public sealed class RDFormsFormHostTests
         }
     }
 
-    // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a call
-    // of the first, is no answer to a call of the second, which waits for none; the first program's form's event is the answer to the first's call. It runs
-    // alone: a window another test shows meanwhile can take the activation, and the focus events of the second form's Text1 are no part of this.
+    // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a
+    // call of the first, is no answer to a call of the second, which waits for none; the first program's form's event is the answer to the first's call. It
+    // runs alone: a window another test shows meanwhile can take the activation, and the focus events of the second form's Text1 are no part of this.
     [TestMethod]
     [DoNotParallelize]
     public void AnEventRaisedDuringACallOfAnotherProgram_IsNotTheAnswerToACall()
@@ -257,8 +257,10 @@ public sealed class RDFormsFormHostTests
 
             first.DoEvents();
             second.DoEvents();
-            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised, $"heard: {Heard(myEvents)}"), "raised during its own program's call, the event is its answer");
-            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised, $"heard: {Heard(theirEvents)}"), "raised during another program's call, the event is no answer");
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised, $"heard: {Heard(myEvents)}"),
+                "raised during its own program's call, the event is its answer");
+            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised, $"heard: {Heard(theirEvents)}"),
+                "raised during another program's call, the event is no answer");
         }
         finally
         {
