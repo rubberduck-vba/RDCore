@@ -90,8 +90,9 @@ calls it, so a form or a class is named as in the interpreter. `Replace` given `
 is called by compiled code with the text of each argument. Any other argument, and an error either function raises, are the interpreter's at that
 statement.
 
-The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads nothing of
-it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `Let` of what a call returns to it or to a `String` variable
+The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads it where the
+function names it in its own body (`F = F & "x"`, MS-VBAL §5.3.1): the zero-length string before it is first assigned, then the text it was last
+assigned. Each call of a recursive function reads its own result. A `Let` of what a call returns to it or to a `String` variable
 (`F = G(N)`, `S = Me.ToString`) is compiled as the `Let` of a call to a `Variant` is (see Variant function results, above).
 
 A `Let` of such a `String`, or of `Null`, to a `Variant` variable of the procedure is compiled too: the `Variant` then holds a copy of the `String`, or
