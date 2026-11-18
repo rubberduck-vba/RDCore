@@ -106,6 +106,17 @@ public sealed record class FormDoEventsParams : AutomationRequest
 {
 }
 
+/// <summary>
+/// Request for <see cref="ExternalProtocol.FormKeepSystemTheme"/>.
+/// </summary>
+public sealed record class FormKeepSystemThemeParams : AutomationRequest
+{
+    /// <summary>
+    /// Whether the forms' windows follow the application's theme.
+    /// </summary>
+    public bool KeepSystemTheme { get; init; }
+}
+
 /// <summary>Request for <see cref="ExternalProtocol.FormHide"/> and <see cref="ExternalProtocol.FormIsShown"/>.</summary>
 public sealed record class FormParams : AutomationRequest
 {

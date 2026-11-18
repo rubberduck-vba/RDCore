@@ -1,3 +1,4 @@
+using RDCore.External.Forms;
 using RDCore.Runtime.Execution.External.Automation;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model.Errors;
@@ -40,6 +41,10 @@ namespace RDCore.Runtime.Execution.External.Application;
 /// the version of the component of the platform it names (<c>RDCore</c>, <c>RDCore.SDK</c>, <c>RDCore.Forms</c>), as
 /// <see cref="PlatformComponents.VersionOf(string)"/> reads it: an empty string for any other name, or for a component that is not installed.
 /// </para>
+/// <para>
+/// <c>KeepSystemTheme</c> is an RD-VBA addition: whether the program's forms follow the system's theme (<c>True</c>) or stay light (<c>False</c>). It
+/// starts as the project's value, keeps what the program assigns, and tells the form host each value, so a program with no form reads back what it set.
+/// </para>
 /// </remarks>
 /// <param name="session">The session whose program asks.</param>
 public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProvider, IExternalObjectOwner
@@ -49,6 +54,11 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
     /// <see cref="PlatformComponents.VersionOf(string)"/> unless it is set.
     /// </summary>
     public Func<string, string?> VersionOf { get; init; } = PlatformComponents.VersionOf;
+
+    /// <summary>
+    /// The form host that is told each value <c>App.KeepSystemTheme</c> takes: <see cref="UnavailableFormHost.Instance"/> unless it is set.
+    /// </summary>
+    public IFormHost Forms { get; init; } = UnavailableFormHost.Instance;
 
     private const string Library = "VB";
     private const string ClassName = "App";
@@ -119,6 +129,12 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
             ("STARTMODE", "get") => Success(new VBIntegerValue(StandaloneMode)),
             ("TASKVISIBLE", "get") => Success(Boolean(application.TaskVisible)),
             ("TASKVISIBLE", "let") => Assigned(request, resolver, value => application.TaskVisible = value is VBBooleanValue { Value.StoredValue: not 0 }),
+            ("KEEPSYSTEMTHEME", "get") => Success(Boolean(application.KeepSystemTheme)),
+            ("KEEPSYSTEMTHEME", "let") => Assigned(request, resolver, value =>
+            {
+                application.KeepSystemTheme = value is VBBooleanValue { Value.StoredValue: not 0 };
+                Forms.KeepSystemTheme = application.KeepSystemTheme;
+            }),
             ("OLESERVERBUSYTIMEOUT", "get") => Success(new VBLongValue(application.OleServerBusyTimeout)),
             ("OLESERVERBUSYTIMEOUT", "let") => Assigned(request, resolver, value => application.OleServerBusyTimeout = Whole(value)),
             ("OLEREQUESTPENDINGTIMEOUT", "get") => Success(new VBLongValue(application.OleRequestPendingTimeout)),

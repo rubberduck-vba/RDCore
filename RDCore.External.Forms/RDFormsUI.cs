@@ -53,6 +53,18 @@ internal static class RDFormsUI
 
     public static Dispatcher Dispatcher => _dispatcher ?? throw new InvalidOperationException("The RDForms UI thread is not started.");
 
+    // whether the UI thread is started: before it is, the process has no RDForms window. Read under the gate Start writes it under.
+    public static bool IsStarted
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _dispatcher is not null;
+            }
+        }
+    }
+
     // starts the UI thread on the platform asked for, once per process: the first start says which, and a later one that asks for the other cannot have it.
     public static void Start(RDFormsPlatform platform)
     {

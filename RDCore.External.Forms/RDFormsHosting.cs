@@ -108,6 +108,19 @@ public static class RDFormsHosting
 
         public bool HostsVisualBasic6Forms => visualBasic is not null;
 
+        // RDForms' windows follow it; a UserForm's do not, as Microsoft Forms has no theme of its own.
+        public bool KeepSystemTheme
+        {
+            get => visualBasic?.KeepSystemTheme ?? false;
+            set
+            {
+                if (visualBasic is not null)
+                {
+                    visualBasic.KeepSystemTheme = value;
+                }
+            }
+        }
+
         public object Create(FormDefinition form) => form.Kind == FormDesignerKind.VisualBasic6
             ? ((IFormHost?)visualBasic ?? UnavailableFormHost.Instance).Create(form)
             : microsoftForms.Create(form);
