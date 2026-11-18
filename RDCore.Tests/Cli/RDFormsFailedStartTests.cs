@@ -83,7 +83,9 @@ public sealed class RDFormsFailedStartTests
 
             var first = printed.Single(line => line.StartsWith("first: ", StringComparison.Ordinal))["first: ".Length..];
             var again = printed.Single(line => line.StartsWith("again: ", StringComparison.Ordinal))["again: ".Length..];
-            StringAssert.Contains(first, "The RDForms windows cannot be started: XOpenDisplay failed", context);
+            // why the desktop's windows fail is the machine's (XOpenDisplay where X11 is installed, the X11 library itself where it is not): the second start fails
+            // for that same reason, and not because the first one failed.
+            StringAssert.Contains(first, "The RDForms windows cannot be started: ", context);
             Assert.AreEqual(first, again, context);
         }
         finally
