@@ -102,13 +102,29 @@ Each component reads it after its deployed `appsettings.json`, and before the en
 |---|---|
 |`appsettings.json`, deployed with the component|Lowest.|
 |`user.settings.json`|Takes the place of the deployed value.|
-|Environment variables (`Configuration__Server__Verbose`)|Take the place of the user's value.|
+|The workspace's settings ([Workspace Settings](#workspace-settings))|Takes the place of the user's value. A list adds to the user's.|
+|Environment variables (`Configuration__Server__Verbose`)|Take the place of the workspace's value.|
 |The command line|Highest.|
 
 Of the file, only values the settings can be are read: a value a setting cannot be, a value of a `Deployment` setting, and a file that is not JSON are not read.
 A file written by hand never keeps the platform from starting. A setting the component does not know of is read as it is: it is another component's.
 
 A component reads the file when it starts, and not again: that is when a `NextStart` setting takes effect.
+
+## Workspace Settings
+
+A workspace sets values for itself in the `Configuration` section of the `appsettings.json` at its root, for whoever opens it
+([`WorkspaceSettingsConfiguration`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.WorkspaceSettingsConfiguration.html)).
+The same file holds the program's own settings, under `ProgramSettings`
+([**RD-VBAL §2.1.1.1** Workspace Application Settings](rd-vbal.2.1.implicit-storage.md#2111-workspace-application-settings)); the platform
+does not read that section.
+
+- A component reads the file when it starts, from the folder its command line names (`--workspace`).
+- A workspace cannot set a `Deployment` setting, or a [trust-sensitive](#settings) one. A workspace can come from anywhere, and grants itself no
+  rights.
+- Only values the settings can be are read. A setting the component does not know of is not read.
+- A list is the user's items, followed by the workspace's items that are not among them.
+- While the platform runs, a live setting the workspace sets keeps the workspace's value, whatever the client says of the user's.
 
 ## Live Settings
 
@@ -150,12 +166,12 @@ A live setting is set on the object the component reads its settings off, in pla
   every code is disabled is not run, and a finding of a disabled code is dropped
   ([`ModuleAnalyzerHost`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.ModuleAnalyzerHost.html)). A diagnostic
   the language server raises itself is not reported when its code is disabled either.
-- A diagnostic whose code can be disabled is offered a quick fix that adds its code to the user's list, after its other fixes. The language server asks the
-  client to make the change (`rdcore/settings/listValue`), as a client owns its user's settings: only a client that expects that request is offered the fix.
-  The shell makes it as `CONFIG` would.
-
-> [!NOTE]
-> **Not implemented.** A workspace has no list of its own: a request to change a workspace's list is declined.
+- A diagnostic whose code can be disabled is offered two quick fixes, after its other fixes: one adds its code to the user's list (scope `Platform`), then
+  one adds it to the list of the document's workspace (scope `Workspace`). The language server asks the client to make the change
+  (`rdcore/settings/listValue`), as a client owns its configuration: only a client that expects that request is offered the fixes.
+- The shell changes the user's list as `CONFIG` would, and the workspace's list in the workspace's `appsettings.json`
+  ([Workspace Settings](#workspace-settings)), which adds to the user's. Either way it says its settings changed, and the language server reads both lists
+  again: the next analysis leaves the code out.
 
 ## Formatting
 
