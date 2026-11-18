@@ -927,7 +927,25 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Frame_InModuleLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to from {0}.
+        /// </summary>
+        public static string Repl_Frame_FromGoSub {
+            get {
+                return ResourceManager.GetString("Repl_Frame_FromGoSub", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to in {0}.
+        /// </summary>
+        public static string Repl_Frame_InHandler {
+            get {
+                return ResourceManager.GetString("Repl_Frame_InHandler", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Lists the shell commands..
         /// </summary>

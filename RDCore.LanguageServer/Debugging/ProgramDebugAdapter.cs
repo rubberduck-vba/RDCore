@@ -651,7 +651,8 @@ internal sealed class ProgramDebugAdapter(
     private static string Describe(ExecuteResult result) => result.Outcome switch
     {
         ExecutionOutcome.SyntaxError => string.Join("\n", result.Diagnostics),
-        ExecutionOutcome.RuntimeError => $"{(result.ErrorTitle.Length > 0 ? result.ErrorTitle : DebuggerMessages.RuntimeErrorTitle)} '{result.ErrorNumber}': {result.ErrorMessage}",
+        ExecutionOutcome.RuntimeError => string.Format(DebuggerMessages.RuntimeErrorMessage,
+            result.ErrorTitle.Length > 0 ? result.ErrorTitle : DebuggerMessages.RuntimeErrorTitle, result.ErrorNumber, result.ErrorMessage),
         _ => result.ErrorMessage.Length > 0 ? result.ErrorMessage : result.Outcome.ToString(),
     };
 

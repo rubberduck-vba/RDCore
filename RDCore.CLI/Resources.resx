@@ -468,6 +468,14 @@
     <value>({0} line {1})</value>
     <comment>Where an activation of a module of the workspace is, in STACK and in a run-time error's stack trace. {0} is the name of the module, {1} the line of the module.</comment>
   </data>
+  <data name="Repl_Frame_FromGoSub" xml:space="preserve">
+    <value>from {0}</value>
+    <comment>How an activation got to its line by a GoSub, in STACK and in a run-time error's stack trace: one per GoSub it has not returned from. {0} is the line of the GoSub.</comment>
+  </data>
+  <data name="Repl_Frame_InHandler" xml:space="preserve">
+    <value>in {0}</value>
+    <comment>The error handler an activation is in, in STACK. {0} is the label of the handler.</comment>
+  </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>there is no runtime session</value>
   </data>
