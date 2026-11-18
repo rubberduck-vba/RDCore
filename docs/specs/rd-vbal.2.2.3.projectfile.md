@@ -120,7 +120,7 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |`Major`|number, optional|The _major_ version number of the referenced type library. With a `Guid`, the description must have this major version. With a `Guid` and no `Major`, the library is the description of the highest version of the identifier.|
 |`Minor`|number, optional|The _minor_ version number of the referenced type library. With a `Guid`, the description of exactly this minor version is the library, and otherwise the one of the highest minor version above it. With no `Minor`, the library is the description of the highest minor version of `Major`. A `Minor` with a `Guid` and no `Major` is not valid, and the reference is not resolved.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
-|`IsProject`|boolean (`false`)|Whether the reference is to another project of the workspace, by its `Name`, rather than to a library. Format `1.3`.|
+|`IsProject`|boolean (`false`)|Whether the reference is to another project of the workspace, by its `Name`, rather than to a library. Added in the format `1.3`.|
 
 ### References to projects
 
@@ -129,13 +129,15 @@ A reference to a project (`IsProject`) names the one project of the workspace wh
 |Module|Its names that the referencing project sees|
 |---|---|
 |Class module with `VB_Exposed = True` (**MS-VBAL §5.2.4.1.1**)|The class, and its `Public` variables, procedures and `Enum`s.|
-|Procedural module without `Option Private Module` (**MS-VBAL §5.2.1.4**)|The module, and its `Public` or `Global` variables, constants, procedures, `Enum`s and user-defined types (**MS-VBAL §5.2.3**).|
+|Procedural module without `Option Private Module` (**MS-VBAL §5.2.1.4**)|The module, and its `Public` or `Global` variables, constants, procedures, `Enum`s and user-defined types (**MS-VBAL §5.2.3**, and **MS-VBAL §5.3.1** for procedures).|
 |Any other module|None.|
 
-A `Friend` member and the default instance of a class are names of their own project only. The names of what the referenced project references are not names of the project that references it. Projects that reference one another in a circle, directly or through other projects, are a circular reference of projects (`RDC31001`); the reference that closes the circle gives no names.
+A `Friend` member is a name of its own project only. The names of what the referenced project references are not names of the project that references it. Projects that reference one another in a circle, directly or through other projects, are a circular reference of projects (`RDC31001`); the reference that closes the circle gives no names.
 
 > [!NOTE]
 > **Not implemented.** The language server binds the names a referenced project gives, for completion and for the types that declarations name. The environment host does not yet: it runs the primary project alone, and its analysis of a project does not see the names of the projects it references.
+>
+> **Not implemented.** The default instance of an exposed class (`VB_PredeclaredId = True`) is not bound in a referencing project: it is a name of its own project only.
 
 A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 
