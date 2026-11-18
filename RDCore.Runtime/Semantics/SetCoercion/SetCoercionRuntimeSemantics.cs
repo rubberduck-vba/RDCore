@@ -81,8 +81,8 @@ public sealed record class SetCoercionRuntimeSemantics(IErrorDetailsRecorder Err
         return SetCoercionResult.Error(OnSetCoercionTypeMismatch(expression));
     }
 
-    // a library project's IUnknown is the root interface: an object of any class is one, as it is an Object. A class IUnknown of a referenced source project
-    // is a class as any other.
+    // a library project's IUnknown is the root interface: an object of any class is one, as it is an Object. A class named IUnknown in a referenced source
+    // project is a class like any other.
     private static bool IsRootInterface(VBClassType type)
         => type.Symbol.Name.Equals("IUnknown", StringComparison.OrdinalIgnoreCase)
             && SymbolProperties.IsOfALibraryProject(type.Symbol) && !string.IsNullOrEmpty(type.Symbol.GetProperty(SymbolProperties.Library));
