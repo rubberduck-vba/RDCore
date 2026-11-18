@@ -16,7 +16,7 @@ namespace RDCore.Runtime.LanguageCore.Static;
 public static class DeclarationUsage
 {
     public static ImmutableArray<DeclarationFact> Of(
-        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
+        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationBinding>? bindings = null,
         Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null,
         IReadOnlySet<string>? excludedBranchNames = null, Func<Symbol, ImmutableArray<CompiledPlatforms>?>? statementsCompiledOn = null)
     {
@@ -51,7 +51,8 @@ public static class DeclarationUsage
                 continue;
             }
 
-            var role = roles is not null && roles.TryGetValue(symbol.SemanticId, out var found) ? found : DeclarationRole.None;
+            var binding = bindings?.GetValueOrDefault(symbol.SemanticId);
+            var role = binding?.Role ?? DeclarationRole.None;
             References? counted = null;
             // a name that a branch of a #If that is excluded writes can be a reference in another configuration (ExcludedBranchNames).
             if ((IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) || IsCalledOnlyByItsOwnCode(symbol, role))
@@ -68,6 +69,7 @@ public static class DeclarationUsage
             {
                 ReferencedFrom = counted?.Sites.ToImmutable(),
                 Role = role,
+                Binding = binding,
                 // a parameter is a local of its procedure that no statement declares.
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
                 Hides = hides?.Invoke(symbol),
