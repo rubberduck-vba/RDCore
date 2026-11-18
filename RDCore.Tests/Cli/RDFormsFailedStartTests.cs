@@ -1,3 +1,5 @@
+using RDCore.SDK.Platform;
+using RDCore.Tests.Runtime.Libraries;
 using System.Diagnostics;
 
 namespace RDCore.Tests.Cli;
@@ -62,6 +64,9 @@ public sealed class RDFormsFailedStartTests
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+
+        // the libraries the project references (VB, VBRUN, and DAO, which VB needs) are in the Symbols folder of the platform's root, the repository's here.
+        start.Environment[PlatformEnvironment.RootEnvironmentVariable] = Path.GetDirectoryName(ShippedLibrariesTests.Symbols);
 
         // a desktop with no display: the windows are the desktop's, which X11 cannot open.
         start.Environment.Remove("DISPLAY");
