@@ -132,6 +132,21 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return Invoke(assigned, DefaultMemberName, invocation, arguments, byReference, culture);
             }
 
+            // an RDForms form's program names a control it added again, as MSForms lets it; a control of the form's file keeps its name (382).
+            if (invocation is AutomationInvocation.Let && arguments.Length == 1 && !handle.Form.IsVisualBasic && component != handle.Form.Model.Root
+                && component.Class.Property(member) is null && string.Equals(member, NameMember, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    handle.Form.Model.RenameControl(component, (string)RDFormsValues.FromNeutral(arguments[0], typeof(string), culture)!);
+                    return null;
+                }
+                catch (FormErrorException exception)
+                {
+                    throw FormFailure(exception.Error);
+                }
+            }
+
             // a property the form's window answers, whose value its control holds, or which takes arguments: a ListBox's ListIndex and List(Index). It comes
             // before the model's property of the same name (a ListBox's List), which is the designer's.
             if (component.Class.Method(member) is { IsProperty: true } answered)

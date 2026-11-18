@@ -87,4 +87,19 @@ public sealed class RDFormsFormLifecycleTests
     public async Task APortedFormsTextBox_TakesAMultiLineAssignmentThatRuns()
         => CollectionAssert.AreEqual(new[] { "Initialize", "Load", "True", "QueryUnload 1", "Unload" },
             await RunAsync(Document, "Form2.Text1.MultiLine = True", "Debug.Print Form2.Text1.MultiLine", "Unload Form2"));
+
+    // MSForms' Name Let, as Microsoft Forms 2.0 runs it: an early-bound assignment of the Name of a control of the form's file compiles and is 382, and
+    // the control keeps its name; a control the program added takes the name, and the form finds it by it.
+    [TestMethod]
+    public async Task APortedFormsControlOfItsFile_KeepsItsName_382()
+        => CollectionAssert.AreEqual(
+            new[] { "Initialize", "Load", "382 Could not set the Name property. Can not set property at runtime.", "Text1", "QueryUnload 1", "Unload" },
+            await RunAsync(Document, "On Error Resume Next", "Form2.Text1.Name = \"Other\"", "Debug.Print Err.Number & \" \" & Err.Description",
+                "Debug.Print Form2.Text1.Name", "Unload Form2"));
+
+    [TestMethod]
+    public async Task APortedFormsControlAProgramAdded_TakesAName()
+        => CollectionAssert.AreEqual(new[] { "Initialize", "Load", "Renamed", "QueryUnload 1", "Unload" },
+            await RunAsync(Document, "Dim c As Object", "Set c = Form2.Controls.Add(\"RDForms.TextBox\", \"Added\")", "c.Name = \"Renamed\"",
+                "Debug.Print Form2.Controls(\"Renamed\").Name", "Unload Form2"));
 }
