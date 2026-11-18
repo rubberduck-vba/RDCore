@@ -32,6 +32,10 @@ internal static class RDFormsUI
     private static Dispatcher? _dispatcher;
     private static RDFormsPlatform _platform;
 
+    // why the windows could not be started, which every later start of the process is answered with. Avalonia's setup is made once per process
+    // (AppBuilder.Setup marks it made before it begins), so one that failed cannot be made again, whatever changed since. Touched under Gate.
+    private static string? _failure;
+
     // how many calls of the program the UI thread is making: an event raised while it makes one is the answer to that call. Touched on the UI thread only.
     private static int _calls;
 
@@ -54,10 +58,16 @@ internal static class RDFormsUI
     public static Dispatcher Dispatcher => _dispatcher ?? throw new InvalidOperationException("The RDForms UI thread is not started.");
 
     // starts the UI thread on the platform asked for, once per process: the first start says which, and a later one that asks for the other cannot have it.
+    // A start after one that failed fails as it did, on either platform.
     public static void Start(RDFormsPlatform platform)
     {
         lock (Gate)
         {
+            if (_failure is not null)
+            {
+                throw new AutomationException(Failed, _failure);
+            }
+
             if (_dispatcher is not null)
             {
                 if (platform != _platform)
@@ -112,7 +122,8 @@ internal static class RDFormsUI
             ready.Wait();
             if (failure is not null)
             {
-                throw new AutomationException(Failed, $"The RDForms windows cannot be started: {failure.Message}");
+                _failure = $"The RDForms windows cannot be started: {failure.Message}";
+                throw new AutomationException(Failed, _failure);
             }
 
             _platform = platform;
