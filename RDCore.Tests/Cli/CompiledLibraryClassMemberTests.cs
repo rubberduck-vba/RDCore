@@ -257,11 +257,12 @@ public sealed class CompiledLibraryClassMemberTests
             "    Held = TypeName(V)",
             "End Function"]), "Held", expected: "Holder ; 13", walkBacks: 1);
 
-    // an Item of a type other than a scalar one, let and set (MS-VBAL §5.4.3.8, §5.4.3.9): an array a Variant held as it was added, a Long array copied into one, a
-    // Collection, and a scalar; each assigned as the interpreter assigns it, the error of a let or a set it cannot make included.
+    // an Item of a type other than a scalar one, let and set (MS-VBAL §5.4.3.8, §5.4.3.9): an array a Variant held as it was added, a Long array
+    // copied into one, a Collection, and a scalar; each assigned as the interpreter assigns it, the error of a let or a set it cannot make included.
     [TestMethod]
     [DataRow("Dim Found As Variant ;; Found = C(\"a\") ;; Probe = TypeName(Found) & UBound(Found)", DisplayName = "a Variant let a Variant's array")]
-    [DataRow("Dim Found As Variant, K As Variant ;; K = \"a\" ;; Found = C(K) ;; Probe = CStr(Found(1))", DisplayName = "a Variant let an array by a Variant key")]
+    [DataRow("Dim Found As Variant, K As Variant ;; K = \"a\" ;; Found = C(K) ;; Probe = CStr(Found(1))",
+        DisplayName = "a Variant let an array by a Variant key")]
     [DataRow("Dim Found As Variant ;; Found = C.Item(\"l\") ;; Probe = TypeName(Found) & Found(2)", DisplayName = "a Variant let a Long array, named")]
     [DataRow("Dim Found As Double ;; Found = C(\"a\") ;; Probe = CStr(Found)", DisplayName = "a Double let an array")]
     [DataRow("Dim Found As String ;; Found = C(\"l\") ;; Probe = Found", DisplayName = "a String let a Long array")]
