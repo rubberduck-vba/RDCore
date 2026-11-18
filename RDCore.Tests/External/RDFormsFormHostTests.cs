@@ -225,9 +225,9 @@ public sealed class RDFormsFormHostTests
         }
     }
 
-    // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a call of
-    // the first, is no answer to a call of the second, which waits for none; the first program's form's event is the answer to the first's call. It runs alone: a
-    // window another test shows meanwhile takes the activation, the second form's Text1 loses the focus, and its LostFocus is no part of this.
+    // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a call
+    // of the first, is no answer to a call of the second, which waits for none; the first program's form's event is the answer to the first's call. It runs
+    // alone: a window another test shows meanwhile can take the activation, and the focus events of the second form's Text1 are no part of this.
     [TestMethod]
     [DoNotParallelize]
     public void AnEventRaisedDuringACallOfAnotherProgram_IsNotTheAnswerToACall()
