@@ -178,8 +178,8 @@ internal sealed partial class ProcedureAnalysis
                 return LibraryVariantTextOf(converting);
 
             // a function or a Property Get of the workspace that returns a String, called inside an instruction that calls (TextCallOf).
-            case var called when TextCalledBy(called) is { } function:
-                return TextCallOf(called, function);
+            case var textCall when TextCalledBy(textCall) is { } function:
+                return TextCallOf(textCall, function);
 
             // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
             // and a Date are the interpreter's, which writes them in the regional settings of the session. A node whose payload cannot be read is refused
