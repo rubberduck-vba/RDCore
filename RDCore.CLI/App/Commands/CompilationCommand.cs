@@ -66,7 +66,7 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
                 writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Error).WithMessageBody(problem));
             }
 
-            Write(procedures);
+            Write(procedures, workspace);
             return problems.Count > 0 ? 1 : 0;
         }
         finally
@@ -78,13 +78,18 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
         }
     }
 
-    private void Write(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> procedures)
+    private void Write(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> procedures, BenchWorkspace workspace)
     {
+        var sources = workspace.Modules.DistinctBy(module => module.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(module => module.Name, module => module.Source.ReplaceLineEndings("\n").Split('\n'), StringComparer.OrdinalIgnoreCase);
         var width = procedures.Count == 0 ? 0 : procedures.Max(entry => entry.Module.Length + entry.Compilation.Procedure.Name.Length + 1) + 2;
         var label = Math.Max(Resources.Compilation_Compiled.Length, Resources.Compilation_Interpreted.Length) + 2;
         foreach (var (module, compilation) in procedures)
         {
             var name = $"{module}.{compilation.Procedure.Name}".PadRight(width);
+            var lines = sources.GetValueOrDefault(module);
+            // a loop and its Next are at the same line, and a reason of each says the same: the report says it once.
+            string Said(IEnumerable<Ineligibility> reasons) => string.Join("; ", reasons.Select(reason => Describe(reason, lines)).Distinct());
             // a compiled procedure has the interpreter run, one at a time, the instructions compiled code does not do, and the statements it does not make
             // itself as support calls.
             if (compilation.IsCompiled)
@@ -93,29 +98,35 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
                 [
                     .. compilation.Stepped.Count == 0 ? [] : new[]
                     {
-                        string.Format(CultureInfo.CurrentCulture, Resources.Compilation_Stepped, string.Join("; ", compilation.Stepped.Select(Describe))),
+                        string.Format(CultureInfo.CurrentCulture, Resources.Compilation_Stepped, Said(compilation.Stepped)),
                     },
                     .. compilation.SupportCalls.Count == 0 ? [] : new[]
                     {
-                        string.Format(CultureInfo.CurrentCulture, Resources.Compilation_SupportCalls, string.Join("; ", compilation.SupportCalls.Select(Describe))),
+                        string.Format(CultureInfo.CurrentCulture, Resources.Compilation_SupportCalls, Said(compilation.SupportCalls)),
                     },
                 ];
                 Output.WriteLine($"{Resources.Compilation_Compiled.PadRight(label)}{name}{string.Join(" | ", handed)}");
                 continue;
             }
 
-            Output.WriteLine($"{Resources.Compilation_Interpreted.PadRight(label)}{name}{string.Join("; ", compilation.Reasons.Select(Describe))}");
+            Output.WriteLine($"{Resources.Compilation_Interpreted.PadRight(label)}{name}{Said(compilation.Reasons)}");
         }
 
         Output.WriteLine();
         Output.WriteLine(string.Format(CultureInfo.CurrentCulture, Resources.Compilation_Count, procedures.Count(entry => entry.Compilation.IsCompiled), procedures.Count));
     }
 
-    /// <summary>What keeps a procedure in the interpreter, worded in the user's language, and the line it is on.</summary>
-    internal static string Describe(Ineligibility reason)
+    // what keeps a procedure in the interpreter, worded in the user's language, and the line it is on. A statement, an instruction, or an assignment of
+    // what is not a variable of the procedure is the code of that line of the module, as it is written; what the analysis calls it only when the line is
+    // not known.
+    internal static string Describe(Ineligibility reason, IReadOnlyList<string>? lines = null)
     {
         var wording = Resources.ResourceManager.GetString($"Compilation_Reason_{reason.Kind}", Resources.Culture) ?? reason.Kind.ToString();
-        var described = string.Format(CultureInfo.CurrentCulture, wording, reason.Detail);
+        var detail = reason is { Kind: IneligibilityKind.Statement or IneligibilityKind.Instruction or IneligibilityKind.AssignmentTarget, Location: { } at }
+            && lines is not null && at.Range.Start.Line < lines.Count && lines[at.Range.Start.Line].Trim() is { Length: > 0 } code
+                ? code
+                : reason.Detail;
+        var described = string.Format(CultureInfo.CurrentCulture, wording, detail);
         return reason.Location is { } location
             ? $"{described} ({string.Format(CultureInfo.CurrentCulture, Resources.Compilation_Line, location.Range.Start.Line + 1)})"
             : described;
