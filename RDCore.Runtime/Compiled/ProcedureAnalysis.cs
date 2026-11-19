@@ -1490,7 +1490,19 @@ internal sealed partial class ProcedureAnalysis
         => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType } || IsLibraryMemberVariant(node)
             || node is BoundCall { Procedure: var called } && IsVariantLibrary(called)
             || node is BoundName { Symbol: var named } && IsVariantLibrary(named)
-            || node is BoundQualifiedName { Member: var qualified } && IsVariantLibrary(qualified);
+            || node is BoundQualifiedName { Member: var qualified } && IsVariantLibrary(qualified)
+            || CallsForAVariant(node);
+
+    // a function or a Property Get of the workspace that returns a Variant, called inside an expression of an instruction that calls (ValueCallOf).
+    private bool CallsForAVariant(BoundNode node) => _nesting is not null && node switch
+    {
+        BoundCall { Procedure: VBTypeMemberSymbol called } => !IsCompiledLibrary(called) && !IsVariantLibrary(called) && ReturnedType(called) is VBVariantType,
+        BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } member
+            => LibraryMemberCallOf(member) is null && ReturnedType(called) is VBVariantType,
+        BoundName { Symbol: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called }
+            => !IsOwnFunction(called) && !IsCompiledLibrary(called) && !IsVariantLibrary(called) && ReturnedType(called) is VBVariantType,
+        _ => false,
+    };
 
     private static bool IsExtended(BoundNode node) => RuntimeExpressionEvaluator.ExtendedTypeOf(node) is not null;
 
@@ -1745,6 +1757,11 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundName { Symbol: VBTypeMemberSymbol library } name when IsVariantLibrary(library):
                 return LibraryVariantOf(name, library, ImmutableArray<BoundArgument>.Empty);
+
+            // a function of the workspace that returns a Variant, called inside an expression: what it returns, of its own subtype, known once it is made
+            // (CompiledActivation.TakeReturnedPayload).
+            case BoundCall or BoundMember or BoundName when CallsForAVariant(node) && ValueCallOf(node) is { } called:
+                return called;
 
             default:
                 return Payload(node) is { } payload ? new VariantOfNode(payload) : null;

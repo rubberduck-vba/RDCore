@@ -2264,6 +2264,7 @@ internal sealed partial class ProcedureEmitter
         LibraryMemberNode member => member.Arguments.Any(MakesACall),
         VariantElementNode element => element.Subscripts.Any(MakesACall),
         VariantElementValueNode value => MakesACall(value.Element),
+        CallValueNode => true,
         _ => false,
     };
 
@@ -2429,6 +2430,10 @@ internal sealed partial class ProcedureEmitter
 
             case LibraryMemberNode member:
                 EmitLibraryMemberCall(member, result, failure);
+                break;
+
+            case CallValueNode called:
+                EmitVariantCall(called, result, failure);
                 break;
 
             default:

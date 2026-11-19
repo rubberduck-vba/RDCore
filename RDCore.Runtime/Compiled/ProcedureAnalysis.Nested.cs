@@ -313,9 +313,10 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // a function of the workspace that returns a String or a Variant, called inside an expression for the argument of a Variant parameter of the standard
-    // library, which takes it by value: called as NestedCall calls one, by where it is in its statement, what it returns given to the parameter as the
-    // interpreter gives it (CallValueNode). Only in an instruction that calls inside an expression, and not when the instruction is translated with the
-    // interpreter making its calls for objects (AnalyzeInstruction), whose temporaries these are held by too.
+    // library, which takes it by value, or, of a Variant, for what it holds read as a payload (Dynamic): called as NestedCall calls one, by where it is in its
+    // statement, what it returns given to the parameter as the interpreter gives it (CallValueNode). Only in an instruction that calls inside an
+    // expression, and not when the instruction is translated with the interpreter making its calls for objects (AnalyzeInstruction), whose temporaries
+    // these are held by too.
     private CallValueNode? ValueCallOf(BoundNode node)
     {
         if (_nesting is null || _withoutObjectCalls

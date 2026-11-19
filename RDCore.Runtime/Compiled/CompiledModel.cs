@@ -571,10 +571,11 @@ internal sealed record class LibraryMemberNode(int Library, int? Receiver, IRead
     public FieldPath? ReceiverField { get; init; }
 }
 
-// a call of a function of the workspace that returns a String or a Variant (CompiledCallee.ReturnsValue), inside an expression, the argument of a Variant
-// parameter of a function or a member of the standard library, which takes it by value: made as a CallNode is, what it returns held by the statement's
-// temporaries and given to the parameter as the interpreter gives it what an argument evaluated to (CompiledActivation.TakeReturnedValue), and known by
-// where it is in its statement (Syntax) once it is made, as a call that returns an object is.
+// a call of a function of the workspace that returns a String or a Variant (CompiledCallee.ReturnsValue), inside an expression: the argument of a Variant
+// parameter of a function or a member of the standard library, which takes it by value, or a Variant read as a payload. Made as a CallNode is, what it
+// returns held by the statement's temporaries and given to the parameter as the interpreter gives it what an argument evaluated to
+// (CompiledActivation.TakeReturnedValue), or read as the payload of its own subtype (CompiledActivation.TakeReturnedPayload), and known by where it is in
+// its statement (Syntax) once it is made, as a call that returns an object is.
 internal sealed record class CallValueNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, int Syntax) : VariantNode
 {
     public int? WithAt { get; init; }
