@@ -319,6 +319,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01008](rdc01008.md)|Native call reachable on every platform|A `Declare` that no `#If` on the platform constants guards, and a call of one compiled where it is not declared|
 |[RDC01009](rdc01009.md)|Empty procedure|A procedure with no statement|
 |[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
+|[RDC01019](rdc01019.md)|Win64 is a bitness test|A directive that reads `Win64`, which is `1` on a 64-bit Mac too|
+|[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String|The number is less, whatever the values|

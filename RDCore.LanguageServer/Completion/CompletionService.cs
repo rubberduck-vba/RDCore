@@ -299,6 +299,14 @@ internal sealed class CompletionService(
             return Empty;
         }
 
+        // a name in a directive's condition, or in a #Const's value, is a conditional-compilation constant (MS-VBAL 5.6.10): those of the module, of its
+        // project and the predefined ones are offered, and nothing else. No workspace is composed for it.
+        if (context.Kind == CompletionSiteKind.ConditionalConstant)
+        {
+            return CompletionCandidates.ListOf(context.Prefix, [], CompletionCandidates.ConditionalConstants(lines, ProjectConstantsOf(address)), requested,
+                insertReplace ? logical.After : null);
+        }
+
         // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first. A member is written in
         // an argument too, which an array is given to (UBound(r.Slots)).
         var call = context.Kind is CompletionSiteKind.Name or CompletionSiteKind.Member ? SignatureSite.Read(before) : null;
@@ -492,6 +500,19 @@ internal sealed class CompletionService(
             documentHosts: isOwnProject ? null : DocumentHostsOf(root));
 
         return (composition, syntaxTree, workspaceRoot, moduleUri);
+    }
+
+    // the names of the conditional-compilation constants the .rdproj of the document's project defines; a document of no project's has none.
+    private IEnumerable<string> ProjectConstantsOf(Uri address)
+    {
+        if (!address.IsFile || documents.WorkspaceRoot.Length == 0)
+        {
+            return [];
+        }
+
+        var root = documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
+        var project = workspaceProjects.Projects.FirstOrDefault(each => WorkspacePaths.Same(each.Root, root));
+        return project is null ? [] : project.Project.ProjectInfo.PrecompilerConstants.Keys;
     }
 
     // what host document each document module of a project is the code of, by the module's name: its code names the members of the host's class.

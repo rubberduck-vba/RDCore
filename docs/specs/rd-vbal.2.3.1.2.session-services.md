@@ -10,7 +10,8 @@ An _execution session_'s services are rooted at an
 |Exposes|Description|
 |---|---|
 |`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). With `Environment.OperatingSystem`, it sets the [predefined conditional-compilation constants](#predefined-conditional-compilation-constants).|
-|`Environment.OperatingSystem`|The operating system the environment host runs on: Windows, macOS, Linux, or another. It decides which of `Win32`, `Win64`, `Mac`, `Linux` and `Linux64` is `1` ([below](#predefined-conditional-compilation-constants)).|
+|`Environment.OperatingSystem`|The operating system the environment host runs on: Windows, macOS, Linux, or another. It decides which of `Win32`, `Mac` and `Linux` is `1`, and with the bitness, `Win64` ([below](#predefined-conditional-compilation-constants)).|
+|`Environment.Win64OnlySetOnWindows`|Whether `Win64` is `1` on 64-bit Windows only. `false` unless the platform says otherwise: `Win64` is `1` on a 64-bit Mac too, as in MS-VBA.|
 |`Environment.Culture`|The culture of the environment, which its `Lcid` selects; `0` is the invariant culture. Text compares in it (`Option Compare Text`, `Like`), and `Format` writes in it given a format.|
 |`Environment.Regional`|The regional settings of the environment: a number or a date let-coerced to `String` is written in them, and a `String` let-coerced to a number or a date is read in them ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)). en-US unless the platform says otherwise.|
 |`Environment.AnsiEncoding`|The `Encoding` of the environment's `AnsiCodePage`: what a character is as one or two bytes outside a `String`'s own data, which the session's files are written and read in. Let-coercion between `String` and `Byte()` takes no code page ([**RD-VBAL §5.5.1.2.6** Let-coercion to and from resizable Byte()](rd-vbal.5.5.1.2.runtime-semantics.md#55126-let-coercion-to-and-from-resizable-byte)).|
@@ -27,10 +28,10 @@ decides which `#If` branch is live from the same session, so every part of the p
 |---|---|---|
 |`Win16`|Never.|`0`|
 |`Win32`|The environment runs on Windows, 32-bit or 64-bit. It means the Win32 API is there, as in MS-VBA, where 64-bit Office defines it too.|`0`|
-|`Win64`|The environment runs on 64-bit Windows.|`0`|
+|`Win64`|The environment runs on 64-bit Windows, or on a 64-bit Mac, as in Excel for Mac. With `Environment.Win64OnlySetOnWindows`, on 64-bit Windows only.|`0`|
 |`Mac`|The environment runs on macOS.|`0`|
 |`Linux`|The environment runs on Linux, 32-bit or 64-bit. RD-VBA addition.|`0`|
-|`Linux64`|The environment runs on 64-bit Linux. RD-VBA addition.|`0`|
+|`Is64BitEnv`|The environment is 64-bit, on any operating system. RD-VBA addition.|`0`|
 |`VBA6`|Always, as in MS-VBA 7.|`0`|
 |`VBA7`|Always.|`0`|
 |`DEBUG`|The build is a debug build (`Environment.Configuration`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md)). RD-VBA addition.|`0`|
@@ -38,6 +39,31 @@ decides which `#If` branch is live from the same session, so every part of the p
 - Each constant is `1` or `0`, as MS-VBA defines its own (recorded in 64-bit Excel), not `-1` as a `Boolean` stores `True`.
 - Each operating system's constant is defined `0` on every other one. `#If Linux` on Windows is `False`, as an undefined constant would be.
 - A `.rdproj` `#Const`, a `--define` argument, or a module's own `#Const` overrides any of them.
+- A constant nothing defines is `0`, as in MS-VBA, so a condition that tests it is `False` and is not an error. The analyzers report it as
+  [**RDC01020** Undefined conditional constant](../diagnostics/rdc01020.md). **RD-VBA differs from MS-VBAL:** in **MS-VBAL §5.6.10**, a name that
+  matches no constant is invalid.
+- A completion list in the condition of a `#If` or a `#ElseIf`, or in the value of a `#Const`, offers these constants and the module's own.
+
+### Bitness
+
+`Is64BitEnv` is the bitness of the environment host's process, as `Win64` is: a 32-bit host on 64-bit Windows is not 64-bit, and `LongPtr` is a `Long`
+there. A condition on the width of a pointer tests `Is64BitEnv`.
+
+`Win64` keeps MS-VBA's meaning, which is a bitness test on Windows and on a Mac: Excel for Mac defines it on a 64-bit Mac, along with `Mac`, and not
+`Win32`. A `Declare` of a Windows library in `#If Win64 Then` is compiled there, and its call raises run-time error 53. The analyzers report each `Win64`
+a directive reads as [**RDC01019** Win64 is a bitness test](../diagnostics/rdc01019.md), with two fixes:
+
+|`Win64` means|Fix|
+|---|---|
+|A 64-bit environment|`Is64BitEnv`|
+|64-bit Windows|`Win32 And Is64BitEnv`|
+
+On 64-bit Linux, `Is64BitEnv` is `1` and `Win64` is `0`, so the first fix makes the branch live there. That is what a bitness test means.
+
+With `Environment.Win64OnlySetOnWindows`, `Win64` is `1` on 64-bit Windows only and is not reported. Code written for Excel for Mac that tests `Win64`
+then takes the other branch on a Mac.
+
+`Linux64` is retired, and nothing predefines it: it is `0` unless the code defines it. RDC01020 reports it with the fix `Linux And Is64BitEnv`.
 
 A condition that tests a constant by itself (`#If Win64 Then`), or compares it with `0` or `1`, means what it says. One that reads the constant's bits
 does not, in MS-VBA and in RD-VBA alike ([**MS-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md)):
