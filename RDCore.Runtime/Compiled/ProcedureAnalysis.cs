@@ -1020,17 +1020,20 @@ internal sealed partial class ProcedureAnalysis
         bool[]? variants = null;
         for (var i = 0; i < parameters.Length; i++)
         {
-            // a Variant passed by reference, given a Variant variable or parameter of the activation: its address, which the parameter is a second name for
-            // (MS-VBAL §5.3.1.11), as the interpreter gives it. What the callee assigns it is what the variable holds after the call, in the cell compiled
-            // code reads it from.
+            // a Variant passed by reference, given a Variant or a String variable or parameter of the activation: its address, which the parameter is a
+            // second name for (MS-VBAL §5.3.1.11), as the interpreter gives it, a String read as a Variant that holds it. What the callee assigns it is what
+            // the variable holds after the call, in the cell compiled code reads it from.
             if (parameters[i] is not ParamArrayParameterSymbol && parameters[i].ResolvedType is VBVariantType
                 && RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind)
-                && arguments[i] is { Passing: ArgumentPassing.Reference, Value: BoundVariable variant } && VariantSlotOf(variant) is { } variantSlot)
+                && arguments[i] is { Passing: ArgumentPassing.Reference, Value: BoundVariable variant }
+                && (VariantSlotOf(variant) is { } variantSlot ? new VariantReferenceNode(variantSlot)
+                    : TextSlotOf(variant) is { } textSlot ? new VariantReferenceNode(textSlot) { OfText = true }
+                    : null) is { } address)
             {
                 (variants ??= new bool[parameters.Length])[i] = true;
                 kinds.Add(null);
                 byReference.Add(true);
-                values.Add(new VariantReferenceNode(variantSlot));
+                values.Add(address);
                 continue;
             }
 

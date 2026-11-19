@@ -1866,6 +1866,11 @@ internal sealed partial class ProcedureEmitter
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
 
+            // a String given by reference to a Variant: what its appender holds, written into its cell, which the callee is given the address of.
+            case VariantReferenceNode { OfText: true } text:
+                EmitWriteAppended(text.Slot);
+                return default;
+
             // an optional Variant left out, and a Variant variable given by reference, are given as the call is made (CompiledActivation.SetOmitted,
             // SetVariantReference).
             case OmittedArgumentNode or VariantReferenceNode:

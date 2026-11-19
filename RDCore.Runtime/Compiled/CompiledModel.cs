@@ -376,10 +376,17 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
-// the argument of a Variant parameter passed by reference that is a Variant variable or parameter of the activation (MS-VBAL §5.3.1.11): the variable's
-// address, which the parameter is a second name for, as the interpreter gives it (CompiledActivation.SetVariantReference). Only an argument of a call; its
-// Kind is not read.
-internal sealed record class VariantReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+// the argument of a Variant parameter passed by reference that is a Variant variable or parameter of the activation, or a String variable or parameter of
+// it (MS-VBAL §5.3.1.11): the variable's address, which the parameter is a second name for, as the interpreter gives it
+// (CompiledActivation.SetVariantReference). A String's appender is written into its cell first (OfText), so the callee reads the String as compiled code
+// left it, and compiled code reads what the callee assigned from the cell. Only an argument of a call; its Kind is not read.
+internal sealed record class VariantReferenceNode(int Slot) : PayloadNode(default(ScalarKind))
+{
+    /// <summary>
+    /// Whether the variable is a <c>String</c> of the activation, whose appender is written into its cell before the call.
+    /// </summary>
+    public bool OfText { get; init; }
+}
 
 // the argument of an optional Variant parameter the call leaves out (CompiledCallee.Parameters, null): what the interpreter gives it
 // (RuntimeExpressionEvaluator.OmittedArgument), the default the parameter declares or Missing, of the parameter of the procedure the call invokes, given as
