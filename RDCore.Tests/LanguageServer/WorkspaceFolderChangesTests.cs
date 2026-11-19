@@ -30,6 +30,7 @@ namespace RDCore.Tests.LanguageServer;
 /// <strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>: a folder the client adds once the server is initialized is loaded as one it gave at
 /// initialize is, and the project of one it removes is dropped, with what only that project listed.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceFolderChangesTests
 {

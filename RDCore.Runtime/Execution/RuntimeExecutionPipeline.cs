@@ -252,7 +252,7 @@ public sealed class RuntimeExecutionPipeline
         var servers = new AutomationCallProvider(session, world.Automation);
         var forms = new FormCallProvider(session, world, servers, bodies is ProgramImage image ? image.Forms : NoForms);
         var pictures = new PictureCallProvider(session);
-        var app = new AppCallProvider(session);
+        var app = new AppCallProvider(session) { Forms = world.Forms };
         var external = analysis
             ? new ExternalCallPipeline(session, observation is null ? [] : [new AssumedCallInterceptor(observation)], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
             // a member a form's designer declares is the form host's, which calls the members of the form object itself through the servers' provider.

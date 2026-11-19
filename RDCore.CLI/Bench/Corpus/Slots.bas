@@ -3,10 +3,13 @@ Option Explicit
 ' What stage 1 of the IR lowering plan moves into frame slots: an activation's parameters and locals, a module's variables, and the
 ' payloads of Currency and Boolean values.
 
+' <Declarations>
 Private Const Iterations As Long = 100000
 
 Private Total As Long
+' </Declarations>
 
+' <BenchWideActivations>
 ' six typed parameters and four locals, for each of which an activation reserves storage.
 Private Function Mix(ByVal A As Long, ByVal B As Long, ByVal C As Double, ByVal D As Integer, ByVal E As Boolean, ByVal F As Currency) As Long
     Dim W As Long
@@ -27,7 +30,9 @@ Public Sub BenchWideActivations()
         S = Mix(I, 1, 2.5, 3, True, 4)
     Next
 End Sub
+' </BenchWideActivations>
 
+' <BenchModuleVariableLoop>
 ' a variable of the module, read and written each time round.
 Public Sub BenchModuleVariableLoop()
     Dim I As Long
@@ -36,7 +41,9 @@ Public Sub BenchModuleVariableLoop()
         Total = Total + 1
     Next
 End Sub
+' </BenchModuleVariableLoop>
 
+' <BenchLocalVariableLoop>
 ' the loop of BenchModuleVariableLoop over a local: what a module variable is measured against.
 Public Sub BenchLocalVariableLoop()
     Dim I As Long
@@ -45,7 +52,9 @@ Public Sub BenchLocalVariableLoop()
         Local = Local + 1
     Next
 End Sub
+' </BenchLocalVariableLoop>
 
+' <BenchStaticVariableLoop>
 ' the same loop over a Static local, which lives as long as the module does.
 Public Sub BenchStaticVariableLoop()
     Dim I As Long
@@ -55,8 +64,10 @@ Public Sub BenchStaticVariableLoop()
         Kept = Kept + 1
     Next
 End Sub
+' </BenchStaticVariableLoop>
 
-' Currency's payload is a scaled integer, which a value of it divides on every read today.
+' <BenchCurrencySum>
+' a Currency sum, whose payload is a scaled integer.
 Public Sub BenchCurrencySum()
     Dim I As Long
     Dim S As Currency
@@ -64,7 +75,9 @@ Public Sub BenchCurrencySum()
         S = S + 1.25@
     Next
 End Sub
+' </BenchCurrencySum>
 
+' <BenchBooleanFlag>
 ' a Boolean flag flipped and tested each time round.
 Public Sub BenchBooleanFlag()
     Dim I As Long
@@ -75,3 +88,4 @@ Public Sub BenchBooleanFlag()
         If B Then N = N + 1
     Next
 End Sub
+' </BenchBooleanFlag>

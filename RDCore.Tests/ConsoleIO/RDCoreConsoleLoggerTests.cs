@@ -6,6 +6,7 @@ using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Tests.ConsoleIO;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class RDCoreConsoleLoggerTests
 {

@@ -3,6 +3,7 @@ using System.Reflection;
 
 namespace RDCore.Tests.Server;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class AssemblyDisplayVersionTests
 {

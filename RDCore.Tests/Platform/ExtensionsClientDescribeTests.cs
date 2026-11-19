@@ -8,6 +8,7 @@ using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Tests.Platform;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ExtensionsClientDescribeTests
 {
@@ -64,6 +65,7 @@ public sealed class ExtensionsClientDescribeTests
     }
 }
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ExtensionsClientDiscoverTests
 {
@@ -195,6 +197,7 @@ public sealed class ExtensionsClientDiscoverTests
 }
 
 // the folders are real ones: the location check matches the folder name regardless of case, which the mock file system does not implement.
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ExtensionManifestValidationServiceTests
 {
