@@ -177,6 +177,27 @@ public sealed class FileStatementTests
         Assert.AreEqual("\"a,b\",\"c\"\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
     }
 
+    // MS-VBAL 5.4.5.9: a comma follows each value but the last, whatever separates the two in the source, a space (an implicit ';') too; a ',' or an
+    // explicit ';' after the last one holds the record open, as it does for Print.
+    [TestMethod]
+    [DataRow("1 2", "1,2\r\n", DisplayName = "two values separated by a space")]
+    [DataRow("1 2 3", "1,2,3\r\n", DisplayName = "three values separated by spaces")]
+    [DataRow("\"a\" 1; 2, 3", "\"a\",1,2,3\r\n", DisplayName = "a space, a ';' and a ','")]
+    [DataRow("1 2;", "1,2,", DisplayName = "a ';' after the last value")]
+    [DataRow("1 2,", "1,2,", DisplayName = "a ',' after the last value")]
+    public void Write_SeparatesEachValueFromTheNextWithAComma(string outputList, string expected)
+    {
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            $"Write #1, {outputList}",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(expected, fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
     [TestMethod]
     public void Write_SpellsBooleansWithHashes()
     {
