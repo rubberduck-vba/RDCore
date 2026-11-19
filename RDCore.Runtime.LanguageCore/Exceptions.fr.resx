@@ -130,10 +130,10 @@
     <value>Les sélecteurs des règles sémantiques à l'exécution (run-time) de coercion de type se chevauchent et plus d'une règle correspond.</value>
   </data>
   <data name="VBRuntimeInternalError_WrongNumberOfOperands" xml:space="preserve">
-    <value>Un nombre inattendu d'arguments a été reçu par l'opérateur '{$OP}'; opérande(s): {$LENGTH}.</value>
+    <value>Un nombre inattendu d'arguments a été reçu par l'opérateur '{$OP}'; opérande(s) : {$LENGTH}.</value>
   </data>
   <data name="VBSyntaxError_CustomMessage" xml:space="preserve">
-    <value>Erreur de syntaxe (grammaire):</value>
+    <value>Erreur de syntaxe (grammaire) :</value>
   </data>
   <data name="VBSyntaxError_DefaultMessage" xml:space="preserve">
     <value>Erreur de syntaxe</value>
@@ -340,13 +340,13 @@
     <value>Une valeur de {0} est ce que retourne son membre par défaut '{1}', qui est un objet et non une valeur d'un type déclaré.</value>
   </data>
   <data name="VBCompileError_LenOfAValue_Verbose" xml:space="preserve">
-    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22): ceci est une valeur de type {0}, qui n'est ni l'un ni l'autre. Assignez-la à une variable de ce type pour mesurer la variable, ou convertissez-la en String pour en compter les caractères.</value>
+    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22) : ceci est une valeur de type {0}, qui n'est ni l'un ni l'autre. Assignez-la à une variable de ce type pour mesurer la variable, ou convertissez-la en String pour en compter les caractères.</value>
   </data>
   <data name="VBCompileError_LenOfADefaultMemberValue_Verbose" xml:space="preserve">
-    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22): un objet de {0} vaut ce que retourne son membre par défaut {1}, une valeur de type {2}, qui n'est ni l'un ni l'autre.</value>
+    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22) : un objet de {0} vaut ce que retourne son membre par défaut {1}, une valeur de type {2}, qui n'est ni l'un ni l'autre.</value>
   </data>
   <data name="VBCompileError_InvalidParamArrayUse_ByRef_Verbose" xml:space="preserve">
-    <value>Le ParamArray {0} est passé au paramètre ByRef {1}: un ParamArray est un tableau des valeurs que l'appel a recueillies, pas une variable dont un paramètre par référence pourrait être un second nom (MS-VBAL §5.3.1.11). Passez-le ByVal, ou passez-en un élément.</value>
+    <value>Le ParamArray {0} est passé au paramètre ByRef {1} : un ParamArray est un tableau des valeurs que l'appel a recueillies, pas une variable dont un paramètre par référence pourrait être un second nom (MS-VBAL §5.3.1.11). Passez-le ByVal, ou passez-en un élément.</value>
   </data>
   <data name="VBCompileError_NothingIsNotAValue_Verbose" xml:space="preserve">
     <value>Nothing n'est aucun objet, et n'a donc aucune valeur : une valeur est attendue ici.</value>
@@ -622,13 +622,13 @@
     <value>'{0}' n'est pas un objet qu'une instruction Set peut assigner : {1}</value>
   </data>
   <data name="VBCompileError_WithObject_Verbose" xml:space="preserve">
-    <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant ; '{0}' est de type {1}.</value>
+    <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant; '{0}' est de type {1}.</value>
   </data>
   <data name="VBCompileError_WithName_Verbose" xml:space="preserve">
     <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant : {0}</value>
   </data>
   <data name="VBCompileError_ForEachSource_Verbose" xml:space="preserve">
-    <value>For Each parcourt les éléments d'un tableau ou d'un objet collection ; '{0}' est de type {1}.</value>
+    <value>For Each parcourt les éléments d'un tableau ou d'un objet collection; '{0}' est de type {1}.</value>
   </data>
   <data name="VBCompileError_ForEachName_Verbose" xml:space="preserve">
     <value>For Each parcourt les éléments d'un tableau ou d'un objet collection : {0}</value>

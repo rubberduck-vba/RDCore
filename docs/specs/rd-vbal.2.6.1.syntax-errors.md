@@ -129,6 +129,7 @@ In a procedure's header, or in a declaration of the module, it is what **MS-VBA*
 |`Sub ()`, `Sub S(x, )`, `Private Type`, `Private Enum`|Expected: identifier|`)`, the end of the line|
 |`Sub S(x As)`, `Function F() As`|Expected: type name|`)`, the end of the line|
 |`Private x As`|Expected: New or type name|the end of the line|
+|`Friend x As Long`, `Friend Const K = 1`, `Friend WithEvents w As Workbook`: `Friend` declares a procedure only (**MS-VBAL §5.3.1**)|Expected: Sub or Function or Property|`x`, `Const`, `WithEvents`|
 |`Sub S(x`|Expected: list separator or )|the end of the line|
 |`Sub S(Optional x As Long = )`|Expected: expression|`)`|
 |`Sub S() As Long`|Expected: end of statement|`As`|

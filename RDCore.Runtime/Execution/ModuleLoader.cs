@@ -115,6 +115,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         var sweepable = new List<(VBTypeMemberSymbol Procedure, InstructionList Body)>();
         var swept = new HashSet<SemanticId>();
         var headerErrors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
+        var unanalyzedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var member in written.Children.OfType<MemberDeclarationNode>())
         {
             // a procedure written once in each #If branch is the one of the live branch, and a header written once in each around one body is the live
@@ -141,6 +142,13 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                 procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks, drawsOnMe), declaration.MemberKind,
                 scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope,
                     Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }) { Arguments = arguments });
+
+            // a declaration of the module that a procedure not fully analyzed does not name is referred to by the rest of the module alone. The procedure is
+            // taken as it is written, each of its #If branches with it.
+            if (!model.IsFullyAnalyzed)
+            {
+                unanalyzedNames.UnionWith(DeclarationUsage.NamesIn(member));
+            }
 
             // the code paths are those of the lowered body, which only the loader has next to what the static pass found out about it.
             // the For Each control variables followed are the procedure's automatic locals: what nothing but its own code assigns.
@@ -194,7 +202,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                 declared, procedureModels,
                 module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
                 symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames,
-                symbol => StatementsCompiledOn(written, symbol.Name, platforms)),
+                symbol => StatementsCompiledOn(written, symbol.Name, platforms), namesInUnanalyzedCode: unanalyzedNames),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
             Document = document,
@@ -278,7 +286,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             | (members.Any(member => member is VBModuleFieldVariableMemberSymbol
                 || RuntimeProcedureInvoker.GetLocals(member).Any(local => local is VBLocalVariableSymbol { IsStatic: true }))
                 ? ClassModuleSemanticFlags.Stateful
-                : ClassModuleSemanticFlags.None);
+                : ClassModuleSemanticFlags.None)
+            // MS-VBAL §5.2.4.1.1: VB_Exposed = True makes the class accessible to the projects that reference this one.
+            | (classModule.Directives.Exposed ? ClassModuleSemanticFlags.Exposed : ClassModuleSemanticFlags.None);
 
     // directly, or in a record that is a field of it. A type that holds itself is not one MS-VBA compiles, and is looked into once. The fields are the type's
     // as the session has it now (CurrentTypes).

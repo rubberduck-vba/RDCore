@@ -110,9 +110,16 @@ internal static class VBEWording
     private static string? Expected(Parser parser, ITokenStream tokens, IToken offending, ParserRuleContext? context, RecognitionException? exception)
     {
         // Property, then no Get, Let or Set: the lexer reads Property Get as one token, and Property alone as a name.
-        if (TokenBefore(tokens, offending) is { } before && string.Equals(before.Text, "Property", StringComparison.OrdinalIgnoreCase))
+        var before = TokenBefore(tokens, offending);
+        if (before is not null && string.Equals(before.Text, "Property", StringComparison.OrdinalIgnoreCase))
         {
             return Exceptions.VBCompileError_ExpectedGetOrLetOrSet_Verbose;
+        }
+
+        // MS-VBAL §5.3.1.1: Friend declares a procedure only, not a variable, a constant or a WithEvents variable.
+        if (before is { Type: VBALexer.FRIEND })
+        {
+            return Exceptions.VBCompileError_ExpectedSubOrFunctionOrProperty_Verbose;
         }
 
         var (rules, next) = Ahead(parser, exception);

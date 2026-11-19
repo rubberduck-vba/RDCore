@@ -1866,6 +1866,11 @@ internal sealed partial class ProcedureEmitter
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
 
+            // a String given by reference to a Variant: what its appender holds, written into its cell, which the callee is given the address of.
+            case VariantReferenceNode { OfText: true } text:
+                EmitWriteAppended(text.Slot);
+                return default;
+
             // an optional Variant left out, and a Variant variable given by reference, are given as the call is made (CompiledActivation.SetOmitted,
             // SetVariantReference).
             case OmittedArgumentNode or VariantReferenceNode:
@@ -1942,6 +1947,19 @@ internal sealed partial class ProcedureEmitter
             case ConvertNode convert:
             {
                 var operand = EmitPayload(convert.Operand, failure);
+
+                // a Single or a Double made an integer is rounded and checked against the type's range where it is (RoundedToWhole).
+                if (convert.Operand.Kind is ScalarKind.Single or ScalarKind.Double && PayloadOperations.IsWholeKind(convert.Kind))
+                {
+                    var whole = _il.DeclareLocal(typeof(long));
+                    Load(operand, convert.Operand.Kind);
+                    _il.Emit(OpCodes.Ldc_I4, (int)convert.Kind);
+                    _il.Emit(OpCodes.Ldloca, whole);
+                    _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.RoundedToWhole))!);
+                    _il.Emit(OpCodes.Brtrue, Fail(failure));
+                    return new Operand(whole, 0, 0);
+                }
+
                 var integral = _il.DeclareLocal(typeof(long));
                 var floating = _il.DeclareLocal(typeof(double));
                 _il.Emit(OpCodes.Ldc_I4, (int)convert.Operand.Kind);
@@ -2259,6 +2277,7 @@ internal sealed partial class ProcedureEmitter
         LibraryMemberNode member => member.Arguments.Any(MakesACall),
         VariantElementNode element => element.Subscripts.Any(MakesACall),
         VariantElementValueNode value => MakesACall(value.Element),
+        CallValueNode => true,
         _ => false,
     };
 
@@ -2424,6 +2443,10 @@ internal sealed partial class ProcedureEmitter
 
             case LibraryMemberNode member:
                 EmitLibraryMemberCall(member, result, failure);
+                break;
+
+            case CallValueNode called:
+                EmitVariantCall(called, result, failure);
                 break;
 
             default:

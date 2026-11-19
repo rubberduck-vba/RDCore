@@ -76,7 +76,8 @@ internal sealed class EmptyCodeBlockAnalyzer : IModuleAnalyzer
         }
 
         var span = new SourceRange(start, endIf - 1 > start.Line ? new SourcePosition(endIf - 1, 0) : block.SourceLocation.Range.End);
-        return parse.Trivia.Any(trivia => trivia.SourceLocation.Range.Start >= span.Start && trivia.SourceLocation.Range.Start.Line < endIf)
+        var elseToEndIf = new SourceRange(start, new SourcePosition(endIf, 0));
+        return parse.Trivia.Any(trivia => elseToEndIf.Contains(trivia.SourceLocation.Range.Start))
             || LineEdits.WholeLinesOf(parse, span) is not { } lines
             ? null
             : SyntaxEdits.Fix(RDCoreDiagnosticsResources.EmptyElseBlock_Fix, SyntaxEdits.Remove(lines));

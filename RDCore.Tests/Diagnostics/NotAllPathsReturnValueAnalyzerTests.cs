@@ -58,7 +58,7 @@ public sealed class NotAllPathsReturnValueAnalyzerTests
     {
         var findings = await FindAsync(Source);
 
-        CollectionAssert.AreEqual(new[] { 9, 12, 18 }, findings.Select(finding => finding.Range.Start.Line).ToArray(), "Sometimes, Never and the getter");
+        CollectionAssert.AreEqual(new[] { 9, 12, 16, 18 }, findings.Select(finding => finding.Range.Start.Line).ToArray(), "Sometimes, Never, Stub and the getter");
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.NotAllPathsReturnValue, Severity: DiagnosticSeverity.Warning }));
         Assert.AreEqual("Sometimes".Length, findings[0].Range.End.Character - findings[0].Range.Start.Character, "the name, and not the whole procedure");
     }
@@ -75,12 +75,43 @@ public sealed class NotAllPathsReturnValueAnalyzerTests
     }
 
     [TestMethod]
-    public async Task AFunctionThatAssignsItOnEveryPath_AnEmptyBody_AndASub_AreNotReported()
+    public async Task AFunctionThatAssignsItOnEveryPath_AndASub_AreNotReported()
     {
         var findings = await FindAsync(Source);
 
-        Assert.IsFalse(findings.Any(finding => finding.Message.Contains("'Always'") || finding.Message.Contains("'Stub'") || finding.Message.Contains("'Work'")));
+        Assert.IsFalse(findings.Any(finding => finding.Message.Contains("'Always'") || finding.Message.Contains("'Work'")));
     }
+
+    // the analyzer, given the class Widget as the host models it, with Square when a module implements Widget.
+    private static async Task<AnalyzerFinding[]> FindInClassAsync(bool implemented, params string[] lines)
+    {
+        var widget = ModuleWorkspace.ClassModule("Widget", lines);
+        var square = ModuleWorkspace.ClassModule("Square", "Implements Widget", "Private Function Widget_Area() As Long", "    Widget_Area = 4", "End Function");
+        (string, string)[] classes = implemented ? [("Widget", widget), ("Square", square)] : [("Widget", widget)];
+        var payload = await ModuleWorkspace.SemanticsAsync(classes, ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub"));
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Widget");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Widget.cls"));
+
+        return [.. new NotAllPathsReturnValueAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, widget), model))];
+    }
+
+    [TestMethod]
+    public async Task AnEmptyPublicFunctionOfAClassThatAModuleImplements_MayBeAMemberOfAnInterface()
+        => Assert.IsEmpty(await FindInClassAsync(true, "Public Function Area() As Long", "End Function"));
+
+    [TestMethod]
+    public async Task AnEmptyPublicFunctionOfAnExposedClass_MayBeAMemberOfAnInterface()
+        => Assert.IsEmpty(await FindInClassAsync(false, "Attribute VB_Exposed = True", "Public Function Area() As Long", "End Function"));
+
+    [TestMethod]
+    public async Task AnEmptyPublicFunctionOfAClassThatNoProjectCanImplement_IsReported()
+        => StringAssert.Contains(Assert.ContainsSingle(await FindInClassAsync(false, "Public Function Area() As Long", "End Function")).Message, "'Area'");
+
+    [TestMethod]
+    public async Task AnEmptyPrivateFunctionOfAClassThatAModuleImplements_IsInNoInterface()
+        => StringAssert.Contains(
+            Assert.ContainsSingle(await FindInClassAsync(true, "Public Function Area() As Long", "End Function", "Private Function Factor() As Long", "End Function")).Message,
+            "'Factor'");
 
     [TestMethod]
     [DataRow("As Long", "    F = 0", DisplayName = "a number")]

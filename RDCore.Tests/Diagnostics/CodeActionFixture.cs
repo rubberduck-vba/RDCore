@@ -4,6 +4,7 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -43,28 +44,6 @@ internal static class CodeActionFixture
     }
 
     /// <summary>
-    /// The source with the edits of a fix made, the last first so that the positions of the others hold.
-    /// </summary>
-    public static string Fixed(string source, EditFix fix)
-    {
-        var starts = new List<int> { 0 };
-        for (var at = source.IndexOf('\n'); at >= 0; at = source.IndexOf('\n', at + 1))
-        {
-            starts.Add(at + 1);
-        }
-
-        int OffsetOf(OmniSharp.Extensions.LanguageServer.Protocol.Models.Position position) => starts[position.Line] + position.Character;
-
-        var text = source;
-        foreach (var edit in fix.Edits.OrderByDescending(edit => edit.Range.Start.Line).ThenByDescending(edit => edit.Range.Start.Character))
-        {
-            text = text[..OffsetOf(edit.Range.Start)] + edit.NewText + text[OffsetOf(edit.Range.End)..];
-        }
-
-        return text;
-    }
-
-    /// <summary>
     /// The fix of the first finding of the code in the module of <paramref name="before"/>, made: the module is <paramref name="after"/>, and analyzed
     /// again, that finding is gone and none is found that was not found before; it compiles if it did; and if it <paramref name="runs"/>, <c>Main</c> prints
     /// what it printed.
@@ -77,7 +56,7 @@ internal static class CodeActionFixture
         var fix = fixedOne.Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix, $"the finding carries a fix: {fixedOne.Message}");
 
-        var fixedProgram = Fixed(program, fix);
+        var fixedProgram = fix.Edits.ApplyTo(program);
         Assert.AreEqual(Module(after), fixedProgram);
 
         // a finding is new when it is not one of the others found before: the fixed one, found again, is new. A fix may make others go with it.

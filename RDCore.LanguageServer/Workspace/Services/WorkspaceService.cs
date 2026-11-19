@@ -66,6 +66,15 @@ internal interface IWorkspaceService
     SupportedLanguage? RetakeLanguage();
 
     /// <summary>
+    /// What the client is told of the format the primary project's file says it is in (<see cref="ProjectFile.SchemaOf"/>), once the workspace is loaded: a
+    /// format older or newer than this platform's, or no format's version, as the log says it too.
+    /// </summary>
+    /// <remarks>
+    /// <see langword="null"/> when the file is in this platform's format, when it says no format, and when the folder has no project file.
+    /// </remarks>
+    LogMessageParams? FormatNote { get; }
+
+    /// <summary>
     /// Makes the workspace what its folders are once the client added some or removed some (<strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>),
     /// as <see cref="LoadAsync(string, IReadOnlyList{string})"/> makes it of the folders the client gave when it initialized: an added folder that is a project
     /// folder (<see cref="RDCore.SDK.Workspace.WorkspaceFolderRoles"/>) is a project, a file a project lists is loaded once a folder holds it, and refused once
@@ -462,29 +471,39 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         }
     }
 
-    // a project file is loaded whatever format it says it is in: a format that is not this platform's is said in the log, and only there.
+    public LogMessageParams? FormatNote { get; private set; }
+
+    // a project file is loaded whatever format it says it is in: a format that is not this platform's is said in the log, and to the client (FormatNote).
     private void LogSchemaOf(ProjectFile project)
     {
+        FormatNote = null;
         switch (ProjectFile.SchemaOf(project.Version))
         {
             case ProjectFileSchemaMatch.Older:
                 logger.LogInformation("📄 The project file is in the format {version}, older than this platform's {schema}: it is written in {schema} when it is next saved.",
                     project.Version, ProjectFile.SchemaVersion, ProjectFile.SchemaVersion);
+                FormatNote = NoteOf(MessageType.Info, WorkspaceMessages.ProjectFileFormatOlder, project.Version);
                 break;
             case ProjectFileSchemaMatch.NewerMinor:
                 logger.LogWarning("⚠️ The project file is in the format {version}, newer than this platform's {schema}: what this platform doesn't know of it is kept as it is.",
                     project.Version, ProjectFile.SchemaVersion);
+                FormatNote = NoteOf(MessageType.Warning, WorkspaceMessages.ProjectFileFormatNewerMinor, project.Version);
                 break;
             case ProjectFileSchemaMatch.NewerMajor:
                 logger.LogWarning("⚠️ The project file is in the format {version}, a major newer than this platform's {schema}: it was read as this platform reads its own, and may not say all it means to.",
                     project.Version, ProjectFile.SchemaVersion);
+                FormatNote = NoteOf(MessageType.Warning, WorkspaceMessages.ProjectFileFormatNewerMajor, project.Version);
                 break;
             case ProjectFileSchemaMatch.Unparseable:
                 logger.LogWarning("⚠️ The project file says its format is '{version}', which is no format's version: it was read as this platform's {schema}.",
                     project.Version, ProjectFile.SchemaVersion);
+                FormatNote = NoteOf(MessageType.Warning, WorkspaceMessages.ProjectFileFormatUnparseable, project.Version);
                 break;
         }
     }
+
+    private static LogMessageParams NoteOf(MessageType type, string format, string? version)
+        => new() { Type = type, Message = string.Format(System.Globalization.CultureInfo.CurrentCulture, format, version, ProjectFile.SchemaVersion) };
 
     private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));
 
