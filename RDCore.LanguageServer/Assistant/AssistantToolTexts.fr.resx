@@ -270,4 +270,40 @@
   <data name="EditAsks" xml:space="preserve">
     <value>La modification demande :</value>
   </data>
+  <data name="ApplyFix_Title" xml:space="preserve">
+    <value>Appliquer un correctif</value>
+  </data>
+  <data name="ApplyFix_Description" xml:space="preserve">
+    <value>Applique un correctif listé par list_fixes. L'éditeur l'applique, et il peut y être annulé. Une modification qui pose des questions n'est pas appliquée par un appel sans accept : le résultat liste les questions, et l'outil est rappelé avec les réponses.</value>
+  </data>
+  <data name="Edit_Accept" xml:space="preserve">
+    <value>Les identifiants des questions de la modification auxquelles la réponse est oui, la réponse aux autres étant non; omis pour connaître d'abord les questions.</value>
+  </data>
+  <data name="Rename_Title" xml:space="preserve">
+    <value>Renommer un symbole</value>
+  </data>
+  <data name="Rename_Description" xml:space="preserve">
+    <value>Renomme le symbole dont le nom est à une position, partout où l'espace de travail y fait référence; le fichier d'un module est renommé avec lui. L'éditeur applique le renommage, et il peut y être annulé. Une modification qui pose des questions n'est pas appliquée par un appel sans accept : le résultat liste les questions, et l'outil est rappelé avec les réponses.</value>
+  </data>
+  <data name="Rename_NewName" xml:space="preserve">
+    <value>Le nom donné au symbole.</value>
+  </data>
+  <data name="RenameLabel" xml:space="preserve">
+    <value>Renommer en {0}</value>
+  </data>
+  <data name="EditApplied" xml:space="preserve">
+    <value>Appliqué.</value>
+  </data>
+  <data name="EditNotAppliedAsks" xml:space="preserve">
+    <value>Non appliqué : la modification pose d'abord des questions. Rappelez l'outil avec accept, les identifiants des questions auxquelles la réponse est oui ([] pour aucune).</value>
+  </data>
+  <data name="NothingToApply" xml:space="preserve">
+    <value>Rien n'est appliqué : selon les réponses aux questions, la modification ne change rien.</value>
+  </data>
+  <data name="ClientAppliesNoEdits" xml:space="preserve">
+    <value>Ce client n'applique aucune modification : prévisualisez le correctif avec preview_fix, et appliquez son diff.</value>
+  </data>
+  <data name="EditNotApplied" xml:space="preserve">
+    <value>L'éditeur n'a pas appliqué la modification : {0}</value>
+  </data>
 </root>

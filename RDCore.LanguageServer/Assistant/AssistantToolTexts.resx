@@ -270,4 +270,40 @@
   <data name="EditAsks" xml:space="preserve">
     <value>The edit asks:</value>
   </data>
+  <data name="ApplyFix_Title" xml:space="preserve">
+    <value>Apply a fix</value>
+  </data>
+  <data name="ApplyFix_Description" xml:space="preserve">
+    <value>Applies a fix that list_fixes listed. The editor applies it, and it can be undone there. An edit that asks questions is not applied by a call with no accept: the result lists the questions, and the tool is called again with the answers.</value>
+  </data>
+  <data name="Edit_Accept" xml:space="preserve">
+    <value>The ids of the questions of the edit answered yes, the others being answered no; omitted to be told the questions first.</value>
+  </data>
+  <data name="Rename_Title" xml:space="preserve">
+    <value>Rename a symbol</value>
+  </data>
+  <data name="Rename_Description" xml:space="preserve">
+    <value>Renames the symbol whose name is at a position, everywhere the workspace refers to it; a module's file is renamed with it. The editor applies the rename, and it can be undone there. An edit that asks questions is not applied by a call with no accept: the result lists the questions, and the tool is called again with the answers.</value>
+  </data>
+  <data name="Rename_NewName" xml:space="preserve">
+    <value>The name the symbol is given.</value>
+  </data>
+  <data name="RenameLabel" xml:space="preserve">
+    <value>Rename to {0}</value>
+  </data>
+  <data name="EditApplied" xml:space="preserve">
+    <value>Applied.</value>
+  </data>
+  <data name="EditNotAppliedAsks" xml:space="preserve">
+    <value>Not applied: the edit asks questions first. Call the tool again with accept, the ids of the questions answered yes ([] for none).</value>
+  </data>
+  <data name="NothingToApply" xml:space="preserve">
+    <value>Nothing applied: the edit changes nothing, as the questions are answered.</value>
+  </data>
+  <data name="ClientAppliesNoEdits" xml:space="preserve">
+    <value>This client applies no edits: preview the fix with preview_fix, and apply its diff.</value>
+  </data>
+  <data name="EditNotApplied" xml:space="preserve">
+    <value>The editor did not apply the edit: {0}</value>
+  </data>
 </root>

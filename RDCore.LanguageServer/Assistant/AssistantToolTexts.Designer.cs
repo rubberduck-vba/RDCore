@@ -349,5 +349,76 @@ namespace RDCore.LanguageServer.Assistant {
                 return ResourceManager.GetString("EditAsks", resourceCulture);
             }
         }
+        internal static string ApplyFix_Title {
+            get {
+                return ResourceManager.GetString("ApplyFix_Title", resourceCulture);
+            }
+        }
+
+        internal static string ApplyFix_Description {
+            get {
+                return ResourceManager.GetString("ApplyFix_Description", resourceCulture);
+            }
+        }
+
+        internal static string Edit_Accept {
+            get {
+                return ResourceManager.GetString("Edit_Accept", resourceCulture);
+            }
+        }
+
+        internal static string Rename_Title {
+            get {
+                return ResourceManager.GetString("Rename_Title", resourceCulture);
+            }
+        }
+
+        internal static string Rename_Description {
+            get {
+                return ResourceManager.GetString("Rename_Description", resourceCulture);
+            }
+        }
+
+        internal static string Rename_NewName {
+            get {
+                return ResourceManager.GetString("Rename_NewName", resourceCulture);
+            }
+        }
+
+        internal static string RenameLabel {
+            get {
+                return ResourceManager.GetString("RenameLabel", resourceCulture);
+            }
+        }
+
+        internal static string EditApplied {
+            get {
+                return ResourceManager.GetString("EditApplied", resourceCulture);
+            }
+        }
+
+        internal static string EditNotAppliedAsks {
+            get {
+                return ResourceManager.GetString("EditNotAppliedAsks", resourceCulture);
+            }
+        }
+
+        internal static string NothingToApply {
+            get {
+                return ResourceManager.GetString("NothingToApply", resourceCulture);
+            }
+        }
+
+        internal static string ClientAppliesNoEdits {
+            get {
+                return ResourceManager.GetString("ClientAppliesNoEdits", resourceCulture);
+            }
+        }
+
+        internal static string EditNotApplied {
+            get {
+                return ResourceManager.GetString("EditNotApplied", resourceCulture);
+            }
+        }
     }
 }

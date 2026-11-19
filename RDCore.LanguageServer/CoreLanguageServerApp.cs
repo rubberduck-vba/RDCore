@@ -234,13 +234,17 @@ internal sealed class CoreLanguageServerApp(
             ExternalServices.GetService<IImplementInterfaceService>(), ExternalServices.GetService<IMoveCloserToUsageService>(), ExternalServices.GetService<IParameterReorderService>()));
         services.AddSingleton(provider => new Assistant.FixToolEdits(ExternalServices.GetRequiredService<Assistant.AssistantDocuments>(),
             ExternalServices.GetRequiredService<IDocumentDiagnosticsService>(), ExternalServices.GetRequiredService<IDocumentLifecycleService>(),
-            provider.GetRequiredService<ICodeActionService>(), ExternalServices.GetRequiredService<IWorkspaceDocumentService>()));
+            provider.GetRequiredService<ICodeActionService>(), ExternalServices.GetRequiredService<IWorkspaceDocumentService>(),
+            ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>(), new Assistant.ClientEdits(() => provider.GetService<ILanguageServerFacade>())));
         services.AddSingleton(provider =>
         {
             var fixes = provider.GetRequiredService<Assistant.FixToolEdits>();
             var documents = ExternalServices.GetRequiredService<Assistant.AssistantDocuments>();
-            return new RDCore.SDK.Server.Assistant.AssistantToolCatalog(ExternalServices.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>()
-                .Concat([new Assistant.ListFixesTool(documents, fixes), new Assistant.PreviewFixTool(fixes)]));
+            return new RDCore.SDK.Server.Assistant.AssistantToolCatalog(ExternalServices.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>().Concat(
+            [
+                new Assistant.ListFixesTool(documents, fixes), new Assistant.PreviewFixTool(fixes), new Assistant.ApplyFixTool(fixes),
+                new Assistant.RenameTool(documents, provider.GetRequiredService<IRenameService>(), fixes),
+            ]));
         });
 
         // the commands a client asks the server to run (workspace/executeCommand).

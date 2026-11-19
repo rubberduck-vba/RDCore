@@ -1,16 +1,18 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Refactoring;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Assistant;
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Platform.Protocol;
-using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.Assistant;
+using RDCore.SDK.Server.ProtocolExtensions;
 using System.Globalization;
+using System.IO.Abstractions;
 using System.Text;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -21,8 +23,11 @@ namespace RDCore.LanguageServer.Assistant;
 
 // what the tools do with the code actions of a document: the actions of a range, found again from an id, and their edits as each document's change.
 internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagnosticsService diagnostics, IDocumentLifecycleService lifecycle, ICodeActionService actions,
-    IWorkspaceDocumentService texts)
+    IWorkspaceDocumentService texts, IFileSystem fileSystem, IClientEdits client)
 {
+    // what the client the edits are applied by said it can do.
+    public ClientCapabilities? ClientCapabilities => client.Capabilities;
+
     // what the tools say they can do, whatever the client said: edits in documentChanges, with their change annotations (the questions of an edit) and file
     // renames; a refactoring is listed without its edit, which is made when it is previewed or applied.
     public static ClientCapabilities Client { get; } = new()
@@ -47,14 +52,57 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
         },
     };
 
-    // the document, synced, and its findings: a fix is of what the findings are now.
-    public async Task<(WorkspaceDocument Document, IReadOnlyList<Diagnostic> Findings)> FindingsAsync(string path, CancellationToken token)
+    // the document, once the workspace is loaded and the host has its edits.
+    public async Task<WorkspaceDocument> SyncedAsync(string path, CancellationToken token)
     {
         await documents.LoadedAsync(token);
         var document = documents.Resolve(path);
-        var uri = document.Id.Uri.ToUri();
-        await lifecycle.WhenSyncedAsync(uri, token);
-        return (document, (await diagnostics.GetAsync(uri, previousResultId: null, token)).Diagnostics);
+        await lifecycle.WhenSyncedAsync(document.Id.Uri.ToUri(), token);
+        return document;
+    }
+
+    // the document, synced, and its findings: a fix is of what the findings are now.
+    public async Task<(WorkspaceDocument Document, IReadOnlyList<Diagnostic> Findings)> FindingsAsync(string path, CancellationToken token)
+    {
+        var document = await SyncedAsync(path, token);
+        return (document, (await diagnostics.GetAsync(document.Id.Uri.ToUri(), previousResultId: null, token)).Diagnostics);
+    }
+
+    // the edit applied by the client, as its questions are answered: an edit that asks one, called with no answers, is not applied, and says its questions.
+    public async Task<EditToolResult> ApplyAsync(string label, WorkspaceEdit edit, IReadOnlyList<string>? accept, CancellationToken token)
+    {
+        var questions = ToolEdits.QuestionsOf(edit);
+        if (questions.Count > 0 && accept is null)
+        {
+            return new EditToolResult { Files = FilesOf(edit), Questions = questions };
+        }
+
+        var answered = edit.Answered(accept ?? []);
+        var files = FilesOf(answered);
+        if (files.Count == 0)
+        {
+            return new EditToolResult();
+        }
+
+        if (!client.Capabilities.AppliesEdits())
+        {
+            throw new AssistantToolRefusedException(AssistantToolTexts.ClientAppliesNoEdits);
+        }
+
+        WorkspaceEdit sent;
+        try
+        {
+            sent = answered.For(client.Capabilities);
+        }
+        catch (WorkspaceEditNotSupportedException refused)
+        {
+            throw new AssistantToolRefusedException(refused.Message);
+        }
+
+        var applied = await client.ApplyAsync(label, sent, token);
+        return applied.Applied
+            ? new EditToolResult { Applied = true, Files = files }
+            : throw AssistantDocuments.Refused(AssistantToolTexts.EditNotApplied, applied.FailureReason ?? string.Empty);
     }
 
     // the actions of a range, asked with the findings it holds, as an editor asks for them.
@@ -104,71 +152,20 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
         Diagnostic = action.Diagnostics?.FirstOrDefault() is { } diagnostic ? documents.Project(document.Id.Uri, diagnostic) : null,
     };
 
-    // each document the edit changes, by path, with its change: the edits of its text, in order, and the path it is renamed to.
-    public IReadOnlyList<ToolFileChange> FilesOf(WorkspaceEdit edit)
+    // each document the edit changes, by path, with its change.
+    public IReadOnlyList<ToolFileChange> FilesOf(WorkspaceEdit edit) => ToolEdits.FilesOf(edit, TextOf, documents.PathOf);
+
+    // the text of a document as the server holds it; one it does not hold (the project file) as its file has it.
+    private string? TextOf(DocumentUri document)
     {
-        var changes = new Dictionary<Uri, (string Before, string After, Uri? RenamedTo)>();
-        void Edit(DocumentUri document, IEnumerable<TextEdit> edits)
+        if (texts.TryGetDocument(document.ToUri(), out var held))
         {
-            var uri = document.ToUri();
-            var (before, after, renamedTo) = changes.TryGetValue(uri, out var change) ? change : (TextOf(uri), TextOf(uri), null);
-            var refactorEdits = edits.Select(edit => new RefactorTextEdit { Range = SourceRangeOf(edit.Range), NewText = edit.NewText }).ToList();
-            changes[uri] = (before, DeclarationEdits.ApplyTo(after, refactorEdits), renamedTo);
+            return held.Text;
         }
 
-        if (edit.DocumentChanges is { } documentChanges)
-        {
-            foreach (var change in documentChanges)
-            {
-                if (change.IsTextDocumentEdit)
-                {
-                    Edit(change.TextDocumentEdit!.TextDocument.Uri, change.TextDocumentEdit.Edits);
-                }
-                else if (change.IsRenameFile)
-                {
-                    var from = change.RenameFile!.OldUri.ToUri();
-                    var (before, after, _) = changes.TryGetValue(from, out var text) ? text : (TextOf(from), TextOf(from), null);
-                    changes[from] = (before, after, change.RenameFile.NewUri.ToUri());
-                }
-                else if (change.IsCreateFile)
-                {
-                    changes[change.CreateFile!.Uri.ToUri()] = (string.Empty, string.Empty, null);
-                }
-                else if (change.IsDeleteFile)
-                {
-                    var deleted = change.DeleteFile!.Uri.ToUri();
-                    changes[deleted] = (changes.TryGetValue(deleted, out var text) ? text.Before : TextOf(deleted), string.Empty, null);
-                }
-            }
-        }
-        else if (edit.Changes is { } byDocument)
-        {
-            foreach (var (document, edits) in byDocument)
-            {
-                Edit(document, edits);
-            }
-        }
-
-        return changes
-            .Select(change => new ToolFileChange
-            {
-                Path = documents.PathOf(change.Key),
-                NewPath = change.Value.RenamedTo is { } renamedTo ? documents.PathOf(renamedTo) : null,
-                Diff = UnifiedDiff.Of(documents.PathOf(change.Value.RenamedTo ?? change.Key), change.Value.Before, change.Value.After),
-            })
-            .OrderBy(change => change.Path, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var path = document.GetFileSystemPath();
+        return fileSystem.File.Exists(path) ? fileSystem.File.ReadAllText(path) : null;
     }
-
-    // the questions an edit asks before it is applied: its change annotations that need a confirmation.
-    public static IReadOnlyList<ToolEditQuestion> QuestionsOf(WorkspaceEdit edit)
-        => edit.ChangeAnnotations is { } annotations
-            ? [.. annotations
-                .Where(annotation => annotation.Value.NeedsConfirmation)
-                .Select(annotation => new ToolEditQuestion { Id = annotation.Key.Identifier, Label = annotation.Value.Label, Description = annotation.Value.Description })]
-            : [];
-
-    private string TextOf(Uri document) => texts.TryGetDocument(document, out var held) ? held.Text : string.Empty;
 
     private static string KindOf(CodeAction action) => action.Kind?.Name ?? string.Empty;
 
@@ -263,15 +260,106 @@ internal sealed class PreviewFixTool(FixToolEdits fixes) : AssistantTool<FixTool
     protected override async Task<PreviewFixToolResult> RunAsync(FixToolArguments arguments, CancellationToken token)
     {
         var (action, _) = await fixes.FindAsync(arguments.FixId, token);
-        return new PreviewFixToolResult { Title = action.Title, Files = fixes.FilesOf(action.Edit!), Questions = FixToolEdits.QuestionsOf(action.Edit!) };
+        return new PreviewFixToolResult { Title = action.Title, Files = fixes.FilesOf(action.Edit!), Questions = ToolEdits.QuestionsOf(action.Edit!) };
     }
 
     protected override string Render(PreviewFixToolResult result, CultureInfo culture) => FixToolText.Of(result.Title, result.Files, result.Questions, culture);
 }
 
+internal sealed class ApplyFixTool(FixToolEdits fixes) : AssistantTool<ApplyFixToolArguments, EditToolResult>
+{
+    public override string Name => CoreAssistantTools.ApplyFix;
+
+    protected override ToolAnnotations Annotations => new() { DestructiveHint = true };
+
+    protected override string? TitleOf(CultureInfo culture) => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.ApplyFix_Title), culture);
+
+    protected override string DescriptionOf(CultureInfo culture) => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.ApplyFix_Description), culture)!;
+
+    protected override string? ArgumentDescriptionOf(string argument, CultureInfo culture) => argument switch
+    {
+        "fixId" => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.Fix_FixId), culture),
+        "accept" => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.Edit_Accept), culture),
+        _ => null,
+    };
+
+    protected override async Task<EditToolResult> RunAsync(ApplyFixToolArguments arguments, CancellationToken token)
+    {
+        var (action, _) = await fixes.FindAsync(arguments.FixId, token);
+        return await fixes.ApplyAsync(action.Title, action.Edit!, arguments.Accept, token);
+    }
+
+    protected override string Render(EditToolResult result, CultureInfo culture) => FixToolText.Of(result, culture);
+}
+
+internal sealed class RenameTool(AssistantDocuments documents, IRenameService rename, FixToolEdits fixes) : AssistantTool<RenameToolArguments, EditToolResult>
+{
+    public override string Name => CoreAssistantTools.Rename;
+
+    protected override ToolAnnotations Annotations => new() { DestructiveHint = true };
+
+    protected override string? TitleOf(CultureInfo culture) => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.Rename_Title), culture);
+
+    protected override string DescriptionOf(CultureInfo culture) => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.Rename_Description), culture)!;
+
+    protected override string? ArgumentDescriptionOf(string argument, CultureInfo culture) => argument switch
+    {
+        "newName" => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.Rename_NewName), culture),
+        "accept" => AssistantToolTexts.ResourceManager.GetString(nameof(AssistantToolTexts.Edit_Accept), culture),
+        _ => ReadToolText.PositionArgument(argument, culture),
+    };
+
+    protected override async Task<EditToolResult> RunAsync(RenameToolArguments arguments, CancellationToken token)
+    {
+        var position = AssistantDocuments.PositionOf(arguments);
+        var document = await fixes.SyncedAsync(arguments.Path, token);
+        var answer = await rename.RenameAsync(document.Id.Uri.ToUri(), position, arguments.NewName, token);
+        var edit = answer.Value ?? throw new AssistantToolRefusedException(answer.Refusal ?? string.Empty);
+
+        // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit, as a rename asked of it is.
+        if (!fixes.ClientCapabilities.TakesResourceOperation(ResourceOperationKind.Rename))
+        {
+            edit = edit.WithoutFileRenames();
+        }
+
+        var label = string.Format(CultureInfo.CurrentUICulture, AssistantToolTexts.RenameLabel, arguments.NewName);
+        return await fixes.ApplyAsync(label, edit, arguments.Accept, token);
+    }
+
+    protected override string Render(EditToolResult result, CultureInfo culture) => FixToolText.Of(result, culture);
+}
+
+// the client the server serves, which applies the edits of the tools that change code (workspace/applyEdit): the server never writes the user's files itself.
+internal interface IClientEdits
+{
+    // what the client said it can do, as it initialized; none before it did.
+    ClientCapabilities? Capabilities { get; }
+
+    Task<ApplyWorkspaceEditResponse> ApplyAsync(string label, WorkspaceEdit edit, CancellationToken token);
+}
+
+internal sealed class ClientEdits(Func<ILanguageServerFacade?> server) : IClientEdits
+{
+    public ClientCapabilities? Capabilities => server()?.ClientSettings?.Capabilities;
+
+    public Task<ApplyWorkspaceEditResponse> ApplyAsync(string label, WorkspaceEdit edit, CancellationToken token)
+        => (server() ?? throw new InvalidOperationException()).Workspace.ApplyWorkspaceEdit(new ApplyWorkspaceEditParams { Label = label, Edit = edit }, token);
+}
+
 // the text of an edit: its title, each document's change, and the questions it asks.
 internal static class FixToolText
 {
+    public static string Of(EditToolResult result, CultureInfo culture)
+    {
+        var said = result switch
+        {
+            { Applied: true } => nameof(AssistantToolTexts.EditApplied),
+            { Questions.Count: > 0 } => nameof(AssistantToolTexts.EditNotAppliedAsks),
+            _ => nameof(AssistantToolTexts.NothingToApply),
+        };
+        return Of(AssistantToolTexts.ResourceManager.GetString(said, culture)!, result.Files, result.Questions, culture);
+    }
+
     public static string Of(string title, IReadOnlyList<ToolFileChange> files, IReadOnlyList<ToolEditQuestion> questions, CultureInfo culture)
     {
         var text = new StringBuilder().AppendLine(title);

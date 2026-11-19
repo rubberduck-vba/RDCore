@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Assistant;
 using RDCore.LanguageServer.Diagnostics;
@@ -76,19 +77,54 @@ public sealed class FixToolsTests
         }.ToData(),
     };
 
-    private AssistantToolCatalog Sut()
+    // the client the edits are applied by: one that applies them, and answers what it is told to.
+    private readonly IClientEdits _client = Substitute.For<IClientEdits>();
+
+    private ApplyWorkspaceEditResponse _applied = new() { Applied = true };
+
+    private void ClientApplies(bool applies = true)
+    {
+        _client.Capabilities.Returns(new ClientCapabilities
+        {
+            Workspace = new WorkspaceClientCapabilities
+            {
+                ApplyEdit = applies,
+                WorkspaceEdit = new WorkspaceEditCapability
+                {
+                    DocumentChanges = true,
+                    ChangeAnnotationSupport = new WorkspaceEditSupportCapabilitiesChangeAnnotationSupport(),
+                    ResourceOperations = new Container<ResourceOperationKind>(ResourceOperationKind.Rename),
+                },
+            },
+        });
+        _client.ApplyAsync(Arg.Any<string>(), Arg.Any<WorkspaceEdit>(), Arg.Any<CancellationToken>()).Returns(_ => _applied);
+    }
+
+    private FixToolEdits Fixes(AssistantDocuments documents, IRenameService rename)
+    {
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        var actions = new CodeActionService(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
+            new MoveMemberService(rename, _parsing), Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>(),
+            new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+        return new FixToolEdits(documents, _diagnostics, Substitute.For<IDocumentLifecycleService>(), actions, _documents,
+            new System.IO.Abstractions.TestingHelpers.MockFileSystem(), _client);
+    }
+
+    private RenameService Rename()
     {
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
-        var actions = new CodeActionService(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
-            new MoveMemberService(rename, _parsing), Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>(),
-            new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+        return new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
+    }
+
+    private AssistantToolCatalog Sut()
+    {
+        var rename = Rename();
         var documents = new AssistantDocuments(_documents, Substitute.For<ISymbolSyncService>());
-        var fixes = new FixToolEdits(documents, _diagnostics, Substitute.For<IDocumentLifecycleService>(), actions, _documents);
-        return new AssistantToolCatalog([new ListFixesTool(documents, fixes), new PreviewFixTool(fixes)]);
+        var fixes = Fixes(documents, rename);
+        return new AssistantToolCatalog([new ListFixesTool(documents, fixes), new PreviewFixTool(fixes), new ApplyFixTool(fixes), new RenameTool(documents, rename, fixes)]);
     }
 
     private async Task<ToolCallResult> CallAsync(string tool, JsonObject arguments)
@@ -198,5 +234,108 @@ public sealed class FixToolsTests
         var listed = await CallAsync(CoreAssistantTools.ListFixes, new JsonObject { ["path"] = "Main.rdc", ["line"] = line, ["column"] = column });
 
         Assert.IsTrue(listed.IsError);
+    }
+
+    [TestMethod]
+    public async Task AFixApplied_IsAppliedByTheClient_WithItsTitle_AndSaysWhatItChanged()
+    {
+        ClientApplies();
+        var fixes = await FixesAsync(new JsonObject { ["path"] = "Main.rdc" });
+
+        var applied = await CallAsync(CoreAssistantTools.ApplyFix, new JsonObject { ["fixId"] = (string?)fixes[0]!["fixId"] });
+
+        Assert.IsFalse(applied.IsError, applied.Content.Single().Text);
+        Assert.IsTrue((bool)applied.StructuredContent!["applied"]!);
+        StringAssert.Contains((string?)applied.StructuredContent["files"]![0]!["diff"], "+15 Dim result As Long\n");
+        await _client.Received(1).ApplyAsync("Declare a local", Arg.Is<WorkspaceEdit>(edit => edit.DocumentChanges!.Single().TextDocumentEdit!.Edits.Count() == 2),
+            Arg.Any<CancellationToken>());
+        StringAssert.StartsWith(applied.Content.Single().Text, "Applied.");
+    }
+
+    [TestMethod]
+    public async Task AFixTheClientDoesNotApply_IsRefused_WithWhy()
+    {
+        ClientApplies();
+        _applied = new ApplyWorkspaceEditResponse { Applied = false, FailureReason = "the document changed" };
+        var fixes = await FixesAsync(new JsonObject { ["path"] = "Main.rdc" });
+
+        var applied = await CallAsync(CoreAssistantTools.ApplyFix, new JsonObject { ["fixId"] = (string?)fixes[0]!["fixId"] });
+
+        Assert.IsTrue(applied.IsError);
+        Assert.AreEqual("The editor did not apply the edit: the document changed", applied.Content.Single().Text);
+    }
+
+    [TestMethod]
+    public async Task AClientThatAppliesNoEdits_IsRefusedTheFix_AndToldToPreviewIt()
+    {
+        ClientApplies(applies: false);
+        var fixes = await FixesAsync(new JsonObject { ["path"] = "Main.rdc" });
+
+        var applied = await CallAsync(CoreAssistantTools.ApplyFix, new JsonObject { ["fixId"] = (string?)fixes[0]!["fixId"] });
+
+        Assert.IsTrue(applied.IsError);
+        StringAssert.Contains(applied.Content.Single().Text, "preview_fix");
+        await _client.DidNotReceiveWithAnyArgs().ApplyAsync(default!, default!, default);
+    }
+
+    [TestMethod]
+    public async Task ARename_IsAppliedByTheClient_EverywhereTheNameIsUsed()
+    {
+        ClientApplies();
+
+        // strName, declared on line 1.
+        var renamed = await CallAsync(CoreAssistantTools.Rename, new JsonObject { ["path"] = "Main.rdc", ["line"] = 1, ["column"] = 8, ["newName"] = "userName" });
+
+        Assert.IsFalse(renamed.IsError, renamed.Content.Single().Text);
+        var diff = (string?)renamed.StructuredContent!["files"]!.AsArray().Single()!["diff"];
+        StringAssert.Contains(diff, "+10 Dim userName As String\n");
+        StringAssert.Contains(diff, "+40 Debug.Print userName, x\n");
+        await _client.Received(1).ApplyAsync("Rename to userName", Arg.Any<WorkspaceEdit>(), Arg.Any<CancellationToken>());
+    }
+
+    // an edit of the program that asks whether its second edit is made.
+    private static WorkspaceEdit Asking() => new()
+    {
+        DocumentChanges = new Container<WorkspaceEditDocumentChange>(new WorkspaceEditDocumentChange(new TextDocumentEdit
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(Path.Combine(Root, "Main.rdc")) },
+            Edits = new TextEditContainer(
+                new TextEdit { Range = new Range(0, 7, 0, 14), NewText = "userName" },
+                new AnnotatedTextEdit { Range = new Range(3, 15, 3, 22), NewText = "userName", AnnotationId = "inString" }),
+        })),
+        ChangeAnnotations = new Dictionary<ChangeAnnotationIdentifier, ChangeAnnotation>
+        {
+            ["inString"] = new ChangeAnnotation { Label = "Rename in strings?", NeedsConfirmation = true },
+        },
+    };
+
+    [TestMethod]
+    public async Task AnEditThatAsks_IsNotApplied_ByACallThatAnswersNone_AndSaysItsQuestions()
+    {
+        ClientApplies();
+        var fixes = Fixes(new AssistantDocuments(_documents, Substitute.For<ISymbolSyncService>()), Rename());
+
+        var result = await fixes.ApplyAsync("Rename", Asking(), accept: null, CancellationToken.None);
+
+        Assert.IsFalse(result.Applied);
+        Assert.AreEqual("inString", result.Questions.Single().Id);
+        Assert.AreEqual("Main.rdc", result.Files.Single().Path);
+        await _client.DidNotReceiveWithAnyArgs().ApplyAsync(default!, default!, default);
+    }
+
+    [TestMethod]
+    [DataRow(true, 2, DisplayName = "answered yes: both edits")]
+    [DataRow(false, 1, DisplayName = "answered no: the other edit alone")]
+    public async Task AnEditThatAsks_IsApplied_AsItsQuestionsAreAnswered(bool yes, int edits)
+    {
+        ClientApplies();
+        var fixes = Fixes(new AssistantDocuments(_documents, Substitute.For<ISymbolSyncService>()), Rename());
+
+        var result = await fixes.ApplyAsync("Rename", Asking(), accept: yes ? ["inString"] : [], CancellationToken.None);
+
+        Assert.IsTrue(result.Applied);
+        Assert.IsEmpty(result.Questions);
+        await _client.Received(1).ApplyAsync("Rename", Arg.Is<WorkspaceEdit>(edit => edit.DocumentChanges!.Single().TextDocumentEdit!.Edits.Count() == edits
+            && (edit.ChangeAnnotations == null || !edit.ChangeAnnotations.Values.Any(annotation => annotation.NeedsConfirmation == true))), Arg.Any<CancellationToken>());
     }
 }
