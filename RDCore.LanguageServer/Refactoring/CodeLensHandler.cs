@@ -22,10 +22,11 @@ namespace RDCore.LanguageServer.Refactoring;
 /// with its command.
 /// </para>
 /// <para>
-/// The command of each lens is <see cref="RefactoringCommands.ShowReferences"/>, which a client runs itself: with the references, titled with their count
-/// (<see cref="RefactoringTitles.References"/>); with the implementations, as <c>textDocument/implementation</c> finds them, titled with their count
-/// (<see cref="RefactoringTitles.Implementations"/>); or with the declaration of the member an implementation implements, titled with it
-/// (<see cref="RefactoringTitles.Implements"/>).
+/// The command of a lens is one a client runs itself. A lens that leads to a single place goes to it (<see cref="RefactoringCommands.GoToLocation"/>): the
+/// declaration of the member an implementation implements, titled with it (<see cref="RefactoringTitles.Implements"/>), and the one implementation of a
+/// member. Any other lens shows its places (<see cref="RefactoringCommands.ShowReferences"/>): the references, titled with their count
+/// (<see cref="RefactoringTitles.References"/>), even when there is one or none; and the implementations, as <c>textDocument/implementation</c> finds them,
+/// titled with their count (<see cref="RefactoringTitles.Implementations"/>).
 /// </para>
 /// </remarks>
 internal sealed class CodeLensHandler(IRenameService workspace) : CodeLensHandlerBase
@@ -44,8 +45,7 @@ internal sealed class CodeLensHandler(IRenameService workspace) : CodeLensHandle
             ? new CodeLens
             {
                 Range = lens.Range,
-                Command = Show(document, lens.Range.Start, RefactoringTitles.Implements(implemented.Interface, implemented.Member),
-                    [implemented.Declaration]),
+                Command = GoTo(RefactoringTitles.Implements(implemented.Interface, implemented.Member), implemented.Declaration),
             }
             : new CodeLens
             {
@@ -75,7 +75,11 @@ internal sealed class CodeLensHandler(IRenameService workspace) : CodeLensHandle
         if (data.Value<string>("kind") == ImplementationsKind)
         {
             var implementations = composed.LensImplementations(document.ToUri(), position);
-            return request with { Command = Show(document, position, RefactoringTitles.Implementations(implementations.Count), implementations) };
+            var title = RefactoringTitles.Implementations(implementations.Count);
+            return request with
+            {
+                Command = implementations.Count == 1 ? GoTo(title, implementations[0]) : Show(document, position, title, implementations),
+            };
         }
 
         var references = composed.LensReferences(document.ToUri(), position);
@@ -88,15 +92,21 @@ internal sealed class CodeLensHandler(IRenameService workspace) : CodeLensHandle
         Name = RefactoringCommands.ShowReferences,
         Title = title,
         Arguments = new JArray(document.ToString(), JToken.FromObject(new { line = position.Line, character = position.Character }),
-            new JArray(locations.Select(location => JToken.FromObject(new
-            {
-                uri = location.Uri.ToString(),
-                range = new
-                {
-                    start = new { line = location.Range.Start.Line, character = location.Range.Start.Character },
-                    end = new { line = location.Range.End.Line, character = location.Range.End.Character },
-                },
-            })))),
+            new JArray(locations.Select(location => JToken.FromObject(new { uri = location.Uri.ToString(), range = RangeOf(location) })))),
+    };
+
+    // the command that takes the user to one place: the URI of its document and its range.
+    private static Command GoTo(string title, Location location) => new()
+    {
+        Name = RefactoringCommands.GoToLocation,
+        Title = title,
+        Arguments = new JArray(location.Uri.ToString(), JToken.FromObject(RangeOf(location))),
+    };
+
+    private static object RangeOf(Location location) => new
+    {
+        start = new { line = location.Range.Start.Line, character = location.Range.Start.Character },
+        end = new { line = location.Range.End.Line, character = location.Range.End.Character },
     };
 
     protected override CodeLensRegistrationOptions CreateRegistrationOptions(CodeLensCapability capability, ClientCapabilities clientCapabilities)
