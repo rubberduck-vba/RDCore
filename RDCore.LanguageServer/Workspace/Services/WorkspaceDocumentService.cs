@@ -185,8 +185,8 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     System.IO.Abstractions.IPath ioPath,
     System.IO.Abstractions.IFile ioFile) : IWorkspaceDocumentService
 {
-    // the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync), while requests the server answers in parallel look them up: a plain
-    // dictionary written and read at once gave those requests an internal error.
+    // a concurrent dictionary: the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync) while requests the server answers in parallel
+    // look them up, and a plain dictionary must not be read while it is written.
     private readonly ConcurrentDictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
 
     // the changes of a document that read it and write it back - the client's, the project's, a move to another path - are made one at a time, with the state they leave it
