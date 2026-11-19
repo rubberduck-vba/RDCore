@@ -8,7 +8,7 @@ RD-VBA discovers a _file system folder_ as a _workspace folder_ when the folder 
 A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes one in memory ([`IProjectFileLoader.LoadOrSynthesizeAsync`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.IProjectFileLoader.html)), and opening the folder writes nothing into it.
 
 - Every module file of the workspace's language (`SupportedLanguage.ModuleFileTypes`) under the folder, at any depth, is a module. A folder whose name starts with a dot (`.git`, `.github`) is not searched, nor a link to another folder.
-- A language's module files are its source files (**RD-VBAL §2.0.2.1.1**), except in BASIC: the modules of a workspace the interactive shell opens are RD-VBA's (`.bas`, `.cls`, `.frm`, `.doccls`), and its `.rdc` programs are not modules.
+- A language's module files are its source files (**RD-VBAL §2.0.2.1.1**), except in BASIC: the modules of a workspace the interactive shell opens are RD-VBA's standard, class, UserForm and document modules (`.bas`, `.cls`, `.frm`, `.doccls`). Neither its `.rdc` programs nor the code of an RDForms form (`.rdform`) is a module.
 - A folder that holds exactly one Visual Basic 6 project (a `.vbp`) directly under it, and no project group (a `.vbg`), is that project's: the synthesized project names the `.vbp` as its `SourceProject`, so its language is VB6.
 - No module has a `Super`: a `.doccls` is the class or standard module its text makes it, and the code of no host's document.
 - Each folder that holds a module, at any depth, is a folder of the project.
