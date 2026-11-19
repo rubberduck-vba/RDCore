@@ -177,7 +177,7 @@ public sealed class FileStatementTests
         Assert.AreEqual("\"a,b\",\"c\"\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
     }
 
-    // MS-VBAL 5.4.5.9: a comma follows each value but the last, whatever separates the two in the source, a space (an implicit ';') too; a ',' or an
+    // MS-VBAL §5.4.5.9: a comma follows each value but the last, whatever separates the two in the source, a space (an implicit ';') too; a ',' or an
     // explicit ';' after the last one holds the record open, as it does for Print.
     [TestMethod]
     [DataRow("1 2", "1,2\r\n", DisplayName = "two values separated by a space")]
