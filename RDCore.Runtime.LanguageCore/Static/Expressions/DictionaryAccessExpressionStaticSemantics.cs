@@ -58,8 +58,8 @@ public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSe
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));
         }
 
-        // the access is the index expression of the owner given the name (MS-VBAL §5.6.13): a default member that takes no parameters is called with none, and
-        // the analysis restarts on what it returns, given the name.
+        // the access is the index expression of the owner given the name (MS-VBAL §5.6.13): a default member that takes no parameters is called with none,
+        // and the analysis restarts on what it returns, given the name.
         if (ObjectValueStaticSemantics.ReturnsWhatArgumentsApplyTo(defaultMember) && !restarted.Contains(classType))
         {
             switch (defaultMember.ResolvedType)

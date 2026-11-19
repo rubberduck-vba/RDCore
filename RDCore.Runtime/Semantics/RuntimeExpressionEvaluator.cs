@@ -1818,8 +1818,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is { } variable
             && variable.GetProperty(SymbolProperties.AutoInstantiated);
 
-    // MS-VBAL §5.6.13: an object of the class it is declared as, given arguments, goes through more than one default member when its default member takes none
-    // and returns an object: of a class, or an Object. What the declaration says, where the object is not known.
+    // MS-VBAL §5.6.13: an object of the class it is declared as, given arguments, goes through more than one default member when its default member takes
+    // none and returns an object: of a class, or an Object. Where the object is not known, its declared class decides.
     private static bool IndexesThroughMoreThanOneDefaultMember(IRuntimeSession session, VBType declared, ImmutableArray<ExpressionNode> arguments)
         => declared is VBClassType declaredClass
             && CurrentTypes.Of(session.Symbols.Resolver, declaredClass) is { DefaultMember: VBReturningMemberSymbol member }

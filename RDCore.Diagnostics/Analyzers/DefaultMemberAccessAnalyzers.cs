@@ -103,12 +103,13 @@ internal static class DefaultMemberAccesses
     /// <param name="unbound">Whether the object is an <c>Object</c>, whose default member is known only at run time.</param>
     /// <param name="recursive">
     /// Whether the access of an object of a known class goes through more than one default member: one that takes no arguments gives them to the default
-    /// member of what it returns (<see cref="MemberAccessOperationSemanticFlags.Recursive"/>). Not asked of an <c>Object</c>.
+    /// member of what it returns (<see cref="MemberAccessOperationSemanticFlags.Recursive"/>). Ignored when <paramref name="unbound"/> is
+    /// <see langword="true"/>: the default member of an <c>Object</c> is known only at run time.
     /// </param>
     public static IEnumerable<OperatorFactDto> ImplicitIndexedAccesses(ModuleSemanticsDto semantics, bool dictionaryAccess, bool unbound, bool recursive = false)
         // a value assigned to an object (h = 5), or to an element that holds one (a(1) = 5), is an implicit access of its default member that is given no
-        // argument list: RDC00119 and RDC00120 report it. The host states each default member an access goes through, at the access: the access is the
-        // code's once, as what those facts say together, and named by the first default member, the one the recursive fact is of.
+        // argument list: RDC00119 and RDC00120 report it. The host states a fact at the access for each default member it goes through: those facts are
+        // read together as one access of the code, named by the first default member, whose fact carries Recursive.
         => MemberAccesses(semantics)
             .Where(access => access.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember))
             .GroupBy(access => access.Location.Range)
@@ -314,7 +315,7 @@ internal sealed class IndexedRecursiveDefaultMemberAccessAnalyzer : IModuleAnaly
 }
 
 /// <summary>
-/// <c>RDC00127</c>: a dictionary access (<c>b!key</c>) of an object of a known class whose default member takes no argument: the name goes to the default
+/// <c>RDC00127</c>: a dictionary access (<c>b!key</c>) of an object of a known class whose default member takes no arguments: the name goes to the default
 /// member of the object that one returns (<strong>MS-VBAL §5.6.14</strong>, <strong>§5.6.13</strong>).
 /// </summary>
 internal sealed class RecursiveBangNotationAnalyzer : IModuleAnalyzer
