@@ -9,6 +9,8 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
+using DeclaredTypeKind = RDCore.SDK.Semantics.DeclaredTypeKind;
+using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -21,7 +23,8 @@ namespace RDCore.Diagnostics.Analyzers;
 internal static class DefaultMemberAccesses
 {
     /// <summary>
-    /// An object let-coerced to a value: the outermost expression of an object type in the conversion, and its declared type.
+    /// An object let-coerced to a value: the outermost expression of an object type in a conversion the runtime pass states, or an expression the static facts
+    /// say is let-coerced, and its declared type.
     /// </summary>
     /// <param name="semantics">The host's model of the module.</param>
     /// <param name="module">The syntax tree of the module.</param>
@@ -32,14 +35,24 @@ internal static class DefaultMemberAccesses
             .Where(assignment => assignment.ValueIsAnObject)
             .Select(assignment => assignment.Statement.Value.SourceLocation.Range)
             .ToHashSet();
-        return semantics.Procedures
+        var converted = semantics.Procedures
             .SelectMany(procedure => (procedure.Runtime?.Conversions ?? [])
                 .Where(conversion => conversion.Flags.HasFlag(ConversionSemanticFlags.ObjectOperand))
                 .Select(conversion => OperandOf(procedure, conversion)))
-            .OfType<ExpressionFactDto>()
+            .OfType<ExpressionFactDto>();
+        // the static facts state it of the code the runtime pass does not reach as well: an operand after an error raised before it (x = CLng("abc") + h),
+        // or a procedure it does not analyze fully.
+        // an object of a class with no default member has no value to give: RDC11015 reports it.
+        return converted.Concat(StaticObjectsReadAsValues(semantics))
             .Where(operand => !objectsAssignedToObjects.Contains(operand.Location.Range))
+            .Where(operand => operand is not { TypeKind: DeclaredTypeKind.Class, DefaultMember: null })
             .DistinctBy(operand => operand.Location.Range);
     }
+
+    // the expressions the static facts say are let-coerced, of a class or of Object.
+    private static IEnumerable<ExpressionFactDto> StaticObjectsReadAsValues(ModuleSemanticsDto semantics)
+        => semantics.Procedures.SelectMany(procedure => procedure.Expressions)
+            .Where(fact => fact is { IsLetCoerced: true, Error: null, IsArray: false, TypeKind: DeclaredTypeKind.Object or DeclaredTypeKind.Class });
 
     /// <summary>
     /// The <c>Let</c> assignments (with or without the keyword) whose target is an object: a class whose default member the value is assigned to, or an
@@ -47,7 +60,7 @@ internal static class DefaultMemberAccesses
     /// </summary>
     /// <param name="semantics">The host's model of the module.</param>
     /// <param name="module">The syntax tree of the module.</param>
-    public static IEnumerable<(AssignmentStatementNode Statement, ExpressionFactDto Target, OperatorFactDto? DefaultMember, bool ValueIsAnObject)> AssignmentsToObjects(
+    public static IEnumerable<(AssignmentStatementNode Statement, ExpressionFactDto Target, string? DefaultMember, bool ValueIsAnObject)> AssignmentsToObjects(
         ModuleSemanticsDto semantics, ModuleNode module)
     {
         var expressions = semantics.Procedures.SelectMany(procedure => procedure.Expressions).ToArray();
@@ -57,6 +70,9 @@ internal static class DefaultMemberAccesses
             .Where(conversion => conversion.Flags.HasFlag(ConversionSemanticFlags.ObjectOperand))
             .Select(conversion => conversion.Location.Range)
             .ToHashSet();
+        // the static facts also state that the value of a Let is let-coerced where the runtime pass states no conversion of it: a target that is Nothing
+        // raises 91 before its default member is found, and the runtime pass has no value of a parameter, only an assumed one.
+        objectOperands.UnionWith(StaticObjectsReadAsValues(semantics).Select(fact => fact.Location.Range));
 
         foreach (var statement in module.Descendants().OfType<AssignmentStatementNode>().Where(statement => statement.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet))
         {
@@ -74,11 +90,15 @@ internal static class DefaultMemberAccesses
             // that names the default member (`label.Caption = text`, `.Value = x` in a With block) assigns that member, and no object: the host states the
             // access of a member that is the default one as a default member's access, named or not.
             var unbound = IsUnbound(target.DeclaredType);
-            // the default member of an object given the target's argument list (b(1) = 5) is RDC00121's.
-            var defaultMember = unbound ? null : accesses.FirstOrDefault(access => access.Location.Range == targetRange
+            // the default member of an object given the target's argument list (b(1) = 5) is RDC00121's. Where the runtime pass states no access at the
+            // target, as of a target that is Nothing or a parameter, the static facts give the default member of the target's class.
+            var found = unbound ? null : accesses.FirstOrDefault(access => access.Location.Range == targetRange
                 && access.MemberAccessOpSemanticFlags!.Value is var flags
                 && flags.HasFlag(MemberAccessOperationSemanticFlags.DefaultMember) && !flags.HasFlag(MemberAccessOperationSemanticFlags.ArgumentList)
                 && !Names(statement.Target, access.Member));
+            var defaultMember = found is not null ? found.Member ?? string.Empty
+                : unbound || accesses.Any(stated => stated.Location.Range == targetRange) ? null
+                : StaticDefaultMemberOf(statement.Target, target);
             if (defaultMember is null && !unbound)
             {
                 continue;
@@ -140,6 +160,14 @@ internal static class DefaultMemberAccesses
         return candidates.FirstOrDefault(fact => !candidates.Any(other => other != fact && other.Location.Range.Contains(fact.Location.Range)));
     }
 
+    // MS-VBAL §5.4.3.8: the default member a Let of a value to an object of the class assigns, as the static facts state it. A function that requires no
+    // argument is not a property to assign, and raises 438 when it runs: the runtime pass states no access of it.
+    private static string? StaticDefaultMemberOf(ExpressionNode target, ExpressionFactDto fact)
+        => fact.DefaultMember is { } member && member is not { Classification: ExpressionClassification.Function, RequiredParameters: 0 }
+            && !Names(target, member.Name)
+            ? member.Name
+            : null;
+
     // whether the target of an assignment is the access of the member, by its name.
     private static bool Names(ExpressionNode target, string? member)
         => target is MemberAccessExpressionNode access && string.Equals(access.Member.IdentifierName, member, StringComparison.OrdinalIgnoreCase);
@@ -181,7 +209,10 @@ internal sealed class ImplicitDefaultMemberAccessAnalyzer : IModuleAnalyzer
                 RDCoreDiagnosticId.ImplicitDefaultMemberAccess.ToCode(),
                 assignment.Target.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitDefaultMemberAccess_Assigned_Message, assignment.DefaultMember!.Member ?? string.Empty, assignment.Target.DeclaredType ?? string.Empty)));
+                AnalyzerMessages.Format(
+                    RDCoreDiagnosticsResources.ImplicitDefaultMemberAccess_Assigned_Message,
+                    assignment.DefaultMember!,
+                    assignment.Target.DeclaredType ?? string.Empty)));
         return reads.Concat(writes);
     }
 }
