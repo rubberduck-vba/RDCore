@@ -44,7 +44,7 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
 
     public string? ControlArrayOf { get; init; }
 
-    // the default instance variable of a class (MS-VBAL 5.2.4.1.2), which no statement declares: it is said by its name, not by a declaration.
+    // the default instance variable of a class (MS-VBAL §5.2.4.1.2), which no statement declares: it is said by its name, not by a declaration.
     public bool IsDefaultInstance { get; init; }
 
     // the library RD-VBA adds the member to, which the library's type library does not declare.
