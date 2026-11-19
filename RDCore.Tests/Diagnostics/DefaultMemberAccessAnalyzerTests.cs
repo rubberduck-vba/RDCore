@@ -55,6 +55,27 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "AssignWhatAFunctionReturns|Dim o As New Outer|o.Made = 5",
         "AssignTheObjectAPropertyReturns|Dim o As New Outer|o.Unbound = 5",
         "AssignAnArgumentListToWhatAPropertyReturns|Dim o As New Outer|o.Boxed(1) = 5",
+        "LetAnObjectToAnUnboundObject|Dim o As Object|Set o = New Holder|Dim h As New Holder|o = h",
+        "AssignAnObjectWithNoDefaultMember|Dim p As New Plain|p = 5",
+        "AssignAnObjectWhoseDefaultMemberIsAFunction|Dim op As New Opt|op = 5",
+        // the runtime pass states the statements after an error as well.
+        "AssignAnObjectAfterAnError|Dim h As New Holder|Error 5|h = 5",
+        "LetAnObjectToAnObjectAfterAnError|Dim h As New Holder|Dim h2 As New Holder|Error 5|h = h2",
+        // an object that is Nothing raises 91 before the runtime pass finds its default member: the static facts state what the Let assigns.
+        "AssignNothing|Dim h As Holder|h = 5",
+        "LetAnObjectToNothing|Dim h As Holder|Dim h2 As New Holder|h = h2",
+        "AssignNothingOfAClassWithNoDefaultMember|Dim p As Plain|p = 5",
+        "LetAnObjectToAnUnboundNothing|Dim o As Object|Dim h As New Holder|o = h",
+        "LetAnUnboundObjectToAnUnboundNothing|Dim o As Object|Dim v As Object|o = v",
+        // the runtime pass has no value of a parameter, only an assumed one: the static facts state what a Let to an object parameter assigns.
+        "AssignAByValParameter(ByVal h As Holder)|h = 5",
+        "AssignAByRefParameter(ByRef h As Holder)|h = 5",
+        "AssignAByValParameterOfAClassWithNoDefaultMember(ByVal p As Plain)|p = 5",
+        "AssignAByRefParameterOfAClassWithNoDefaultMember(ByRef p As Plain)|p = 5",
+        "LetAnObjectToAByValParameter(ByVal h As Holder)|Dim h2 As New Holder|h = h2",
+        "LetAnObjectToAByRefParameter(ByRef h As Holder)|Dim h2 As New Holder|h = h2",
+        "LetAnObjectToAByValParameterOfAClassWithNoDefaultMember(ByVal p As Plain)|Dim h2 As New Holder|p = h2",
+        "LetAnObjectToAByRefParameterOfAClassWithNoDefaultMember(ByRef p As Plain)|Dim h2 As New Holder|p = h2",
     ];
 
     private static string _source = string.Empty;
@@ -80,15 +101,16 @@ public sealed class DefaultMemberAccessAnalyzerTests
         foreach (var procedure in Procedures)
         {
             var parts = procedure.Split('|');
-            lines.Add($"Public Sub {parts[0]}()");
+            // a procedure that takes parameters is written with them.
+            lines.Add(parts[0].Contains('(', StringComparison.Ordinal) ? $"Public Sub {parts[0]}" : $"Public Sub {parts[0]}()");
             lines.Add("    Dim x As Long");
             lines.AddRange(parts.Skip(1).Select(line => "    " + line));
             lines.Add("End Sub");
         }
         lines.AddRange(["Public Sub AssignAParameter(ByVal p As Holder)", "    p = 5", "End Sub", "Public Sub Take(ByVal n As Long)", "End Sub"]);
-
         var program = ModuleWorkspace.StandardModule("Program", [.. lines]);
-        var payload = await ModuleWorkspace.SemanticsAsync([("Holder", holder), ("Bag", bag), ("Outer", outer), ("Box", box), ("Opt", opt), ("Plain", plain)], program);
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [("Holder", holder), ("Bag", bag), ("Outer", outer), ("Box", box), ("Opt", opt), ("Plain", plain)], program);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
         Assert.IsEmpty(model.Procedures.SelectMany(procedure => procedure.CompileErrors), string.Join("; ", model.Procedures.SelectMany(p => p.CompileErrors).Select(e => e.Description)));
         (_source, _model) = (program, model);
@@ -120,11 +142,12 @@ public sealed class DefaultMemberAccessAnalyzerTests
                 "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)",
                 "LetAnObjectToTheDefaultMemberByName: h2", "ReadAnObjectAfterAnError: h", "ReadAnObjectAfterAnErrorStatement: h",
                 "AssignWhatAPropertyReturns: o.Inner", "LetWhatAPropertyReturns: o.Inner", "AssignWhatAPropertyReturnsGivenNoArgument: o.Inner()",
-                "AssignWhatAFunctionReturns: o.Made", "AssignAParameter: p"),
+                "AssignWhatAFunctionReturns: o.Made", "AssignAnObjectAfterAnError: h", "AssignNothing: h", "AssignAByValParameter: h",
+                "AssignAByRefParameter: h", "AssignAParameter: p"),
             string.Join(Environment.NewLine,
                 Findings(new ImplicitDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitDefaultMemberAccess, DiagnosticSeverity.Information)),
             "what a member returns included, and not an Object, a Variant, a member named (the default member included), an object assigned to an object, "
-            + "nor a class with no default member");
+            + "nor a class with no default member to assign or a function; Nothing and a parameter too");
 
     [TestMethod]
     public void AnObjectUsedAsAValue_HasADefaultMemberKnownOnlyAtRunTime()
@@ -168,8 +191,13 @@ public sealed class DefaultMemberAccessAnalyzerTests
 
     [TestMethod]
     public void AnObjectAssignedToAnObjectWithoutSet_IsSuspicious()
-        => CollectionAssert.AreEqual(
-            new[] { "LetAnObjectToAnObject: Let h = h2", "LetAnUnboundObjectToAnObject: h = v", "LetAnObjectToAnElement: a(1) = h" },
-            Findings(new SuspiciousLetAssignmentAnalyzer(), RDCoreDiagnosticId.SuspiciousLetAssignment, DiagnosticSeverity.Warning),
-            "not a Set");
+        => Assert.AreEqual(
+            string.Join(Environment.NewLine,
+                "LetAnObjectToAnObject: Let h = h2", "LetAnUnboundObjectToAnObject: h = v", "LetAnObjectToAnElement: a(1) = h",
+                "LetAnObjectToAnUnboundObject: o = h", "LetAnObjectToAnObjectAfterAnError: h = h2", "LetAnObjectToNothing: h = h2",
+                "LetAnObjectToAnUnboundNothing: o = h", "LetAnUnboundObjectToAnUnboundNothing: o = v", "LetAnObjectToAByValParameter: h = h2",
+                "LetAnObjectToAByRefParameter: h = h2"),
+            string.Join(Environment.NewLine,
+                Findings(new SuspiciousLetAssignmentAnalyzer(), RDCoreDiagnosticId.SuspiciousLetAssignment, DiagnosticSeverity.Warning)),
+            "not a Set; to an Object too, to Nothing, and to a parameter");
 }
