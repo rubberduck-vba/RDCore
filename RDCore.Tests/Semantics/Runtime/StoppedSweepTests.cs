@@ -74,7 +74,8 @@ public sealed class StoppedSweepTests
     }
 
     // an array of the largest length costs nothing until its elements are used: the sweep makes none, and the first one used then asks the token whether
-    // to stop, which it is, so it is not made either. A value that is boxed is in the cell the array makes of its default, made with nothing asked.
+    // to stop: the token says it is, so that one is not made either. A value that is boxed is in the cell the array makes of its default, made with
+    // nothing asked.
     [TestMethod]
     [DataRow("Byte", DisplayName = "of a Byte, in a cell of its own")]
     [DataRow("Variant", DisplayName = "of a Variant, in a Variant's cell")]
