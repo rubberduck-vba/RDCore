@@ -14,3 +14,9 @@ internal sealed record class ObjectCallNode(int Callee, IReadOnlyList<PayloadNod
 
     public ObjectCallNode? ReceiverCall { get; init; }
 }
+
+// a New of a class of the workspace that a Set is given (MS-VBAL §5.6.8): the object made as the interpreter makes it (RuntimeExpressionEvaluator.CreateObject),
+// its Initialize run before the Set is given it (MS-VBAL §5.3.1.10), and held by the statement's temporaries until the statement is over. Made: the number
+// of the New (ProcedureAnalysis.News). Once it is made, the instruction is handed to the interpreter in the middle of it with the object known (Syntax):
+// the object is not made again.
+internal sealed record class NewNode(int Made, int Syntax);

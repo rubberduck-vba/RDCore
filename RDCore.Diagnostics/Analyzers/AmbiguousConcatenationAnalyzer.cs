@@ -15,6 +15,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class AmbiguousConcatenationAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.AmbiguousConcatenation.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

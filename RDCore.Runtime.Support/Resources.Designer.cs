@@ -79,6 +79,33 @@ namespace RDCore.Runtime.Support {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to No standard module declares {0}, the entry point the project&apos;s build section names: the program has nowhere to start..
+        /// </summary>
+        public static string Build_NamedEntryPointNotFound {
+            get {
+                return ResourceManager.GetString("Build_NamedEntryPointNotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The project is a library (its build section&apos;s outputType), which is not run: it has no entry point..
+        /// </summary>
+        public static string Build_LibraryNotRun {
+            get {
+                return ResourceManager.GetString("Build_LibraryNotRun", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} ({1}).
+        /// </summary>
+        public static string Build_Refusal {
+            get {
+                return ResourceManager.GetString("Build_Refusal", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to {0} &apos;{1}&apos;: {2} ({3}).
         /// </summary>
         public static string Run_RuntimeError {
@@ -213,6 +240,11 @@ namespace RDCore.Runtime.Support {
         ///   Looks up a localized string similar to a constant that sizes what a variable holds, given another value.
         /// </summary>
         public static string Host_Edit_ValueThatSizesStoredData => ResourceManager.GetString("Host_Edit_ValueThatSizesStoredData", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a module added while the program waits, which the program has no code of, and which is part of the project once the program is over; remove it to go on.
+        /// </summary>
+        public static string Host_Edit_ModuleAdded => ResourceManager.GetString("Host_Edit_ModuleAdded", resourceCulture)!;
 
         /// <summary>
         ///   Looks up a localized string similar to a constant a procedure the program is in already read, given another value, which is not applied to a program that waits yet.

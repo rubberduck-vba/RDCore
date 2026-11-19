@@ -56,9 +56,10 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         {
             // the standard library's class, named by its library, whatever else a referenced library declares by that name.
             var declared = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, "ErrObject", StaticSymbol.GlobalUri).Symbol;
+            // every session the platform composes defines the standard library: one without it is a fault of the platform's, an internal error.
             if (declared is not VBClassModuleSymbol errorClass)
             {
-                return Fail<VBObjectValue>(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError,
+                return Fail<VBObjectValue>(VBRuntimeErrorId.InternalError,
                     "The standard library's 'ErrObject' class is not defined in this session.");
             }
 
@@ -122,9 +123,20 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
             VBEmptyValue or VBBooleanValue => true,
             VBDateValue => false,
             VBNumericTypedValue => true,
-            VBStringValue text => ValueConversions.ToNumeric(text, VBDoubleType.TypeInfo, session.Environment.Regional).IsSuccess,
+            VBStringValue text => IsNumberOf(session, text.Value),
             _ => false,
         });
+
+    /// <summary>
+    /// <c>IsNumeric</c> of a <c>String</c>: whether it Let-coerces to a <c>Double</c> (<strong>MS-VBAL §5.5.1.2.4</strong>), which is what
+    /// <see cref="IsNumeric"/> says of it, as MS-VBA's does (<strong>MS-VBAL §6.1.2.7.1.8</strong> names numeric types only). Compiled code calls it in
+    /// place of <see cref="IsNumeric"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose regional settings the number is written by.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>Whether the text reads as a number.</returns>
+    [StdLibIntrinsic(typeof(IStdInformationModule), nameof(IsNumeric))]
+    public static bool IsNumberOf(IRuntimeSession session, string? text) => ValueConversions.IsNumber(text, session.Environment.Regional);
 
     public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsObject(VBVariantValue arg)
         => Answer(Unwrapped(arg) is VBObjectValue);
@@ -156,8 +168,8 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
     public RuntimeSemanticsEvaluationResult<VBLongValue> VarType(VBVariantValue varName)
         => Succeed(new VBLongValue((int)VarTypeOf(ValueOf(varName))));
 
-    // a Variant that holds a Variant holds what that one does.
-    private static VBTypedValue Unwrapped(VBTypedValue value)
+    // a Variant that holds a Variant holds what that one does, in a Variant's cell that compiled code reads too (VariantOperations).
+    internal static VBTypedValue Unwrapped(VBTypedValue value)
     {
         while (value is VBVariantValue variant)
         {
@@ -237,14 +249,18 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         }
 
         // a form that was unloaded is an object whose form is gone, which MS-VBA calls a UserForm whatever form it was; a class of the library whose objects MS-VBA
-        // names otherwise is what it says (oracle\s41 U15, U01).
-        return Execution.External.Forms.SessionForms.Of(session).IsUnloaded(reference.Value)
-            ? SDK.Workspace.Forms.FormObject.ClassName
-            : instance.ClassModule.GetProperty(SymbolProperties.ReportedTypeName) ?? instance.ClassModule.Name;
+        // names otherwise is what it says (recorded in Excel).
+        if (Execution.External.Forms.SessionForms.Of(session).IsUnloaded(reference.Value))
+        {
+            return SDK.Workspace.Forms.FormObject.ClassName;
+        }
+
+        var classModule = Execution.External.Automation.ServerObjects.ClassOf(session, reference.Value, instance.ClassModule);
+        return classModule.GetProperty(SymbolProperties.ReportedTypeName) ?? classModule.Name;
     }
 
-    // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of.
-    private static string NameOf(VBVarType varType) => varType switch
+    // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of: what compiled code names a Variant's subtype by too (VariantOperations.TypeName).
+    internal static string NameOf(VBVarType varType) => varType switch
     {
         VBVarType.VBEmpty => "Empty",
         VBVarType.VBNull => "Null",

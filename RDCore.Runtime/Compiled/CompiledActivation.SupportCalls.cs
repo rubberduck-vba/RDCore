@@ -20,6 +20,8 @@ public sealed partial class CompiledActivation
     /// </returns>
     public bool RunStatement(int pc)
     {
+        _body.CountSupportCall();
+
         // the frame the statement resolves its names in: an activation without one is given it now.
         Frame.Pc = pc;
         _failed = null;

@@ -24,7 +24,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// <summary>
 /// A golden master of the operators <see cref="ArithmeticOperatorsGoldenMasterTests"/> does not record - the relational operators, <c>Like</c>, <c>Is</c>,
 /// <c>&amp;</c>, the logical operators, <c>Not</c> and unary <c>+</c> - compared line for line with what was recorded before their operation plans were extracted
-/// from the operator semantics (IR lowering S0.3). A line that differs is a change in behaviour.
+/// from the operator semantics. A line that differs is a change in behaviour.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -40,6 +40,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// The snapshot is <c>GoldenMasters/other-operators.txt.gz</c>, next to this file, recorded and compared as <see cref="GoldenMaster"/> says.
 /// </para>
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9 Operators")]
 public sealed class OtherOperatorsGoldenMasterTests : LetCoercionRuntimeSemanticsTests

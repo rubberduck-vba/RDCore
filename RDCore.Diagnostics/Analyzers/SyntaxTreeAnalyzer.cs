@@ -13,6 +13,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal abstract class SyntaxTreeAnalyzer : IModuleAnalyzer
 {
+    public abstract IReadOnlyList<RDCoreDiagnosticCode> Codes { get; }
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => context.ParseResult.SyntaxTree is { } module ? Analyze(module) : [];
 

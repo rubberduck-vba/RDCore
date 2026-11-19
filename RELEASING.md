@@ -17,7 +17,7 @@ This is the maintainer runbook for publishing a **preview build** of the RDCore 
 
 - Each archive is the **platform root** itself (`rdcore.json` at its top level), used as extracted. It is not an installer, and it is not a certified build. A Linux or macOS archive is a tar.gz, which keeps the executables' execute bit.
 - The release metadata of an archive is the `release.json` it contains, named after the archive so that the metadata of every archive can sit side by side in one release.
-- Release configuration, _framework-dependent_: users need the .NET 10 runtime for their architecture.
+- Release configuration, _framework-dependent_: users need the .NET 11 runtime for their architecture.
 - Everything is built by the **Release** workflow, each archive on its own system, from a `v*` tag a maintainer pushes.
 
 The version depends on what started the workflow:
@@ -178,7 +178,7 @@ release.json                 release metadata: version, runtime, launch, source,
 SOURCE.md                    where to get the corresponding source
 NOTICE.md                    copyright, licence, third-party code, trademarks
 LICENSE-GPLv3.md
-THIRD-PARTY-NOTICES.txt      packages (RDCore.SDK included) and their licences
+THIRD-PARTY-NOTICES.txt      packages (RDCore.SDK included), third-party source compiled in, and their licences
 THIRD-PARTY-NOTICES.json     the same, as data: what rdc build writes a built program's notices from
 RDCore.CLI/                  rdc.exe (hostService)
 RDCore.LanguageServer/       RDCore.LanguageServer.exe (langService)
@@ -199,7 +199,7 @@ There is no `Logs/` folder: the platform writes its logs to its user's folders (
 ## Known limitations
 
 - **Unsigned.** On Windows, SmartScreen may warn about the executables, and Windows 11 _Smart App Control_ may block them. On macOS, Gatekeeper refuses to start a downloaded program that Apple has not notarized; `xattr -dr com.apple.quarantine <folder>` clears the quarantine of an extracted archive.
-- **Framework-dependent.** The .NET 10 runtime (`Microsoft.NETCore.App`) for the archive's architecture must be installed; `release.json` records the minimum version.
+- **Framework-dependent.** The .NET 11 runtime (`Microsoft.NETCore.App`) for the archive's architecture must be installed; `release.json` records the minimum version.
 - **64-bit only**: `win-x64`, `linux-x64`, `osx-x64` and `osx-arm64`. On Windows, what the process loads must be 64-bit too.
   - **UserForms** host Microsoft Forms 2.0, which needs **64-bit Office** (the 64-bit `FM20.DLL`); with 32-bit Office, a form fails to load.
   - A **`Declare`** statement's library must be a 64-bit DLL.

@@ -53,13 +53,23 @@ public static class ArgumentMapping
     public static ArgumentMap Map(ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> arguments)
     {
         // `Area()` is a call that supplies nothing; the parser reads the empty parentheses as one omitted argument, which a procedure that takes none has no
-        // parameter for, and a ParamArray that comes first does not collect: `Total()` passes it no element, as MS-VBA has it (oracle\ismissing I05).
+        // parameter for, and a ParamArray that comes first does not collect: `Total()` passes it no element, as MS-VBA has it.
         if (arguments is [MissingArgumentNode] && (parameters.IsEmpty || parameters[0] is ParamArrayParameterSymbol))
         {
             arguments = [];
         }
 
-        var paramArrayIndex = parameters.Length > 0 && parameters[^1] is ParamArrayParameterSymbol ? parameters.Length - 1 : -1;
+        // a ParamArray is the last parameter source can declare. A member of a late-bound object called with named arguments has a parameter of each name
+        // after it, which only a name reaches.
+        var paramArrayIndex = -1;
+        for (var index = parameters.Length - 1; index >= 0; index--)
+        {
+            if (parameters[index] is ParamArrayParameterSymbol)
+            {
+                paramArrayIndex = index;
+                break;
+            }
+        }
         var mapped = new ExpressionNode?[parameters.Length];
         var paramArrayArguments = ImmutableArray.CreateBuilder<ExpressionNode>();
         var positionalIndex = 0;

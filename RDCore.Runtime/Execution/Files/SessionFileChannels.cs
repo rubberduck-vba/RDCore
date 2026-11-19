@@ -33,7 +33,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     /// means, so this is implementation-defined — and it is what MS-VBA uses, which is the only answer a
     /// program written against MS-VBA would agree with.
     /// </remarks>
-    private const int DefaultRandomRecordLength = 128;
+    internal const int DefaultRandomRecordLength = 128;
 
     private sealed record class Channel(
         int FileNumber,
@@ -64,13 +64,13 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
 
         public long Length => Stream.Length;
 
-        // an Append channel begins where the file ends, which is what MS-VBA counts its Seek and Loc from (recorded in Excel, oracle\s25 Q03).
+        // an Append channel begins where the file ends, which is what MS-VBA counts its Seek and Loc from (observed in Excel).
         public long Origin { get; init; }
 
         // the complete path of the file, which the channel is compared by: Path is as the Open gave it.
         public string FullPath { get; init; } = Path;
 
-        // what the last Get read: EOF of a Random or Binary channel is that it could not read an entire record (oracle\s25 E03, E04).
+        // what the last Get read: EOF of a Random or Binary channel is that it could not read an entire record (observed in Excel).
         public bool IsPastEndOfRecords { get; private set; }
 
         public RDCoreDiagnosticCode? LockRange(FileRecordRange range)
@@ -126,20 +126,71 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         }
 
         public bool TryWriteRecord(VBTypedValue value, bool isVariant, out int written)
-            => RecordDataFormat.TryWrite(Stream, value, Mode, isVariant, out written);
+        {
+            var start = Stream.Position;
+            if (Mode is not VBFileMode.Random)
+            {
+                return RecordDataFormat.TryWrite(Stream, value, Mode, isVariant, out written);
+            }
+
+            // a record longer than the channel's records, of 128 bytes when it was opened with no Len, is not written at all, which Put then raises 59
+            // for (MS-VBA, recorded in Excel).
+            using var record = new MemoryStream();
+            if (!RecordDataFormat.TryWrite(record, value, Mode, isVariant, out written))
+            {
+                return false;
+            }
+
+            if (written <= PositionUnit)
+            {
+                record.WriteTo(Stream);
+                Stream.Flush();
+                NextRecord(start);
+            }
+
+            return true;
+        }
 
         public bool TryReadRecord(VBType declaredType, int currentLength, out VBTypedValue? value)
         {
-            var read = RecordDataFormat.TryRead(Stream, declaredType, Mode, currentLength, out value);
-            IsPastEndOfRecords = !read;
-            return read;
+            var start = Stream.Position;
+            return Read(start, RecordDataFormat.TryRead(Stream, declaredType, Mode, currentLength, out value));
         }
 
         public bool TryReadRecordInto(VBUserDefinedTypeValue userDefinedType)
         {
-            var read = RecordDataFormat.TryReadInto(Stream, userDefinedType, Mode);
-            IsPastEndOfRecords = !read;
+            var start = Stream.Position;
+            return Read(start, RecordDataFormat.TryReadInto(Stream, userDefinedType, Mode));
+        }
+
+        public bool TryReadRecordInto(VBArrayValue array)
+        {
+            var start = Stream.Position;
+            return Read(start, RecordDataFormat.TryReadInto(Stream, array, Mode));
+        }
+
+        // a read past the end of the file reads zeros and moves past them (RecordDataFormat), which leaves the position past the end. A record of a
+        // Random channel is past the end of the file when the file ends before the record does, whatever the variable read of it: EOF is True after a
+        // Get of the last record of a file that ends inside it, and False after one that ends with it (MS-VBA, recorded in Excel).
+        private bool Read(long start, bool read)
+        {
+            IsPastEndOfRecords = !read || Stream.Position > Stream.Length || (Mode is VBFileMode.Random && start + PositionUnit > Stream.Length);
+            if (read)
+            {
+                NextRecord(start);
+            }
+
             return read;
+        }
+
+        // a Put or a Get of a Random channel leaves the file-pointer-position at the next record, however much of its own record it wrote or read: the
+        // next Put or Get without a record number is of the next record, and Loc is the record it was of (MS-VBA, recorded in Excel).
+        private void NextRecord(long start)
+        {
+            if (Mode is VBFileMode.Random)
+            {
+                Stream.Seek(start + PositionUnit, SeekOrigin.Begin);
+            }
         }
 
         // "If the file number value was opened with <mode> Input, Output, or Append, the effect is as if no

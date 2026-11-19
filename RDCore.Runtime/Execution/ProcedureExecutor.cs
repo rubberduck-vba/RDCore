@@ -12,6 +12,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -85,7 +86,7 @@ namespace RDCore.Runtime.Execution;
 /// propagates rather than re-entering it — real VBA's own asymmetry between the two, not a simplification.
 /// <c>Resume</c>/<c>Resume Next</c>/<c>Resume</c> &lt;label&gt; all require an active error (error 20
 /// otherwise) and clear it; <c>Error</c> &lt;number&gt; raises a run-time error directly, "as if
-/// <c>Err.Raise</c> were invoked." What this slice does NOT model: the <c>Err</c> object itself as
+/// <c>Err.Raise</c> were invoked." What this does NOT model: the <c>Err</c> object itself as
 /// something VBA source can read/call (<c>Err.Number</c>, <c>Err.Raise(...)</c> — needs member-dispatch
 /// machinery, S9's job) and a <c>Default</c>-policy error actually propagating to a real CALLER activation
 /// (no multi-frame call stack exists yet — today, "propagate" means this <c>Run</c> call's own return
@@ -117,6 +118,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
     // above zero while a breakpoint's condition is evaluated: a procedure the condition calls runs on this executor, and neither waits at a breakpoint nor ends a step.
     private int _conditionDepth;
+
+    // whether a breakpoint's condition is being evaluated: an error a procedure it calls leaves unhandled is the condition's, and ends no program.
+    internal bool EvaluatesACondition => _conditionDepth > 0;
 
     // Whether the program waits at a breakpoint that was reached: always for one with no condition, and for one with a condition when it is True. A condition that
     // raises an error waits the program as well - a breakpoint that is passed over because its condition is wrong is one the person never learns is wrong - and the
@@ -173,7 +177,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// Runs the one instruction of <paramref name="list"/> at <paramref name="frame"/>'s <c>Pc</c>, as <see cref="Run(IRuntimeSession, ICallStackFrame,
     /// InstructionList, RuntimeEvaluationContext)"/> runs each - its error given the activation's handler - or, given the <paramref name="failed"/> outcome
     /// of that instruction, which a caller other than this executor ran, the outcome alone. What compiled code hands over of an activation that has an error
-    /// handler (IR lowering S2.4).
+    /// handler.
     /// </summary>
     /// <returns>
     /// <see cref="RuntimeExecutionOutcome.Next"/> when the activation goes on, at the frame's <c>Pc</c>; otherwise what it returns, or what stopped it.
@@ -371,21 +375,16 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 continue;
             }
 
-            // the instruction before this one is over: what its expressions made is let go of, and so is what a block the program is no longer in
-            // held (a With's target, a For Each's enumerator) after its End With or its Next, or a jump out of it. What compiled code evaluated of an
-            // instruction it handed over is let go of with its temporaries, never after them: an object it knew is held by them alone. The instruction it
-            // handed over in the middle of is not over: it goes on, holding what compiled code made of it.
+            // the instruction before this one is over: what its expressions made is let go of. What a block holds is not: a With's target is let go of at
+            // its End With, and a For Each's enumerator when the loop is over (HoldForBlock). What compiled code evaluated of an instruction it handed
+            // over is let go of with its temporaries, never after them: an object it knew is held by them alone. The instruction it handed over in the middle
+            // of is not over: it goes on, holding what compiled code made of it.
             var resumed = inside;
             inside = false;
             if (!resumed)
             {
                 activation.Forget();
                 ObjectReferences.ReleaseTemporaries(session, temporaries);
-            }
-
-            foreach (var holder in activation.TakeBlockHoldersOutside(activation.Pc))
-            {
-                ObjectReferences.Release(session, holder);
             }
 
             // a program waits only before an instruction that is on a line (a statement, a block's closer). The jump that ends a branch is on none: it is
@@ -534,6 +533,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                         // (no VBC id wired yet) that lowering also leaves unresolved rather than guess.
                         return RuntimeExecutionOutcome.InternalError;
                     }
+
+                    LeaveLoops(session, activation, instruction.Offset, target);
                     activation.Pc = target;
                     break;
 
@@ -733,48 +734,73 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // what an On Error statement makes the activation's policy. In a handler it is the policy once the handler is over, and nothing more: the error is still the
-    // one being handled, which a Resume still resumes, and a second error in the handler still goes to the caller (MS-VBA, Excel-verified, oracle\s53 A02-A04,
-    // A08, A09, C01-C03). Anywhere else, it is the policy from now on.
+    // one being handled, which a Resume still resumes, and a second error in the handler still goes to the caller (MS-VBA, observed in Excel).
+    // Anywhere else, it is the policy from now on.
     private static ErrorHandlerState PolicyOf(ErrorHandlerState current, ErrorHandlingMode mode, int? target)
         => current.IsHandling
             ? current with { HandlerTarget = target, AfterHandling = mode }
             : new ErrorHandlerState(mode, target, null, null);
 
     /// <summary>
-    /// What the <c>On Error</c> statement <paramref name="instruction"/> does (MS-VBAL §5.4.4): the activation's error handling policy set, and the Err
-    /// object cleared (§6.1.3.2.1). Compiled code does it too (IR lowering S2.4).
+    /// What the <c>On Error</c> statement <paramref name="instruction"/> does (MS-VBAL §5.4.4.1): the activation's error handling policy set, and the Err
+    /// object cleared (§6.1.3.2.1.1). Compiled code does it too.
     /// </summary>
+    /// <param name="session">The session whose Err object is cleared.</param>
+    /// <param name="activation">The frame whose error handling policy the statement sets.</param>
+    /// <param name="instruction">The <c>On Error</c> statement.</param>
     /// <returns><see langword="false"/> for an <c>On Error GoTo</c> whose label was not resolved, which reported its own compile error.</returns>
     internal static bool TryApplyOnError(IRuntimeSession session, CallStackFrame activation, Instruction instruction)
+    {
+        if (!TryApplyOnError(session, activation.ErrorHandler, instruction, out var policy))
+        {
+            return false;
+        }
+
+        activation.ErrorHandler = policy;
+        return true;
+    }
+
+    /// <summary>
+    /// What the <c>On Error</c> statement <paramref name="instruction"/> does to the error handling policy <paramref name="current"/> of an activation that
+    /// holds it without a frame (MS-VBAL §5.4.4.1), the Err object cleared as for one with a frame (§6.1.3.2.1.1).
+    /// </summary>
+    /// <param name="session">The session whose Err object is cleared.</param>
+    /// <param name="current">The activation's error handling policy before the statement.</param>
+    /// <param name="instruction">The <c>On Error</c> statement.</param>
+    /// <param name="policy">The policy the statement sets, or <paramref name="current"/> when it returns <see langword="false"/>.</param>
+    /// <returns><see langword="false"/> for an <c>On Error GoTo</c> whose label was not resolved, which reported its own compile error.</returns>
+    internal static bool TryApplyOnError(IRuntimeSession session, ErrorHandlerState current, Instruction instruction, out ErrorHandlerState policy)
     {
         switch (instruction.Kind)
         {
             case InstructionKind.OnErrorGoTo:
                 if (instruction.Target is not { } handlerTarget)
                 {
+                    policy = current;
                     return false;
                 }
-                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.GoTo, handlerTarget);
+                policy = PolicyOf(current, ErrorHandlingMode.GoTo, handlerTarget);
                 break;
 
             case InstructionKind.OnErrorDisable:
                 // On Error GoTo 0 is an On Error statement too, and §6.1.3.2.1 makes no exception for it.
-                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.Disabled, null);
+                policy = PolicyOf(current, ErrorHandlingMode.Disabled, null);
                 break;
 
             case InstructionKind.OnErrorReset:
                 // On Error GoTo -1 ends the error being handled, and keeps the policy: in a handler, the one it is to have after it - the On Error GoTo
-                // label it caught the error with, unless it said otherwise - and Resume has nothing to resume (MS-VBA, oracle\s53 A05, C04).
-                activation.ErrorHandler = activation.ErrorHandler.IsHandling
-                    ? activation.ErrorHandler.HandlingOver()
-                    : activation.ErrorHandler with { ActiveError = null, FaultStatementOffset = null };
+                // label it caught the error with, unless it said otherwise - and Resume has nothing to resume (MS-VBA, observed in Excel).
+                policy = current.IsHandling
+                    ? current.HandlingOver()
+                    : current with { ActiveError = null, FaultStatementOffset = null };
                 break;
 
             case InstructionKind.OnErrorResumeNext:
-                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.ResumeNext, null);
+                policy = PolicyOf(current, ErrorHandlingMode.ResumeNext, null);
                 break;
 
             default:
+                policy = current;
                 return false;
         }
 
@@ -784,8 +810,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // MS-VBAL §6.1.3.2.1: Exit Sub, Exit Function and Exit Property clear Err. In MS-VBA, reaching the end of the body does too, and either does only from
-    // within an error handler - an error On Error GoTo caught: one On Error Resume Next went on past is still Err when the procedure returns (recorded in
-    // Excel, grid oracle\s44 U01-U07). Compiled code's Exit does it too.
+    // within an error handler - an error On Error GoTo caught: one On Error Resume Next went on past is still Err when the procedure returns (observed in
+    // Excel). Compiled code's Exit does it too.
     internal static void ClearHandledError(IRuntimeSession session, CallStackFrame activation)
     {
         if (activation.ErrorHandler is { ActiveError: not null, Mode: not ErrorHandlingMode.ResumeNext })
@@ -798,7 +824,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // whatever the previous instruction's own context happened to carry - a GoTo into or out of a With
     // block leaves no stale stack, so this is recomputed fresh every fetch rather than pushed/popped.
     // An instruction of a block whose With statement did not set a target - jumped into, its target in error and resumed past, or past its End With and
-    // jumped back into - has Nothing for one: a member with no object before the dot is error 91 (MS-VBA, grid oracle\s16 W02-W07).
+    // jumped back into - has Nothing for one: a member with no object before the dot is error 91 (MS-VBA, observed in Excel).
     // Compiled code evaluates a statement of a With block in the context this gives it too (CompiledActivation.ContextAt).
     internal static RuntimeEvaluationContext ResolveContext(
         RuntimeEvaluationContext outer, CallStackFrame activation, InstructionList list, Instruction instruction)
@@ -889,7 +915,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
 
         // MS-VBAL §5.4.2.10: "the select-expression is immediately evaluated" - once, ahead of every
-        // Case header's own range-clause matching against it. A selector evaluated on payloads is kept as one (S1.6).
+        // Case header's own range-clause matching against it. A selector evaluated on payloads is kept as one.
         if (cases.TryEvaluateSelectorUnboxed(session, selectCase.ControlExpression, context, out var payload))
         {
             activation.SetSelectorPayload(instruction.Offset, payload);
@@ -912,7 +938,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // outcome only when execution must stop.
     private RuntimeExecutionOutcome? ExecuteCaseHeader(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation, int selectOffset)
     {
-        // a selector kept as a payload (S1.6) is compared as one; a Case it is not is compared boxed, with the selector made a value of it.
+        // a selector kept as a payload is compared as one; a Case it is not is compared boxed, with the selector made a value of it.
         VBTypedValue? selector = null;
         if (instruction.Node is CaseExpressionStatementNode payloadCase && activation.TryGetSelectorPayload(selectOffset, out var payload))
         {
@@ -1000,7 +1026,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         // MS-VBAL §5.4.2.21: "If <expression> is classified as a variable, that variable is the With block variable" - which MS-VBA holds to for a
         // record, whose fields the block writes where they are. An object it holds as a value is held: the reference the variable held when the block
-        // began, which a Set of the variable in the block does not change (recorded in Excel, grid oracle\s16 W09-W10), and which the block holds until
+        // began, which a Set of the variable in the block does not change (observed in Excel), and which the block holds until
         // its End With - "Nothing is assigned to the anonymous With block variable".
         if (IsRecord(targetResult.Result!) && withTargets.DenotesAVariable(session, context, withStatement.WithExpression))
         {
@@ -1026,7 +1052,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // MS-VBAL §5.4.2.21: End With assigns Nothing to the block variable. The block has no target from here on - a jump back into it finds none, and a
-    // member read with no object before the dot is error 91 (MS-VBA, grid oracle\s16 W06-W07) - and lets go of what it held.
+    // member read with no object before the dot is error 91 (MS-VBA, observed in Excel) - and lets go of what it held.
     private static void ExecuteEndWith(IRuntimeSession session, Instruction instruction, CallStackFrame activation)
     {
         if (instruction.Matching is not { } opener)
@@ -1042,10 +1068,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // MS-VBAL §5.4.2.21: the object of a With block is held by the block, "the With block variable", until its End With - whatever the statements in
-    // it do to the variable it was read from, and wherever the program jumps meanwhile: a jump out of the block and back in finds it (MS-VBA, grid
-    // oracle\s16 W05, W08). A For Each holds what it enumerates the same way: its enumerator, or the array whose elements it reads, which may be a value
-    // nothing else holds (For Each w In MakeWidgets()); it is let go of when the program is past the block (RunInstructions). Both are let go of when the
-    // activation is (RuntimeProcedureInvoker).
+    // it do to the variable it was read from, and wherever the program jumps meanwhile: a jump out of the block and back in finds it (MS-VBA, observed in
+    // Excel). A For Each holds what it enumerates the same way while the loop runs: its enumerator, or the array whose elements it reads. The loop goes on
+    // over it after a GoSub out of the loop returns, or a handler past it resumes; it is let go of when the loop is over - its Next finds no element left,
+    // or an Exit For or a jump leaves it (LeaveLoops) - or is started again, which lets go of the one it held before, and the array is locked only while the
+    // loop runs (CallStackFrame.LocksArray). What is still held is let go of when the activation is (RuntimeProcedureInvoker).
     private static void HoldForBlock(IRuntimeSession session, CallStackFrame activation, Instruction opener, VBTypedValue value)
     {
         if (opener.End is not { } end || value is not (VBObjectValue or VBVariantValue or VBArrayValue))
@@ -1053,10 +1080,48 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return;
         }
 
-        var cell = activation.BlockHolder(opener.Offset, opener.Kind is InstructionKind.With ? null : end);
+        Hold(session, activation.BlockHolder(opener.Offset, opener.Kind is InstructionKind.With ? null : end), value);
+    }
+
+    // what the collection expression of a For Each made - a function's result, a property's value - is held as a hidden local of the activation, until it
+    // returns or the loop is started again, after the loop is over (MS-VBA, observed in Excel): the objects of an array a function returned outlive the loop.
+    // A variable is not held: what it holds goes when the variable lets go of it, once the loop no longer holds it.
+    private static void HoldForEachSource(IRuntimeSession session, CallStackFrame activation, Instruction opener, ExpressionNode expression, VBTypedValue value,
+        RuntimeEvaluationContext context)
+    {
+        if (value is not (VBObjectValue or VBVariantValue or VBArrayValue) || expression is SimpleNameExpressionNode name
+            && session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is VBLocalVariableSymbol or VBParameterSymbol
+                or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol)
+        {
+            return;
+        }
+
+        Hold(session, activation.SourceHolder(opener.Offset), value);
+    }
+
+    private static void Hold(IRuntimeSession session, ValueBindingHandle cell, VBTypedValue value)
+    {
         var before = ObjectReferences.HeldIn(session, cell);
         cell.Store(value is VBArrayValue ? SymbolAddressTable.BoxedValue(value) : value.RuntimeValue, !value.IsIndeterminate);
         ObjectReferences.Rebind(session, cell, before);
+    }
+
+    // a jump from inside a For Each to past it - an Exit For, a GoTo - ends the loop: what it held is let go of.
+    internal static void LeaveLoops(IRuntimeSession session, CallStackFrame activation, int from, int to)
+    {
+        foreach (var held in activation.TakeLoopHoldersLeft(from, to))
+        {
+            ObjectReferences.Release(session, held);
+        }
+    }
+
+    // a For Each whose Next finds no element left is over: what it held is let go of.
+    private static void EndLoop(IRuntimeSession session, CallStackFrame activation, int opener)
+    {
+        if (activation.TakeBlockHolder(opener) is { } held)
+        {
+            ObjectReferences.Release(session, held);
+        }
     }
 
     // Returns null when start/end/step were evaluated and stashed successfully and the loop should keep
@@ -1113,7 +1178,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var state = new ForLoopState(counterSymbol, forStatement.ControlExpression, counted.End, counted.Step)
         {
             CountsDown = ForLoopEvaluator.CountsDown(counted.Step),
-            // what stepping on payloads keeps from one Next to the next (IR lowering S1): filled by the first.
+            // what stepping on payloads keeps from one Next to the next: filled by the first.
             RuntimeState = new ForLoopPayloads(),
         };
 
@@ -1157,7 +1222,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // MS-VBAL §5.4.4.1: a For statement whose start, end or step raised an error, or whose counter could not be given the start, keeps nothing of what it
     // evaluated - the counter is not assigned, and its loop has the end and the step it had before. Under Resume Next its body runs, untested, and its Next
     // steps the counter with them: what an earlier pass through the statement left, or a 0 end and a 0 step (a step of 1 for a loop that writes none) when
-    // there was none (MS-VBA, recorded in Excel: oracle\s54 F01-F07, X01-X04).
+    // there was none (MS-VBA, observed in Excel).
     private RuntimeExecutionOutcome Unevaluated(IRuntimeSession session, Instruction instruction, CallStackFrame activation, ForStatementNode forStatement,
         Symbol counterSymbol, VBType counterType, RuntimeExecutionOutcome failure)
     {
@@ -1188,7 +1253,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 instruction.Location ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
         }
 
-        // a counter that holds a payload is stepped on payloads (IR lowering S1.2); a step that would raise an error is the boxed path's to raise.
+        // a counter that holds a payload is stepped on payloads; a step that would raise an error is the boxed path's to raise.
         if (forLoop.TryStepUnboxed(session, state, context, out var isPastTheEnd))
         {
             if (isPastTheEnd)
@@ -1288,6 +1353,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             return ToFailureOutcome(collectionResult);
         }
+
+        HoldForEachSource(session, activation, instruction, forEachStatement.CollectionExpression, collectionResult.Result!, context);
 
         // a Variant holding an array (or an object) reports its own TypeInfo as the wrapped value's,
         // but stays a VBVariantValue instance - unwrap it here (recursively) so "For Each x In v" on a
@@ -1419,6 +1486,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return notEmptied;
             }
 
+            EndLoop(session, activation, instruction.Offset);
             activation.Pc = emptyEnd;
             return null;
         }
@@ -1510,6 +1578,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return notEmptied;
                 }
 
+                EndLoop(session, activation, openerOffset);
                 activation.Pc = instruction.Offset + 1;
                 return null;
             }
@@ -1532,11 +1601,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return notEmptied;
             }
 
+            EndLoop(session, activation, openerOffset);
             activation.Pc = instruction.Offset + 1;
             return null;
         }
 
-        // an element of an array of a scalar type is let-assigned to a Variant control variable as the payload it is (S1.6): the Variant holds a value of
+        // an element of an array of a scalar type is let-assigned to a Variant control variable as the payload it is: the Variant holds a value of
         // the element's type, as the assignment makes it hold. A control variable that holds an object is assigned boxed, which lets go of it.
         var payloads = state.RuntimeState as ForEachPayloads ?? NewForEachPayloads(activation, state);
         if (observation is null && UnboxedEvaluation.IsEnabled && !state.Array.IsIndeterminate && payloads.Control is { } slot
@@ -1632,6 +1702,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             activation.PushGoSubReturn(instruction.Offset + 1);
         }
+        else
+        {
+            LeaveLoops(session, activation, instruction.Offset, target);
+        }
+
         activation.Pc = target;
         return null;
     }
@@ -1731,9 +1806,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         // a program under a debugger that asked to see errors waits here, where the error was raised and nothing has been unwound: the activation is the one that faulted,
         // at the statement that did. It goes on from here when it is resumed. An error a handler catches is caught; one nothing catches is not given to the
-        // program, which runs the statement that raised it again - to raise it again, and wait again, unless it was edited (MS-VBA, measured in Excel,
-        // oracle\error-break B1). A program moved while it waits goes on from where it was moved to, the error not given to it either. Err keeps the error
-        // in both (B2, B4). The code may be edited while it waits: the activation is then moved into its edited body (CallStackFrame.TryRebase) - to the
+        // program, which runs the statement that raised it again - to raise it again, and wait again, unless it was edited (MS-VBA, observed in Excel).
+        // A program moved while it waits goes on from where it was moved to, the error not given to it either. Err keeps the error
+        // in both. The code may be edited while it waits: the activation is then moved into its edited body (CallStackFrame.TryRebase) - to the
         // statement that raised the error, as it now is.
         var body = activation.Body;
         var handled = session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled);
@@ -1758,7 +1833,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             (list, faultOffset) = (rebased, activation.Pc);
         }
 
-        // an error a Class_Terminate left unhandled is handled by nothing: it ends the program, from whichever activation it reaches (MS-VBA, grid oracle\s44).
+        // an error a Class_Terminate left unhandled is handled by nothing: it ends the program, from whichever activation it reaches (MS-VBA, observed in Excel).
         var handler = session.Errors.Untrappable is null ? activation.ErrorHandler : ErrorHandlerState.Disabled;
         switch (handler.Mode)
         {
@@ -1795,8 +1870,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
 
         // MS-VBAL §5.4.4.1: the policy an On Error GoTo set is still to go to its label - catching an error only made it the handler's to run, which an
-        // error inside it does not re-enter. The Resume ends the handler: the next error goes to the label again (MS-VBA, grid oracle\s16 W03), or where an
-        // On Error statement in the handler said it goes after it (oracle\s53 C01-C03).
+        // error inside it does not re-enter. The Resume ends the handler: the next error goes to the label again (MS-VBA, observed in Excel), or where an
+        // On Error statement in the handler said it goes after it.
         var resumed = activation.ErrorHandler;
         activation.ErrorHandler = resumed.IsHandling
             ? resumed.HandlingOver()
@@ -1812,8 +1887,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // MS-VBAL §5.4.4.1, §5.4.4.2: execution goes on at the statement "immediately following the <statement> which caused the error". A Select Case is
-    // one statement up to its End Select: an error in its selector goes on past the whole construct, no Case matched (MS-VBA, Excel grid oracle\s16
-    // C01-C03).
+    // one statement up to its End Select: an error in its selector goes on past the whole construct, no Case matched (MS-VBA, observed in Excel).
     private static int NextStatementAfter(InstructionList list, int faultOffset)
         => list.Items[faultOffset] is { Kind: InstructionKind.Select, End: { } end } ? end : faultOffset + 1;
 
@@ -1839,7 +1913,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var number = ((VBIntegerValue)numberResult.Result!).Value;
 
         // its help context is the error's, as for an error the runtime raises, whatever one Err has: Error 9 is 1000009, and Error 5 after
-        // Err.Raise 13, , , , 77 is 1000005 (recorded in Excel: oracle\s57 H01, s58 H03, H06).
+        // Err.Raise 13, , , , 77 is 1000005 (observed in Excel).
         return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(
             number, errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
     }

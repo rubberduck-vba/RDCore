@@ -29,8 +29,13 @@ The record format follows MS-VBA's, so that a file RD-VBA writes is a file MS-VB
 |---|---|
 |`Boolean`|Two bytes. `True` is `FF FF`.|
 |`String`, in `Random` mode|Carries a two-byte length prefix.|
-|`String`, in `Binary` mode|Carries no length prefix.|
+|`String`, in `Binary` mode|Carries no length prefix. A `String` that a `Variant` holds, an array element and a UDT field carry one.|
 |`Variant`|Preceded by its two-byte type descriptor.|
+|A `Variant` that holds a `Byte`|The descriptor `vbByte` (`11 00`), then the one byte.|
+|An array variable, in `Binary` mode|Its elements, the first subscript varying fastest. A `String` element carries a two-byte length prefix; a `Variant` element, its descriptor. An array that was never sized writes nothing.|
+|A resizable array variable, in `Random` mode|Its number of dimensions (two bytes), then the element count and lower bound of each dimension (four bytes each), the last dimension first, then its elements.|
+|A fixed-size array variable, in `Random` mode|Its elements.|
+|A record longer than the `Len` of a `Random` channel|Nothing: error 59, as in MS-VBA (recorded in Excel).|
 |A `Variant` that holds an object, or `Nothing`|No record: error 13, as in MS-VBA (recorded in Excel) - once its descriptor, `vbObject` (`09 00`), is written in `Binary` mode; nothing is written in `Random` mode. A variable declared as an object, or a UDT with one in it, is a compile error.|
 |A variable or a field of an `Enum`|The `Long` it holds, four bytes ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)).|
 |A UDT|Each member of the UDT, in declaration order, recursively through a nested UDT (see [User-Defined Types](#user-defined-types)).|
@@ -55,8 +60,8 @@ UDT field declaration order is the order `Put` writes a record in
 
 |UDT field|In a record|
 |---|---|
-|Variable-length `String`|Its characters.|
-|Fixed-length `String`|ANSI.|
+|Variable-length `String`|A two-byte length prefix, then its characters, in `Random` and `Binary` mode alike.|
+|Fixed-length `String`|Its characters in ANSI, padded with spaces or cut to its length. No length prefix.|
 
 ### Record Positioning
 
@@ -68,7 +73,7 @@ MS-VBAL leaves two gaps in record positioning, and RD-VBA names its choice for e
 |The byte position of record 1|Record number 1 is byte 0 of the file.|
 
 **Record length.** A `Random` channel whose `Open` statement declared no `Len` clause counts positions in 128-byte
-records. 128 bytes is MS-VBA's own default record length.
+records. 128 bytes is MS-VBA's own default record length, and a longer record is error 59, as with a `Len` clause.
 [**MS-VBAL §5.4.5.1** Open Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/29a62f38-5bf6-4e08-9dae-0094e377058b)
 constrains the `Len` clause but does not say what an absent `Len` clause means.
 
@@ -80,6 +85,12 @@ counts from 1.
 The record number and the file-pointer-position are one quantity, and `Seek` and `Get` must agree on it. That is
 why record number 1 is byte 0 of the file
 ([**RD-VBAL §5.4.5.3** Seek Statement](rd-vbal.5.4.5.3.seek-statement.md)).
+
+**The next record.** On a `Random` channel, a `Put` or a `Get` leaves the file-pointer-position at the start of the
+next record, however much of its own record it wrote or read, as in MS-VBA (recorded in Excel). The next `Put` or
+`Get` without a record number reads or writes the next record, and `Loc` is the number of the record just written or
+read. After a `Get`, `EOF` is `True` when the file ends inside the record read, even when the file holds all of the
+variable read.
 
 ## Implementation
 

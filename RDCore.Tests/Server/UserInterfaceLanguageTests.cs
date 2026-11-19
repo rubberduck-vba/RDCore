@@ -4,6 +4,7 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Server;
 using System.Globalization;
 using static RDCore.Tests.Cli.ModuleWorkspace;
@@ -20,6 +21,7 @@ namespace RDCore.Tests.Server;
 /// <remarks>
 /// These change the process's default culture, which every test that runs at the same time would read: they run on their own.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [DoNotParallelize]
 public sealed class UserInterfaceLanguageTests
@@ -229,12 +231,21 @@ public sealed class UserInterfaceLanguageTests
         Assert.AreEqual("en-US", CultureInfo.CurrentCulture.Name);
     }
 
+    // ---- the descriptions of run-time errors ----
+
+    // an error the program raises, one it raises with Err.Raise, and the Error function's text of a known number and of an unknown one: each in the language
+    // of the user interface, the machine's or the setting's.
     [TestMethod]
-    [Ignore("the descriptions of the run-time errors (VBRuntimeErrorInfo.VBRuntimeErrors) are English only: under fr, Err.Description of error 11 is 'Division by zero', where MS-VBA in French says 'Division par zéro'")]
-    public async Task UnderFrench_AnErrorsDescription_IsInFrench()
+    [DataRow("en-US", "", new[] { "Division by zero", "Subscript out of range", "Type mismatch", "Application-defined or object-defined error" },
+        DisplayName = "an English machine")]
+    [DataRow("fr-CA", "", new[] { "Division par zéro", "L'indice n'appartient pas à la sélection", "Incompatibilité de type",
+        "Erreur définie par l'application ou par l'objet" }, DisplayName = "a French machine")]
+    [DataRow("en-US", "fr", new[] { "Division par zéro", "L'indice n'appartient pas à la sélection", "Incompatibilité de type",
+        "Erreur définie par l'application ou par l'objet" }, DisplayName = "fr, on an English machine")]
+    public async Task AnErrorsDescription_IsInTheLanguageOfTheUserInterface(string machine, string language, string[] expected)
     {
-        OnAMachineIn("en-US");
-        _ = UserInterfaceLanguage.Apply("fr");
+        OnAMachineIn(machine);
+        _ = UserInterfaceLanguage.Apply(language);
 
         var printed = await RunAsync([], StandardModule("Program",
             "Option Explicit",
@@ -242,8 +253,28 @@ public sealed class UserInterfaceLanguageTests
             "    On Error Resume Next",
             "    Debug.Print 1 / 0",
             "    Debug.Print Err.Description",
+            "    Err.Clear",
+            "    Err.Raise 9",
+            "    Debug.Print Err.Description",
+            "    Debug.Print Error(13)",
+            "    Debug.Print Error(42)",
             "End Sub"));
 
-        CollectionAssert.AreEqual(new[] { "Division par zéro" }, printed, string.Join(" | ", printed));
+        CollectionAssert.AreEqual(expected, printed, string.Join(" | ", printed));
+    }
+
+    // every run-time error the platform knows has its own French description: one that is missing from the translation reads as the English one.
+    [TestMethod]
+    public void EveryRunTimeError_HasAFrenchDescription()
+    {
+        OnAMachineIn("en-US");
+        var english = VBRuntimeErrorInfo.VBRuntimeErrors;
+        OnAMachineIn("fr-CA");
+        var french = VBRuntimeErrorInfo.VBRuntimeErrors;
+
+        var untranslated = english.Where(error => french[error.Key] == error.Value).Select(error => $"{error.Key}: {error.Value}").ToArray();
+
+        Assert.IsNotEmpty(english);
+        Assert.IsEmpty(untranslated, string.Join(" | ", untranslated));
     }
 }

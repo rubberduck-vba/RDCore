@@ -25,6 +25,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// order. Nothing pads between them, which is what makes <c>Len</c> of a UDT "the size as it will be written
 /// to the file" and not the in-memory size <c>LenB</c> reports.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.11 Put")]
 [TestCategory("MS-VBAL 5.4.5.12 Get")]
@@ -284,16 +285,19 @@ public sealed class UserDefinedTypeRecordTests
     }
 
     [TestMethod]
-    public void Get_PastTheEndOfTheFile_IsInputPastEndOfFile()
+    public void Get_PastTheEndOfTheFile_ReadsZerosForTheFieldsTheFileDoesNotHave()
     {
+        // no error: MS-VBA reads a zero for each byte past the end (recorded in Excel).
         var type = Udt("TPoint", ("X", VBLongType.TypeInfo), ("Y", VBLongType.TypeInfo));
 
-        var (_, outcome, _) = Run([0x01, 0x00, 0x00, 0x00], type,
+        var (_, outcome, record) = Run([0x01, 0x00, 0x00, 0x00], type,
+            "Rec.Y = 7",
             $"Open \"{Path}\" For Binary As #1",
             "Get #1, 1, Rec");
 
-        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        Assert.AreEqual((int)VBRuntimeErrorId.InputPastEndOfFile, outcome.ErrorInfo!.ErrorId);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(1, FieldOf(record, "X"));
+        Assert.AreEqual(0, FieldOf(record, "Y"));
     }
 
     [TestMethod]

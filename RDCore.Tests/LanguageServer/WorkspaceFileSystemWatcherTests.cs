@@ -12,12 +12,16 @@ using RDCore.SDK.Workspace;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// The server's own watch of the workspace's files (#255): only for a client that does not watch them, never when the setting says so; the workspace's project
+/// The server's own watch of the workspace's files: only for a client that does not watch them, never when the setting says so; the workspace's project
 /// file and the source files under its root, not what a dot folder holds; and the events of a moment said together, once.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceFileSystemWatcherTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-watch-ws");
 
     private readonly IFileSystem _fileSystem = Substitute.For<IFileSystem>();
@@ -93,7 +97,7 @@ public sealed class WorkspaceFileSystemWatcherTests
         sut.OnFileSystemEvent(PathOf("src/B.cls"), FileChangeType.Changed);
         sut.OnFileSystemEvent(PathOf(ProjectFile.FileName), FileChangeType.Changed);
         _settled.SetResult();
-        await sut.Said.WaitAsync(TimeSpan.FromSeconds(20));
+        await sut.Said.WaitAsync(SafetyCap);
 
         var said = _said.Single();
         Assert.HasCount(3, said);
@@ -115,7 +119,7 @@ public sealed class WorkspaceFileSystemWatcherTests
         sut.OnFileSystemEvent(Path.GetFullPath(PathOf(relativePath)), FileChangeType.Changed);
         sut.OnFileSystemEvent(PathOf("A.bas"), FileChangeType.Changed);
         _settled.SetResult();
-        await sut.Said.WaitAsync(TimeSpan.FromSeconds(20));
+        await sut.Said.WaitAsync(SafetyCap);
 
         var said = Assert.ContainsSingle(_said);
         Assert.AreEqual(DocumentUri.FromFileSystemPath(PathOf("A.bas")), Assert.ContainsSingle(said).Uri);

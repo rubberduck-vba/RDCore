@@ -1,3 +1,5 @@
+using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection.Emit;
 
 namespace RDCore.Runtime.Compiled;
@@ -6,30 +8,16 @@ namespace RDCore.Runtime.Compiled;
 // (CompiledActivation.CallLibrary), and known once it is made, as a call of the workspace is (EmitNestedCall).
 internal sealed partial class ProcedureEmitter
 {
-    // the arguments, each a Variant of its own subtype evaluated into a local, before anything is called; then the call, of which an error, or what is no
-    // payload of the kind it returns, gives the interpreter the call (CallFailedAt). Inside an instruction that calls inside an expression, the call is known
-    // once it is made: when something after it fails, the interpreter is given what it returned, as it is given what a call of the workspace returned.
+    // the arguments evaluated into locals before anything is called (EmitLibraryArguments); then the call, of which an error, or what is no payload of the
+    // kind it returns, gives the interpreter the call (CallFailedAt). Inside an instruction that calls inside an expression, the call is known once it is
+    // made: when something after it fails, the interpreter is given what it returned, as it is given what a call of the workspace returned.
     private Operand EmitLibraryCall(LibraryCallNode node, Label failure)
     {
         var offset = _knowingAt;
-        var arguments = new LocalBuilder[node.Arguments.Count];
-        for (var i = 0; i < arguments.Length; i++)
-        {
-            arguments[i] = EmitVariant(node.Arguments[i], failure);
-        }
-
-        var none = arguments.Length < 3 ? _il.DeclareLocal(typeof(VariantPayload)) : null;
+        var (payloads, values) = EmitLibraryArguments(node.Library, node.Arguments, failure);
         var integral = _il.DeclareLocal(typeof(long));
         var floating = _il.DeclareLocal(typeof(double));
-        _il.Emit(OpCodes.Ldarg_0);
-        _il.Emit(OpCodes.Ldc_I4, offset);
-        _il.Emit(OpCodes.Ldc_I4, node.Library);
-        _il.Emit(OpCodes.Ldc_I4, arguments.Length);
-        for (var i = 0; i < 3; i++)
-        {
-            _il.Emit(OpCodes.Ldloc, i < arguments.Length ? arguments[i] : none!);
-        }
-
+        LoadLibraryArguments(offset, node.Library, payloads, values);
         _il.Emit(OpCodes.Ldc_I4, (int)node.Kind);
         _il.Emit(OpCodes.Ldloca, integral);
         _il.Emit(OpCodes.Ldloca, floating);
@@ -61,24 +49,187 @@ internal sealed partial class ProcedureEmitter
     private void EmitLibraryVariantCall(LibraryVariantNode node, LocalBuilder result, Label failure)
     {
         var offset = _knowingAt;
-        var arguments = new LocalBuilder[node.Arguments.Count];
-        for (var i = 0; i < arguments.Length; i++)
-        {
-            arguments[i] = EmitVariant(node.Arguments[i], failure);
-        }
-
-        var none = arguments.Length < 3 ? _il.DeclareLocal(typeof(VariantPayload)) : null;
-        _il.Emit(OpCodes.Ldarg_0);
-        _il.Emit(OpCodes.Ldc_I4, offset);
-        _il.Emit(OpCodes.Ldc_I4, node.Library);
-        _il.Emit(OpCodes.Ldc_I4, arguments.Length);
-        for (var i = 0; i < 3; i++)
-        {
-            _il.Emit(OpCodes.Ldloc, i < arguments.Length ? arguments[i] : none!);
-        }
-
+        var (payloads, values) = EmitLibraryArguments(node.Library, node.Arguments, failure);
+        LoadLibraryArguments(offset, node.Library, payloads, values);
         _il.Emit(OpCodes.Ldloca, result);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CallLibraryVariant))!);
         _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(offset)));
+    }
+
+    // the object a member of a class of the standard library is called on, read before the arguments are evaluated, as the interpreter reads it
+    // (MS-VBAL §5.6.13.1); then the arguments and the call into result, as EmitLibraryVariantCall makes a function's call. An object compiled code does
+    // not call the member on gives the interpreter the call, as an error does.
+    // For the Let of a Variant the call is the whole value of (assigned), the call is CompiledActivation.CallLibraryMemberForLet: what is no value of a
+    // scalar type it assigns itself, and compiled code goes on at assigned.
+    private void EmitLibraryMemberCall(LibraryMemberNode node, LocalBuilder result, Label failure, Label? assigned = null)
+    {
+        var offset = _knowingAt;
+        var receiver = _il.DeclareLocal(typeof(IObjectInstance));
+        var held = node.ReceiverField is { } path ? EmitObjectFieldCell(new ObjectFieldNode(path)) : null;
+        _il.Emit(OpCodes.Ldarg_0);
+        if (node.WithAt is { } with)
+        {
+            _il.Emit(OpCodes.Ldc_I4, with);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.LibraryReceiverOfWith))!);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldloc, held ?? _objects[node.Receiver!.Value]);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.LibraryReceiverIn))!);
+        }
+
+        _il.Emit(OpCodes.Stloc, receiver);
+        var (payloads, values) = EmitLibraryArguments(node.Library, node.Arguments, failure);
+        LoadLibraryArguments(offset, node.Library, payloads, values, receiver);
+        _il.Emit(OpCodes.Ldloca, result);
+        if (assigned is not { } done)
+        {
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CallLibraryMember))!);
+            _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(offset)));
+            return;
+        }
+
+        var outcome = _il.DeclareLocal(typeof(int));
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CallLibraryMemberForLet))!);
+        _il.Emit(OpCodes.Stloc, outcome);
+        _il.Emit(OpCodes.Ldloc, outcome);
+        _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(offset)));
+        _il.Emit(OpCodes.Ldloc, outcome);
+        _il.Emit(OpCodes.Ldc_I4_2);
+        _il.Emit(OpCodes.Beq, done);
+    }
+
+    // the arguments of a call, in order (MS-VBAL §5.3.1.11), each into a local: a payload, held in a Variant of its own subtype; or, of a Variant variable
+    // (VariantValueNode), what it holds when it is read, which is read once, where it is in the order; of an expression of Strings (VariantTextNode), a
+    // Variant holding its text; of a call of the workspace (CallValueNode), what it returned, given to the parameter (EmitValueCall).
+    private (LocalBuilder[] Payloads, LocalBuilder?[] Values) EmitLibraryArguments(int library, IReadOnlyList<VariantNode> arguments, Label failure)
+    {
+        var payloads = new LocalBuilder[arguments.Count];
+        var values = new LocalBuilder?[arguments.Count];
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i] is CallValueNode valued)
+            {
+                payloads[i] = _il.DeclareLocal(typeof(VariantPayload));
+                values[i] = EmitValueCall(valued, library, i, failure);
+                continue;
+            }
+
+            if (arguments[i] is VariantValueNode held)
+            {
+                payloads[i] = _il.DeclareLocal(typeof(VariantPayload));
+                values[i] = _il.DeclareLocal(typeof(IRuntimeValue));
+                _il.Emit(OpCodes.Ldloc, _variants[held.Slot]);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.ValueOf))!);
+
+                // a Variant the frame holds in no Variant's cell (a parameter passed an object, an array or a record by value) is read from the frame.
+                var read = _il.DefineLabel();
+                _il.Emit(OpCodes.Dup);
+                _il.Emit(OpCodes.Brtrue, read);
+                _il.Emit(OpCodes.Pop);
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, held.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.VariantValueOf))!);
+                _il.MarkLabel(read);
+                _il.Emit(OpCodes.Dup);
+                _il.Emit(OpCodes.Stloc, values[i]!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                continue;
+            }
+
+            // an element of an array of Variants: what it holds when it is read, in its cell, found where it is in the order. One outside its dimension,
+            // or that holds an array or a record, is the interpreter's.
+            if (arguments[i] is VariantElementValueNode element)
+            {
+                payloads[i] = _il.DeclareLocal(typeof(VariantPayload));
+                values[i] = _il.DeclareLocal(typeof(IRuntimeValue));
+                var cell = EmitElementCellOf(element.Element.Array, element.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
+                _il.Emit(OpCodes.Ldloc, cell);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.ValueOf))!);
+                _il.Emit(OpCodes.Dup);
+                _il.Emit(OpCodes.Stloc, values[i]!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                continue;
+            }
+
+            // an expression of Strings: a Variant holding its text, or for a String parameter its text, where it is in the order.
+            if (arguments[i] is VariantTextNode or StringArgumentNode)
+            {
+                var (given, argument) = arguments[i] is VariantTextNode variant
+                    ? (variant.Text, nameof(CompiledActivation.TextArgument))
+                    : (((StringArgumentNode)arguments[i]).Text, nameof(CompiledActivation.StringArgument));
+                payloads[i] = _il.DeclareLocal(typeof(VariantPayload));
+                values[i] = _il.DeclareLocal(typeof(IRuntimeValue));
+                _il.Emit(OpCodes.Ldloc, EmitTextInto(given, failure));
+                _il.Emit(OpCodes.Call, Activation.GetMethod(argument)!);
+                _il.Emit(OpCodes.Stloc, values[i]!);
+                continue;
+            }
+
+            payloads[i] = EmitVariant(arguments[i], failure);
+        }
+
+        return (payloads, values);
+    }
+
+    // the call made as a nested call is (EmitNestedCall), then what it returned taken and given to the parameter (CompiledActivation.TakeReturnedValue),
+    // which the interpreter is given known from then on, as what a call that returns an object returned is (EmitObjectCall): the call is not made again. An
+    // error giving it is the interpreter's, at the call.
+    private LocalBuilder EmitValueCall(CallValueNode node, int library, int index, Label failure)
+    {
+        var offset = _knowingAt;
+        _ = EmitCallOf(new CallStep(offset, node.Callee, node.Arguments, CallStep.NoResult, node.Receiver)
+        {
+            WithAt = node.WithAt, ReceiverField = node.ReceiverField, ReceiverCall = node.ReceiverCall,
+        }, failure);
+
+        var returned = _il.DeclareLocal(typeof(object));
+        var value = _il.DeclareLocal(typeof(IRuntimeValue));
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
+        _il.Emit(OpCodes.Ldc_I4, library);
+        _il.Emit(OpCodes.Ldc_I4, index);
+        _il.Emit(OpCodes.Ldc_I4, node.Syntax);
+        _il.Emit(OpCodes.Ldloca, value);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TakeReturnedValue))!);
+        _il.Emit(OpCodes.Stloc, returned);
+        _called = true;
+        _known.Add(new KnownLocal(node.Syntax, default, returned, IsObject: true));
+        _il.Emit(OpCodes.Ldloc, value);
+        _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(offset)));
+        EmitAfterNestedCall(offset);
+        return value;
+    }
+
+    // what CallLibrary and CallLibraryVariant are given before what they return: the call, the payloads of the arguments, and the values of those that are
+    // given what a Variant variable holds; CallLibraryMember, the object it is called on too.
+    private void LoadLibraryArguments(int offset, int library, LocalBuilder[] payloads, LocalBuilder?[] values, LocalBuilder? receiver = null)
+    {
+        var none = payloads.Length < 3 ? _il.DeclareLocal(typeof(VariantPayload)) : null;
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
+        _il.Emit(OpCodes.Ldc_I4, library);
+        if (receiver is not null)
+        {
+            _il.Emit(OpCodes.Ldloc, receiver);
+        }
+
+        _il.Emit(OpCodes.Ldc_I4, payloads.Length);
+        for (var i = 0; i < 3; i++)
+        {
+            _il.Emit(OpCodes.Ldloc, i < payloads.Length ? payloads[i] : none!);
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            if (i < values.Length && values[i] is { } value)
+            {
+                _il.Emit(OpCodes.Ldloc, value);
+            }
+            else
+            {
+                _il.Emit(OpCodes.Ldnull);
+            }
+        }
     }
 }

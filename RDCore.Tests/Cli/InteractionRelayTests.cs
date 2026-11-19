@@ -30,6 +30,9 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class InteractionRelayTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly MessageBoxRequest YesNo = new("Sure?", "Project1", VBMsgBoxStyle.VBYesNo);
 
     private static (RelayedUserInteraction Relay, IEnvironmentSessionProvider Provider, IUserInteraction Fallback, RuntimeOutputBuffer Output) Relay(IHostInteractionChannel? channel)
@@ -87,7 +90,7 @@ public sealed class InteractionRelayTests
         CollectionAssert.AreEqual(new[] { "before" }, output.Lines.ToArray());
     }
 
-    // overnight #75: a host the language server started is seen by nobody, so the platform's dialog is never shown after a client that shows them - it was, and the
+    // a host the language server started is seen by nobody, so the platform's dialog is never shown after a client that shows them - it was, and the
     // run waited on it forever (HexIDE answering a vbOKOnly box with vbYes).
     [TestMethod]
     public void AnAnswerThatIsNoButtonOfTheDialog_FailsTheRun_AndShowsNoDialogOfThePlatforms()
@@ -244,13 +247,13 @@ public sealed class InteractionRelayTests
         relay.Attach(client);
 
         var dialog = relay.MessageBoxAsync(new HostMessageBoxParams { Prompt = "p", Style = (int)VBMsgBoxStyle.VBOKOnly }, CancellationToken.None);
-        await asked.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await asked.Task.WaitAsync(SafetyCap);
 
         var declined = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => dialogs.UnlessADialogIsOpenAsync(CancellationToken.None, _ => Task.FromResult(0)));
         Assert.AreEqual(ErrorCodes.ServerCancelled, declined.Code);
 
         answer.SetResult(new MessageBoxResult { Handled = true, Result = 1 });
-        Assert.AreEqual(1, (await dialog.WaitAsync(TimeSpan.FromSeconds(30))).Result);
+        Assert.AreEqual(1, (await dialog.WaitAsync(SafetyCap)).Result);
         Assert.AreEqual(2, await dialogs.UnlessADialogIsOpenAsync(CancellationToken.None, _ => Task.FromResult(2)));
     }
 
@@ -283,7 +286,7 @@ public sealed class InteractionRelayTests
         await client.DidNotReceiveWithAnyArgs().MessageBoxAsync(default!, default);
     }
 
-    // overnight #75: what HexIDE's probe did - a vbOKOnly box answered with vbYes - is told to the host as the failure it is, naming the client.
+    // what HexIDE's probe did - a vbOKOnly box answered with vbYes - is told to the host as the failure it is, naming the client.
     [TestMethod]
     public async Task TheLanguageServer_TellsAnAnswerThatIsNoButtonOfTheDialog_NamingTheClient()
     {

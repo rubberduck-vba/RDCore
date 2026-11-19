@@ -105,7 +105,7 @@ public sealed class TemporaryReferenceTests
             "v = Empty",
             "Debug.Print \"after\""));
 
-    // a Variant parameter passed a number by value (IR lowering S1.7) and Set to an object in the call lets go of it when the call is over.
+    // a Variant parameter passed a number by value and Set to an object in the call lets go of it when the call is over.
     [TestMethod]
     public async Task AnObjectAVariantParameterPassedANumberIsSetTo_LivesUntilTheCallIsOver()
         => CollectionAssert.AreEqual(new[] { "hello v", "terminated v", "after" }, await RunWith(
@@ -127,7 +127,7 @@ public sealed class TemporaryReferenceTests
             "Debug.Print \"after\""));
 
     // MS-VBAL §5.4.2.21 says "If <expression> is classified as a variable, that variable is the With block variable"; MS-VBA holds the object the
-    // variable held when the block began, until End With, whatever the block assigns to the variable (recorded in Excel, grid oracle\s16 T01-T05).
+    // variable held when the block began, until End With, whatever the block assigns to the variable (observed in Excel).
     [TestMethod]
     public async Task AWithBlockOnAVariable_HoldsItsObject_UntilEndWith()
         => CollectionAssert.AreEqual(new[] { "hello k", "0", "terminated k", "after" }, await RunWith(string.Empty,
@@ -232,10 +232,10 @@ public sealed class TemporaryReferenceTests
     #region For Each
 
     [TestMethod]
-    // MS-VBAL §5.4.2.4: the elements of an array declared Object are Set-assigned to the control variable. The array is the function's result,
-    // which only the loop holds once the statement that opened it is over.
-    public async Task TheObjectsOfAnArrayAForEachEnumerates_LiveUntilTheLoopIsOver()
-        => CollectionAssert.AreEqual(new[] { "a", "b", "terminated a", "terminated b", "after" }, await RunWith(
+    // MS-VBAL §5.4.2.4: the elements of an array declared Object are Set-assigned to the control variable. The array is the function's result, which
+    // the loop holds as a hidden local of the procedure once the statement that opened it is over, until the procedure ends (observed in Excel).
+    public async Task TheObjectsOfAnArrayAForEachEnumerates_LiveUntilTheProcedureEnds()
+        => CollectionAssert.AreEqual(new[] { "a", "b", "after", "terminated a", "terminated b" }, await RunWith(
             Make + "\r\nPrivate Function Both() As Variant\r\n    Dim r(1) As Object\r\n    Set r(0) = Make(\"a\")\r\n    Set r(1) = Make(\"b\")\r\n    Both = r\r\nEnd Function",
             "Dim x As Object",
             "For Each x In Both()",
@@ -245,14 +245,15 @@ public sealed class TemporaryReferenceTests
             "Debug.Print \"after\""));
 
     [TestMethod]
-    public async Task TheMembersOfACollectionAForEachEnumerates_OutliveTheCollection_UntilTheLoopReachesThem()
+    // the collection is let go of in the loop by a Set to another one: a Set to Nothing is left undone while the loop runs.
+    public async Task TheMembersOfACollectionAForEachEnumerates_OutliveTheCollection_UntilTheLoopIsOver()
         => CollectionAssert.AreEqual(new[] { "a", "b", "terminated a", "terminated b", "after" }, await RunWith(Make,
             "Dim c As Collection, x As Variant",
             "Set c = New Collection",
             "c.Add Make(\"a\")",
             "c.Add Make(\"b\")",
             "For Each x In c",
-            "    Set c = Nothing",
+            "    Set c = New Collection",
             "    Debug.Print x.Name",
             "Next",
             "x = Empty",

@@ -42,10 +42,6 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     // MS-VBAL 6.1.2.3.1.14: "If the resulting data value is not in the inclusive range 0 to 65535, Error 5 is raised."
     private const int LargestErrorCode = 65535;
 
-    // MS-VBAL 6.1.2.3.1.15: "Otherwise, the data value is "Application-defined or object-defined error."" - the period ends the specification's
-    // sentence: MS-VBA's text is error 1004's, which has none (recorded in Excel: Error(42)).
-    private static string UnknownErrorText => VBRuntimeErrorInfo.VBRuntimeErrors[VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError];
-
     private static RuntimeSemanticsEvaluationResult<TValue> Fail<TValue>(VBRuntimeErrorId id, string verbose)
         where TValue : VBTypedValue
         => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(id, default, verbose));
@@ -210,9 +206,9 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             return Fail<VBStringValue>(VBRuntimeErrorId.Overflow, $"{code} is not an error number.");
         }
 
-        var text = code == 0
-            ? string.Empty
-            : VBRuntimeErrorInfo.VBRuntimeErrors.TryGetValue((VBRuntimeErrorId)code, out var known) ? known : UnknownErrorText;
+        // MS-VBAL §6.1.2.3.1.15: "Otherwise, the data value is "Application-defined or object-defined error."" The period ends the specification's
+        // sentence. MS-VBA's text is error 1004's, which has none (observed in Excel: Error(42)). GetErrorString falls back to that text.
+        var text = code == 0 ? string.Empty : VBRuntimeErrorInfo.GetErrorString((VBRuntimeErrorId)code);
         return Succeed(new VBStringValue(text));
     }
 
@@ -257,9 +253,12 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             case VBNumericTypedValue numeric:
                 return Succeed(new VBVariantValue(((VBNumericType)numeric.TypeInfo).CreateValue(Round(numeric.AsDouble, floor))));
 
-            // "the returned value is the same as result of evaluating the expression: CDate(Int(CDbl(Number)))".
+            // "the returned value is the same as result of evaluating the expression: CDate(Int(CDbl(Number)))", whose CDate raises 6 for a serial that is
+            // not a Date's.
             case VBDateValue date:
-                return Succeed(new VBVariantValue(new VBDateValue(Round(date.SerialValue, floor))));
+                return DayOf(date.SerialValue, floor, out var day)
+                    ? Succeed(new VBVariantValue(new VBDateValue(day)))
+                    : Fail<VBVariantValue>(VBRuntimeErrorId.Overflow, $"{day} is not the serial of a Date.");
 
             // "the returned value is the result of the Int function applied to the result of Let-coercing Number to Double".
             case VBStringValue:
@@ -275,6 +274,49 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     }
 
     private static double Round(double value, bool floor) => floor ? Math.Floor(value) : Math.Truncate(value);
+
+    /// <summary>
+    /// A Double rounded down to the next whole number, as <see cref="Int"/> returns it (<strong>MS-VBAL §6.1.2.3.1.18</strong>): a Double.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>The greatest whole number less than or equal to it.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Int))]
+    public static double FloorOf(double number) => Round(number, floor: true);
+
+    /// <summary>
+    /// A Double with its fraction dropped, as <see cref="Fix"/> returns it (<strong>MS-VBAL §6.1.2.3.1.16</strong>): a Double.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>Its whole part.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Fix))]
+    public static double TruncationOf(double number) => Round(number, floor: false);
+
+    // MS-VBAL §6.1.2.3.1.16 and §6.1.2.3.1.18: Fix or Int of a Date is CDate(Fix(CDbl(Number))) or CDate(Int(CDbl(Number))), its serial rounded; false where
+    // that is not a Date's serial, which CDate raises 6 for: Int of a time on the first day of the Date range goes below it.
+    private static bool DayOf(double serial, bool floor, out double day)
+    {
+        day = Round(serial, floor);
+        return VBDateType.IsValidSerial(day);
+    }
+
+    /// <summary>
+    /// A Date rounded down to a whole serial, as <see cref="Int"/> returns it (<strong>MS-VBAL §6.1.2.3.1.18</strong>): a Date.
+    /// </summary>
+    /// <param name="serial">The Date's serial.</param>
+    /// <param name="day">The serial of the Date returned: the greatest whole number less than or equal to <paramref name="serial"/>.</param>
+    /// <returns><see langword="false"/> when <paramref name="day"/> is not a Date's serial: <see cref="Int"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Int))]
+    public static bool TryFloorOfDate([StdLibDate] double serial, [StdLibDate] out double day) => DayOf(serial, floor: true, out day);
+
+    /// <summary>
+    /// A Date with the fraction of its serial dropped, as <see cref="Fix"/> returns it (<strong>MS-VBAL §6.1.2.3.1.16</strong>): a Date. The whole part of
+    /// a Date's serial is always a Date's serial.
+    /// </summary>
+    /// <param name="serial">The Date's serial.</param>
+    /// <returns>The serial of the Date returned: the whole part of <paramref name="serial"/>.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Fix))]
+    [return: StdLibDate]
+    public static double TruncationOfDate([StdLibDate] double serial) => Round(serial, floor: false);
 
     private static decimal Round(decimal value, bool floor) => floor ? Math.Floor(value) : Math.Truncate(value);
 
@@ -315,7 +357,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
 
             // "If the data value of the parameter Number has the value type LongLong, it is not coerced." Nor, in MS-VBA, is a number of any other
             // integer type: each is written in its own width - an Integer and a Boolean in 16 bits, a Long in 32, a LongPtr in its own - where the
-            // specification picks the width by the value (recorded in Excel, grid oracle\s43 X01-X16: Hex$(CLng(-7)) is FFFFFFF9, Hex$(CInt(-32768)) 8000).
+            // specification picks the width by the value (observed in Excel: Hex$(CLng(-7)) is FFFFFFF9, Hex$(CInt(-32768)) 8000).
             case VBLongLongValue longLong:
                 return Succeed(new VBStringValue(Digits(longLong.Value, radix, 64)));
             case VBLongPtrValue pointer:
@@ -372,8 +414,8 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             case VBNullValue:
                 return Fail<VBStringValue>(VBRuntimeErrorId.InvalidUseOfNull, "Str$ takes no Null.");
 
-            // MS-VBAL 6.1.2.3.1.20 gives an Error's text, "Error " and its code, which CStr gives; MS-VBA's Str raises a type mismatch (recorded in
-            // Excel: oracle\s56 G07, s57 E01; RD-VBAL 6.1.2.3.1.20).
+            // MS-VBAL 6.1.2.3.1.20 gives an Error's text, "Error " and its code, which CStr gives; MS-VBA's Str raises a type mismatch (observed in
+            // Excel; RD-VBAL 6.1.2.3.1.20).
             case VBErrorValue:
                 return Fail<VBStringValue>(VBRuntimeErrorId.TypeMismatch, "Str takes no Error value.");
 
@@ -397,14 +439,22 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     }
 
     // "If the data value of Number is positive (or zero) the result is S with a single space character appended as
-    // its first character, otherwise the result is S."
+    // its first character, otherwise the result is S." MS-VBA's S has no zero before the decimal point of a number between -1 and 1, of any numeric type:
+    // Str(0.5) is " .5", Str(-0.25) is "-.25" (RD-VBAL §6.1.2.3.1.20, observed in Excel).
     private static RuntimeSemanticsEvaluationResult<VBStringValue> Text(VBTypedValue number, bool nonNegative)
     {
         var text = ValueConversions.ToText(number, CultureInfo.InvariantCulture);
         return text.Value is VBStringValue s
-            ? Succeed(new VBStringValue(nonNegative ? " " + s.Value : s.Value))
+            ? Succeed(new VBStringValue((nonNegative ? " " : string.Empty) + WithoutLeadingZero(s.Value)))
             : Fail<VBStringValue>(text.Error ?? VBRuntimeErrorId.TypeMismatch, "The number has no text.");
     }
+
+    // the text of a number, with "." as its decimal separator, as MS-VBA's Str and Write # write it: without the zero before the decimal point of a number
+    // between -1 and 1 (0.5 is .5, -0.25 is -.25). Anything else is left as it is.
+    internal static string WithoutLeadingZero(string text)
+        => text.StartsWith("0.", StringComparison.Ordinal) ? text[1..]
+            : text.StartsWith("-0.", StringComparison.Ordinal) ? "-" + text[2..]
+            : text;
 
     // MS-VBAL 6.1.2.3.1.12: the String that is the result of the Long error code Let-coerced to String - a whole number,
     // which no regional setting writes differently, so it is written invariantly whatever the session's environment.
@@ -421,40 +471,72 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     /// stripped from the argument" (<strong>MS-VBAL §6.1.2.3.1.21</strong>).
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBDoubleValue> Val(VBStringValue value)
+        => ValueOf(value.Value, out var number, out var overflow)
+            ? Succeed(new VBDoubleValue(number))
+            : Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, overflow!);
+
+    /// <summary>
+    /// <c>Val</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.3.1.21</strong>): the number it begins with, what <see cref="Val"/> returns
+    /// for it.
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="number">The number, 0 when the text begins with none.</param>
+    /// <returns><see langword="false"/> for a number that does not fit the type it is read as: <see cref="Val"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Val))]
+    public static bool ValueOf(string? text, out double number) => ValueOf(text, out number, out _);
+
+    // the number, or false and what overflows.
+    private static bool ValueOf(string? value, out double number, out string? overflow)
     {
-        var text = new string([.. (value.Value ?? string.Empty).Where(c => c is not (' ' or '\t' or '\n' or '\r'))]);
+        // "Blanks, tabs, and linefeed characters are stripped from the argument": a text with none is read as it is.
+        var text = value ?? string.Empty;
+        if (text.AsSpan().IndexOfAny(" \t\n\r") >= 0)
+        {
+            text = new string([.. text.Where(c => c is not (' ' or '\t' or '\n' or '\r'))]);
+        }
+
+        (number, overflow) = (0, null);
 
         // "If Value is the 0 length String data value return the Double data value 0."
         if (text.Length == 0)
         {
-            return Succeed(new VBDoubleValue(0));
+            return true;
         }
 
         // "the function recognizes the radix prefixes &O (for octal) and &H (for hexadecimal)."
         if (text.Length >= 2 && text[0] == '&' && char.ToUpperInvariant(text[1]) is 'H' or 'O')
         {
-            return Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8) is { } prefixed
-                ? Succeed(new VBDoubleValue(prefixed))
-                : Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, $"'{text}' does not fit the integer it is read as.");
+            if (Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8) is not { } prefixed)
+            {
+                overflow = $"'{text}' does not fit the integer it is read as.";
+                return false;
+            }
+
+            number = prefixed;
+            return true;
         }
 
         var match = LeadingNumber().Match(text);
         if (!match.Success)
         {
-            return Succeed(new VBDoubleValue(0));
+            return true;
         }
 
-        var number = double.Parse(
+        number = double.Parse(
             match.Value.Replace('d', 'e').Replace('D', 'e'),
             NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
             CultureInfo.InvariantCulture);
-        return double.IsInfinity(number)
-            ? Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, $"'{match.Value}' is not a Double.")
-            : Succeed(new VBDoubleValue(number));
+        if (double.IsInfinity(number))
+        {
+            (number, overflow) = (0, $"'{match.Value}' is not a Double.");
+            return false;
+        }
+
+        return true;
     }
 
     // MS-VBA reads the digits of a radix number as the bits of an integer, typed by its width and by the type-declaration character after them, if any, much
-    // as a radix literal is (MS-VBAL §3.3.2), and the Double is that integer's value (recorded in Excel: oracle\s57 V01-V06, D01-D03). More than 64 bits
+    // as a radix literal is (MS-VBAL §3.3.2), and the Double is that integer's value (observed in Excel). More than 64 bits
     // overflow (6), whatever follows. Unsuffixed, up to 16 bits are an Integer and any more the low 32 bits of a Long: &HFFFF is -1, &H123456789 is
     // &H23456789. % is an Integer, which more than 16 bits overflow; & the low 32 bits of a Long; ^ a LongLong; ! # @ a Long when 32 bits hold them, and a
     // LongLong when they do not (&H8000! is 32768, &HFFFFFFFF! is -1). Null when the bits overflow.

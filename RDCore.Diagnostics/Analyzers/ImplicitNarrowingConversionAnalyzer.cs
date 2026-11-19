@@ -21,6 +21,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ImplicitNarrowingConversionAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode()];
+
     private const ConversionSemanticFlags Reported = ConversionSemanticFlags.Implicit | ConversionSemanticFlags.Narrowing;
 
     public AnalysisPhase Phase => AnalysisPhase.Runtime;

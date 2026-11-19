@@ -45,11 +45,11 @@ internal static class AutomationErrors
         [0x80070002] = VBRuntimeErrorId.FileOrClassNameNotFoundAutomation,   // ERROR_FILE_NOT_FOUND
     };
 
-    // MS-VBA reports a machine that is not there to create an object on by its HRESULT, not as 462 (recorded in Excel, oracle\s25 O03).
+    // MS-VBA reports a machine that is not there to create an object on by its HRESULT, not as 462 (observed in Excel).
     private const uint ServerUnavailable = 0x800706BA;
 
     // what a class that cannot be created is to the call that creates it - CreateObject, GetObject, New - which MS-VBA reports as 429. A member of an object that fails
-    // with one (Controls.Add of a class that is not registered) is reported by its HRESULT, as any other failure of a member is (recorded in Excel, oracle\s41 C08).
+    // with one (Controls.Add of a class that is not registered) is reported by its HRESULT, as any other failure of a member is (observed in Excel).
     private static readonly HashSet<uint> NotCreatable = [0x80040154, 0x800401F3, 0x800401E3, 0x80080005];
 
     /// <summary>
@@ -75,4 +75,15 @@ internal static class AutomationErrors
         // an error the server raised itself, in VBA's facility: its number is the program's Err.Number, and its message the program's Err.Description.
         return VBApplicationErrorInfo.Raised((code & FacilityMask) == VbaFacility ? (int)(code & 0xFFFF) : failure.HResult, site, verbose, said);
     }
+
+    // MS-VBAL §2.1: the domain of an Error is "Standard error codes from 0 to 65535, as well as other implementation-defined error values", and its nominal
+    // representation a "32-bit integer (Windows HRESULT)". A standard error code is the HRESULT of VBA's facility that it is the low word of - what a server is given
+    // for CVErr(2007), 0x800A07D7, is #DIV/0! to Excel - and any other error value is its HRESULT already.
+    public static int HResultOfError(int code)
+        => code is >= 0 and <= 0xFFFF ? unchecked((int)(VbaFacility | (uint)code)) : code;
+
+    // the error value a server's HRESULT is: a standard error code when it is in VBA's facility, as MS-VBA reads #DIV/0! as Error 2007, and the HRESULT itself
+    // otherwise.
+    public static int ErrorOfHResult(int hresult)
+        => (unchecked((uint)hresult) & FacilityMask) == VbaFacility ? hresult & 0xFFFF : hresult;
 }

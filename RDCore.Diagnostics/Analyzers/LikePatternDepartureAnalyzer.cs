@@ -18,6 +18,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class LikePatternDepartureAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.LikePatternDeparture.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

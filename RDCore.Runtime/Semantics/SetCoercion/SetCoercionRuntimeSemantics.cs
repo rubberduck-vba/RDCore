@@ -72,7 +72,8 @@ public sealed record class SetCoercionRuntimeSemantics(IErrorDetailsRecorder Err
             }
 
             return session.Symbols.TryGetInstance(sourceObject.Value, out var instance)
-                && IsCompatibleClass(VBClassType.FromClassModule(instance.ClassModule), destinationClass)
+                && IsCompatibleClass(VBClassType.FromClassModule(
+                    Execution.External.Automation.ServerObjects.ClassOf(session, sourceObject.Value, instance.ClassModule)), destinationClass)
                     ? SetCoercionResult.Success(sourceObject)
                     : SetCoercionResult.Error(OnSetCoercionTypeMismatch(expression));
         }

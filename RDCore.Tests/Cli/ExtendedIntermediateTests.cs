@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// MS-VBAL §5.6.9.3: MS-VBA computes an expression of Single, Double and Date operations of typed operands in the x87's 80-bit extended format, and rounds
 /// it where it is stored (ExtendedIntermediates) - in range and in precision. Both ways: on payloads, and boxed (the suite is also run with
-/// <c>RDCORE_UNBOXED=0</c>). Every expected line was recorded in Excel (grid <c>oracle\s42</c>: cases A, B, C, D and E, by their id).
+/// <c>RDCORE_UNBOXED=0</c>). Every expected line was observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class ExtendedIntermediateTests

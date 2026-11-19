@@ -8,7 +8,7 @@ using RDCore.Diagnostics;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// <c>RDC11016</c>: the <c>Empty</c> literal Let-assigned to an array, which compiles and raises 13 whenever it runs (Excel, <c>oracle\s46</c> F17a-b).
+/// <c>RDC11016</c>: the <c>Empty</c> literal Let-assigned to an array, which compiles and raises 13 whenever it runs (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class EmptyLetToArrayAnalyzerTests
@@ -27,6 +27,7 @@ public sealed class EmptyLetToArrayAnalyzerTests
     [DataRow("Function FE() As Integer() ;; FE = Empty ;; End Function", "Dim r ;; r = FE()", DisplayName = "F17a the result of a function")]
     [DataRow("", "Dim a() As Integer ;; a = Empty", DisplayName = "F17b a variable")]
     [DataRow("", "Dim a() As Integer ;; a = Null", DisplayName = "s48 J01 Null")]
+    [DataRow("Sub Take(a() As Integer) ;; End Sub", "Take Empty", DisplayName = "an argument given to a parameter declared as an array")]
     public async Task EmptyLetToAnArray_IsReported(string declarations, string body)
     {
         var finding = Assert.ContainsSingle(await FindingsAsync(declarations, body));

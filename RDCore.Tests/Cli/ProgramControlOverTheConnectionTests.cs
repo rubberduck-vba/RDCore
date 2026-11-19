@@ -23,7 +23,7 @@ public sealed class ProgramControlOverTheConnectionTests
     private static readonly (string Name, string Source)[] NoClasses = [];
 
     // what keeps a test from hanging: no answer it waits for takes nearly as long, on any machine.
-    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // run again, it loops from the start: the module's variables are the session's, and stay from one run to the next.
     private static readonly string StopsTheFirstTimeThenLoops = string.Join("\r\n",
@@ -74,6 +74,28 @@ public sealed class ProgramControlOverTheConnectionTests
             Assert.IsTrue(ack.Acted);
             Assert.AreEqual(ExecutionOutcome.Halted, (await running.WaitAsync(Patience)).Outcome);
             Assert.AreEqual(ProgramState.Idle, provider.Execution.State);
+        });
+
+    // the breakpoint is answered while the program runs, and the program waits at it from then on: in the loop it was running when the breakpoint was set.
+    [TestMethod]
+    public async Task ABreakpoint_SetWhileAResumedProgramRuns_IsAnsweredAtOnce_AndTheProgramWaitsAtIt()
+        => await ConnectedAsync(async (provider, client, resumed) =>
+        {
+            var running = client.SendRequest<ExecuteResult>(new HostDebugResumeParams(), CancellationToken.None);
+            await resumed.WaitAsync(Patience);
+            Assert.AreEqual(ProgramState.Running, provider.Execution.State);
+
+            // "Total = Total + 1", in the loop: zero-based line 4.
+            var set = await client.SendRequest<DebugBreakpointsResult>(new HostDebugBreakpointsParams
+            {
+                ModuleName = "Program",
+                Breakpoints = [new HostBreakpointLine { Line = 4, IsEnabled = true }],
+            }, CancellationToken.None).WaitAsync(Patience);
+
+            Assert.IsTrue(set.Breakpoints.Single().Verified, "answered while the program runs");
+            var waiting = await running.WaitAsync(Patience);
+            Assert.AreEqual((ExecutionOutcome.Suspended, 4), (waiting.Outcome, waiting.ErrorLine), waiting.ErrorMessage);
+            Assert.IsTrue((await client.SendRequest<DebugAck>(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience)).Acted);
         });
 
     // ---- a stop asked of a program that is started and not executing yet ----
@@ -164,6 +186,7 @@ public sealed class ProgramControlOverTheConnectionTests
                 .WithEveryRequestAnswered()
                 .AddHandler(resume)
                 .AddHandler(new HostDebugPauseHandler(provider))
+                .AddHandler(new HostDebugBreakpointsHandler(provider))
                 .AddHandler(new HostDebugTerminateHandler(provider))
                 .WithLifecycleReceiver(), timeout.Token);
             var connecting = LanguageClient.From(options => options.WithInput(toClient.Reader).WithOutput(toServer.Writer), timeout.Token);

@@ -317,6 +317,22 @@ public sealed class ExplicitConversionFunctionTests
     public void Int_OfADateIsADate()
         => Assert.AreEqual(1d, ((VBDateValue)Inner(Conversion().Int(Variant(new VBDateValue(1.5))))).SerialValue);
 
+    // MS-VBAL 6.1.2.3.1.16 and 6.1.2.3.1.18: CDate(Fix(CDbl(Number))) and CDate(Int(CDbl(Number))) of a Date before 1899-12-30, whose serial is negative.
+    [TestMethod]
+    public void Fix_OfADateBeforeItsEpochIsADate_AndIntGoesADayDown()
+    {
+        Assert.AreEqual(-1d, ((VBDateValue)Inner(Conversion().Fix(Variant(new VBDateValue(-1.25))))).SerialValue);
+        Assert.AreEqual(-2d, ((VBDateValue)Inner(Conversion().Int(Variant(new VBDateValue(-1.25))))).SerialValue);
+    }
+
+    // MS-VBAL 6.1.2.3.1.18: Int of a time on the first day of the Date range is below the range, which CDate raises 6 for; Fix of it is that day.
+    [TestMethod]
+    public void Int_BelowTheDateRangeIsOverflow()
+    {
+        Assert.AreEqual(VBRuntimeErrorId.Overflow, ErrorOf(Conversion().Int(Variant(new VBDateValue(-657434.5)))));
+        Assert.AreEqual(-657434d, ((VBDateValue)Inner(Conversion().Fix(Variant(new VBDateValue(-657434.5))))).SerialValue);
+    }
+
     [TestMethod]
     public void Int_OfABooleanIsAnInteger()
         => Assert.AreEqual((short)-1, ((VBIntegerValue)Inner(Conversion().Int(Variant(VBBooleanValue.True)))).Value);
@@ -375,6 +391,35 @@ public sealed class ExplicitConversionFunctionTests
         Assert.AreEqual(" 1.5", ((VBStringValue)Inner(Conversion().Str(Variant(new VBDoubleValue(1.5))))).Value);
     }
 
+    // RD-VBAL §6.1.2.3.1.20: MS-VBA's Str writes a number between -1 and 1 with no zero before its decimal point, whatever its numeric type, where the
+    // Let-coercion to String that MS-VBAL names writes one (observed in Excel). CStr keeps it.
+    [TestMethod]
+    [DataRow(0.5, " .5")]
+    [DataRow(-0.5, "-.5")]
+    [DataRow(0.05, " .05")]
+    [DataRow(-0.05, "-.05")]
+    [DataRow(0.00001, " .00001")]
+    [DataRow(1.5, " 1.5")]
+    [DataRow(100.5, " 100.5")]
+    [DataRow(0d, " 0")]
+    [DataRow(1.5E+20, " 1.5E+20")]
+    public void Str_OfADoubleBetweenMinusOneAndOne_HasNoZeroBeforeItsPoint(double value, string expected)
+        => Assert.AreEqual(expected, ValueOf(Conversion().StrStr(Variant(new VBDoubleValue(value)))).Value);
+
+    [TestMethod]
+    public void Str_OfAnyNumericTypeBetweenMinusOneAndOne_HasNoZeroBeforeItsPoint()
+    {
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Variant(new VBSingleValue(0.5f)))).Value);
+        Assert.AreEqual("-.75", ValueOf(Conversion().StrStr(Variant(new VBSingleValue(-0.75f)))).Value);
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Variant(new VBCurrencyValue(0.5m)))).Value);
+        Assert.AreEqual("-.25", ValueOf(Conversion().StrStr(Variant(new VBCurrencyValue(-0.25m)))).Value);
+        Assert.AreEqual(" .0001", ValueOf(Conversion().StrStr(Variant(new VBCurrencyValue(0.0001m)))).Value);
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Variant(new VBDecimalValue(0.5m)))).Value);
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Text("0.5"))).Value);
+        Assert.AreEqual(" .5", ((VBStringValue)Inner(Conversion().Str(Variant(new VBDoubleValue(0.5))))).Value);
+        Assert.AreEqual("0.5", ValueOf(Conversion().CStr(Variant(new VBDoubleValue(0.5)))).Value);
+    }
+
     [TestMethod]
     public void Str_OfOtherTypesGoesThroughDouble()
     {
@@ -382,7 +427,7 @@ public sealed class ExplicitConversionFunctionTests
         Assert.AreEqual(" 12", ValueOf(Conversion().StrStr(Text("12"))).Value);
     }
 
-    // RD-VBAL §6.1.2.3.1.20: MS-VBA's Str takes no Error value, where MS-VBAL's writes it as CStr does (recorded in Excel: oracle\s56 G07, s57 E01).
+    // RD-VBAL §6.1.2.3.1.20: MS-VBA's Str takes no Error value, where MS-VBAL's writes it as CStr does (observed in Excel).
     [TestMethod]
     public void Str_OfAnError_IsError13()
     {
@@ -433,8 +478,8 @@ public sealed class ExplicitConversionFunctionTests
     public void Val_BeyondDoubleIsOverflow()
         => Assert.AreEqual(VBRuntimeErrorId.Overflow, ErrorOf(Conversion().Val(new VBStringValue("1e999"))));
 
-    // MS-VBA reads the digits after &H or &O as the bits of an integer typed by their width and by the type-declaration character after them (recorded in
-    // Excel: oracle\s57 V01-V06, D01-D03).
+    // MS-VBA reads the digits after &H or &O as the bits of an integer typed by their width and by the type-declaration character after them (observed in
+    // Excel).
     [TestMethod]
     [DataRow("&HFFFF", -1d, DisplayName = "V01 16 bits are an Integer")]
     [DataRow("&H7FFF", 32767d, DisplayName = "V01 the greatest Integer")]

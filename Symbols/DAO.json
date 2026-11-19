@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 3,
   "name": "DAO",
   "description": "Microsoft Office 16.0 Access database engine Object Library",
   "origin": {
@@ -7001,6 +7001,128 @@
               "isByVal": true
             }
           ]
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "LanguageConstants",
+      "constants": [
+        {
+          "name": "dbLangArabic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0401;CP=1256;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangCzech",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0405;CP=1250;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangDutch",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0413;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangGeneral",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0409;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangGreek",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0408;CP=1253;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangHebrew",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040D;CP=1255;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangHungarian",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040E;CP=1250;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangIcelandic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040F;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangNordic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041D;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangNorwDan",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0406;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangPolish",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0415;CP=1250;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangCyrillic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0419;CP=1251;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangSpanish",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040A;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangSwedFin",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041D;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangTurkish",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041F;CP=1254;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangJapanese",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0411;CP=932;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangChineseSimplified",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0804;CP=936;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangChineseTraditional",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0404;CP=950;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangKorean",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0412;CP=949;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangThai",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041E;CP=874;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangSlovenian",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0424;CP=1250;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangJapaneseRadicalStrokeCount",
+          "type": "String",
+          "value": "\u0022;LANGID=0x00040411;CP=65001;COUNTRY=0\u0022"
+        },
+        {
+          "name": "dbLangHindi",
+          "type": "String",
+          "value": "\u0022;LANGID=0x00000439;CP=65001;COUNTRY=0\u0022"
         }
       ]
     }

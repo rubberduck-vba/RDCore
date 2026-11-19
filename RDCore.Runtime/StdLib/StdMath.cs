@@ -31,7 +31,7 @@ namespace RDCore.Runtime.StdLib;
 /// 👉 <see cref="Sin"/>, <see cref="Cos"/> and <see cref="Tan"/> refuse an angle of 2<sup>63</sup> radians or more, as MS-VBA does. A sine and a cosine
 /// are the platform's, within a unit of the last place of the true value as MS-VBA's are, and its to the last bit but for about one argument in forty;
 /// a tangent is MS-VBA's quotient of the two, divided in 80 bits - not the platform's own tangent, which differs in the last bit for one in three
-/// (recorded in Excel, grid oracle\s43 M01-M03, T: 80 arguments).
+/// (observed in Excel: 80 arguments).
 /// </para>
 /// <para>
 /// An object argument stands for its simple data value (<strong>MS-VBAL §5.5.1.2.13</strong>), read through its default member
@@ -83,13 +83,13 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
                 return Variant(new VBIntegerValue((short)((bool)boolean.Value ? 1 : 0)));
 
             // "If Number is of a numeric value type, returns a value of the same value type": so the absolute value of the smallest value of a type is an
-            // overflow, there being no value of that type that is its absolute value: the least Long too, which a variable holds (recorded in Excel:
-            // oracle\s60 A01, A03). Abs of the least Long in a constant expression is that Long, which MS-VBA evaluates as it compiles the code: the call's
+            // overflow, there being no value of that type that is its absolute value: the least Long too, which a variable holds (observed in Excel).
+            // Abs of the least Long in a constant expression is that Long, which MS-VBA evaluates as it compiles the code: the call's
             // (RuntimeExpressionEvaluator.AbsOfAConstantExpression).
             case VBNumericTypedValue when source.TypeInfo is IIntegralNumericType && ValueConversions.WholeValueOf(source) is { } whole:
-                return whole == long.MinValue || source is VBLongValue { Value: int.MinValue }
-                    ? Fail<VBVariantValue>(VBRuntimeErrorId.Overflow, $"The smallest {source.TypeInfo.Name} has no absolute value of its own type.")
-                    : InVariant(ValueConversions.FromWhole(Math.Abs(whole), (VBNumericType)source.TypeInfo), source);
+                return TryAbsOfWhole(whole, LeastOf(source.TypeInfo), out var absolute)
+                    ? InVariant(ValueConversions.FromWhole(absolute, (VBNumericType)source.TypeInfo), source)
+                    : Fail<VBVariantValue>(VBRuntimeErrorId.Overflow, $"The smallest {source.TypeInfo.Name} has no absolute value of its own type.");
 
             case VBCurrencyValue currency:
                 return InVariant(ValueConversions.ToNumeric(new VBDecimalValue(Math.Abs(CurrencyValueOf(currency))), VBCurrencyType.TypeInfo), source);
@@ -101,7 +101,7 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
                 return Variant(new VBSingleValue(Math.Abs(single.Value)));
 
             case VBDoubleValue @double:
-                return Variant(new VBDoubleValue(Math.Abs(@double.Value)));
+                return Variant(new VBDoubleValue(AbsOf(@double.Value)));
 
             // a Date is of no numeric value type, but MS-VBA answers it as one: Abs(#12/29/1899#) is #12/31/1899#.
             case VBDateValue date:
@@ -110,10 +110,71 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
             // "Otherwise, the data value of Number is Let-coerced to Double and the absolute value of that data value is returned."
             default:
                 return ToDouble(source, out var value, out var error)
-                    ? Variant(new VBDoubleValue(Math.Abs(value)))
+                    ? Variant(new VBDoubleValue(AbsOf(value)))
                     : error;
         }
     }
+
+    /// <summary>
+    /// The absolute value of an Integer, as <see cref="Abs"/> returns it (<strong>MS-VBAL §6.1.2.10.1.1</strong>): an Integer.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <param name="absolute">Its absolute value.</param>
+    /// <returns><see langword="false"/> for the smallest Integer, which has no absolute value of its type: <see cref="Abs"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdMathModule), nameof(Abs))]
+    public static bool AbsOf(short number, out short absolute)
+    {
+        var found = TryAbsOfWhole(number, short.MinValue, out var whole);
+        absolute = (short)whole;
+        return found;
+    }
+
+    /// <summary>
+    /// The absolute value of a Long, as <see cref="Abs"/> returns it (<strong>MS-VBAL §6.1.2.10.1.1</strong>): a Long.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <param name="absolute">Its absolute value.</param>
+    /// <returns><see langword="false"/> for the smallest Long, which has no absolute value of its type: <see cref="Abs"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdMathModule), nameof(Abs))]
+    public static bool AbsOf(int number, out int absolute)
+    {
+        var found = TryAbsOfWhole(number, int.MinValue, out var whole);
+        absolute = (int)whole;
+        return found;
+    }
+
+    /// <summary>
+    /// The absolute value of a LongLong, as <see cref="Abs"/> returns it (<strong>MS-VBAL §6.1.2.10.1.1</strong>): a LongLong.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <param name="absolute">Its absolute value.</param>
+    /// <returns><see langword="false"/> for the smallest LongLong, which has no absolute value of its type: <see cref="Abs"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdMathModule), nameof(Abs))]
+    public static bool AbsOf(long number, out long absolute) => TryAbsOfWhole(number, long.MinValue, out absolute);
+
+    /// <summary>
+    /// The absolute value of a Double, as <see cref="Abs"/> returns it (<strong>MS-VBAL §6.1.2.10.1.1</strong>): a Double.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>Its absolute value.</returns>
+    [StdLibIntrinsic(typeof(IStdMathModule), nameof(Abs))]
+    public static double AbsOf(double number) => Math.Abs(number);
+
+    // the absolute value of a whole number of a type whose smallest value is least: that value has no absolute value of the type, and fails. A Byte has
+    // no such value.
+    private static bool TryAbsOfWhole(long whole, long least, out long absolute)
+    {
+        absolute = whole < 0 && whole != least ? -whole : whole;
+        return whole != least;
+    }
+
+    // the smallest value of an integral type; a Byte's, which is its own absolute value, is taken to be the smallest LongLong, which no Byte is.
+    private static long LeastOf(VBType integral) => integral switch
+    {
+        VBIntegerType => short.MinValue,
+        VBLongType => int.MinValue,
+        _ => long.MinValue,
+    };
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBDoubleValue> Atn(VBDoubleValue Number)
@@ -248,20 +309,43 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
         }
     }
 
-    // MS-VBA scales the number to the digits it keeps, rounds that to a whole number, and scales it back - so a tie is a tie as the scaled Double is, not as
-    // the decimal digits it was written with are: 2.675 is a hair under 2.675 as a Double, and 267.5 once scaled.
     private static bool RoundDouble(double value, int digits, out double rounded, out RuntimeSemanticsEvaluationResult<VBVariantValue> error)
     {
-        rounded = value;
         error = default!;
-        if (digits > MostDoubleDigits)
+        if (!RoundOf(value, digits, out rounded))
         {
             error = Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, $"A Double rounds to no more than {MostDoubleDigits} digits.");
             return false;
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// A Double rounded to a number of digits after the decimal, as <see cref="Round"/> rounds it (<strong>MS-VBAL §6.1.2.10.1.7</strong>): scaled to the
+    /// digits it keeps, rounded to a whole number with a tie going to the even one, and scaled back.
+    /// </summary>
+    /// <remarks>
+    /// A tie is a tie as the scaled Double is, not as the decimal digits the number was written with are: 2.675 is a little under 2.675 as a Double, and
+    /// 267.5 once scaled, as in MS-VBA.
+    /// </remarks>
+    /// <param name="number">The number.</param>
+    /// <param name="digits">The number of digits after the decimal.</param>
+    /// <param name="rounded">The number rounded.</param>
+    /// <returns>
+    /// <see langword="false"/> for a negative number of digits, or more than a Double is rounded to: <see cref="Round"/> raises error 5.
+    /// </returns>
+    [StdLibIntrinsic(typeof(IStdMathModule), nameof(Round))]
+    public static bool RoundOf(double number, int digits, out double rounded)
+    {
+        rounded = number;
+        if (digits is < 0 or > MostDoubleDigits)
+        {
+            return false;
+        }
+
         var scale = Math.Pow(10, digits);
-        var scaled = value * scale;
+        var scaled = number * scale;
         if (double.IsInfinity(scaled))
         {
             // a number that large has no digits after the decimal to round.
@@ -279,6 +363,14 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
         rounded /= scale;
         return true;
     }
+
+    /// <summary>
+    /// A Double rounded to a whole number, as <see cref="Round"/> rounds it with no digits after the decimal (<strong>MS-VBAL §6.1.2.10.1.7</strong>).
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>The number rounded, a tie going to the even whole number.</returns>
+    [StdLibIntrinsic(typeof(IStdMathModule), nameof(Round))]
+    public static double RoundOf(double number) => RoundOf(number, 0, out var rounded) ? rounded : number;
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> Sgn(VBVariantValue Number)
@@ -315,7 +407,7 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
                 sign = Math.Sign(@decimal.Value);
                 break;
 
-            // a NaN has no sign: an overflow, as MS-VBA has it (recorded in Excel, grid oracle\s16 G10); an infinity's is its own (H05).
+            // a NaN has no sign: an overflow, as MS-VBA has it (observed in Excel); an infinity's is its own.
             case VBNumericTypedValue numeric when double.IsNaN(numeric.AsDouble):
                 return Fail<VBVariantValue>(VBRuntimeErrorId.Overflow, Exceptions.VBSgn_NaN_Verbose);
 
@@ -347,10 +439,22 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBDoubleValue> Sqr(VBDoubleValue Number)
-        // "Double containing any valid numeric expression greater than zero" - and zero, whose square root is zero.
-        => Number.Value >= 0
-            ? Double(Math.Sqrt(Number.Value))
+        => SquareRootOf(Number.Value, out var root)
+            ? Double(root)
             : Fail<VBDoubleValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, "A negative number has no square root.");
+
+    /// <summary>
+    /// The square root of a Double, as <see cref="Sqr"/> returns it (<strong>MS-VBAL §6.1.2.10.1.10</strong>).
+    /// </summary>
+    /// <param name="number">The number: "any valid numeric expression greater than zero", and zero, whose square root is zero.</param>
+    /// <param name="root">Its square root.</param>
+    /// <returns><see langword="false"/> for a negative number or a NaN, which has none: <see cref="Sqr"/> raises error 5.</returns>
+    [StdLibIntrinsic(typeof(IStdMathModule), nameof(Sqr))]
+    public static bool SquareRootOf(double number, out double root)
+    {
+        root = Math.Sqrt(number);
+        return number >= 0;
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBDoubleValue> Tan(VBDoubleValue Number)

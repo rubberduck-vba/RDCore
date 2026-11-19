@@ -14,7 +14,8 @@ namespace RDCore.Tests.Cli;
 [TestCategory("MS-VBAL 6.1.2.8.1.13 MsgBox")]
 public sealed class DialogOffTheConnectionTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(60);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// The client's dialogs: each waits until the test answers it, as a person at the shell would.

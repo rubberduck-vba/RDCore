@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 3,
   "name": "Access",
   "description": "Microsoft Access 16.0 Object Library",
   "origin": {
@@ -104783,6 +104783,2461 @@
               "type": "Variant"
             }
           ]
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "OldConstants",
+      "constants": [
+        {
+          "name": "V_EMPTY",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "V_NULL",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "V_INTEGER",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "V_LONG",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "V_SINGLE",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "V_DOUBLE",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "V_CURRENCY",
+          "type": "Integer",
+          "value": "6"
+        },
+        {
+          "name": "V_DATE",
+          "type": "Integer",
+          "value": "7"
+        },
+        {
+          "name": "V_STRING",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "DB_BINARY",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "DB_OLE",
+          "type": "Integer",
+          "value": "11"
+        },
+        {
+          "name": "DB_NONULLS",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_TABLE",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_QUERY",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_FORM",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_REPORT",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_MACRO",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "A_MODULE",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "A_FORMBAR",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_FILE",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_EDITMENU",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_RECORDSMENU",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_NEW",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_SAVEFORM",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_SAVEFORMAS",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_SAVERECORD",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "A_UNDO",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_UNDOFIELD",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_CUT",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_COPY",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_PASTE",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "A_DELETE",
+          "type": "Integer",
+          "value": "6"
+        },
+        {
+          "name": "A_SELECTRECORD",
+          "type": "Integer",
+          "value": "7"
+        },
+        {
+          "name": "A_SELECTALLRECORDS",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "A_OBJECT",
+          "type": "Integer",
+          "value": "14"
+        },
+        {
+          "name": "A_REFRESH",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_OBJECTVERB",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_OBJECTUPDATE",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_ANYWHERE",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_ENTIRE",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_START",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_UP",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_DOWN",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_CURRENT",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_ALL",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_PREVIOUS",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_NEXT",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_FIRST",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_LAST",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_GOTO",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "A_NEWREC",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "A_NORMAL",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_DESIGN",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_PREVIEW",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_FORMDS",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_ADD",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_EDIT",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_READONLY",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_HIDDEN",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_ICON",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_DIALOG",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_PRINTALL",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_SELECTION",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_PAGES",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_HIGH",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_MEDIUM",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_LOW",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_DRAFT",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_PROMPT",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_SAVE",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_EXIT",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_IMPORT",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_EXPORT",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_ATTACH",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_IMPORTDELIM",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_IMPORTFIXED",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_EXPORTDELIM",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_EXPORTFIXED",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "A_EXPORTMERGE",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "OLE_CHANGED",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "OLE_SAVED",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "OLE_CLOSED",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "OLE_RENAMED",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "OLE_RELEASE",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "SHIFT_MASK",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "CTRL_MASK",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "ALT_MASK",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "LEFT_BUTTON",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "RIGHT_BUTTON",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "MIDDLE_BUTTON",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "DATA_ERRCONTINUE",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "DATA_ERRDISPLAY",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "DATA_ERRADDED",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "LB_INITIALIZE",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "LB_OPEN",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "LB_GETROWCOUNT",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "LB_GETCOLUMNCOUNT",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "LB_GETCOLUMNWIDTH",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "LB_GETVALUE",
+          "type": "Integer",
+          "value": "6"
+        },
+        {
+          "name": "LB_GETFORMAT",
+          "type": "Integer",
+          "value": "7"
+        },
+        {
+          "name": "LB_CLOSE",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "LB_END",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "SYSCMD_INITMETER",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "SYSCMD_UPDATEMETER",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "SYSCMD_REMOVEMETER",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "SYSCMD_SETSTATUS",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "SYSCMD_CLEARSTATUS",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "SYSCMD_RUNTIME",
+          "type": "Integer",
+          "value": "6"
+        },
+        {
+          "name": "SYSCMD_ACCESSVER",
+          "type": "Integer",
+          "value": "7"
+        },
+        {
+          "name": "SYSCMD_INIFILE",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "SYSCMD_ACCESSDIR",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "SYSCMD_GETOBJECTSTATE",
+          "type": "Integer",
+          "value": "10"
+        },
+        {
+          "name": "SYSCMD_CLEARHELPTOPIC",
+          "type": "Integer",
+          "value": "11"
+        },
+        {
+          "name": "OBJSTATE_OPEN",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "OBJSTATE_NEW",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "OBJSTATE_DIRTY",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "A_DELETE_V2",
+          "type": "Integer",
+          "value": "7"
+        },
+        {
+          "name": "A_SELECTRECORD_V2",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "A_SELECTALLRECORDS_V2",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "A_TOOLBAR_YES",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "A_TOOLBAR_WHERE_APPROP",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "A_TOOLBAR_NO",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "DELETE_OK",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "DELETE_CANCEL",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "DELETE_USER_CANCEL",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "DB_SEC_FRMRPT_READDEF",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_SEC_FRMRPT_WRITEDEF",
+          "type": "Long",
+          "value": "65548"
+        },
+        {
+          "name": "DB_SEC_FRMRPT_EXECUTE",
+          "type": "Long",
+          "value": "256"
+        },
+        {
+          "name": "DB_SEC_MAC_READDEF",
+          "type": "Long",
+          "value": "10"
+        },
+        {
+          "name": "DB_SEC_MAC_WRITEDEF",
+          "type": "Long",
+          "value": "65542"
+        },
+        {
+          "name": "DB_SEC_MAC_EXECUTE",
+          "type": "Long",
+          "value": "8"
+        },
+        {
+          "name": "DB_SEC_MOD_READDEF",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_SEC_MOD_WRITEDEF",
+          "type": "Long",
+          "value": "65542"
+        },
+        {
+          "name": "A_MENU_VER1X",
+          "type": "Integer",
+          "value": "11"
+        },
+        {
+          "name": "A_MENU_VER20",
+          "type": "Integer",
+          "value": "20"
+        },
+        {
+          "name": "A_FORMATRTF",
+          "type": "String",
+          "value": "\u0022Rich Text Format (*.rtf)\u0022"
+        },
+        {
+          "name": "A_FORMATXLS",
+          "type": "String",
+          "value": "\u0022Microsoft Excel (*.xls)\u0022"
+        },
+        {
+          "name": "A_FORMATTXT",
+          "type": "String",
+          "value": "\u0022MS-DOS Text (*.txt)\u0022"
+        },
+        {
+          "name": "DB_OPEN_TABLE",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_OPEN_DYNASET",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_OPEN_SNAPSHOT",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_DENYWRITE",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_DENYREAD",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_READONLY",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_APPENDONLY",
+          "type": "Long",
+          "value": "8"
+        },
+        {
+          "name": "DB_INCONSISTENT",
+          "type": "Long",
+          "value": "16"
+        },
+        {
+          "name": "DB_CONSISTENT",
+          "type": "Long",
+          "value": "32"
+        },
+        {
+          "name": "DB_SQLPASSTHROUGH",
+          "type": "Long",
+          "value": "64"
+        },
+        {
+          "name": "DB_FAILONERROR",
+          "type": "Long",
+          "value": "128"
+        },
+        {
+          "name": "DB_FORWARDONLY",
+          "type": "Long",
+          "value": "256"
+        },
+        {
+          "name": "DB_OPTIONINIPATH",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_FIXEDFIELD",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_VARIABLEFIELD",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_AUTOINCRFIELD",
+          "type": "Long",
+          "value": "16"
+        },
+        {
+          "name": "DB_UPDATABLEFIELD",
+          "type": "Long",
+          "value": "32"
+        },
+        {
+          "name": "DB_DESCENDING",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_BOOLEAN",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_BYTE",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_INTEGER",
+          "type": "Long",
+          "value": "3"
+        },
+        {
+          "name": "DB_LONG",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_CURRENCY",
+          "type": "Long",
+          "value": "5"
+        },
+        {
+          "name": "DB_SINGLE",
+          "type": "Long",
+          "value": "6"
+        },
+        {
+          "name": "DB_DOUBLE",
+          "type": "Long",
+          "value": "7"
+        },
+        {
+          "name": "DB_DATE",
+          "type": "Long",
+          "value": "8"
+        },
+        {
+          "name": "DB_TEXT",
+          "type": "Long",
+          "value": "10"
+        },
+        {
+          "name": "DB_LONGBINARY",
+          "type": "Long",
+          "value": "11"
+        },
+        {
+          "name": "DB_MEMO",
+          "type": "Long",
+          "value": "12"
+        },
+        {
+          "name": "DB_RELATIONUNIQUE",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_RELATIONDONTENFORCE",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_RELATIONINHERITED",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_RELATIONUPDATECASCADE",
+          "type": "Long",
+          "value": "256"
+        },
+        {
+          "name": "DB_RELATIONDELETECASCADE",
+          "type": "Long",
+          "value": "4096"
+        },
+        {
+          "name": "DB_RELATIONLEFT",
+          "type": "Long",
+          "value": "16777216"
+        },
+        {
+          "name": "DB_RELATIONRIGHT",
+          "type": "Long",
+          "value": "33554432"
+        },
+        {
+          "name": "DB_ATTACHEXCLUSIVE",
+          "type": "Long",
+          "value": "65536"
+        },
+        {
+          "name": "DB_ATTACHSAVEPWD",
+          "type": "Long",
+          "value": "131072"
+        },
+        {
+          "name": "DB_SYSTEMOBJECT",
+          "type": "Long",
+          "value": "-2147483646"
+        },
+        {
+          "name": "DB_ATTACHEDTABLE",
+          "type": "Long",
+          "value": "1073741824"
+        },
+        {
+          "name": "DB_ATTACHEDODBC",
+          "type": "Long",
+          "value": "536870912"
+        },
+        {
+          "name": "DB_HIDDENOBJECT",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_TABLE",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_QUERYDEF",
+          "type": "Long",
+          "value": "5"
+        },
+        {
+          "name": "DB_QSELECT",
+          "type": "Long",
+          "value": "0"
+        },
+        {
+          "name": "DB_QACTION",
+          "type": "Long",
+          "value": "240"
+        },
+        {
+          "name": "DB_QCROSSTAB",
+          "type": "Long",
+          "value": "16"
+        },
+        {
+          "name": "DB_QDELETE",
+          "type": "Long",
+          "value": "32"
+        },
+        {
+          "name": "DB_QUPDATE",
+          "type": "Long",
+          "value": "48"
+        },
+        {
+          "name": "DB_QAPPEND",
+          "type": "Long",
+          "value": "64"
+        },
+        {
+          "name": "DB_QMAKETABLE",
+          "type": "Long",
+          "value": "80"
+        },
+        {
+          "name": "DB_QDDL",
+          "type": "Long",
+          "value": "96"
+        },
+        {
+          "name": "DB_QSQLPASSTHROUGH",
+          "type": "Long",
+          "value": "112"
+        },
+        {
+          "name": "DB_QSETOPERATION",
+          "type": "Long",
+          "value": "128"
+        },
+        {
+          "name": "DB_QSPTBULK",
+          "type": "Long",
+          "value": "144"
+        },
+        {
+          "name": "DB_UNIQUE",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_PRIMARY",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_PROHIBITNULL",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_IGNORENULL",
+          "type": "Long",
+          "value": "8"
+        },
+        {
+          "name": "DB_LANG_ARABIC",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0401;CP=1256;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_CZECH",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0405;CP=1250;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_DUTCH",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0413;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_GENERAL",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0409;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_GREEK",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0408;CP=1253;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_HEBREW",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040D;CP=1255;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_HUNGARIAN",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040E;CP=1250;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_ICELANDIC",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040F;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_NORDIC",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041D;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_NORWDAN",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0414;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_POLISH",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0415;CP=1250;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_CYRILLIC",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0419;CP=1251;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_SPANISH",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040A;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_SWEDFIN",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040B;CP=1252;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_LANG_TURKISH",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041F;CP=1254;COUNTRY=0\u0022"
+        },
+        {
+          "name": "DB_VERSION10",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_ENCRYPT",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_DECRYPT",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_VERSION11",
+          "type": "Long",
+          "value": "8"
+        },
+        {
+          "name": "DB_VERSION20",
+          "type": "Long",
+          "value": "16"
+        },
+        {
+          "name": "DB_SORTARABIC",
+          "type": "Long",
+          "value": "267"
+        },
+        {
+          "name": "DB_SORTCYRILLIC",
+          "type": "Long",
+          "value": "263"
+        },
+        {
+          "name": "DB_SORTCZECH",
+          "type": "Long",
+          "value": "264"
+        },
+        {
+          "name": "DB_SORTDUTCH",
+          "type": "Long",
+          "value": "259"
+        },
+        {
+          "name": "DB_SORTGENERAL",
+          "type": "Long",
+          "value": "256"
+        },
+        {
+          "name": "DB_SORTGREEK",
+          "type": "Long",
+          "value": "269"
+        },
+        {
+          "name": "DB_SORTHEBREW",
+          "type": "Long",
+          "value": "268"
+        },
+        {
+          "name": "DB_SORTHUNGARIAN",
+          "type": "Long",
+          "value": "265"
+        },
+        {
+          "name": "DB_SORTICELANDIC",
+          "type": "Long",
+          "value": "262"
+        },
+        {
+          "name": "DB_SORTNORWDAN",
+          "type": "Long",
+          "value": "261"
+        },
+        {
+          "name": "DB_SORTPDXINTL",
+          "type": "Long",
+          "value": "4096"
+        },
+        {
+          "name": "DB_SORTPDXNOR",
+          "type": "Long",
+          "value": "4098"
+        },
+        {
+          "name": "DB_SORTPDXSWE",
+          "type": "Long",
+          "value": "4097"
+        },
+        {
+          "name": "DB_SORTPOLISH",
+          "type": "Long",
+          "value": "266"
+        },
+        {
+          "name": "DB_SORTSPANISH",
+          "type": "Long",
+          "value": "258"
+        },
+        {
+          "name": "DB_SORTSWEDFIN",
+          "type": "Long",
+          "value": "260"
+        },
+        {
+          "name": "DB_SORTTURKISH",
+          "type": "Long",
+          "value": "270"
+        },
+        {
+          "name": "DB_SORTUNDEFINED",
+          "type": "Long",
+          "value": "-1"
+        },
+        {
+          "name": "DB_FREELOCKS",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_SEC_NOACCESS",
+          "type": "Long",
+          "value": "0"
+        },
+        {
+          "name": "DB_SEC_FULLACCESS",
+          "type": "Long",
+          "value": "1048575"
+        },
+        {
+          "name": "DB_SEC_DELETE",
+          "type": "Long",
+          "value": "65536"
+        },
+        {
+          "name": "DB_SEC_READSEC",
+          "type": "Long",
+          "value": "131072"
+        },
+        {
+          "name": "DB_SEC_WRITESEC",
+          "type": "Long",
+          "value": "262144"
+        },
+        {
+          "name": "DB_SEC_WRITEOWNER",
+          "type": "Long",
+          "value": "524288"
+        },
+        {
+          "name": "DB_SEC_DBCREATE",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_SEC_DBOPEN",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "DB_SEC_DBEXCLUSIVE",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_SEC_CREATE",
+          "type": "Long",
+          "value": "1"
+        },
+        {
+          "name": "DB_SEC_READDEF",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "DB_SEC_WRITEDEF",
+          "type": "Long",
+          "value": "65548"
+        },
+        {
+          "name": "DB_SEC_RETRIEVEDATA",
+          "type": "Long",
+          "value": "20"
+        },
+        {
+          "name": "DB_SEC_INSERTDATA",
+          "type": "Long",
+          "value": "32"
+        },
+        {
+          "name": "DB_SEC_REPLACEDATA",
+          "type": "Long",
+          "value": "64"
+        },
+        {
+          "name": "DB_SEC_DELETEDATA",
+          "type": "Long",
+          "value": "128"
+        }
+      ]
+    },
+    {
+      "name": "Constants",
+      "constants": [
+        {
+          "name": "acDataErrContinue",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acDataErrDisplay",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acDataErrAdded",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acDeleteOK",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acDeleteCancel",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acDeleteUserCancel",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acObjStateOpen",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acObjStateNew",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acObjStateDirty",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acLBInitialize",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acLBOpen",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acLBGetRowCount",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acLBGetColumnCount",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acLBGetColumnWidth",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "acLBGetValue",
+          "type": "Integer",
+          "value": "6"
+        },
+        {
+          "name": "acLBGetFormat",
+          "type": "Integer",
+          "value": "7"
+        },
+        {
+          "name": "acLBClose",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "acLBEnd",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "acPropCatNA",
+          "type": "Integer",
+          "value": "0",
+          "isHidden": true
+        },
+        {
+          "name": "acPropCatLayout",
+          "type": "Integer",
+          "value": "1",
+          "isHidden": true
+        },
+        {
+          "name": "acPropCatData",
+          "type": "Integer",
+          "value": "2",
+          "isHidden": true
+        },
+        {
+          "name": "acPropCatEvent",
+          "type": "Integer",
+          "value": "4",
+          "isHidden": true
+        },
+        {
+          "name": "acPropCatOther",
+          "type": "Integer",
+          "value": "8",
+          "isHidden": true
+        },
+        {
+          "name": "acPrompt",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acSave",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acExit",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acOLEEither",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acOLECreateEmbed",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLECreateNew",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLECreateLink",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLECreateFromFile",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLECopy",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acOLEPaste",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "acOLEUpdate",
+          "type": "Integer",
+          "value": "6"
+        },
+        {
+          "name": "acOLEActivate",
+          "type": "Integer",
+          "value": "7"
+        },
+        {
+          "name": "acOLEClose",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "acOLEDelete",
+          "type": "Integer",
+          "value": "10"
+        },
+        {
+          "name": "acOLEInsertObjDlg",
+          "type": "Integer",
+          "value": "14"
+        },
+        {
+          "name": "acOLEPasteSpecialDlg",
+          "type": "Integer",
+          "value": "15"
+        },
+        {
+          "name": "acOLEFetchVerbs",
+          "type": "Integer",
+          "value": "17"
+        },
+        {
+          "name": "acOLEDisplayContent",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLEDisplayIcon",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLELinked",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLEEmbedded",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLENone",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acOLESizeClip",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLESizeStretch",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLESizeAutoSize",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acOLESizeZoom",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acOLEUpdateAutomatic",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLEUpdateFrozen",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLEUpdateManual",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acOLEActivateManual",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLEActivateGetFocus",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLEActivateDoubleClick",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acOLEVerbPrimary",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLEVerbShow",
+          "type": "Integer",
+          "value": "-1"
+        },
+        {
+          "name": "acOLEVerbOpen",
+          "type": "Integer",
+          "value": "-2"
+        },
+        {
+          "name": "acOLEVerbHide",
+          "type": "Integer",
+          "value": "-3"
+        },
+        {
+          "name": "acOLEVerbInPlaceUIActivate",
+          "type": "Integer",
+          "value": "-4"
+        },
+        {
+          "name": "acOLEVerbInPlaceActivate",
+          "type": "Integer",
+          "value": "-5"
+        },
+        {
+          "name": "acMenuVer1X",
+          "type": "Integer",
+          "value": "11"
+        },
+        {
+          "name": "acMenuVer20",
+          "type": "Integer",
+          "value": "20"
+        },
+        {
+          "name": "acMenuVer70",
+          "type": "Integer",
+          "value": "70"
+        },
+        {
+          "name": "acFormBar",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acFile",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acEditMenu",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acRecordsMenu",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "acNew",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acSaveForm",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acSaveFormAs",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "acSaveRecord",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acUndo",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acCut",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acCopy",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acPaste",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acDelete",
+          "type": "Integer",
+          "value": "6"
+        },
+        {
+          "name": "acSelectRecord",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "acSelectAllRecords",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "acObject",
+          "type": "Integer",
+          "value": "14"
+        },
+        {
+          "name": "acRefresh",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "acObjectVerb",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acObjectUpdate",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acFormatRTF",
+          "type": "String",
+          "value": "\u0022Rich Text Format (*.rtf)\u0022"
+        },
+        {
+          "name": "acFormatXLS",
+          "type": "String",
+          "value": "\u0022Microsoft Excel (*.xls)\u0022"
+        },
+        {
+          "name": "acFormatTXT",
+          "type": "String",
+          "value": "\u0022MS-DOS Text (*.txt)\u0022"
+        },
+        {
+          "name": "acFormatHTML",
+          "type": "String",
+          "value": "\u0022HTML (*.html)\u0022"
+        },
+        {
+          "name": "acFormatIIS",
+          "type": "String",
+          "value": "\u0022Microsoft IIS (*.htx; *.idc)\u0022",
+          "isHidden": true
+        },
+        {
+          "name": "acFormatASP",
+          "type": "String",
+          "value": "\u0022Microsoft Active Server Pages (*.asp)\u0022",
+          "isHidden": true
+        },
+        {
+          "name": "acFormatDAP",
+          "type": "String",
+          "value": "\u0022Microsoft Access Data Access Page (*.htm; *.html)\u0022",
+          "isHidden": true
+        },
+        {
+          "name": "acFormatSNP",
+          "type": "String",
+          "value": "\u0022Snapshot Format (*.snp)\u0022"
+        },
+        {
+          "name": "acFormatPDF",
+          "type": "String",
+          "value": "\u0022PDF Format (*.pdf)\u0022"
+        },
+        {
+          "name": "acFormatXPS",
+          "type": "String",
+          "value": "\u0022XPS Format (*.xps)\u0022"
+        },
+        {
+          "name": "acFormatXLSB",
+          "type": "String",
+          "value": "\u0022Microsoft Excel Binary Workbook (*.xlsb)\u0022"
+        },
+        {
+          "name": "acFormatXLSX",
+          "type": "String",
+          "value": "\u0022Microsoft Excel Workbook (*.xlsx)\u0022"
+        },
+        {
+          "name": "acSecFrmRptReadDef",
+          "type": "Long",
+          "value": "4"
+        },
+        {
+          "name": "acSecFrmRptWriteDef",
+          "type": "Long",
+          "value": "65548"
+        },
+        {
+          "name": "acSecFrmRptExecute",
+          "type": "Long",
+          "value": "256"
+        },
+        {
+          "name": "acSecMacReadDef",
+          "type": "Long",
+          "value": "10"
+        },
+        {
+          "name": "acSecMacWriteDef",
+          "type": "Long",
+          "value": "65542"
+        },
+        {
+          "name": "acSecMacExecute",
+          "type": "Long",
+          "value": "8"
+        },
+        {
+          "name": "acSecModReadDef",
+          "type": "Long",
+          "value": "2"
+        },
+        {
+          "name": "acSecModWriteDef",
+          "type": "Long",
+          "value": "65542"
+        },
+        {
+          "name": "acMenuUngray",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acMenuGray",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acMenuUncheck",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acMenuCheck",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acEffectNormal",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acEffectRaised",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acEffectSunken",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acEffectEtched",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acEffectShadow",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acEffectChisel",
+          "type": "Integer",
+          "value": "5"
+        },
+        {
+          "name": "acGridlinesNone",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acGridlinesHoriz",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acGridlinesVert",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acGridlinesBoth",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acGridlinesBothV2",
+          "type": "Integer",
+          "value": "-1"
+        },
+        {
+          "name": "acFilterByForm",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acFilterAdvanced",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acServerFilterByForm",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acShowAllRecords",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acApplyFilter",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acCloseFilterWindow",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acApplyServerFilter",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "acCloseServerFilterWindow",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acShiftMask",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acCtrlMask",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acAltMask",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acLeftButton",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acRightButton",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acMiddleButton",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "acOLEChanged",
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "name": "acOLESaved",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "acOLEClosed",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "acOLERenamed",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "vbKeyLButton",
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "name": "vbKeyRButton",
+          "type": "Integer",
+          "value": "2"
+        },
+        {
+          "name": "vbKeyCancel",
+          "type": "Integer",
+          "value": "3"
+        },
+        {
+          "name": "vbKeyMButton",
+          "type": "Integer",
+          "value": "4"
+        },
+        {
+          "name": "vbKeyBack",
+          "type": "Integer",
+          "value": "8"
+        },
+        {
+          "name": "vbKeyTab",
+          "type": "Integer",
+          "value": "9"
+        },
+        {
+          "name": "vbKeyClear",
+          "type": "Integer",
+          "value": "12"
+        },
+        {
+          "name": "vbKeyReturn",
+          "type": "Integer",
+          "value": "13"
+        },
+        {
+          "name": "vbKeyShift",
+          "type": "Integer",
+          "value": "16"
+        },
+        {
+          "name": "vbKeyControl",
+          "type": "Integer",
+          "value": "17"
+        },
+        {
+          "name": "vbKeyMenu",
+          "type": "Integer",
+          "value": "18"
+        },
+        {
+          "name": "vbKeyPause",
+          "type": "Integer",
+          "value": "19"
+        },
+        {
+          "name": "vbKeyCapital",
+          "type": "Integer",
+          "value": "20"
+        },
+        {
+          "name": "vbKeyEscape",
+          "type": "Integer",
+          "value": "27"
+        },
+        {
+          "name": "vbKeySpace",
+          "type": "Integer",
+          "value": "32"
+        },
+        {
+          "name": "vbKeyPageUp",
+          "type": "Integer",
+          "value": "33"
+        },
+        {
+          "name": "vbKeyPageDown",
+          "type": "Integer",
+          "value": "34"
+        },
+        {
+          "name": "vbKeyEnd",
+          "type": "Integer",
+          "value": "35"
+        },
+        {
+          "name": "vbKeyHome",
+          "type": "Integer",
+          "value": "36"
+        },
+        {
+          "name": "vbKeyLeft",
+          "type": "Integer",
+          "value": "37"
+        },
+        {
+          "name": "vbKeyUp",
+          "type": "Integer",
+          "value": "38"
+        },
+        {
+          "name": "vbKeyRight",
+          "type": "Integer",
+          "value": "39"
+        },
+        {
+          "name": "vbKeyDown",
+          "type": "Integer",
+          "value": "40"
+        },
+        {
+          "name": "vbKeySelect",
+          "type": "Integer",
+          "value": "41"
+        },
+        {
+          "name": "vbKeyPrint",
+          "type": "Integer",
+          "value": "42"
+        },
+        {
+          "name": "vbKeyExecute",
+          "type": "Integer",
+          "value": "43"
+        },
+        {
+          "name": "vbKeySnapshot",
+          "type": "Integer",
+          "value": "44"
+        },
+        {
+          "name": "vbKeyInsert",
+          "type": "Integer",
+          "value": "45"
+        },
+        {
+          "name": "vbKeyDelete",
+          "type": "Integer",
+          "value": "46"
+        },
+        {
+          "name": "vbKeyHelp",
+          "type": "Integer",
+          "value": "47"
+        },
+        {
+          "name": "vbKeyNumlock",
+          "type": "Integer",
+          "value": "144"
+        },
+        {
+          "name": "vbKeyA",
+          "type": "Integer",
+          "value": "65"
+        },
+        {
+          "name": "vbKeyB",
+          "type": "Integer",
+          "value": "66"
+        },
+        {
+          "name": "vbKeyC",
+          "type": "Integer",
+          "value": "67"
+        },
+        {
+          "name": "vbKeyD",
+          "type": "Integer",
+          "value": "68"
+        },
+        {
+          "name": "vbKeyE",
+          "type": "Integer",
+          "value": "69"
+        },
+        {
+          "name": "vbKeyF",
+          "type": "Integer",
+          "value": "70"
+        },
+        {
+          "name": "vbKeyG",
+          "type": "Integer",
+          "value": "71"
+        },
+        {
+          "name": "vbKeyH",
+          "type": "Integer",
+          "value": "72"
+        },
+        {
+          "name": "vbKeyI",
+          "type": "Integer",
+          "value": "73"
+        },
+        {
+          "name": "vbKeyJ",
+          "type": "Integer",
+          "value": "74"
+        },
+        {
+          "name": "vbKeyK",
+          "type": "Integer",
+          "value": "75"
+        },
+        {
+          "name": "vbKeyL",
+          "type": "Integer",
+          "value": "76"
+        },
+        {
+          "name": "vbKeyM",
+          "type": "Integer",
+          "value": "77"
+        },
+        {
+          "name": "vbKeyN",
+          "type": "Integer",
+          "value": "78"
+        },
+        {
+          "name": "vbKeyO",
+          "type": "Integer",
+          "value": "79"
+        },
+        {
+          "name": "vbKeyP",
+          "type": "Integer",
+          "value": "80"
+        },
+        {
+          "name": "vbKeyQ",
+          "type": "Integer",
+          "value": "81"
+        },
+        {
+          "name": "vbKeyR",
+          "type": "Integer",
+          "value": "82"
+        },
+        {
+          "name": "vbKeyS",
+          "type": "Integer",
+          "value": "83"
+        },
+        {
+          "name": "vbKeyT",
+          "type": "Integer",
+          "value": "84"
+        },
+        {
+          "name": "vbKeyU",
+          "type": "Integer",
+          "value": "85"
+        },
+        {
+          "name": "vbKeyV",
+          "type": "Integer",
+          "value": "86"
+        },
+        {
+          "name": "vbKeyW",
+          "type": "Integer",
+          "value": "87"
+        },
+        {
+          "name": "vbKeyX",
+          "type": "Integer",
+          "value": "88"
+        },
+        {
+          "name": "vbKeyY",
+          "type": "Integer",
+          "value": "89"
+        },
+        {
+          "name": "vbKeyZ",
+          "type": "Integer",
+          "value": "90"
+        },
+        {
+          "name": "vbKey0",
+          "type": "Integer",
+          "value": "48"
+        },
+        {
+          "name": "vbKey1",
+          "type": "Integer",
+          "value": "49"
+        },
+        {
+          "name": "vbKey2",
+          "type": "Integer",
+          "value": "50"
+        },
+        {
+          "name": "vbKey3",
+          "type": "Integer",
+          "value": "51"
+        },
+        {
+          "name": "vbKey4",
+          "type": "Integer",
+          "value": "52"
+        },
+        {
+          "name": "vbKey5",
+          "type": "Integer",
+          "value": "53"
+        },
+        {
+          "name": "vbKey6",
+          "type": "Integer",
+          "value": "54"
+        },
+        {
+          "name": "vbKey7",
+          "type": "Integer",
+          "value": "55"
+        },
+        {
+          "name": "vbKey8",
+          "type": "Integer",
+          "value": "56"
+        },
+        {
+          "name": "vbKey9",
+          "type": "Integer",
+          "value": "57"
+        },
+        {
+          "name": "vbKeyNumpad0",
+          "type": "Integer",
+          "value": "96"
+        },
+        {
+          "name": "vbKeyNumpad1",
+          "type": "Integer",
+          "value": "97"
+        },
+        {
+          "name": "vbKeyNumpad2",
+          "type": "Integer",
+          "value": "98"
+        },
+        {
+          "name": "vbKeyNumpad3",
+          "type": "Integer",
+          "value": "99"
+        },
+        {
+          "name": "vbKeyNumpad4",
+          "type": "Integer",
+          "value": "100"
+        },
+        {
+          "name": "vbKeyNumpad5",
+          "type": "Integer",
+          "value": "101"
+        },
+        {
+          "name": "vbKeyNumpad6",
+          "type": "Integer",
+          "value": "102"
+        },
+        {
+          "name": "vbKeyNumpad7",
+          "type": "Integer",
+          "value": "103"
+        },
+        {
+          "name": "vbKeyNumpad8",
+          "type": "Integer",
+          "value": "104"
+        },
+        {
+          "name": "vbKeyNumpad9",
+          "type": "Integer",
+          "value": "105"
+        },
+        {
+          "name": "vbKeyMultiply",
+          "type": "Integer",
+          "value": "106"
+        },
+        {
+          "name": "vbKeyAdd",
+          "type": "Integer",
+          "value": "107"
+        },
+        {
+          "name": "vbKeySeparator",
+          "type": "Integer",
+          "value": "108"
+        },
+        {
+          "name": "vbKeySubtract",
+          "type": "Integer",
+          "value": "109"
+        },
+        {
+          "name": "vbKeyDecimal",
+          "type": "Integer",
+          "value": "110"
+        },
+        {
+          "name": "vbKeyDivide",
+          "type": "Integer",
+          "value": "111"
+        },
+        {
+          "name": "vbKeyF1",
+          "type": "Integer",
+          "value": "112"
+        },
+        {
+          "name": "vbKeyF2",
+          "type": "Integer",
+          "value": "113"
+        },
+        {
+          "name": "vbKeyF3",
+          "type": "Integer",
+          "value": "114"
+        },
+        {
+          "name": "vbKeyF4",
+          "type": "Integer",
+          "value": "115"
+        },
+        {
+          "name": "vbKeyF5",
+          "type": "Integer",
+          "value": "116"
+        },
+        {
+          "name": "vbKeyF6",
+          "type": "Integer",
+          "value": "117"
+        },
+        {
+          "name": "vbKeyF7",
+          "type": "Integer",
+          "value": "118"
+        },
+        {
+          "name": "vbKeyF8",
+          "type": "Integer",
+          "value": "119"
+        },
+        {
+          "name": "vbKeyF9",
+          "type": "Integer",
+          "value": "120"
+        },
+        {
+          "name": "vbKeyF10",
+          "type": "Integer",
+          "value": "121"
+        },
+        {
+          "name": "vbKeyF11",
+          "type": "Integer",
+          "value": "122"
+        },
+        {
+          "name": "vbKeyF12",
+          "type": "Integer",
+          "value": "123"
+        },
+        {
+          "name": "vbKeyF13",
+          "type": "Integer",
+          "value": "124"
+        },
+        {
+          "name": "vbKeyF14",
+          "type": "Integer",
+          "value": "125"
+        },
+        {
+          "name": "vbKeyF15",
+          "type": "Integer",
+          "value": "126"
+        },
+        {
+          "name": "vbKeyF16",
+          "type": "Integer",
+          "value": "127"
         }
       ]
     }

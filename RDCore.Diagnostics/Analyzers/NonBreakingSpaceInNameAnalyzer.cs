@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -12,10 +13,13 @@ namespace RDCore.Diagnostics.Analyzers;
 /// the name looks like two words, and the name typed with a space is another one.
 /// </summary>
 /// <remarks>
-/// Code copied from a web page often has such spaces. The names are those of the module's variables, constants, procedures, parameters and line labels.
+/// Code copied from a web page often has such spaces. The names are those of the module itself (its <c>VB_Name</c> attribute), and of its variables, constants,
+/// procedures, parameters and line labels.
 /// </remarks>
 internal sealed class NonBreakingSpaceInNameAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.NonBreakingSpaceInName.ToCode()];
+
     private const char NonBreakingSpace = ' ';
 
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
@@ -29,6 +33,9 @@ internal sealed class NonBreakingSpaceInNameAnalyzer : SyntaxTreeAnalyzer
                 MemberDeclarationNode member => (member.Name, member.NameRange ?? member.SourceLocation.Range),
                 ParameterDeclarationNode parameter => (parameter.Name, parameter.NameRange ?? parameter.Location.Range),
                 LineLabelNode label => (label.Name, label.SourceLocation.Range),
+                // the name of the module is the string of its VB_Name attribute, written in quotes.
+                AttributeDirectiveNode { Binding: null } attribute when string.Equals(attribute.Name, "VB_Name", StringComparison.OrdinalIgnoreCase)
+                    => (attribute.Value.Trim('"'), attribute.Location.Range),
                 _ => (null, default(SourceRange)),
             };
 

@@ -83,7 +83,7 @@ public sealed class WorkspaceSymbolPipelineTests
             NullLogger<EnvironmentSessionProvider>.Instance);
         sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
 
-        var handler = new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var handler = new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
         var resolver = new IntrinsicSymbolResolver();
         var parser = new ModuleParser();
 

@@ -73,8 +73,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             return [];
         }
 
-        // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code.
-        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms } designer ? designer : null);
+        // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code. A
+        // UserForm and a Visual Basic 6.0 form each have a form host; another ActiveX designer's form has none.
+        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms or FormDesignerKind.VisualBasic6 } designer ? designer : null);
 
         // composed before anything is lowered, because lowering needs its expression evaluator to decide
         // which #If branches are live. The invoker looks a body up at call time, so the image it holds is this same one.
@@ -85,6 +86,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var deadRanges = precompiled.DeadRanges;
+        // and what they are on every platform, whichever this session runs on: where a Declare and a call of it are compiled.
+        var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(
+            session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var written = syntaxTree;
         syntaxTree = WithLiveHeaders(syntaxTree, deadRanges);
 
@@ -101,10 +105,13 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
         // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
+        var drawsOnMe = parseResult.Designer is { Kind: FormDesignerKind.VisualBasic6 };
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
-            DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements);
+            DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements, DrawsOnMe: drawsOnMe);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
+        // the parameter each argument of a call of the module's own procedures is given, which the count of what the argument names follows.
+        var arguments = new ArgumentParameters();
         var sweepable = new List<(VBTypeMemberSymbol Procedure, InstructionList Body)>();
         var swept = new HashSet<SemanticId>();
         var headerErrors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
@@ -131,9 +138,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             // structure of the body.
             var scope = session.Symbols.ScopeOf(procedure.Uri);
             var model = StatementStaticSemanticsEvaluator.Analyze(
-                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks), declaration.MemberKind,
+                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks, drawsOnMe), declaration.MemberKind,
                 scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope,
-                    Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }));
+                    Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }) { Arguments = arguments });
 
             // the code paths are those of the lowered body, which only the loader has next to what the static pass found out about it.
             // the For Each control variables followed are the procedure's automatic locals: what nothing but its own code assigns.
@@ -158,6 +165,14 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             }
         }
 
+        // what the expressions of the module's own declarations refer to: a constant of the module is referred to by those as well as by its procedures.
+        var moduleScope = session.Symbols.ScopeOf(module.Uri);
+        var declarationFacts = moduleScope is null
+            ? null
+            : ModuleDeclarationStaticSemantics.Analyze(syntaxTree.Children, new StaticEvaluationContext(session.Symbols.Resolver, moduleScope,
+                Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }),
+                new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks));
+
         // a module is valid when what it declares is, as well as every procedure of it. The types it declares are asked to be names that resolve: its code is
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
@@ -168,23 +183,30 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             .AddRange(DeclarationStaticSemanticsEvaluator.CheckDesigner(syntaxTree, parseResult.Designer))
             .AddRange(ReservedNameStaticSemantics.CheckSyntax(syntaxTree))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver, DeclarationRules.DeclaredTypes));
+        var declared = DeclarationUsage.DeclaredBy(members).ToList();
+        var document = module is VBClassModuleSymbol documentClass ? DocumentModuleFact.Of(documentClass, session.Symbols.Resolver) : null;
+        var excludedBranchNames = ExcludedBranchNames.Of(written, deadRanges);
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {
             // a language that has no such directive has no fact to state about it.
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
-                DeclarationUsage.DeclaredBy(members), procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri)),
+                declared, procedureModels,
+                module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames,
+                symbol => StatementsCompiledOn(written, symbol.Name, platforms)),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
-            Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
+            Document = document,
+            Classes = ClassFacts.Of(syntaxTree, procedureModels, declared),
+            DocumentModules = DocumentModuleNames.Of(session.Symbols.Resolver, session.Symbols.Scopes.Global, module.Uri),
         };
 
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
-        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, errorDetails);
-        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
+        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails);
+        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
@@ -250,7 +272,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
     // MS-VBAL §5.2.4.1.2, §5.2.3.1: whether the class has a default instance, and whether its objects - the default instance among them - hold state: a variable
     // the class declares at module level, of which each object has a distinct one, or a Static local of one of its members, which MS-VBA gives each object
-    // its own of too (Excel-verified, oracle\s19 N37), where MS-VBAL gives a static local module extent.
+    // its own of too (observed in Excel), where MS-VBAL gives a static local module extent.
     private static ClassModuleSemanticFlags ClassFlagsOf(VBClassModuleSymbol classModule, IReadOnlyList<VBTypeMemberSymbol> members)
         => (classModule.GetProperty(SymbolProperties.PredeclaredId) ? ClassModuleSemanticFlags.DefaultInstance : ClassModuleSemanticFlags.None)
             | (members.Any(member => member is VBModuleFieldVariableMemberSymbol
@@ -286,6 +308,25 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         }
 
         return default;
+    }
+
+    // MS-VBAL §5.2.3.5: the platforms each statement of a Declare is compiled on, in the order they are written: a procedure declared once in each #If
+    // branch is one procedure. Not known when a condition one of them depends on is not.
+    private static ImmutableArray<CompiledPlatforms>? StatementsCompiledOn(ModuleNode written, string name, ModulePlatforms platforms)
+    {
+        var statements = ImmutableArray.CreateBuilder<CompiledPlatforms>();
+        foreach (var statement in written.Children.OfType<ExternalMemberDeclarationNode>()
+            .Where(statement => string.Equals(statement.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (platforms.At(statement.SourceLocation.Range.Start) is not { } compiled)
+            {
+                return null;
+            }
+
+            statements.Add(compiled);
+        }
+
+        return statements.ToImmutable();
     }
 
     // the module as the constants compile it: each procedure with the header of its live branch, and a procedure whose every header is dead as it is written.

@@ -1,4 +1,6 @@
 ﻿using RDCore.External.Automation;
+using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -88,7 +90,7 @@ internal static class AutomationMarshaller
             case VBStringValue text:
                 return text.Value ?? string.Empty;
             case VBErrorValue error:
-                return new ErrorWrapper(error.Value);
+                return new ErrorWrapper(AutomationErrors.HResultOfError(error.Value));
             case VBObjectValue { } reference:
                 // CA1416: a wrapper of no object asks nothing of COM; it is how Nothing is given to a server, whatever the platform.
 #pragma warning disable CA1416
@@ -183,11 +185,11 @@ internal static class AutomationMarshaller
                 VBLongLongType => new VBLongLongValue(Convert.ToInt64(Present(value), CultureInfo.InvariantCulture)),
                 VBSingleType => new VBSingleValue(Convert.ToSingle(Present(value), CultureInfo.InvariantCulture)),
                 VBDoubleType => new VBDoubleValue(Convert.ToDouble(Present(value), CultureInfo.InvariantCulture)),
-                VBCurrencyType => new VBCurrencyValue(Convert.ToDecimal(Present(value), CultureInfo.InvariantCulture)),
-                VBDecimalType => new VBDecimalValue(Convert.ToDecimal(Present(value), CultureInfo.InvariantCulture)),
+                VBCurrencyType => CurrencyOf(Present(value)),
+                VBDecimalType => new VBDecimalValue(DecimalOf(Present(value))),
                 VBDateType => new VBDateValue(IsAbsent(value) ? 0 : Convert.ToDateTime(value, CultureInfo.InvariantCulture).ToOADate()),
                 VBStringType => new VBStringValue(IsAbsent(value) ? string.Empty : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty),
-                VBClassType or VBObjectType or VBUnknownType => value is null or DBNull ? VBObjectValue.Nothing : wrap(value, declared),
+                VBClassType or VBObjectType or VBUnknownType => value is null or DBNull || IsNothing(value) ? VBObjectValue.Nothing : wrap(value, declared),
                 VBArrayType => Natural(value, wrap),
                 _ => throw new AutomationException(TypeMismatch, $"A value of type '{declared.Name}' cannot be taken from a server."),
             };
@@ -205,16 +207,39 @@ internal static class AutomationMarshaller
     // a number or a string where the server said nothing is the type's own default, as an uninitialized variable is.
     private static object Present(object? value) => IsAbsent(value) ? 0 : value!;
 
+    // a floating-point number converts as a Let does: a Currency of its exact value in ten-thousandths, a Decimal of the 7 or 15 significant digits its type
+    // holds. Anything else converts exactly.
+    private static VBCurrencyValue CurrencyOf(object value) => value switch
+    {
+        float or double when Convert.ToDouble(value, CultureInfo.InvariantCulture) is var number
+            => VBCurrencyType.TypeInfo.Holds(number) ? (VBCurrencyValue)VBCurrencyType.TypeInfo.CreateValue(number) : throw new OverflowException(),
+        _ => new VBCurrencyValue(Convert.ToDecimal(value, CultureInfo.InvariantCulture)),
+    };
+
+    private static decimal DecimalOf(object value) => value switch
+    {
+        float single => VBDecimalType.FromSingle(single),
+        double number => VBDecimalType.FromDouble(number),
+        _ => Convert.ToDecimal(value, CultureInfo.InvariantCulture),
+    };
+
     // what a server returns where it says nothing: a null BSTR is one too - Microsoft Forms' Text of an empty TextBox or ComboBox, which MS-VBA reads as ""
-    // (oracle\s41 X01) - and a String's own default is "", as a Date's is day 0, not the number 0 a numeric type's is.
+    // (observed in Excel) - and a String's own default is "", as a Date's is day 0, not the number 0 a numeric type's is.
     private static bool IsAbsent(object? value) => value is null or DBNull or Missing;
 
     /// <summary>
     /// Makes what a server returned the value of the type it is, for a member that is declared to return a <c>Variant</c>.
     /// </summary>
+    // a reference to no object, as a server gives Nothing: Nothing in a Variant too.
+    // CA1416: reading a wrapper's object asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+    private static bool IsNothing(object? value) => value is DispatchWrapper { WrappedObject: null };
+#pragma warning restore CA1416
+
     private static VBTypedValue Natural(object? value, Func<object, VBType, VBTypedValue> wrap) => value switch
     {
         null or Missing => VBEmptyValue.Empty,
+        _ when IsNothing(value) => VBObjectValue.Nothing,
         DBNull => VBNullValue.Null,
         bool boolean => new VBBooleanValue(boolean),
         byte @byte => new VBByteValue(@byte),
@@ -226,22 +251,57 @@ internal static class AutomationMarshaller
         decimal @decimal => @decimal == decimal.Round(@decimal, CurrencyScale) ? new VBCurrencyValue(@decimal) : new VBDecimalValue(@decimal),
         string text => new VBStringValue(text),
         DateTime date => new VBDateValue(date.ToOADate()),
-        ErrorWrapper error => new VBErrorValue(error.ErrorCode),
+        ErrorWrapper error => new VBErrorValue(AutomationErrors.ErrorOfHResult(error.ErrorCode)),
         Array array => FromAutomation(array, wrap),
         _ => wrap(value, VBObjectType.TypeInfo),
     };
 
+    // an array of Variants, each element in a Variant's cell, as the elements of an array Array makes are (ElementCells.OfVariant): what compiled code
+    // reads and writes an element in. The elements are read in the order the array numbers them, the first subscript varying fastest.
     private static VBArrayValue FromAutomation(Array array, Func<object, VBType, VBTypedValue> wrap)
     {
         var bounds = Enumerable.Range(0, array.Rank).Select(dimension => (array.GetLowerBound(dimension), array.GetUpperBound(dimension))).ToArray();
         var result = new VBResizableArrayValue(bounds, VBVariantType.TypeInfo);
 
+        // the values of a block of cells (Range.Value), read without the subscripts of each element.
+        if (array is object?[,] block)
+        {
+            var index = 0;
+            for (var column = block.GetLowerBound(1); column <= block.GetUpperBound(1); column++)
+            {
+                for (var row = block.GetLowerBound(0); row <= block.GetUpperBound(0); row++)
+                {
+                    _ = result.TrySetElementAt(index++, ElementCellOf(block[row, column], wrap));
+                }
+            }
+
+            return result;
+        }
+
         foreach (var subscripts in Subscripts(result))
         {
-            var element = new VBVariantValue(Natural(array.GetValue(subscripts), wrap));
-            _ = result.TrySetElement(new ValueBindingHandle(element.RuntimeValue), subscripts);
+            _ = result.TrySetElement(ElementCellOf(array.GetValue(subscripts), wrap), subscripts);
         }
 
         return result;
     }
+
+    // the cell of an element: a number, a Boolean or a date held as the payload the Variant holds it as, which is the value Natural makes of it.
+    private static IBindingHandle ElementCellOf(object? element, Func<object, VBType, VBTypedValue> wrap)
+        => UnboxedEvaluation.IsEnabled && PayloadOf(element) is { Type: not null } payload
+            ? VariantCell.Of(payload)
+            : ElementCells.OfVariant(new VBVariantValue(Natural(element, wrap)));
+
+    private static ScalarPayload PayloadOf(object? element) => element switch
+    {
+        double @double => new(VBDoubleType.TypeInfo, 0, @double),
+        bool boolean => ScalarPayload.OfBoolean(boolean),
+        int @long => new(VBLongType.TypeInfo, @long, 0),
+        short integer => new(VBIntegerType.TypeInfo, integer, 0),
+        byte @byte => new(VBByteType.TypeInfo, @byte, 0),
+        long longLong => new(VBLongLongType.TypeInfo, longLong, 0),
+        float single => new(VBSingleType.TypeInfo, 0, single),
+        DateTime date => new(VBDateType.TypeInfo, 0, date.ToOADate()),
+        _ => default,
+    };
 }

@@ -3,7 +3,8 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Diagnostics.Model;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Semantics;
 using RDCore.Tests.Cli;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.Diagnostics;
@@ -12,7 +13,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11028</c>: <c>New</c> of a class whose objects are never created, and a variable declared <c>As New</c> of one, which MS-VBA compiles and which
-/// raises -2147221164 when it runs (Excel-measured, <c>oracle\s62</c> X04, X06-X09): a Warning, wherever it is written.
+/// raises -2147221164 when it runs (observed in Excel): a Warning, wherever it is written.
 /// </summary>
 [TestClass]
 public sealed class NewOfAClassNotCreatableAnalyzerTests
@@ -50,13 +51,15 @@ public sealed class NewOfAClassNotCreatableAnalyzerTests
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n    Dim e As ErrObject\r\n    Set e = New ErrObject\r\nEnd Sub\r\n";
         var payload = await ModuleWorkspace.SemanticsAsync([], program);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+        var errObject = Assert.ContainsSingle(model.Classes ?? []).Class.AbsoluteUri;
         var binding = SymbolUri.Member(SymbolUri.Module(new Uri("file:///libraries/"), "Bibliothèque"), "Modèle");
         model = model with
         {
             Procedures = [.. model.Procedures.Select(procedure => procedure with
             {
-                Expressions = [.. procedure.Expressions.Select(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.NewAlwaysFails) ? fact with { Binding = binding } : fact)],
+                Expressions = [.. procedure.Expressions.Select(fact => fact.Binding?.AbsoluteUri == errObject ? fact with { Binding = binding } : fact)],
             })],
+            Classes = [new ClassFact(binding, "Modèle", IsCreatable: true, IsRegistered: false)],
         };
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
 

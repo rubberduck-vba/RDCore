@@ -178,6 +178,15 @@ public sealed class ExternalCallPipelineTests
     }
 
     [TestMethod]
+    public void ACallNoProviderAnswers_OfNeitherAnImportNorALibrarysClass_IsAnInternalError()
+    {
+        // the standard library's provider is in every pipeline the platform composes: a member that no provider answers is a fault of the platform's.
+        var result = Invoke(Session(), WorkspaceLikeMember());
+
+        Assert.AreEqual((int)VBRuntimeErrorId.InternalError, result.ErrorInfo!.ErrorId, result.ErrorInfo.Verbose);
+    }
+
+    [TestMethod]
     public void TheEnvironmentPolicy_RunsBeforeAnyOtherInterceptor()
     {
         // so that nothing an extension does can let through what an administrator refused: the refusal is the

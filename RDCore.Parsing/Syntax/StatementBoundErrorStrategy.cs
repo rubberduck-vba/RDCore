@@ -185,6 +185,23 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
             return;
         }
 
+        // where a line of the module's declarations, or one after a procedure, begins with a token nothing there begins with (x = 1 before the first procedure,
+        // Loop after an End Sub), the declarations or the procedures would end there, and the rest of the module would be read as tokens no rule reads, its
+        // procedures with it. The line is read as an element of the module no rule reads, to its end, and the module goes on after it.
+        if (recognizer is VBAParser { Context: VBAParser.ModuleDeclarationsContext or VBAParser.ModuleBodyContext } module && !InErrorRecoveryMode(module)
+            && ReadsAnElementOfTheModule(module.Interpreter.atn.states[module.State]) && BeginsNoElementOfTheModule(module))
+        {
+            var decision = module.State;
+            do
+            {
+                ReadAnElementNoRuleReads(module, (ParserRuleContext)module.Context);
+                module.State = decision;
+            }
+            while (!InErrorRecoveryMode(module) && BeginsNoElementOfTheModule(module));
+
+            return;
+        }
+
         // the rest of the line of a statement of a For, after an error inside it that the parse recovers from (Dim For As Long): the statement's, as Recover
         // reads it in a block. The For would otherwise decide on it, and end there. A procedure's header is no statement of the For: it ends the procedure.
         if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } recovering && InErrorRecoveryMode(recovering)
@@ -594,6 +611,60 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 
         parser.State = decision;
     }
+
+    // the states where the module's declarations, or its procedures, decide whether an element of them begins: before the first, and after each.
+    private static bool ReadsAnElementOfTheModule(ATNState state)
+        => state.ruleIndex is VBAParser.RULE_moduleDeclarations or VBAParser.RULE_moduleBody && state is StarLoopEntryState or StarLoopbackState;
+
+    // whether the line begins, past its blanks, with a token nothing the parse reads there begins with: no element of the module, nor what comes after the
+    // declarations or the procedures, nor the end of a statement or of the module.
+    private static bool BeginsNoElementOfTheModule(Parser parser)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var next = stream.La(PastTheBlanks(stream, 1));
+        return !EndsAStatement(next) && !parser.GetExpectedTokens().Contains(next);
+    }
+
+    // an element of the module's declarations or of its procedures, of the tokens no rule reads - reported at its first token, and read to its end - and the
+    // end of its statement after it, as the module reads the end of each of its elements.
+    private void ReadAnElementNoRuleReads(VBAParser parser, ParserRuleContext module)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var declarations = module is VBAParser.ModuleDeclarationsContext;
+        var (readsTheElement, readsItsEnd) = declarations
+            ? (DeclarationsReadAnElement, DeclarationsReadTheEndOfAnElement)
+            : (ProceduresReadAnElement, ProceduresReadTheEndOfAnElement);
+
+        ReportUnwantedToken(parser);
+        ParserRuleContext element = declarations
+            ? new VBAParser.ModuleDeclarationsElementContext(module, readsTheElement)
+            : new VBAParser.ModuleBodyElementContext(module, readsTheElement);
+        parser.EnterRule(element, readsTheElement, element.RuleIndex);
+        while (!EndsAStatement(stream.La(1)) && !BeginsAnEndOfStatement(stream.La(PastTheBlanks(stream, 1))))
+        {
+            parser.Consume();
+        }
+
+        parser.ExitRule();
+
+        if (BeginsAnEndOfStatement(stream.La(PastTheBlanks(stream, 1))))
+        {
+            parser.EnterRule(new VBAParser.EndOfStatementContext(module, readsItsEnd), ReadsAnEndOfStatement, VBAParser.RULE_endOfStatement);
+            while (BeginsAnEndOfStatement(stream.La(PastTheBlanks(stream, 1))))
+            {
+                parser.State = ReadsAnEndOfStatement;
+                parser.individualNonEOFEndOfStatement();
+            }
+
+            parser.ExitRule();
+        }
+    }
+
+    // the states of the module's declarations and of its procedures whose transitions are the rules that read an element of them and the end of its statement.
+    private static readonly int DeclarationsReadAnElement = StateOfTheRuleTransition(VBAParser.RULE_moduleDeclarations, VBAParser.RULE_moduleDeclarationsElement);
+    private static readonly int DeclarationsReadTheEndOfAnElement = StateOfTheRuleTransition(VBAParser.RULE_moduleDeclarations, VBAParser.RULE_endOfStatement);
+    private static readonly int ProceduresReadAnElement = StateOfTheRuleTransition(VBAParser.RULE_moduleBody, VBAParser.RULE_moduleBodyElement);
+    private static readonly int ProceduresReadTheEndOfAnElement = StateOfTheRuleTransition(VBAParser.RULE_moduleBody, VBAParser.RULE_endOfStatement);
 
     // the states of block whose transitions are the rules that read a statement of it and the end of that statement, and the state of blockStmt whose
     // transition is the rule that reads the statement itself.

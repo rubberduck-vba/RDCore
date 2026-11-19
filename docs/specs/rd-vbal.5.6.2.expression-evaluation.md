@@ -28,4 +28,10 @@ the object. See [**RD-VBAL §2.4.2.2.2** Default Member](rd-vbal.2.4.2.non-intri
 > This section describes the implementation of [**MS-VBAL §5.6.2.3** Default Member Recursion Limits](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b57f9c36-de21-4fe3-afa6-53668192ae18).
 
 When the default member also yields an object data type, the implicit invocation of a default member through
-let-coercion recurses as needed. See [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md).
+let-coercion recurses as needed.
+
+A Let to `os`, where the default member of `os` is a `Property Get` with no `Property Let` that returns an object (`os = 5`),
+assigns the default member of the object it returns, as **MS-VBAL §5.4.3.8** specifies. MS-VBA refuses it at compile time
+([**RD-VBAL §5.4.3.8** Targets of a class](rd-vbal.5.4.3.8.let-statement.md#targets-of-a-class)).
+
+See [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md).

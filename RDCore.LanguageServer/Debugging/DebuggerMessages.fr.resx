@@ -69,6 +69,9 @@
   <data name="RuntimeErrorTitle" xml:space="preserve">
     <value>Erreur d'exécution</value>
   </data>
+  <data name="RuntimeErrorMessage" xml:space="preserve">
+    <value>{0} '{1}' : {2}</value>
+  </data>
   <data name="StopStep" xml:space="preserve">
     <value>Pas</value>
   </data>
@@ -101,6 +104,12 @@
   </data>
   <data name="FrameGoSub" xml:space="preserve">
     <value>{0} (GoSub)</value>
+  </data>
+  <data name="FrameNonBasicCode" xml:space="preserve">
+    <value>&lt;Code non-Basic&gt;</value>
+  </data>
+  <data name="FrameIsNotCode" xml:space="preserve">
+    <value>Cette entrée de la pile des appels n'est pas du code du programme : elle n'a pas de variables, et rien ne peut y être évalué.</value>
   </data>
   <data name="ExpressionHasNoValue" xml:space="preserve">
     <value>l'expression n'a pas de valeur</value>

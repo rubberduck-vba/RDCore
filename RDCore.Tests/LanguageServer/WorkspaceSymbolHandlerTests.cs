@@ -71,7 +71,7 @@ public sealed class WorkspaceSymbolHandlerTests
     }
 
     private WorkspaceSymbolHandler Sut()
-        => new(_documents, _parsing, new IntrinsicSymbolResolver(), Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } }));
+        => new(new WorkspaceSymbolSearch(_documents, _parsing, new IntrinsicSymbolResolver(), Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } })));
 
     private static DocumentUri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName));
 

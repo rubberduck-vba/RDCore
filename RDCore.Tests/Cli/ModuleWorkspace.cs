@@ -161,12 +161,13 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="libraries">The libraries the project references; only the standard library when omitted.</param>
     /// <param name="forms">The forms of the workspace, whose parse has what their designer declares.</param>
+    /// <param name="language">The language of the project; RD-VBA when omitted.</param>
     public static async Task<ExecuteResult> RunUnattendedAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries? libraries = null,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, SupportedLanguage? language = null)
     {
         ExecuteResult? ran = null;
-        await RunCoreAsync(classes, program, errorsOnly: false, inspect: (_, result, _) =>
+        await RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: (_, result, _) =>
         {
             ran = result;
             return Task.CompletedTask;
@@ -209,7 +210,7 @@ internal static class ModuleWorkspace
         SemanticsPayload? payload = null;
         await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
         {
-            var result = await new HostSemanticsHandler(sessionProvider).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
+            var result = await new HostSemanticsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>()).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
             payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
         }, language: language, libraries: libraries, forms: forms, modules: modules, documents: documents);
 
@@ -269,14 +270,17 @@ internal static class ModuleWorkspace
     /// <param name="entryPoint">The procedure of the client's module that is run.</param>
     /// <param name="debug">Whether it runs under the debugger, as the shell runs a line: a <c>Stop</c> then leaves the program waiting.</param>
     /// <param name="afterRun">Given what came of the run and the host's session provider, while the session is up: a program that waits is looked at here.</param>
+    /// <param name="errorBreak">Which run-time errors the program waits at, said to the session before it runs, as the shell says it.</param>
     /// <returns>What came of the run, whatever it was.</returns>
     public static async Task<ExecuteResult> RunSessionModuleAsync(
         IReadOnlyList<(string Name, string Source)> modules, string program, string moduleName, string source, string entryPoint, bool debug = false,
-        Func<ExecuteResult, EnvironmentSessionProvider, Task>? afterRun = null)
+        Func<ExecuteResult, EnvironmentSessionProvider, Task>? afterRun = null, ErrorBreakMode errorBreak = ErrorBreakMode.None)
     {
         ExecuteResult? ran = null;
         await RunCoreAsync([], program, errorsOnly: true, modules: modules, afterLoading: async sessionProvider =>
         {
+            _ = await new HostDebugErrorBreakHandler(sessionProvider).Handle(new HostDebugErrorBreakParams { Mode = errorBreak }, CancellationToken.None);
+
             var workspaceRoot = Wire.FileUri(Root);
             var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
             var parse = new ModuleParser().Parse(moduleUri, source);
@@ -296,7 +300,7 @@ internal static class ModuleWorkspace
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
             foreach (var declareTypesOnly in new[] { true, false })
             {
-                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                await new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                     .Handle(Wire.RoundTrip(new DefineSymbolsParams
                     {
                         WorkspaceRoot = workspaceRoot,
@@ -370,6 +374,7 @@ internal static class ModuleWorkspace
     /// <param name="modules">The name and the source of each standard module beside <c>Program</c>; none when omitted.</param>
     /// <param name="environment">What else the environment says, given the profile the other arguments make; that profile when omitted.</param>
     /// <param name="forms">The name, the source and the designer of each form module of the workspace; none when omitted.</param>
+    /// <param name="unattended">Whether the program runs unattended, with nobody to answer a dialog; attended when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, Task>? cancelWhen = null,
@@ -377,10 +382,10 @@ internal static class ModuleWorkspace
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source)>? modules = null,
         Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IHostInteractionChannel? interaction = null,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool unattended = false)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules, environment: environment,
-            interaction: interaction, forms: forms);
+            interaction: interaction, forms: forms, unattended: unattended);
 
     /// <summary>
     /// A task that completes once the program runs, as the session's execution says when its state changes: for <c>cancelWhen</c>, a break of a program that runs.
@@ -408,7 +413,7 @@ internal static class ModuleWorkspace
 
     // how long a program that was cancelled has to answer the cancel, which it does at its next instruction: the bound past which a program that never
     // answers fails its test, so that it does not leave the test waiting. A program that answers takes a fraction of it.
-    private static readonly TimeSpan AnswerGuard = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan AnswerGuard = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
@@ -481,7 +486,8 @@ internal static class ModuleWorkspace
             Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
             ExecutionEngine: engine ?? RDCore.SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
             ReleaseDropsDebugStatements: releaseDropsDebugStatements);
-        var sessionProvider = new EnvironmentSessionProvider(
+        // let go of once the test has the run's result: the files its program left open close with the session.
+        using var sessionProvider = new EnvironmentSessionProvider(
             environment?.Invoke(profile) ?? profile,
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
@@ -646,7 +652,7 @@ internal static class ModuleWorkspace
             foreach (var module in parsed)
             {
                 var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                await new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                     .Handle(Wire.RoundTrip(new DefineSymbolsParams
                     {
                         WorkspaceRoot = workspaceRoot,
@@ -666,7 +672,7 @@ internal static class ModuleWorkspace
         var defined = new List<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)>();
         foreach (var module in parsed)
         {
-            var loaded = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            var loaded = await new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,

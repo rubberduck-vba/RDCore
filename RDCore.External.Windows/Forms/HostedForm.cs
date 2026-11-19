@@ -193,6 +193,15 @@ internal sealed class HostedForm
             _ = Marshal.Release(storage);
         }
 
+        // a form with no designer state is as big as its designer block's client area, which is then all that says how big it is: what InsideWidth and
+        // InsideHeight read from Initialize on. A form that has designer state keeps the size its state gives, even where its designer block says otherwise
+        // (Excel-measured).
+        if (_definition.State.IsEmpty && _client is { } designed)
+        {
+            var extent = new Size { Width = (int)Math.Round(designed.Width * HimetricPerInch / 72), Height = (int)Math.Round(designed.Height * HimetricPerInch / 72) };
+            _ = ole.SetExtent(Ole.ContentAspect, ref extent);
+        }
+
         var dpi = Desktop.GetDpiForWindow(Window);
         Size(dpi);
 
@@ -218,7 +227,7 @@ internal sealed class HostedForm
     /// </summary>
     /// <remarks>
     /// The form that was active is deactivated, and this one activated: its <c>Deactivate</c>, then this one's <c>Activate</c> - on every <c>Show</c>, one after a
-    /// <c>Hide</c> included (Excel-measured, <c>oracle\s41</c> V01-V03). A form hidden or unloaded activates none back (V02).
+    /// <c>Hide</c> included (observed in Excel). A form hidden or unloaded activates none back.
     /// </remarks>
     /// <param name="modal">Whether the form is shown modal.</param>
     public void Show(bool modal)
@@ -235,7 +244,7 @@ internal sealed class HostedForm
         _ = ((IOleObject)Form).DoVerb(Ole.UIActivate, IntPtr.Zero, _site, 0, Window, ref client);
 
         // the control the form enters takes in what was held for it while the program ran - a change made before the form was shown is its update now, before the
-        // form's Activate (Excel-measured, oracle\s41 E12).
+        // form's Activate (observed in Excel).
         _apartment.DispatchWaiting();
 
         if (_active is { } previous && previous != this && previous.IsShown)
@@ -288,8 +297,8 @@ internal sealed class HostedForm
     /// </summary>
     public void Leave()
     {
-        // what VBA's host does: each of the two asks a pending update, the second also exits the control - a cancelled BeforeUpdate is raised twice, as in Excel
-        // (oracle\s41 E11); deactivating in place between them would ask it a third time.
+        // what VBA's host does: each of the two asks a pending update, the second also exits the control - a cancelled BeforeUpdate is raised twice, as in Excel;
+        // deactivating in place between them would ask it a third time.
         if (!IsDestroyed && Form is IOleInPlaceObject inPlace)
         {
             _ = inPlace.UIDeactivate();

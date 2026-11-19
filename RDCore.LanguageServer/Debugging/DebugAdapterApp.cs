@@ -4,6 +4,7 @@ using OmniSharp.Extensions.DebugAdapter.Server;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK;
 using RDCore.SDK.Client;
+using RDCore.SDK.Server;
 
 namespace RDCore.LanguageServer.Debugging;
 
@@ -131,7 +132,9 @@ internal sealed class DebugAdapterApp(
 
             options
                 .WithInput(transport.Input)
-                .WithOutput(transport.Output)
+                .WithOutput(new ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(transport.Output)))
+                // what the client asks runs to its end however long it runs, as what a language server is asked does.
+                .WithNoRequestBudget()
                 .AddHandler(adapter)
                 .OnInitialize((server, request, token) =>
                 {

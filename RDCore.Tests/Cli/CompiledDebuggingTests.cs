@@ -14,7 +14,8 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledDebuggingTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
@@ -96,6 +97,74 @@ public sealed class CompiledDebuggingTests
             finally
             {
                 // a program that is left running spins on its own thread until it is ended.
+                _ = await Terminate(provider);
+            }
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
+    // Outer runs compiled and calls Twice, which is compiled, directly; then Waits, which a Stop keeps interpreted, and which the program waits in; then
+    // Twice again. What the debugger asks for while the program waits is asked of Outer as it goes on from its call of Waits.
+    private static readonly string CallingAgain = Program(
+        "Public Sub Main()",
+        "    Debug.Print Outer()",
+        "End Sub",
+        "Private Function Outer() As Long",
+        "    Dim t As Long",
+        "    t = Twice(1)",
+        "    t = t + Waits(t)",
+        "    t = t + Twice(t)",
+        "    Outer = t",
+        "End Function",
+        "Private Function Twice(ByVal x As Long) As Long",
+        "    Twice = x * 2",
+        "End Function",
+        "Private Function Waits(ByVal x As Long) As Long",
+        "    Stop",
+        "    Waits = x",
+        "End Function");
+
+    // a compiled caller that has made a call directly, waiting in a callee the interpreter runs, goes on in the interpreter when a breakpoint was set while
+    // it waited: the call it makes next stops there, as the interpreter makes it.
+    [TestMethod]
+    public async Task ABreakpointSetWhileACompiledCallerWaits_IsWaitedAt_InTheNextProcedureItCalls()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectAsync([], CallingAgain, async (provider, first, runAgain) =>
+        {
+            // the lines are counted from 0, as the rows above count them: Waits's Stop is line 14, Twice's assignment line 11.
+            Assert.AreEqual((ExecutionOutcome.Suspended, 14), (first.Outcome, first.ErrorLine), first.ErrorMessage);
+            try
+            {
+                _ = await SetBreakpoints(provider, 11);
+                var hit = await Resume(provider);
+
+                Assert.AreEqual((ExecutionOutcome.Suspended, 11), (hit.Outcome, hit.ErrorLine), hit.ErrorMessage);
+            }
+            finally
+            {
+                _ = await Terminate(provider);
+            }
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
+    // so it does when a step out of the callee was asked for while it waited: the program waits again in the caller, once the callee has returned.
+    [TestMethod]
+    public async Task AStepOutOfACalleeACompiledCallerWaitsIn_WaitsInTheCaller()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectAsync([], CallingAgain, async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual((ExecutionOutcome.Suspended, 14), (first.Outcome, first.ErrorLine), first.ErrorMessage);
+            try
+            {
+                var stepped = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                    .Handle(new HostDebugResumeParams { Step = StepKind.Out }, CancellationToken.None).WaitAsync(Patience);
+
+                Assert.AreEqual(ExecutionOutcome.Suspended, stepped.Outcome, stepped.ErrorMessage);
+                Assert.IsTrue(stepped.ErrorLine is 6 or 7, $"waits in Outer, at the statement after its call of Waits returned: line {stepped.ErrorLine}");
+            }
+            finally
+            {
                 _ = await Terminate(provider);
             }
         }, debug: true, engine: VBExecutionEngine.Compiled);

@@ -21,6 +21,14 @@ Le _shell_ exécute ce que vous tapez. Une ligne sans numéro de ligne s'exécut
 de ligne est écrite dans le _programme courant_ : `10 Debug.Print "Bonjour"`. Le programme courant est le corps d'une procédure implicite nommée `Main`,
 dans un module implicite nommé `Program`. Il reste en mémoire jusqu'à `NEW`, `LOAD` ou `EXIT`.
 
+Une ligne numérotée dans un bloc qui n'a pas de fermeture dans le programme (un `If`, un `Select Case`, une boucle, un `With`) lance la
+_complétion de bloc_. La ligne suivante s'ouvre sur
+le numéro plus 10, sélectionné, et les fermetures dont le bloc a besoin s'affichent en grisé sous elle, avec leurs numéros : après `120 If x > 0 Then`,
+la ligne est `130` et `140 End If` est en dessous. Tab prend le numéro, et un numéro que vous tapez le remplace. Une fois que le bloc a une
+instruction, la fermeture est proposée après le numéro, et Tab la prend et valide la ligne. Chaque ligne est écrite dans le programme dès que vous la
+validez. La complétion de bloc se termine à la dernière fermeture, à une ligne vide, à une commande ou à une ligne sans numéro. Elle ne renumérote
+jamais une ligne : quand la ligne suivante du programme ne laisse aucun numéro pour une fermeture, le _shell_ le dit.
+
 Sur un espace de travail (`rdc --workspace <chemin>`), le _shell_ exécute chaque ligne dans le projet de l'espace de travail : `Main`, `Program.Main` et
 les autres procédures publiques du projet peuvent être appelées depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
 servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, et `CONT` vers une ligne), répondent
@@ -58,15 +66,18 @@ une instruction.
 
 `Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un `Debug.Assert` qui échoue, un point d'arrêt ou `Ctrl+C`),
 le _shell_ liste les deux lignes au-dessus de la ligne de l'arrêt et les deux au-dessous, la ligne de l'arrêt étant mise en évidence, puis affiche
-`INTERRUPTION À LA LIGNE` et le numéro de ligne. Lors d'une erreur d'exécution dans le programme, le _shell_ liste de la même façon les
-lignes autour de l'instruction qui l'a déclenchée, puis affiche l'erreur. Un pas ne liste rien : il affiche seulement `INTERRUPTION À LA LIGNE` et le
-numéro de ligne, et affiche une erreur d'exécution qu'il déclenche sans les lignes qui l'entourent. `CONFIG CLI.BreakListingLines` fixe combien de lignes
+`INTERRUPTION À LA LIGNE` et le numéro de ligne. Une erreur d'exécution que rien ne gère arrête le programme à l'instruction qui l'a déclenchée,
+comme dans le VBIDE : le _shell_ liste de la même façon les lignes autour de cette instruction, puis affiche l'erreur. `CONT` exécute de nouveau
+l'instruction, et `END` termine le programme comme une instruction `End` : les variables que les lignes précédentes ont affectées, les
+variables locales `Static`, les objets et les fichiers ouverts disparaissent avec lui, et aucun `Class_Terminate` ne s'exécute. Une erreur qu'une instruction `On Error` gère ne l'arrête pas. Un pas ne liste rien : il affiche
+seulement `INTERRUPTION À LA LIGNE` et le numéro de ligne, ou l'erreur à laquelle il s'est arrêté. `CONFIG CLI.BreakListingLines` fixe combien de lignes
 sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme
 dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
 
-Une ligne tapée à l'invite s'exécute sous le débogueur comme avec `RUN` : un `Stop` ou un point d'arrêt dans le code qu'elle appelle l'arrête là, et
-`STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail liste les lignes du module
-autour de cet arrêt comme `LIST` liste le programme, puis affiche `INTERRUPTION DANS`, le module et sa ligne.
+Une ligne tapée à l'invite s'exécute sous le débogueur comme avec `RUN` : un `Stop`, un point d'arrêt ou une erreur dans le code qu'elle appelle
+l'arrête là, et `STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail liste les
+lignes du module autour de cet arrêt comme `LIST` liste le programme, puis affiche `INTERRUPTION DANS`, le module et sa ligne. Un arrêt à une erreur
+dans un module d'un espace de travail liste de la même façon les lignes du module, puis affiche l'erreur avec le module et sa ligne.
 
 > [!NOTE]
 > Le _shell_ est une façon d'essayer la plateforme. Son programme courant est une seule procédure : un projet qui en a plus s'exécute dans le _shell_
@@ -76,35 +87,51 @@ autour de cet arrêt comme `LIST` liste le programme, puis affiche `INTERRUPTION
 ## Les commandes
 
 Chaque commande prend un espace de travail, soit un dossier, avec ou sans `.rdproj`, soit un seul fichier de module. Sans espace de travail, elle
-travaille sur le dossier courant.
+travaille sur le dossier courant. Un dossier sans `.rdproj` est lu comme un éditeur le lit : chaque fichier de module qu'il contient, à toute profondeur,
+est un module, et un seul `.vbp` qui s'y trouve en fait un projet VB6 (voir [**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Commande|Alias|Ce qu'elle fait|
 |---|---|---|
 |`rdc new <chemin>`|`n`|Fait d'un dossier un espace de travail : écrit un `.rdproj` qui nomme chaque fichier de module du dossier. `--name` fixe le nom du projet (celui du dossier par défaut), `--empty` écrit un projet sans fichiers, et `--force` remplace un `.rdproj` existant.|
 |`rdc import <chemin>`|`i`|Crée le `.rdproj` d'un projet VB6, à côté de son `.vbp` (voir [Projets VB6](vb6-projects.fr.md)). `--force` remplace un `.rdproj` existant.|
-|`rdc run [<chemin>] [-- <arguments>]`|`r`|Exécute le programme de l'espace de travail (ci-dessous). Ce qui suit `--` est la ligne de commande du programme, que retourne `Command$`.|
+|`rdc run [<options>] [<chemin>] [<arguments>]`|`r`|Exécute le programme de l'espace de travail (ci-dessous). Ce qui suit le chemin est la ligne de commande du programme, que retourne `Command$`.|
 |`rdc build [<chemin>]`|`bd`|Construit un programme à partir de l'espace de travail : son exécutable et le _runtime_ sur lequel il s'exécute (ci-dessous).|
 |`rdc config`|`configure`|Affiche les paramètres de la plateforme et les modifie, comme le `CONFIG` du _shell_, sans démarrer la plateforme.|
 |`rdc export-library <bibliothèque>`|`xl`|Décrit une bibliothèque de types de cette machine (un fichier comme `scrrun.dll`, son identifiant ou son nom) dans un fichier qu'un projet peut référencer par son nom. `--dependencies` décrit aussi les bibliothèques dont elle dépend.|
-|`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, et ce qui la garde dans l'interpréteur.|
-|`rdc bench [<chemin>]`|`b`|Chronomètre l'interpréteur sur un espace de travail : son analyse syntaxique, son chargement, son analyse, puis chaque `Public Sub Bench*()` de ses modules standard.|
+|`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, ce qui la garde dans l'interpréteur, et ce que l'interpréteur exécute pour elle lorsqu'elle est compilée.|
+|`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré, avec ce que chaque cas alloue.|
+|`rdc bench-msvba`|`bm`|Écrit les chiffres de référence MS-VBA des bancs d'essai (`msvba.json`, ou le fichier que nomme `--out`). Il exécute le corpus intégré et les cas d'automatisation d'Excel dans MS-VBA, dans un Excel masqué, et dans RD-VBA, en tours alternés sur cette machine (`--rounds`, 5; les `--excel-rounds` premiers, 3, avec les cas d'automatisation d'Excel), exécute chaque cas `--runs` fois par tour (7; `--excel-runs`, 5, pour un cas d'automatisation d'Excel), et retient l'exécution la plus rapide de chaque cas, de chaque côté. Il requiert Windows, Excel, et le paramètre « Accès approuvé au modèle d'objet du projet VBA » d'Excel.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
+|`rdc splash`|`s`|Écrit l'écran d'accueil de la plateforme en texte brut, que sa sortie soit une console ou non. Elle ne prend pas d'espace de travail.|
+
+Dans une console, une commande commence par l'écran d'accueil de la plateforme. Une sortie redirigée vers un fichier ou un tube n'en a pas : elle ne contient que ce que la commande écrit.
 
 ### Exécuter un programme
 
 `rdc run` exécute le point d'entrée du programme :
 
-- la procédure que le `.rdproj` nomme comme point d'entrée, `Module.Procedure` ou `Procedure`;
+- la procédure que le `.rdproj` nomme comme point d'entrée dans sa section `build`, `Module.Procedure` ou `Procedure` : `"build": { "entryPoint": "Module1.Main" }`;
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
-Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Un projet dont un module ne se charge pas non
-plus. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il s'affiche dans la console et on y répond, comme dans le _shell_.
+Un projet sans point d'entrée ([RDC30001](diagnostics/rdc30001.md)), ou avec un `Sub Main` dans plus d'un module standard ([RDC30002](diagnostics/rdc30002.md)), ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
+ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Dans une application console (`"build": { "outputType": "ConsoleApplication" }`), un `MsgBox` ou un `InputBox` s'affiche dans la console et on y répond, comme dans le _shell_, sous tous les systèmes d'exploitation; le paramètre `CLI.NativeDialogs` les affiche plutôt comme des boîtes de dialogue Windows, sous Windows. Dans tout autre programme, ce sont des boîtes de dialogue Windows sous Windows, et ils s'affichent dans la console ailleurs. Un formulaire ouvre sa propre fenêtre dans les deux cas.
 
 |Option|Ce qu'elle fait|
 |---|---|
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
-|`--unattended`|Personne ne répond aux boîtes de dialogue : un `MsgBox` ou un `InputBox` fait échouer l'exécution.|
+|`--unattended`|Personne ne répond aux boîtes de dialogue : un `MsgBox` ou un `InputBox` fait échouer l'exécution. Le programme le sait : l'option vient en premier dans `Command$` et dans les arguments de `Main`, comme pour un programme construit, sauf si la ligne de commande du programme l'a déjà.|
+
+Les options viennent avant le chemin. Tout ce qui suit le chemin est la ligne de commande du programme, options comprises :
+`rdc run --unattended .` s'exécute sans surveillance, et `rdc run . --unattended` ne fait que donner `--unattended` au programme. Un `--` juste après le
+chemin est ignoré. Sans chemin, c'est le dossier courant qui s'exécute, et `--` précède la ligne de commande du programme. Sans chemin ni
+`--`, rien ne va au programme, et une option que `rdc` ne connaît pas est une erreur.
+
+```
+rdc run . --seed 42
+rdc run . -- --seed 42
+rdc run -- --seed 42
+```
 
 Le code de sortie indique comment s'est passée l'exécution :
 
@@ -129,11 +156,22 @@ le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui 
 Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
 Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
-second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
-installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui.
+
+L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec les hôtes de `win-x64`, `linux-x64`, `osx-x64` et
+`osx-arm64`, les _runtimes_ pour lesquels la plateforme est publiée : il construit donc un programme pour chacun d'eux, où qu'il s'exécute. Pour un autre
+_runtime_, il prend l'hôte d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
+`dotnet <nom>.dll`, il n'appelle pas le monde extérieur.
+
+L'exécutable d'un programme construit pour macOS (`osx-x64`, `osx-arm64`) est signé ad hoc, comme le SDK .NET signe celui d'une application : un Mac
+doté d'une puce Apple n'exécute aucun exécutable qui n'est pas signé. La signature n'a pas de certificat : ce n'est pas une signature Developer ID.
 
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.
+
+Quand le projet a un formulaire Visual Basic 6.0, le dossier contient aussi RDForms, qui affiche les formulaires du programme, et les bibliothèques
+natives avec lesquelles RDForms dessine, pour la plateforme du programme. Un programme sans formulaire de ce genre est construit sans eux, et le
+construire à nouveau dans un dossier qui les contenait les retire.
 
 Le dossier contient aussi les conditions de licence de ce sur quoi le programme s'exécute :
 

@@ -21,6 +21,13 @@ The shell runs what you type. A line with no line number runs right away: `Debug
 the _current program_: `10 Debug.Print "Hello"`. The current program is the body of an implicit procedure named `Main`, in an implicit module named
 `Program`. It stays in memory until `NEW`, `LOAD` or `EXIT`.
 
+A numbered line in a block the program has no closer for (an `If`, a `Select Case`, a loop, a `With`) starts _block completion_. The next line
+opens on the number plus 10, selected, and the closers the block needs are shown faint under it, with their numbers: after `120 If x > 0 Then`, the
+line is `130` and `140 End If` is under it. Tab takes the number, and a number you type replaces it. Once the block has a statement, the closer is
+offered after the number, and Tab takes it and enters the line. Each line is written into the program as you enter it. Block completion ends at the
+last closer, an empty line, a command, or a line with no number. It never renumbers a line: when the program's next line leaves no number for a
+closer, the shell says so.
+
 On a workspace (`rdc --workspace <path>`), the shell runs each line in the workspace's project: `Main`, `Program.Main` and the other public procedures
 of the project can be called from the prompt. There is no current program. A numbered line, and the commands that work on the program (`LIST`,
 `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, and `CONT` to a line), answer `NO PROGRAM ERROR`.
@@ -55,15 +62,17 @@ The shell's language is RDCore BASIC: a variable one line assigns is the one the
 |`EXIT`|Ends the session and exits. `BYE` and `QUIT` do the same.|
 
 `Ctrl+C` stops a running program. At a stop (a `Stop` statement, a failed `Debug.Assert`, a breakpoint or `Ctrl+C`) the shell lists the two lines above
-the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. At a run-time error in the program,
-the shell lists the lines around the statement that raised it the same way, then shows the error. A step lists nothing: it says only `BREAK IN` and the
-line number, and shows a run-time error it raises without the lines around it. `CONFIG CLI.BreakListingLines`
+the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. A run-time error that nothing
+handles stops the program at the statement that raised it, as in the VBIDE: the shell lists the lines around that statement the same way, then shows
+the error. `CONT` runs the statement again, and `END` ends the program as an `End` statement does: the variables that earlier lines assigned, the
+`Static` locals, the objects and the open files go with it, and no `Class_Terminate` runs. An error that an `On Error` statement handles does not stop it. A step lists
+nothing: it says only `BREAK IN` and the line number, or shows the error it stopped at. `CONFIG CLI.BreakListingLines`
 sets how many lines are listed on each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's
 immediate pane, and edit the program before you go on.
 
-A line typed at the prompt runs under the debugger as `RUN` does: a `Stop` or a breakpoint in the code it calls stops it there, and `STACK` shows the
-line's own procedure under the one that stopped. A stop in a module of a workspace lists the module's lines around it as `LIST` lists the program, then
-says `BREAK IN`, the module and its line.
+A line typed at the prompt runs under the debugger as `RUN` does: a `Stop`, a breakpoint or an error in the code it calls stops it there, and `STACK`
+shows the line's own procedure under the one that stopped. A stop in a module of a workspace lists the module's lines around it as `LIST` lists the
+program, then says `BREAK IN`, the module and its line. A stop at an error in a module of a workspace lists the module's lines the same way, then shows the error with the module and its line.
 
 > [!NOTE]
 > The shell is a way to try the platform. Its current program is a single procedure: a project with more procedures runs in the shell on a workspace.
@@ -72,35 +81,52 @@ says `BREAK IN`, the module and its line.
 ---
 ## Commands
 
-Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder.
+Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder. A folder
+without a `.rdproj` is read as an editor reads it: every module file under it, at any depth, is a module, and a single `.vbp` in it makes it a VB6 project (see
+[**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Command|Alias|What it does|
 |---|---|---|
 |`rdc new <path>`|`n`|Makes a workspace of a folder: writes a `.rdproj` that names each module file the folder holds. `--name` sets the project's name (the folder's by default), `--empty` writes a project with no files, and `--force` replaces an existing `.rdproj`.|
 |`rdc import <path>`|`i`|Makes the `.rdproj` of a VB6 project, next to its `.vbp` (see [VB6 projects](vb6-projects.md)). `--force` replaces an existing `.rdproj`.|
-|`rdc run [<path>] [-- <arguments>]`|`r`|Runs the workspace's program (below). What follows `--` is the program's command line, which `Command$` returns.|
+|`rdc run [<options>] [<path>] [<arguments>]`|`r`|Runs the workspace's program (below). What follows the path is the program's command line, which `Command$` returns.|
 |`rdc build [<path>]`|`bd`|Builds the workspace into a program: its executable, and the runtime it runs on (below).|
 |`rdc config`|`configure`|Shows the platform's settings and sets them, as the shell's `CONFIG` does, without starting the platform.|
 |`rdc export-library <library>`|`xl`|Describes a type library of this machine (a file such as `scrrun.dll`, its identifier, or its name) as a file a project can reference by name. `--dependencies` describes the libraries it depends on too.|
-|`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, and what keeps it in the interpreter.|
-|`rdc bench [<path>]`|`b`|Times the interpreter on a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules.|
+|`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, what keeps it in the interpreter, and what the interpreter runs for it when it is compiled.|
+|`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine, with what each case allocates.|
+|`rdc bench-msvba`|`bm`|Writes the MS-VBA reference figures of the benchmark (`msvba.json`, or the file `--out` names). It runs the built-in corpus and the Excel automation cases in MS-VBA, in a hidden Excel, and in RD-VBA, in alternated rounds on this machine (`--rounds`, 5; the first `--excel-rounds`, 3, with the Excel automation cases), runs each case `--runs` times a round (7; `--excel-runs`, 5, for an Excel automation case), and keeps the fastest run of each case on each side. It needs Windows, Excel, and Excel's "Trust access to the VBA project object model" setting.|
 |`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
 |`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
+|`rdc splash`|`s`|Writes the platform's splash as plain text, whether its output is a console or not. It takes no workspace.|
+
+On a console, a command starts with the platform's splash. Output redirected to a file or a pipe has none, so it holds only what the command writes.
 
 ### Running a program
 
 `rdc run` runs the program's entry point:
 
-- the procedure the `.rdproj` names as its entry point, `Module.Procedure` or `Procedure`;
+- the procedure the `.rdproj` names as its entry point in its `build` section, `Module.Procedure` or `Procedure`: `"build": { "entryPoint": "Module1.Main" }`;
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
-A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does one with a module that does not load. `Debug.Print`
-writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
+A project with no entry point ([RDC30001](diagnostics/rdc30001.md)), or with a `Sub Main` in more than one standard module ([RDC30002](diagnostics/rdc30002.md)), does not run. Neither does a library (`"build": { "outputType": "Library" }`),
+nor a project with a module that does not load. `Debug.Print` writes to the standard output. In a console application (`"build": { "outputType": "ConsoleApplication" }`), a `MsgBox` or an `InputBox` is drawn in the console and answered there, as in the shell, on every operating system; the `CLI.NativeDialogs` setting shows them as Windows dialog boxes instead, on Windows. In any other program, they are Windows dialog boxes on Windows, and drawn in the console elsewhere. A form opens a window of its own in either.
 
 |Option|What it does|
 |---|---|
 |`-c`, `--configuration`|`Debug` (the default) or `Release`.|
-|`--unattended`|Nobody answers a dialog: a `MsgBox` or an `InputBox` fails the run.|
+|`--unattended`|Nobody answers a dialog: a `MsgBox` or an `InputBox` fails the run. The program knows it: the switch is first in `Command$` and in the arguments of `Main`, as it is for a built program, unless the program's command line already has it.|
+
+The options go before the path. Everything after the path is the program's command line, switches included: `rdc run --unattended .` runs
+unattended, and `rdc run . --unattended` only gives `--unattended` to the program. A `--` right after the path is skipped. With no path, the
+current folder runs, and `--` comes before the program's command line. Without a path or a `--`, nothing goes to the program, and an option
+`rdc` does not know is an error.
+
+```
+rdc run . --seed 42
+rdc run . -- --seed 42
+rdc run -- --seed 42
+```
 
 The exit code says how the run went:
 
@@ -125,11 +151,21 @@ wherever it is. It needs the same entry point as `rdc run`.
 The program shows its dialogs as `rdc run` does, and its exit code says how it ran, as `rdc run`'s does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
 
 A built program calls the outside world (a `Declare`d procedure, an automation server's object) as `rdc run` does, through a second process: its own
-executable, started again as its external host, which ends with it. Where the .NET host for the program's runtime is not installed, the program is built without an executable;
-run with `dotnet <name>.dll`, it makes no such call.
+executable, started again as its external host, which ends with it.
+
+The executable is made of the .NET application host for the program's runtime. `rdc` comes with the hosts for `win-x64`, `linux-x64`, `osx-x64` and
+`osx-arm64`, the runtimes the platform is published for, so it builds a program for any of them wherever it runs. For another runtime, it uses the host
+in an installed .NET SDK. Where neither has it, the program is built without an executable; run with `dotnet <name>.dll`, it makes no call to the
+outside world.
+
+The executable of a program built for macOS (`osx-x64`, `osx-arm64`) is signed ad hoc, as the .NET SDK signs an application's: a Mac with Apple silicon
+runs no executable that is not signed. The signature has no certificate: it is not a Developer ID signature.
 
 The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
 reads them from there, wherever the folder is.
+
+When the project has a Visual Basic 6.0 form, the folder also holds RDForms, which shows the program's forms, and the native libraries RDForms draws
+with for the program's runtime. A program with no such form is built without them, and building it again into a folder that held them removes them.
 
 The folder also holds the license terms of what the program runs on:
 

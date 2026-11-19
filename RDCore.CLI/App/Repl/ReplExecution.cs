@@ -53,6 +53,10 @@ internal static class ReplExecution
         }
 
         Report(context, await context.Debugger.PushBreakpointsAsync(context, token));
+
+        // an error nothing handles waits where it was raised, as in the VBIDE, to be looked at and gone on with. The session has the mode until it is said
+        // otherwise, but a host that was started again has not: it is said with every run, as the breakpoints are.
+        await context.Platform.SetErrorBreakAsync(ErrorBreakMode.Unhandled, token);
         context.Debugger.Running();
         try
         {
@@ -90,6 +94,7 @@ internal static class ReplExecution
     // A statement typed while a program waits runs in the activation FRAME selected, as if it were written in that procedure: its names are the procedure's, so a
     // local is read and set as the program has it, and a name the procedure does not see is not defined - the statement is not the program's code, and declares
     // nothing in it. The program waits still, unless the statement was an END, which is the end of it. What the statement printed, or why it could not run, is said.
+    // An End that ended the program is not an error, and nothing more is said of it, as of a run an End stops.
     private static async Task ExecuteInFrameAsync(ReplCommandContext context, string statement, CancellationToken token)
     {
         var waitsBefore = context.Debugger.StoppedAt;
@@ -99,19 +104,18 @@ internal static class ReplExecution
             context.Console.WriteLine(line);
         }
 
+        if (result.EndedTheProgram)
+        {
+            context.Debugger.Idle();
+            return;
+        }
+
         if (result.Error is { } error)
         {
             context.Console.WriteMessage(MessageKind.Error, error);
         }
 
-        if (result.EndedTheProgram)
-        {
-            context.Debugger.Idle();
-        }
-        else
-        {
-            context.Debugger.Suspended(waitsBefore);
-        }
+        context.Debugger.Suspended(waitsBefore);
     }
 
     /// <summary>
@@ -238,7 +242,8 @@ internal static class ReplExecution
     /// <summary>
     /// Writes what a run printed, then what ended it - or what it waits at - as BASIC says it. A break first lists the lines around the one it stopped at, as
     /// many on either side as <see cref="ReplCommandContext.BreakListingLines"/> says, with that line marked as the statement the program waits before; a
-    /// run-time error lists them the same way around the line of the program that raised it, before it is said.
+    /// run-time error lists them the same way around the line of the program that raised it, before it is said. A program that waits at an error nothing handles
+    /// is listed as a break is, and the error is said as a run it ended says it.
     /// </summary>
     /// <param name="context">The live session.</param>
     /// <param name="result">The answer to the request that ran the program, or went on with it.</param>
@@ -265,37 +270,25 @@ internal static class ReplExecution
             case ExecutionOutcome.Halted:
                 break;
 
-            // the program waits where it stopped, and BREAK IN says where, as it does for a program that was stopped for good.
+            // the program waits where it stopped, and BREAK IN says where, as it does for a program that was stopped for good. A program that waits where an error
+            // nothing handles was raised says the error instead, as a run it ended would.
             case ExecutionOutcome.Suspended:
                 var waitsBefore = program.LineNumberAt(result.ErrorLine);
                 context.Debugger.Suspended(waitsBefore);
 
                 // the lines around the stop come first, and what stopped it after them. A program that waits in a module of the workspace is listed, and
                 // said, by that module's own lines.
-                if (waitsBefore is null && await WaitsInAModuleAsync(context) is { } frame)
+                var frame = waitsBefore is null ? await WaitsInAModuleAsync(context) : null;
+                if (listsTheBreak && frame is not null)
                 {
-                    if (listsTheBreak)
-                    {
-                        await ListAroundInModuleAsync(context, frame.Module, frame.Line);
-                    }
-
-                    console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
+                    await ListAroundInModuleAsync(context, frame.Module, frame.Line);
                 }
-                else
+                else if (listsTheBreak)
                 {
-                    if (listsTheBreak)
-                    {
-                        await ListAroundAsync(context, waitsBefore);
-                    }
-
-                    console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
+                    await ListAroundAsync(context, waitsBefore);
                 }
 
-                // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
-                if (result.ConditionError.Length > 0)
-                {
-                    console.WriteMessage(MessageKind.Warning, string.Format(Resources.Repl_Breakpoint_ConditionFailed, result.ConditionError));
-                }
+                SayWhereItWaits(context, result, waitsBefore, frame);
                 break;
 
             // it cannot go on, and what it was before is what it is: the caller says which.
@@ -309,8 +302,19 @@ internal static class ReplExecution
                 break;
 
             // the lines around the statement that raised the error are listed as a break lists the lines around the one it stopped at, and the error is said
-            // after them.
+            // after them. An error raised in a module of the workspace is listed, and said, by that module's own lines.
             case ExecutionOutcome.RuntimeError:
+                if (InAModuleOfTheWorkspace(program, result.ErrorModule))
+                {
+                    if (listsTheBreak)
+                    {
+                        await ListAroundInModuleAsync(context, result.ErrorModule, result.ErrorLine);
+                    }
+
+                    RenderRuntimeError(console, program, result, inModule: (result.ErrorModule, result.ErrorLine + 1));
+                    break;
+                }
+
                 if (listsTheBreak)
                 {
                     await ListAroundAsync(context, program.LineNumberAt(result.ErrorLine));
@@ -344,6 +348,60 @@ internal static class ReplExecution
     // the lines around the one a break stopped at, as LIST lists them, with that line marked as the statement the program waits before: as many lines of the program
     // above it and below it as there are, up to the setting. Every line of them is listed, a folded block's too: they are what the program was doing. A break that
     // could not be placed lists nothing. The requests are not the run's to cancel: a break at the keyboard cancelled the run's token already.
+    /// <summary>
+    /// Says that a handler of an event stopped while no program runs, and waits there, as a break of a program is said: the shell is then in break mode, and
+    /// <c>CONT</c>, the steps and <c>END</c> act on the handler. Nothing is listed, since the line being typed stays under it.
+    /// </summary>
+    /// <param name="context">The live session.</param>
+    /// <param name="result">Where the handler waits, as the language server told it.</param>
+    /// <param name="above">Writes what it is given above the line being typed at the prompt.</param>
+    public static async Task RenderSessionStopAsync(ReplCommandContext context, ExecuteResult result, Action<Action> above)
+    {
+        // what is asked of the platform is asked first: nothing waits for an answer while the line being typed is held.
+        var waitsBefore = context.Program.LineNumberAt(result.ErrorLine);
+        var frame = waitsBefore is null ? await WaitsInAModuleAsync(context) : null;
+        above(() =>
+        {
+            foreach (var line in result.Output)
+            {
+                context.Console.WriteLine(line);
+            }
+
+            context.Debugger.Suspended(waitsBefore);
+            SayWhereItWaits(context, result, waitsBefore, frame);
+        });
+    }
+
+    // what a program waits at, after the lines around it: the error nothing handles, said as a run it ended would say it, or the break and where. A program that
+    // waits in a module of the workspace is said by that module's own lines.
+    private static void SayWhereItWaits(ReplCommandContext context, ExecuteResult result, int? waitsBefore, DebugStackFrame? frame)
+    {
+        var (console, program) = (context.Console, context.Program);
+        var waitsAtAnError = result.ErrorNumber != 0;
+        if (frame is not null && waitsAtAnError)
+        {
+            RenderRuntimeError(console, program, result, inModule: (frame.Module, frame.Line + 1));
+        }
+        else if (frame is not null)
+        {
+            console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
+        }
+        else if (waitsAtAnError)
+        {
+            RenderRuntimeError(console, program, result);
+        }
+        else
+        {
+            console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
+        }
+
+        // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
+        if (result.ConditionError.Length > 0)
+        {
+            console.WriteMessage(MessageKind.Warning, string.Format(Resources.Repl_Breakpoint_ConditionFailed, result.ConditionError));
+        }
+    }
+
     private static async Task ListAroundAsync(ReplCommandContext context, int? stoppedAt)
     {
         var around = Math.Clamp(context.BreakListingLines, 0, AppOptions.MaximumBreakListingLines);
@@ -370,6 +428,11 @@ internal static class ReplExecution
 
         return innermost;
     }
+
+    // a module other than the shell's own: the shell's program is said by its line numbers, a module by its lines. A run that does not say its module is the
+    // shell's.
+    private static bool InAModuleOfTheWorkspace(ReplProgram program, string module)
+        => module.Length > 0 && !string.Equals(module, program.Module, StringComparison.OrdinalIgnoreCase);
 
     // the lines around the one a break stopped at in a module of the workspace, as LIST lists the program, read from the module's file: as many above it and below
     // it as the setting says. A module the language server cannot find, or a file that cannot be read, lists nothing: the break is said all the same.
@@ -405,7 +468,8 @@ internal static class ReplExecution
     // BASIC has always said which line it died on, and so does this: the title carries the program's own
     // line number, and the detail carries what a reader needs after that - the diagnostic code and message,
     // whose error it is, and the stack it was raised on.
-    private static void RenderRuntimeError(IReplConsole console, ReplProgram program, ExecuteResult result)
+    // An error raised in a module of the workspace is said by that module's line (inModule), the line of its file.
+    private static void RenderRuntimeError(IReplConsole console, ReplProgram program, ExecuteResult result, (string Module, int Line)? inModule = null)
     {
         // the title is the error's *category* - what kind of thing went wrong - and the detail says what it
         // was. Uppercased because that is the shell's voice, not because the title is.
@@ -418,7 +482,9 @@ internal static class ReplExecution
         var faultedLine = program.LineNumberAt(result.ErrorLine);
 
         console.WriteMessage(MessageKind.Error,
-            faultedLine is { } number
+            inModule is { } at
+                ? string.Format(Resources.Repl_RuntimeError_InModuleLine, title, at.Module, at.Line)
+                : faultedLine is { } number
                 ? string.Format(Resources.Repl_RuntimeError_InLine, title, number)
                 : string.Format(Resources.Repl_RuntimeError, title),
             // the writer indents the verbose block as a whole, so every line after the first carries its own.
@@ -445,12 +511,17 @@ internal static class ReplExecution
             // a frame carries a source position rather than a line number - only the faulting statement's own
             // line number is captured (Erl is one value, not one per activation) - so the buffer maps it back.
             // TODO carry a line number per activation once a frame knows its own instruction list.
+            // An activation of a module of the workspace is at a line of that module's file, as STACK says it.
             var line = program.LineNumberAt(frame.Line);
-            var at = line is { } number ? $"  {frame.Procedure} {number}" : $"  {frame.Procedure}";
+            var at = InAModuleOfTheWorkspace(program, frame.Module) && frame.Line >= 0
+                ? $"  {frame.Procedure} {string.Format(Resources.Repl_Frame_InModuleLine, frame.Module, frame.Line + 1)}"
+                : line is { } number ? $"  {frame.Procedure} {number}" : $"  {frame.Procedure}";
 
             // and how the activation got there, when it was by a GoSub: from the line of the last one it had not returned from, and the one before that - as STACK
             // says it of a program that waits.
-            yield return at + string.Concat(frame.ReturnLines.Select(gosub => program.LineNumberAt(gosub) is { } from ? $" from {from}" : string.Empty));
+            yield return at + string.Concat(frame.ReturnLines.Select(gosub => program.LineNumberAt(gosub) is { } from
+                ? " " + string.Format(Resources.Repl_Frame_FromGoSub, from)
+                : string.Empty));
         }
     }
 }

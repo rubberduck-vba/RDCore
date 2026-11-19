@@ -1,3 +1,4 @@
+using RDCore.Runtime.Compiled;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -60,7 +61,7 @@ internal sealed class ScalarCell : ICopyableBinding
         return cell;
     }
 
-    // a copy of an element of an array that is assigned (S1.6) is a payload cell too: a scalar is immutable, so the boxed value, if any, is shared.
+    // a copy of an element of an array that is assigned is a payload cell too: a scalar is immutable, so the boxed value, if any, is shared.
     public IBindingHandle Copy()
         => new ScalarCell(Type) { _boxed = _boxed, _payload = _payload, _hasPayload = _hasPayload, IsKnown = IsKnown };
 
@@ -141,6 +142,27 @@ internal sealed class ScalarCell : ICopyableBinding
 /// <param name="Floating">The value of a floating-point type, or the serial of a <c>Date</c>.</param>
 internal readonly record struct ScalarPayload(VBType Type, long Integral, double Floating)
 {
+    private readonly VBType _type = Type;
+
+    /// <summary>
+    /// The type of the value; giving the payload another (<c>with</c>) gives it the kind of that type too.
+    /// </summary>
+    public VBType Type
+    {
+        get => _type;
+        init
+        {
+            _type = value;
+            Kind = ScalarKinds.Of(value);
+        }
+    }
+
+    /// <summary>
+    /// The kind of <see cref="Type"/> (<see cref="ScalarKinds.Of"/>), found once when the payload is made: what an operation on payloads is chosen by.
+    /// <see langword="null"/> of a type that is not a scalar type, of which no payload is ever read.
+    /// </summary>
+    public ScalarKind? Kind { get; private init; } = ScalarKinds.Of(Type);
+
     /// <summary>What a <c>Currency</c> is scaled by, to be held in <see cref="Integral"/>.</summary>
     public const long CurrencyScale = 10000;
 

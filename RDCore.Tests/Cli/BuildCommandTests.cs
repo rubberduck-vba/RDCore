@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
+using RDCore.CLI;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
+using RDCore.Diagnostics;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
@@ -24,6 +27,7 @@ namespace RDCore.Tests.Cli;
 /// <c>rdc build</c>: a workspace built into a program (its assembly, its debugging information, its runtime configuration, its executable and the runtime it
 /// runs on), and the program run from its assembly as the interpreter runs the workspace.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class BuildCommandTests
 {
@@ -32,6 +36,11 @@ public sealed class BuildCommandTests
     private static readonly string Runtime = Path.Combine(Platform, "RDCore.CLI");
     private static readonly string Host = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.win-x64", "10.0.11",
         "runtimes", "win-x64", "native", "apphost.exe");
+    // a macOS runtime's host is a Mach-O, which rdc build signs: the host of the Microsoft.NETCore.App.Host.osx-arm64 package, which the tests' project
+    // copies beside them.
+    private static readonly string MacHost = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.osx-arm64", "11.0.0",
+        "runtimes", "osx-arm64", "native", "apphost");
+    private static readonly Lazy<byte[]> AppleSiliconHost = new(() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Cli", "Data", "osx-arm64", "apphost")));
     private static readonly string Output = Path.Combine(Path.GetTempPath(), "rdcore-build-out");
 
     private static string Module(string name, params string[] body) => $"Attribute VB_Name = \"{name}\"\r\nOption Explicit\r\n{string.Join("\r\n", body)}\r\n";
@@ -75,9 +84,11 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", "rdc.resources.dll"), "les ressources de rdc");
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.dll"), "rdc");
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "RDCore.Parsing.dll"), "the parser");
-        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net10.0\" } }");
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net11.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
+        fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(MacHost)!);
+        fileSystem.File.WriteAllBytes(MacHost, AppleSiliconHost.Value);
 
         // the package the support is built on, and one of rdc's that no program runs on; the platform's notices, as its release writes them.
         fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.SDK.dll"), SdkAssembly.Value);
@@ -126,8 +137,11 @@ public sealed class BuildCommandTests
         },
     });
 
+    private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, AppOptions settings)
+        => Command(fileSystem, settings: settings, hasHost: true);
+
     private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true,
-        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null)
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null, AppOptions? settings = null)
     {
         var messages = new List<(MessageKind, string)>();
         var writer = Substitute.For<IConsoleMessageWriter>();
@@ -139,7 +153,7 @@ public sealed class BuildCommandTests
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
-            _ => hasHost ? Host : null), messages);
+            runtime => !hasHost ? null : MacOSSignature.IsNeeded(runtime) ? MacHost : Host, settings is null ? null : Options.Create(settings)), messages);
     }
 
     [TestMethod]
@@ -186,6 +200,21 @@ public sealed class BuildCommandTests
         Assert.AreEqual(fileSystem.File.ReadAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json")), fileSystem.File.ReadAllText(Path.Combine(Output, "Hello.runtimeconfig.json")));
         CollectionAssert.AreEqual(AppHost.Patch(FakeHost, "Hello.dll"), fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.exe")));
         Assert.Contains(message => message.Kind == MessageKind.Information && message.Text.Contains("3 ", StringComparison.Ordinal), messages);
+    }
+
+    // the host of the runtime built for, whatever the runtime the build runs on: on a Mac, the runtime a build is for by default is a macOS one.
+    [TestMethod]
+    public async Task AWorkspaceBuiltForMacOS_HasTheHostOfItsRuntime_PatchedAndSigned()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        var (command, messages) = Command(fileSystem);
+
+        var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "osx-arm64"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
+        CollectionAssert.AreEqual(MacOSSignature.Sign(AppHost.Patch(AppleSiliconHost.Value, "Hello.dll"), "Hello"),
+            fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello")));
     }
 
     [TestMethod]
@@ -263,6 +292,145 @@ public sealed class BuildCommandTests
         Assert.DoesNotContain("LICENSE-GPLv3.md", warning);
     }
 
+    // a Visual Basic 6.0 form that the program does not use: the project has it, and the program's folder holds what hosts it.
+    private static readonly string VisualBasicForm = string.Join("\r\n",
+        "VERSION 5.00",
+        "Begin VB.Form Form1 ",
+        "   Caption         =   \"Form1\"",
+        "   ClientHeight    =   3195",
+        "End",
+        "Attribute VB_Name = \"Form1\"",
+        "Attribute VB_GlobalNameSpace = False",
+        "Attribute VB_Creatable = False",
+        "Attribute VB_PredeclaredId = True",
+        "Attribute VB_Exposed = False",
+        "Option Explicit",
+        string.Empty);
+
+    // a project of the program and the form.
+    private static MockFileSystem WithAVisualBasicForm(MockFileSystem fileSystem)
+    {
+        fileSystem.File.WriteAllText(Path.Combine(Root, "Form1.frm"), VisualBasicForm);
+        fileSystem.File.WriteAllText(Path.Combine(Root, ProjectFile.FileName),
+            """{ "Version": "1.1", "ProjectInfo": { "Name": "Hello", "Modules": [ "Program.bas", "Form1.frm" ] } }""");
+        return fileSystem;
+    }
+
+    private const string NativeLicense = "Copyright (c) 2026 the drawing library's authors\n\nPermission is hereby granted.";
+
+    // rdc's runtime folder as a build of it lays it out: the forms host and the RDForms model it references, the host's resources in French, and rdc's deps.json, by
+    // which the host depends on a package that ships a native library for two runtime identifiers. A publish of rdc for win-x64 has that identifier's beside rdc;
+    // a portable one has each identifier's under runtimes/.
+    private static MockFileSystem WithTheFormsHost(MockFileSystem fileSystem, bool published)
+    {
+        foreach (var name in new[] { BuiltProgram.FormsAssembly, "RDCore.Forms" })
+        {
+            fileSystem.File.WriteAllBytes(Path.Combine(Runtime, $"{name}.dll"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, $"{name}.dll")));
+        }
+
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", $"{BuiltProgram.FormsAssembly}.resources.dll"), "les ressources des formulaires");
+        string[] natives = published ? ["libdraw.dll"] : ["runtimes/win-x64/native/libdraw.dll", "runtimes/linux-x64/native/libdraw.so"];
+        foreach (var native in natives)
+        {
+            fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(Runtime, native))!);
+            fileSystem.File.WriteAllText(Path.Combine(Runtime, native), "the drawing library");
+        }
+
+        var assets = published
+            ? """ "native": { "runtimes/win-x64/native/libdraw.dll": { "fileVersion": "0.0.0.0", "localPath": "libdraw.dll" } } """
+            : """
+              "runtimeTargets": {
+                "runtimes/win-x64/native/libdraw.dll": { "rid": "win-x64", "assetType": "native", "localPath": "runtimes/win-x64/native/libdraw.dll" },
+                "runtimes/linux-x64/native/libdraw.so": { "rid": "linux-x64", "assetType": "native", "localPath": "runtimes/linux-x64/native/libdraw.so" } }
+              """;
+        var target = published ? ".NETCoreApp,Version=v10.0/win-x64" : ".NETCoreApp,Version=v10.0";
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.deps.json"), $$"""
+            { "runtimeTarget": { "name": "{{target}}" }, "targets": { "{{target}}": {
+                "RDCore.External.Forms/1.0.0": { "dependencies": { "RDCore.Forms": "0.1.0" }, "runtime": { "RDCore.External.Forms.dll": {} } },
+                "RDCore.Forms/0.1.0": { "dependencies": { "Draw.NativeAssets": "1.0.0" }, "runtime": { "lib/net10.0/RDCore.Forms.dll": {} } },
+                "Draw.NativeAssets/1.0.0": { {{assets}} } } } }
+            """);
+
+        // the package of the native library, as the release lists it: it ships no assembly.
+        var data = System.Text.Json.Nodes.JsonNode.Parse(PlatformThirdPartyNotices)!;
+        data["packages"]!.AsArray().Add(System.Text.Json.Nodes.JsonNode.Parse("""
+            { "package": "Draw.NativeAssets", "version": "1.0.0", "license": "MIT", "copyright": "-", "projectUrl": "https://example.invalid/draw",
+              "assemblies": [], "natives": [ "libdraw.dll", "libdraw.so" ] }
+            """));
+        data["texts"]!.AsArray().Add(System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            kind = "license", title = "MIT", packages = new[] { "Draw.NativeAssets 1.0.0" }, sources = new[] { "LICENSE shipped in the package" }, text = NativeLicense,
+        })));
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "THIRD-PARTY-NOTICES.json"), data.ToJsonString());
+        return fileSystem;
+    }
+
+    private static readonly string[] FormsFiles = [$"{BuiltProgram.FormsAssembly}.dll", "RDCore.Forms.dll", Path.Combine("fr", $"{BuiltProgram.FormsAssembly}.resources.dll")];
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "a portable rdc")]
+    [DataRow(true, DisplayName = "rdc published for win-x64")]
+    public async Task ABuiltProgramWithAVisualBasicForm_CarriesTheFormsHost_TheNativeLibrariesOfItsRuntime_AndTheirNotices(bool published)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = WithTheFormsHost(WithAVisualBasicForm(Files(("Program.bas", Program))), published);
+        var (command, messages) = Command(fileSystem);
+
+        var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
+        foreach (var file in FormsFiles.Append("libdraw.dll"))
+        {
+            Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, "libdraw.so")), "the native library of another runtime");
+        Assert.IsFalse(fileSystem.Directory.Exists(Path.Combine(Output, "runtimes")), "a native library is beside the program");
+        var notices = fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt"));
+        Assert.Contains("Draw.NativeAssets", notices);
+        Assert.Contains(NativeLicense, notices);
+    }
+
+    [TestMethod]
+    public async Task ABuiltProgramForARuntimeRdcIsNotPublishedFor_CarriesNoNativeLibraryOfAnother()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = WithTheFormsHost(WithAVisualBasicForm(Files(("Program.bas", Program))), published: true);
+        var (command, messages) = Command(fileSystem);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "linux-x64"], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, $"{BuiltProgram.FormsAssembly}.dll")));
+        Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, "libdraw.dll")));
+        Assert.DoesNotContain("Draw.NativeAssets", fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt")));
+    }
+
+    // the same folder built again once the project has no form: what the earlier build copied of RDForms is not left there.
+    [TestMethod]
+    public async Task ABuiltProgramWithNoVisualBasicForm_CarriesNothingOfRDForms_NorWhatAnEarlierBuildOfItsFolderCopied()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = WithTheFormsHost(WithAVisualBasicForm(Files(("Program.bas", Program))), published: false);
+        var (command, messages) = Command(fileSystem);
+        string[] build = [Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"];
+        Assert.AreEqual(0, await command.ExecuteAsync(build, CancellationToken.None), string.Join("; ", messages.Select(message => message.Text)));
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "libdraw.dll")), "the earlier build copied the native library");
+
+        fileSystem.File.Delete(Path.Combine(Root, "Form1.frm"));
+        fileSystem.File.Delete(Path.Combine(Root, ProjectFile.FileName));
+        Assert.AreEqual(0, await command.ExecuteAsync(build, CancellationToken.None), string.Join("; ", messages.Select(message => message.Text)));
+
+        foreach (var file in FormsFiles.Append("libdraw.dll"))
+        {
+            Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "RDCore.Runtime.Support.dll")));
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "fr", "RDCore.Runtime.Support.resources.dll")));
+        Assert.DoesNotContain("Draw.NativeAssets", fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt")));
+    }
+
     [TestMethod]
     public async Task TheBuiltAssembly_RunsTheProgram_ItsProceduresTheCodeTheyWereBuiltTo()
     {
@@ -313,17 +481,22 @@ public sealed class BuildCommandTests
     private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem, string folder, params string[] args)
         => BuildAndRunAsync(fileSystem, null, folder, args);
 
-    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
         RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, params string[] args)
+        => BuildAndRunNamedAsync(fileSystem, libraries, folder, "Hello", args);
+
+    // the program built under name: its executable is name in the test's folder.
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunNamedAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, string name, params string[] args)
     {
         var (command, messages) = Command(fileSystem, libraries: libraries);
-        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", .. args], CancellationToken.None),
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", name, .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
 
         var context = new AssemblyLoadContext("built program", isCollectible: true);
         try
         {
-            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, "Hello.dll"))));
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, $"{name}.dll"))));
             var output = new StringWriter();
             var error = new StringWriter();
             // the libraries the program reads from its own folder: the one it was built to, and not the folder the test runs it from.
@@ -376,7 +549,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "LibraryProbe", "Modules": [ { "RelativeUri": "Program.bas" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
         var run = await RunAsync(fileSystem, shipped, Root);
         Assert.AreEqual(0, run.Exit, run.Error);
@@ -489,7 +662,7 @@ public sealed class BuildCommandTests
         CompiledExecutionTests.RequirePayloads();
         var fileSystem = Files(("Program.bas", Stops));
 
-        var run = await RunAsync(fileSystem, Root, "-c", "Release");
+        var run = await RunAsync(fileSystem, "-c", "Release", Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "42" }, run.Output);
@@ -559,14 +732,22 @@ public sealed class BuildCommandTests
     private static Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, ScriptedKeys keys, params string[] args)
         => RunAsync(fileSystem, new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty), keys, args);
 
+    private static Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, ScriptedKeys keys, AppOptions settings, params string[] args)
+        => RunAsync(fileSystem, new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty), keys, settings, args);
+
+    private static Task<(int Exit, string[] Output, string Error)> RunAsync(
+        MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, params string[] args)
+        => RunAsync(fileSystem, libraries, keys, new AppOptions(), args);
+
     // the console's keys are the test's: a script piped to rdc, which the dialogs read a line at a time.
     private static async Task<(int Exit, string[] Output, string Error)> RunAsync(
-        MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, params string[] args)
+        MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, AppOptions settings, params string[] args)
     {
         var output = new StringWriter();
         var error = new StringWriter();
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance, libraries);
-        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error, keys);
+        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error, keys,
+            Options.Create(settings));
         var exit = await command.ExecuteAsync(args, CancellationToken.None);
         return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(), error.ToString());
     }
@@ -587,8 +768,105 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "{{form}}.frm" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         return await RunAsync(fileSystem, shipped, Root);
+    }
+
+    // a program that names a class of the VB library, which a Visual Basic 6.0 project has and an RD-VBA one does not, in a project imported from sourceProject.
+    private static async Task<(int Exit, string[] Output, string Error)> RunImportedAsync(string? sourceProject)
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()", "    Dim t As VB.Timer", "    Debug.Print \"ran\"", "End Sub")));
+        var source = sourceProject is null ? string.Empty : $", \"SourceProject\": \"{sourceProject}\"";
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), $$"""
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ]{{source}} } }
+            """);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+        return await RunAsync(fileSystem, shipped, Root);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAProjectImportedFromAVbp_RunsItAsVisualBasic6()
+    {
+        var (exit, output, error) = await RunImportedAsync("Probe.vbp");
+
+        Assert.AreEqual(0, exit, error);
+        CollectionAssert.AreEqual(new[] { "ran" }, output, error);
+    }
+
+    [TestMethod]
+    public async Task TheBuiltProgram_OfAProjectImportedFromAVbp_RunsAsVisualBasic6()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()", "    Dim t As VB.Timer", "    Debug.Print \"ran\"", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
+            """);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { "ran" }, built.Output, built.Error);
+    }
+
+    [TestMethod]
+    [DataRow(null, DisplayName = "a project that was not imported")]
+    [DataRow("Probe.xlsm", DisplayName = "a project imported from anything but a .vbp")]
+    public async Task Run_OfAnyOtherProject_RunsItInTheLanguageOfTheSetting(string? sourceProject)
+    {
+        var (exit, _, error) = await RunImportedAsync(sourceProject);
+
+        Assert.AreEqual(ProgramRunner.Refused, exit);
+        StringAssert.Contains(error, "VB.Timer");
+    }
+
+    // a Visual Basic 6.0 program that prints where App says it is: its folder, the name of its executable, its title, and whether it already ran.
+    private static MockFileSystem PrintsApp()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()",
+            "    Debug.Print App.Path", "    Debug.Print App.EXEName", "    Debug.Print App.Title", "    Debug.Print App.PrevInstance", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Probe", "Modules": [ { "RelativeUri": "Program.bas" } ], "SourceProject": "Probe.vbp" } }
+            """);
+        return fileSystem;
+    }
+
+    [TestMethod]
+    public async Task Run_App_IsTheWorkspaceProject()
+    {
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+
+        var (exit, output, error) = await RunAsync(PrintsApp(), shipped, Root);
+
+        Assert.AreEqual(0, exit, error);
+        CollectionAssert.AreEqual(new[] { Root, "Probe", "Probe", "False" }, output, error);
+    }
+
+    // the program runs from the test's folder, which holds no executable of its name: it runs as its assembly does with dotnet, from that folder. Its name
+    // is this test's own: another program of the same executable running is a previous instance (App.PrevInstance).
+    [TestMethod]
+    public async Task TheBuiltProgram_App_IsItsExecutable()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+        var name = $"Probe{Guid.NewGuid():N}";
+
+        var built = await BuildAndRunNamedAsync(PrintsApp(), shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime), name);
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory), name, "Probe", "False" }, built.Output, built.Error);
+    }
+
+    [TestMethod]
+    public void TheBuiltProgram_InstanceName_IsTheSameForOneExecutable_WithoutSeparators()
+    {
+        var executable = Path.Combine(Path.GetTempPath(), "Hello", "Hello.exe");
+
+        var name = BuiltProgram.InstanceName(executable);
+
+        Assert.AreEqual(name, BuiltProgram.InstanceName(Path.Combine(Path.GetTempPath(), "Hello", ".", "Hello.exe")));
+        Assert.AreNotEqual(name, BuiltProgram.InstanceName(Path.Combine(Path.GetTempPath(), "Other", "Hello.exe")));
+        Assert.AreEqual(-1, name.IndexOfAny(['/', '\\'], @"Local\".Length), name);
     }
 
     // the workspace is no folder of the disk the program runs on: the form's designer, its companion file with it, is what the build read, and the form the
@@ -608,7 +886,7 @@ public sealed class BuildCommandTests
             { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "ExampleView.frm" } ],
               "References": [ { "Name": "MSForms" } ] } }
             """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
         Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
         var run = await RunAsync(fileSystem, shipped, Root);
         Assert.AreEqual(0, run.Exit, run.Error);
@@ -746,14 +1024,22 @@ public sealed class BuildCommandTests
         "    Debug.Print \"again: \" & MsgBox(\"Play again?\", vbYesNo)",
         "End Sub");
 
-    // off Windows, the dialogs of a run are asked at the console, as the shell asks them: the text typed is the InputBox's, and the button named the MsgBox's.
+    // a console application: its project's build section says so (format 1.2), and its console is its user interface.
+    private static MockFileSystem ConsoleApplication(MockFileSystem fileSystem)
+    {
+        fileSystem.File.WriteAllText(Path.Combine(Root, ProjectFile.FileName),
+            """{ "Version": "1.2", "ProjectInfo": { "Name": "P", "Modules": [ "Program.bas" ], "build": { "outputType": "ConsoleApplication" } } }""");
+        return fileSystem;
+    }
+
+    // the dialogs of a console application's run are asked at the console, as the shell asks them, on every operating system: the text typed is the
+    // InputBox's, and the button named the MsgBox's.
     [TestMethod]
-    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    public async Task Run_AsksItsDialogsAtTheConsole_ElsewhereThanOnWindows()
+    public async Task Run_OfAConsoleApplication_AsksItsDialogsAtTheConsole()
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
-        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, Root);
+        var run = await RunAsync(ConsoleApplication(Files(("Program.bas", AsksAndAsksAgain))), keys, Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         Assert.IsTrue(run.Output.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
@@ -762,13 +1048,98 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // a program rdc builds asks its dialogs as rdc run does: off Windows, at the console.
+    // a machine with no dialogs of its own asks at the console, whatever the settings ask for, for an RDForms application too: RDForms has no dialogs.
     [TestMethod]
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    public async Task TheBuiltProgram_AsksItsDialogsAtTheConsole_ElsewhereThanOnWindows()
+    public async Task Run_OfAnRDFormsApplication_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
+    {
+        var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
+
+        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, new AppOptions { NativeDialogs = true }, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        Assert.IsTrue(run.Output.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
+        CollectionAssert.AreEqual(new[] { "name: Ducky", $"again: {(int)VBMsgBoxResult.VBNo}" },
+            run.Output.Where(line => line.StartsWith("name: ", StringComparison.Ordinal) || line.StartsWith("again: ", StringComparison.Ordinal)).ToArray(),
+            string.Join(" | ", run.Output));
+    }
+
+    // the program keeps what its project and the settings said of the machine's own dialogs when it was built: an RDForms application's are the machine's,
+    // and a console application's only when the settings asked for them.
+    [TestMethod]
+    [DataRow(true, false, false, DisplayName = "a console application")]
+    [DataRow(true, true, true, DisplayName = "a console application whose settings ask for them")]
+    [DataRow(false, false, true, DisplayName = "an RDForms application")]
+    public async Task TheBuiltProgram_ShowsNativeDialogs_AsItsProjectAndTheSettingsSay(bool console, bool native, bool expected)
     {
         CompiledExecutionTests.RequirePayloads();
         var fileSystem = Files(("Program.bas", AsksAndAsksAgain));
+        if (console)
+        {
+            ConsoleApplication(fileSystem);
+        }
+
+        var (command, messages) = Command(fileSystem, new AppOptions { NativeDialogs = native });
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
+
+            Assert.AreEqual(expected, BuiltProgram.ImageOf(assembly).NativeDialogs);
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    // the machine's own dialogs are Windows', shown only when the settings ask for them; a machine that has none asks at the console.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void TheMachinesOwnDialogs_AreShownOnWindowsWhenAskedFor()
+    {
+        Assert.IsTrue(ProgramDialogs.ShowsNative(native: true));
+        Assert.IsFalse(ProgramDialogs.ShowsNative(native: false));
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public void TheMachinesOwnDialogs_AreNeverShownElsewhereThanOnWindows()
+    {
+        Assert.IsFalse(ProgramDialogs.ShowsNative(native: true));
+        Assert.IsFalse(ProgramDialogs.ShowsNative(native: false));
+    }
+
+    // the project says what its user interface is: a console application's is its console, and any other program is an RDForms application.
+    [TestMethod]
+    [DataRow(ProjectOutputType.ConsoleApplication, false, true, false, DisplayName = "a console application")]
+    [DataRow(ProjectOutputType.ConsoleApplication, true, true, true, DisplayName = "a console application whose settings ask for them")]
+    [DataRow(ProjectOutputType.Application, false, false, true, DisplayName = "an RDForms application")]
+    public void TheMachinesOwnDialogs_AreWanted_ByAnRDFormsApplication_OrWhenTheSettingsAskForThem(
+        ProjectOutputType output, bool native, bool console, bool wanted)
+    {
+        var section = new ProjectBuild { OutputType = output };
+
+        Assert.AreEqual(console, ProgramDialogs.IsConsole(section));
+        Assert.AreEqual(wanted, ProgramDialogs.WantsNative(section, native));
+    }
+
+    [TestMethod]
+    public void AProjectWithNoBuildSection_IsAnRDFormsApplication()
+    {
+        Assert.IsFalse(ProgramDialogs.IsConsole(null));
+        Assert.IsTrue(ProgramDialogs.WantsNative(null, native: false));
+    }
+
+    // a program rdc builds of a console application asks its dialogs as rdc run does: at the console, on every operating system.
+    [TestMethod]
+    public async Task TheBuiltProgram_OfAConsoleApplication_AsksItsDialogsAtTheConsole()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = ConsoleApplication(Files(("Program.bas", AsksAndAsksAgain)));
         var (command, messages) = Command(fileSystem);
         Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
@@ -842,7 +1213,7 @@ public sealed class BuildCommandTests
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
-        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, Root, "--unattended");
+        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, "--unattended", Root);
 
         Assert.AreEqual(ProgramRunner.Failed, run.Exit);
         Assert.Contains("50001", run.Error);
@@ -914,6 +1285,52 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "2", "String:one", "String:two words", "String:--unattended", "[one \"two words\" --unattended]" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Run_PassesWhatFollowsThePath_ToTheParamArrayOfMain_AndToCommand()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "-c", "Release", Root, "--seed", "42");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "1", "String:--seed", "String:42", "[--seed 42]" }, run.Output);
+    }
+
+    // a run that is unattended tells the program so, as a built program's command line does: --unattended is first on its command line.
+    [TestMethod]
+    public async Task Run_Unattended_GivesTheProgramTheSwitch_InCommandAndToMain()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "--unattended", Root, "--seed", "42");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "2", "String:--unattended", "String:--seed", "String:42", "[--unattended --seed 42]" }, run.Output);
+    }
+
+    // the switch is on the program's command line once, where the program's own arguments already have it.
+    [TestMethod]
+    public async Task Run_Unattended_GivesTheProgramTheSwitchOnce()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "--unattended", Root, "x", "--unattended");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "1", "String:x", "String:--unattended", "[x --unattended]" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Run_WithNoPathAndNoSeparator_RefusesAnOptionItDoesNotKnow()
+    {
+        var fileSystem = Files(("Program.bas", Echo));
+
+        var run = await RunAsync(fileSystem, "--seed", "42");
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit);
+        Assert.IsEmpty(run.Output);
     }
 
     [TestMethod]
@@ -1078,6 +1495,7 @@ public sealed class BuildCommandTests
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
+                // the test's assertions are made before it cleans up, and a folder that stays fails nothing: the wait changes only whether one is left behind.
                 await Task.Delay(250);
             }
         }
@@ -1091,7 +1509,8 @@ public sealed class BuildCommandTests
         var run = await RunAsync(fileSystem, Root);
 
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
-        Assert.AreNotEqual(string.Empty, run.Error);
+        Assert.Contains(RDCore.Runtime.Support.Resources.Build_NoEntryPoint, run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
     }
 
     [TestMethod]
@@ -1104,6 +1523,25 @@ public sealed class BuildCommandTests
         Assert.AreEqual(ProgramRunner.Refused, run.Exit);
         Assert.Contains("One", run.Error);
         Assert.Contains("Two", run.Error);
+        Assert.Contains("(RDC30002)", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Build_OfAWorkspaceWithoutSubMain_IsRefused_WithItsCode()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub NotMain()", "End Sub")));
+        var (command, messages) = Command(fileSystem);
+
+        Assert.AreEqual(1, await command.ExecuteAsync([Root, "--output", Output], CancellationToken.None));
+
+        Assert.Contains(message => message.Kind == MessageKind.Error && message.Text.Contains("(RDC30001)", StringComparison.Ordinal), messages);
+    }
+
+    [TestMethod]
+    public void TheBuildersCodes_AreTheCodesTheDiagnosticsDocument()
+    {
+        Assert.AreEqual(RDCoreDiagnosticId.NoEntryPoint.ToDiagnosticCode(), ProgramRunner.NoEntryPoint.ToString());
+        Assert.AreEqual(RDCoreDiagnosticId.AmbiguousEntryPoint.ToDiagnosticCode(), ProgramRunner.AmbiguousEntryPoint.ToString());
     }
 
     [TestMethod]
@@ -1117,16 +1555,54 @@ public sealed class BuildCommandTests
         Assert.IsEmpty(run.Output);
     }
 
-    [TestMethod]
-    public void TheEntryPointTheProjectNames_AndALibrary_AreReadFromItsBuildSection()
+    // two modules that each declare a Sub Main, and a project file whose build section says which one the program starts at, or that it is a library.
+    private static MockFileSystem TwoMains(string build)
     {
-        var project = System.Text.Json.JsonSerializer.Deserialize<RDCoreProject>("""{ "Name": "P", "build": { "entryPoint": "Two.Main", "outputType": "Library" } }""")!;
+        var fileSystem = Files(("One.bas", Module("One", "Public Sub Main()", "    Debug.Print \"one\"", "End Sub")),
+            ("Two.bas", Module("Two", "Public Sub Main()", "    Debug.Print \"two\"", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ProjectFile.FileName),
+            $$"""{ "Version": "1.1", "ProjectInfo": { "Name": "P", "Modules": [ "One.bas", "Two.bas" ], "build": {{build}} } }""");
+        return fileSystem;
+    }
 
-        var settings = ProjectBuildSettings.Of(project);
+    [TestMethod]
+    public async Task Run_StartsAtTheEntryPointTheProjectsBuildSectionNames()
+    {
+        var run = await RunAsync(TwoMains("""{ "entryPoint": "Two.Main" }"""), Root);
 
-        Assert.AreEqual("Two.Main", settings.EntryPoint);
-        Assert.IsTrue(settings.IsLibrary);
-        Assert.AreEqual(new ProjectBuildSettings(null, false), ProjectBuildSettings.Of(new RDCoreProject { Name = "P" }));
+        Assert.AreEqual(ProgramRunner.Completed, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "two" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Build_StartsTheProgramAtTheEntryPointTheProjectsBuildSectionNames()
+    {
+        var run = await BuildAndRunAsync(TwoMains("""{ "entryPoint": "Two.Main" }"""), Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(ProgramRunner.Completed, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "two" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Run_OfALibrary_ExitsWith2_WhateverItsModulesDeclare()
+    {
+        var run = await RunAsync(TwoMains("""{ "outputType": "Library", "entryPoint": "Two.Main" }"""), Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit);
+        Assert.IsEmpty(run.Output);
+        Assert.Contains(RDCore.Runtime.Support.Resources.Build_LibraryNotRun, run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAnEntryPointTheBuildSectionNames_ThatNoModuleDeclares_ExitsWith2_NamingIt()
+    {
+        var run = await RunAsync(TwoMains("""{ "entryPoint": "Two.Start" }"""), Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit);
+        Assert.IsEmpty(run.Output);
+        Assert.Contains("Two.Start", run.Error);
+        Assert.Contains("(RDC30001)", run.Error);
     }
 
     [TestMethod]

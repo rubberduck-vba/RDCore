@@ -89,7 +89,26 @@ public partial class ModuleParser(
         });
 
         t_directiveLooks = looks;
-        return result;
+        return result with { LineEnding = LineEndingOf(content) };
+    }
+
+    // the parse reads every line ending as a \n (NormalizeSource): the module's own is the one its first line ends with, in the text as it was given.
+    private static string LineEndingOf(string content)
+    {
+        var end = content.AsSpan().IndexOfAny('\r', '\n');
+        return end < 0 ? "\r\n"
+            : content[end] == '\n' ? "\n"
+            : end + 1 < content.Length && content[end + 1] == '\n' ? "\r\n"
+            : "\r";
+    }
+
+    // a module node spans the whole text of the module, from the anchor to the end of its last line, whether or not that line ends: what an edit placed
+    // after the last line writes at.
+    private static SourceRange WholeTextOf(string normalized, SourcePosition anchorOffset)
+    {
+        var lastLine = normalized.LastIndexOf('\n');
+        var end = new SourcePosition(normalized.Count(character => character == '\n'), normalized.Length - (lastLine + 1));
+        return new SourceRange(anchorOffset, end.AnchoredAt(anchorOffset));
     }
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
@@ -110,7 +129,7 @@ public partial class ModuleParser(
             if (string.IsNullOrWhiteSpace(content))
             {
                 // an empty module is valid VBA, not a parse failure.
-                return ModuleParseResult.Success(EmptyModule(uri, anchorOffset));
+                return ModuleParseResult.Success(EmptyModule(uri, WholeTextOf(content, anchorOffset)));
             }
 
             // a module with no directive has nothing for the directive pass to find, which reads the whole module (a third of a parse, measured on a
@@ -129,7 +148,7 @@ public partial class ModuleParser(
                 sanitized = WithoutDirectives(content, directives);
             }
 
-            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, rootLineage), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
+            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, rootLineage), new(uri, WholeTextOf(content, anchorOffset)), precompilerTrivia);
 
             // a procedure header written once in each branch of a #If block is one procedure: the main pass reads one of its headers, and the branches of the
             // others are parsed on their own, as its alternatives (SplitHeaderScanner).
@@ -154,7 +173,7 @@ public partial class ModuleParser(
             else if (Segmented && Segments(sanitized, statistics) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, errorListener, statistics, token) is { } stitched)
             {
                 (ast, trivia) = (stitched.Module, stitched.Trivia);
-                errorListener.AddRange(stitched.Errors);
+                errorListener.AddFrom(stitched.Errors);
                 statistics?.Count(SegmentationStatistics.Path.Stitched);
             }
             else
@@ -307,7 +326,7 @@ public partial class ModuleParser(
     // whose parse fails is, its partial tree salvaged. A segment nested deeper than the parse reads is not: the module is not read again whole, as a segment's
     // parse has read it to that depth slowly already, and it stops where a parse of the whole module would. What that parse found wrong before it stopped is
     // the module's (errorListener), as a slow parse of the whole module would have found it.
-    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ErrorListener Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
         IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
         CancellationToken token)
     {
@@ -323,14 +342,14 @@ public partial class ModuleParser(
         }
     }
 
-    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ErrorListener Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
         IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
         CancellationToken token)
     {
         var lines = sanitized.Split('\n');
         var children = ImmutableArray.CreateBuilder<SyntaxNode>();
         var trivia = ImmutableArray.CreateBuilder<SyntaxNode>();
-        var errors = ImmutableArray.CreateBuilder<VBSyntaxErrorInfo>();
+        var errors = errorListener.Fresh();
         var next = 0;
         foreach (var segment in segments)
         {
@@ -347,7 +366,7 @@ public partial class ModuleParser(
             }
             catch (Exception exception) when (IsOutOfStack(exception))
             {
-                errorListener.AddRange(segmentErrors.Errors);
+                errorListener.AddFrom(segmentErrors);
                 throw;
             }
 
@@ -361,10 +380,10 @@ public partial class ModuleParser(
             next = listener.NextModuleChildId;
             children.AddRange(read.Children);
             trivia.AddRange(listener.Trivia);
-            errors.AddRange(segmentErrors.Errors);
+            errors.AddFrom(segmentErrors);
         }
 
-        return (node with { Children = children.ToImmutable() }, trivia.ToImmutable(), errors.ToImmutable());
+        return (node with { Children = children.ToImmutable() }, trivia.ToImmutable(), errors);
     }
 
     // whether a segment's syntax errors are what a parse of the whole module reports there, and the segment what it reads: each error is in a member, from
@@ -454,8 +473,8 @@ public partial class ModuleParser(
 
     private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode and not ExternalMemberDeclarationNode;
 
-    private static ModuleNode EmptyModule(Uri uri, SourcePosition anchorOffset)
-        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), []);
+    private static ModuleNode EmptyModule(Uri uri, SourceRange wholeText)
+        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, wholeText), []);
 
     // ANTLR's input stream and the precompiler-line regexes (RegexOptions.Multiline) only treat \n as
     // a line boundary, and a leading BOM would land in column 0 of the first token. Fold every line
@@ -608,7 +627,7 @@ public partial class ModuleParser(
         {
             var reported = errorListener.Fresh();
             var listener = ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, reported, listenerFactory(reported), anchorOffset, token);
-            errorListener.AddRange(reported.Errors);
+            errorListener.AddFrom(reported);
             return listener;
         }
         catch (Exception exception) when (!token.IsCancellationRequested)
@@ -663,8 +682,8 @@ public partial class ModuleParser(
         }
         var outputLists = new OutputListCollector();
         parser.AddParseListener(outputLists);
-        var parameterNames = new ReservedParameterNameCollector();
-        parser.AddParseListener(parameterNames);
+        var declarationNames = new ReservedDeclarationNameCollector();
+        parser.AddParseListener(declarationNames);
 
         // the recovery reads a block whose header has an operator right before one of its words as the block it is, without the operator.
         var takenOff = errorStrategy is StatementBoundErrorStrategy && StatementBoundErrorStrategy.TakeOffOperatorsBeforeAWordOfAHeader(tokens) is { Count: > 0 } operators
@@ -679,7 +698,7 @@ public partial class ModuleParser(
         takenOff?.ReportTheRest();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
-        ReportReservedParameterNames(parameterNames.Names, findings);
+        ReportReservedDeclarationNames(declarationNames, findings);
         if (parser.NumberOfSyntaxErrors > 0)
         {
             MarkDanglingOperators(tree, tokens);
@@ -803,18 +822,24 @@ public partial class ModuleParser(
     }
 
     /// <summary>
-    /// Reports each parameter named with a reserved identifier as a syntax error at its name: <c>Sub S(ByVal Mod As Long)</c>.
+    /// Reports each declaration named with a reserved identifier as a syntax error at its name: <c>Sub S(ByVal Mod As Long)</c>, <c>Dim Len As Long</c>.
     /// </summary>
     /// <remarks>
-    /// A parameter's name cannot be a reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>). The grammar still reads one
-    /// there, so the procedure is read whole: its body, its end and the procedures after it parse as they would with a valid name.
+    /// A parameter, a variable, a constant, a procedure, an <c>Enum</c> and its members, a user-defined type, an external procedure and an event are named
+    /// with an <c>IDENTIFIER</c>, which is no reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>); a member of a user-defined
+    /// type can be named with one (<strong>MS-VBAL §5.2.3.3</strong>). The grammar still reads one there, so the declaration is read whole: the body of a procedure, its end and the procedures after it
+    /// parse as they would with a valid name.
     /// </remarks>
-    private static void ReportReservedParameterNames(IEnumerable<VBAParser.UnrestrictedIdentifierContext> names, ErrorListener findings)
+    private static void ReportReservedDeclarationNames(ReservedDeclarationNameCollector names, ErrorListener findings)
     {
-        foreach (var name in names)
+        foreach (var name in names.Parameters)
         {
-            findings.ReplaceGrammarErrorAt(name.Start, VBCompileErrorId.SyntaxError,
-                string.Format(Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Start.Text));
+            findings.ReplaceGrammarErrorAt(name, VBCompileErrorId.SyntaxError, string.Format(Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Text));
+        }
+
+        foreach (var name in names.Names)
+        {
+            findings.ReplaceGrammarErrorAt(name, VBCompileErrorId.SyntaxError, string.Format(Exceptions.VBCompileError_ReservedDeclarationName_Verbose, name.Text));
         }
     }
 
@@ -869,7 +894,7 @@ public partial class ModuleParser(
     private static partial Regex ConditionalBlockPattern();
 
     // MS-VBA joins at most 25 physical lines into one logical line: 24 line-continuations in a row, and the 25th is a syntax error, "Too many line continuations"
-    // (MS Learn; recorded in Excel: oracle\size-limits B01-B03). MS-VBAL leaves the length of a line to the implementation (3.2.1).
+    // (MS Learn; observed in Excel). MS-VBAL leaves the length of a line to the implementation (3.2.1).
     private const int MaxLineContinuations = 24;
 
     // reports the line-continuation after the 24th of a logical line, once for that line.
@@ -896,7 +921,7 @@ public partial class ModuleParser(
     }
 
     // RD-VBA reads an expression nested in at most 2,500 others: MS-VBA runs a chain of 2,500 terms (2,499 additions), 2,000 nested parentheses and 1,000
-    // nested calls, and crashes the host past the chain, with no error (recorded in Excel: oracle\s65). MS-VBAL leaves the depth of an expression to the
+    // nested calls, and crashes the host past the chain, with no error (observed in Excel). MS-VBAL leaves the depth of an expression to the
     // implementation. RD-VBAL: a deeper expression is a syntax error, kept as text and not analyzed.
     internal const int MaxExpressionNesting = 2500;
 
@@ -1181,18 +1206,97 @@ internal sealed class OutputListCollector : VBAParserBaseListener
     public override void ExitOutputList([NotNull] VBAParser.OutputListContext context) => Lists.Add(context);
 }
 
-// the names of a parse's parameters that are reserved identifiers, registered live: a name the rule read whole, which is no identifier.
-internal sealed class ReservedParameterNameCollector : VBAParserBaseListener
+// the names of a parse's declarations that are reserved identifiers (MS-VBAL 3.3.5.2), registered live: a name the rule read whole, which is no identifier,
+// or an identifier that is one reserved word the grammar reads as a name (Len, Array, Then). A member of a user-defined type can be named with any reserved
+// identifier (MS-VBAL 5.2.3.3 <reserved-name-member-dcl>), and is not collected.
+internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
 {
-    public List<VBAParser.UnrestrictedIdentifierContext> Names { get; } = [];
+    // the words of the grammar's keyword rule that are reserved identifiers: reserved names, special forms, statement keywords, marker keywords and literal
+    // identifiers. The others (Name, Text, Step, Error...) are identifiers.
+    private static readonly HashSet<int> ReservedWords =
+    [
+        VBAParser.ABS, VBAParser.CBOOL, VBAParser.CBYTE, VBAParser.CCUR, VBAParser.CDATE, VBAParser.CDBL, VBAParser.CDEC, VBAParser.CINT, VBAParser.CLNG,
+        VBAParser.CLNGLNG, VBAParser.CLNGPTR, VBAParser.CSNG, VBAParser.CSTR, VBAParser.CVAR, VBAParser.CVERR, VBAParser.DATE, VBAParser.DEBUG,
+        VBAParser.DOEVENTS, VBAParser.FIX, VBAParser.INT, VBAParser.LEN, VBAParser.LENB, VBAParser.ME, VBAParser.PSET, VBAParser.SGN, VBAParser.STRING,
+        VBAParser.ARRAY, VBAParser.INPUT, VBAParser.INPUTB, VBAParser.LBOUND, VBAParser.UBOUND,
+        VBAParser.CLOSE, VBAParser.END, VBAParser.GET, VBAParser.LOCK, VBAParser.OPEN, VBAParser.PRINT, VBAParser.PUT, VBAParser.SEEK, VBAParser.UNLOCK,
+        VBAParser.WRITE,
+        VBAParser.ANY, VBAParser.BYREF, VBAParser.BYVAL, VBAParser.IN, VBAParser.OPTIONAL, VBAParser.PARAMARRAY, VBAParser.PRESERVE, VBAParser.SHARED,
+        VBAParser.SPC, VBAParser.TAB, VBAParser.THEN, VBAParser.TO, VBAParser.UNTIL, VBAParser.WITHEVENTS,
+        VBAParser.TRUE, VBAParser.FALSE, VBAParser.NOTHING, VBAParser.NULL, VBAParser.ATTRIBUTE,
+    ];
+
+    // the reserved identifiers the lexer reads as an IDENTIFIER: the future-reserved ones except CDecl, and the ones reserved for the implementation's use except
+    // Attribute (MS-VBAL 3.3.5.2).
+    private static readonly HashSet<string> ReservedIdentifiers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Decimal", "DefDec", "LINEINPUT", "VB_Base", "VB_Control", "VB_Creatable", "VB_Customizable", "VB_Description", "VB_Exposed", "VB_Ext_KEY",
+        "VB_GlobalNameSpace", "VB_HelpID", "VB_Invoke_Func", "VB_Invoke_Property", "VB_Invoke_PropertyPut", "VB_Invoke_PropertyPutRef", "VB_MemberFlags",
+        "VB_Name", "VB_PredeclaredId", "VB_ProcData", "VB_TemplateDerived", "VB_UserMemId", "VB_VarDescription", "VB_VarHelpID", "VB_VarMemberFlags",
+        "VB_VarProcData", "VB_VarUserMemId",
+    };
+
+    // the reserved names MS-VBA compiles as the name of an Enum member, where MS-VBAL 3.3.5.2 reserves them: RD-VBA compiles them too, and a warning says the
+    // specification reserves the name.
+    private static readonly HashSet<int> EnumMemberNamesMSVBAAccepts = [VBAParser.DATE, VBAParser.DOEVENTS, VBAParser.CDEC];
+
+    public List<IToken> Parameters { get; } = [];
+
+    public List<IToken> Names { get; } = [];
 
     public override void ExitArg([NotNull] VBAParser.ArgContext context)
     {
-        if (context.unrestrictedIdentifier() is { exception: null, Start.TokenIndex: >= 0 } name && name.identifier() is null && name.ChildCount > 0)
+        if (context.unrestrictedIdentifier() is { exception: null, Start.TokenIndex: >= 0 } name && name.ChildCount > 0
+            && (name.identifier() is null ? name.Start : ReservedWordOf(name.identifier())) is { } word)
         {
-            Names.Add(name);
+            Parameters.Add(word);
         }
     }
+
+    public override void ExitVariableSubStmt([NotNull] VBAParser.VariableSubStmtContext context) => Add(context.identifier());
+
+    public override void ExitConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context) => Add(context.identifier());
+
+    public override void ExitFunctionName([NotNull] VBAParser.FunctionNameContext context) => Add(context.identifier());
+
+    public override void ExitSubroutineName([NotNull] VBAParser.SubroutineNameContext context) => Add(context.identifier());
+
+    public override void ExitEnumerationStmt_Constant([NotNull] VBAParser.EnumerationStmt_ConstantContext context)
+    {
+        if (ReservedWordOf(context.identifier()) is { } word && !EnumMemberNamesMSVBAAccepts.Contains(word.Type))
+        {
+            Names.Add(word);
+        }
+    }
+
+    public override void ExitEnumerationStmt([NotNull] VBAParser.EnumerationStmtContext context) => Add(context.identifier());
+
+    public override void ExitDeclareStmt([NotNull] VBAParser.DeclareStmtContext context) => Add(context.identifier());
+
+    public override void ExitEventStmt([NotNull] VBAParser.EventStmtContext context) => Add(context.identifier());
+
+    public override void ExitUdtDeclaration([NotNull] VBAParser.UdtDeclarationContext context) => Add(ReservedWordOf(context.untypedIdentifier()));
+
+    private void Add(VBAParser.IdentifierContext? identifier) => Add(ReservedWordOf(identifier));
+
+    private void Add(IToken? word)
+    {
+        if (word is not null)
+        {
+            Names.Add(word);
+        }
+    }
+
+    private static IToken? ReservedWordOf(VBAParser.IdentifierContext? identifier)
+        => identifier is { exception: null } ? ReservedWordOf(identifier.untypedIdentifier() ?? identifier.typedIdentifier()?.untypedIdentifier()) : null;
+
+    private static IToken? ReservedWordOf(VBAParser.UntypedIdentifierContext? identifier)
+        => identifier is { exception: null } ? identifier.identifierValue() switch
+        {
+            { exception: null } value when value.keyword() is { exception: null, Start: { TokenIndex: >= 0 } word } && ReservedWords.Contains(word.Type) => word,
+            { exception: null } value when value.IDENTIFIER()?.Symbol is { TokenIndex: >= 0 } word && ReservedIdentifiers.Contains(word.Text) => word,
+            _ => null,
+        } : null;
 }
 
 // grammar-agnostic (implements the plain IParseTreeListener, not a specific grammar's generated base):
@@ -1220,7 +1324,9 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 {
     private readonly Uri _uri = uri;
     private readonly List<VBSyntaxErrorInfo> _errors = [];
-    public ImmutableArray<VBSyntaxErrorInfo> Errors => [.. _errors];
+    public ImmutableArray<VBSyntaxErrorInfo> Errors => [.. _errors.Select(error => _inTheVBEsWords.TryGetValue(error, out var told)
+        ? error with { Location = new SourceLocation(_uri, told.Range), Verbose = told.Message }
+        : error)];
 
     // a listener of the same module and anchor, with no error yet.
     public ErrorListener Fresh() => new(_uri, anchorOffset);
@@ -1235,15 +1341,6 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         // anchor's own column.
         var position = new SourcePosition(line - 1, charPositionInLine).AnchoredAt(anchorOffset);
         var location = new SourceLocation(_uri, new(position, position));
-
-        // a semantic predicate is the grammar's, and no part of the language: where one fails (`Debug.Print Spc(1`, a Spc clause that is not complete), what
-        // the parser could not read is said as ANTLR says it where no alternative is viable (DefaultErrorStrategy.ReportNoViableAlternative): the input from
-        // where the rule's decision began to the token it failed at, and not the predicate's code.
-        if (e is FailedPredicateException { Context: ParserRuleContext { Start: { } start } } && offendingSymbol is not null
-            && recognizer is Parser { InputStream: ITokenStream tokens })
-        {
-            msg = $"no viable alternative at input {EscapeWSAndQuote(tokens.GetText(start, offendingSymbol))}";
-        }
 
         // one error where the parse stopped: a rule that fails at a token, and the rule it is in that fails at the same token, are one syntax error, said as the
         // parse first said it.
@@ -1273,7 +1370,16 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _reported.Add(error);
         _reportedAt.Add(location);
         _errors.Add(error);
+        if (recognizer is Parser parser && offendingSymbol is not null)
+        {
+            var (from, to, message) = VBEWording.Of(parser, offendingSymbol, e);
+            _inTheVBEsWords[error] = (new SourceRange(from.AnchoredAt(anchorOffset), to.AnchoredAt(anchorOffset)), message);
+        }
     }
+
+    // what MS-VBA says of each error the grammar reported, and where (VBEWording): the errors are told as MS-VBA tells them, and kept where the parse found
+    // them, which is what the listener compares their positions by.
+    private readonly Dictionary<VBSyntaxErrorInfo, (SourceRange Range, string Message)> _inTheVBEsWords = new(ReferenceEqualityComparer.Instance);
 
     // the words legalLabelIdentifier's predicate names no label with; before EndsABlock, which is made of them.
     private static readonly IntervalSet NoLabelName = new(VBALexer.DOEVENTS, VBALexer.END, VBALexer.CLOSE, VBALexer.ELSE, VBALexer.LOOP, VBALexer.NEXT,
@@ -1433,10 +1539,6 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _errors.RemoveAt(_errors.FindLastIndex(existing => ReferenceEquals(existing, error)));
     }
 
-    // a token's text as ANTLR quotes it in an error (DefaultErrorStrategy.EscapeWSAndQuote, which is not public): its line breaks and tabs escaped.
-    private static string EscapeWSAndQuote(string text)
-        => $"'{text.Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")}'";
-
     /// <summary>
     /// Replaces what the grammar says of a module whose blocks do not match with what MS-VBA says of them (<see cref="BlockStructureScanner"/>): the
     /// grammar's errors from the first block error on are its consequences, and the ones before it are kept.
@@ -1472,6 +1574,17 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 
     // the errors of a part of the module parsed on its own, already located in the module (a header alternative).
     public void AddRange(IEnumerable<VBSyntaxErrorInfo> errors) => _errors.AddRange(errors);
+
+    // the errors of another listener of the module, already located in it, with what MS-VBA says of each: they are told in its words once the parse's errors
+    // are settled, which is by where the parse found them.
+    public void AddFrom(ErrorListener other)
+    {
+        _errors.AddRange(other._errors);
+        foreach (var (error, told) in other._inTheVBEsWords)
+        {
+            _inTheVBEsWords[error] = told;
+        }
+    }
 
     // records a token-semantic syntax error; idempotent per (location, id) so the two-stage parse
     // does not double-report a literal both passes reach.

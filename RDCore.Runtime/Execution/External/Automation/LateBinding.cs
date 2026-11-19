@@ -74,9 +74,55 @@ internal static class LateBinding
     /// <param name="name">The member's name, or <see cref="DefaultMemberName"/>, <see cref="EnumerationMemberName"/>.</param>
     /// <param name="invocation">How it is reached.</param>
     public static VBTypeMemberSymbol MemberOf(VBClassModuleSymbol classModule, string name, AutomationInvocation invocation)
-        => Members.GetOrAdd((classModule.Name, name.ToUpperInvariant(), invocation), _ => Make(classModule, name, invocation));
+        => Members.GetOrAdd((classModule.Name, name.ToUpperInvariant(), invocation), _ => Make(classModule, name, invocation, []));
 
-    private static VBTypeMemberSymbol Make(VBClassModuleSymbol classModule, string name, AutomationInvocation invocation)
+    private static readonly ConcurrentDictionary<(string Class, string Member, AutomationInvocation Invocation, string Names), VBTypeMemberSymbol> Named = new();
+
+    /// <summary>
+    /// Whether <paramref name="member"/> is a member of a late-bound class, which a call reaches by name.
+    /// </summary>
+    /// <param name="member">The member a call is bound to.</param>
+    public static bool IsLateBoundMember(VBTypeMemberSymbol member) => member.GetProperty(SymbolProperties.Library) == LibraryName;
+
+    /// <summary>
+    /// <paramref name="member"/> as a call with arguments named <paramref name="names"/> sees it: after the arguments that are not named, one parameter for
+    /// each name, whose name the server is told (<see cref="ArgumentNamesOf"/>).
+    /// </summary>
+    /// <param name="member">A member of a late-bound class (<see cref="IsLateBoundMember"/>).</param>
+    /// <param name="names">The names the call's arguments are given, in the order they are written.</param>
+    public static VBTypeMemberSymbol WithArgumentNames(VBTypeMemberSymbol member, IReadOnlyList<string> names)
+    {
+        // `LateBound.Class.Member/kind` (Make).
+        var path = member.GetProperty(SymbolProperties.ExternalTarget)!.Split('/')[0];
+        var classModule = ClassNamed(path[(LibraryName.Length + 1)..path.IndexOf('.', LibraryName.Length + 1)]);
+        var invocation = member switch
+        {
+            VBPropertyLetMemberSymbol => AutomationInvocation.Let,
+            VBPropertySetMemberSymbol => AutomationInvocation.Set,
+            _ => AutomationInvocation.Get,
+        };
+
+        return Named.GetOrAdd((classModule.Name, member.Name.ToUpperInvariant(), invocation, string.Join(",", names).ToUpperInvariant()),
+            _ => Make(classModule, member.Name, invocation, names));
+    }
+
+    /// <summary>
+    /// The names of the arguments of a call to <paramref name="member"/> that are named: the parameters after its <c>ParamArray</c>, less an assigned value.
+    /// </summary>
+    /// <param name="member">A member of a late-bound class (<see cref="IsLateBoundMember"/>); one with no named arguments has none.</param>
+    /// <param name="parameters">The parameters of <paramref name="member"/>.</param>
+    public static IReadOnlyList<string> ArgumentNamesOf(VBTypeMemberSymbol member, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters)
+    {
+        var after = parameters.SkipWhile(parameter => parameter is not ParamArrayParameterSymbol).Skip(1).ToList();
+        if (member is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol && after.Count > 0)
+        {
+            after.RemoveAt(after.Count - 1);
+        }
+
+        return [.. after.Select(parameter => parameter.Name)];
+    }
+
+    private static VBTypeMemberSymbol Make(VBClassModuleSymbol classModule, string name, AutomationInvocation invocation, IReadOnlyList<string> names)
     {
         Symbol member = invocation switch
         {
@@ -95,6 +141,8 @@ internal static class LateBinding
             new VBParameterSymbol(Root, member.Uri, Tokens.Me, SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo),
             // a param array has no parameter mechanism, and its elements are ByRef: what MS-VBA gives a server for a variable is the variable (MS-VBAL §5.3.1.5).
             new ParamArrayParameterSymbol(Root, member.Uri, "Arguments", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef),
+            // a named argument is the variable it is given, as an element of the param array is.
+            .. names.Select(named => new VBParameterSymbol(Root, member.Uri, named, SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBVariantType.TypeInfo)),
             .. invocation is AutomationInvocation.Let or AutomationInvocation.Set
                 ? [new VBParameterSymbol(Root, member.Uri, "Value", SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal, VBVariantType.TypeInfo)]
                 : System.Collections.Immutable.ImmutableArray<VBParameterSymbol>.Empty,

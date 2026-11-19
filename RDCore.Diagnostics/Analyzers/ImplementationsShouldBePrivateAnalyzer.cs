@@ -21,6 +21,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ImplementationsShouldBePrivateAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplementationsShouldBePrivate.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration is

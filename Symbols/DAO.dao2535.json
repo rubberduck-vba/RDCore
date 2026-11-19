@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "name": "DAO",
   "description": "Microsoft DAO 2.5/3.51 Compatibility Library",
   "origin": {
@@ -8679,6 +8679,140 @@
               "defaultValue": "0"
             }
           ]
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "LanguageConstants",
+      "description": "DAO predefined constants.",
+      "constants": [
+        {
+          "name": "dbLangArabic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0401;CP=1256;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangCzech",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0405;CP=1250;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangDutch",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0413;CP=1252;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangGeneral",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0409;CP=1252;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangGreek",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0408;CP=1253;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangHebrew",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040D;CP=1255;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangHungarian",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040E;CP=1250;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangIcelandic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040F;CP=1252;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangNordic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041D;CP=1252;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangNorwDan",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0414;CP=1252;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangPolish",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0415;CP=1250;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangCyrillic",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0419;CP=1251;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangSpanish",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040A;CP=1252;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangSwedFin",
+          "type": "String",
+          "value": "\u0022;LANGID=0x040B;CP=1252;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangTurkish",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041F;CP=1254;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangJapanese",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0411;CP=932;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangChineseSimplified",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0804;CP=936;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangChineseTraditional",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0404;CP=950;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangKorean",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0412;CP=949;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangThai",
+          "type": "String",
+          "value": "\u0022;LANGID=0x041E;CP=874;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
+        },
+        {
+          "name": "dbLangSlovenian",
+          "type": "String",
+          "value": "\u0022;LANGID=0x0424;CP=1250;COUNTRY=0\u0022",
+          "description": "Locale argument (CreateDatabase, CompactDatabase)"
         }
       ]
     }

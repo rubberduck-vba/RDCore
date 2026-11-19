@@ -18,12 +18,13 @@ own ([`SdkAppOptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SD
 |Choice|One of the names of the setting's values (`Server.TraceLevel Warning`).|
 |Text|Any text, to the end of the line.|
 |List of texts|Texts separated by commas (`Platform.Extensions.Allowed RDCore.Diagnostics, Other`).|
+|List of diagnostic codes|Codes separated by commas, without regard to case (`Analysis.DisabledDiagnostics RDC01001, RDC01002`). A code that cannot be disabled is no value of the setting ([Disabled Diagnostics](#disabled-diagnostics)).|
 
 When a change of a setting takes effect is part of the setting ([`SettingAttribute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SettingAttribute.html)):
 
 |Reach|Takes effect|Examples|
 |---|---|---|
-|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Formatting.*`, `Diagnostics.*`|
+|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Formatting.*`, `Diagnostics.*`, `Analysis.DisabledDiagnostics`|
 |`NextStart`|When the component that reads it starts, or the next session does.|`Environment.*`, `Workspace.*`, `CLI.*`, `Platform.Extensions.Allowed`|
 |`Deployment`|Never through the platform: only the deployed configuration sets it.|`ServerApp.Component`, `Platform.Transport.*`, `Server.ClientProcessId`|
 
@@ -84,8 +85,9 @@ It sets the language only. How a number or a date is written and read stays with
 ([**RD-VBAL §5.5.1.2** Regional settings](rd-vbal.5.5.1.2.runtime-semantics.md#regional-settings)), and `Environment.Lcid` still decides how text compares and
 what `Format` writes. Under `fr`, `CStr(2.5)` is `2.5`.
 
-> [!NOTE]
-> **Not implemented.** The description of a run-time error (`Err.Description`) is in English under every language: error 11 is `Division by zero` under `fr`.
+The description of a run-time error is in that language too: `Err.Description`, the `Error` function's text, and the stack trace the shell and the debug
+console show. Under `fr`, error 11 is `Division par zéro`. A program that compares `Err.Description` with a text reads it in the user's language, as it does
+in MS-VBA; `Err.Number` is the same under every language.
 
 ## User Settings
 
@@ -100,13 +102,29 @@ Each component reads it after its deployed `appsettings.json`, and before the en
 |---|---|
 |`appsettings.json`, deployed with the component|Lowest.|
 |`user.settings.json`|Takes the place of the deployed value.|
-|Environment variables (`Configuration__Server__Verbose`)|Take the place of the user's value.|
+|The workspace's settings ([Workspace Settings](#workspace-settings))|Takes the place of the user's value. A list adds to the user's.|
+|Environment variables (`Configuration__Server__Verbose`)|Take the place of the workspace's value.|
 |The command line|Highest.|
 
 Of the file, only values the settings can be are read: a value a setting cannot be, a value of a `Deployment` setting, and a file that is not JSON are not read.
 A file written by hand never keeps the platform from starting. A setting the component does not know of is read as it is: it is another component's.
 
 A component reads the file when it starts, and not again: that is when a `NextStart` setting takes effect.
+
+## Workspace Settings
+
+A workspace sets values for itself in the `Configuration` section of the `appsettings.json` at its root, for whoever opens it
+([`WorkspaceSettingsConfiguration`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.WorkspaceSettingsConfiguration.html)).
+The same file holds the program's own settings, under `ProgramSettings`
+([**RD-VBAL §2.1.1.1** Workspace Application Settings](rd-vbal.2.1.implicit-storage.md#2111-workspace-application-settings)); the platform
+does not read that section.
+
+- A component reads the file when it starts, from the folder its command line names (`--workspace`).
+- A workspace cannot set a `Deployment` setting, or a [trust-sensitive](#settings) one. A workspace can come from anywhere, and grants itself no
+  rights.
+- Only values the settings can be are read. A setting the component does not know of is not read.
+- A list is the user's items, followed by the workspace's items that are not among them.
+- While the platform runs, a live setting the workspace sets keeps the workspace's value, whatever the client says of the user's.
 
 ## Live Settings
 
@@ -132,8 +150,28 @@ A live setting is set on the object the component reads its settings off, in pla
 |`Server.WireErrorDetail`|For the next record forwarded to the client.|
 |`Diagnostics.*`|For the next module the diagnostics extension analyzes. A client that pulls its diagnostics is asked to pull them again (`workspace/diagnostic/refresh`).|
 |`Formatting.*`|For the next line or range the formatter formats; they are read as the formatter arrives ([Formatting](#formatting)).|
+|`Analysis.DisabledDiagnostics`|For the next document the language server sends a provider to analyze. A client that pulls its diagnostics is asked to pull them again ([Disabled Diagnostics](#disabled-diagnostics)).|
 
 `rdc config` writes the user's settings without a running platform to tell: what it sets takes effect when the platform next starts, a live setting included.
+
+## Disabled Diagnostics
+
+`Analysis.DisabledDiagnostics` lists the codes whose diagnostics are not reported
+([`SdkAnalysisOptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SdkAnalysisOptions.html)). User help is on
+[Disabling a Diagnostic](../disabling-diagnostics.md).
+
+- A code of the platform's analyzers (`RDC`) or of an extension's can be disabled. A code of the language's own errors (`VBC`, `VBR`, `VBA`) cannot, and is not
+  read from the list.
+- The language server sends the disabled codes with each document it asks a provider to analyze (`DiagnoseDocumentPayload.DisabledCodes`). An analyzer whose
+  every code is disabled is not run, and a finding of a disabled code is dropped
+  ([`ModuleAnalyzerHost`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.ModuleAnalyzerHost.html)). A diagnostic
+  the language server raises itself is not reported when its code is disabled either.
+- A diagnostic whose code can be disabled is offered two quick fixes, after its other fixes: one adds its code to the user's list (scope `Platform`), then
+  one adds it to the list of the document's workspace (scope `Workspace`). The language server asks the client to make the change
+  (`rdcore/settings/listValue`), as a client owns its configuration: only a client that expects that request is offered the fixes.
+- The shell changes the user's list as `CONFIG` would, and the workspace's list in the workspace's `appsettings.json`
+  ([Workspace Settings](#workspace-settings)), which adds to the user's. Either way it says its settings changed, and the language server reads both lists
+  again: the next analysis leaves the code out.
 
 ## Formatting
 

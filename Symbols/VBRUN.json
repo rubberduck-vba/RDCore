@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 3,
   "name": "VBRUN",
   "description": "Visual Basic runtime objects and procedures",
   "origin": {
@@ -4681,6 +4681,32 @@
               "type": "Object"
             }
           ]
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "RecordsetTypeConstants",
+      "description": "Data control Recordset-type constants.",
+      "constants": [
+        {
+          "name": "vbRSTypeTable",
+          "type": "Integer",
+          "value": "0",
+          "description": "Table type recordset."
+        },
+        {
+          "name": "vbRSTypeDynaset",
+          "type": "Integer",
+          "value": "1",
+          "description": "Dynaset type recordset."
+        },
+        {
+          "name": "vbRSTypeSnapShot",
+          "type": "Integer",
+          "value": "2",
+          "description": "Snapshot type recordset."
         }
       ]
     }

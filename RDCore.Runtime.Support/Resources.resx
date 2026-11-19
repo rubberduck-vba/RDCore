@@ -192,6 +192,9 @@
   <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
     <value>a constant that sizes what a variable holds, given another value</value>
   </data>
+  <data name="Host_Edit_ModuleAdded" xml:space="preserve">
+    <value>a module added while the program waits, which the program has no code of, and which is part of the project once the program is over; remove it to go on</value>
+  </data>
   <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
     <value>a constant a procedure the program is in already read, given another value, which is not applied to a program that waits yet</value>
   </data>
@@ -251,6 +254,16 @@
   </data>
   <data name="Build_AmbiguousEntryPoint" xml:space="preserve">
     <value>More than one module declares a Sub Main, so the program has more than one place to start: {0}.</value>
+  </data>
+  <data name="Build_NamedEntryPointNotFound" xml:space="preserve">
+    <value>No standard module declares {0}, the entry point the project's build section names: the program has nowhere to start.</value>
+  </data>
+  <data name="Build_LibraryNotRun" xml:space="preserve">
+    <value>The project is a library (its build section's outputType), which is not run: it has no entry point.</value>
+  </data>
+  <data name="Build_Refusal" xml:space="preserve">
+    <value>{0} ({1})</value>
+    <comment>Why a program does not run or is not built, on standard error. {0}: the reason; {1}: its diagnostic code (RDC30001).</comment>
   </data>
   <data name="Run_RuntimeError" xml:space="preserve">
     <value>{0} '{1}': {2} ({3})</value>

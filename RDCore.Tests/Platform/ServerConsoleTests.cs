@@ -12,15 +12,17 @@ namespace RDCore.Tests.Platform;
 /// A server of the platform writes nothing to its console. Its client is on a pipe, its log is in its file, and the process that starts it may redirect its
 /// standard output and never read it: a console logger then filled that pipe, and every thread that logged blocked.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("Platform")]
 public sealed class ServerConsoleTests
 {
-    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(60);
+    // a cap on a hang, not a budget: each wait is on the process itself, which a loaded machine starts and stops as late as it does.
+    private static readonly TimeSpan Bound = TimeSpan.FromMinutes(5);
 
     // what is tested is the invariant: not one byte on the standard output, through the server's start, its work and its end, and its log in its file
     // instead. The hang itself needed the language server's flood, with its children and the published platform, which a test run does not have: it was
-    // reproduced and checked end to end with C:\Dev\Claude\oracle\keystroke-cost. Every read from the server is bounded, so that a server that stops
+    // reproduced and checked end to end with the published platform. Every read from the server is bounded, so that a server that stops
     // answering fails the test rather than hang it.
     [TestMethod]
     public async Task AServer_WhoseStandardOutputNobodyReads_WritesNothingToIt_AndLogsToItsFile()

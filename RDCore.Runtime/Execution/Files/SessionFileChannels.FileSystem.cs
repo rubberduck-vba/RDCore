@@ -7,8 +7,8 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Runtime.Execution.Files;
 
 // what the FileSystem module does to the machine (MS-VBAL 6.1.2.5): the channels are the ones that know which files are open, which most of it has to ask,
-// and the one seam file I/O goes through. What the specification leaves to the implementation, and the errors it does not name, are MS-VBA's (recorded in
-// Excel, oracle\s25).
+// and the one seam file I/O goes through. What the specification leaves to the implementation, and the errors it does not name, are MS-VBA's (observed in
+// Excel).
 internal sealed partial class SessionFileChannels
 {
     // the attributes a file can be given and read back as: what SetAttr refuses any other of (G02).
@@ -409,6 +409,77 @@ internal sealed partial class SessionFileChannels
 
         length = fileSystem.FileInfo.New(path).Length;
         return null;
+    }
+
+    /// <inheritdoc/>
+    public RDCoreDiagnosticCode? TryReadAll(string path, out byte[] bytes)
+    {
+        bytes = [];
+        if (path.Length == 0)
+        {
+            return VBRuntimeErrorId.FileNotFound.ToCode();
+        }
+
+        if (Resolve(ref path) is { } unavailable)
+        {
+            return unavailable;
+        }
+
+        if (HasWildcard(path))
+        {
+            return VBRuntimeErrorId.BadFileNameOrNumber.ToCode();
+        }
+
+        if (fileSystem.Directory.Exists(path))
+        {
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
+        }
+
+        if (!fileSystem.File.Exists(path))
+        {
+            return ParentExists(path) ? VBRuntimeErrorId.FileNotFound.ToCode() : VBRuntimeErrorId.PathNotFound.ToCode();
+        }
+
+        byte[] read = [];
+        var error = Attempt(() => read = fileSystem.File.ReadAllBytes(path));
+        bytes = read;
+        return error;
+    }
+
+    /// <inheritdoc/>
+    public RDCoreDiagnosticCode? TryWriteAll(string path, byte[] bytes)
+    {
+        if (path.Length == 0)
+        {
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
+        }
+
+        if (Resolve(ref path) is { } unavailable)
+        {
+            return unavailable;
+        }
+
+        if (HasWildcard(path))
+        {
+            return VBRuntimeErrorId.BadFileNameOrNumber.ToCode();
+        }
+
+        if (fileSystem.Directory.Exists(path))
+        {
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
+        }
+
+        if (!ParentExists(path))
+        {
+            return VBRuntimeErrorId.PathNotFound.ToCode();
+        }
+
+        // shared as a channel opens a file: one the program has open is written too, unless its channel locked it.
+        return Attempt(() =>
+        {
+            using var stream = fileSystem.FileStream.New(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            stream.Write(bytes);
+        });
     }
 
     /// <inheritdoc/>

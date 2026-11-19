@@ -11,6 +11,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 internal sealed class TypeDefDirectiveAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitTypeDeclarationsEnabled.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Children
             .OfType<TypeDefDirectiveNode>()

@@ -19,4 +19,10 @@
   <data name="Diagnostics_HungarianNotation_AllowedNames" xml:space="preserve">
     <value>Les noms qu'accepte RDC01002 bien qu'ils commencent par un préfixe qui indique un type, séparés par des virgules : colWidth.</value>
   </data>
+  <data name="Diagnostics_ForStep" xml:space="preserve">
+    <value>Comment s'écrit une boucle For dont le pas est 1. Implicit (par défaut) : sans Step, et RDC00313 signale Step 1. Explicit : avec Step 1, et RDC00116 signale une boucle sans Step.</value>
+  </data>
+  <data name="Diagnostics_ByRefModifier" xml:space="preserve">
+    <value>Comment se déclare un paramètre passé par référence. Explicit (par défaut) : avec ByRef, et RDC00104 signale un paramètre qui n'indique ni ByRef ni ByVal. Implicit : sans l'un ni l'autre, et RDC00314 signale ByRef.</value>
+  </data>
 </root>

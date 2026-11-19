@@ -94,7 +94,7 @@ public sealed class ConfigCommandTests
         Sut.Run("Diagnostics.MeaningfulNames.AllowedNames i, j, k");
 
         CollectionAssert.AreEqual(
-            new[] { "  Diagnostics.MeaningfulNames.AllowedNames = i, j, k", "  Diagnostics.HungarianNotation.AllowedNames" },
+            new[] { "  Diagnostics.MeaningfulNames.AllowedNames = i, j, k", "  Diagnostics.HungarianNotation.AllowedNames", "  Diagnostics.ForStep", "  Diagnostics.ByRefModifier" },
             Texts(Sut.Run("diagnostics")));
     }
 

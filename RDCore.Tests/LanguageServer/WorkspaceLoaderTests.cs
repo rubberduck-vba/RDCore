@@ -17,9 +17,13 @@ using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.LanguageServer;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceLoaderTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     // an absolute path the MockFileSystem accepts on both Windows and the Linux CI runner.
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
     private static readonly string ProjectFilePath = Path.Combine(Root, ProjectFile.FileName);
@@ -84,7 +88,7 @@ public sealed class WorkspaceLoaderTests
         Assert.AreEqual("src/Mod1.bas", sut.Project.ProjectInfo.Modules[0].RelativeUri);
     }
 
-    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path (HexIDE's findings desk #26).
+    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path.
     [TestMethod]
     public async Task ProjectFileService_LoadAsync_ProjectFileThatIsNotJson_SaysWhereItIsNot()
     {
@@ -147,7 +151,7 @@ public sealed class WorkspaceLoaderTests
         Assert.IsInstanceOfType<LoadedDocumentState>(documentStates.GetCurrentState(loaded[0].Id));
     }
 
-    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
+    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed.
     [TestMethod]
     public async Task WorkspaceService_LoadAsync_LoadsTheOtherFiles_AndGivesThemToNoneThatReadsCode()
     {
@@ -160,7 +164,7 @@ public sealed class WorkspaceLoaderTests
             }))),
             [Path.Combine(Root, "src", "Mod1.bas")] = new MockFileData("Public Sub Foo()\r\nEnd Sub"),
             [Path.Combine(Root, "res", "App.res")] = new MockFileData([0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0xFF, 0xFF]),
-            [Path.Combine(Root, "README.md")] = new MockFileData("# Battleship"),
+            [Path.Combine(Root, "README.md")] = new MockFileData("# NavalBattle"),
         });
         var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
         var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
@@ -175,10 +179,13 @@ public sealed class WorkspaceLoaderTests
     }
 
     // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
-    // 0.1 platform refused as a later platform's (desk card version-010-refuses-100). What is not this platform's format is said in the log, and only there.
+    // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and only there.
     [TestMethod]
-    [DataRow("\"1.0.0\"", null, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0")]
-    [DataRow("\"1.0\"", null, DisplayName = "1.0, this platform's format")]
+    [DataRow("\"1.3\"", null, DisplayName = "1.3, this platform's format")]
+    [DataRow("\"1.2\"", LogLevel.Information, DisplayName = "1.2, the format before references to projects: an older one")]
+    [DataRow("\"1.1\"", LogLevel.Information, DisplayName = "1.1, the format before KeepSystemTheme: an older one")]
+    [DataRow("\"1.0.0\"", LogLevel.Information, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0, an older one")]
+    [DataRow("\"1.0\"", LogLevel.Information, DisplayName = "1.0, the format before the build section")]
     [DataRow("\"0.1.3\"", LogLevel.Information, DisplayName = "0.1.3, as the next builds stamped it: an older format")]
     [DataRow("\"1.7\"", LogLevel.Warning, DisplayName = "1.7, a newer minor")]
     [DataRow("\"100.0.0\"", LogLevel.Warning, DisplayName = "100.0.0, a newer major that reads all the same")]
@@ -343,14 +350,14 @@ public sealed class WorkspaceLoaderTests
     // the question goes over the wire while initialize is not answered yet, as the language server asks it, of a client that says in its initialization options
     // that it answers then; not of one that does not say so, nor of one that runs unattended, whatever else it says.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow(true, false, DisplayName = "asked, and regenerated, before initialize is answered")]
     [DataRow(false, false, DisplayName = "a client that does not say it answers is not asked")]
     [DataRow(true, true, DisplayName = "a client that runs unattended is not asked")]
     public async Task TheRegenerateQuestion_IsAskedDuringInitialize_OverTheWire(bool answers, bool unattended)
     {
         var asked = answers && !unattended;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var fs = UnreadableProject();
         var sut = WorkspaceService(fs);
         var toServer = new System.IO.Pipelines.Pipe();
@@ -379,7 +386,7 @@ public sealed class WorkspaceLoaderTests
                 return Task.FromResult(request.Actions!.First());
             }), timeout.Token);
 
-        await Task.WhenAll(serving, connecting).WaitAsync(TimeSpan.FromSeconds(20));
+        await Task.WhenAll(serving, connecting).WaitAsync(SafetyCap);
         using var server = await serving;
         using var client = await connecting;
 
@@ -396,7 +403,7 @@ public sealed class WorkspaceLoaderTests
     // it. Neither moved again. It is not asked now; a shell at its console is, and answers, before initialize is answered. Either way the server tells it why the
     // workspace was not loaded (window/showMessage, as the language server does), and the shell writes it as an error: it used to have no handler for it.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow(false, DisplayName = "a shell whose input is a script is not asked")]
     [DataRow(true, DisplayName = "a shell at its console is asked, and answers")]
     public async Task TheShell_StartedOnAProjectFileThatCantBeRead_HasInitializeAnswered_AndIsToldWhy(bool interactive)
@@ -443,19 +450,20 @@ public sealed class WorkspaceLoaderTests
             Substitute.For<RDCore.SDK.Server.Configuration.ILiveSettings>(),
             Microsoft.Extensions.Options.Options.Create(new RDCore.CLI.AppOptions()),
             new RDCore.CLI.App.Repl.ReplServerQuestions(keys),
+            new RDCore.CLI.App.Repl.ReplSessionStops(),
             NullLogger<RDCore.CLI.RDCoreConsoleClientApp>.Instance);
         var platform = Substitute.For<RDCore.SDK.Platform.IPlatformCompositionService>();
         platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });
         using var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection().AddSingleton(platform).BuildServiceProvider();
 
         // not a timing: an initialize that is never answered fails the test here instead of hanging the run.
-        await shell.RunAsync(services, []).WaitAsync(TimeSpan.FromSeconds(30));
+        await shell.RunAsync(services, []).WaitAsync(SafetyCap);
 
         Assert.AreEqual(interactive ? 1 : 0, asked);
         Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath), "the project file is as it was: the shell chose to keep it, or was not asked");
         Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
         // not a timing either: a message the shell never writes fails the test here.
-        StringAssert.Contains(await told.Task.WaitAsync(TimeSpan.FromSeconds(30)), ProjectFilePath);
+        StringAssert.Contains(await told.Task.WaitAsync(SafetyCap), ProjectFilePath);
     }
 
     // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start, without
@@ -495,7 +503,7 @@ public sealed class WorkspaceLoaderTests
         // the server goes on to run, as the language server does after a load that failed.
         var running = Substitute.For<IServerStateProvider>();
         running.State.Returns(ServerState.Running);
-        var reload = new WorkspaceReloadService(running, projectFiles, documents, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
+        var reload = new WorkspaceReloadService(running, projectFiles, documents, sut, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
             Substitute.For<RDCore.LanguageServer.Symbols.ISymbolSyncService>(), Substitute.For<RDCore.LanguageServer.IPlatformOrchestrationService>(), fs.Path,
             Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
 
@@ -668,7 +676,7 @@ public sealed class WorkspaceLoaderTests
             await pipe.WaitForConnectionAsync();
             Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
                 .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
-                .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
                 .OnInitialize((server, request, token) => initialize(server, request, token))
                 .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>

@@ -22,7 +22,7 @@ jobs:
    - name: Setup .NET
      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
      with:
-      dotnet-version: 10.0
+      dotnet-version: 11.0
 
    - name: Build (Debug)
      run: dotnet build RDCore.slnx --configuration Debug
@@ -43,6 +43,19 @@ jobs:
       RDCORE_ENGINE: Interpreter
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
 
+   # what --blame-hang-timeout leaves when a test hangs: the sequence file (the tests each test host ran, the last of them
+   # unfinished) and the dumps of the test host and of the processes it started. A run that fails without a hang leaves none.
+   - name: Upload what a hang leaves
+     if: failure()
+     uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+     with:
+      name: blame-ubuntu-latest
+      path: |
+       **/TestResults/**/Sequence_*.xml
+       **/TestResults/**/*.dmp
+      if-no-files-found: ignore
+      retention-days: 3
+
    - name: Coverage badge
      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
      run: |
@@ -51,7 +64,7 @@ jobs:
        # instruments, e.g. Spectre.Console), and none of the code generated at build time (ANTLR parsers, regex generators).
        reportgenerator -reports:coverage.cobertura.xml -targetdir:coverage-report \
          -reporttypes:JsonSummary \
-         "-assemblyfilters:+RDCore.Runtime;+RDCore.Runtime.Support;+RDCore.Parsing;+RDCore.Symbols;+RDCore.External;+RDCore.External.Windows;+RDCore.LanguageServer;+RDCore.Diagnostics;+RDCore.ParseServer;+rdc" \
+         "-assemblyfilters:+RDCore.Runtime;+RDCore.Runtime.LanguageCore;+RDCore.Runtime.Support;+RDCore.Parsing;+RDCore.Symbols;+RDCore.External;+RDCore.External.Windows;+RDCore.LanguageServer;+RDCore.Diagnostics;+RDCore.ParseServer;+rdc" \
          "-filefilters:-*/obj/*;-*\\obj\\*"
        pct=$(grep -m1 -oE '"linecoverage": [0-9.]+' coverage-report/Summary.json | grep -oE '[0-9.]+$')
        echo "RDCore product line coverage: ${pct}%"
@@ -83,12 +96,15 @@ jobs:
       retention-days: 7
 
  # the same two runs on Windows and macOS, without coverage: what differs from Linux there is the file system, the processes and
- # the pipes the platform starts and talks through; the language is the same
+ # the pipes the platform starts and talks through; the language is the same. win-x64 and osx-x64 (macos-15-intel, GitHub's Intel
+ # image) run for every pull request; osx-arm64 (macos-latest) runs on main only, where it is too slow to hold a pull request up.
+ # Windows runs the whole suite. macOS runs the tests of the Wide category, at most 1000 (tools/ci/Invoke-WideTests.ps1): a few of
+ # each part of the platform, which the whole suite on Windows and Linux runs in depth.
  build-and-test-os:
   strategy:
    fail-fast: false
    matrix:
-    os: [windows-latest, macos-latest]
+    os: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '["windows-latest", "macos-15-intel", "macos-latest"]' || '["windows-latest", "macos-15-intel"]') }}
   name: build-and-test (${{ matrix.os }})
   runs-on: ${{ matrix.os }}
   timeout-minutes: 90
@@ -106,7 +122,7 @@ jobs:
    - name: Setup .NET
      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
      with:
-      dotnet-version: 10.0
+      dotnet-version: 11.0
 
    # ANTLR 4.6.6 (RDCore.Parsing) runs the Java tool at build time: the same Java on every system
    - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -118,20 +134,129 @@ jobs:
      run: dotnet build RDCore.slnx --configuration Debug
 
    - name: Test (Debug)
+     if: runner.os != 'macOS'
      run: dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 10m
+
+   - name: Test (Debug, Wide)
+     if: runner.os == 'macOS'
+     shell: pwsh
+     run: ./tools/ci/Invoke-WideTests.ps1 -Configuration Debug
 
    - name: Build (Release)
      run: dotnet build RDCore.slnx --configuration Release
 
    - name: Test (Release, interpreted)
+     if: runner.os != 'macOS'
      env:
       RDCORE_ENGINE: Interpreter
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
 
- # the only job that can write to the repo: it runs none of the repo's code, just pushes the badge files built above
- badge:
-  needs: build-and-test
+   - name: Test (Release, interpreted, Wide)
+     if: runner.os == 'macOS'
+     env:
+      RDCORE_ENGINE: Interpreter
+     shell: pwsh
+     run: ./tools/ci/Invoke-WideTests.ps1 -Configuration Release
+
+   # as on Linux: the sequence file and the dumps a hang leaves, one artifact per system
+   - name: Upload what a hang leaves
+     if: failure()
+     uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+     with:
+      name: blame-${{ matrix.os }}
+      path: |
+       **/TestResults/**/Sequence_*.xml
+       **/TestResults/**/*.dmp
+      if-no-files-found: ignore
+      retention-days: 3
+
+ # the performance table of the README: the built-in corpus of rdc bench (no Excel), timed with the merged commit's rdc and the reference commit's
+ # (the commit of the MS-VBA reference run, RDCore.CLI/Bench/Reference/msvba.json) in alternated rounds on this one runner, so that its speed
+ # weighs on both alike. Windows, as the reference machine. A build or a case that fails fails the job, and its figures are not published.
+ bench:
   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  runs-on: windows-latest
+  timeout-minutes: 60
+
+  steps:
+   - name: Configure line endings
+     run: git config --global core.autocrlf true
+
+   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+     with:
+      fetch-depth: 0
+      persist-credentials: false
+
+   - name: Setup .NET
+     uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+     with:
+      dotnet-version: 11.0
+
+   - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+     with:
+      distribution: temurin
+      java-version: '21'
+
+   # the reference tree builds with its own toolchain: the SDK of its global.json when it has one, else the .NET of its TargetFramework
+   - name: Check out the reference commit
+     id: reference
+     shell: pwsh
+     run: |
+       $commit = (Get-Content -Raw RDCore.CLI/Bench/Reference/msvba.json | ConvertFrom-Json).reference.commit
+       git worktree add ../reference $commit
+       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+       $framework = ([xml](Get-Content -Raw ../reference/RDCore.CLI/RDCore.CLI.csproj)).Project.PropertyGroup.TargetFramework | Where-Object { $_ } | Select-Object -First 1
+       "dotnet=$($framework -replace '^net', '')" >> $env:GITHUB_OUTPUT
+       "global-json=$(if (Test-Path ../reference/global.json) { '../reference/global.json' })" >> $env:GITHUB_OUTPUT
+
+   - name: Setup .NET (reference)
+     id: reference-dotnet
+     uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+     with:
+      dotnet-version: ${{ steps.reference.outputs.global-json == '' && steps.reference.outputs.dotnet || '' }}
+      global-json-file: ${{ steps.reference.outputs.global-json }}
+
+   - name: Build rdc (Release), merged and reference
+     shell: pwsh
+     run: |
+       dotnet build RDCore.CLI --configuration Release
+       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+       # without a global.json of its own, the reference tree is given one naming the SDK installed for it, so a newer SDK installed for the merged tree
+       # is not the one that builds it
+       if (-not (Test-Path ../reference/global.json)) {
+         @{ sdk = @{ version = '${{ steps.reference-dotnet.outputs.dotnet-version }}'; rollForward = 'latestPatch' } } | ConvertTo-Json | Set-Content ../reference/global.json
+       }
+       dotnet build ../reference/RDCore.CLI --configuration Release
+       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+   - name: Bench, alternated rounds
+     shell: pwsh
+     run: |
+       $merged = (Get-ChildItem RDCore.CLI/bin/Release -Recurse -Filter rdc.exe | Select-Object -First 1).FullName
+       $reference = (Get-ChildItem ../reference/RDCore.CLI/bin/Release -Recurse -Filter rdc.exe | Select-Object -First 1).FullName
+       ./.github/scripts/bench-rounds.ps1 -Merged $merged -Reference $reference -Out bench-runs
+
+   # the runner's processor, named in bench.json: a swing between two pushes can come from the machine the job was given
+   - name: Figures
+     shell: pwsh
+     run: |
+       $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+       $l3 = if ($cpu.L3CacheSize -gt 0) { "$([Math]::Round($cpu.L3CacheSize / 1024.0, 1)) MB L3" } else { 'L3 not reported' }
+       $runnerCpu = "$($cpu.Name.Trim()) · $([Environment]::ProcessorCount) logical processors · $l3"
+       ./.github/scripts/bench-figures.ps1 -Runs bench-runs -ReferenceData RDCore.CLI/Bench/Reference/msvba.json -Out bench-badge -Commit $env:GITHUB_SHA -RunnerCpu $runnerCpu
+
+   - name: Upload bench badges
+     uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+     with:
+      name: bench-badges
+      path: bench-badge/*.json
+      retention-days: 7
+
+ # the only job that can write to the repo: it runs none of the repo's code, just pushes the badge files built above. The branch is rebuilt each time,
+ # so it gets both sets: when the bench job failed, the bench files it had are carried over as they were, and they name the commit they were measured at.
+ badge:
+  needs: [build-and-test, bench]
+  if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build-and-test.result == 'success'
   runs-on: ubuntu-latest
   permissions:
    contents: write
@@ -142,15 +267,34 @@ jobs:
       name: coverage-badges
       path: badge
 
-   - name: Publish coverage badge
+   - if: needs.bench.result == 'success'
+     uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+     with:
+      name: bench-badges
+      path: bench-badge
+
+   - if: needs.bench.result != 'success'
+     uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+     continue-on-error: true
+     with:
+      ref: badges
+      path: previous
+      persist-credentials: false
+
+   - name: Publish badges
      run: |
        git config --global user.name  'github-actions[bot]'
        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
        tmp=$(mktemp -d)
        cp badge/*.json "$tmp/"
+       if [ -d bench-badge ]; then
+         cp bench-badge/*.json "$tmp/"
+       elif [ -d previous ]; then
+         cp previous/bench*.json "$tmp/" 2>/dev/null || true
+       fi
        cd "$tmp"
        git init -q
        git checkout -q -b badges
        git add ./*.json
-       git commit -q -m 'coverage badge'
+       git commit -q -m 'coverage and bench badges'
        git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges

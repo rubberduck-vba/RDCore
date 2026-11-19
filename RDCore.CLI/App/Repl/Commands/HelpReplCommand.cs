@@ -18,6 +18,8 @@ internal sealed class HelpReplCommand : IReplCommand
         }
 
         context.Console.WriteLine();
+        context.Console.WriteLine(Resources.Repl_Help_Blocks);
+        context.Console.WriteLine();
         return Task.FromResult(ReplCommandResult.Continue);
     }
 }

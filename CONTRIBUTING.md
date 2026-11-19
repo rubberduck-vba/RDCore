@@ -32,7 +32,7 @@ La complétion automatique de type _Copilot_ et l'usage d'un assistant pour expl
 
 ## Bâtir et tester
 
-RDCore cible **.NET 10**; le [SDK .NET 10](https://dotnet.microsoft.com/download) constitue le seul prérequis.
+RDCore cible **.NET 11**; le [SDK .NET 11](https://dotnet.microsoft.com/download) constitue le seul prérequis.
 
 À partir de la racine du référentiel:
 
@@ -42,6 +42,19 @@ dotnet test RDCore.slnx
 ```
 
 Une exécution réussie **doit rapporter un nombre de tests non nul**: une exécution qui ne découvre aucun test n'est pas une exécution réussie. L'option `--configuration Release` bâtit et teste de la même manière; l'intégration continue valide les deux configurations.
+
+L'intégration continue exécute tous les tests sous Windows et Linux. Sous macOS, elle n'exécute que les classes de tests marquées `[TestCategory(TestCategories.Wide)]`, au plus 1 000 tests : quelques-uns pour le système de fichiers, pour les processus et les canaux nommés, pour un programme exécuté depuis sa source et pour les diagnostics. Pour exécuter la même sélection localement, utilisez `dotnet test RDCore.slnx --filter TestCategory=Wide`.
+
+### Bancs d'essai
+
+`RDCore.Benchmarks` mesure, avec BenchmarkDotNet, l'analyse syntaxique, la sérialisation JSON de l'arbre syntaxique et les analyseurs de diagnostics. C'est un outil de contributeur, comme `RDCore.Tests` : il ne fait pas partie de la plateforme et n'est pas une commande `rdc`. À partir de la racine du référentiel :
+
+```powershell
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*"
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*ParseBenchmarks*"
+```
+
+Le filtre choisit les bancs d'essai par leur nom. Chacun s'exécute dans son propre processus et n'est mesuré qu'après une période de réchauffement : ses résultats sont à chaud. `rdc bench` mesure l'analyse syntaxique à froid.
 
 
 **V I V A T 🤝 C U C U M I S** ™
@@ -84,7 +97,7 @@ _Copilot_-style autocompletion, and using an assistant to explore or validate im
 
 ## Building and testing
 
-RDCore targets **.NET 10**; the [.NET 10 SDK](https://dotnet.microsoft.com/download) is the only prerequisite.
+RDCore targets **.NET 11**; the [.NET 11 SDK](https://dotnet.microsoft.com/download) is the only prerequisite.
 
 From the repository root:
 
@@ -94,6 +107,19 @@ dotnet test RDCore.slnx
 ```
 
 A successful run **must report a non-zero test count**: a run that discovers no tests is not a passing run. The `--configuration Release` switch builds and tests the same way; continuous integration validates both configurations.
+
+Continuous integration runs every test on Windows and Linux. On macOS it runs only the test classes marked `[TestCategory(TestCategories.Wide)]`, at most 1000 tests: a few each for the file system, the processes and pipes, a program run from its source, and diagnostics. To run the same selection locally, use `dotnet test RDCore.slnx --filter TestCategory=Wide`.
+
+### Benchmarks
+
+`RDCore.Benchmarks` measures the parser, the syntax tree's JSON serialization and the diagnostics analyzers with BenchmarkDotNet. It is a contributor tool, as `RDCore.Tests` is: it is not part of the platform, and it is not an `rdc` command. From the repository root:
+
+```powershell
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*"
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*ParseBenchmarks*"
+```
+
+The filter selects benchmarks by name. Each one runs in its own process and is measured after a warm-up, so its figures are warm ones. `rdc bench` measures the cold parse.
 
 
 **V I V A T 🤝 C U C U M I S** ™

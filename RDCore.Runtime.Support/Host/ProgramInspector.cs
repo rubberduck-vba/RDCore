@@ -38,11 +38,14 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
     /// The activations of the program, innermost first.
     /// </summary>
     public DebugStackResult Stack()
-        => new()
+    {
+        var frames = provider.Session.CallStack.Frames.OfType<CallStackFrame>().ToArray();
+        var stack = provider.Session.CallStack as RuntimeCallStack;
+        return new()
         {
             Frames =
             [
-                .. provider.Session.CallStack.Frames.OfType<CallStackFrame>().Select((frame, index) =>
+                .. frames.Select((frame, index) =>
                 {
                     var location = frame.CurrentLocation;
                     return new DebugStackFrame(
@@ -52,10 +55,15 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
                         location?.Range.Start.Line ?? -1,
                         location?.Range.Start.Character ?? -1,
                         ReturnLines(frame),
-                        HandlerOf(frame));
+                        HandlerOf(frame))
+                    {
+                        // innermost first: the frame at index i is the (n - 1 - i)th from the bottom.
+                        BeginsAnEvent = stack?.BeginsAnEvent(frames.Length - 1 - index) == true,
+                    };
                 }),
             ],
         };
+    }
 
     // an activation is in a handler from the error it caught until the Resume that ends it: the label the handler begins at.
     private static string? HandlerOf(CallStackFrame frame)

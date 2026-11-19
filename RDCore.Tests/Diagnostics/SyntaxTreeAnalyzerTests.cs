@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Extensibility.Diagnostics;
+using Microsoft.Extensions.Options;
 using RDCore.Diagnostics;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -124,7 +125,7 @@ public sealed class SyntaxTreeAnalyzerTests
     [TestMethod]
     public void AParameterThatStatesNoMechanism_IsPassedByReference_AndSuggestsSayingSo()
     {
-        var findings = Run(new ImplicitByRefModifierAnalyzer(), """
+        var findings = Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), """
             Public Sub Work(a, ByVal b As Long, ByRef c As Long, Optional d, e As Integer, ParamArray rest())
             End Sub
             """);
@@ -135,13 +136,13 @@ public sealed class SyntaxTreeAnalyzerTests
 
     [TestMethod]
     public void TheValueParameterOfAPropertyLetOrSet_IsPassedByValue_AndIsNotReported()
-        => Assert.IsEmpty(Run(new ImplicitByRefModifierAnalyzer(), "Property Let Item(ByVal i As Long, v As Long)\nEnd Property\nProperty Set Obj(v As Object)\nEnd Property\n")
+        => Assert.IsEmpty(Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), "Property Let Item(ByVal i As Long, v As Long)\nEnd Property\nProperty Set Obj(v As Object)\nEnd Property\n")
             .Where(finding => !finding.Message.Contains("'i'")));
 
     [TestMethod]
     public void TheParametersOfAnEventAndOfADeclare_AreReportedLikeAnyOther()
     {
-        var findings = Run(new ImplicitByRefModifierAnalyzer(), "Event Fired(a)\nDeclare Function Beep Lib \"kernel32\" (dwMs As Long) As Long\n");
+        var findings = Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), "Event Fired(a)\nDeclare Function Beep Lib \"kernel32\" (dwMs As Long) As Long\n");
 
         CollectionAssert.AreEqual(new[] { 0, 1 }, Lines(findings));
     }
@@ -277,6 +278,36 @@ public sealed class SyntaxTreeAnalyzerTests
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.IntegerDataTypeDeclaration, Severity: DiagnosticSeverity.Information }));
     }
 
+    [TestMethod]
+    [DataRow("%", true)]
+    [DataRow("&", false)]
+    [DataRow("^", false)]
+    [DataRow("!", false)]
+    [DataRow("#", false)]
+    [DataRow("@", false)]
+    [DataRow("$", false)]
+    public void ATypeCharacter_DeclaresAnInteger_OnlyWhenItIsThePercentSign(string hint, bool isInteger)
+    {
+        var findings = Run(new IntegerDataTypeAnalyzer(), $"""
+            Private Declare Function Beep{hint} Lib "kernel32" (ByVal n{hint})
+            Private n{hint}
+            Private Const c{hint} = 1
+            Public Function Calc{hint}(ByVal p{hint})
+                Dim local{hint}
+            End Function
+            """);
+
+        CollectionAssert.AreEqual(isInteger ? new[] { 1, 2, 3, 3, 4 } : Array.Empty<int>(), Lines(findings));
+    }
+
+    [TestMethod]
+    public void TheFindingOfATypeCharacter_IsTheNameItIsWrittenWith()
+    {
+        var finding = Run(new IntegerDataTypeAnalyzer(), "Private count%\n").Single();
+
+        Assert.AreEqual(new SourceRange(0, 8, 0, 14), finding.Range);
+    }
+
     #endregion
 
     #region RDC00202 module-level Dim
@@ -298,6 +329,107 @@ public sealed class SyntaxTreeAnalyzerTests
         Assert.AreEqual(0, findings[0].Range.End.Line, "the statement and not only its first variable");
         Assert.IsGreaterThan(findings[0].Range.Start.Character + "Dim a As Long".Length, findings[0].Range.End.Character);
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.ModuleScopeDimDeclaration, Severity: DiagnosticSeverity.Information }));
+    }
+
+    #endregion
+
+    #region RDC11033 and RDC11034 names where MS-VBA and MS-VBAL 3.3.5.2 differ
+
+    [TestMethod]
+    public void AnEnumMemberNamedWithAReservedNameMSVBACompiles_IsAWarningAtTheName()
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), """
+            Private Enum E
+                Date
+                DoEvents
+                CDec
+                Other
+                [Date]
+            End Enum
+            """);
+
+        CollectionAssert.AreEqual(new[] { 1, 2, 3 }, Lines(findings));
+        Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.ReservedNameAcceptedByMSVBA, Severity: DiagnosticSeverity.Warning }));
+        Assert.AreEqual(new SourceRange(new SourcePosition(2, 4), new SourcePosition(2, 4 + "DoEvents".Length)), findings[1].Range, "the name");
+        StringAssert.Contains(findings[0].Message, "Date");
+    }
+
+    [TestMethod]
+    public void ANameMSVBARefusesThatTheSpecificationAllows_IsAWarningAtTheName()
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), """
+            Private Type T
+                Me As Long
+                Long As Long
+                Len As Long
+            End Type
+            Private Enum E
+                Name
+            End Enum
+            Public Sub Work(ByVal Long As Long)
+                Dim [Long] As Long
+                Dim Name As String
+            End Sub
+            Public Sub Other()
+                Dim Long As Long
+            End Sub
+            """);
+
+        CollectionAssert.AreEqual(new[] { 1, 6, 8, 13 }, Lines(findings));
+        Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.NameRefusedByMSVBA, Severity: DiagnosticSeverity.Warning }));
+        Assert.AreEqual(new SourceRange(new SourcePosition(13, 8), new SourcePosition(13, 8 + "Long".Length)), findings[3].Range, "the name");
+    }
+
+    // MS-VBA refuses each of these as the name of anything but a member of a user-defined type (observed in Excel), as it does Long.
+    [TestMethod]
+    [DataRow("Boolean")]
+    [DataRow("Byte")]
+    [DataRow("Currency")]
+    [DataRow("Double")]
+    [DataRow("Integer")]
+    [DataRow("LongLong")]
+    [DataRow("LongPtr")]
+    [DataRow("Single")]
+    [DataRow("Variant")]
+    [DataRow("Local")]
+    [DataRow("integer", DisplayName = "integer, written in lower case")]
+    public void ANameMSVBARefusesButAsATypeMember_IsAWarningAtTheName_ButAsATypeMember(string name)
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), $"""
+            Private Type T
+                {name} As Long
+            End Type
+            Private Enum E
+                {name}
+            End Enum
+            Private {name} As Long
+            Public Function {name}(ByVal {name} As Long) As Long
+                Const {name} As Long = 1
+                Dim [{name}] As Long
+            End Function
+            """);
+
+        CollectionAssert.AreEqual(new[] { 4, 6, 7, 7, 8 }, Lines(findings));
+        Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.NameRefusedByMSVBA, Severity: DiagnosticSeverity.Warning }));
+        Assert.AreEqual(new SourceRange(new SourcePosition(8, 10), new SourcePosition(8, 10 + name.Length)), findings[4].Range, "the name");
+        StringAssert.Contains(findings[0].Message, name);
+    }
+
+    [TestMethod]
+    [DataRow("Object", DisplayName = "Object, which is no reserved type identifier")]
+    [DataRow("Foo")]
+    public void ANameMSVBACompiles_IsNoWarning(string name)
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), $"""
+            Private Enum E
+                {name}
+            End Enum
+            Private {name} As Long
+            Public Sub Work(ByVal {name} As Long)
+            End Sub
+            """);
+
+        Assert.IsEmpty(findings);
     }
 
     #endregion
@@ -346,6 +478,32 @@ public sealed class SyntaxTreeAnalyzerTests
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.MultipleDeclarations, Severity: DiagnosticSeverity.Information }));
         Assert.AreEqual(findings[1].Range.Start.Line, findings[1].Range.End.Line, "the statement, on its one line");
         Assert.AreEqual(new SourcePosition(6, 4), findings[1].Range.Start, "from the keyword that starts it");
+    }
+
+    [TestMethod]
+    public void AModuleLevelDimOfSeveralNames_IsTheModuleLevelDimFinding_UntilItIsPrivate()
+    {
+        const string source = """
+            Dim a, b As Long
+            Private c, d As Long
+            Public Sub Work()
+                Dim e, f As Long
+            End Sub
+            """;
+
+        CollectionAssert.AreEqual(new[] { 0 }, Lines(Run(new ModuleScopeDimAnalyzer(), source)), "RDC00202 has the Dim statement");
+        CollectionAssert.AreEqual(new[] { 1, 3 }, Lines(Run(new MultipleDeclarationsAnalyzer(), source)), "RDC00204 steps aside on it");
+        CollectionAssert.AreEqual(new[] { 0, 1, 3 }, Lines(Run(new MultipleDeclarationsAnalyzer(), source.Replace("Dim a", "Private a"))), "and has it once it is Private");
+    }
+
+    [TestMethod]
+    [DataRow("Dim WithEvents app As Application, n As Long", false, DisplayName = "several names, one WithEvents: no fix, it would not split")]
+    [DataRow("Dim WithEvents app As Application", true, DisplayName = "one WithEvents name: written Private")]
+    public void AModuleLevelDimWithAWithEventsVariable_IsFixedOnlyWhenNothingIsLeftToSplit(string declaration, bool isFixed)
+    {
+        var finding = Run(new ModuleScopeDimAnalyzer(), $"{declaration}\r\n").Single();
+
+        Assert.AreEqual(isFixed, finding.Fixes?.Edits.SingleOrDefault()is not null);
     }
 
     #endregion

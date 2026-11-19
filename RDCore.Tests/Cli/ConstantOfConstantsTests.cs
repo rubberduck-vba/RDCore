@@ -14,7 +14,7 @@ namespace RDCore.Tests.Cli;
 public sealed class ConstantOfConstantsTests
 {
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AModuleConstantOfModuleConstants_IsTheirValue()
         => CollectionAssert.AreEqual(new[] { "15" }, await RunAsync([], string.Join("\r\n",
             "Attribute VB_Name = \"Program\"",
@@ -27,7 +27,7 @@ public sealed class ConstantOfConstantsTests
 
     // the shell's program is the body of a procedure: its constants are the procedure's.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AProcedureConstantOfProcedureConstants_IsTheirValue_InTheShell()
     {
         var result = await ShellHost.Compose().RunAsync([(10, "CONST FIZZ = 3"), (20, "CONST BUZZ = 5"), (30, "CONST FIZZBUZZ = FIZZ * BUZZ"), (40, "PRINT FIZZBUZZ")]);

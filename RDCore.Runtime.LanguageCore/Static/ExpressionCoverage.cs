@@ -69,6 +69,10 @@ internal static class ExpressionCoverage
                 }
 
                 return;
+            // MS-VBAL §5.2.3.1.4: the length of a String * n can be the name of a constant, which the tree keeps as text and no expression refers to.
+            case AsTypeExpressionNode { FixedLength: [not ('&' or (>= '0' and <= '9')), ..] }:
+                covered = false;
+                return;
             // a type is no value, and a name written in a declaration's As clause is a type.
             case AsTypeExpressionNode or NewExpressionNode:
                 return;

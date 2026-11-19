@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Versioning;
@@ -19,9 +20,11 @@ namespace RDCore.External.Windows.Automation;
 /// calls, and nothing about it is concurrent. The forms of the program live there too, so that their controls are objects of this server like any other.
 /// </para>
 /// <para>
-/// The call itself is the runtime's own <c>IDispatch</c> binder (<see cref="Type.InvokeMember(string, BindingFlags, Binder, object, object[], ParameterModifier[], CultureInfo, string[])"/>),
-/// which is what a late-bound call from VBA is: names resolved to dispatch identifiers by the server, arguments as <c>VARIANT</c>s, and the same
-/// <c>DISPATCH_METHOD | DISPATCH_PROPERTYGET</c> a call written without knowing which it is asks for.
+/// The call itself is what a late-bound call from VBA is: names resolved to dispatch identifiers by the server, arguments as <c>VARIANT</c>s, and the same
+/// <c>DISPATCH_METHOD | DISPATCH_PROPERTYGET</c> a call written without knowing which it is asks for. It is made through <c>IDispatch::Invoke</c> itself, so
+/// that what the server returns is read as MS-VBA reads it: an <c>Error</c> stays an <c>Error</c>, where the runtime's binder
+/// (<see cref="Type.InvokeMember(string, BindingFlags, Binder, object, object[], ParameterModifier[], CultureInfo, string[])"/>) makes it a number. The
+/// environment variable <c>RDCORE_OWN_INVOKE=0</c> makes the call through the binder.
 /// </para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
@@ -32,6 +35,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     private const int ClassNotRegistered = unchecked((int)0x80040154);
     private const int Unspecified = unchecked((int)0x80004005);
     private const int BadParameterCount = unchecked((int)0x8002000E);
+    private const int NamedArgumentsNotSupported = unchecked((int)0x800A01BE);
 
     private readonly ComApartment _apartment;
     private readonly bool _ownsApartment;
@@ -68,7 +72,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         return Activator.CreateInstance(type) ?? throw new AutomationException(ClassNotRegistered, $"'{progId}' could not be created.");
     })!;
 
-    // what GetObject asks for that COM says the file, or the moniker, cannot be opened as: MS-VBA's 432 (recorded in Excel, oracle\s25 G02).
+    // what GetObject asks for that COM says the file, or the moniker, cannot be opened as: MS-VBA's 432 (observed in Excel).
     private const int CannotOpenFile = unchecked((int)0x800401EA);
 
     /// <inheritdoc/>
@@ -142,6 +146,11 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
     /// <inheritdoc/>
     public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
+        => Invoke(target, member, invocation, arguments, byReference, [], culture);
+
+    /// <inheritdoc/>
+    public object? Invoke(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
         => OnApartment(() =>
         {
             // an object of the session is given to the server as its stand-in; what the server leaves in an argument passed by reference comes back as it is.
@@ -150,7 +159,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
                 arguments[index] = ToServer(arguments[index]);
             }
 
-            return InvokeMember(target, member, invocation, arguments, byReference, culture);
+            return FromServer(InvokeMember(target, member, invocation, arguments, byReference, names, culture));
         });
 
     /// <inheritdoc/>
@@ -159,7 +168,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         try
         {
             // the class the object says it is, or the class its library makes the interface it answers to the default one of: the class MS-VBA's TypeName
-            // names (`Dictionary`, of an object that answers to `IDictionary`; recorded in Excel, oracle\s25).
+            // names (`Dictionary`, of an object that answers to `IDictionary`; observed in Excel).
             if (TypeInfoOf(target) is not { } typeInfo)
             {
                 return null;
@@ -353,8 +362,9 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     {
         var member = OnApartment(() =>
         {
-            // the runtime's binder hands the IEnumVARIANT of an enumeration member over as the managed view of one.
-            if (enumerator is System.Collections.IEnumerator managed)
+            // the runtime's binder hands the IEnumVARIANT of an enumeration member over as the managed view of one. A server's own IEnumVARIANT is cast to
+            // that view as well, which reads an Error element as a number: it is read as the VARIANTs it gives.
+            if (!Marshal.IsComObject(enumerator) && enumerator is System.Collections.IEnumerator managed)
             {
                 return managed.MoveNext() ? new Member(managed.Current) : null;
             }
@@ -364,22 +374,25 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
                 throw new AutomationException(TypeMismatch, "The object is not an enumerator.");
             }
 
-            // IEnumVARIANT::Next(1, ...) fills one element and says how many it filled; S_FALSE is the end of the members.
-            var buffer = new object?[1];
+            // IEnumVARIANT::Next(1, ...) fills one element and says how many it filled; S_FALSE is the end of the members. The element is read as a
+            // result is, so that an Error stays one.
+            var element = NativeVariant.Allocate(1);
             var fetched = Marshal.AllocCoTaskMem(sizeof(int));
             try
             {
                 Marshal.WriteInt32(fetched, 0);
-                var status = native.Next(1, buffer, fetched);
+                var status = ((IEnumVariantElements)native).Next(1, element, fetched);
                 if (status < 0)
                 {
                     throw new AutomationException(status, "The enumerator failed.");
                 }
 
-                return Marshal.ReadInt32(fetched) == 1 ? new Member(buffer[0]) : null;
+                return Marshal.ReadInt32(fetched) == 1 ? new Member(NativeVariant.Read(element)) : null;
             }
             finally
             {
+                NativeVariant.Clear(element);
+                Marshal.FreeCoTaskMem(element);
                 Marshal.FreeCoTaskMem(fetched);
             }
         });
@@ -391,7 +404,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     /// <inheritdoc/>
     public void Reset(object enumerator) => OnApartment<object?>(() =>
     {
-        if (enumerator is System.Collections.IEnumerator managed)
+        if (!Marshal.IsComObject(enumerator) && enumerator is System.Collections.IEnumerator managed)
         {
             managed.Reset();
             return null;
@@ -684,7 +697,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             var count = parameters.ArgumentCount;
             var first = parameters.Arguments;
             var locations = Enumerable.Range(0, count).Select(index => first + ((count - 1 - index) * size)).ToArray();
-            var arguments = locations.Select(Marshal.GetObjectForNativeVariant).ToArray();
+            var arguments = locations.Select(ArgumentAt).ToArray();
             var sent = (object?[])arguments.Clone();
 
             var outer = _handlingEvent;
@@ -717,6 +730,29 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         }
 
         public static Exception? LastFailure { get; private set; }
+
+        // an argument as the server passed it. The runtime's own conversion makes VT_ERROR a number, the same as a VT_I4, so an Error is read here as what it is:
+        // its HRESULT, whole. DISP_E_PARAMNOTFOUND is how a server leaves an argument out, and is an argument left out.
+        internal static object? ArgumentAt(IntPtr location)
+        {
+            const ushort Error = 10;
+            const ushort Variant = 12;
+            const int ParameterNotFound = unchecked((int)0x80020004);
+
+            var kind = (ushort)Marshal.ReadInt16(location);
+            if (kind == (Variant | ByReference))
+            {
+                return ArgumentAt(Marshal.ReadIntPtr(location, 8));
+            }
+
+            if ((kind & ~ByReference) != Error)
+            {
+                return Marshal.GetObjectForNativeVariant(location);
+            }
+
+            var code = (kind & ByReference) != 0 ? Marshal.ReadInt32(Marshal.ReadIntPtr(location, 8)) : Marshal.ReadInt32(location, 8);
+            return code == ParameterNotFound ? Missing.Value : new ErrorWrapper(code);
+        }
 
         internal static void WriteBack(IntPtr location, object? value, ushort byReference)
         {
@@ -755,11 +791,31 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     // (`d.Exists(o)`, `d(k) Is o`). Read and written on the apartment.
     private readonly Dictionary<string, WeakReference<SessionObjectStandIn>> _standIns = [];
 
-    // what a server is given for an object of the session: its stand-in, which counts the crossing. Anything else is given as it is.
+    // the OLE pictures made of the session's pictures, by identity, and the other way around: one picture of the session's is one OLE picture, which the server
+    // gives back as the session's picture (`Image1.Picture Is p`). Held for as long as the server is, as the session holds the pictures it handed over.
+    // Read and written on the apartment.
+    private readonly Dictionary<string, object> _pictures = [];
+    private readonly ConditionalWeakTable<object, SessionObjectReference> _picturesOf = [];
+
+    // what a server gave back: the session's own picture, for an OLE picture made of one.
+    private object? FromServer(object? value) => value is not null && _picturesOf.TryGetValue(value, out var reference) ? reference : value;
+
+    // what a server is given for an object of the session: its stand-in, which counts the crossing; for a picture, an OLE picture of it, which the server draws.
+    // Anything else is given as it is.
     private object? ToServer(object? value)
     {
         switch (value)
         {
+            case SessionObjectReference { Picture: { } content } reference:
+                if (!_pictures.TryGetValue(reference.SessionObject, out var picture))
+                {
+                    picture = OlePictures.Of(content, () => CreateOn("StdPicture", serverName: null));
+                    _pictures[reference.SessionObject] = picture;
+                    _picturesOf.AddOrUpdate(picture, reference);
+                }
+
+                return picture;
+
             case SessionObjectReference reference:
                 if (!_standIns.TryGetValue(reference.SessionObject, out var known) || !known.TryGetTarget(out var standIn))
                 {
@@ -879,7 +935,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             var count = parameters.ArgumentCount;
             var first = parameters.Arguments;
             var locations = Enumerable.Range(0, count).Select(index => first + ((count - 1 - index) * size)).ToArray();
-            var arguments = locations.Select(Marshal.GetObjectForNativeVariant).ToArray();
+            var arguments = locations.Select(EventReceiver.ArgumentAt).ToArray();
             var sent = (object?[])arguments.Clone();
 
             var invocation = (flags & PropertyPutReference) != 0 ? AutomationInvocation.Set
@@ -955,7 +1011,62 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     private static CultureInfo LocaleOf(CultureInfo culture)
         => culture.Equals(CultureInfo.InvariantCulture) ? CultureInfo.GetCultureInfo("en-US") : culture;
 
+    // RDCORE_OWN_INVOKE=0 calls the runtime's binder instead of IDispatch::Invoke, to tell a difference between the two from a fault of the call.
+    private static readonly bool OwnInvoke = Environment.GetEnvironmentVariable("RDCORE_OWN_INVOKE") != "0";
+
     private static object? InvokeMember(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
+        => OwnInvoke && Marshal.IsComObject(target)
+            ? DispatchCall.Invoke(target, member, invocation, arguments, byReference, names, LocaleOf(culture))
+            : names.Count == 0
+                ? InvokeThroughBinder(target, member, invocation, arguments, byReference, culture)
+                : InvokeNamedThroughBinder(target, member, invocation, arguments, byReference, names, culture);
+
+    // the binder names the first of the arguments it is given, where the named ones of a call come after the others: they are given to it first, and what
+    // it writes back is put back where it came from. An assignment's value is the last of what the binder is given, which it cannot be after names.
+    private static object? InvokeNamedThroughBinder(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
+    {
+        if (invocation is AutomationInvocation.Let or AutomationInvocation.Set)
+        {
+            throw new AutomationException(NamedArgumentsNotSupported, $"'{member}' cannot be given named arguments here.");
+        }
+
+        var positional = arguments.Length - names.Count;
+        int[] order = [.. Enumerable.Range(positional, names.Count), .. Enumerable.Range(0, positional)];
+        var passed = order.Select(index => arguments[index]).ToArray();
+        var modifier = new ParameterModifier(passed.Length);
+        for (var index = 0; index < order.Length; index++)
+        {
+            modifier[index] = byReference[order[index]];
+        }
+
+        var flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.GetProperty | BindingFlags.InvokeMethod;
+        try
+        {
+            var returned = target.GetType().InvokeMember(member, flags, null, target, passed, [modifier], LocaleOf(culture), [.. names]);
+            for (var index = 0; index < order.Length; index++)
+            {
+                arguments[order[index]] = passed[index];
+            }
+
+            return returned;
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is COMException failure)
+        {
+            throw new AutomationException(failure.HResult, failure.Message, failure.Source);
+        }
+        catch (COMException failure)
+        {
+            throw new AutomationException(failure.HResult, failure.Message, failure.Source);
+        }
+        catch (MissingMemberException)
+        {
+            throw new AutomationException(MemberNotFound, $"The object has no member '{member}'.");
+        }
+    }
+
+    private static object? InvokeThroughBinder(
         object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
     {
         // an argument the caller left out at the end is no argument: a property that takes none is not called with some, and an optional one is the same
@@ -986,7 +1097,9 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         var flags = BindingFlags.Public | BindingFlags.Instance | invocation switch
         {
             AutomationInvocation.Get => BindingFlags.GetProperty | BindingFlags.InvokeMethod,
-            AutomationInvocation.Let => BindingFlags.SetProperty,
+            // DISPATCH_PROPERTYPUT, whatever the value: SetProperty asks for PROPERTYPUTREF when the value is an object, where a Let gives the server the
+            // object to read its default member itself (a Dictionary's Item) or to make what it will of it (a Range's Value).
+            AutomationInvocation.Let => BindingFlags.PutDispProperty,
             AutomationInvocation.Set => BindingFlags.PutRefDispProperty,
             _ => BindingFlags.InvokeMethod,
         };
@@ -1058,6 +1171,16 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
         [PreserveSig]
         int Clone(out IEnumVariant enumerator);
+    }
+
+    // IEnumVARIANT again, its elements given as the VARIANTs they are, for NativeVariant to read.
+    [ComImport]
+    [Guid("00020404-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IEnumVariantElements
+    {
+        [PreserveSig]
+        int Next(int count, IntPtr values, IntPtr fetched);
     }
 
     [ComImport]

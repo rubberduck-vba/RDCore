@@ -33,16 +33,19 @@ public sealed class CompiledDefaultInstanceTests
             "End Sub",
             "Public Function Fits(ByVal X As Long) As Boolean",
             "    Fits = X < mSize",
+            "End Function",
+            "Public Function IsDefault() As Boolean",
+            "    IsDefault = Me Is Board",
             "End Function")),
     ];
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    // the program run both ways, as AssertAlikeAsync runs it, with as many statements handed to the interpreter as recoveries says; and each call compiled
-    // code made, made through the member's typed entry.
-    private static async Task AssertDefaultAsync(string program, string compiled, long direct, long recoveries, string expected)
+    // the program run both ways, as AssertAlikeAsync runs it, with as many statements handed to the interpreter as recoveries says, and as many activations
+    // walked back to it as walkBacks says; and each call compiled code made, made through the member's typed entry.
+    private static async Task AssertDefaultAsync(string program, string compiled, long direct, long recoveries, string expected, long walkBacks = 0)
     {
-        var result = await AssertAlikeAsync(program, compiled, recoveries, classes: Classes, expected: expected);
+        var result = await AssertAlikeAsync(program, compiled, recoveries, walkBacks, classes: Classes, expected: expected);
         CompiledDirectCallTests.AssertCalls(direct, (result.Body!.DirectCalls, result.Body.IndirectCalls));
     }
 
@@ -111,4 +114,31 @@ public sealed class CompiledDefaultInstanceTests
             "        If I = 2 Then Set Board = Nothing",
             "    Next",
             "End Function"), "Reset", direct: 7, recoveries: 1, expected: "gone ; made ; 3434");
+
+    // the default instance compared with Is in a member of its class: Me is it, or another object of the class.
+    [TestMethod]
+    public async Task TheDefaultInstanceComparedWithIs_IsCompiled()
+        => await AssertDefaultAsync(Program(
+            "Public Sub Main()",
+            "    Dim Other As Board",
+            "    Board.Grow 0",
+            "    Set Other = New Board",
+            "    Debug.Print Board.IsDefault",
+            "    Debug.Print Other.IsDefault",
+            "End Sub"), "IsDefault", direct: 0, recoveries: 0, expected: "made ; made ; True ; False ; gone");
+
+    // the default instance compared with Is before it holds an object: the activation walks back to the interpreter, which makes it there, once, and compiled
+    // code compares it in the next call.
+    [TestMethod]
+    public async Task ADefaultInstanceComparedBeforeItHoldsAnObject_IsMadeByTheInterpreter_ThenComparedCompiled()
+        => await AssertDefaultAsync(Program(
+            "Public Sub Main()",
+            "    Dim Other As Board",
+            "    Set Other = New Board",
+            "    Debug.Print Same(Other)",
+            "    Debug.Print Same(Other)",
+            "End Sub",
+            "Private Function Same(ByVal Given As Board) As Boolean",
+            "    Same = Given Is Board",
+            "End Function"), "Same", direct: 0, recoveries: 0, expected: "made ; made ; False ; False ; gone", walkBacks: 1);
 }

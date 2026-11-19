@@ -32,6 +32,16 @@ MS-VBA's so that a file RD-VBA writes is a file MS-VBA reads. See
 serialized size of a UDT. `Put #1, , myRecord` and `Get #1, , myRecord` serialize and deserialize a whole UDT in
 one statement.
 
+|Target|What `Get` reads|
+|---|---|
+|A fixed-size array, or a resizable array in `Binary` mode|As many elements as the array's bounds give, into the array. An array that was never sized reads nothing.|
+|A resizable array in `Random` mode|The bounds the record gives. The array is sized to them, then its elements are read as its declared element type.|
+
+### Past the End of the File
+
+A `Get` that runs past the end of the file raises no error, as in MS-VBA (recorded in Excel). Each byte the file
+does not have reads as zero, and the file-pointer-position moves past the whole record. `EOF` is then `True`.
+
 ### Record Positioning
 
 `Get` positions records as `Put` does

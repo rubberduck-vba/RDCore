@@ -10,7 +10,8 @@ namespace RDCore.Tests.Runtime.Execution;
 [TestCategory("MS-VBAL 6.1.2.8.1.5 DoEvents")]
 public sealed class SessionTurnTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // an event as a server raises it: on a thread of its own, waiting until the session is open to it, and handled then. Waits says when it waits: from then on
     // the session knows of it, which is what a program that pumps needs to have to handle it.
@@ -20,6 +21,9 @@ public sealed class SessionTurnTests
             using (turn.Waiting())
             {
                 waits?.TrySetResult();
+
+                // as a server's thread waits (ServerEventRouter): it reads the turn until it is open, for no set time, so how long it spins changes nothing
+                // but how soon it sees the turn open.
                 SpinWait.SpinUntil(() => turn.IsOpenForEvents);
                 turn.RunEvent(() => said.Add(name));
             }

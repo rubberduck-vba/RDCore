@@ -204,6 +204,8 @@
   href: vbc09381.md
 - name: "VBC09382: Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions"
   href: vbc09382.md
+- name: "VBC09383: There is no host application to evaluate the expression"
+  href: vbc09383.md
 - name: "VBR-0001: Application-defined or object-defined error"
   href: vbr-0001.md
 - name: "VBR00003: Return without GoSub"
@@ -300,6 +302,8 @@
   href: vbr00325.md
 - name: "VBR00361: Can't load or unload this object"
   href: vbr00361.md
+- name: "VBR00364: Object was unloaded"
+  href: vbr00364.md
 - name: "VBR00380: Invalid property value"
   href: vbr00380.md
 - name: "VBR00381: Invalid property array index"
@@ -316,6 +320,12 @@
   href: vbr00393.md
 - name: "VBR00394: Get not supported (write-only property)"
   href: vbr00394.md
+- name: "VBR00401: Can't show non-modal form when modal form is displayed"
+  href: vbr00401.md
+- name: "VBR00402: Must close or hide topmost modal form first"
+  href: vbr00402.md
+- name: "VBR00405: Unable to show modal form within this context"
+  href: vbr00405.md
 - name: "VBR00422: Property not found"
   href: vbr00422.md
 - name: "VBR00423: Property or method not found"
@@ -408,6 +418,24 @@
   href: rdc00114.md
 - name: "RDC00115: Implicit result local"
   href: rdc00115.md
+- name: "RDC00116: Implicit For step"
+  href: rdc00116.md
+- name: "RDC00117: Implicit constant type"
+  href: rdc00117.md
+- name: "RDC00119: Implicit default member access"
+  href: rdc00119.md
+- name: "RDC00120: Implicit unbound default member access"
+  href: rdc00120.md
+- name: "RDC00121: Indexed default member access"
+  href: rdc00121.md
+- name: "RDC00122: Indexed unbound default member access"
+  href: rdc00122.md
+- name: "RDC00123: Bang notation"
+  href: rdc00123.md
+- name: "RDC00124: Unbound bang notation"
+  href: rdc00124.md
+- name: "RDC00125: Suspicious Let assignment"
+  href: rdc00125.md
 - name: "RDC00201: Integer data type declaration"
   href: rdc00201.md
 - name: "RDC00202: Module-scope Dim declaration"
@@ -424,6 +452,24 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00209: Boolean assigned in If…Else"
+  href: rdc00209.md
+- name: "RDC00210: Stop statement"
+  href: rdc00210.md
+- name: "RDC00211: On Error GoTo -1"
+  href: rdc00211.md
+- name: "RDC00212: Unrestored On Error Resume Next"
+  href: rdc00212.md
+- name: "RDC00213: Line continuation between keywords"
+  href: rdc00213.md
+- name: "RDC00214: Procedure can be written as a function"
+  href: rdc00214.md
+- name: "RDC00215: Self-assigned declaration"
+  href: rdc00215.md
+- name: "RDC00216: Function result discarded"
+  href: rdc00216.md
+- name: "RDC00218: IsMissing of a Variant that is not Optional"
+  href: rdc00218.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"
@@ -444,20 +490,62 @@
   href: rdc00310.md
 - name: "RDC00311: Early binding opportunity"
   href: rdc00311.md
+- name: "RDC00312: Empty string literal"
+  href: rdc00312.md
+- name: "RDC00313: Redundant Step 1"
+  href: rdc00313.md
+- name: "RDC00314: Redundant ByRef modifier"
+  href: rdc00314.md
+- name: "RDC00315: Redundant module option"
+  href: rdc00315.md
 - name: "RDC00405: Implementations should be private"
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"
   href: rdc00407.md
+- name: "RDC00408: Underscore in a public class member"
+  href: rdc00408.md
+- name: "RDC00409: Public field"
+  href: rdc00409.md
+- name: "RDC00410: Default instance in its own class"
+  href: rdc00410.md
+- name: "RDC00411: Code in a class implemented as an interface"
+  href: rdc00411.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
   href: rdc01002.md
+- name: "RDC01003: Empty If block"
+  href: rdc01003.md
+- name: "RDC01004: Empty code block"
+  href: rdc01004.md
 - name: "RDC01005: Hosted document code"
   href: rdc01005.md
 - name: "RDC01006: Unsupported document module"
   href: rdc01006.md
 - name: "RDC01007: Host library not referenced"
   href: rdc01007.md
+- name: "RDC01008: Native call reachable on every platform"
+  href: rdc01008.md
+- name: "RDC01009: Empty procedure"
+  href: rdc01009.md
+- name: "RDC01010: Empty module"
+  href: rdc01010.md
+- name: "RDC01011: Variable not used"
+  href: rdc01011.md
+- name: "RDC01012: Variable not assigned"
+  href: rdc01012.md
+- name: "RDC01013: Parameter not used"
+  href: rdc01013.md
+- name: "RDC01014: Assigned ByVal parameter"
+  href: rdc01014.md
+- name: "RDC01015: Constant not used"
+  href: rdc01015.md
+- name: "RDC01016: Line label not used"
+  href: rdc01016.md
+- name: "RDC01017: Write-only property"
+  href: rdc01017.md
+- name: "RDC01018: Keyword used as a member name"
+  href: rdc01018.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"
@@ -504,9 +592,39 @@
   href: rdc11031.md
 - name: "RDC11032: For Each variable read after the loop ran out"
   href: rdc11032.md
+- name: "RDC11033: Reserved name that MS-VBA accepts"
+  href: rdc11033.md
+- name: "RDC11034: Name that MS-VBA refuses"
+  href: rdc11034.md
+- name: "RDC11035: Collection set to Nothing inside its own For Each loop"
+  href: rdc11035.md
 - name: "RDC11036: Negative line number"
   href: rdc11036.md
 - name: "RDC11037: Non-breaking space in a name"
   href: rdc11037.md
+- name: "RDC11039: Function called whatever the IIf condition"
+  href: rdc11039.md
+- name: "RDC11040: Str of a number between -1 and 1"
+  href: rdc11040.md
+- name: "RDC11041: Str of an Error value"
+  href: rdc11041.md
+- name: "RDC11042: Write # of a number between -1 and 1"
+  href: rdc11042.md
+- name: "RDC11043: Object assigned with Let to a Variant property"
+  href: rdc11043.md
+- name: "RDC11044: LSet of a record that holds a variable-length String"
+  href: rdc11044.md
+- name: "RDC11045: Let through a default member with no Property Let"
+  href: rdc11045.md
+- name: "RDC11046: Let through a Variant property or function"
+  href: rdc11046.md
+- name: "RDC11047: Object assigned with Let to an object property"
+  href: rdc11047.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md
+- name: "RDC30001: No entry point"
+  href: rdc30001.md
+- name: "RDC30002: More than one entry point"
+  href: rdc30002.md
+- name: "RDC31001: Circular reference of projects"
+  href: rdc31001.md

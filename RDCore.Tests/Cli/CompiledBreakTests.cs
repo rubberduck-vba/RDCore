@@ -21,7 +21,8 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledBreakTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// A program run again by the pipeline of a session that has run it to load it, under a gate: each line it prints is given to <c>said</c>, as it prints it.

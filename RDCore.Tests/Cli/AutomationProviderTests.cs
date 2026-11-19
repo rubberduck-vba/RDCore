@@ -57,6 +57,7 @@ public sealed class AutomationProviderTests
                     new MemberDescription { Name = "Measure", Kind = MemberKind.Method, Type = "Object" },
                     new MemberDescription { Name = "When", Kind = MemberKind.PropertyGet, Type = "Date" },
                     new MemberDescription { Name = "Price", Kind = MemberKind.PropertyGet, Type = "Currency" },
+                    new MemberDescription { Name = "Cost", Kind = MemberKind.PropertyGet, Type = "Currency" },
                     new MemberDescription { Name = "Tag", Kind = MemberKind.PropertyGet, Type = "Variant" },
                     new MemberDescription { Name = "Tag", Kind = MemberKind.PropertyLet, Parameters = [new ParameterDescription { Name = "Value", Type = "Variant", IsByVal = true }] },
                     new MemberDescription { Name = "_NewEnum", Kind = MemberKind.PropertyGet, Type = "Object", DispId = -4, IsHidden = true },
@@ -80,6 +81,9 @@ public sealed class AutomationProviderTests
         public DateTime When => new(2026, 10, 9, 12, 0, 0, DateTimeKind.Unspecified);
 
         public decimal Price => 12.5m;
+
+        // a Double where the member is declared to return a Currency.
+        public double Cost => 123456789012.3456;
 
         public Beaker Self => this;
 
@@ -307,6 +311,11 @@ public sealed class AutomationProviderTests
                 "Dim b As New Lab.Beaker",
                 "Debug.Print CDbl(b.When)",
                 "Debug.Print b.Price * 2"));
+
+    // a Currency of the Double's exact value, rounded to four decimals, as a Let makes one: the 15 significant digits a Decimal of it keeps lose the last.
+    [TestMethod]
+    public async Task ADoubleTheServerReturnsForACurrency_KeepsItsFourDecimals()
+        => CollectionAssert.AreEqual(new[] { "123456789012.3456" }, await Run("Dim b As New Lab.Beaker", "Debug.Print b.Cost"));
 
     [TestMethod]
     public async Task AValueOfAnyTypeIsGivenToAVariantMember_AndReadBackAsTheTypeItWas()

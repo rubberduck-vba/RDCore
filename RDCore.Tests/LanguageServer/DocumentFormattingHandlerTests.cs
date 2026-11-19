@@ -94,4 +94,49 @@ public sealed class DocumentFormattingHandlerTests
 
         Assert.IsEmpty(await Service().FormatAsync(document.Id.Uri.ToUri(), lines: null, CancellationToken.None));
     }
+
+    // the position of the request is on the new line, after the break; the module is parsed again with the closer in it.
+    [TestMethod]
+    public async Task ALineBreakAfterAnOpener_IndentsTheNewLine_AndClosesTheBlock()
+    {
+        var document = new WorkspaceDocument("Module1.bas", Root, "Sub A()\r\n    If x Then\r\n\r\nEnd Sub");
+        Holds(document);
+        _parsing.ParseFragmentAsync(document.Id.Uri.ToUri(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>()));
+
+        var edits = await new DocumentOnTypeFormattingHandler(Service(), Selector, new IncomingDocumentChanges()).Handle(new DocumentOnTypeFormattingParams
+        {
+            TextDocument = new TextDocumentIdentifier(document.Id.Uri),
+            Position = new Position(2, 0),
+            Character = "\n",
+        }, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "2:0-0 '        '", "3:0-0 '    End If\r\n'" }, Edited(edits));
+    }
+
+    [TestMethod]
+    public async Task ACharacterThatIsNoLineBreak_IsGivenNoEdit()
+    {
+        var document = new WorkspaceDocument("Module1.bas", Root, "Sub A()\r\n    If x Then\r\n\r\nEnd Sub");
+        Holds(document);
+
+        var edits = await new DocumentOnTypeFormattingHandler(Service(), Selector, new IncomingDocumentChanges()).Handle(new DocumentOnTypeFormattingParams
+        {
+            TextDocument = new TextDocumentIdentifier(document.Id.Uri),
+            Position = new Position(1, 13),
+            Character = ";",
+        }, CancellationToken.None);
+
+        Assert.IsEmpty(Edited(edits));
+    }
+
+    // the shell closes the blocks of a program as it is typed, one numbered line at a time.
+    [TestMethod]
+    public async Task ALineBreakInAProgram_IsGivenNoEdit()
+    {
+        var document = new WorkspaceDocument("Program1.rdc", Root, "10 If x Then\r\n");
+        Holds(document);
+
+        Assert.IsEmpty(await Service().OnLineBreakAsync(document.Id.Uri.ToUri(), 1, CancellationToken.None));
+    }
 }

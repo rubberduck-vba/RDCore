@@ -9,7 +9,7 @@ A **syntax error** is raised while the parser traverses the *concrete syntax tre
 |Raised by|the parser (concrete syntax tree)|
 |Source metadata|[VBSyntaxErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBSyntaxErrorInfo.html); its `ErrorId` is the number of the code (`VBCompileErrorId` in the language core names each one)|
 |Severity|`Error`|
-|Detail|the faulted token and its expected role, on `Diagnostic.data`|
+|Detail|what **MS-VBA** says of the error, at its caret (see [What a Syntax Error Says](#what-a-syntax-error-says))|
 
 ## Syntax and Semantic Compilation Errors
 
@@ -114,6 +114,30 @@ RD-VBA reads:
 |A `For` loop|3|about 10,600 nested loops|
 |A block `If`, a `With` block|4|about 8,000 nested blocks|
 |A `Select Case`|5|about 6,400 nested statements|
+
+## What a Syntax Error Says
+
+A `VBC00001` the grammar reports says what **MS-VBA** says when it compiles the module, at the range **MS-VBA** marks (recorded in Excel).
+
+In the body of a procedure, it is `Syntax error`, over the whole line: from its first column, its indentation, label or line number and a statement
+before it on the line included, to its last character, its comment and the lines it continues on included.
+
+In a procedure's header, or in a declaration of the module, it is what **MS-VBA** expected, at the token where it is missing, or right where the line ends:
+
+|Written|Message|At|
+|---|---|---|
+|`Sub ()`, `Sub S(x, )`, `Private Type`, `Private Enum`|Expected: identifier|`)`, the end of the line|
+|`Sub S(x As)`, `Function F() As`|Expected: type name|`)`, the end of the line|
+|`Private x As`|Expected: New or type name|the end of the line|
+|`Sub S(x`|Expected: list separator or )|the end of the line|
+|`Sub S(Optional x As Long = )`|Expected: expression|`)`|
+|`Sub S() As Long`|Expected: end of statement|`As`|
+|`Property X()`|Expected: Get or Let or Set|`X`|
+|`Declare PtrSafe Sub Foo`|Expected: Lib|the end of the line|
+|`Option Compare`|Expected: Text or Binary|the end of the line|
+
+Where the grammar does not tell what was expected, the error is `Syntax error`, at the token. The other syntax errors (`VBC00042` and up, and the
+directives' below) say what their own code says.
 
 ## Conditional Compilation
 

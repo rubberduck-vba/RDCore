@@ -73,6 +73,39 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         StringComparisonRules comparison, bool isValueKnown, VBErrorInfo? error)
         => new ComparisonOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags, comparison);
 
+    protected sealed override OperatorFact WithOperands(OperatorFact fact, IRuntimeSymbolResolver resolver, ExpressionNode expression, VBTypedValue[] operands)
+        => fact is ComparisonOperatorFact comparison && StringOperandOf(resolver, expression, operands) is { } operand
+            ? comparison with { StringOperand = operand }
+            : fact;
+
+    // MS-VBAL 5.6.9.5: a String compared with a number is Let-coerced to the effective type of the table, which MS-VBA does not always compare it in (it
+    // compares a String with a Byte, an Integer or a Long as Doubles). What the String is either way is stated, with the error each Let-coercion raises.
+    private StringOperandFact? StringOperandOf(IRuntimeSymbolResolver resolver, ExpressionNode expression, VBTypedValue[] operands)
+    {
+        if (!ComparesValues || operands is not [var left, var right]
+            || !IsStringAgainstAnother(left, right, out var text, out var number, out var stringIsLeft)
+            || HeldValueOf(number) is not { TypeInfo: VBNumericType } held
+            || OperationPlanner.SpecifiedRelationalEffectiveType(left.GetTargetType(), right.GetTargetType()) is not { } specified)
+        {
+            return null;
+        }
+
+        var known = number.IsIndeterminate ? null : held;
+        if (text.IsIndeterminate)
+        {
+            return new StringOperandFact(stringIsLeft, specified.Name, null, null, null, null, known);
+        }
+
+        var asDouble = CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo);
+        var asSpecified = CoerceUnstated(resolver, expression, text, specified);
+        return new StringOperandFact(stringIsLeft, specified.Name,
+            asDouble.ErrorInfo is null ? asDouble.Result : null, asDouble.ErrorInfo?.ErrorId,
+            asSpecified.ErrorInfo is null ? asSpecified.Result : null, asSpecified.ErrorInfo?.ErrorId,
+            known);
+    }
+
+    private static VBTypedValue HeldValueOf(VBTypedValue value) => value is VBVariantValue { TypedValue: var held } ? held : value;
+
     protected override ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> Analyze(
         IRuntimeSymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
@@ -114,11 +147,6 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         if (operands is [var lhs, var rhs] && IsVariantStringThatIsNoValue(resolver, expression, lhs, rhs, out _))
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked);
-        }
-
-        if (operands is [var first, var second] && IsStringComparedAsADouble(resolver, expression, analysisContext.EffectiveTypeResult.Result, first, second))
-        {
-            builder.AddFlags(ComparisonOperatorSemanticFlags.IsStringComparedAsADouble);
         }
 
         return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
@@ -184,9 +212,9 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
 
     // MS-VBA compares a Variant holding a number, a Date or a Boolean with a String that is no Variant - one declared As String, a literal - as text: the
     // Variant's value is let-coerced to String, as Microsoft Learn's Comparison operators documents it ("One expression is a String and the other is any Variant
-    // except a Null: Perform a string comparison"; Excel-measured, oracle\s41 V01-V04, W01-W08, W10 - `10 > "9"` is False). MS-VBAL 5.6.9.5's table makes the
+    // except a Null: Perform a string comparison"; observed in Excel - `10 > "9"` is False). MS-VBAL 5.6.9.5's table makes the
     // effective type the number's, which makes a String that is no number a type mismatch (13): RD-VBA does what MS-VBA does, and the analysis states it
-    // (IsVariantComparedWithStringAsText) for RDCore.Diagnostics to report (RDC11013). A Variant holding an Error is left to the table, which no oracle measured.
+    // (IsVariantComparedWithStringAsText) for RDCore.Diagnostics to report (RDC11013). A Variant holding an Error is left to the table, which was not measured.
     private static bool IsComparedAsText(VBTypedValue left, VBTypedValue right)
         => IsTextComparedVariant(left) && right is VBStringValue || IsTextComparedVariant(right) && left is VBStringValue;
 
@@ -195,10 +223,10 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
 
     // MS-VBA compares a Variant holding a String with a number, a Date or a Boolean that is no Variant as the table says when the String is a value of the
     // effective type - "3" < 5 is True, "1/2/1900" < a Date of 5 is True, "True" = a Boolean True is True - and, when it is not, ranks the String above it
-    // as it does for two Variants (IsVariantStringNumericException), raising nothing: "abc" > 5 is True, "" < 5 is False, from either side (Excel-measured,
-    // oracle\s48 H01-H05, I01-I04, K01-K09, L01-L04). MS-VBAL 5.6.9.5's table, and Microsoft Learn's Comparison operators, make the String's conversion a type
+    // as it does for two Variants (IsVariantStringNumericException), raising nothing: "abc" > 5 is True, "" < 5 is False, from either side (observed in
+    // Excel). MS-VBAL 5.6.9.5's table, and Microsoft Learn's Comparison operators, make the String's conversion a type
     // mismatch (13): RD-VBA does what MS-VBA does, and the analysis states it (IsVariantStringThatIsNoValueRanked) for RDCore.Diagnostics to report
-    // (RDC11020). A String declared as one is no Variant, and raises 13 (L02). Only a type mismatch is a String that is no value: an overflow is raised.
+    // (RDC11020). A String declared as one is no Variant, and raises 13. Only a type mismatch is a String that is no value: an overflow is raised.
     private bool IsVariantStringThatIsNoValue(IRuntimeSymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, out bool leftIsNumeric)
         => IsVariantStringThatIsNoValue(resolver, expression, frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand], out leftIsNumeric);
 
@@ -242,8 +270,8 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             return LetCoercionResult.Success(new VBIntegerValue(isNumericSide ? (short)0 : (short)1));
         }
 
-        // MS-VBAL 5.6.9.5: two Errors are compared as the Errors they are, by their codes: CVErr(5) < CVErr(6) is True (recorded in Excel: oracle\s57
-        // E02, E04). An Error is let-coerced to no type but Variant (5.5.1.2.9), and is not let-coerced to the effective type it already is.
+        // MS-VBAL 5.6.9.5: two Errors are compared as the Errors they are, by their codes: CVErr(5) < CVErr(6) is True (observed in Excel).
+        // An Error is let-coerced to no type but Variant (5.5.1.2.9), and is not let-coerced to the effective type it already is.
         if (frame.EffectiveType is VBErrorType && frame[index] is VBErrorValue or VBVariantValue { TypedValue: VBErrorValue })
         {
             return LetCoercionResult.Success(frame[index] is VBVariantValue { TypedValue: VBErrorValue held } ? held : frame[index]);
@@ -273,7 +301,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             : base.AnalyzeValidateOperand(resolver, builder, expression, frame, operandIndex);
 
     // MS-VBAL 5.6.9.5: a String compared with a Date has the effective type Date, and is let-coerced to it - the text of a date is read as one (MS-VBA:
-    // a Variant "1/2/1900" < a Date of 5 is True, Excel-measured, oracle\s48 K04). The operands of a Date effective type are otherwise let-coerced to
+    // a Variant "1/2/1900" < a Date of 5 is True, observed in Excel). The operands of a Date effective type are otherwise let-coerced to
     // Double, the serial they are compared by, which the text of a date is not: it is let-coerced to Date, and compared by its serial.
     private static bool IsTextOfADate(OperatorEvaluationFrame frame, VBTypedValue operand)
         => frame.EffectiveType is VBDateType && operand is VBStringValue or VBVariantValue { TypedValue: VBStringValue };
@@ -303,85 +331,10 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
 
     // MS-VBA compares a Variant holding a String with a Single or a LongLong as Doubles, as it compares any String with a Byte, an Integer or a Long
     // (OperationPlanner): with v holding "0.1", v = a Single of 0.1 is False, and with v holding "9007199254740993", v = a LongLong of 9007199254740992 is
-    // True (recorded in Excel: oracle\s56 H02-H04; RD-VBAL 5.6.9.5). A String declared as one is compared with a Single as MS-VBAL's table says (H02).
+    // True (observed in Excel; RD-VBAL 5.6.9.5). A String declared as one is compared with a Single as MS-VBAL's table says.
     private static bool IsVariantStringAgainstASingleOrALongLong(VBTypedValue left, VBTypedValue right)
         => IsVariantStringAgainstAScalar(left, right, out _, out var leftIsNumeric)
             && (leftIsNumeric ? left : right).TypeInfo is VBSingleType or VBLongLongType;
-
-    // MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles, where MS-VBAL 5.6.9.5's table
-    // gives the number's type (OperationPlanner.SpecifiedRelationalEffectiveType): the analysis states it (IsStringComparedAsADouble) for RDCore.Diagnostics
-    // to report (RDC11027) where the operator can answer otherwise than the table's comparison would. It cannot for a known String that is no number (13
-    // either way), nor for a known String compared with a known number for which the two answers are the same. With the number not known, the two answer
-    // alike for every number but those next to the String's value: "2.5" is the table's 2, and 2.5 < n is 2 < n for every integer n, where 2.5 > n is not
-    // 2 > n for n = 2. Past 2^53, where a Double holds no longer every integer, a LongLong that is not known is not compared alike.
-    private bool IsStringComparedAsADouble(IRuntimeSymbolResolver resolver, ExpressionNode expression, VBType? effective, VBTypedValue left, VBTypedValue right)
-    {
-        if (!ComparesValues || effective is not VBDoubleType
-            || OperationPlanner.SpecifiedRelationalEffectiveType(left.GetTargetType(), right.GetTargetType()) is not { } specified
-            || specified is VBDoubleType
-            || !IsStringAgainstAnother(left, right, out var text, out var number, out var stringIsLeft))
-        {
-            return false;
-        }
-
-        if (text.IsIndeterminate)
-        {
-            return true;
-        }
-
-        var asSpecified = CoerceUnstated(resolver, expression, text, specified);
-        var asDoubleResult = CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo);
-        if (asSpecified.ErrorInfo is { } error)
-        {
-            // an error the Double raises too is the answer either way: "abc" is 13, and "1e400" is 6.
-            return asDoubleResult.ErrorInfo?.ErrorId != error.ErrorId;
-        }
-
-        if (asDoubleResult.Result is not { } asDouble)
-        {
-            return true;
-        }
-
-        var held = Convert.ToDouble(asDouble.RuntimeValue.BoxedValue);
-        var tabled = asSpecified.Result!.RuntimeValue.BoxedValue;
-        if (specified is VBSingleType)
-        {
-            var single = Convert.ToSingle(tabled);
-            float[] singles = number.IsIndeterminate ? [float.BitDecrement(single), single, float.BitIncrement(single)] : [Convert.ToSingle(ValueOf(number))];
-            return singles.Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(single, n, stringIsLeft));
-        }
-
-        var integer = Convert.ToInt64(tabled);
-        if (!number.IsIndeterminate)
-        {
-            var known = Convert.ToInt64(ValueOf(number));
-            return AsDoubles(held, known, stringIsLeft) != Ordered(integer, known, stringIsLeft);
-        }
-
-        if (Math.Abs(held) >= 1L << 53)
-        {
-            return true;
-        }
-
-        long[] integers = [(long)Math.Floor(held) - 1, (long)Math.Floor(held), (long)Math.Ceiling(held), (long)Math.Ceiling(held) + 1];
-        return integers.Where(n => IsInRangeOf(specified, n)).Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(integer, n, stringIsLeft));
-    }
-
-    // MS-VBA's answer: the String's Double and the number's.
-    private bool AsDoubles(double text, double number, bool stringIsLeft) => stringIsLeft ? ComparisonOp(text, number) : ComparisonOp(number, text);
-
-    // the table's answer: the String as a value of the number's type, and the number.
-    private bool Ordered<T>(T text, T number, bool stringIsLeft) where T : INumber<T> => stringIsLeft ? ComparisonOp(text, number) : ComparisonOp(number, text);
-
-    private static bool IsInRangeOf(VBType type, long value) => type switch
-    {
-        VBByteType => value is >= byte.MinValue and <= byte.MaxValue,
-        VBIntegerType => value is >= short.MinValue and <= short.MaxValue,
-        VBLongType => value is >= int.MinValue and <= int.MaxValue,
-        _ => true,
-    };
-
-    private static object ValueOf(VBTypedValue number) => (number is VBVariantValue variant ? variant.TypedValue : number).RuntimeValue.BoxedValue;
 
     private static bool IsStringAgainstAnother(VBTypedValue left, VBTypedValue right, out VBStringValue text, out VBTypedValue number, out bool stringIsLeft)
     {

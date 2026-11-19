@@ -21,6 +21,9 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class EditAndContinueLayoutTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static string Lines(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
     private static readonly string D = ModuleWorkspace.ClassModule("D",
@@ -30,7 +33,7 @@ public sealed class EditAndContinueLayoutTests
 
     private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
-            .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+            .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(SafetyCap);
 
     private static SyntaxNode Statement(string text)
     {
@@ -44,7 +47,7 @@ public sealed class EditAndContinueLayoutTests
     {
         var result = await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
             .Handle(new HostDebugExecuteParams { FrameId = 0, Json = PlatformJson.Serialize(Statement(statement)) }, CancellationToken.None)
-            .WaitAsync(TimeSpan.FromSeconds(20));
+            .WaitAsync(SafetyCap);
         return result.Success ? $"at the stop: {string.Join("|", result.Output.Select(line => line.Trim()))}" : $"at the stop, not run: {result.Error}";
     }
 

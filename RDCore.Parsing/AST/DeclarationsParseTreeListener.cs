@@ -18,6 +18,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing.AST;
@@ -770,7 +771,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         var arguments = context.eventArgumentList()?.eventArgument().Select((argument, index) => CaptureEventArgument(id.Add(0).Add(index), argument)) ?? [];
         var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
@@ -924,6 +925,23 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // a statement no alternative reads - `a = 1-`, `If x = 1 - Then` - is tokens no rule read, and is kept as the text it is: the syntax error is reported
     // where the parse stopped, and the statement does not vanish from the tree.
     public override void ExitMainBlockStmt([NotNull] VBAParser.MainBlockStmtContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
+    // so is a statement written outside the procedures (x = 1 before the first one, Loop after an End Sub): it is kept where it is written, in the module.
+    public override void ExitModuleDeclarationsElement([NotNull] VBAParser.ModuleDeclarationsElementContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
+    public override void ExitModuleBodyElement([NotNull] VBAParser.ModuleBodyElementContext context)
     {
         if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
         {
@@ -1183,7 +1201,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             context, Tokens.Scale,
             target, isWithRelative,
             tuples.ElementAtOrDefault(0), context.SCALE().Symbol.TokenIndex, [],
-            tuples.ElementAtOrDefault(1), context.MINUS().Symbol.TokenIndex, [],
+            tuples.ElementAtOrDefault(1), context.MINUS()?.Symbol.TokenIndex ?? 0, [],
             [], [], lineOption: null);
     }
 
@@ -1247,10 +1265,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var to = CaptureGraphicsPoint(id.Add(1), second, beforeSecond, secondSteps);
 
         // a malformed statement - a coordinate pair that recovery left without a coordinate, or an object that did not come out as an expression - is still the
-        // source text it was.
+        // source text it was. A Line may leave its first point out, and a Scale both its corners.
         if ((target is not null && capturedTarget is null)
             || (first is not null && from is null) || (second is not null && to is null)
-            || (token != Tokens.Line && first is null))
+            || (token != Tokens.Line && first is null && !(token == Tokens.Scale && second is null)))
         {
             CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
             return;
@@ -1533,8 +1551,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
 
+        // a name in brackets is the name without them, as a declaration's is (MS-VBAL §3.3.5.3): the node says it was written in them.
+        var isBracketed = identifier.IsBracketed();
         var location = context.GetSourceLocation(_rootUri);
-        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value, identifier.TypeHint()));
+        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, isBracketed ? identifier.Name() : value, identifier.TypeHint(), isBracketed));
     }
 
     // MS-VBAL §3.3.5.3: an intrinsic type written where an expression is - after TypeOf ... Is, or where a value is. It is no value, and the static semantics
@@ -1595,7 +1615,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1612,7 +1632,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -1629,7 +1649,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1646,7 +1666,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -1955,7 +1975,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             _errors.Report(location, VBCompileErrorId.NumericLiteralOverflow, Exceptions.VBCompileError_NumericLiteralOverflow_Verbose);
         }
-        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
+        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value) { Spelling = token.Length > 0 ? token : null });
     }
     // Operator alternatives of `expression` (a left-recursive rule) have no Enter override, so none of
     // the handlers below use one: each operator's operands are, at Exit time, always exactly the last
@@ -2050,32 +2070,14 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, maxInputs));
     }
 
-    // the expression ends at its last token: the blanks the parse read after it, for what it found missing (`2 +`, then a comment), are no part of it.
+    // the expression is kept as it is written: the blanks the parse read after it, for what it found missing (`2 +`, then a comment), and a token it made up
+    // for one missing, are no part of it.
     private UnbuiltExpressionTriviaNode BuildUnbuiltExpressionTrivia(VBABaseParserRuleContext context, int maxInputs)
     {
         var inputs = CurrentBuilder.PopLastChildren(maxInputs);
-        var (location, text) = UnbuiltSourceOf(context);
+        var (location, text) = context.Written(_rootUri);
         return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), location, text, inputs);
     }
-
-    // where an unbuilt rule is, and its text there, as the module writes it: through its last token, past which the parse read only blanks, or made up a
-    // token for one missing (`Foo(-`, whose `)` the parse made up, is no text of the module, and ends at the `-`, the last token the parse read).
-    private (SourceLocation Location, string Text) UnbuiltSourceOf(VBABaseParserRuleContext context)
-    {
-        if (LastTokenNoBlank(context) is { } last && context.Start is { StartIndex: >= 0 } start && last.StopIndex >= start.StartIndex)
-        {
-            return (context.GetSourceLocation(_rootUri, last), start.InputStream.GetText(Interval.Of(start.StartIndex, last.StopIndex)));
-        }
-
-        return (context.GetSourceLocation(_rootUri), context.GetText());
-    }
-
-    // the last token the parse read in a rule that is no blank, and no token it made up for one missing.
-    private static IToken? LastTokenNoBlank(IParseTree node) => node switch
-    {
-        ITerminalNode { Symbol: var token } => token.TokenIndex < 0 || token.Type is VBAParser.WS or VBAParser.LINE_CONTINUATION or TokenConstants.Eof ? null : token,
-        _ => Enumerable.Range(0, node.ChildCount).Reverse().Select(i => LastTokenNoBlank(node.GetChild(i))).FirstOrDefault(token => token is not null),
-    };
 
     // statement-position counterpart of BuildUnbuiltExpressionTrivia — same rationale (a required
     // sub-expression/identifier missing under recovery must not silently vanish, since that's still
@@ -2084,7 +2086,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     private UnbuiltStatementTriviaNode BuildUnbuiltStatementTrivia(VBABaseParserRuleContext context, int maxInputs = 0)
     {
         var inputs = CurrentBuilder.PopLastChildren(maxInputs);
-        var (location, text) = UnbuiltSourceOf(context);
+        var (location, text) = context.Written(_rootUri);
         return new UnbuiltStatementTriviaNode(GetCurrentNodeId(), location, text, inputs);
     }
 
@@ -2117,6 +2119,44 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             _trivia.Add(new ErasedPlusTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeOf(plus))));
         }
     }
+
+    // MS-VBAL §3.2.2: a line continuation is no code, and builds no node: it is trivia, kept once however many walks read it. One stands between two tokens,
+    // a token of its own; the lexer reads one inside a keyword of two words (`End _` then `If`) as a part of that keyword's token, which says which keyword.
+    // A comment that ends with one goes on to the next line: what is in it is the comment's, and no continuation of the code.
+    public override void VisitTerminal([NotNull] ITerminalNode node)
+    {
+        if (node.Symbol is not { TokenIndex: >= 0, Text: { Length: > 0 } text } token || node.Parent is not VBABaseParserRuleContext context
+            || context is VBAParser.CommentBodyContext || !text.Contains('\n') || !_lineContinuations.Add(token.TokenIndex))
+        {
+            return;
+        }
+
+        if (token.Type == VBAParser.LINE_CONTINUATION)
+        {
+            _trivia.Add(new LineContinuationTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeWithin(token, 0, text.Length))));
+            return;
+        }
+
+        if (!KeywordAcrossLines.IsMatch(text))
+        {
+            return;
+        }
+
+        var keyword = BlanksOfAKeyword.Replace(text, " ");
+        foreach (Match continuation in ContinuationInAKeyword.Matches(text))
+        {
+            _trivia.Add(new LineContinuationTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeWithin(token, continuation.Index, continuation.Length)), keyword));
+        }
+    }
+
+    private readonly HashSet<int> _lineContinuations = [];
+
+    // a line continuation as the lexer reads one (LINE_CONTINUATION), with the blanks that begin the next line, except the blank that starts another continuation
+    // on that line. A keyword across lines is its words, with blanks and line continuations between them.
+    private const string Continuation = @"[ \t]_[ \t]*\r?\n[ \t]*?(?=[ \t]_[ \t]*\r?\n|[^ \t\r\n])";
+    private static readonly Regex ContinuationInAKeyword = new(Continuation, RegexOptions.CultureInvariant);
+    private static readonly Regex BlanksOfAKeyword = new($@"(?:{Continuation}|[ \t])+", RegexOptions.CultureInvariant);
+    private static readonly Regex KeywordAcrossLines = new($@"^[A-Za-z]+(?:(?:{Continuation}|[ \t])+[A-Za-z]+)+$", RegexOptions.CultureInvariant);
 
     // MS-VBAL 5.6.6: a parenthesized expression is a value expression — its parentheses are an operator,
     // not punctuation, and this builds it. Erasing them made `Foo (x)` and `Foo x` the same tree, so an
@@ -2333,12 +2373,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             // never did, so the same literal disagreed between the two passes depending on the host's
             // culture (e.g. "#1-Jan-2020#" fails to parse entirely under a non-English locale whose
             // month abbreviations differ, instead of the invariant English ones MS-VBAL mandates).
-            if (DateTime.TryParse(dateLiteral.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.None, out var rawValue))
+            // MS-VBAL §3.3.3: a literal with no date is a time of 1899/12/30, which is what ToOADate makes of a time on no date (NoCurrentDateDefault).
+            if (DateTime.TryParse(dateLiteral.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var rawValue))
             {
                 OnExpression(new LiteralExpressionNode(
-                    GetCurrentNodeId(), 
-                    location, 
-                    new VBDateValue(rawValue.ToOADate())));
+                    GetCurrentNodeId(),
+                    location,
+                    new VBDateValue(rawValue.ToOADate())) { Spelling = dateLiteral.Symbol.Text });
             }
         }
         else if (context.STRINGLITERAL() is ITerminalNode stringLiteral)
@@ -2349,7 +2390,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             OnExpression(new LiteralExpressionNode(
                 GetCurrentNodeId(),
                 location,
-                VBStringValue.FromLiteralToken(stringLiteral.Symbol.Text)));
+                VBStringValue.FromLiteralToken(stringLiteral.Symbol.Text)) { Spelling = stringLiteral.Symbol.Text });
         }
     }
 
@@ -2411,11 +2452,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         var identifierLabel = context.identifierStatementLabel() ?? context.combinedLabels()?.identifierStatementLabel();
+        SourceRange? nameRange = null;
+        var isBracketed = false;
         if (identifierLabel?.legalLabelIdentifier()?.identifier() is { } labelIdentifier)
         {
-            // `Label:` - the colon is part of the label as written.
+            // `Label:` - the colon is part of the label as written, and not of its name; the name of `[Try Again]:` is the one `GoTo [Try Again]` names.
             labelLocation = identifierLabel.GetSourceLocation(_rootUri);
-            name = labelIdentifier.GetText();
+            name = labelIdentifier.Name();
+            isBracketed = labelIdentifier.IsBracketed();
+            nameRange = labelIdentifier.GetSourceLocation(_rootUri).Range;
         }
 
         var number = numberContext is null ? null : LineNumber(numberContext);
@@ -2428,7 +2473,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (name is not null)
         {
-            CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name));
+            CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name) { NameRange = nameRange, IsBracketed = isBracketed });
         }
 
         // lineNumberLabel is `MINUS? numberLiteral`: VBE can prettify &HFFFFFFFF into -1, which is a legal line number, so a sign and the other radixes are read.

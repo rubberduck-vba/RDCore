@@ -16,10 +16,12 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("RD-VBAL §5.0.3 Semantic Analysis")]
 public sealed class RuntimeFactsExposureTests
 {
-    private static async Task<RuntimeFacts> FactsOfAsync(string parameters, params string[] body)
+    private static Task<RuntimeFacts> FactsOfAsync(string parameters, params string[] body) => FactsOfAsync([], parameters, body);
+
+    private static async Task<RuntimeFacts> FactsOfAsync(IReadOnlyList<(string Name, string Source)> classes, string parameters, params string[] body)
     {
         var program = $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main({parameters})\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
-        var model = await ModuleWorkspace.ModelAsync([], program);
+        var model = await ModuleWorkspace.ModelAsync(classes, program);
 
         Assert.IsTrue(model.IsValid, string.Join("; ", model.CompileErrors.Select(error => error.Verbose)));
         var facts = model.Procedures.Single().Runtime;
@@ -115,8 +117,56 @@ public sealed class RuntimeFactsExposureTests
     {
         var access = Access(await FactsOfAsync("ByVal c As Collection", "Dim x As Variant", "x = c(1)"));
 
-        Assert.AreEqual(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember, access.Flags);
+        Assert.AreEqual(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+            access.Flags);
         Assert.AreEqual("Item", access.Member, "the code does not name it: the class does");
+    }
+
+    // a class whose default member takes an argument, and can be assigned.
+    private static readonly (string Name, string Source) Box = ("Box", ModuleWorkspace.ClassModule("Box", "Option Explicit", "Private m As Long",
+        "Public Property Get Item(ByVal k As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = m", "End Property",
+        "Public Property Let Item(ByVal k As Variant, ByVal v As Long)", "m = v", "End Property"));
+
+    // an argument list given to an object that is assigned goes to its default member, as a read of it does, and is stated where the code writes it.
+    [TestMethod]
+    [DataRow("b(1) = 5", MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+        4, DisplayName = "the object")]
+    [DataRow("b.Item(1) = 5", MemberAccessOperationSemanticFlags.Explicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+        6, DisplayName = "the member named")]
+    public async Task AnArgumentListGivenToAnObjectThatIsAssigned_IsAnAccessOfItsDefaultMember(string assignment, MemberAccessOperationSemanticFlags expected, int end)
+    {
+        var access = Access(await FactsOfAsync([Box], "", "Dim b As New Box", assignment));
+
+        Assert.AreEqual(expected, access.Flags);
+        Assert.AreEqual("Item", access.Member);
+        Assert.AreEqual((4, 0, 4, end), (access.Location.Range.Start.Line, access.Location.Range.Start.Character, access.Location.Range.End.Line, access.Location.Range.End.Character));
+    }
+
+    // a class whose default member is a property the code can assign.
+    private static readonly (string Name, string Source) Cell = ("Cell", ModuleWorkspace.ClassModule("Cell", "Option Explicit", "Private m As Long",
+        "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "Value = m", "End Property",
+        "Public Property Let Value(ByVal v As Long)", "Attribute Value.VB_UserMemId = 0", "m = v", "End Property"));
+
+    // a value assigned to the object itself is given to its default member, which the code does not name; naming it is an explicit access of it.
+    [TestMethod]
+    [DataRow("h = 5", MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember, DisplayName = "the object")]
+    [DataRow("h.Value = 5", MemberAccessOperationSemanticFlags.Explicit | MemberAccessOperationSemanticFlags.DefaultMember, DisplayName = "the member named")]
+    public async Task AValueAssignedToAnObject_IsAnAccessOfItsDefaultMember(string assignment, MemberAccessOperationSemanticFlags expected)
+    {
+        var access = Access(await FactsOfAsync([Cell], "", "Dim h As New Cell", assignment));
+
+        Assert.AreEqual(expected, access.Flags);
+        Assert.AreEqual("Value", access.Member);
+    }
+
+    // the element is the target the code writes: the access is at the element, subscripts included, and not at the array's name.
+    [TestMethod]
+    public async Task AValueAssignedToAnElementThatHoldsAnObject_IsAnAccessOfItsDefaultMember_AtTheElement()
+    {
+        var access = Access(await FactsOfAsync([Cell], "", "Dim a(1) As Cell", "Set a(1) = New Cell", "a(1) = 5"));
+
+        Assert.AreEqual(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember, access.Flags);
+        Assert.AreEqual((5, 0, 5, 4), (access.Location.Range.Start.Line, access.Location.Range.Start.Character, access.Location.Range.End.Line, access.Location.Range.End.Character));
     }
 
     [TestMethod]
@@ -152,7 +202,8 @@ public sealed class RuntimeFactsExposureTests
         var facts = await FactsOfAsync("", "With New Collection", "    .Add 1", "End With");
 
         var access = Access(facts);
-        Assert.AreEqual(MemberAccessOperationSemanticFlags.Explicit | MemberAccessOperationSemanticFlags.WithBlockVariable, access.Flags);
+        Assert.AreEqual(MemberAccessOperationSemanticFlags.Explicit | MemberAccessOperationSemanticFlags.WithBlockVariable | MemberAccessOperationSemanticFlags.ArgumentList,
+            access.Flags);
         Assert.IsTrue(access.IsValueKnown, "a new object is known");
     }
 

@@ -31,6 +31,7 @@ public sealed class ExternalHost : IDisposable
     private Incarnation? _current;
     private int _incarnations;
     private bool _disposed;
+    private int _preparing;
 
     /// <summary>
     /// Creates the external host of an environment host; nothing is started until a call needs it.
@@ -144,6 +145,7 @@ public sealed class ExternalHost : IDisposable
                 var status = incarnation.Send<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, new AutomationStatusParams());
                 incarnation.IsAutomationAvailable = status.IsAvailable;
                 incarnation.IsFormHostAvailable = status.IsFormHostAvailable;
+                incarnation.HostsVisualBasic6Forms = status.HostsVisualBasic6Forms;
             }
             catch (Exception exception) when (exception is not ExternalHostUnavailableException)
             {
@@ -174,6 +176,34 @@ public sealed class ExternalHost : IDisposable
             incarnation = null;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Starts the external host in the background, ahead of the first call that needs it, unless it is running or already being started.
+    /// </summary>
+    /// <remarks>
+    /// Every session of the environment host gets the external host ready when it is composed, and a start waits for a process to come up. One start is made, on a
+    /// thread of its own, and a session that asks while it is being made returns at once. The start does not wait on the thread pool: one waiting start per session
+    /// would hold, until the process is up, the pool threads that the programs of those sessions run on.
+    /// </remarks>
+    internal void Prepare()
+    {
+        if (Volatile.Read(ref _current) is { IsLost: false } || Interlocked.CompareExchange(ref _preparing, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _ = Task.Factory.StartNew(() =>
+        {
+            try
+            {
+                _ = TryConnect(out _);
+            }
+            finally
+            {
+                Volatile.Write(ref _preparing, 0);
+            }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
     }
 
     /// <summary>
@@ -269,6 +299,11 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     /// Whether the process can host forms.
     /// </summary>
     public bool IsFormHostAvailable { get; set; }
+
+    /// <summary>
+    /// Whether the process creates the forms a Visual Basic 6.0 designer wrote.
+    /// </summary>
+    public bool HostsVisualBasic6Forms { get; set; }
 
     /// <summary>
     /// Says the process has stopped.

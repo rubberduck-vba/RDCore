@@ -122,6 +122,20 @@ internal sealed class SessionDebugBreakpointsHandler(IProgramDebugService debugg
 }
 
 /// <summary>
+/// Handles <c>rdcore/session/debug/errorBreak</c>: relays which run-time errors a client wants the program it runs under a debugger to wait at.
+/// </summary>
+internal sealed class SessionDebugErrorBreakHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
+    : RDCoreRequestHandler<SessionDebugErrorBreakRequest, DebugAck>
+{
+    protected override async Task<DebugAck> HandleAsync(SessionDebugErrorBreakRequest request, CancellationToken token)
+    {
+        SessionDebugRelay.RequireCapability(clientCapabilities);
+        await debugging.SetErrorBreakAsync(request.Mode, token);
+        return new DebugAck();
+    }
+}
+
+/// <summary>
 /// What the debugging relays share: the capability they are gated on.
 /// </summary>
 internal static class SessionDebugRelay

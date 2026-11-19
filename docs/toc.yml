@@ -10,8 +10,31 @@
   href: hexide.md
 - name: Edit and Continue
   href: edit-and-continue.md
+- name: Performance
+  href: performance.md
+  items:
+  - name: Benchmarks
+    href: benchmarks/index.md
+  - name: Calls
+    href: benchmarks/calls.md
+  - name: Statements
+    href: benchmarks/statements.md
+  - name: Arrays
+    href: benchmarks/arrays.md
+  - name: Strings
+    href: benchmarks/strings.md
+  - name: Numeric
+    href: benchmarks/numeric.md
+  - name: Variables and Parameters
+    href: benchmarks/variables-and-parameters.md
+  - name: Standard Library
+    href: benchmarks/standard-library.md
+  - name: Excel Automation
+    href: benchmarks/excel-automation.md
 - name: Diagnostics
   href: diagnostics/index.md
+- name: Disabling a Diagnostic
+  href: disabling-diagnostics.md
 - name: Contributors
   items:
   - name: Building on RDCore

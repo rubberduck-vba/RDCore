@@ -13,6 +13,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Execution;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.SDK.Platform.Components;
@@ -27,6 +28,9 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class HostExecuteHandlerTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-execute-ws");
     private const string ModuleName = "Program";
 
@@ -90,7 +94,7 @@ public sealed class HostExecuteHandlerTests
             workspaceRoot, moduleUri, ModuleType.StdModule, parse, workspaceResolver,
             withImplicitDeclarations: true, implicitScope).ProvideSymbols();
 
-        var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        var defined = await new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,
@@ -472,7 +476,7 @@ public sealed class HostExecuteHandlerTests
     public async Task CircularConstants_AreRefusedBeforeTheyRun()
     {
         // folding one constant can fold another, so a cycle between them would recurse forever: as in VBA, it is
-        // a compile error ("Constant expression required", oracle\s28 C01), and the module does not load.
+        // a compile error ("Constant expression required"), and the module does not load.
         var result = await ExecuteAsync(
             $"Attribute VB_Name = \"{ModuleName}\"\r\n"
             + "Public Const A As Long = B\r\n"
@@ -511,7 +515,7 @@ public sealed class HostExecuteHandlerTests
     public async Task ADeadIfBranch_DoesNotRun()
     {
         // MS-VBAL 3.4.2: an excluded #If branch is logically removed before the rest of the language
-        // sees it. PrecompilerLiveBranchEvaluator has computed the dead ranges correctly since #315 but
+        // sees it. PrecompilerLiveBranchEvaluator has computed the dead ranges correctly but
         // had no production caller, so lowering kept both branches and ran them in source order.
         var result = await ExecuteAsync(Module(
             "#If False Then",
@@ -642,7 +646,7 @@ public sealed class HostExecuteHandlerTests
     [TestMethod]
     // MS-VBAL 5.4.2.1: the bare call statement, whose argument list is the statement's own because the
     // grammar grants it no parenthesized lExpression equivalent. It is the ordinary VBA call form, and
-    // the one shape ExecuteCall refused — S9a wired the parenthesized and no-argument ones only.
+    // the one shape ExecuteCall refused, where the parenthesized and no-argument ones were wired only.
     [DataRow("Foo 7", "k=7|n=0", DisplayName = "one argument")]
     [DataRow("Foo 7, 8", "k=7|n=8", DisplayName = "two arguments")]
     [DataRow("Foo n:=8, k:=7", "k=7|n=8", DisplayName = "named arguments, out of order")]
@@ -705,24 +709,28 @@ public sealed class HostExecuteHandlerTests
     public async Task AnEndlessLoop_StopsWhenTheRunIsCancelled()
     {
         // the interpreter checks the token between instructions, so a program whose own control flow
-        // never terminates still does. Cancelled from outside once the program is seen in Main, where it
-        // spins for as long as it is let: never before it runs, whatever the machine's speed.
+        // never terminates still does. Cancelled from outside once the program has started (the session's
+        // turn says so as it is taken), never before it runs: the check between instructions is what sees
+        // it, whether before the first GoTo or among those that follow, and nothing else would end the loop.
         var source = Module("10 GoTo 10");
         var composed = Compose(source);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ((SessionTurn)composed.Session.Session.Turn).Running += running =>
+        {
+            if (running)
+            {
+                started.TrySetResult();
+            }
+        };
         using var cancelled = new CancellationTokenSource();
         var running = Task.Run(() => ExecuteAsync(composed, source, token: cancelled.Token));
 
-        // only a hang guard: the program is in Main until it is cancelled.
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
-        while (composed.Session.Session.CallStack.Depth < 1)
-        {
-            Assert.IsFalse(running.IsCompleted, "the endless loop ended on its own");
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen in Main");
-            await Task.Delay(5);
-        }
+        // the cap only keeps a program that never starts from hanging the run.
+        await Task.WhenAny(started.Task, running).WaitAsync(SafetyCap);
+        Assert.IsFalse(running.IsCompleted, "the endless loop ended on its own");
 
         await cancelled.CancelAsync();
-        var result = await running.WaitAsync(TimeSpan.FromSeconds(30));
+        var result = await running.WaitAsync(SafetyCap);
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result.Outcome);
     }

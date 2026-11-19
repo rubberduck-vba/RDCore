@@ -133,6 +133,24 @@ namespace RDCore.LanguageServer.Debugging {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &lt;Non-Basic Code&gt;.
+        /// </summary>
+        internal static string FrameNonBasicCode {
+            get {
+                return ResourceManager.GetString("FrameNonBasicCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This entry of the call stack is not the program&apos;s code: it has no variables, and nothing can be evaluated there..
+        /// </summary>
+        internal static string FrameIsNotCode {
+            get {
+                return ResourceManager.GetString("FrameIsNotCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} (in {1}).
         /// </summary>
         internal static string FrameInHandler {
@@ -257,7 +275,16 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("RuntimeErrorTitle", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} &apos;{1}&apos;: {2}.
+        /// </summary>
+        internal static string RuntimeErrorMessage {
+            get {
+                return ResourceManager.GetString("RuntimeErrorMessage", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Locals.
         /// </summary>

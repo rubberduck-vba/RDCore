@@ -29,16 +29,18 @@ public sealed class ControlFlowGraph
 {
     private readonly ImmutableArray<ControlFlowEdge>[] _successors;
     private readonly IReadOnlySet<int> _raiseFree;
+    private readonly IReadOnlySet<int> _alwaysRaising;
     private readonly ConditionalAlternatives? _alternatives;
 
     private ControlFlowGraph(
         InstructionList instructions, ImmutableArray<ControlFlowEdge>[] successors, ControlFlowImprecision imprecision, IReadOnlySet<int> raiseFree,
-        ConditionalAlternatives? alternatives)
+        IReadOnlySet<int> alwaysRaising, ConditionalAlternatives? alternatives)
     {
         Instructions = instructions;
         _successors = successors;
         Imprecision = imprecision;
         _raiseFree = raiseFree;
+        _alwaysRaising = alwaysRaising;
         _alternatives = alternatives;
         Entries = [.. Arrivals(-1, Entry)];
     }
@@ -74,8 +76,8 @@ public sealed class ControlFlowGraph
     /// </summary>
     /// <param name="instructions">The lowered body of a procedure.</param>
     /// <param name="model">
-    /// What the static pass found out about the body, which tells of the assignments that cannot raise an error (a literal let-coerced without one); without it,
-    /// every instruction of a kind that can raise one is taken to.
+    /// What the static pass found out about the body, which tells of the assignments that cannot raise an error (a literal let-coerced without one) and of the
+    /// calls of <c>Err.Raise</c>, which do not complete; without it, every instruction of a kind that can raise one is taken to, and every call to complete.
     /// </param>
     /// <param name="foldConstants">
     /// Whether a condition that is a literal (<c>If False</c>, <c>Do While True</c>, <c>For i = 3 To 1</c>) goes only the way it says (<see cref="ConstantFlow"/>), which is
@@ -87,14 +89,15 @@ public sealed class ControlFlowGraph
     /// them, the instructions are taken as they were lowered: a body lowered with its dead branches left out has only what runs.
     /// </param>
     public static ControlFlowGraph Of(InstructionList instructions, ProcedureSemanticModel? model = null, bool foldConstants = true, ConditionalCompilationBlocks? blocks = null)
-        => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model), foldConstants,
+        => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model),
+            model is null ? new HashSet<int>() : AlwaysRaisingCalls.Of(instructions, model), foldConstants,
             blocks is null ? null : ConditionalAlternatives.Of(instructions, blocks)).Build();
 
     /// <summary>
     /// The graph of the same body as it is written: a condition that is a literal goes both ways (see the <c>foldConstants</c> parameter of <see cref="Of"/>),
     /// and the instructions that cannot raise an error and the <c>#If</c> blocks are this graph's.
     /// </summary>
-    public ControlFlowGraph AsWritten() => new Builder(Instructions, _raiseFree, foldConstants: false, _alternatives).Build();
+    public ControlFlowGraph AsWritten() => new Builder(Instructions, _raiseFree, _alwaysRaising, foldConstants: false, _alternatives).Build();
 
     /// <summary>
     /// Whether the instruction at <paramref name="node"/> can raise an error: one of a kind that can (<see cref="CanRaiseError"/>), and not an assignment the
@@ -187,7 +190,8 @@ public sealed class ControlFlowGraph
         return false;
     }
 
-    private sealed class Builder(InstructionList instructions, IReadOnlySet<int> raiseFree, bool foldConstants, ConditionalAlternatives? alternatives)
+    private sealed class Builder(
+        InstructionList instructions, IReadOnlySet<int> raiseFree, IReadOnlySet<int> alwaysRaising, bool foldConstants, ConditionalAlternatives? alternatives)
     {
         private bool? OutcomeOf(Instruction instruction) => foldConstants ? ConstantFlow.OutcomeOf(instruction) : null;
 
@@ -209,7 +213,7 @@ public sealed class ControlFlowGraph
             AddReturnEdges();
             AddErrorEdges();
 
-            return new ControlFlowGraph(instructions, [.. _edges.Select(edges => edges.ToImmutableArray())], _imprecision, raiseFree, alternatives);
+            return new ControlFlowGraph(instructions, [.. _edges.Select(edges => edges.ToImmutableArray())], _imprecision, raiseFree, alwaysRaising, alternatives);
         }
 
         // an edge to where control arrives: the #If blocks may send it elsewhere, or to several places.
@@ -334,7 +338,12 @@ public sealed class ControlFlowGraph
                     break;
 
                 default:
-                    Fallthrough(instruction);
+                    // a call of Err.Raise leaves only by the error it raises, as an Error statement does.
+                    if (!alwaysRaising.Contains(instruction.Offset))
+                    {
+                        Fallthrough(instruction);
+                    }
+
                     break;
             }
         }

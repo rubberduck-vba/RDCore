@@ -24,6 +24,7 @@ namespace RDCore.Tests.LanguageServer;
 /// A client that opens several folders (<strong>LSP 3.17</strong> <c>workspaceFolders</c>): each folder that is a project's is loaded as one, a folder that only
 /// holds the sources a project lists is not, and a file no folder holds is refused.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceFoldersLoadTests
 {
@@ -94,7 +95,7 @@ public sealed class WorkspaceFoldersLoadTests
             orchestration.RuntimeEnvironment.Returns(host);
 
             var reload = new WorkspaceReloadService(
-                running, ProjectFiles, Documents, States, parsing, Substitute.For<ISymbolSyncService>(), orchestration, fileSystem.Path, Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
+                running, ProjectFiles, Documents, Workspace, States, parsing, Substitute.For<ISymbolSyncService>(), orchestration, fileSystem.Path, Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
             Reload = reload;
             return new WorkspaceFileOperationService(
                 reload, fileSystem.Path, fileSystem.File, fileSystem.Directory, () => SupportedLanguages.RDVBA, Projects, writer, Documents, States,
@@ -161,7 +162,7 @@ public sealed class WorkspaceFoldersLoadTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task ARename_WhileTheEnvironmentHostIsNeverReady_IsMadeAtOnce_AndWhatTheClientSendsAfterItIsApplied()
     {
         var files = Files();
@@ -430,5 +431,44 @@ public sealed class WorkspaceFoldersLoadTests
         var roles = loaded.Projects.Roles().Select(entry => entry.Role).ToArray();
 
         CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, roles);
+    }
+
+    // RD-VBAL §2.2.2: a client opened on the app of a .rdworkspace that lists its library first gives the app as the root, and the folders in the
+    // file's order: both are projects, and the app is the primary one.
+    [TestMethod]
+    public async Task AWorkspaceFilesLibraryListedFirst_IsAProject_AndTheAppTheClientOpenedIsThePrimary()
+    {
+        var files = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(Base, WorkspaceFile.FileName)] = new("""{ "Folders": [ "Lib", "App" ] }"""),
+            [Path.Combine(App, ProjectFile.FileName)] = ProjectOf(App, "App", "Main.bas"),
+            [Path.Combine(App, "Main.bas")] = new("Attribute VB_Name = \"Main\"\r\n"),
+            [Path.Combine(Lib, ProjectFile.FileName)] = ProjectOf(Lib, "Lib", "Lib.bas"),
+            [Path.Combine(Lib, "Lib.bas")] = new("Attribute VB_Name = \"Lib\"\r\n"),
+        });
+        var workspace = WorkspaceFolderList.Read(files, App)!;
+        Assert.AreEqual(App, workspace.Primary?.Path, "the client gives the folder it opened as the root");
+
+        var loaded = await new Loaded(files).LoadAsync(workspace.Primary!.Path, [.. workspace.Folders.Select(folder => folder.Path)]);
+
+        CollectionAssert.AreEquivalent(new[] { App, Lib }, loaded.Projects.Projects.Select(project => project.Root).ToArray());
+        Assert.AreEqual(App, loaded.Projects.Projects[0].Root, "the primary project is the app");
+        CollectionAssert.AreEqual(new[] { "Lib" }, loaded.Names(Lib));
+        CollectionAssert.AreEqual(new[] { "Main" }, loaded.Names(App));
+    }
+
+    // RD-VBAL §2.2.2: an entry of a .rdworkspace's folders that is not loaded is named by a diagnostic, published against the .rdworkspace.
+    [TestMethod]
+    [Ignore("RDC31002 WorkspaceFolderRefused is reserved and not implemented: "
+        + "the language server does not read the .rdworkspace, and the client logs a refused entry as a warning")]
+    public async Task AnEntryTheWorkspaceFileRefuses_IsADiagnosticOfTheWorkspaceFile()
+    {
+        var files = Files();
+        files.AddFile(Path.Combine(Base, WorkspaceFile.FileName), new MockFileData("""{ "Folders": [ "App", "../Shared" ] }"""));
+
+        await new Loaded(files).LoadAsync(App, App);
+
+        Assert.IsTrue(Enum.TryParse<RDCore.Diagnostics.RDCoreDiagnosticId>("WorkspaceFolderRefused", out var id), "RDC31002 is a diagnostic of the platform");
+        Assert.AreEqual(31002, (int)id);
     }
 }

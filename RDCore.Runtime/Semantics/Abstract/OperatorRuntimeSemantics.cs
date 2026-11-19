@@ -312,11 +312,10 @@ where TFlags : struct, Enum
         var effectiveType = DetermineOperatorEffectiveType(
             resolver, new TContext(), expression, new OperatorEvaluationFrame(expression.Identity, [.. operands], VBUnknownType.TypeInfo, comparison)).Result;
 
-        return AtOperator(
-            CreateFact(
-                token, expression, effectiveType, builder.Build().Flags, comparison,
-                isValueKnown: !operands.Any(operand => operand.IsIndeterminate), StatedErrors.Of(result.ErrorInfo)),
-            expression);
+        var fact = CreateFact(
+            token, expression, effectiveType, builder.Build().Flags, comparison,
+            isValueKnown: !operands.Any(operand => operand.IsIndeterminate), StatedErrors.Of(result.ErrorInfo));
+        return AtOperator(fact is null ? null : WithOperands(fact, resolver, expression, operands), expression);
     }
 
     // a diagnostic about the operator is located at its token, which the syntax node keeps; the fact's own location stays the operation's, where a run-time
@@ -353,6 +352,9 @@ where TFlags : struct, Enum
         bool isValueKnown,
         VBErrorInfo? error)
         => null;
+
+    // what a family states of the operands of an operation, on the fact of it: the base states nothing more.
+    protected virtual OperatorFact WithOperands(OperatorFact fact, IRuntimeSymbolResolver resolver, ExpressionNode expression, VBTypedValue[] operands) => fact;
 
     /// <summary>
     /// Evaluates the specified <c>operator expression</c> in the specified execution context, using the specified operands.

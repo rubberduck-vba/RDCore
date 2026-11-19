@@ -278,12 +278,18 @@ public sealed class DefinitionsAndUses
                 Collect(instruction, child, names, node);
             }
 
-            // once the names it is written with are collected: the variable it passes is read as well.
-            if (node is ExpressionNode expression && model.Expressions.TryGetValue(node.Identity, out var fact) && fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument))
+            // once the names it is written with are collected: the variable it passes is read as well. The array of an element that is passed is not
+            // written here: the element's own write is a partial write of it, since the callee may assign the element and cannot replace the array through it.
+            if (node is ExpressionNode expression && model.Expressions.TryGetValue(node.Identity, out var fact) && fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument)
+                && !IsArrayOfAPassedElement(expression, parent))
             {
                 Write(instruction, expression, VariableDefinitionKind.ByRefArgument, complete: false, reads: true);
             }
         }
+
+        private bool IsArrayOfAPassedElement(ExpressionNode expression, SyntaxNode? parent)
+            => parent is IndexExpressionNode index && ReferenceEquals(index.Callee, expression)
+                && model.Expressions.TryGetValue(index.Identity, out var element) && element.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument);
 
         // records the definition a write to the target is, when it is a write to a variable; returns the name of the variable when the write replaces it without reading it.
         private SimpleNameExpressionNode? Write(Instruction instruction, ExpressionNode target, VariableDefinitionKind kind, bool complete, bool reads)

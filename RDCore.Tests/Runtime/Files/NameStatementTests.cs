@@ -9,6 +9,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// The <c>Name … As …</c> statement, which renames a file or a directory and moves it when the new name is somewhere else
 /// (<strong>RD-VBAL §5.4.5.13</strong>; not in MS-VBAL).
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("RD-VBAL 5.4.5.13 Name")]
 public sealed class NameStatementTests

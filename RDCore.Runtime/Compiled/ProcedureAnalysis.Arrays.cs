@@ -1,5 +1,6 @@
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -19,7 +20,7 @@ namespace RDCore.Runtime.Compiled;
 // (Arrays), and an element of it is found in the array that cell holds, each time it is read or written, as the interpreter's evaluation on payloads finds
 // it (RuntimeExpressionEvaluator.ElementCellOf): a subscript let-coerced to a Long, an element of a scalar kind read and written in the cell the array holds
 // it in. What isn't found - a subscript outside its dimension - is the interpreter's, which raises error 9. LBound and UBound read the array's bounds; a
-// ReDim and an Erase of an array of a scalar kind are the interpreter's statements, run as support calls.
+// ReDim and an Erase of an array variable, and the Let of one to a Variant, are the runtime's statements, run as support calls.
 internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
@@ -143,14 +144,28 @@ internal sealed partial class ProcedureAnalysis
     // LBound or UBound of an array variable of the activation, whatever its elements are (MS-VBAL §3.3.5.2).
     private PayloadNode? ArrayBound(BoundArrayBound bound)
     {
+        PayloadNode? dimension = null;
+        var isFixed = bound.Array is BoundVariable { Variable: ITypedSymbol { ResolvedType: VBFixedSizeArrayType } };
+        if (isFixed)
+        {
+            if (bound.Dimension is { } fixedDimension && (dimension = PayloadAs(fixedDimension, ScalarKind.Long)) is null)
+            {
+                return null;
+            }
+
+            if (DeclaredBoundOf(bound, dimension) is { } declared)
+            {
+                return new ConstantNode(ScalarKind.Long, declared, 0);
+            }
+        }
+
         if (ArrayOf(bound.Array) is not { } array)
         {
             Refuse(IneligibilityKind.Element, bound.ArrayBound.Kind == ArrayBoundKind.Upper ? "UBound" : "LBound", bound.Expression.Location);
             return null;
         }
 
-        PayloadNode? dimension = null;
-        if (bound.Dimension is { } given && (dimension = PayloadAs(given, ScalarKind.Long)) is null)
+        if (!isFixed && bound.Dimension is { } given && (dimension = PayloadAs(given, ScalarKind.Long)) is null)
         {
             return null;
         }
@@ -159,7 +174,52 @@ internal sealed partial class ProcedureAnalysis
         return Read(new ArrayBoundNode(array.Slot, bound.ArrayBound.Kind == ArrayBoundKind.Upper, dimension), bound);
     }
 
+    // MS-VBAL §3.3.5.2, §5.2.3.1.3: LBound or UBound of a fixed-size array variable, of a dimension a constant says (the first when it is omitted), is the
+    // bound its declaration gives that dimension, which no ReDim changes and Erase keeps. It is the bound of the array the variable is made with
+    // (DeclaredVariableDefaults.DimensionsOf), an omitted lower bound being the Option Base of the module the variable is declared in: for a local, the
+    // procedure's, which its frame has. A dimension the array has not (error 9), and an array whose bounds are not reduced (made with none), are read when
+    // the statement runs.
+    private long? DeclaredBoundOf(BoundArrayBound bound, PayloadNode? dimension)
+    {
+        if (bound.Array is not BoundVariable { Variable: { } variable }
+            || dimension is not (null or ConstantNode { Kind: ScalarKind.Long })
+            || _evaluator.LetCoercionProvider is not { } letCoercion)
+        {
+            return null;
+        }
+
+        var optionBase = variable.ScopeKind is not ScopeKind.Local ? DeclaredVariableDefaults.ModuleOptionBaseOf(_session, variable)
+            : _session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(_procedure.ParentUri), out var module) ? module.Directives.Base
+            : 0;
+        var which = (dimension as ConstantNode)?.Integral ?? 1;
+        if (DeclaredVariableDefaults.DimensionsOf(_session, new ArrayBoundEvaluator(_evaluator, letCoercion), variable, optionBase) is not { } dimensions
+            || which < 1 || which > dimensions.Length)
+        {
+            return null;
+        }
+
+        var (lower, upper) = dimensions[which - 1];
+        return bound.ArrayBound.Kind == ArrayBoundKind.Upper ? upper : lower;
+    }
+
     private bool IsVariantElement(BoundNode node) => ElementOf(node) is { } index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };
+
+    // the function of the standard library a VariantInformationNode answers for library, if it is one: IsEmpty, IsNull or VarType.
+    private static VariantInformation? VariantInformationOf(Symbol library) => library.GetProperty(SymbolProperties.ExternalTarget) switch
+    {
+        "IStdInformationModule.IsEmpty/1" => VariantInformation.IsEmpty,
+        "IStdInformationModule.IsNull/1" => VariantInformation.IsNull,
+        "IStdInformationModule.VarType/1" => VariantInformation.VarType,
+        _ => null,
+    };
+
+    // whether node is a Variant compiled code reads in its cell: a Variant of the activation, or an element of an array of Variants.
+    private bool IsVariantInItsCell(BoundNode node)
+        => node is BoundVariable variable && VariantSlotOf(variable) is not null || node is BoundIndex or BoundMember && IsVariantElement(node);
+
+    // that Variant, as IsVariantInItsCell finds it.
+    private VariantNode? VariantInItsCell(BoundNode node)
+        => node is BoundVariable variable && VariantSlotOf(variable) is { } slot ? new VariantSlotNode(slot) : VariantElement(ElementOf(node)!);
 
     // an element of an array of Variants, read in the Variant's cell the array holds it in: Dynamic's BoundIndex.
     private VariantNode? VariantElement(BoundIndex index)
@@ -236,9 +296,16 @@ internal sealed partial class ProcedureAnalysis
                 read = new ObjectCallOperand(returned);
                 return true;
 
+            // the default instance of a class compared with an element is the interpreter's, which makes it when it holds no object yet.
             default:
-                if (!TryObjectOperand(operand, out var slot))
+                if (!TryObjectOperand(operand, out var slot, out var defaultInstance))
                 {
+                    return false;
+                }
+
+                if (defaultInstance)
+                {
+                    Unsupported(operand);
                     return false;
                 }
 
@@ -251,30 +318,32 @@ internal sealed partial class ProcedureAnalysis
     private PayloadNode? ElementTypeOf(BoundTypeOf typeOf, BoundIndex index)
         => Subscripts(index) is { } subscripts ? new ElementTypeOfNode(new ObjectElementNode(ArrayOf(index.Callee)!.Slot, subscripts), ClassNumberOf(typeOf.Class)) : null;
 
-    // a ReDim of an array of a scalar kind of the activation whose bounds are payloads - which call nothing, so that nothing the statement does but the array
-    // is compiled code's to read back - or an Erase of such arrays (MS-VBAL §5.4.3.3-4): the interpreter's statement, run as a support call. An array of
-    // Variants or objects is the interpreter's to step: what it lets go of may terminate an object.
+    // a ReDim, with Preserve or without, of an array variable of the activation whose bounds are payloads - which call nothing, so that nothing the statement
+    // does but the array is compiled code's to read back - or an Erase of such arrays (MS-VBAL §5.4.3.3-4): the runtime's statement, run as a support call.
+    // What an array of Variants, of objects or of records lets go of may terminate an object (ArrayStatementStep.Releases).
     private CompiledStep? ArrayStatementOf(Instruction instruction)
     {
         switch (instruction.Node)
         {
             case RedimDeclarationNode { Target: SimpleNameExpressionNode, Bounds: var bounds } redim
-                when ArrayOf(Bind(redim.Target)) is { Class: ElementClass.Scalar } array && ArePayloads(bounds):
-                return new ArrayStatementStep(instruction.Offset, [array.Slot]);
+                when ArrayOf(Bind(redim.Target)) is { Slot: >= 0 } array && ArePayloads(bounds):
+                return new ArrayStatementStep(instruction.Offset, [array.Slot], Releases: array.Class is not ElementClass.Scalar);
 
             case KeywordStatementNode { Token: Tokens.Erase } erase:
                 var erased = new List<int>();
+                var releases = false;
                 foreach (var input in erase.Inputs.OfType<ExpressionNode>())
                 {
-                    if (input is not SimpleNameExpressionNode || ArrayOf(Bind(input)) is not { Class: ElementClass.Scalar } named)
+                    if (input is not SimpleNameExpressionNode || ArrayOf(Bind(input)) is not { Slot: >= 0 } named)
                     {
                         return null;
                     }
 
                     erased.Add(named.Slot);
+                    releases |= named.Class is not ElementClass.Scalar;
                 }
 
-                return erased.Count > 0 ? new ArrayStatementStep(instruction.Offset, erased) : null;
+                return erased.Count > 0 ? new ArrayStatementStep(instruction.Offset, erased, releases) : null;
 
             default:
                 return null;

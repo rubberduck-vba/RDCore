@@ -31,13 +31,13 @@ namespace RDCore.Runtime.Execution.Frames;
 /// </summary>
 public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol StaticSymbol, ImmutableArray<VBTypedValue> Inputs, ISessionStorage Storage, ModuleDirectives Directives = default) : ICallStackFrame
 {
-    // made when the activation first needs one (IR lowering S0.9, S1.3): most activations have no ByRef alias, no block, no loop and no GoSub, and one that has
+    // made when the activation first needs one: most activations have no ByRef alias, no block, no loop and no GoSub, and one that has
     // none does not hash a symbol's identity to find out - and, laid out, no variable without a slot and no variable that was given an address.
     private SymbolAddressTable? _addresses;
     private HashSet<SemanticId>? _declared;
 
     // what few activations have - a ByRef alias by address, a block, a loop, a GoSub, a variable declared at a stop - is kept apart, made when it is first
-    // needed (IR lowering S1.7): an activation that has none is that much smaller, and most calls make one that has none.
+    // needed: an activation that has none is that much smaller, and most calls make one that has none.
     private sealed class Occasional
     {
         public Dictionary<SemanticId, MemoryAddress>? ByRefAliases;
@@ -48,6 +48,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         public Dictionary<int, ForEachState>? ForEachState;
         public Stack<int>? GoSubReturns;
         public Dictionary<int, (int? End, ValueBindingHandle Cell)>? BlockHolders;
+        public Dictionary<int, ValueBindingHandle>? SourceHolders;
         public List<Symbol>? DeclaredAtAStop;
         public List<Symbol>? EditedLocals;
         public List<Symbol>? RetiredLocals;
@@ -268,9 +269,31 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             occasional.SelectorPayloads = Rekeyed(occasional.SelectorPayloads, rebased.Offsets);
             occasional.ForLoopState = Rekeyed(occasional.ForLoopState, rebased.Offsets);
             occasional.ForEachState = Rekeyed(occasional.ForEachState, rebased.Offsets);
-            // a With's target is held until its End With, and has no end; any other block's is held until the program is past it.
-            occasional.BlockHolders = occasional.BlockHolders?.ToDictionary(holder => rebased.Offsets[holder.Key],
-                holder => (holder.Value.End is null ? null : body.Items[rebased.Offsets[holder.Key]].End, holder.Value.Cell));
+            // a With's target is held until its End With, and has no end; a For Each's until the loop is over, and the end of its block says whether it still
+            // runs (LocksArray). What a For Each made of its collection expression is held until the activation returns. One whose block the edit did not keep
+            // is held apart, and let go of when the activation returns, as a retired local is.
+            if (occasional.BlockHolders is { } holders)
+            {
+                foreach (var (_, (_, cell)) in holders.Where(holder => !rebased.Offsets.ContainsKey(holder.Key)))
+                {
+                    (occasional.RetiredCells ??= []).Add(cell);
+                }
+
+                occasional.BlockHolders = holders.Where(holder => rebased.Offsets.ContainsKey(holder.Key)).ToDictionary(holder => rebased.Offsets[holder.Key],
+                    holder => (holder.Value.End is null ? null : body.Items[rebased.Offsets[holder.Key]].End, holder.Value.Cell));
+            }
+
+            if (occasional.SourceHolders is { } sources)
+            {
+                foreach (var (_, cell) in sources.Where(source => !rebased.Offsets.ContainsKey(source.Key)))
+                {
+                    (occasional.RetiredCells ??= []).Add(cell);
+                }
+
+                occasional.SourceHolders = sources.Where(source => rebased.Offsets.ContainsKey(source.Key))
+                    .ToDictionary(source => rebased.Offsets[source.Key], source => source.Value);
+            }
+
             if (occasional.GoSubReturns is { } returns)
             {
                 // a stack enumerates from its top, and is pushed from its bottom.
@@ -380,7 +403,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return FrameRebaseRefusal.BlockChanged;
         }
 
-        // the handler and the GoSub Resumption List compiled code keeps in the frame (IR lowering S2.4) are moved as an interpreted activation's are.
+        // the handler and the GoSub Resumption List compiled code keeps in the frame are moved as an interpreted activation's are.
         if (RebasedGoSubReturns(alignment) is { } goSubRefusal)
         {
             return goSubRefusal;
@@ -562,10 +585,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             bool IsIn(int opener) => before.Items[opener].End is not { } end || positions.Any(position => position >= opener && position < end);
             IEnumerable<int> openers = [.. occasional.BlockState?.Keys ?? Enumerable.Empty<int>(), .. occasional.SelectorPayloads?.Keys ?? Enumerable.Empty<int>(),
                 .. occasional.ForLoopState?.Keys ?? Enumerable.Empty<int>(), .. occasional.ForEachState?.Keys ?? Enumerable.Empty<int>()];
-            foreach (var opener in openers.Concat(occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>()).Distinct())
+            foreach (var opener in openers.Concat(occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>())
+                .Concat(occasional.SourceHolders?.Keys ?? Enumerable.Empty<int>()).Distinct())
             {
-                // what a block holds is let go of only once the activation is past the block, so it moves with the block, or the edit is refused.
-                var holds = occasional.BlockHolders?.ContainsKey(opener) ?? false;
+                // what a With holds is let go of only at its End With, so it moves with the block, or the edit is refused. What a For Each the activation has
+                // left holds is kept until the loop is over or the activation returns: it moves with the block when it can, and is held apart when it cannot
+                // (Rebase).
+                var holds = occasional.BlockHolders?.TryGetValue(opener, out var held) == true && held.End is null;
                 if (!holds && !IsIn(opener))
                 {
                     if (alignment[opener] is { } left)
@@ -648,8 +674,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <summary>
     /// The address of the function result variable (<strong>MS-VBAL §5.3.1</strong>), given the first time it is asked for: what <c>VarPtr</c> of the
-    /// function's own name is in its code, one address for the whole activation and none of its locals' (<strong>MS-VBA</strong>, recorded in Excel, oracle\s24
-    /// F01-F03). The variable is at the address from then on: what is assigned to it is written there, and what is there is what it returns.
+    /// function's own name is in its code, one address for the whole activation and none of its locals' (<strong>MS-VBA</strong>, observed in Excel).
+    /// The variable is at the address from then on: what is assigned to it is written there, and what is there is what it returns.
     /// </summary>
     /// <param name="size">How many bytes a value of the function's type occupies.</param>
     /// <param name="address">The address.</param>
@@ -671,12 +697,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return true;
     }
 
-    // the function result variable of a scalar type assigned on payloads (IR lowering S1.3): a value is made of it once, when it is read as one.
+    // the function result variable of a scalar type assigned on payloads: a value is made of it once, when it is read as one.
     private ScalarPayload _resultPayload;
     private bool _hasResultPayload;
 
     /// <summary>
-    /// Assigns the function result variable a payload of its declared type (IR lowering S1.3), which <see cref="ReturnValue"/> is when it is read.
+    /// Assigns the function result variable a payload of its declared type, which <see cref="ReturnValue"/> is when it is read.
     /// </summary>
     internal void AssignResult(ScalarPayload payload)
     {
@@ -721,10 +747,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool HasResultCell => _resultCell is not null;
 
     /// <summary>
-    /// The cell that holds what the block opened at <paramref name="openerOffset"/> holds for as long as it runs - a <c>For Each</c>'s enumerator,
-    /// which ends at <paramref name="end"/>, the offset right past the block; a <c>With</c>'s target, which is held until its <c>End With</c> lets go of it
-    /// (<see cref="TakeBlockHolder"/>), wherever the program jumps meanwhile: <paramref name="end"/> is <see langword="null"/>.
+    /// The cell that holds what the block opened at <paramref name="openerOffset"/> holds: a <c>For Each</c>'s enumerator, or the array it reads, which is
+    /// held until the loop is over (<see cref="TakeLoopHoldersLeft"/>), started again, or the activation returns, wherever a <c>GoSub</c> or an error
+    /// handler takes the program meanwhile, and which the loop runs on while the activation is in its block, or will go back into it
+    /// (<see cref="LocksArray"/>); a <c>With</c>'s target, which is held until its <c>End With</c> lets go of it (<see cref="TakeBlockHolder"/>), wherever
+    /// the program jumps meanwhile.
     /// </summary>
+    /// <param name="openerOffset">The offset of the statement that opens the block.</param>
+    /// <param name="end">The offset right past a <c>For Each</c>'s block; <see langword="null"/> for a <c>With</c>'s.</param>
     public ValueBindingHandle BlockHolder(int openerOffset, int? end)
     {
         var holders = Occasionally.BlockHolders ??= [];
@@ -738,10 +768,30 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Takes away the holders of the blocks <paramref name="pc"/> is not in, for what they hold to be let go of: every block, when
-    /// <paramref name="pc"/> is <see langword="null"/> - the activation is over.
+    /// The cell that holds what the collection expression of the <c>For Each</c> at <paramref name="openerOffset"/> made, as a hidden local of the
+    /// activation: held until the activation returns, or the loop is started again, as MS-VBA holds a function's result there (observed in Excel). A
+    /// collection expression that is a variable makes nothing to hold.
     /// </summary>
-    public IReadOnlyList<ValueBindingHandle> TakeBlockHoldersOutside(int? pc)
+    /// <param name="openerOffset">The offset of the <c>For Each</c> statement.</param>
+    public ValueBindingHandle SourceHolder(int openerOffset)
+    {
+        var sources = Occasionally.SourceHolders ??= [];
+        if (!sources.TryGetValue(openerOffset, out var cell))
+        {
+            cell = BindingKnowledge.NewCell(VBEmptyValue.Empty.RuntimeValue, isKnown: true);
+            sources[openerOffset] = cell;
+        }
+
+        return cell;
+    }
+
+    /// <summary>
+    /// Takes away the holders of the <c>For Each</c> blocks that a jump from <paramref name="from"/> to <paramref name="to"/> leaves (an <c>Exit For</c>, a
+    /// <c>GoTo</c>), for what they hold to be let go of: the loop is over.
+    /// </summary>
+    /// <param name="from">The offset of the jump.</param>
+    /// <param name="to">The offset it goes to.</param>
+    public IReadOnlyList<ValueBindingHandle> TakeLoopHoldersLeft(int from, int to)
     {
         if (_occasional?.BlockHolders is not { Count: > 0 } holders)
         {
@@ -751,7 +801,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         List<ValueBindingHandle>? left = null;
         foreach (var (opener, (end, cell)) in holders)
         {
-            if (pc is not { } at || (end is { } blockEnd && (at < opener || at >= blockEnd)))
+            if (end is { } blockEnd && from >= opener && from < blockEnd && (to < opener || to >= blockEnd))
             {
                 (left ??= []).Add(cell);
                 holders.Remove(opener);
@@ -762,9 +812,41 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Takes away the holder of the block opened at <paramref name="openerOffset"/>, for what it holds to be let go of: a <c>With</c>'s, at its
-    /// <c>End With</c>.
+    /// Takes away the holders of every block and of what every <c>For Each</c> made of its collection expression, for what they hold to be let go of: the
+    /// activation is over.
     /// </summary>
+    public IReadOnlyList<ValueBindingHandle> TakeBlockHolders()
+    {
+        List<ValueBindingHandle> left = [];
+        if (_occasional?.SourceHolders is { Count: > 0 } sources)
+        {
+            left.AddRange(sources.Values);
+            sources.Clear();
+        }
+
+        if (_occasional?.BlockHolders is { Count: > 0 } holders)
+        {
+            left.AddRange(holders.Values.Select(holder => holder.Cell));
+            holders.Clear();
+        }
+
+        return left;
+    }
+
+    // whether the block that opens at opener and ends at end runs: the activation is in it, or goes back into it - a GoSub it is in returns into it, or a
+    // Resume of the error a handler of it handles goes back to a statement of it.
+    private bool Runs(int opener, int end)
+    {
+        bool InTheBlock(int offset) => offset >= opener && offset < end;
+        return InTheBlock(Pc) || GoSubReturns.Any(InTheBlock)
+            || (ErrorHandler is { ActiveError: not null, FaultStatementOffset: { } faulted } && InTheBlock(faulted));
+    }
+
+    /// <summary>
+    /// Takes away the holder of the block opened at <paramref name="openerOffset"/>, for what it holds to be let go of: a <c>With</c>'s, at its
+    /// <c>End With</c>; a <c>For Each</c>'s, when its <c>Next</c> finds no element left.
+    /// </summary>
+    /// <param name="openerOffset">The offset of the statement that opened the block.</param>
     /// <returns>The holder; <see langword="null"/> when the block holds nothing.</returns>
     public ValueBindingHandle? TakeBlockHolder(int openerOffset)
         => _occasional?.BlockHolders is { } holders && holders.Remove(openerOffset, out var holder) ? holder.Cell : null;
@@ -805,7 +887,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Stashes a <c>Select Case</c>'s selector evaluated on payloads (IR lowering S1.6), in place of the value <see cref="SetBlockState"/> would stash: the
+    /// Stashes a <c>Select Case</c>'s selector evaluated on payloads, in place of the value <see cref="SetBlockState"/> would stash: the
     /// <c>Case</c> headers compare it as it is, and make a value of it only for a clause compared boxed.
     /// </summary>
     internal void SetSelectorPayload(int openerOffset, ScalarPayload selector)
@@ -906,15 +988,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </param>
     public void Push(Symbol symbol, VBTypedValue value, int slot)
     {
-        // the variable is a cell of the activation, which takes no session memory until something asks for its address (IR lowering S1.1, Q1): most
-        // locals are never passed by reference, and an activation of them reserves nothing. One the layout has a slot for is held in it (S1.1b).
+        // the variable is a cell of the activation, which takes no session memory until something asks for its address: most
+        // locals are never passed by reference, and an activation of them reserves nothing. One the layout has a slot for is held in it.
         Hold(symbol, CellFor(value), value.Size, slot);
     }
 
     /// <summary>
     /// The cell a variable that starts as <paramref name="value"/> is held in - a local's, a field's of an object: a variable of a scalar type holds its value
-    /// as a payload, which an expression of it is evaluated on (IR lowering S1.2), in a cell made of the value as it is; a Variant that holds a scalar (or
-    /// nothing yet) holds it as a payload too (S1.4), which its subtype is the type of; anything else is a fresh copy of the value
+    /// as a payload, which an expression of it is evaluated on, in a cell made of the value as it is; a Variant that holds a scalar (or
+    /// nothing yet) holds it as a payload too, which its subtype is the type of, and a Variant that holds <c>Null</c>, a <c>String</c> or an error holds it in
+    /// a Variant's cell as the value it is; anything else is a fresh copy of the value
     /// (<see cref="SymbolAddressTable.FreshBinding"/>).
     /// </summary>
     internal static IBindingHandle CellFor(VBTypedValue value)
@@ -926,8 +1009,10 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                     ? variant!
                     : SymbolAddressTable.FreshBinding(value);
 
-    // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null.
-    private static bool IsImmutable(VBTypedValue value) => ScalarPayload.IsScalar(value.TypeInfo) || value is VBEmptyValue or VBNullValue;
+    // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null, a String, an error (Missing among
+    // them). A Mid statement assigns the new String it makes; an object, an array or a record can be changed in place.
+    private static bool IsImmutable(VBTypedValue value)
+        => ScalarPayload.IsScalar(value.TypeInfo) || value is VBEmptyValue or VBNullValue or VBErrorValue || value is VBStringValue and not VBFixedStringValue;
 
     /// <summary>
     /// Declares the parameter <paramref name="symbol"/> on this frame, holding <paramref name="value"/> - the argument a call passes by value, already
@@ -935,7 +1020,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     /// <remarks>
     /// The same as <see cref="Push"/> with a value of <paramref name="type"/> made of <paramref name="value"/>, which a parameter of a scalar type is not
-    /// made of (IR lowering S1.3): its cell holds the argument as it is.
+    /// made of: its cell holds the argument as it is.
     /// </remarks>
     /// <param name="slot">The number of the parameter's slot, when the caller knows it (<see cref="Push"/>); <c>-1</c> to look it up.</param>
     /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame.</exception>
@@ -958,7 +1043,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return Hold(symbol, variant!, type.DefaultValue.Size, slot);
         }
 
-        // an object - the Me of a member, an object passed by value - is the cell of its reference, which is what a value of it would be copied into (S1.4c).
+        // an object - the Me of a member, an object passed by value - is the cell of its reference, which is what a value of it would be copied into.
         if (UnboxedEvaluation.IsEnabled && type is VBClassType or VBObjectType && value is VBRuntimeValue<VBRuntimeObjectId>)
         {
             return Hold(symbol, new ValueBindingHandle(value), type.DefaultValue.Size, slot);
@@ -969,7 +1054,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// The cell held in slot <paramref name="slot"/> of the activation's layout, when it holds one rather than an address (IR lowering S1.4c): what a
+    /// The cell held in slot <paramref name="slot"/> of the activation's layout, when it holds one rather than an address: what a
     /// variable that has a slot is, read by number rather than looked up by its symbol.
     /// </summary>
     internal bool TryGetSlotCell(int slot, [NotNullWhen(true)] out IBindingHandle? cell)
@@ -979,15 +1064,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Declares the parameter <paramref name="symbol"/>, a scalar passed by value, holding <paramref name="payload"/>: its argument, of its type (IR
-    /// lowering S1.3).
+    /// Declares the parameter <paramref name="symbol"/>, a scalar passed by value, holding <paramref name="payload"/>: its argument, of its type.
     /// </summary>
     /// <param name="symbol">The parameter.</param>
     /// <param name="payload">The argument, let-coerced to the parameter's type.</param>
     /// <param name="slot">The number of the parameter's slot, when the caller knows it (<see cref="Push(Symbol, VBTypedValue, int)"/>); <c>-1</c> to look it up.</param>
     internal void PushPayload(Symbol symbol, ScalarPayload payload, int slot)
     {
-        // a Variant parameter holds the scalar it is passed as it is, of its own type (IR lowering S1.7).
+        // a Variant parameter holds the scalar it is passed as it is, of its own type.
         if (symbol is ITypedSymbol { ResolvedType: VBVariantType })
         {
             Hold(symbol, VariantCell.Of(payload), VBVariantType.TypeInfo.DefaultValue.Size, slot);
@@ -999,7 +1083,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <summary>
     /// Declares the <c>ByRef</c> parameter <paramref name="symbol"/> as a second name for a variable of the caller held in <paramref name="cell"/>: the
-    /// parameter's slot holds that very cell (IR lowering S1.3, <see cref="CellReference"/>).
+    /// parameter's slot holds that very cell (<see cref="CellReference"/>).
     /// </summary>
     /// <param name="symbol">The parameter.</param>
     /// <param name="cell">The cell of the caller's variable.</param>
@@ -1018,8 +1102,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Declares <paramref name="symbol"/>, a variable of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds it in
-    /// (IR lowering S2.3c), which the activation frees as its own.
+    /// Declares <paramref name="symbol"/>, a variable of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds it in,
+    /// which the activation frees as its own.
     /// </summary>
     /// <param name="symbol">The parameter or the variable.</param>
     /// <param name="cell">Its cell.</param>
@@ -1053,7 +1137,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>The layout the activation was laid out as (<see cref="LayOut"/>), if it was.</summary>
     internal FrameLayout? Layout => _layout;
 
-    // a slot the caller numbered is the one of this activation's layout, which is what the caller read the number from: no symbol is looked up (S1.3).
+    // a slot the caller numbered is the one of this activation's layout, which is what the caller read the number from: no symbol is looked up.
     // isAlias: the cell is a variable of the caller's (PushAlias), which this activation has a second name for and does not free; referencedType, the type a
     // Variant reference parameter reads it as.
     private IBindingHandle Hold(Symbol symbol, IBindingHandle cell, int size, int slot, bool isAlias = false, VBType? referencedType = null)
@@ -1081,7 +1165,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Lays the activation out as <paramref name="layout"/> says (IR lowering S1.1b): a variable it has a slot for is held in that slot from the moment it
+    /// Lays the activation out as <paramref name="layout"/> says: a variable it has a slot for is held in that slot from the moment it
     /// is declared, and is found by its number.
     /// </summary>
     /// <param name="layout">The layout of the procedure this is an activation of (<see cref="FrameLayout.For"/>).</param>
@@ -1309,7 +1393,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>
     /// The address of the <c>VARIANT</c> a <c>Variant</c> reference parameter given a variable of another type is (<see cref="TryGetReferencedType"/>):
     /// <strong>MS-VBA</strong> passes it a <c>VARIANT</c> of its own that refers to the variable, at one address for as long as the activation runs
-    /// (recorded in Excel, oracle\s21 R19, R27). It is what <c>VarPtr</c> of the parameter is; the parameter reads and writes the variable it was given.
+    /// (observed in Excel). It is what <c>VarPtr</c> of the parameter is; the parameter reads and writes the variable it was given.
     /// </summary>
     /// <param name="symbol">The parameter.</param>
     /// <param name="size">The size of a <c>VARIANT</c> in the session's memory.</param>
@@ -1359,7 +1443,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
         => TryGetAlias(symbol, out address) || _addresses is not null && _addresses.TryGetAddress(symbol, out address) || TryGiveAddress(symbol, out address);
 
-    // the slots of the activation (IR lowering D2), filled as they are read: each holds the cell of a variable that has no address, or the address of one
+    // the slots of the activation, filled as they are read: each holds the cell of a variable that has no address, or the address of one
     // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
     // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address may (a POKE
     // rebinds one that is not a cell), which is why it is read there every time rather than kept.
@@ -1448,10 +1532,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             }
         }
 
-        // a For Each that is running holds what it enumerates (ProcedureExecutor.HoldForBlock): an array that shares its cells is the one.
-        foreach (var (_, (_, holder)) in _occasional?.BlockHolders ?? [])
+        // a For Each that is running holds what it enumerates (ProcedureExecutor.HoldForBlock): an array that shares its cells is the one. One the program has
+        // left, by its end, Exit For or a jump, still holds it, and locks it no longer.
+        foreach (var (opener, (end, holder)) in _occasional?.BlockHolders ?? [])
         {
-            if (holder.Value is VBRuntimeValue<VBRuntimeArrayValue> { StoredValue.Array: { Length: > 0 } enumerated }
+            if (end is { } blockEnd && Runs(opener, blockEnd)
+                && holder.Value is VBRuntimeValue<VBRuntimeArrayValue> { StoredValue.Array: { Length: > 0 } enumerated }
                 && ReferenceEquals(enumerated.CellAt(0), array.CellAt(0)))
             {
                 return true;
@@ -1461,11 +1547,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return false;
     }
 
+    // an element that is passed by reference was given its cell when it was passed: one that has no cell yet is not bound to anything.
     private static bool IsCellOf(VBArrayValue array, IBindingHandle handle)
     {
-        for (var index = 0; index < array.Length; index++)
+        foreach (var (_, cell) in array.MadeCells)
         {
-            if (ReferenceEquals(array.CellAt(index), handle))
+            if (ReferenceEquals(cell, handle))
             {
                 return true;
             }
@@ -1475,7 +1562,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // passing the element does (MS-VBA, observed in Excel).
         if (array.ItemType is VBUserDefinedType)
         {
-            for (var index = 0; index < array.Length; index++)
+            foreach (var (index, _) in array.MadeCells)
             {
                 if (array.ElementAt(index) is VBUserDefinedTypeValue record && IsFieldOf(record, handle))
                 {

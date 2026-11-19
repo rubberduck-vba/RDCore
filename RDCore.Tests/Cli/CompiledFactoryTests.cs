@@ -81,9 +81,9 @@ public sealed class CompiledFactoryTests
     }
 
     // the shape of a factory: a With block of an object made with New, its Property Lets called by compiled code, the object given back through a member of
-    // it, and the End With done by compiled code, the function's result holding the object. The recoveries are the With of each of the 3 calls, and the
-    // calls the 2 Property Lets of each; the Set of the result is a support call. Each object is destroyed when the next one is Set to the variable that held
-    // it.
+    // it, and the With and the End With done by compiled code, the function's result holding the object. Nothing is handed to the interpreter, and the
+    // calls are the 2 Property Lets of each and the Property Get the result is Set to. Each object is destroyed when the next one is Set to the variable that
+    // held it.
     [TestMethod]
     public async Task AFactory_CallsItsPropertyLets_AndEndsItsWithBlock_InCompiledCode()
         => await AssertFactoryAsync(Program(
@@ -104,10 +104,10 @@ public sealed class CompiledFactoryTests
             "        .Y = B",
             "        Set Made = .Self",
             "    End With",
-            "End Function"), "1/10,2/20,3/30,x1;x2;gone 1;x3;gone 2;", "Made", recoveries: 3, calls: 6);
+            "End Function"), "1/10,2/20,3/30,x1;x2;gone 1;x3;gone 2;", "Made", recoveries: 0, calls: 9);
 
-    // a Property Set of the object of a With block, called by compiled code with an object it holds. The recovery is the With, and the calls the Property
-    // Let and the Property Set.
+    // a Property Set of the object of a With block, called by compiled code with an object it holds. Nothing is handed to the interpreter, and the calls are
+    // the Property Let, the Property Set and the Property Get the result is Set to.
     [TestMethod]
     public async Task APropertySetOfTheObjectOfAWithBlock_IsCalledInCompiledCode()
         => await AssertFactoryAsync(Program(
@@ -124,10 +124,10 @@ public sealed class CompiledFactoryTests
             "        Set .Partner = Q",
             "        Set Linked = .Self",
             "    End With",
-            "End Function"), "7 x7;x1;", "Linked", recoveries: 1, calls: 2);
+            "End Function"), "7 x7;x1;", "Linked", recoveries: 0, calls: 3);
 
     // an End With that lets go of the only reference to its object: the interpreter runs it, and the object's Terminate runs there, before the next pass.
-    // The recoveries are the With and its End With of each of the 3 passes, and the calls the Property Let of each.
+    // The recoveries are the End With of each of the 3 passes, and the calls the Property Let of each.
     [TestMethod]
     public async Task AnEndWithThatDestroysItsObject_IsTheInterpreters_AndTerminateRunsThere()
         => await AssertFactoryAsync(Program(
@@ -143,10 +143,10 @@ public sealed class CompiledFactoryTests
             "            .X = K",
             "        End With",
             "    Next",
-            "End Sub"), "x1;gone 1;x2;gone 2;x3;gone 3;", "Discarded", recoveries: 6, calls: 3);
+            "End Sub"), "x1;gone 1;x2;gone 2;x3;gone 3;", "Discarded", recoveries: 3, calls: 3);
 
-    // a With block of an object a variable holds, in a loop: compiled code ends it at each pass, the variable still holding the object. The recoveries
-    // are the With of each of the 4 passes, and the calls the 2 Property Lets of each; the Set of the object made with New is a support call.
+    // a With block of an object a variable holds, in a loop: compiled code opens and ends it at each pass, the variable still holding the object.
+    // Nothing is handed to the interpreter, and the calls are the 2 Property Lets of each pass; the Set of the object made with New is a support call.
     [TestMethod]
     public async Task AWithBlockOfAnObjectAVariableHolds_IsEndedInCompiledCode()
         => await AssertFactoryAsync(Program(
@@ -165,10 +165,11 @@ public sealed class CompiledFactoryTests
             "        End With",
             "        Summed = Summed + K",
             "    Next",
-            "End Function"), "10 x1;x2;x3;x4;gone 4;", "Summed", recoveries: 4, calls: 8);
+            "End Function"), "10 x1;x2;x3;x4;gone 4;", "Summed", recoveries: 0, calls: 8);
 
     // the value of a Property Let is passed as a value, whatever its parameter's passing: what the Property Let writes to its parameter passed by reference
-    // is not written to the variable the value was read from. The recovery is the With, and the calls the 3 Property Lets and the Property Get read.
+    // is not written to the variable the value was read from. Nothing is handed to the interpreter, and the calls are the 3 Property Lets and the Property
+    // Get read.
     [TestMethod]
     public async Task APropertyLet_IsGivenTheValue_NotTheVariableItWasReadFrom()
         => await AssertFactoryAsync(Program(
@@ -187,7 +188,7 @@ public sealed class CompiledFactoryTests
             "        .Y = N",
             "    End With",
             "    Kept = N * 100 + P.Y",
-            "End Function"), "505", "Kept", recoveries: 1, calls: 4);
+            "End Function"), "505", "Kept", recoveries: 0, calls: 4);
 
     // a Property Let of an object variable, in a loop: the Lets are compiled code's calls, the object the variable holds the one called on, one a pass.
     // There is nothing the interpreter runs alone; the Set of the object made with New is a support call.
@@ -228,7 +229,7 @@ public sealed class CompiledFactoryTests
             "End Function"), "6 s1;s2;s3;", "Shaped", recoveries: 0, calls: 3);
 
     // the value is evaluated before the object, as MS-VBA evaluates it: of a With block of Nothing, a value that fails is the value's error (11), and one that
-    // does not is error 91 at the member, each resumed past. The recoveries are the With and the 2 errors; the 2 reads of Err.Number are compiled code's,
+    // does not is error 91 at the member, each resumed past. The recoveries are the 2 errors; the 2 reads of Err.Number are compiled code's,
     // the call of Err.Clear is a support call, and the End With of a block of Nothing is compiled code's. Compiled code calls nothing: neither Property
     // Let is ever called.
     [TestMethod]
@@ -249,5 +250,5 @@ public sealed class CompiledFactoryTests
             "        .X = 2",
             "        Failed = Failed * 100 + Err.Number",
             "    End With",
-            "End Function"), "1191", "Failed", recoveries: 3, calls: 0);
+            "End Function"), "1191", "Failed", recoveries: 2, calls: 0);
 }

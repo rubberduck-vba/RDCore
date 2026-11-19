@@ -5,6 +5,7 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Source;
 using RDCore.Tests.Cli;
 using System.Text;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -87,6 +88,7 @@ public sealed class NameAnalyzerTests
         Private x As Long
         Private total1 As Long
         Private tmp As Long
+        Private Oui As Boolean
         Private été As Long
         Private Total As Long
         Public Const PI2 = 3
@@ -99,11 +101,11 @@ public sealed class NameAnalyzerTests
         """;
 
     [TestMethod]
-    public void ANameThatIsTooShort_EndsWithADigit_OrHasNoVowel_DoesNotSayWhatItIs()
+    public void ANameThatIsTooShort_EndsWithADigit_OrHasNoVowelOrNoConsonant_DoesNotSayWhatItIs()
     {
         var findings = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Declarations);
 
-        CollectionAssert.AreEqual(new[] { "x", "total1", "tmp", "PI2", "a", "i" }, Names(findings));
+        CollectionAssert.AreEqual(new[] { "x", "total1", "tmp", "Oui", "PI2", "a", "i" }, Names(findings));
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.UseMeaningfulIdentifierNames, Severity: DiagnosticSeverity.Information }));
     }
 
@@ -116,6 +118,7 @@ public sealed class NameAnalyzerTests
         Assert.AreNotEqual(messages["x"], messages["total1"]);
         Assert.AreNotEqual(messages["total1"], messages["tmp"]);
         Assert.AreNotEqual(messages["x"], messages["tmp"]);
+        Assert.AreNotEqual(messages["tmp"], messages["Oui"]);
         Assert.AreEqual(messages["x"], messages["a"], "the same rule, the same message");
     }
 
@@ -128,7 +131,7 @@ public sealed class NameAnalyzerTests
     {
         var findings = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options(meaningful: ["I", "X", "tmp"])), Declarations);
 
-        CollectionAssert.AreEqual(new[] { "total1", "PI2", "a" }, Names(findings));
+        CollectionAssert.AreEqual(new[] { "total1", "Oui", "PI2", "a" }, Names(findings));
     }
 
     // a live setting: the client says the names while the extension runs, and the analyzer that is built already reads them when it analyzes.
@@ -144,7 +147,7 @@ public sealed class NameAnalyzerTests
         options.Value.HungarianNotation.AllowedNames = [.. Names(Run(hungarian, Declarations))];
 
         CollectionAssert.Contains(before, "tmp");
-        CollectionAssert.AreEqual(new[] { "total1", "PI2", "a" }, Names(Run(meaningful, Declarations)));
+        CollectionAssert.AreEqual(new[] { "total1", "Oui", "PI2", "a" }, Names(Run(meaningful, Declarations)));
         Assert.IsEmpty(Run(hungarian, Declarations));
     }
 
@@ -343,6 +346,51 @@ public sealed class NameAnalyzerTests
         Assert.IsNotNull(shipped);
         Assert.IsEmpty(shipped.MeaningfulNames.AllowedNames);
         Assert.IsEmpty(shipped.HungarianNotation.AllowedNames);
+    }
+
+    #endregion
+
+    #region line labels
+
+    private const string Labels = """
+        Public Sub Process()
+        L1:
+            Debug.Print 1
+        Retry:
+            Debug.Print 2
+        strAgain:
+            Debug.Print 3
+        10  Debug.Print 4
+        End Sub
+        """;
+
+    [TestMethod]
+    public void ALineLabel_IsANameTheProcedureChooses_AndALineNumberIsNot()
+    {
+        var findings = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Labels);
+
+        CollectionAssert.AreEqual(new[] { "L1" }, Names(findings));
+        Assert.AreEqual(1, findings[0].Range.Start.Line);
+        Assert.IsNotNull(findings[0].Fixes?.Rename);
+    }
+
+    [TestMethod]
+    [Ignore("The parser does not fill LineLabelNode.NameRange: the finding falls back to the label's range, colon included.")]
+    public void ALineLabel_IsReportedAtItsName_WithoutTheColon()
+    {
+        var finding = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Labels).Single();
+
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, 2)), finding.Range);
+    }
+
+    [TestMethod]
+    public void AHungarianLineLabel_IsFixedByARename_ToTheWordAfterItsPrefix()
+    {
+        var finding = Run(new HungarianNotationAnalyzer(Options()), Labels).Single();
+
+        Assert.AreEqual("strAgain", Names([finding])[0]);
+        Assert.AreEqual(5, finding.Range.Start.Line);
+        CollectionAssert.AreEqual(new[] { "Again" }, finding.Fixes?.Rename?.Suggestions.ToArray());
     }
 
     #endregion

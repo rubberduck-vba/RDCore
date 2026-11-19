@@ -108,6 +108,8 @@ public sealed class ServerEventTests
         {
             if (_sinks.TryGetValue(valve, out var sink))
             {
+                // the event's serve: this thread has no calls of the program to make, so it lets the time the runtime gives it go by. The runtime reads the
+                // session again after each serve, until it is open, so how long one lasts changes nothing but how soon it reads.
                 sink.OnEvent(new AutomationEvent(name, arguments, isSynchronous: false, time => Thread.Sleep(time)));
                 Delivered.Set();
             }
@@ -180,6 +182,22 @@ public sealed class ServerEventTests
 
         var output = await RunAsync(Classes, Program(
             "Dim valve As New Rig.Valve",
+            "Dim watcher As New Watcher",
+            "watcher.Watch valve",
+            "Debug.Print valve.Tap(5)"), Libraries(server));
+
+        CollectionAssert.AreEqual(new[] { "event 5", "5 cancelled=True" }, output);
+    }
+
+    // a late-bound object, which CreateObject gives: the WithEvents variable handles the events its class declares, which its server is asked for.
+    [TestMethod]
+    public async Task AnEventOfALateBoundObject_IsHandledByTheWithEventsVariableThatHoldsIt()
+    {
+        var server = new FakeServer();
+
+        var output = await RunAsync(Classes, Program(
+            "Dim valve As Object",
+            "Set valve = CreateObject(\"Rig.Valve\")",
             "Dim watcher As New Watcher",
             "watcher.Watch valve",
             "Debug.Print valve.Tap(5)"), Libraries(server));

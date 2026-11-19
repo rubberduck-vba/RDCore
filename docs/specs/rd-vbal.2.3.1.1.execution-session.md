@@ -12,7 +12,7 @@ host initiates an execution session after resolving an _entry point_
 |`State`|Describes the current _mode_ of the session ([**RD-VBAL §2.3.2** Mode / State](rd-vbal.2.3.2.mode-state.md)).|
 |`Frame`|Exposes the current _stack frame_.|
 |`GetCurrentStack`|Exposes the current _call stack_.|
-|`StepInto`|Advances execution by a single step.|
+|`StepInto`|Advances execution by a single step, into a procedure that the statement calls ([Where a program stops](rd-vbal.3.5.4.execution.md#where-a-program-stops)).|
 |`StepOver`|Advances execution into the next statement.|
 |`StepOut`|Advances execution to the next statement in the current scope, stepping over any statements in-between.|
 

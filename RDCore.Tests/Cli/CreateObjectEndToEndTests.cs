@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <c>CreateObject</c> and <c>GetObject</c> against the servers of the machine, in a project that references no library: the objects are late-bound, as MS-VBA
-/// has them (recorded in Excel, oracle\s25). The servers are a Windows machine's; elsewhere there are none, and a program that asks for one is told so.
+/// has them (observed in Excel). The servers are a Windows machine's; elsewhere there are none, and a program that asks for one is told so.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.8.1.4 CreateObject")]
@@ -42,7 +42,7 @@ public sealed class CreateObjectEndToEndTests
             "Debug.Print key",
             "Next"));
 
-    // the error numbers MS-VBA raises (oracle\s25 grid-co): a class there is no server of, a member the object has not, an object assigned without Set.
+    // the error numbers MS-VBA raises (observed in Excel): a class there is no server of, a member the object has not, an object assigned without Set.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task WhatCannotBeCreatedOrCalled_IsTheErrorMSVBARaises()

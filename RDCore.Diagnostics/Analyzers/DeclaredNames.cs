@@ -20,8 +20,8 @@ internal readonly record struct DeclaredName(string Name, SourceRange Range, boo
 /// <remarks>
 /// Not every name is chosen by the module. A procedure of an external library is named by the library; a procedure whose name has an underscore is the implementation of
 /// an interface member, the handler of an event or a lifecycle handler (<c>Class_Initialize</c>), and is named by the interface, the event or the language. They are
-/// left out. The accessors of a property are one declaration, and its name is reported once. The module's own name is one of them, where its <c>Attribute VB_Name</c>
-/// says it.
+/// left out. The accessors of a property are one declaration, and its name is reported once. A line label is a name the procedure chooses; a line number is a number,
+/// and is left out. The module's own name is one of them, where its <c>Attribute VB_Name</c> says it.
 /// </remarks>
 internal static class DeclaredNames
 {
@@ -54,6 +54,10 @@ internal static class DeclaredNames
 
                 case ParameterDeclarationNode parameter:
                     yield return new(parameter.Name, parameter.NameRange ?? parameter.Location.Range);
+                    break;
+
+                case LineLabelNode label when label is not LineNumberNode:
+                    yield return new(label.Name, label.NameRange ?? label.SourceLocation.Range);
                     break;
 
                 case ExternalMemberDeclarationNode:

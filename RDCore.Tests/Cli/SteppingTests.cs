@@ -16,7 +16,8 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class SteppingTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private static Task<ExecuteResult> StepInto(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
@@ -32,6 +33,7 @@ public sealed class SteppingTests
     [DataRow("Do|    i = i + 1|Loop While i < 3", "3,4,5,4,5,4,5,6,7", DisplayName = "Do ... Loop While: Do on entry only")]
     [DataRow("Do|    i = i + 1|Loop Until i >= 3", "3,4,5,4,5,4,5,6,7", DisplayName = "Do ... Loop Until: Do on entry only")]
     [DataRow("Do While i < 3|    i = i + 1|Loop", "3,4,5,3,4,5,3,4,5,3,6,7", DisplayName = "Do While ... Loop: Do While on each test")]
+    [DataRow("With New Collection|    i = .Count|End With", "3,4,5,6,7", DisplayName = "With ... End With: the With, then each line of the block")]
     public async Task AStepInto_StopsAsMSVBAStops(string block, string steps)
     {
         foreach (var engine in new[] { VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled })

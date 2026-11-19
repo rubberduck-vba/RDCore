@@ -189,6 +189,35 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
     }
 
+    // the names written in a range of a module (MS-VBAL §5.6.10), each bound as Find binds it, in the order of the text: a name whose meaning is not known is
+    // left out. The static pass runs once, on one large-stack thread.
+    public static IReadOnlyList<NameOccurrence> NamesWrittenIn(RenameContext context, RenameModule module, SourceRange range)
+    {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => NamesWrittenIn(context, module, range));
+        }
+
+        var facts = FactsOf(context, module);
+        var lines = LinesOf(module.Source);
+        var written = new List<NameOccurrence>();
+        foreach (var (node, parent) in Walk(module.Syntax))
+        {
+            if (WrittenName(node, parent, lines) is not { Kind: OccurrenceKind.Name } name || !Contains(range, name.Range.Start))
+            {
+                continue;
+            }
+
+            var scope = ScopeAt(context, module, name.Range.Start);
+            if (BindingOf(context, module, node, parent, facts, scope) is { Known: true } bound)
+            {
+                written.Add(new NameOccurrence(module.Module, name.Range, bound.Binding, name.Kind, scope, Node: node));
+            }
+        }
+
+        return [.. written.OrderBy(occurrence => occurrence.Range.Start.Line).ThenBy(occurrence => occurrence.Range.Start.Character)];
+    }
+
     // the static pass recurses once per expression level: one large-stack thread for the call, not one per module or expression.
     public static NameOccurrences Find(RenameContext context, string name, IEnumerable<RenameModule> modules)
     {

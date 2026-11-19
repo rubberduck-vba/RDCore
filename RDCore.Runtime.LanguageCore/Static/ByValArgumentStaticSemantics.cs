@@ -8,7 +8,6 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Semantics.Flags;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
@@ -24,32 +23,14 @@ public static class ByValArgumentStaticSemantics
     // the functions MS-VBA parses with their arguments, and that take no ByVal argument (recorded in Excel), besides the reserved names.
     private static readonly ImmutableHashSet<string> _parsedInline = ImmutableHashSet.Create(StringComparer.OrdinalIgnoreCase, "InStr", "InStrB", "StrComp");
 
-    // what one argument written ByVal is: the ByVal node, the error it is, and whether it is valid and changes nothing.
-    private readonly record struct Verdict(ByValArgumentExpressionNode Argument, VBCompileErrorInfo? Error, bool IsRedundant);
+    // what one argument written ByVal is: the ByVal node, and the error it is.
+    private readonly record struct Verdict(ByValArgumentExpressionNode Argument, VBCompileErrorInfo? Error);
 
     public static VBCompileErrorInfo? Error(StaticEvaluationContext context, IndexExpressionNode call, VBType? calleeType)
         => Error(context, call.Callee, call.Arguments, calleeType);
 
     public static VBCompileErrorInfo? Error(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments, VBType? calleeType)
         => VerdictsOf(context, callee, arguments, calleeType).Select(verdict => verdict.Error).FirstOrDefault(error => error is not null);
-
-    public static void MarkRedundant(StaticEvaluationContext context, IndexExpressionNode call, VBType? calleeType)
-        => MarkRedundant(context, call.Callee, call.Arguments, calleeType);
-
-    public static void MarkRedundant(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments, VBType? calleeType)
-    {
-        if (context.Facts is not { } facts)
-        {
-            return;
-        }
-
-        foreach (var verdict in VerdictsOf(context, callee, arguments, calleeType).Where(verdict => verdict.IsRedundant))
-        {
-            var operandType = facts.TryGet(verdict.Argument.Operand.Identity, out var operand) ? operand.DeclaredType : null;
-            facts.Record(new ExpressionFact(verdict.Argument.Identity, verdict.Argument.Location, operandType, ExpressionClassification.Value, null,
-                ValueExpressionSemanticFlags.RedundantByVal));
-        }
-    }
 
     private static IEnumerable<Verdict> VerdictsOf(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments, VBType? calleeType)
     {
@@ -68,7 +49,7 @@ public static class ByValArgumentStaticSemantics
             foreach (var argument in byVals)
             {
                 yield return new Verdict(argument.Node!, VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, argument.Node!.Location,
-                    string.Format(Exceptions.VBArgument_ByValInlineFunction_Verbose, name)), false);
+                    string.Format(Exceptions.VBArgument_ByValInlineFunction_Verbose, name)));
             }
 
             yield break;
@@ -92,7 +73,7 @@ public static class ByValArgumentStaticSemantics
 
             foreach (var argument in byVals)
             {
-                yield return new Verdict(argument.Node!, VBCompileErrorInfo.For(id, argument.Node!.Location, verbose), false);
+                yield return new Verdict(argument.Node!, VBCompileErrorInfo.For(id, argument.Node!.Location, verbose));
             }
 
             yield break;
@@ -125,7 +106,7 @@ public static class ByValArgumentStaticSemantics
         // As Any takes a value where an address goes, a Declare's ByRef parameter too: the keyword means something there.
         if ((isExternal || isLibrary) && parameter.ResolvedType is VBUnknownType || isExternal && !isByVal)
         {
-            return new Verdict(argument, null, false);
+            return new Verdict(argument, null);
         }
 
         if (isLibrary && parameter.GetProperty(SymbolProperties.TypeLibraryByRef) || !isExternal && !isLibrary && !isByVal)
@@ -135,10 +116,10 @@ public static class ByValArgumentStaticSemantics
                 : Refused(VBCompileErrorId.TypeMismatch, Exceptions.VBArgument_ByValByRefParameter_Verbose);
         }
 
-        return new Verdict(argument, null, true);
+        return new Verdict(argument, null);
 
         Verdict Refused(VBCompileErrorId id, string verbose)
-            => new(argument, VBCompileErrorInfo.For(id, argument.Location, string.Format(verbose, parameter.Name)), false);
+            => new(argument, VBCompileErrorInfo.For(id, argument.Location, string.Format(verbose, parameter.Name)));
     }
 
     // the parameter an argument is for: the one named, or the one at its position - a ParamArray's for every position from its own on.

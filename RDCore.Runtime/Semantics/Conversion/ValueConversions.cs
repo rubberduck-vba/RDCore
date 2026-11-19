@@ -90,6 +90,18 @@ public static partial class ValueConversions
         // number it is, which a LongLong past 2^53 is not as a Double.
         IIntegralNumericType when WholeValueOf(source) is { } whole => FromWhole(whole, destination),
 
+        IFixedPointNumericType when FloatingOf(source, destination) is { } floating => ValueConversionResult.Success(floating),
+
+        // a Decimal with decimal places is made a whole number of the Double it makes, by Banker's rounding, and one without them as the whole number it is
+        // (observed in Excel): CLng(CDec("2.50000000000000000000000001")) is 2, and CLngLng(CDec("1234567890123456789.4")) is 1234567890123457024. A
+        // Currency is rounded as the decimal number it is, below. That Double is a LongLong only below 2^62 in magnitude: CLngLng(CDec("4611686018427387903.5"))
+        // overflows, where CLngLng of the Double 2^62 does not.
+        VBDecimalType when destination is IIntegralNumericType && source is VBDecimalValue { Value.Scale: > 0 } decimalValue
+            => Ranged(decimalValue.AsDouble, destination)
+                && (destination is not VBLongLongType || decimalValue.AsDouble is >= -LongLongOfADecimalBound and < LongLongOfADecimalBound)
+                ? ValueConversionResult.Success(destination.CreateValue(VBNumericType.BankersRounding(decimalValue)))
+                : Overflow,
+
         // a Currency or a Decimal is converted as the decimal number it is, which has digits a Double does not.
         IFixedPointNumericType when FixedValueOf(source) is { } fixedPoint => FromFixed(fixedPoint, destination),
 
@@ -101,15 +113,15 @@ public static partial class ValueConversions
                 : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
 
         // MS-VBAL §2.4: an infinity and a NaN are values of a Single and of a Double, and one is the other's as it is (Single inf -> Double, no error;
-        // recorded in Excel, grid oracle\s16 F20). Of any other type it is no value: an overflow, below.
+        // observed in Excel). Of any other type it is no value: an overflow, below.
         IFloatingPointNumericType when destination is VBSingleType or VBDoubleType && !double.IsFinite(((VBNumericTypedValue)source).AsDouble)
             => ValueConversionResult.Success(destination.CreateValue(((VBNumericTypedValue)source).AsDouble)),
 
         // a Single made a Decimal is its value to 7 significant digits, ties to even, as MS-VBA has it: CDec(CSng(0.1)) is 0.1, and a Single of 16777217
-        // is 16777220 - where a Double keeps the 15 digits a Double's conversion does (recorded in Excel, grid oracle\s43 K01-K26, J01).
+        // is 16777220. A Double keeps 15 digits, as the type's own conversion below does (observed in Excel).
         VBSingleType when destination is VBDecimalType
             => Ranged(((VBSingleValue)source).Value, destination)
-                ? ValueConversionResult.Success(new VBDecimalValue((decimal)((VBSingleValue)source).Value))
+                ? ValueConversionResult.Success(new VBDecimalValue(VBDecimalType.FromSingle(((VBSingleValue)source).Value)))
                 : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
 
         // Double -> Single, Single -> Currency, and so on.
@@ -160,7 +172,7 @@ public static partial class ValueConversions
     };
 
     // a decimal number to a numeric type: for an integral type, it is rounded to a whole number by Banker's rounding, and that is the number that must be
-    // within the range (a Currency of -32768.5 is the Integer -32768, recorded in Excel: oracle\s58 K02).
+    // within the range (a Currency of -32768.5 is the Integer -32768, observed in Excel).
     private static ValueConversionResult FromFixed(decimal value, VBNumericType destination) => destination switch
     {
         IIntegralNumericType when WholeRangeOf(destination) is var (lowest, highest) && Math.Round(value, MidpointRounding.ToEven) is var whole
@@ -171,6 +183,9 @@ public static partial class ValueConversions
     };
 
     private static ValueConversionResult Overflow => ValueConversionResult.Failure(VBRuntimeErrorId.Overflow);
+
+    // 2^62: the magnitude from which the Double a Decimal with decimal places makes is no LongLong (observed in Excel).
+    private const double LongLongOfADecimalBound = 4611686018427387904d;
 
     // the smallest and largest whole numbers of an integral type.
     private static (long Lowest, long Highest) WholeRangeOf(VBNumericType integral) => integral switch
@@ -205,36 +220,99 @@ public static partial class ValueConversions
         _ => null,
     };
 
+    // a fixed-point value made a Single or a Double, as MS-VBA makes it: a Decimal's Double is rounded twice, and its Single is that Double rounded; a
+    // Currency is rounded once to either (observed in Excel). Every Currency and Decimal is within the range of a Single. Null for any other destination.
+    private static VBNumericTypedValue? FloatingOf(VBTypedValue value, VBNumericType destination) => (value, destination) switch
+    {
+        (VBDecimalValue decimalValue, VBDoubleType) => new VBDoubleValue(VBDecimalType.ToDouble(decimalValue.Value)),
+        (VBDecimalValue decimalValue, VBSingleType) => new VBSingleValue(VBDecimalType.ToSingle(decimalValue.Value)),
+        (VBCurrencyValue currency, VBDoubleType) => new VBDoubleValue(VBCurrencyType.ToDouble(currency.Value)),
+        (VBCurrencyValue currency, VBSingleType) => new VBSingleValue(VBCurrencyType.ToSingle(currency.Value)),
+        _ => null,
+    };
+
     // MS-VBAL 5.5.1.2.4, as MS-VBA reads it (NumberGrammar).
     private static ValueConversionResult StringToNumeric(string? text, VBNumericType destination, RegionalSettings? regional = null)
+        => ReadNumber(text, regional ?? RegionalSettings.Default, out var bits, out var writtenValue, out var scaledValue) switch
+        {
+            NumberRead.None => ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch),
+            NumberRead.Radix => FromRadix(bits, destination),
+            NumberRead.Written => FromFixed(writtenValue, destination),
+            _ => !double.IsNaN(scaledValue) && Ranged(scaledValue, destination)
+                ? ValueConversionResult.Success(destination.CreateValue(scaledValue))
+                : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
+        };
+
+    /// <summary>
+    /// Whether a <c>String</c> Let-coerces to a <c>Double</c> (<strong>MS-VBAL §5.5.1.2.4</strong>), which is what <c>IsNumeric</c> says of it: as
+    /// <see cref="ToNumeric"/> reads it to a <c>Double</c>, without making the <c>Double</c>.
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="regional">The regional settings the number is written by.</param>
+    /// <returns>Whether the text reads as a number a <c>Double</c> holds.</returns>
+    public static bool IsNumber(string? text, RegionalSettings regional)
+        => ReadNumber(text, regional, out _, out _, out var scaledValue, wantsValue: false) switch
+        {
+            NumberRead.None => false,
+
+            // a Double holds every whole number of 64 bits (FromRadix) and every Decimal (FromFixed), rounded.
+            NumberRead.Radix or NumberRead.Written => true,
+            _ => !double.IsNaN(scaledValue) && Ranged(scaledValue, VBDoubleType.TypeInfo),
+        };
+
+    // what a String reads as (NumberGrammar): the bits of a radix literal; the decimal number it is written as, when it has no exponent and a Decimal holds
+    // it ("9223372036854775807" is the largest LongLong, which no Double is); or the Double it reads as, scaled by its exponent.
+    private enum NumberRead
     {
-        if (!NumberGrammar.TryRead(text ?? string.Empty, regional ?? RegionalSettings.Default, out var reading))
+        None,
+        Radix,
+        Written,
+        Scaled,
+    }
+
+    // the length of the text whose digits are read on the stack.
+    private const int StackDigits = 128;
+
+    private const NumberStyles DigitStyles = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
+
+    // for a caller that does not want the value (IsNumber), a number of at most 28 characters with no exponent is written without being read: a Decimal
+    // holds it and a Double reads it, whatever its digits are.
+    private static NumberRead ReadNumber(string? text, RegionalSettings regional, out ulong bits, out decimal writtenValue, out double scaledValue,
+        bool wantsValue = true)
+    {
+        (bits, writtenValue, scaledValue) = (0, 0, 0);
+        var span = text.AsSpan();
+        var length = NumberGrammar.DigitsLengthOf(span);
+        Span<char> buffer = length <= StackDigits ? stackalloc char[StackDigits] : new char[length];
+        if (!NumberGrammar.TryRead(span, regional, buffer, out var reading))
         {
-            return ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch);
+            return NumberRead.None;
         }
 
-        if (reading.Radix is { } bits)
+        if (reading.Radix is { } radix)
         {
-            return FromRadix(bits, destination);
+            bits = radix;
+            return NumberRead.Radix;
         }
 
-        if (!double.TryParse(reading.Digits, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var interpretedValue))
+        var digits = buffer[reading.Digits];
+        if (!wantsValue && reading.Exponent is null && digits.Length <= 28)
         {
-            return ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch);
+            return NumberRead.Written;
         }
 
-        // a number written without an exponent is the decimal number it is written as, when a Decimal holds it: "9223372036854775807" is the largest
-        // LongLong, which no Double is.
-        if (reading.Exponent is null
-            && decimal.TryParse(reading.Digits, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var writtenValue))
+        if (!double.TryParse(digits, DigitStyles, CultureInfo.InvariantCulture, out var interpretedValue))
         {
-            return FromFixed(writtenValue, destination);
+            return NumberRead.None;
         }
 
-        var scaledValue = reading.Exponent is { } exponent ? interpretedValue * Math.Pow(10, exponent) : interpretedValue;
-        return !double.IsNaN(scaledValue) && Ranged(scaledValue, destination)
-            ? ValueConversionResult.Success(destination.CreateValue(scaledValue))
-            : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow);
+        if (reading.Exponent is null && decimal.TryParse(digits, DigitStyles, CultureInfo.InvariantCulture, out writtenValue))
+        {
+            return NumberRead.Written;
+        }
+
+        scaledValue = reading.Exponent is { } exponent ? interpretedValue * Math.Pow(10, exponent) : interpretedValue;
+        return NumberRead.Scaled;
     }
 
     // the digits of an &H or &O literal, as MS-VBA converts them (recorded in Excel): to an Integer, up to 16 bits are the Integer they are (&HFFFF is -1)

@@ -69,6 +69,10 @@
   <data name="RuntimeErrorTitle" xml:space="preserve">
     <value>Run-time error</value>
   </data>
+  <data name="RuntimeErrorMessage" xml:space="preserve">
+    <value>{0} '{1}': {2}</value>
+    <comment>A run-time error as the debug console says it, in MS-VBA's form. {0} is the title (Run-time error), {1} the error number, {2} its description.</comment>
+  </data>
   <data name="StopStep" xml:space="preserve">
     <value>Step</value>
   </data>
@@ -101,6 +105,12 @@
   </data>
   <data name="FrameGoSub" xml:space="preserve">
     <value>{0} (GoSub)</value>
+  </data>
+  <data name="FrameNonBasicCode" xml:space="preserve">
+    <value>&lt;Non-Basic Code&gt;</value>
+  </data>
+  <data name="FrameIsNotCode" xml:space="preserve">
+    <value>This entry of the call stack is not the program's code: it has no variables, and nothing can be evaluated there.</value>
   </data>
   <data name="ExpressionHasNoValue" xml:space="preserve">
     <value>the expression has no value</value>

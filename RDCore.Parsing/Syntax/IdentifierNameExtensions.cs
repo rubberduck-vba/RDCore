@@ -1,4 +1,5 @@
 ﻿using Antlr4.Runtime.Tree;
+using RDCore.SDK.Model.Source;
 using System.Text;
 
 namespace RDCore.Parsing.Syntax;
@@ -72,4 +73,20 @@ internal static class IdentifierNameExtensions
     // the same on an identifier that may also be a keyword, which has no hint.
     public static string? TypeHint(this VBAParser.UnrestrictedIdentifierContext? context)
         => context?.identifier().TypeHint();
+
+    // where that character is written, at the end of the name, or null.
+    public static SourceRange? TypeHintRange(this VBAParser.IdentifierContext? context)
+        => context?.typedIdentifier()?.typeHint()?.SourceRange;
+
+    // the same on an identifier that may also be a keyword.
+    public static SourceRange? TypeHintRange(this VBAParser.UnrestrictedIdentifierContext? context)
+        => context?.identifier().TypeHintRange();
+
+    // MS-VBAL §3.3.5.3: whether the name is written in brackets, a foreign name.
+    public static bool IsBracketed(this VBAParser.IdentifierContext? context)
+        => (context?.untypedIdentifier() ?? context?.typedIdentifier()?.untypedIdentifier())?.identifierValue()?.foreignName() is not null;
+
+    // the same on an identifier that may also be a keyword: a keyword is written without brackets.
+    public static bool IsBracketed(this VBAParser.UnrestrictedIdentifierContext? context)
+        => context?.identifier().IsBracketed() ?? false;
 }

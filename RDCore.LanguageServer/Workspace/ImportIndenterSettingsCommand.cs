@@ -1,6 +1,7 @@
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.SDK.Formatting;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.Commands;
 using RDCore.SDK.Server.Services;
 
@@ -23,10 +24,7 @@ namespace RDCore.LanguageServer.Workspace;
 /// </remarks>
 internal sealed class ImportIndenterSettingsCommand(ILanguageServerFacade server, IPlatformClientCapabilitiesService capabilities) : IServerCommand
 {
-    /// <summary>The name a client asks for the command by.</summary>
-    public const string CommandName = "rdcore.importIndenterSettings";
-
-    public string Name => CommandName;
+    public string Name => ServerCommands.ImportIndenterSettings;
 
     public async Task<JToken?> ExecuteAsync(JArray? arguments, IServerCommandContext context, CancellationToken token)
     {

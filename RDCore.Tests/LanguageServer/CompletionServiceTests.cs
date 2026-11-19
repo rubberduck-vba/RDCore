@@ -370,15 +370,34 @@ public sealed class CompletionServiceTests
     [DataRow("Gather |", "Title:=", DisplayName = "a ParamArray is never named")]
     [DataRow("Ring 1, |", "Length:=", DisplayName = "a Declare'd procedure")]
     [DataRow("Send \"a\", Co|", "Copies:=", DisplayName = "narrowed by the word typed")]
-    [DataRow("Send |", "", DisplayName = "a required parameter")]
+    [DataRow("Send |", "Text:=;Heading:=;Copies:=;Source:=", DisplayName = "the first argument, of a required parameter")]
+    [DataRow("s.Queue |", "Text:=;Copies:=", DisplayName = "the first argument of a member call")]
     [DataRow("Send \"a\", Copies:=|", "", DisplayName = "the value of a named argument")]
     [DataRow("Send \"a\", 1 + |", "", DisplayName = "inside an argument")]
-    public async Task WhereAnOptionalArgumentStarts_TheParametersNotGivenYetAreOffered_ByName(string line, string names)
+    public async Task WhereAnArgumentStarts_TheParametersNotGivenYetAreOffered_ByName(string line, string names)
     {
         var items = await NamedAsync(line);
 
         CollectionAssert.AreEqual(names.Split(';', StringSplitOptions.RemoveEmptyEntries), NamesIn(items), Show(items));
     }
+
+    // a value is what is most likely written where the parameter is not Optional: the names rank after every other name, and none of them is selected.
+    [TestMethod]
+    [DataRow("Send |", "Text:=", DisplayName = "nothing typed")]
+    [DataRow("Send T|", "Text:=", DisplayName = "the word typed starts the name, and others")]
+    public async Task WhereTheParameterIsNotOptional_TheNamesRankAfterTheOthers(string line, string name)
+    {
+        var items = await NamedAsync(line);
+        var labels = items.Select(item => item.Label).ToList();
+
+        Assert.IsTrue(labels.IndexOf(name) > labels.FindLastIndex(label => !label.EndsWith(":=", StringComparison.Ordinal)), Show(items));
+        Assert.IsFalse(items.Single(item => item.Preselect).Label.EndsWith(":=", StringComparison.Ordinal), Show(items));
+    }
+
+    // a ( , or space a client asks on is not answered with a whole list where the names rank after the rest.
+    [TestMethod]
+    public async Task ASpaceBeforeTheArgumentOfARequiredParameter_DoesNotAskForTheNames()
+        => Assert.AreEqual(0, (await NamedAsync("Send |", " ")).Count);
 
     [TestMethod]
     public async Task ANamedArgument_IsItsParametersName_InsertedWithItsToken_AndSaysWhatTheParameterIs()
@@ -718,7 +737,9 @@ public sealed class CompletionServiceTests
     {
         var items = await NamedAsync("If True Then Send \"x\", 1 Else Send |");
 
-        Assert.AreEqual(0, NamesIn(items).Length, $"Text is required: {Show(items)}");
+        // the first argument: every name, after the other candidates, since Text is required. Counted from the first Send, only Copies and Source would be.
+        CollectionAssert.AreEqual(new[] { "Text:=", "Heading:=", "Copies:=", "Source:=" }, NamesIn(items), Show(items));
+        Assert.AreEqual("~", items.Single(item => item.Label == "Text:=").SortText![..1], Show(items));
     }
 
     // the Then clause of a single-line If ends at its Else (MS-VBAL §5.4.2.9): what the Else clause writes is no argument of the call in the Then clause.
@@ -1176,6 +1197,22 @@ public sealed class CompletionServiceTests
         var item = list.Items.Single(item => item.Label == "Copies:=");
 
         Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), item.TextEdit?.TextEdit?.Range, Show(list.Items));
+    }
+
+    // 110 Send "a", Co|pies:=2, of a client that takes two ranges: the rest of the word is in the replaced one, in the program's own lines.
+    [TestMethod]
+    public async Task AClientThatTakesTwoRanges_IsGivenAnInsertAndAReplaceRange()
+    {
+        var program = new WorkspaceDocument("hello.rdc", Root, "100 Send \"a\", Co\r\n110 Send \"a\", Copies:=2\r\n");
+        WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), program);
+
+        var list = await Sut("basic").CompleteDocumentAsync(program.Id.Uri.ToUri(), new Position(1, 16), CancellationToken.None, insertReplace: true);
+        var edit = list.Items.Single(item => item.Label == "Copies:=").TextEdit?.InsertReplaceEdit;
+
+        Assert.IsNotNull(edit, Show(list.Items));
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), edit.Insert);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), edit.Replace);
+        Assert.IsTrue(list.Items.All(item => item.TextEdit?.IsInsertReplaceEdit == true), "every item carries both ranges");
     }
 
     [TestMethod]
@@ -1644,4 +1681,56 @@ public sealed class CompletionServiceTests
     [DataRow("    Dim y As Long, |", DisplayName = "no procedure")]
     public async Task WhereNoCallOfAProcedureIsWritten_ThereIsNoSignature(string line)
         => Assert.IsNull(await SignatureAsync($"Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n{line}\r\nEnd Sub\r\n"));
+
+    // ---- names in brackets ----
+
+    // a name that is no identifier, written in brackets (MS-VBAL §3.3.5.3), is offered in its brackets, which is how it is written; the word typed is matched
+    // against the name inside them, typed with its opening bracket or without.
+    [TestMethod]
+    [DataRow("    |", DisplayName = "nothing typed")]
+    [DataRow("    x = |", DisplayName = "nothing typed, an operand")]
+    [DataRow("    My|", DisplayName = "the start of the name")]
+    [DataRow("    x = my|", DisplayName = "the start of the name, in another letter case")]
+    [DataRow("    [My|", DisplayName = "the opening bracket and the start of the name")]
+    [DataRow("    x = [|", DisplayName = "the opening bracket alone")]
+    public async Task ANameInBrackets_IsOfferedInItsBrackets(string line)
+    {
+        var labels = await LabelsAsync($"Attribute VB_Name = \"Main\"\r\nPrivate [My Field] As Long\r\nPublic Sub Run()\r\n{line}\r\nEnd Sub\r\n");
+
+        CollectionAssert.Contains(labels, "[My Field]");
+        CollectionAssert.DoesNotContain(labels, "My Field");
+    }
+
+    // what is typed of it, its opening bracket included, is what the item replaces.
+    [TestMethod]
+    public async Task ANameInBrackets_TypedWithItsOpeningBracket_ReplacesTheBracketToo()
+    {
+        var (source, position) = At("Attribute VB_Name = \"Main\"\r\nPrivate [My Field] As Long\r\nPublic Sub Run()\r\n    x = [My|\r\nEnd Sub\r\n");
+        var list = await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None);
+
+        var item = list.Items.Single(candidate => candidate.Label == "[My Field]");
+        var edit = item.TextEdit?.TextEdit;
+        Assert.IsNotNull(edit);
+        Assert.AreEqual(new Position(3, 8), edit.Range.Start, "from the opening bracket");
+        Assert.AreEqual(position, edit.Range.End);
+        Assert.AreEqual("[My Field]", edit.NewText);
+    }
+
+    // an identifier is offered as it is, with a bracket typed before it too.
+    [TestMethod]
+    public async Task AnIdentifier_TypedWithAnOpeningBracket_IsOffered()
+        => CollectionAssert.Contains(await LabelsAsync("Attribute VB_Name = \"Main\"\r\nPrivate Total As Long\r\nPublic Sub Run()\r\n    x = [To|\r\nEnd Sub\r\n"), "Total");
+
+    // Debug is written only as its two statements, which are its members after the dot, as VB6 and MS-VBA list them.
+    [TestMethod]
+    [DataRow("Debug.|", DisplayName = "Debug.")]
+    [DataRow("Debug.Pr|", DisplayName = "Debug.Pr, a member started")]
+    [DataRow("debug.|", DisplayName = "debug., in any case")]
+    public async Task Debug_AfterItsDot_OffersPrintAndAssert(string line)
+    {
+        var labels = await LabelsAsync($"Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    {line}\r\nEnd Sub\r\n");
+
+        CollectionAssert.Contains(labels, "Print", string.Join(", ", labels));
+        CollectionAssert.IsSubsetOf(labels, new[] { "Assert", "Print" }, string.Join(", ", labels));
+    }
 }

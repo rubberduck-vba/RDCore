@@ -177,12 +177,17 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
         var passed = Arguments(request, parameters, resolver);
 
+        // a late-bound member called with named arguments has a parameter of each name, after the arguments that are not named.
+        var names = LateBinding.IsLateBoundMember(member) ? LateBinding.ArgumentNamesOf(member, parameters) : [];
+
         // the array the server is given is the one it writes the arguments passed by reference back into.
         var values = passed.Values.ToArray();
         object? result;
         using (session.Turn.Yield())
         {
-            result = server.Invoke(target, name, invocation, values, [.. passed.ByReference], session.Environment.Culture);
+            result = names.Count == 0
+                ? server.Invoke(target, name, invocation, values, [.. passed.ByReference], session.Environment.Culture)
+                : server.Invoke(target, name, invocation, values, [.. passed.ByReference], names, session.Environment.Culture);
         }
 
         WriteBack(passed, values, resolver);

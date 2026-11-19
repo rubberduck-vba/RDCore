@@ -19,8 +19,12 @@ namespace RDCore.Runtime.Execution;
 /// The handler is never looked up by the caller and never called by name.
 /// <para>
 /// A form's class is the exception: its lifecycle is the UserForm's, whose event procedures are named after it (<c>UserForm_Initialize</c>,
-/// <c>UserForm_Terminate</c>), and its <c>Class_Initialize</c> and <c>Class_Terminate</c> do not run (Excel-measured, <c>oracle\s41</c> L50). Creating one loads it,
+/// <c>UserForm_Terminate</c>), and its <c>Class_Initialize</c> and <c>Class_Terminate</c> do not run (observed in Excel). Creating one loads it,
 /// and its <c>Terminate</c> runs once: when it is let go of, unless <c>Unload</c> unloaded it before, which ran it then (<see cref="External.Forms.SessionForms"/>).
+/// </para>
+/// <para>
+/// A Visual Basic 6.0 form's handlers are <c>Form_Initialize</c> and <c>Form_Terminate</c>. Creating one does not load it, and its <c>Terminate</c> runs when its
+/// last reference goes, whether it was ever loaded (measured in VB6).
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose objects' events are raised.</param>
@@ -32,7 +36,12 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
     {
         if (IsForm(instance))
         {
-            External.Forms.SessionForms.Of(session).Load(instance);
+            // a Visual Basic 6.0 form's instance is not loaded yet: a built-in member, a control, Load or Show loads it.
+            if (!External.Forms.SessionForms.Of(session).IsVisualBasic6(session, instance))
+            {
+                External.Forms.SessionForms.Of(session).Load(instance);
+            }
+
             return External.Forms.FormHandlers.Raise(session, bindings, instance, "Initialize");
         }
 
@@ -46,6 +55,13 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
         {
             // what the form listened to goes with it; one that was unloaded stopped listening then.
             External.Forms.SessionForms.Of(session).StopListening(instance);
+
+            // a Visual Basic 6.0 form's Terminate runs when its instance goes, whether it was ever loaded: the loaded forms hold a loaded one until its unload.
+            if (External.Forms.SessionForms.Of(session).IsVisualBasic6(session, instance))
+            {
+                return External.Forms.FormHandlers.Raise(session, bindings, instance, "Terminate");
+            }
+
             return External.Forms.SessionForms.Of(session).Release(instance)
                 ? External.Forms.FormHandlers.Raise(session, bindings, instance, "Terminate")
                 : RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
@@ -57,32 +73,34 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
     private bool IsForm(VBRuntimeObjectId instance)
         => session.Symbols.TryGetInstance(instance, out var live) && SDK.Workspace.Forms.FormObject.IsFormClass(live.ClassModule);
 
+    // whether letting go of the object runs code of its class: a form's Terminate is the UserForm's, whatever its class has.
+    internal static bool HandlesTerminate(IObjectInstance live)
+        => SDK.Workspace.Forms.FormObject.IsFormClass(live.ClassModule) || HandlerOf(live, ClassLifecycleInterface.Terminate) is not null;
+
     private RuntimeSemanticsEvaluationResult Raise(VBRuntimeObjectId instance, VBTypeMemberSymbol interfaceMember)
     {
-        if (!session.Symbols.TryGetInstance(instance, out var live))
+        if (!session.Symbols.TryGetInstance(instance, out var live) || HandlerOf(live, interfaceMember) is not { } handler)
         {
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
 
+        var target = new VBObjectValue(instance).RuntimeValue;
+        return bindings.ForMember(handler).Call(session.Symbols.Resolver, [target]);
+    }
+
+    // the procedure of the object's class that implements the member; none when the class has none, and the member is implemented by its own default,
+    // which is empty (SymbolProperties.DefaultImplementation): dispatching to it runs nothing.
+    private static VBTypeMemberSymbol? HandlerOf(IObjectInstance live, VBTypeMemberSymbol interfaceMember)
+    {
         foreach (var implemented in live.ClassModule.ImplementedInterfaces)
         {
             // the member is the interface's own: a Uri's fragment is where a symbol's identity lives.
-            if (implemented.Uri.AbsoluteUri != interfaceMember.ParentUri.AbsoluteUri)
+            if (implemented.Uri.AbsoluteUri == interfaceMember.ParentUri.AbsoluteUri)
             {
-                continue;
+                return live.ClassModule.FindImplementation(implemented, interfaceMember);
             }
-
-            if (live.ClassModule.FindImplementation(implemented, interfaceMember) is not { } handler)
-            {
-                // the class has no procedure for the member, so it is implemented by the member's own default, which is
-                // empty (SymbolProperties.DefaultImplementation): dispatching to it runs nothing.
-                break;
-            }
-
-            var target = new VBObjectValue(instance).RuntimeValue;
-            return bindings.ForMember(handler).Call(session.Symbols.Resolver, [target]);
         }
 
-        return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        return null;
     }
 }

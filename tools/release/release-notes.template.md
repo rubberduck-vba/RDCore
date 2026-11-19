@@ -15,7 +15,7 @@ Each archive has its release metadata beside it, `rdcore-{VERSION}-<system>.rele
 
 ### Requirements
 
-- The .NET 10 runtime (`Microsoft.NETCore.App`) for the archive's architecture. Every archive is framework-dependent and does not include it; its `release.json` records the minimum version.
+- The .NET 11 runtime (`Microsoft.NETCore.App`) for the archive's architecture. Every archive is framework-dependent and does not include it; its `release.json` records the minimum version.
 - **Windows x64.** RDCore runs as a 64-bit process, so UserForms need 64-bit Office (the 64-bit Microsoft Forms 2.0), a `Declare` statement's library must be a 64-bit DLL, and Office automation needs the Office application installed.
 - **Linux and macOS.** The platform has no automation servers there: a program that creates an object of one (`CreateObject`, or `New` of a library's class such as `Scripting.Dictionary`) gets error 429. It can still be analyzed.
 

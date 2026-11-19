@@ -36,6 +36,15 @@ public enum RDCoreDiagnosticId
     ImplicitWideningConversion = 113,
     ImplicitArrayDeclaration = 114, // a ReDim whose name matches nothing declares the array it re-dimensions: a Dim before it says so
     ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
+    ImplicitForStep = 116, // a For loop with no Step, under the convention that writes Step 1
+    ImplicitConstantType = 117, // a Const with no As and no type character: its type is the one the reader works out from its value
+    ImplicitDefaultMemberAccess = 119, // an object of a known class used as a value, or assigned one without Set: its default member, not named
+    ImplicitUnboundDefaultMemberAccess = 120, // an Object used as a value, or assigned one without Set: its default member is known only at run time
+    IndexedDefaultMemberAccess = 121, // an argument list given to an object of a known class: its default member takes it, not named
+    IndexedUnboundDefaultMemberAccess = 122, // an argument list given to an Object: its default member is known only at run time
+    BangNotation = 123, // b!key: the default member of a known class given the name as a String
+    UnboundBangNotation = 124, // v!key of an Object: its default member is known only at run time
+    SuspiciousLetAssignment = 125, // an object assigned to an object without Set: default member to default member, where Set was likelier meant
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,
@@ -45,6 +54,15 @@ public enum RDCoreDiagnosticId
     NotAllPathsReturnValue = 206, // [RD2:NonReturningFunctionInspection], but for any path that does not assign the return value, not only when none does
     IsMissingAlwaysFalse = 207, // [RD2:IsMissingOnInappropriateArgumentInspection] IsMissing of a parameter that is no Variant, or an Optional Variant with a default
     ShadowedDeclaration = 208, // [RD2:ShadowedDeclarationInspection] a local or a parameter named like a member of the module, of another module or of a library
+    BooleanAssignedInIfElse = 209, // If c Then x = True Else x = False: x = c says the same
+    StopStatement = 210, // Stop: the program is suspended there, as at a breakpoint
+    OnErrorGoToMinusOne = 211, // On Error GoTo -1: ends the error being handled, which MS-VBAL does not document and MS-VBA compiles
+    UnrestoredOnErrorResumeNext = 212, // On Error Resume Next that no On Error GoTo follows in its procedure
+    LineContinuationBetweenKeywords = 213, // [RD2:LineContinuationBetweenKeywordsInspection] End _ / If: a line continuation between the words of a keyword
+    ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
+    SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
+    FunctionReturnValueDiscarded = 216, // [RD2:FunctionReturnValueDiscardedInspection] a Function of the project called as a statement: the value it returns is discarded
+    IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
@@ -57,6 +75,10 @@ public enum RDCoreDiagnosticId
     ObsoleteOnLocalErrorStatement = 309,
     RedundantByValArgument = 310, // ByVal written before an argument of a ByVal parameter: MS-VBA compiles it, MS-VBAL refuses it, it changes nothing
     EarlyBindingOpportunity = 311, // CreateObject of a class a referenced library declares: it could be New, and early-bound
+    EmptyStringLiteral = 312, // "", which vbNullString says
+    RedundantStepOne = 313, // Step 1, which a For loop with no Step has
+    RedundantByRefModifier = 314, // ByRef written, under the convention that leaves it unwritten
+    RedundantModuleOption = 315, // Option Base 0, Option Compare Binary: what a module that states no option has
 
     ObsoleteMemberUsage = 401, // members with an @Obsolete annotation
     InvalidAnnotation = 404, // @NotAnAnnotationButParsedLikeOne
@@ -64,17 +86,32 @@ public enum RDCoreDiagnosticId
     ImplementationsShouldBePrivate = 405,
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
     UnmatchedEventHandler = 407, // a handler of a form's control that does not match the event: MS-VBA compiles it, and nothing calls it
+    UnderscoreInPublicClassMember = 408, // a public member of a class named with an underscore: no class can implement the class
+    EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public variable of a class module, which any code can assign
+    SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
+    ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,
     HungarianNotation = 1002,
 
-    EmptyIfBlock,
-    EmptyCodeBlock,
+    EmptyIfBlock = 1003, // an If or ElseIf branch with no statement
+    EmptyCodeBlock = 1004, // an Else, Case, Do, For, For Each or While block with no statement
 
     HostedDocumentCode = 1005, // a document module (.rdproj Super): the code of a host's document, which RD-VBA does not host; and a name of one in another module
     UnsupportedDocumentModule = 1006, // a document module of a host RD-VBA does not know, or a .doccls the project says nothing of
     HostLibraryNotReferenced = 1007, // a document module of a known host whose library the project does not reference
+    NativeCallReachableOnEveryPlatform = 1008, // a Declare that no platform #If makes dead, and a call of one compiled where it is not declared, or everywhere
+    EmptyProcedure = 1009, // a procedure with no statement
+    EmptyModule = 1010, // a module that declares nothing
+    VariableNotUsed = 1011, // a variable whose value nothing reads
+    VariableNotAssigned = 1012, // a variable read and never assigned: it always has the default value of its type
+    ParameterNotUsed = 1013, // a parameter nothing in its procedure refers to
+    AssignedByValParameter = 1014, // a ByVal parameter its procedure assigns: the argument of the caller does not change
+    ConstantNotUsed = 1015, // a constant of a procedure nothing refers to
+    LineLabelNotUsed = 1016, // a line label nothing jumps to
+    WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
+    KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,
@@ -108,13 +145,36 @@ public enum RDCoreDiagnosticId
     ObjectVariablePassedLateIsACopy = 11029, // o.Twice b.Count, o an Object: MS-VBA passes a copy of b's public variable to a procedure called late
     TrueValueIsNotMinusOne = 11031, // #If Not DEV with #Const DEV = 1: a True that is not -1, read through an operator that works on its bits (Not 1 is -2)
     ForEachControlEmptiedAfterLoop = 11032, // For Each c In r ... Next: Debug.Print c.Address - MS-VBAL keeps the last element in c; MS-VBA empties it (Nothing)
+    ReservedNameAcceptedByMSVBA = 11033, // Enum E: Date: End Enum - MS-VBAL §3.3.5.2 reserves Date; MS-VBA compiles it as an Enum member
+    NameRefusedByMSVBA = 11034, // Dim Long As Long - MS-VBAL §3.3.5.2 allows the name; MS-VBA refuses it (Expected: identifier)
+    CollectionSetToNothingInItsOwnLoop = 11035, // Set c = Nothing in For Each v In c: RD-VBA leaves c as it is while the loop runs; MS-VBA destroys the Collection, the loop ends
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
+    IIfSideEffect = 11039, // [RD2:IIfSideEffectInspection] IIf(c, Compute(1), 2): a Function or Property Get in the TruePart or FalsePart runs whatever the condition
+    StrOfAFraction = 11040, // Str(0.5): MS-VBA writes " .5", with no zero before the point; MS-VBAL writes the let-coercion's " 0.5"
+    StrOfAnErrorValue = 11041, // Str(CVErr(5)): MS-VBA raises 13; MS-VBAL writes "Error 5"
+    WriteOfAFraction = 11042, // Write #1, 0.5: MS-VBA writes .5, with no zero before the point; MS-VBAL writes the let-coercion's 0.5
+    ObjectLetToVariantProperty = 11043, // c.Item = o, Property Let Item(v As Variant): MS-VBA passes the object; MS-VBAL §5.4.3.8 passes its default member's value
+    LSetOfARecordWithAString = 11044, // LSet a = b, a or b a record with a variable-length String: MS-VBAL allows it; MS-VBA: Compile error: Type mismatch
+    LetToADefaultMemberWithNoPropertyLet = 11045, // os = 5, os's default member a Property Get or a Function with no Property Let: MS-VBAL compiles it, MS-VBA refuses it
+    LetThroughAVariantGetOrFunction = 11046, // o.Value = 5, Value a Variant Property Get with no Let (or a Variant Function): MS-VBAL 451/450, MS-VBA assigns through what it returns, or 424
+    ObjectLetToObjectProperty = 11047, // h.Pic = p, Property Let Pic(v As Object): MS-VBA passes the object; MS-VBAL §5.5.1.1 makes the Let invalid, §5.5.1.2.13 424
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits
     */
     EditNotApplied = 20001, // an edit made while the program waits that is not applied to it: picked up when it is run again, or it does not compile
+
+    /*
+     * [30000-30999]: the builder, what rdc run and rdc build refuse a workspace with (ProgramRunner, in RDCore.Runtime.Support, writes the code)
+    */
+    NoEntryPoint = 30001, // no Sub Main, the entry point the .rdproj names declared nowhere, or a Library project: the program has nowhere to start
+    AmbiguousEntryPoint = 30002, // more than one standard module declares the Sub Main, and the .rdproj names none
+
+    /*
+     * [31000-31999]: the workspace and its project files, issued by the language server against a project's .rdproj
+    */
+    CircularProjectReference = 31001, // NavalLib references NavalWindow, which references NavalLib: a project references itself, through other projects or not
 }
 
 public static class RDCoreDiagnosticIds

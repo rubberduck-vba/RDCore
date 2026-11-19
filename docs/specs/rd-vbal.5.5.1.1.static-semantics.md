@@ -40,10 +40,10 @@ as it is: `CVar`, `Round`, `Hex`, `Str`, `Left`, `Mid`, `Trim`, the functions of
 
 MS-VBAL §5.5.1.1 makes an object of a class that has no accessible default member statically invalid to Let-coerce.
 MS-VBA compiles it, and raises run-time error 438 (Object doesn't support this property or method) when it runs, or 91
-(Object variable or With block variable not set) when the variable holds `Nothing` (Excel, `oracle\s46` F16a-c:
+(Object variable or With block variable not set) when the variable holds `Nothing` (recorded in Excel:
 `c = o`, `c = CInt(o)`, `Split("a,b,c", ",", o)`). RD-VBA does what MS-VBA does: the object is read for a value when it
 runs, as a late-bound one is. Where a value of a declared type is expected, or a `Variant` is `Let`-assigned the object,
-the static pass states it (`ValueExpressionSemanticFlags.ValueOfObjectWithNoDefaultMember`), and RDCore.Diagnostics
+the static pass states that its value is Let-coerced (`ExpressionFact.IsLetCoerced`), and RDCore.Diagnostics
 reports [`RDC11015`](../diagnostics/rdc11015.md), a warning that stands in for the compile error the specification
 makes it. A parameter declared `Variant`, and `Abs`, `Int`, `Fix`, `Len` and `LenB`, take the object as it is: the
 coercion there is the run time's, and nothing is reported. And the specification asks only for an "accessible default
@@ -69,6 +69,5 @@ a value type.
 **MS-VBAL §3.3.5.2** gives the `Empty` and `Null` literals a declared type of `Variant`, and a `Variant` is valid to
 Let-coerce to an array. So `a = Empty`, with `a` declared `As Integer()`, compiles, and so do `a = Null` and `F = Empty` in
 a function declared `As Integer()`; the value each holds is no array, and the assignment raises run-time error 13 (Type
-mismatch) when it runs. This is what MS-VBA does (Excel, `oracle\s46` F17a-b, `oracle\s48` J01-J02). The static pass states it
-(`ValueExpressionSemanticFlags.EmptyLetToArray`), and RDCore.Diagnostics reports
-[`RDC11016`](../diagnostics/rdc11016.md): the assignment fails whenever it runs.
+mismatch) when it runs. This is what MS-VBA does (recorded in Excel). RDCore.Diagnostics reports
+[`RDC11016`](../diagnostics/rdc11016.md) from the declared types of the target and the value: the assignment fails whenever it runs.

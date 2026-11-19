@@ -192,6 +192,12 @@
   <data name="VBCompileError_DeclaredTypeQualifierNotResolved_Verbose" xml:space="preserve">
     <value>The declared type '{0}' could not be resolved: '{1}' is not a project or a module that this project can see. If it is a library, it may be missing from the references of the project.</value>
   </data>
+  <data name="VBCompileError_NewTypeNotResolved_Verbose" xml:space="preserve">
+    <value>The class '{0}' of the New expression could not be resolved.</value>
+  </data>
+  <data name="VBCompileError_NewTypeQualifierNotResolved_Verbose" xml:space="preserve">
+    <value>The class '{0}' of the New expression could not be resolved: '{1}' is not a project or a module that this project can see. If it is a library, it may be missing from the references of the project.</value>
+  </data>
   <data name="VBCompileError_DeclaredTypeIsAProceduralModule_Verbose" xml:space="preserve">
     <value>The declared type '{0}' is a procedural module, not a type.</value>
   </data>
@@ -326,6 +332,9 @@
   </data>
   <data name="VBCompileError_DefaultMemberTakesArguments_Verbose" xml:space="preserve">
     <value>A value of {0} is what its default member '{1}' returns, which takes an argument that a value read from the object does not give it.</value>
+  </data>
+  <data name="VBCompileError_NamedWithoutItsArguments_Verbose" xml:space="preserve">
+    <value>'{0}' is named without an argument list, which calls it with no arguments; its parameter '{1}' is not optional.</value>
   </data>
   <data name="VBCompileError_DefaultMemberReturnsAnObject_Verbose" xml:space="preserve">
     <value>A value of {0} is what its default member '{1}' returns, which is an object and not a value of a declared type.</value>
@@ -585,6 +594,12 @@
   <data name="VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose" xml:space="preserve">
     <value>A record of the type '{0}' is given to a Variant, which can't hold it: give it to a variable or a parameter of the type '{0}', or copy its fields.</value>
   </data>
+  <data name="VBCompileError_NoHostApplicationToEvaluateExpression" xml:space="preserve">
+    <value>There is no host application to evaluate the expression</value>
+  </data>
+  <data name="VBCompileError_NoHostApplicationToEvaluateExpression_Verbose" xml:space="preserve">
+    <value>'[{0}]' names nothing that is declared, which makes it an expression for a host application to evaluate.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>
@@ -641,5 +656,389 @@
   </data>
   <data name="VBCompileError_BlockEndsInAnotherBranch_Verbose" xml:space="preserve">
     <value>The start and the end of this block are not in the same #If branch.</value>
+  </data>
+  <data name="RuntimeError_ApplicationDefinedOrObjectDefinedError" xml:space="preserve">
+    <value>Application-defined or object-defined error</value>
+    <comment>The description of the run-time error ApplicationDefinedOrObjectDefinedError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ReturnWithoutGoSub" xml:space="preserve">
+    <value>Return without GoSub</value>
+    <comment>The description of the run-time error ReturnWithoutGoSub: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidProcedureCallOrArgument" xml:space="preserve">
+    <value>Invalid procedure call or argument</value>
+    <comment>The description of the run-time error InvalidProcedureCallOrArgument: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_Overflow" xml:space="preserve">
+    <value>Overflow</value>
+    <comment>The description of the run-time error Overflow: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_OutOfMemory" xml:space="preserve">
+    <value>Out of memory</value>
+    <comment>The description of the run-time error OutOfMemory: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_SubscriptOutOfRange" xml:space="preserve">
+    <value>Subscript out of range</value>
+    <comment>The description of the run-time error SubscriptOutOfRange: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ThisArrayIsFixedOrTemporarilyLocked" xml:space="preserve">
+    <value>This array is fixed or temporarily locked</value>
+    <comment>The description of the run-time error ThisArrayIsFixedOrTemporarilyLocked: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_DivisionByZero" xml:space="preserve">
+    <value>Division by zero</value>
+    <comment>The description of the run-time error DivisionByZero: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_TypeMismatch" xml:space="preserve">
+    <value>Type mismatch</value>
+    <comment>The description of the run-time error TypeMismatch: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_OutOfStringSpace" xml:space="preserve">
+    <value>Out of string space</value>
+    <comment>The description of the run-time error OutOfStringSpace: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ExpressionTooComplex" xml:space="preserve">
+    <value>Expression too complex</value>
+    <comment>The description of the run-time error ExpressionTooComplex: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CantPerformRequestedOperation" xml:space="preserve">
+    <value>Can&apos;t perform requested operation</value>
+    <comment>The description of the run-time error CantPerformRequestedOperation: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_UserInterruptOccurred" xml:space="preserve">
+    <value>User interrupt occurred</value>
+    <comment>The description of the run-time error UserInterruptOccurred: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ResumeWithoutError" xml:space="preserve">
+    <value>Resume without error</value>
+    <comment>The description of the run-time error ResumeWithoutError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_OutOfStackSpace" xml:space="preserve">
+    <value>Out of stack space</value>
+    <comment>The description of the run-time error OutOfStackSpace: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_SubOrFunctionNotDefined" xml:space="preserve">
+    <value>Sub or Function not defined</value>
+    <comment>The description of the run-time error SubOrFunctionNotDefined: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_TooManyDllApplicationClients" xml:space="preserve">
+    <value>Too many DLL application clients</value>
+    <comment>The description of the run-time error TooManyDllApplicationClients: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ErrorInLoadingDll" xml:space="preserve">
+    <value>Error in loading DLL</value>
+    <comment>The description of the run-time error ErrorInLoadingDll: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_BaddDllCallingConvention" xml:space="preserve">
+    <value>Bad DLL calling convention</value>
+    <comment>The description of the run-time error BaddDllCallingConvention: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InternalError" xml:space="preserve">
+    <value>Internal error</value>
+    <comment>The description of the run-time error InternalError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_BadFileNameOrNumber" xml:space="preserve">
+    <value>Bad file name or number</value>
+    <comment>The description of the run-time error BadFileNameOrNumber: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_FileNotFound" xml:space="preserve">
+    <value>File not found</value>
+    <comment>The description of the run-time error FileNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_BadFileMode" xml:space="preserve">
+    <value>Bad file mode</value>
+    <comment>The description of the run-time error BadFileMode: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_FileAlreadyOpen" xml:space="preserve">
+    <value>File already open</value>
+    <comment>The description of the run-time error FileAlreadyOpen: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_DeviceIOError" xml:space="preserve">
+    <value>Device I/O error</value>
+    <comment>The description of the run-time error DeviceIOError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_FileAlreadyExists" xml:space="preserve">
+    <value>File already exists</value>
+    <comment>The description of the run-time error FileAlreadyExists: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_BadRecordLength" xml:space="preserve">
+    <value>Bad record length</value>
+    <comment>The description of the run-time error BadRecordLength: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_DiskFull" xml:space="preserve">
+    <value>Disk full</value>
+    <comment>The description of the run-time error DiskFull: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InputPastEndOfFile" xml:space="preserve">
+    <value>Input past end of file</value>
+    <comment>The description of the run-time error InputPastEndOfFile: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_BadRecordNumber" xml:space="preserve">
+    <value>Bad record number</value>
+    <comment>The description of the run-time error BadRecordNumber: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_TooManyFiles" xml:space="preserve">
+    <value>Too many files</value>
+    <comment>The description of the run-time error TooManyFiles: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_DeviceUnavailable" xml:space="preserve">
+    <value>Device unavailable</value>
+    <comment>The description of the run-time error DeviceUnavailable: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PermissionDenied" xml:space="preserve">
+    <value>Permission denied</value>
+    <comment>The description of the run-time error PermissionDenied: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_DiskNotReady" xml:space="preserve">
+    <value>Disk not ready</value>
+    <comment>The description of the run-time error DiskNotReady: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CantRenameWithDifferentDrive" xml:space="preserve">
+    <value>Can&apos;t rename with different drive</value>
+    <comment>The description of the run-time error CantRenameWithDifferentDrive: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PathOrFileAccessError" xml:space="preserve">
+    <value>Path/File access error</value>
+    <comment>The description of the run-time error PathOrFileAccessError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PathNotFound" xml:space="preserve">
+    <value>Path not found</value>
+    <comment>The description of the run-time error PathNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectVariableOrWithBlockVariableNotSet" xml:space="preserve">
+    <value>Object variable or With block variable not set</value>
+    <comment>The description of the run-time error ObjectVariableOrWithBlockVariableNotSet: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ForLoopNotInitialized" xml:space="preserve">
+    <value>For loop not initialized</value>
+    <comment>The description of the run-time error ForLoopNotInitialized: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidPatternString" xml:space="preserve">
+    <value>Invalid pattern string</value>
+    <comment>The description of the run-time error InvalidPatternString: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidUseOfNull" xml:space="preserve">
+    <value>Invalid use of Null</value>
+    <comment>The description of the run-time error InvalidUseOfNull: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_UnableToSinkEvents" xml:space="preserve">
+    <value>Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports</value>
+    <comment>The description of the run-time error UnableToSinkEvents: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CannotCallFriendFunction" xml:space="preserve">
+    <value>Can not call friend function on object which is not an instance of defining class</value>
+    <comment>The description of the run-time error CannotCallFriendFunction: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PropertyOrMethodCallReferenceToPrivateObject" xml:space="preserve">
+    <value>A property or method call cannot include a reference to a private object, either as an argument or as a return value</value>
+    <comment>The description of the run-time error PropertyOrMethodCallReferenceToPrivateObject: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidFileFormat" xml:space="preserve">
+    <value>Invalid file format</value>
+    <comment>The description of the run-time error InvalidFileFormat: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CantCreateNecessaryTemporaryFile" xml:space="preserve">
+    <value>Can&apos;t create necessary temporary file</value>
+    <comment>The description of the run-time error CantCreateNecessaryTemporaryFile: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidFormatInResourceFile" xml:space="preserve">
+    <value>Invalid format in resource file</value>
+    <comment>The description of the run-time error InvalidFormatInResourceFile: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CantLoadOrUnloadThisObject" xml:space="preserve">
+    <value>Can&apos;t load or unload this object</value>
+    <comment>The description of the run-time error CantLoadOrUnloadThisObject: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectWasUnloaded" xml:space="preserve">
+    <value>Object was unloaded</value>
+    <comment>The description of the run-time error ObjectWasUnloaded: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidPropertyValue" xml:space="preserve">
+    <value>Invalid property value</value>
+    <comment>The description of the run-time error InvalidPropertyValue: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidPropertyArrayIndex" xml:space="preserve">
+    <value>Invalid property array index</value>
+    <comment>The description of the run-time error InvalidPropertyArrayIndex: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_SetNotSupportedAtRuntime" xml:space="preserve">
+    <value>Set not supported at runtime</value>
+    <comment>The description of the run-time error SetNotSupportedAtRuntime: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_SetNotSupportedReadOnlyProperty" xml:space="preserve">
+    <value>Set not supported (read-only property)</value>
+    <comment>The description of the run-time error SetNotSupportedReadOnlyProperty: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_NeedPropertyArrayIndex" xml:space="preserve">
+    <value>Need property array index</value>
+    <comment>The description of the run-time error NeedPropertyArrayIndex: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_SetNotPermitted" xml:space="preserve">
+    <value>Set not permitted</value>
+    <comment>The description of the run-time error SetNotPermitted: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_GetNotSupportedAtRuntime" xml:space="preserve">
+    <value>Get not supported at runtime</value>
+    <comment>The description of the run-time error GetNotSupportedAtRuntime: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_GetNotSupportedWriteOnlyProperty" xml:space="preserve">
+    <value>Get not supported (write-only property)</value>
+    <comment>The description of the run-time error GetNotSupportedWriteOnlyProperty: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CantShowNonModalFormWhenModalFormIsDisplayed" xml:space="preserve">
+    <value>Can&apos;t show non-modal form when modal form is displayed</value>
+    <comment>The description of the run-time error CantShowNonModalFormWhenModalFormIsDisplayed: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_MustCloseOrHideTopmostModalFormFirst" xml:space="preserve">
+    <value>Must close or hide topmost modal form first</value>
+    <comment>The description of the run-time error MustCloseOrHideTopmostModalFormFirst: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_UnableToShowModalFormWithinThisContext" xml:space="preserve">
+    <value>Unable to show modal form within this context</value>
+    <comment>The description of the run-time error UnableToShowModalFormWithinThisContext: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PropertyNotFound" xml:space="preserve">
+    <value>Property not found</value>
+    <comment>The description of the run-time error PropertyNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PropertyOrMethodNotFound" xml:space="preserve">
+    <value>Property or method not found</value>
+    <comment>The description of the run-time error PropertyOrMethodNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectRequired" xml:space="preserve">
+    <value>Object required</value>
+    <comment>The description of the run-time error ObjectRequired: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ActiveXComponentCantCreateObject" xml:space="preserve">
+    <value>ActiveX component can&apos;t create object</value>
+    <comment>The description of the run-time error ActiveXComponentCantCreateObject: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ClassDoesNotSupportAutomation" xml:space="preserve">
+    <value>Class does not support Automation or does not support expected interface</value>
+    <comment>The description of the run-time error ClassDoesNotSupportAutomation: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_FileOrClassNameNotFoundAutomation" xml:space="preserve">
+    <value>File name or class name not found during Automation operation</value>
+    <comment>The description of the run-time error FileOrClassNameNotFoundAutomation: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportThisPropertyOrMethod" xml:space="preserve">
+    <value>Object doesn&apos;t support this property or method</value>
+    <comment>The description of the run-time error ObjectDoesntSupportThisPropertyOrMethod: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_AutomationError" xml:space="preserve">
+    <value>Automation error</value>
+    <comment>The description of the run-time error AutomationError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ConnectionToTypeLibraryLost" xml:space="preserve">
+    <value>Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference.</value>
+    <comment>The description of the run-time error ConnectionToTypeLibraryLost: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_AutomationObjectDoesNotHaveDefaultValue" xml:space="preserve">
+    <value>Automation object does not have a default value</value>
+    <comment>The description of the run-time error AutomationObjectDoesNotHaveDefaultValue: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_MethodNotApplicableInThisContext" xml:space="preserve">
+    <value>Method not applicable in this context</value>
+    <comment>The description of the run-time error MethodNotApplicableInThisContext: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportThisAction" xml:space="preserve">
+    <value>Object doesn&apos;t support this action</value>
+    <comment>The description of the run-time error ObjectDoesntSupportThisAction: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportNamedArguments" xml:space="preserve">
+    <value>Object doesn&apos;t support named arguments</value>
+    <comment>The description of the run-time error ObjectDoesntSupportNamedArguments: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportCurrentLocaleSettings" xml:space="preserve">
+    <value>Object doesn&apos;t support current locale setting</value>
+    <comment>The description of the run-time error ObjectDoesntSupportCurrentLocaleSettings: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_NamedArgumentNotFound" xml:space="preserve">
+    <value>Named argument not found</value>
+    <comment>The description of the run-time error NamedArgumentNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ArgumentNotOptional" xml:space="preserve">
+    <value>Argument not optional</value>
+    <comment>The description of the run-time error ArgumentNotOptional: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_WrongNumberOfArgumentsOrInvalidPropertyAssignment" xml:space="preserve">
+    <value>Wrong number of arguments or invalid property assignment</value>
+    <comment>The description of the run-time error WrongNumberOfArgumentsOrInvalidPropertyAssignment: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PropertyLetNotDefinedPropertyGetDidNotReturnObject" xml:space="preserve">
+    <value>Property let procedure not defined and property get procedure did not return an object</value>
+    <comment>The description of the run-time error PropertyLetNotDefinedPropertyGetDidNotReturnObject: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidOrdinal" xml:space="preserve">
+    <value>Invalid ordinal</value>
+    <comment>The description of the run-time error InvalidOrdinal: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_SpecifiedDllFunctionNotFound" xml:space="preserve">
+    <value>Specified DLL function not found</value>
+    <comment>The description of the run-time error SpecifiedDllFunctionNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CodeResourceNotFound" xml:space="preserve">
+    <value>Code resource not found</value>
+    <comment>The description of the run-time error CodeResourceNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CodeResourceLockError" xml:space="preserve">
+    <value>Code resource lock error</value>
+    <comment>The description of the run-time error CodeResourceLockError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_KeyAlreadyAssociatedWithAnElementOfCollection" xml:space="preserve">
+    <value>This key is already associated with an element of this collection</value>
+    <comment>The description of the run-time error KeyAlreadyAssociatedWithAnElementOfCollection: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_VariableUsesAutomationTypeNotSupported" xml:space="preserve">
+    <value>Variable uses an Automation type not supported in Visual Basic</value>
+    <comment>The description of the run-time error VariableUsesAutomationTypeNotSupported: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ObjectOrClassDoesNotSupportSetOfEvents" xml:space="preserve">
+    <value>Object or class does not support the set of events.</value>
+    <comment>The description of the run-time error ObjectOrClassDoesNotSupportSetOfEvents: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidClipboardFormat" xml:space="preserve">
+    <value>Invalid clipboard format</value>
+    <comment>The description of the run-time error InvalidClipboardFormat: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_MethodOrDataMemberNotFound" xml:space="preserve">
+    <value>Method or data member not found</value>
+    <comment>The description of the run-time error MethodOrDataMemberNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_RemoteMachineNotAvailable" xml:space="preserve">
+    <value>The remote machine does not exist or is unavailable</value>
+    <comment>The description of the run-time error RemoteMachineNotAvailable: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ClassNotRegistered" xml:space="preserve">
+    <value>Class not registered on local machine</value>
+    <comment>The description of the run-time error ClassNotRegistered: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_InvalidPicture" xml:space="preserve">
+    <value>Invalid picture</value>
+    <comment>The description of the run-time error InvalidPicture: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_PrinterError" xml:space="preserve">
+    <value>Printer error</value>
+    <comment>The description of the run-time error PrinterError: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_CantSaveFileToTemp" xml:space="preserve">
+    <value>Can&apos;t save file to TEMP</value>
+    <comment>The description of the run-time error CantSaveFileToTemp: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_SearchTextNotFound" xml:space="preserve">
+    <value>Search text not found</value>
+    <comment>The description of the run-time error SearchTextNotFound: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_ReplacementsTooLong" xml:space="preserve">
+    <value>Replacements too long</value>
+    <comment>The description of the run-time error ReplacementsTooLong: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_NobodyToAnswer" xml:space="preserve">
+    <value>Nobody to answer: the program runs unattended</value>
+    <comment>The description of the run-time error NobodyToAnswer: Err.Description and the Error function's text.</comment>
+  </data>
+  <data name="RuntimeError_UnusableDialogAnswer" xml:space="preserve">
+    <value>Unusable dialog answer: the client&apos;s answer is no answer the dialog has</value>
+    <comment>The description of the run-time error UnusableDialogAnswer: Err.Description and the Error function's text.</comment>
   </data>
 </root>

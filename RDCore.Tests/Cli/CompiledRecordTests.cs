@@ -339,6 +339,50 @@ public sealed class CompiledRecordTests
         CollectionAssert.AreEqual(printed, await ModuleWorkspace.RunAsync(classes, program, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine.Interpreter));
     }
 
+    // a field of each scalar type, written in a loop and read after it, where the record holds it; a field of an enumeration (a Long, MS-VBAL §5.2.3.4)
+    // and a LongPtr field among them.
+    [TestMethod]
+    public async Task AFieldOfEachScalarType_IsWrittenWhereTheRecordHoldsIt()
+        => await AssertAlikeAsync(Program(
+            "Private Enum EColor",
+            "    Red = 1",
+            "    Blue = 2",
+            "End Enum",
+            "Private Type TAll",
+            "    B As Byte",
+            "    F As Boolean",
+            "    I As Integer",
+            "    L As Long",
+            "    LL As LongLong",
+            "    P As LongPtr",
+            "    S As Single",
+            "    D As Double",
+            "    C As Currency",
+            "    T As Date",
+            "    E As EColor",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim R As TAll",
+            "    Filled R, 4",
+            "    Debug.Print R.B & \" \" & R.F & \" \" & R.I & \" \" & R.L & \" \" & R.LL & \" \" & R.P & \" \" & R.S & \" \" & R.D & \" \" & R.C & \" \" & CDbl(R.T) & \" \" & R.E",
+            "End Sub",
+            "Private Sub Filled(ByRef R As TAll, ByVal N As Long)",
+            "    Dim K As Long",
+            "    For K = 1 To N",
+            "        R.B = K * 2",
+            "        R.F = K Mod 2 = 0",
+            "        R.I = -K",
+            "        R.L = K * 1000",
+            "        R.LL = K * 100000",
+            "        R.P = K + 7",
+            "        R.S = K / 8",
+            "        R.D = K / 3",
+            "        R.C = K * 1.25",
+            "        R.T = K + 0.5",
+            "        R.E = K",
+            "    Next",
+            "End Sub"), "Filled", recoveries: 0);
+
     // a field given by reference is the field (MS-VBAL §5.3.1.11): a Let of the field through its record is what the parameter reads after, and what the
     // parameter is assigned, the record's field holds. A field of a scalar type is written in its cell, compiled or not; a Variant field given by reference
     // is bound to the record and the field's position.
@@ -597,10 +641,10 @@ public sealed class CompiledRecordTests
             "    Debug.Print B.O.Name; B.C.Name; B.V",
             "End Sub"), null, 0, 0, "oc 5", "gone o", "gone c", "ended");
 
-    // a field LSet leaves at its default keeps its bounds when it is a fixed-size array, and its own fields when it is a record: each element and field is
-    // reset where it is.
+    // a field LSet does not reach keeps its bounds when it is a fixed-size array, and its own fields when it is a record: each element and field is what
+    // it was, where it is (MS-VBA, observed in Excel).
     [TestMethod]
-    public async Task AFixedSizeArrayFieldLSetLeavesAtItsDefault_KeepsItsBounds()
+    public async Task AFixedSizeArrayFieldLSetDoesNotReach_KeepsItsBoundsAndElements()
         => await AssertPrintsAsync(Module(
             "Private Type TSmall",
             "    N As Long",
@@ -619,7 +663,7 @@ public sealed class CompiledRecordTests
             "    Debug.Print LBound(B.A); UBound(B.A); B.A(2); B.Inner.Inner.X",
             "    B.A(2) = 6",
             "    Debug.Print B.A(2)",
-            "End Sub"), null, 0, 0, "1  2  0  0", "6");
+            "End Sub"), null, 0, 0, "1  2  4  3", "6");
 
     // a Variant or an object element of a fixed-size array field given by reference is the element when the record is let (MS-VBAL §5.3.1.11): it is
     // written where it is, as an element of a scalar type is. The object the element held is let go of as the Let is made.

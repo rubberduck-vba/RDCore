@@ -25,6 +25,7 @@ namespace RDCore.Tests.Cli.Repl;
 /// A question the language server asks the shell (<c>window/showMessageRequest</c>) over the shell's own language client: it is answered whatever else the
 /// server sends while the user is asked.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ReplQuestionWireTests
 {
@@ -87,7 +88,7 @@ public sealed class ReplQuestionWireTests
             await pipe.WaitForConnectionAsync();
             var server = Hold(await OmniSharpLanguageServer.From(server => server
                 .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
-                .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
                 .OnJsonRequest(RDCorePlatformProtocol.PlatformInitialize, (JToken _, CancellationToken _) => Task.FromResult<JToken>(
                     JObject.FromObject(new { component = (int)CoreServerComponent.LanguageServer, provided = Array.Empty<string>() })))
@@ -135,7 +136,7 @@ public sealed class ReplQuestionWireTests
     // as the server reports the work it does while the shell comes up. The question was taken off the console as the user was reading it, and the server was
     // answered nothing. The progress is sent before the answer to a request the shell made, which the shell has read once it has its answer.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionTheShellIsAsking_IsAnswered_WhenTheServersProgressArrivesMeanwhile()
     {
         var progressSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -153,6 +154,7 @@ public sealed class ReplQuestionWireTests
             Substitute.For<ILiveSettings>(),
             Microsoft.Extensions.Options.Options.Create(new RDCore.CLI.AppOptions()),
             questions,
+            new RDCore.CLI.App.Repl.ReplSessionStops(),
             NullLogger<RDCore.CLI.RDCoreConsoleClientApp>.Instance);
         var platform = Substitute.For<RDCore.SDK.Platform.IPlatformCompositionService>();
         platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });

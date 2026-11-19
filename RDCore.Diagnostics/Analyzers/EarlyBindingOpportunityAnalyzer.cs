@@ -15,6 +15,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class EarlyBindingOpportunityAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EarlyBindingOpportunity.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.Semantics?.Procedures ?? [])
             .SelectMany(procedure => procedure.Expressions)

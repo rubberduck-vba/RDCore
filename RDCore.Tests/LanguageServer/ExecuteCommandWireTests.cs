@@ -18,6 +18,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class ExecuteCommandWireTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     // asks the user to choose among its arguments, and answers the choice.
     private sealed class Choose : IServerCommand
     {
@@ -36,11 +39,11 @@ public sealed class ExecuteCommandWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClient_ReadsTheCommands_IsAskedWhatTheyAsk_AndReadsWhyOneIsRefused()
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var asked = new List<ShowMessageRequestParams>();

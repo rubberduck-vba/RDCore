@@ -5,6 +5,7 @@ using RDCore.SDK.Server;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("RDCore.Tests")]
+[assembly: InternalsVisibleTo("RDCore.Benchmarks")]
 
 // advertised so `rdc.exe describe-ext` records it in this extension's manifest; the diagnostics
 // extension will contribute a diagnose verb once the extension command path is built out.

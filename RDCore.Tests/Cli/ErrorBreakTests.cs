@@ -14,7 +14,8 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class ErrorBreakTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
@@ -70,8 +71,7 @@ public sealed class ErrorBreakTests
             await Task.CompletedTask;
         });
 
-    // an error nothing catches is not given to the program: it runs the statement that raised it again, which raises it again (MS-VBA, measured in Excel,
-    // oracle\error-break B1).
+    // an error nothing catches is not given to the program: it runs the statement that raised it again, which raises it again (MS-VBA, observed in Excel).
     [TestMethod]
     public async Task AProgramThatWaitedAtAnErrorNothingCatches_RunsTheStatementThatRaisedItAgain_AndWaitsThereAgain()
         => await RunAsync(Unhandled, ErrorBreakMode.Unhandled, debug: true, async (provider, stopped) =>

@@ -56,8 +56,8 @@ public sealed class SemanticModelStoreTests
         var store = new SemanticModelStore();
         store.Store(Model(Procedure));
 
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
-        await store.WhenAllEvaluatedAsync().WaitAsync(TimeSpan.FromSeconds(30));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(HangGuard);
+        await store.WhenAllEvaluatedAsync().WaitAsync(HangGuard);
 
         Assert.IsNull(RuntimeOf(store));
     }
@@ -77,7 +77,7 @@ public sealed class SemanticModelStoreTests
             releaseFirst.Wait();
             return Facts(isFullyAnalyzed: false);
         });
-        Assert.IsTrue(firstStarted.Wait(TimeSpan.FromSeconds(30)));
+        Assert.IsTrue(firstStarted.Wait(HangGuard));
 
         var second = Facts(isFullyAnalyzed: true);
         store.Store(Model(Procedure), _ => second);
@@ -102,7 +102,7 @@ public sealed class SemanticModelStoreTests
         var waiting = store.WhenEvaluatedAsync(Module);
         store.Store(Model(Procedure), _ => Facts(isFullyAnalyzed: true));
         releaseFirst.Set();
-        await waiting.WaitAsync(TimeSpan.FromSeconds(30));
+        await waiting.WaitAsync(HangGuard);
 
         Assert.IsTrue(RuntimeOf(store)!.IsFullyAnalyzed);
     }
@@ -121,7 +121,7 @@ public sealed class SemanticModelStoreTests
             release.Wait();
             return Facts();
         });
-        Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(30)));
+        Assert.IsTrue(started.Wait(HangGuard));
 
         Assert.IsTrue(store.Remove(Module));
         Assert.IsTrue(token.IsCancellationRequested, "the evaluation of the module that is gone is told to stop");
@@ -134,7 +134,7 @@ public sealed class SemanticModelStoreTests
         var store = new SemanticModelStore();
         store.Store(Model(Procedure), _ => throw new InvalidOperationException("a defect of the evaluation"));
 
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(HangGuard);
 
         Assert.IsNull(RuntimeOf(store), "no facts are made up for it");
     }
@@ -166,11 +166,45 @@ public sealed class SemanticModelStoreTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => store.WhenEvaluatedAsync(Module, cancellation.Token));
 
         release.Set();
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(HangGuard);
         Assert.IsNotNull(RuntimeOf(store));
     }
 
-    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+    [TestMethod]
+    public async Task StoppingTheEvaluations_StopsEachModulesEvaluation_AndKeepsTheModels()
+    {
+        var other = new Uri("file:///c:/ws/Mod2.bas#Mod2");
+        var store = new SemanticModelStore();
+        using var release = new ManualResetEventSlim();
+        using var started = new CountdownEvent(2);
+        var tokens = new CancellationToken[2];
+        store.Store(Model(Procedure), token =>
+        {
+            tokens[0] = token;
+            started.Signal();
+            release.Wait();
+            return Facts();
+        });
+        store.Store(new ModuleSemanticModel(other, [], [new ProcedureSemanticModel(new SemanticId(new Uri("file:///c:/ws/Mod2.bas#Mod2.Run")), [])]), token =>
+        {
+            tokens[1] = token;
+            started.Signal();
+            release.Wait();
+            return ImmutableDictionary<SemanticId, RuntimeFacts>.Empty;
+        });
+        Assert.IsTrue(started.Wait(HangGuard));
+
+        store.StopEvaluations();
+
+        Assert.IsTrue(tokens.All(token => token.IsCancellationRequested), "each evaluation is told to stop");
+        Assert.IsTrue(store.TryGet(Module, out _) && store.TryGet(other, out _), "the models are kept");
+        release.Set();
+        await store.WhenAllEvaluatedAsync().WaitAsync(HangGuard);
+        Assert.IsNull(RuntimeOf(store), "a stopped evaluation adds no facts");
+    }
+
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan HangGuard = TimeSpan.FromMinutes(5);
 
     // work started on a LargeStackThread once one of the threads the test counts is free: a wait the token cancels never runs it.
     private static async Task StartCountedAsync(SemaphoreSlim threads, Action work, CancellationToken token)

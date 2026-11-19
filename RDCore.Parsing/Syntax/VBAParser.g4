@@ -521,10 +521,11 @@ modeSpecifier :	(MID | MIDB) DOLLAR? ;
 
 integerExpression : expression;
 
-// a name and a colon at the start of a line are a label, never a call: see IsLabelAhead.
+// a name and a colon at the start of a line are a label, never a call: see IsLabelAhead. Blanks begin the argument list only before an argument: see
+// IsArgumentListAhead.
 callStmt :
     CALL whiteSpace lExpression
-    | {!IsLabelAhead()}? lExpression (whiteSpace argumentList)?
+    | {!IsLabelAhead()}? lExpression ({IsArgumentListAhead()}? whiteSpace argumentList)?
 ;
 
 resumeStmt : RESUME (whiteSpace (NEXT | expression))?;
@@ -615,12 +616,18 @@ lineSpecialForm : lExpression whiteSpace ((STEP whiteSpace?)? tuple)?
 ;
 // the object is optional before the dot as well as with it: `.Circle` is the Circle of the object of the enclosing With block.
 circleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? CIRCLE whiteSpace (STEP whiteSpace?)? tuple whiteSpace? COMMA whiteSpace? expression (whiteSpace? COMMA whiteSpace? expression?)*;
-scaleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? SCALE whiteSpace tuple whiteSpace? MINUS whiteSpace? tuple;
+// Scale with no corners sets the scale back to twips: the corners are written both or neither. Without them, `Form1.Scale` is a call of a member named Scale
+// as well, and the alternative listed first, this one, is what it is read as.
+scaleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? SCALE (whiteSpace tuple whiteSpace? MINUS whiteSpace? tuple)?;
 pSetSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? PSET (whiteSpace STEP)? whiteSpace? tuple whiteSpace? (COMMA whiteSpace? expression)?;
 tuple : LPAREN whiteSpace? expression whiteSpace? COMMA whiteSpace? expression whiteSpace? RPAREN;
 lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition(1)),"b","bf")}? unrestrictedIdentifier;
 
-unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier;
+unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier | otherReservedIdentifier;
+// MS-VBAL 3.3.5.2: the reserved identifiers no other rule reads where a name is written: the marker keyword Each, the literal identifier Empty, the statement
+// keyword EndIf, and the future-reserved CDecl. Read as a name where a reserved identifier can be one (a member, `x.Empty`), and as no name elsewhere: a
+// parameter named with one is a syntax error at the name, and the procedure is read whole.
+otherReservedIdentifier : EACH | EMPTY | END_IF | CDECL;
 // MS-VBAL 3.3.5.2: an operator-identifier is a reserved-identifier, which is no name: it names a member (`x.And`, `d!Mod`), as any keyword does, and
 // nothing else. `Debug.Print 1 Mod` is the operator with no right operand, and not two items, the second a variable named Mod.
 operatorIdentifier : ADDRESSOF | AND | EQV | IMP | IS | LIKE | MOD | NEW | NOT | OR | TYPEOF | XOR;
@@ -725,7 +732,7 @@ objectLiteralIdentifier : NOTHING;
 variantLiteralIdentifier : EMPTY | NULL;
 
 lExpression :
-    lExpression LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                                 # indexExpr
+    lExpression LPAREN whiteSpace? argumentList whiteSpace? RPAREN                                                  # indexExpr
     | lExpression mandatoryLineContinuation? DOT mandatoryLineContinuation? printMethod (whiteSpace outputList)?    # objectPrintExpr
     | lExpression mandatoryLineContinuation? DOT mandatoryLineContinuation? unrestrictedIdentifier                  # memberAccessExpr
     | lExpression mandatoryLineContinuation? dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier     # dictionaryAccessExpr
@@ -733,10 +740,10 @@ lExpression :
     | identifier                                                                                                    # simpleNameExpr
     | DOT mandatoryLineContinuation? unrestrictedIdentifier                                                         # withMemberAccessExpr
     | dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier                                            # withDictionaryAccessExpr
-    | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList? whiteSpace? RPAREN         # whitespaceIndexExpr
+    | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList whiteSpace? RPAREN          # whitespaceIndexExpr
     // blanks before the argument list (MS-VBAL 3.3: a token takes the white space before it), so `x = F (2)` calls F with 2. The last alternative, of
     // the lowest precedence: VBABaseParser enters lExpression above it as the callee of a call statement, where `F (2)` is F called with (2). Keep it last.
-    | lExpression whiteSpace LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                     # whitespaceIndexExpr
+    | lExpression whiteSpace LPAREN whiteSpace? argumentList whiteSpace? RPAREN                                      # whitespaceIndexExpr
 ;
 
 //This is a hack to allow attaching identifier references for default members to the exclaramtion mark.
@@ -751,7 +758,9 @@ builtInType :
 ;
 
 // 5.6.13.1 Argument Lists
-argumentList : whiteSpace? (argument (whiteSpace? COMMA whiteSpace? argument)*)? whiteSpace?
+// an argument can be missing, so a list always has at least one: empty parentheses are a list of one missing argument, and a list is never left out where
+// it is written.
+argumentList : whiteSpace? argument (whiteSpace? COMMA whiteSpace? argument)* whiteSpace?
 ;
 
 requiredArgument : argument;

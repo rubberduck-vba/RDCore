@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
@@ -27,6 +27,7 @@
     <!-- what a program reaches outside the platform, on the platform it runs on. -->
     <ProjectReference Include="..\RDCore.External\RDCore.External.csproj" />
     <ProjectReference Include="..\RDCore.External.Windows\RDCore.External.Windows.csproj" />
+    <ProjectReference Include="..\RDCore.External.Forms\RDCore.External.Forms.csproj" />
     <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
   </ItemGroup>
 

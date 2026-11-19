@@ -63,19 +63,19 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.IsNotInstanceOfType<UnbuiltStatementTriviaNode>(Assert.ContainsSingle(member.Children.OfType<StatementNode>()));
     }
 
-    // an operator keyword is no name of a variable: a statement that uses it as one is one syntax error, at the keyword.
+    // an operator keyword is no name of a variable: a statement that uses it as one is one syntax error, over its line.
     [TestMethod]
-    [DataRow("Mod = 1", 0)]
-    [DataRow("And = 1", 0)]
-    [DataRow("Dim Mod As Long", 4)]
-    [DataRow("Dim Like", 4)]
-    public void AnOperatorKeyword_AsTheNameOfAVariable_IsOneSyntaxError_AtTheKeyword(string statement, int column)
+    [DataRow("Mod = 1")]
+    [DataRow("And = 1")]
+    [DataRow("Dim Mod As Long")]
+    [DataRow("Dim Like")]
+    public void AnOperatorKeyword_AsTheNameOfAVariable_IsOneSyntaxError_OverItsLine(string statement)
     {
         var parse = Parse(statement);
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
-        Assert.AreEqual(new SourcePosition(1, column), error.Location.Range.Start);
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, statement.Length)), error.Location.Range);
     }
 
     // the name of a second variable of the statement too.
@@ -138,20 +138,20 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.AreEqual(lines + 2, member.SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
     }
 
-    // a label before the statement is no part of it: its colon ends no statement, and the error inside the statement stays in it. The error is at the word
-    // the statement goes wrong at, and the statement kept is the statement alone.
+    // a label before the statement is no part of it: its colon ends no statement, and the error inside the statement stays in it. The error is the whole
+    // line, its label included, as MS-VBA marks it, and the statement kept is the statement alone.
     [TestMethod]
-    [DataRow("L1: Dim For As Long", "Dim For As Long", 8, DisplayName = "a label, then a declaration with no name")]
-    [DataRow("20: Dim For As Long", "Dim For As Long", 8, DisplayName = "a line number and its colon, then a declaration with no name")]
-    [DataRow("L1: Mod = 1", "Mod = 1", 4, DisplayName = "a label, then an operator keyword where a statement begins")]
-    [DataRow("20 Mod = 2", "Mod = 2", 3, DisplayName = "a line number, then an operator keyword where a statement begins")]
-    [DataRow("10 L1: Mod = 2", "Mod = 2", 7, DisplayName = "a line number and a label, then an operator keyword where a statement begins")]
-    public void AnErrorInsideAStatementAfterALabel_KeepsTheStatement_AndTheNextIsReadOnItsOwn(string statement, string kept, int column)
+    [DataRow("L1: Dim For As Long", "Dim For As Long", DisplayName = "a label, then a declaration with no name")]
+    [DataRow("20: Dim For As Long", "Dim For As Long", DisplayName = "a line number and its colon, then a declaration with no name")]
+    [DataRow("L1: Mod = 1", "Mod = 1", DisplayName = "a label, then an operator keyword where a statement begins")]
+    [DataRow("20 Mod = 2", "Mod = 2", DisplayName = "a line number, then an operator keyword where a statement begins")]
+    [DataRow("10 L1: Mod = 2", "Mod = 2", DisplayName = "a line number and a label, then an operator keyword where a statement begins")]
+    public void AnErrorInsideAStatementAfterALabel_KeepsTheStatement_AndTheNextIsReadOnItsOwn(string statement, string kept)
     {
         var parse = Parse($"{statement}\r\nb = 3");
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
-        Assert.AreEqual(new SourcePosition(1, column), error.Location.Range.Start, Said(parse));
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, statement.Length)), error.Location.Range, Said(parse));
         var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
         Assert.AreEqual(kept, Assert.ContainsSingle(member.Children.OfType<UnbuiltStatementTriviaNode>()).Source, "the statement alone is kept");
         Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 2), "the next statement is read on its own");
@@ -329,7 +329,7 @@ public sealed class PrintItemKeywordOperatorTests
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId, Said(parse));
-        Assert.AreEqual(new SourcePosition(1, "Static ".Length), error.Location.Range.Start, "the error is at the keyword");
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, statement.Length)), error.Location.Range, "the error is its line");
     }
 
     private static string Said(ModuleParseResult parse)

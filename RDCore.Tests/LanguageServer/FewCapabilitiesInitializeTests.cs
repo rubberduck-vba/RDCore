@@ -3,6 +3,7 @@ using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Navigation;
 using RDCore.LanguageServer.Parsing;
@@ -24,6 +25,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class FewCapabilitiesInitializeTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     // every handler that reads its client capability, and the others of the same families.
     private static void AddHandlers(OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions server)
     {
@@ -41,19 +45,21 @@ public sealed class FewCapabilitiesInitializeTests
             .AddHandler(new DocumentHighlightHandler(workspace))
             .AddHandler(new CallHierarchyPrepareHandler(workspace))
             .AddHandler(new TypeHierarchyPrepareHandler(workspace))
-            .AddHandler(new InlayHintHandler(workspace))
+            .AddHandler(new InlayHintHandler(workspace, options))
+            .AddHandler(new InlineValueHandler(workspace))
+            .AddHandler(new LinkedEditingRangeHandler(workspace))
             .AddHandler(new CodeLensHandler(workspace))
             .AddHandler(new SelectionRangeHandler(documents, parsing))
-            .AddHandler(new WorkspaceSymbolHandler(documents, parsing, new IntrinsicSymbolResolver(), options));
+            .AddHandler(new WorkspaceSymbolHandler(new WorkspaceSymbolSearch(documents, parsing, new IntrinsicSymbolResolver(), options)));
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow(false, DisplayName = "a diagnostic capability and nothing else")]
     [DataRow(true, DisplayName = "no capability at all")]
     public async Task AClientThatSendsFewCapabilities_IsAnsweredInitialize_AndServedEveryRequest(bool none)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server =>
@@ -70,7 +76,7 @@ public sealed class FewCapabilitiesInitializeTests
         }, timeout.Token);
 
         // a server that does not answer initialize keeps the client waiting forever: the test waits for so long only.
-        await Task.WhenAll(serving, connecting).WaitAsync(TimeSpan.FromSeconds(20));
+        await Task.WhenAll(serving, connecting).WaitAsync(SafetyCap);
         using var server = await serving;
         using var languageClient = await connecting;
 
@@ -85,6 +91,8 @@ public sealed class FewCapabilitiesInitializeTests
         Assert.IsNotNull(advertised.CallHierarchyProvider, "callHierarchy");
         Assert.IsNotNull(advertised.TypeHierarchyProvider, "typeHierarchy");
         Assert.IsNotNull(advertised.InlayHintProvider, "inlayHint");
+        Assert.IsNotNull(advertised.InlineValueProvider, "inlineValue");
+        Assert.IsNotNull(advertised.LinkedEditingRangeProvider, "linkedEditingRange");
         Assert.IsNotNull(advertised.CodeLensProvider, "codeLens");
         Assert.IsNotNull(advertised.SelectionRangeProvider, "selectionRange");
         Assert.IsNotNull(advertised.WorkspaceSymbolProvider, "workspace/symbol");

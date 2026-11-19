@@ -192,6 +192,9 @@
   <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
     <value>une constante qui dimensionne ce que détient une variable, dont la valeur a changé</value>
   </data>
+  <data name="Host_Edit_ModuleAdded" xml:space="preserve">
+    <value>un module ajouté pendant que le programme attend, dont le programme n'a pas le code, et qui fait partie du projet une fois le programme terminé; retirez-le pour poursuivre</value>
+  </data>
   <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
     <value>une constante déjà lue par une procédure où se trouve le programme, dont la valeur a changé, ce qui n'est pas encore appliqué à un programme en attente</value>
   </data>
@@ -251,6 +254,15 @@
   </data>
   <data name="Build_AmbiguousEntryPoint" xml:space="preserve">
     <value>Plus d'un module déclare un Sub Main, et le programme a donc plus d'un point de départ : {0}.</value>
+  </data>
+  <data name="Build_NamedEntryPointNotFound" xml:space="preserve">
+    <value>Aucun module standard ne déclare {0}, le point d'entrée que nomme la section build du projet : le programme n'a pas de point de départ.</value>
+  </data>
+  <data name="Build_LibraryNotRun" xml:space="preserve">
+    <value>Le projet est une bibliothèque (l'outputType de sa section build), qui ne s'exécute pas : il n'a pas de point d'entrée.</value>
+  </data>
+  <data name="Build_Refusal" xml:space="preserve">
+    <value>{0} ({1})</value>
   </data>
   <data name="Run_RuntimeError" xml:space="preserve">
     <value>{0} '{1}' : {2} ({3})</value>

@@ -234,6 +234,13 @@ public sealed class CompletionCandidatesTests
     [DataRow("_NewEnum", "NE", true, DisplayName = "a label's leading underscore is of no hump")]
     [DataRow("_private", "__", true, DisplayName = "underscores alone, a label that starts with one")]
     [DataRow("Class_Initialize", "__", false, DisplayName = "underscores alone, a label that does not start with one")]
+    [DataRow("[My Field]", "My", true, DisplayName = "a name in brackets, the start of the name")]
+    [DataRow("[My Field]", "[My F", true, DisplayName = "a name in brackets, its opening bracket and a space typed")]
+    [DataRow("[My Field]", "MF", true, DisplayName = "a space separates humps")]
+    [DataRow("[my field]", "mf", true, DisplayName = "a space separates lowercase humps")]
+    [DataRow("[My Field]", "Field", false, DisplayName = "a name in brackets, a hump that is not the first")]
+    [DataRow("Total", "[To", true, DisplayName = "an identifier, typed from an opening bracket")]
+    [DataRow("Total", "[", true, DisplayName = "an opening bracket alone")]
     public void AWord_MatchesALabelItStarts_OrTheLabelsHumps(string label, string word, bool matches)
         => Assert.AreEqual(matches, CompletionCandidates.MatchOf(label, word) != CompletionMatch.None);
 
@@ -241,8 +248,8 @@ public sealed class CompletionCandidatesTests
     [TestMethod]
     public void EveryLabelALongerWordMatches_TheWordMatchesToo()
     {
-        string[] labels = ["Class_Initialize", "ClassModule", "cmd_Click", "_NewEnum", "xyz", "_xyz", "__init", "MultiPlayer", "vbKeyEscape", "CLngPtr", "Win32Api", "IOError", "x_y_z"];
-        string[] words = ["C_I", "Cl_ass", "c_C", "_NEn", "_x", "__x", "__N", "___i", "MuPl", "vbKEs", "CLnP", "W32A", "IOE", "x_y_z", "C__I", "x__z"];
+        string[] labels = ["Class_Initialize", "ClassModule", "cmd_Click", "_NewEnum", "xyz", "_xyz", "__init", "MultiPlayer", "vbKeyEscape", "CLngPtr", "Win32Api", "IOError", "x_y_z", "[My Field]", "Total"];
+        string[] words = ["C_I", "Cl_ass", "c_C", "_NEn", "_x", "__x", "__N", "___i", "MuPl", "vbKEs", "CLnP", "W32A", "IOE", "x_y_z", "C__I", "x__z", "[My Fi", "[MF", "[To"];
         foreach (var word in words)
         {
             for (var length = 1; length < word.Length; length++)
@@ -354,4 +361,42 @@ public sealed class CompletionCandidatesTests
         Assert.IsTrue(string.CompareOrdinal(SortOf("Total"), SortOf("MsgBox")) < 0, "a field of the module before the standard library");
         Assert.IsTrue(string.CompareOrdinal(SortOf("MsgBox"), SortOf("Dim")) < 0, "the keywords last");
     }
+
+    // x = Tot|alAmount + 1: inserting writes over "Tot", replacing over "TotalAmount".
+    [TestMethod]
+    public void AClientThatTakesTwoRanges_IsGivenBoth_TheReplacedOneToTheEndOfTheWord()
+    {
+        var items = CompletionCandidates.ListOf("Tot", [], [new("Total", CompletionItemKind.Variable)], new Position(3, 11), after: "alAmount + 1").Items.ToList();
+
+        var edit = items.Single().TextEdit?.InsertReplaceEdit;
+        Assert.IsNotNull(edit);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(3, 8, 3, 11), edit.Insert);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(3, 8, 3, 19), edit.Replace);
+        Assert.AreEqual("Total", edit.NewText);
+    }
+
+    // Send "a", Co|pies:=2: what a named argument replaces after the cursor is inserted over too.
+    [TestMethod]
+    public void WhatACandidateReplacesAfterTheCursor_IsInBothRanges()
+    {
+        var candidate = new CompletionCandidate("Copies:=", CompletionItemKind.Variable) { InsertText = "Copies", ReplacedAfter = 4 };
+
+        var edit = CompletionCandidates.ListOf("Co", [new([candidate])], [], new Position(0, 12), after: "pies:=2").Items.Single().TextEdit?.InsertReplaceEdit;
+
+        Assert.IsNotNull(edit);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 10, 0, 16), edit.Insert);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 10, 0, 16), edit.Replace);
+    }
+
+    [TestMethod]
+    public void AClientThatTakesOneRange_IsGivenNoEditOfAWordItReplacesItself()
+        => Assert.IsNull(CompletionCandidates.ListOf("Tot", [], [new("Total", CompletionItemKind.Variable)], new Position(3, 11)).Items.Single().TextEdit);
+
+    [TestMethod]
+    [DataRow("alAmount + 1", 8, DisplayName = "letters up to a space")]
+    [DataRow("_2(x)", 2, DisplayName = "an underscore and a digit")]
+    [DataRow(" + 1", 0, DisplayName = "the cursor at the end of the word")]
+    [DataRow("", 0, DisplayName = "the end of the line")]
+    public void TheRestOfTheWord_IsItsLettersDigitsAndUnderscores(string after, int expected)
+        => Assert.AreEqual(expected, CompletionCandidates.RestOfWordIn(after));
 }

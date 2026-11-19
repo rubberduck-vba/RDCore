@@ -1,4 +1,5 @@
 using CommandLine;
+using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Repl;
@@ -24,15 +25,19 @@ internal sealed class RunCommandOptions
     public bool Unattended { get; set; }
 }
 
-// rdc run [path] [-- args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
+// rdc run [options] [path] [args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
 internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IErrorDetailsRecorder errorDetails,
-    TextWriter? output = null, TextWriter? error = null, IConsoleKeys? keys = null) : ICliCommand
+    TextWriter? output = null, TextWriter? error = null, IConsoleKeys? keys = null, IOptions<AppOptions>? options = null) : ICliCommand
 {
+    private const string UnattendedSwitch = "--unattended";
+
     private TextWriter Output => output ?? global::System.Console.Out;
     private TextWriter Error => error ?? global::System.Console.Error;
 
-    // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as the shell asks them.
-    private IUserInteraction? Dialogs => OperatingSystem.IsWindows() ? null
+    // the dialogs of the program: a console application's are asked at the console, as the shell asks them, on every operating system; an RDForms
+    // application's, or one whose settings ask for them (AppOptions.NativeDialogs), are the machine's own where it has them.
+    private IUserInteraction? DialogsOf(ProjectBuild? build)
+        => ProgramDialogs.ShowsNative(ProgramDialogs.WantsNative(build, options?.Value.NativeDialogs ?? false)) ? null
         : output is null ? ConsoleUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
         : new ConsoleUserInteraction(keys ?? new SystemConsoleKeys(), output);
 
@@ -42,9 +47,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
 
     public async Task<int> ExecuteAsync(IReadOnlyList<string> args, CancellationToken token)
     {
-        // what follows -- is the program's, and not rdc's.
-        var separator = args.ToList().IndexOf("--");
-        var own = separator < 0 ? args : args.Take(separator).ToList();
+        var (own, arguments) = RunCommandLine.Split(args);
         var parsed = Parser.Default.ParseArguments<RunCommandOptions>(own);
         if (parsed.Errors.Any())
         {
@@ -65,7 +68,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         }
 
         var profile = RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = options.Configuration };
-        var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, Dialogs, token);
+        var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, DialogsOf(workspace.Project.Build), token);
         using var session = provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1).
@@ -79,13 +82,16 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
             return ProgramRunner.Refused;
         }
 
-        if (ProgramRunner.EntryPointOf(provider.Session, modules, ProjectBuildSettings.Of(workspace.Project), out var refusal) is not { } entryPoint)
+        if (ProgramRunner.EntryPointOf(provider.Session, modules, workspace.Project.Build, out var refusal) is not { } entryPoint)
         {
             await Error.WriteLineAsync(refusal);
             return ProgramRunner.Refused;
         }
 
-        IReadOnlyList<string> arguments = separator < 0 ? [] : [.. args.Skip(separator + 1)];
-        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, arguments, errorDetails, Output, Error, options.Unattended, token);
+        // --unattended is the program's to know as well, as it is a built program's: it is first on the program's command line, once.
+        IReadOnlyList<string> programArguments = options.Unattended && !arguments.Contains(UnattendedSwitch, StringComparer.Ordinal)
+            ? [UnattendedSwitch, .. arguments]
+            : arguments;
+        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, programArguments, errorDetails, Output, Error, options.Unattended, token);
     }
 }

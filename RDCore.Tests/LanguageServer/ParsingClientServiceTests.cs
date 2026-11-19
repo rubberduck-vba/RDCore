@@ -17,6 +17,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class ParsingClientServiceTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
 
     private static PlatformJsonEnvelope SampleEnvelope
@@ -59,6 +62,21 @@ public sealed class ParsingClientServiceTests
         Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(sut.TryGetCached(uri, out var cached));
         Assert.AreSame(result, cached);
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfAModuleThatIsNoForm_KeepsTheJsonTheParserAnswered()
+    {
+        var (sut, parser, documents) = Build();
+        // told apart from what writing the same parse again gives by the space it starts with, which a reader skips.
+        var answered = new PlatformJsonEnvelope { Json = " " + SampleEnvelope.Json };
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(answered);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub"));
+
+        var result = await sut.ParseDocumentAsync(uri, CancellationToken.None);
+
+        Assert.AreEqual(answered.Json, ParserJson.Of(result));
     }
 
     [TestMethod]
@@ -264,37 +282,65 @@ public sealed class ParsingClientServiceTests
     }
 
     // a parser whose answers are held until the test gives them, with the token each request was sent with.
-    private static List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> HeldAnswers(IRDCoreClientApp parser)
+    private static HeldRequests HeldAnswers(IRDCoreClientApp parser)
     {
-        var requests = new List<(TaskCompletionSource<PlatformJsonEnvelope>, CancellationToken)>();
-        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(call =>
-        {
-            var answer = new TaskCompletionSource<PlatformJsonEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (requests)
-            {
-                requests.Add((answer, call.ArgAt<CancellationToken>(1)));
-            }
-
-            return answer.Task;
-        });
+        var requests = new HeldRequests();
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(call => requests.Add(call.ArgAt<CancellationToken>(1)));
         return requests;
     }
 
-    private static async Task WhenAsked(List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> requests, int count)
+    // the cap only keeps a request that never comes from hanging the run: the wait ends when the fake parser is asked.
+    private static async Task WhenAsked(HeldRequests requests, int count)
+        => await requests.Asked(count).WaitAsync(SafetyCap);
+
+    // the requests the fake parser was sent, in the order it was sent them, each completing the signal of its number.
+    private sealed class HeldRequests
     {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (true)
+        private readonly List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> _requests = [];
+        private readonly List<TaskCompletionSource> _asked = [];
+
+        public (TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token) this[int index]
         {
-            lock (requests)
+            get
             {
-                if (requests.Count >= count)
+                lock (_requests)
                 {
-                    return;
+                    return _requests[index];
                 }
             }
+        }
 
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "the parser was not asked");
-            await Task.Delay(5);
+        public Task<PlatformJsonEnvelope> Add(CancellationToken token)
+        {
+            var answer = new TaskCompletionSource<PlatformJsonEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource asked;
+            lock (_requests)
+            {
+                _requests.Add((answer, token));
+                asked = SignalOf(_requests.Count);
+            }
+
+            asked.TrySetResult();
+            return answer.Task;
+        }
+
+        // completed once the parser has been sent count requests.
+        public Task Asked(int count)
+        {
+            lock (_requests)
+            {
+                return SignalOf(count).Task;
+            }
+        }
+
+        private TaskCompletionSource SignalOf(int count)
+        {
+            while (_asked.Count < count)
+            {
+                _asked.Add(new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+            }
+
+            return _asked[count - 1];
         }
     }
 

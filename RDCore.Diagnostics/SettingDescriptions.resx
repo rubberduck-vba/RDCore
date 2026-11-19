@@ -19,4 +19,10 @@
   <data name="Diagnostics_HungarianNotation_AllowedNames" xml:space="preserve">
     <value>The names RDC01002 accepts although they begin with a prefix that states a type, separated by commas: colWidth.</value>
   </data>
+  <data name="Diagnostics_ForStep" xml:space="preserve">
+    <value>How a For loop whose step is 1 is written. Implicit (the default): with no Step, and RDC00313 reports Step 1. Explicit: with Step 1, and RDC00116 reports a loop with no Step.</value>
+  </data>
+  <data name="Diagnostics_ByRefModifier" xml:space="preserve">
+    <value>How a parameter passed by reference is declared. Explicit (the default): with ByRef, and RDC00104 reports a parameter that states neither ByRef nor ByVal. Implicit: with neither, and RDC00314 reports ByRef.</value>
+  </data>
 </root>

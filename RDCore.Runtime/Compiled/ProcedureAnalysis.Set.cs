@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
@@ -67,8 +68,31 @@ internal sealed partial class ProcedureAnalysis
             return new FieldSourceSetStep(offset, target, held);
         }
 
+        // a function, or a function or Property Get member of an object, that returns an object: compiled code makes the call (ObjectCallOf), and what it
+        // returned, held by the statement's temporaries, is what the Set is given.
+        if (_nesting is not null && ObjectCallOf(Bind(assignment.Value)) is { } call)
+        {
+            return new SetStep(offset, target, Source: null) { SourceCall = call };
+        }
+
+        // a New of a class: compiled code makes the object as the interpreter makes it (CompiledActivation.New), the statement's temporary until it is over,
+        // and the Set is given it.
+        if (_nesting is not null && Bind(assignment.Value) is BoundNew created && KnownOperands.IndexOf(_nesting, created.Expression) is >= 0 and var syntax)
+        {
+            _news.Add(created);
+            return new SetStep(offset, target, Source: null) { SourceNew = new NewNode(_news.Count - 1, syntax) };
+        }
+
         return TrySetSource(Bind(assignment.Value), out var source) ? new SetStep(offset, target, source) : null;
     }
+
+    /// <summary>
+    /// The <c>New</c> expressions of the body's <c>Set</c> statements whose objects compiled code makes, by the number compiled code knows each by
+    /// (<see cref="NewNode.Made"/>).
+    /// </summary>
+    public IReadOnlyList<BoundNew> News => _news;
+
+    private readonly List<BoundNew> _news = [];
 
     private bool IsPassedByReference(int slot) => _slotSymbols[slot] is VBParameterSymbol { ParameterKind: var kind } && RuntimeProcedureInvoker.IsByRef(kind);
 
@@ -95,10 +119,21 @@ internal sealed partial class ProcedureAnalysis
 
 /// <summary>
 /// A <c>Set</c> of <see cref="Target"/> (an object slot, or the function result variable, <see cref="Result"/>) to the object held in the slot
-/// <see cref="Source"/>, or to <c>Nothing</c> when it has none.
+/// <see cref="Source"/>, or to what <see cref="SourceCall"/> returns, or to the object <see cref="SourceNew"/> makes, or to <c>Nothing</c> when it has
+/// none of them.
 /// </summary>
 internal sealed record class SetStep(int Offset, int Target, int? Source) : CompiledStep(Offset)
 {
+    /// <summary>
+    /// The call whose object the <c>Set</c> is given: made first, and what it returns held by the statement's temporaries until the statement is over.
+    /// </summary>
+    public ObjectCallNode? SourceCall { get; init; }
+
+    /// <summary>
+    /// The <c>New</c> whose object the <c>Set</c> is given: made first, and held by the statement's temporaries until the statement is over.
+    /// </summary>
+    public NewNode? SourceNew { get; init; }
+
     /// <summary>
     /// The <see cref="Target"/> of a <c>Set</c> of the function result variable.
     /// </summary>

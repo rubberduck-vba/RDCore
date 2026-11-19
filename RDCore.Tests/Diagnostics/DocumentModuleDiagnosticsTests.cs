@@ -19,6 +19,7 @@ namespace RDCore.Tests.Diagnostics;
 /// What is said of the code of a host's document, which RD-VBA analyzes and does not host: <c>RDC01005</c> at the module, with each place that presumes the host,
 /// and at each name of it in another module; <c>RDC01006</c> and <c>RDC01007</c> when its host's class is not known; <c>RDC11024</c> at its <c>Implements</c>.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("RD-VBAL §2.6.4 Rubberduck Core Diagnostics")]
 public sealed class DocumentModuleDiagnosticsTests
@@ -38,7 +39,7 @@ public sealed class DocumentModuleDiagnosticsTests
     }
 
     private static readonly string GameSheet = string.Join("\r\n",
-        "'@Folder(\"Battleship.View\")",
+        "'@Folder(\"NavalBattle.View\")",
         "Option Explicit",
         "Private Sub Worksheet_Change(ByVal Target As Range)",
         "    If Target.Row = 1 Then Exit Sub",
@@ -170,6 +171,54 @@ public sealed class DocumentModuleDiagnosticsTests
         var (_, diagnostics) = await DiagnoseAsync("GameSheet", GameSheet, DocClassType.ExcelWorksheet, libraries: null);
 
         StringAssert.Contains(diagnostics.Single(diagnostic => CodeOf(diagnostic) == "RDC01007").Message, "Excel");
+    }
+
+    // the fix references the host's library, after the project's references; the project it makes is diagnosed again.
+    private static async Task<(IReadOnlyList<Diagnostic> Before, IReadOnlyList<Diagnostic> After)> FixedAsync(string source)
+    {
+        var (context, before) = await DiagnoseAsync("GameSheet", source, DocClassType.ExcelWorksheet, libraries: null);
+        var fix = DiagnosticFixes.Of(before.Single(diagnostic => CodeOf(diagnostic) == "RDC01007"))?.Project;
+        Assert.IsNotNull(fix);
+        CollectionAssert.AreEqual(new[] { ProjectChange.AddReference("Excel") }, fix.Changes.ToArray());
+
+        var vba = new RDCoreReference { Name = RDCoreReference.StandardLibraryName, Guid = RDCoreReference.StandardLibraryGuid, IsUnremovable = true };
+        var project = new ProjectFile(ModuleWorkspace.Root, new RDCoreProject
+        {
+            References = [vba],
+            Modules = [new RDCoreModule { RelativeUri = "GameSheet.doccls", Super = DocClassType.ExcelWorksheet }, new RDCoreModule { RelativeUri = "Program.bas" }],
+        });
+        var changed = fix.ApplyTo(project, context.Document, Excel.Source, out var refused);
+        Assert.IsNull(refused);
+        Assert.IsNotNull(changed);
+        CollectionAssert.AreEqual(new[] { "VBA", "Excel" }, changed.ProjectInfo.References.Select(reference => reference.Name).ToArray());
+
+        var references = changed.ProjectInfo.References.Where(reference => !reference.IsStandardLibrary).Select(reference => reference.Name).ToArray();
+        var (_, after) = await DiagnoseAsync("GameSheet", source, DocClassType.ExcelWorksheet, Excel with { References = references });
+        return (before, after);
+    }
+
+    private static string Said(Diagnostic diagnostic) => $"{CodeOf(diagnostic)} {diagnostic.Range.Start.Line}:{diagnostic.Range.Start.Character} {diagnostic.Message}";
+
+    [TestMethod]
+    public async Task TheFixOfAWorksheetsCode_InAProjectThatDoesNotReferenceExcel_ReferencesExcel_AndNothingNewIsSaid()
+    {
+        var (before, after) = await FixedAsync("Option Explicit\r\nPublic Sub Reset()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+
+        Assert.IsTrue(before.Any(diagnostic => CodeOf(diagnostic) == "RDC01007"));
+        CollectionAssert.AreEquivalent(before.Where(diagnostic => CodeOf(diagnostic) != "RDC01007").Select(Said).ToArray(), after.Select(Said).ToArray(),
+            "after the fix: " + string.Join("\n", after.Select(Said)));
+    }
+
+    // code that names its host's members binds once the library is referenced, and is then what it is in a project that references it: code that presumes its
+    // host (RDC01005).
+    [TestMethod]
+    public async Task TheFixOfAWorksheetsCode_ThatNamesItsHost_LeavesTheProjectAsReferencingExcelByHandDoes()
+    {
+        var (_, after) = await FixedAsync(GameSheet);
+        var (_, byHand) = await DiagnoseAsync("GameSheet", GameSheet, DocClassType.ExcelWorksheet, Excel);
+
+        Assert.IsFalse(after.Any(diagnostic => CodeOf(diagnostic) == "RDC01007"));
+        CollectionAssert.AreEquivalent(byHand.Select(Said).ToArray(), after.Select(Said).ToArray(), "after the fix: " + string.Join("\n", after.Select(Said)));
     }
 
     [TestMethod]

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Services.Workspace;
 using RDCore.SDK.Server.Services.States;
@@ -18,6 +19,12 @@ internal interface IWorkspaceService
     /// Asynchronously loads the workspace from the specified root directory, including all modules and other files defined in the project file.
     /// </summary>
     Task LoadAsync(string workspaceRoot);
+
+    /// <summary>
+    /// The other files of every project loaded, from the project files as they are now: what a project lists as another file and no project lists as a
+    /// module, held by a folder of the workspace.
+    /// </summary>
+    IReadOnlyList<TextDocumentIdentifier> OtherFilesOfTheProjects();
 
     /// <summary>
     /// Loads the workspace a client opened with several folders: the project of the first, which is the one the server runs, and the project of each of the
@@ -40,7 +47,40 @@ internal interface IWorkspaceService
     /// (<see cref="RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a project file that can't be read is not loaded.
     /// </param>
     /// <param name="token">A token that cancels the question.</param>
-    Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default);
+    /// <param name="takeLanguage">
+    /// Takes the language the primary project's file says the workspace is written in (<see cref="SupportedLanguages.OfProject"/>), once the file is read and
+    /// before anything is loaded in that language; <see langword="null"/> when the client named the language, which wins. A project the server made up for a
+    /// folder (<see cref="ProjectFile.IsSynthesized"/>) is made again once its language is taken, of that language's source files.
+    /// </param>
+    Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default,
+        Action<SupportedLanguage>? takeLanguage = null);
+
+    /// <summary>
+    /// Takes the language the primary project's file says once the file was read again, with what loading the workspace took it with: a project imported
+    /// from a Visual Basic 6 project once the workspace is open is written in VB6 from then on.
+    /// </summary>
+    /// <returns>
+    /// The language taken; <see langword="null"/> when it is the language the workspace was written in, when the file says none, and when the client named
+    /// the language, which wins.
+    /// </returns>
+    SupportedLanguage? RetakeLanguage();
+
+    /// <summary>
+    /// Makes the workspace what its folders are once the client added some or removed some (<strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>),
+    /// as <see cref="LoadAsync(string, IReadOnlyList{string})"/> makes it of the folders the client gave when it initialized: an added folder that is a project
+    /// folder (<see cref="RDCore.SDK.Workspace.WorkspaceFolderRoles"/>) is a project, a file a project lists is loaded once a folder holds it, and refused once
+    /// none does (<see cref="IWorkspaceProjects.Refused"/>). The project of a folder that was removed is dropped, with its documents no project that is left
+    /// lists; the primary project is never dropped, and its folder stays one of the workspace.
+    /// </summary>
+    /// <remarks>
+    /// Only the documents the projects gain are loaded, and only those they no longer have are let go of: the others are as they were. What is made of them
+    /// (parsed, defined in the environment host) is the caller's to do (<see cref="IWorkspaceReloadService.BeginChangeFoldersAsync"/>).
+    /// </remarks>
+    /// <param name="added">The folders the client added.</param>
+    /// <param name="removed">The folders the client removed.</param>
+    /// <param name="token">A token that cancels the change before a project or a document is loaded.</param>
+    Task<WorkspaceFoldersChange> ChangeFoldersAsync(IReadOnlyList<string> added, IReadOnlyList<string> removed, CancellationToken token = default);
+
     /// <summary>
     /// Asynchronously serializes the project file to disk.
     /// </summary>
@@ -80,6 +120,30 @@ internal interface IWorkspaceService
     void RemoveReference(RDCoreReference reference);
 }
 
+/// <summary>
+/// What a change of the workspace's folders made of the documents of its projects (<see cref="IWorkspaceService.ChangeFoldersAsync"/>).
+/// </summary>
+/// <param name="Loaded">The documents of code the projects gained, which are to be parsed.</param>
+/// <param name="LeftThePrimaryProject">The modules the primary project no longer has, with the name of their document: the environment host forgets them.</param>
+/// <param name="Added">The files the projects have now that they did not.</param>
+/// <param name="Removed">The files they no longer have.</param>
+internal sealed record class WorkspaceFoldersChange(
+    IReadOnlyList<TextDocumentIdentifier> Loaded,
+    IReadOnlyList<(TextDocumentIdentifier Id, string Name)> LeftThePrimaryProject,
+    int Added,
+    int Removed)
+{
+    /// <summary>
+    /// The folders are what they were, or what changed of them changed no file of a project.
+    /// </summary>
+    public static WorkspaceFoldersChange None { get; } = new([], [], 0, 0);
+
+    /// <summary>
+    /// Whether no project gained a file, nor lost one.
+    /// </summary>
+    public bool IsUnchanged => Added == 0 && Removed == 0;
+}
+
 internal class WorkspaceService(IServerStateProvider serverStateProvider,
     ILogger<WorkspaceService> logger,
     System.IO.Abstractions.IPath ioPath,
@@ -95,10 +159,27 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
     private readonly IWorkspaceProjects _projects = projects;
     private RDCoreProject ProjectInfo => projectFileService.Project.ProjectInfo!;
 
-    // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then.
+    // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then, and is asked again
+    // once the project's file says another language.
     private HashSet<string>? _sourceExtensions;
     private HashSet<string> SourceExtensions
         => _sourceExtensions ??= [.. language().FileTypes.Select(ext => ext[1..].ToLowerInvariant())];
+
+    // what takes the language the project's file says, when the client named none: what the workspace was loaded with.
+    private Action<SupportedLanguage>? _takeLanguage;
+
+    public SupportedLanguage? RetakeLanguage()
+    {
+        if (_takeLanguage is null || SupportedLanguages.OfProject(ProjectInfo) is not { } said || said.Id == language().Id)
+        {
+            return null;
+        }
+
+        _takeLanguage(said);
+        _sourceExtensions = null;
+        logger.LogInformation("The workspace is written in {language} ('{id}') from now on, as its project file says.", said.Name, said.Id);
+        return said;
+    }
 
     public async Task SaveAsync()
     {
@@ -271,7 +352,8 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
 
     public Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders) => LoadAsync(workspaceRoot, folders, ask: null);
 
-    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default)
+    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default,
+        Action<SupportedLanguage>? takeLanguage = null)
     {
         if (serverStateProvider.State.Value != ServerStateValue.Initializing)
         {
@@ -285,10 +367,27 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         await LoadProjectFileAsync(workspaceRoot, ask, token);
         LogSchemaOf(projectFileService.Project);
 
+        // the source files and the libraries are the language's: what the project file says of it is taken before either is loaded.
+        _takeLanguage = takeLanguage;
+        if (takeLanguage is not null && SupportedLanguages.OfProject(ProjectInfo) is { } said)
+        {
+            var madeIn = language();
+            takeLanguage(said);
+            _sourceExtensions = null;
+            logger.LogInformation("The workspace is written in {language} ('{id}'), as its project file says.", said.Name, said.Id);
+
+            // a project made up for a folder holds the source files of the language it was made in: one whose .vbp says it is VB6's is made again, of
+            // VB6's source files.
+            if (projectFileService.Project.IsSynthesized && said.Id != madeIn.Id)
+            {
+                await projectFileService.LoadAsync(workspaceRoot);
+            }
+        }
+
         // the root is a folder of the workspace whether or not the client lists it among its folders.
         string[] all = [workspaceRoot, .. folders];
         _projects.Initialize(workspaceRoot, folders, all.Where(HoldsAProject));
-        await LoadOtherProjectsAsync();
+        await LoadOtherProjectsAsync(known: []);
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
@@ -390,14 +489,24 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
     private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));
 
     // the other folders of the workspace that are project folders, in the order the client gave them: whether a folder is one depends on what the projects before it list.
-    private async Task LoadOtherProjectsAsync()
+    // a folder that has its project already keeps it; one that was a folder of the workspace before (known) was said to be no project then.
+    private async Task LoadOtherProjectsAsync(IReadOnlyList<string> known)
     {
         var primary = _projects.Projects[0].Root;
         foreach (var root in _projects.Folders.Roots.Where(root => !WorkspacePaths.Same(primary, root)))
         {
+            if (_projects.Projects.Any(project => WorkspacePaths.Same(project.Root, root)))
+            {
+                continue;
+            }
+
             if (_projects.Roles().First(entry => WorkspacePaths.Same(entry.Root, root)).Role != WorkspaceFolderRole.Project)
             {
-                logger.LogInformation("📁 '{folder}' holds sources a project lists, and is no project.", root);
+                if (!known.Any(folder => WorkspacePaths.Same(folder, root)))
+                {
+                    logger.LogInformation("📁 '{folder}' holds sources a project lists, and is no project.", root);
+                }
+
                 continue;
             }
 
@@ -407,10 +516,25 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         }
     }
 
-    private async Task LoadWorkspaceFilesAsync()
+    // a file a project lists: the project's folder, the file's address, whether it is an other file and no module, and the host document of a document module.
+    private readonly record struct Listed(string Root, TextDocumentIdentifier Id, bool IsOther, DocClassType? Super);
+
+    // a file a project lists is the same file of the same project whichever way the folder is spelled.
+    private sealed class ListedComparer : IEqualityComparer<Listed>
     {
-        // each project's files: a path that climbs out of its folder (..\Shared\Util.bas) or is absolute is one only if a folder of the workspace holds it.
-        var listed = new List<(string Root, TextDocumentIdentifier Id, bool IsOther, DocClassType? Super)>();
+        public static ListedComparer Instance { get; } = new();
+
+        public bool Equals(Listed x, Listed y) => WorkspacePaths.Same(x.Root, y.Root) && x.Id == y.Id;
+
+        public int GetHashCode(Listed obj) => HashCode.Combine(WorkspacePaths.Comparer.GetHashCode(WorkspacePaths.Normalized(obj.Root)), obj.Id);
+    }
+
+    // each project's files: a path that climbs out of its folder (..\Shared\Util.bas) or is absolute is one only if a folder of the workspace holds it, and is refused
+    // otherwise.
+    private (List<Listed> Files, List<(string Project, string RelativeUri)> Refused) Listing()
+    {
+        var listed = new List<Listed>();
+        var refused = new List<(string Project, string RelativeUri)>();
         foreach (var project in _projects.Projects)
         {
             var info = project.Project.ProjectInfo;
@@ -423,24 +547,35 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
                     path = ioPath.GetFullPath(path);
                     if (!_projects.Folders.Contains(path))
                     {
-                        _projects.Refuse(project.Root, file.RelativeUri);
-                        logger.LogWarning("⚠️ '{file}' is listed by project '{project}' and no folder of the workspace holds it: it is refused.", file.RelativeUri, project.Root);
+                        refused.Add((project.Root, file.RelativeUri));
                         continue;
                     }
                 }
 
-                listed.Add((project.Root, new TextDocumentIdentifier(path), isOther, (file as RDCoreModule)?.Super));
+                listed.Add(new Listed(project.Root, new TextDocumentIdentifier(path), isOther, (file as RDCoreModule)?.Super));
             }
         }
 
-        var files = listed.Select(entry => entry.Id).Distinct().ToList();
+        return (listed, refused);
+    }
 
-        // seed every known document as Unloaded before loading: the document service transitions
-        // state per file and each transition is only valid from a tracked Unloaded state.
-        documentStateProvider.Initialize(files);
+    private void Refuse(string project, string relativeUri)
+    {
+        _projects.Refuse(project, relativeUri);
+        logger.LogWarning("⚠️ '{file}' is listed by project '{project}' and no folder of the workspace holds it: it is refused.", relativeUri, project);
+    }
 
+    public IReadOnlyList<TextDocumentIdentifier> OtherFilesOfTheProjects() => OtherFilesOf(Listing().Files);
+
+    // a file one project lists as another file and another project as a module is a module: it is code.
+    private static List<TextDocumentIdentifier> OtherFilesOf(List<Listed> listed)
+        => [.. listed.Where(entry => entry.IsOther).Select(entry => entry.Id).Except(listed.Where(entry => !entry.IsOther).Select(entry => entry.Id))];
+
+    // what the projects list as other files, and what they say their document modules are, said to the document service before any of their files is loaded.
+    private void SayWhatTheProjectsList(List<Listed> listed)
+    {
         // what a project lists as other files is loaded and tracked, and never parsed as code: a resource file, a README.
-        documentService.SetOtherFiles(listed.Where(entry => entry.IsOther).Select(entry => entry.Id).Except(listed.Where(entry => !entry.IsOther).Select(entry => entry.Id)));
+        documentService.SetOtherFiles(OtherFilesOf(listed));
 
         // what the projects say their document modules are, before any is loaded: the first project that lists a file says it.
         foreach (var project in listed.GroupBy(entry => entry.Root))
@@ -448,6 +583,22 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
             documentService.SetDocumentModules(project.Key, project.Where(entry => !entry.IsOther && entry.Super is not null)
                 .Select(entry => KeyValuePair.Create(entry.Id, entry.Super!.Value)));
         }
+    }
+
+    private async Task LoadWorkspaceFilesAsync()
+    {
+        var (listed, refused) = Listing();
+        foreach (var (project, relativeUri) in refused)
+        {
+            Refuse(project, relativeUri);
+        }
+
+        var files = listed.Select(entry => entry.Id).Distinct().ToList();
+
+        // seed every known document as Unloaded before loading: the document service transitions
+        // state per file and each transition is only valid from a tracked Unloaded state.
+        documentStateProvider.Initialize(files);
+        SayWhatTheProjectsList(listed);
 
         // the projects load their files one after the other, so that the project that lists a file first is the one the document belongs to; the files of one
         // project load together.
@@ -460,5 +611,111 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         {
             logger.LogInformation("✅ LoadWorkspaceFiles completed ({files} tasks).", files.Count);
         }
+    }
+
+    public async Task<WorkspaceFoldersChange> ChangeFoldersAsync(IReadOnlyList<string> added, IReadOnlyList<string> removed, CancellationToken token = default)
+    {
+        // a workspace that was not loaded has no folders to change: it is loaded when the server is started again.
+        if (projectFileService.Project?.ProjectInfo is null || _projects.Projects.Count == 0)
+        {
+            logger.LogInformation("The workspace folders changed, and no workspace is loaded: nothing is done.");
+            return WorkspaceFoldersChange.None;
+        }
+
+        var primary = _projects.Projects[0].Root;
+        var known = _projects.Folders.Roots;
+        bool IsKnown(string folder) => known.Any(root => WorkspacePaths.Same(root, folder));
+
+        // the folder the server was started on is the primary project's, which the environment host runs: it stays a folder of the workspace, and its project stays.
+        foreach (var folder in removed.Where(folder => WorkspacePaths.Same(folder, primary)))
+        {
+            logger.LogWarning("⚠️ The client removed '{folder}', the folder of the primary project: the project the server runs is kept, and its folder with it.", folder);
+        }
+
+        var gone = removed.Where(folder => !WorkspacePaths.Same(folder, primary) && IsKnown(folder)).ToList();
+        var come = added.Where(folder => !IsKnown(folder) || gone.Any(other => WorkspacePaths.Same(other, folder))).Distinct(WorkspacePaths.Comparer).ToList();
+        if (gone.Count == 0 && come.Count == 0)
+        {
+            return WorkspaceFoldersChange.None;
+        }
+
+        token.ThrowIfCancellationRequested();
+        var before = Listing();
+
+        // the folders that are gone go first, and their projects with them; those that came are folders after the ones that are left, as at initialize.
+        _projects.RemoveFolders(gone);
+        var dropped = new List<string>();
+        foreach (var root in gone)
+        {
+            var project = _projects.Projects.FirstOrDefault(candidate => WorkspacePaths.Same(candidate.Root, root));
+            if (project is not null && _projects.Remove(project.Root))
+            {
+                dropped.Add(project.Root);
+                logger.LogInformation("📁 Project '{name}' was dropped: its folder '{folder}' is no folder of the workspace now.", project.Project.ProjectInfo.Name, project.Root);
+            }
+        }
+
+        _projects.AddFolders(come, come.Where(HoldsAProject));
+
+        // a folder that came is a project's as one given at initialize is; one that was a source folder of a project that is gone may be one now.
+        await LoadOtherProjectsAsync(known: [.. known.Where(root => !gone.Any(folder => WorkspacePaths.Same(folder, root)))]);
+
+        var after = Listing();
+        var had = new HashSet<Listed>(before.Files, ListedComparer.Instance);
+        var has = new HashSet<Listed>(after.Files, ListedComparer.Instance);
+        var gained = after.Files.Where(entry => !had.Contains(entry)).Distinct(ListedComparer.Instance).ToList();
+        var lost = before.Files.Where(entry => !has.Contains(entry)).Distinct(ListedComparer.Instance).ToList();
+
+        // a file that was refused and that a folder holds now is no longer refused, nor one of a project that is gone; one that no folder holds now is.
+        foreach (var (project, relativeUri) in _projects.Refused.Where(refused => !after.Refused.Contains(refused)))
+        {
+            _projects.Admit(project, relativeUri);
+            logger.LogInformation("📁 '{file}' is listed by project '{project}', and is no longer refused.", relativeUri, project);
+        }
+
+        var stillRefused = _projects.Refused;
+        foreach (var (project, relativeUri) in after.Refused.Where(refused => !stillRefused.Contains(refused)))
+        {
+            Refuse(project, relativeUri);
+        }
+
+        SayWhatTheProjectsList(after.Files);
+        foreach (var root in dropped)
+        {
+            documentService.SetDocumentModules(root, []);
+        }
+
+        // only the documents the projects gained are loaded: those loaded already keep the text, the version and the state they have, and a file another project
+        // loaded before is one more project's. The projects load them one after the other, as at initialize.
+        var loaded = new List<TextDocumentIdentifier>();
+        foreach (var project in gained.GroupBy(entry => entry.Root))
+        {
+            var results = await Task.WhenAll(project.Select(async entry =>
+            {
+                var wasADocument = documentService.TryGetDocument(entry.Id.Uri.ToUri(), out _);
+                documentStateProvider.Track(entry.Id);
+                return (Entry: entry, IsNew: !wasADocument, IsLoaded: await documentService.TryLoadAsync(entry.Id, project.Key));
+            }));
+
+            // a document another project had was parsed already, and one the client has open was parsed when it was opened.
+            loaded.AddRange(results.Where(result => result.IsNew && result.IsLoaded && !result.Entry.IsOther && !documentService.IsOpen(result.Entry.Id))
+                .Select(result => result.Entry.Id));
+        }
+
+        // what a project no longer has is let go of once the others have what they gained: a document another project lists stays, one the client has open too.
+        var leftThePrimaryProject = new List<(TextDocumentIdentifier Id, string Name)>();
+        foreach (var entry in lost)
+        {
+            if (!entry.IsOther && WorkspacePaths.Same(entry.Root, primary) && documentService.TryGetDocument(entry.Id.Uri.ToUri(), out var document))
+            {
+                leftThePrimaryProject.Add((entry.Id, document.Name));
+            }
+
+            documentService.Leave(entry.Id, entry.Root);
+        }
+
+        logger.LogInformation("📁 The workspace folders changed ({come} added, {gone} removed): {gained} file(s) of its projects loaded, {lost} let go of.",
+            come.Count, gone.Count, gained.Count, lost.Count);
+        return new WorkspaceFoldersChange([.. loaded.Distinct()], leftThePrimaryProject, gained.Count, lost.Count);
     }
 }

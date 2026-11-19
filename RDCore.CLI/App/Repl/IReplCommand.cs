@@ -297,6 +297,13 @@ public interface IReplPlatformClient
     Task<DebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server to set which run-time errors a program under a debugger waits at, where they are raised.
+    /// </summary>
+    /// <param name="mode">The errors to wait at.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task SetErrorBreakAsync(ErrorBreakMode mode, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server for the activations of the program that waits, innermost first.
     /// </summary>
     /// <param name="token">A token that cancels the request.</param>

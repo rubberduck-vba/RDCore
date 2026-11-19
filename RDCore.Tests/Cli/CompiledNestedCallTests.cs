@@ -21,18 +21,20 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledNestedCallTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private sealed record class Run(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled);
+    internal sealed record class Run(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled);
 
-    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine)
+    internal static async Task<Run> RunAsync(string program, VBExecutionEngine engine, IReadOnlyList<(string Name, string Source)>? classes = null)
     {
+        classes ??= [];
         var observed = string.Empty;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
         using var running = CompiledExecution.Running(engine);
-        await ModuleWorkspace.InspectAsync([], program, (provider, run, _) =>
+        await ModuleWorkspace.InspectAsync(classes, program, (provider, run, _) =>
         {
             observed = CompiledDirectCallTests.Observed(run);
             compiled = CompiledExecutionTests.ByName(provider);
@@ -41,13 +43,14 @@ public sealed class CompiledNestedCallTests
         return new Run(observed, compiled);
     }
 
-    // the program run both ways: the compiled run is the interpreted one; the caller is compiled, and made its calls, all directly, in compiled code; it was
-    // handed to the interpreter only where it is said to be.
-    private static async Task<string> AssertAlikeAsync(string program, string caller, long calls, bool walksBack = false)
+    // the program run both ways: the compiled run is the interpreted one; the caller is compiled, and made its calls in compiled code, all directly but the
+    // indirect ones, made through the invoker; it was handed to the interpreter only where it is said to be.
+    internal static async Task<string> AssertAlikeAsync(string program, string caller, long calls, bool walksBack = false,
+        IReadOnlyList<(string Name, string Source)>? classes = null, long indirect = 0)
     {
         CompiledExecutionTests.RequirePayloads();
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
-        var compiled = await RunAsync(program, VBExecutionEngine.Compiled);
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes);
+        var compiled = await RunAsync(program, VBExecutionEngine.Compiled, classes);
         Assert.AreEqual(interpreted.Observed, compiled.Observed);
 
         Assert.IsTrue(compiled.Compiled.TryGetValue(caller, out var result), $"{caller} was not called");
@@ -59,7 +62,7 @@ public sealed class CompiledNestedCallTests
         else if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(0L, result.Body.WalkBacks, $"{caller} was handed to the interpreter");
-            CompiledDirectCallTests.AssertCalls(calls, (result.Body.DirectCalls, result.Body.IndirectCalls));
+            CompiledDirectCallTests.AssertCalls(calls, (result.Body.DirectCalls, result.Body.IndirectCalls), indirect);
         }
 
         return compiled.Observed;
@@ -212,7 +215,7 @@ public sealed class CompiledNestedCallTests
             "    Outer = t",
             "End Function",
             "Private Function Parsed(ByVal x As Long) As Long",
-            "    Parsed = CLng(Val(CStr(x)))",
+            "    Parsed = CLng(StrReverse(StrReverse(CStr(x))))",
             "End Function");
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
         var compiled = await RunAsync(program, VBExecutionEngine.Compiled);

@@ -12,11 +12,18 @@ namespace RDCore.Diagnostics.Analyzers;
 /// none for a <c>.doccls</c> - or is not referenced, so that none of its members are names of the module's code.
 /// </summary>
 /// <remarks>
+/// <para>
 /// What the project says of the module is its <c>Super</c> (<see cref="SDK.Workspace.RDCoreModule.Super"/>), and nothing else says it: a <c>.doccls</c> that the
 /// project says nothing of is loaded as the module its text makes it, and the extension of its file only says that it was exported from a host.
+/// </para>
+/// <para>
+/// The fix of <c>RDC01007</c> is a change of the project (<see cref="ProjectFix"/>): a reference to the host's library, after the project's references.
+/// </para>
 /// </remarks>
 internal sealed class DocumentModuleHostAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.HostLibraryNotReferenced.ToCode(), RDCoreDiagnosticId.UnsupportedDocumentModule.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.Semantics is not { } semantics || context.ParseResult.SyntaxTree is not { } module)
@@ -34,7 +41,17 @@ internal sealed class DocumentModuleHostAnalyzer : IModuleAnalyzer
 
             case { HostClass: { } host, HostClassUri: null }:
                 yield return Finding(RDCoreDiagnosticId.HostLibraryNotReferenced, module,
-                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostLibraryNotReferenced_Message, name, $"{host.Library}.{host.ClassName}", host.Library));
+                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostLibraryNotReferenced_Message, name, $"{host.Library}.{host.ClassName}", host.Library)) with
+                {
+                    Fixes = new DiagnosticFixes
+                    {
+                        Project = new ProjectFix
+                        {
+                            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostLibraryNotReferenced_Fix, host.Library),
+                            Changes = [ProjectChange.AddReference(host.Library)],
+                        },
+                    },
+                };
                 break;
 
             case null when context.Document.AbsolutePath.EndsWith(".doccls", StringComparison.OrdinalIgnoreCase):

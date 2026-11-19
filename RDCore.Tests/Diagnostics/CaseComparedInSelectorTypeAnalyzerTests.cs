@@ -20,7 +20,8 @@ public sealed class CaseComparedInSelectorTypeAnalyzerTests
         var source = $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
         var payload = await ModuleWorkspace.SemanticsAsync([], source);
 
-        return [.. new CaseComparedInSelectorTypeAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), payload.Modules.Single()))];
+        return [.. new CaseComparedInSelectorTypeAnalyzer().Analyze(
+            new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), payload.Modules.Single()))];
     }
 
     [TestMethod]

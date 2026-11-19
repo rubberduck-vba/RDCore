@@ -1,5 +1,3 @@
-using RDCore.Runtime.LanguageCore.StdLib;
-using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -22,6 +20,10 @@ internal static class ExpressionFactDescriber
 {
     public static ExpressionFact Describe(
         StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode expression, StaticSemanticsEvaluationResult result)
+        => MemberFacts.WithDefaultMember(context, DescribeExpression(context, facts, expression, result));
+
+    private static ExpressionFact DescribeExpression(
+        StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode expression, StaticSemanticsEvaluationResult result)
     {
         var type = result.IsError ? null : result.Result;
         var error = result.IsError ? result.ErrorInfo : null;
@@ -34,18 +36,19 @@ internal static class ExpressionFactDescriber
             case SimpleNameExpressionNode name:
             {
                 var symbol = context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol;
-                var document = NamesAHostedDocument(context, name, symbol) ? ValueExpressionSemanticFlags.HostedDocumentName : 0;
                 return symbol is null
-                    ? new(expression.Identity, expression.Location, type, ExpressionClassification.Unknown, null, document, error)
-                    : new(expression.Identity, expression.Location, type, ClassificationOf(symbol), symbol.SemanticId, FlagsOf(symbol, name.IdentifierName) | document
-                        | (Expressions.SimpleNameExpressionStaticSemantics.IgnoresTypeCharacter(name, symbol) ? ValueExpressionSemanticFlags.IgnoredTypeCharacter : 0), error);
+                    ? new(expression.Identity, expression.Location, type, ExpressionClassification.Unknown, null, 0, error)
+                    : MemberFacts.WithAccessors(context, facts, expression, new(expression.Identity, expression.Location, type, ClassificationOf(symbol),
+                        symbol.SemanticId, FlagsOf(symbol, name.IdentifierName) | BindingFlagsOf(symbol), error)
+                    {
+                        ConstantValue = ConstantBindings.Of(context, symbol),
+                    }, symbol);
             }
 
             case NewExpressionNode:
             {
                 var created = BoundClassOf(type);
-                var fails = created is not null && created.GetProperty(SymbolProperties.CreationAlwaysFails) ? ValueExpressionSemanticFlags.NewAlwaysFails : 0;
-                return new(expression.Identity, expression.Location, type, ExpressionClassification.Value, created?.SemanticId, fails, error);
+                return new(expression.Identity, expression.Location, type, ExpressionClassification.Value, created?.SemanticId, BindingFlagsOf(created), error);
             }
 
             case MemberAccessExpressionNode access:
@@ -66,11 +69,11 @@ internal static class ExpressionFactDescriber
         StaticEvaluationContext context, IExpressionFactSink facts, IndexExpressionNode index, VBType? type, VBCompileErrorInfo? error)
     {
         ExpressionFact Fact(Symbol? binding, ValueExpressionSemanticFlags flags)
-            => new(index.Identity, index.Location, type, ExpressionClassification.Value, binding?.SemanticId, flags, error);
+            => new(index.Identity, index.Location, type, ExpressionClassification.Value, binding?.SemanticId, flags | BindingFlagsOf(binding), error);
 
         if (ExpressionStaticSemanticsEvaluator.ProcedureNamedBy(context, index.Callee) is { } procedure)
         {
-            return Fact(procedure, ValueExpressionSemanticFlags.ProcedureCall | IsMissingFlags(context, index, procedure)) with
+            return Fact(procedure, ValueExpressionSemanticFlags.ProcedureCall) with
             {
                 Creates = ObjectCreationFacts.Of(context, index, procedure),
             };
@@ -88,41 +91,21 @@ internal static class ExpressionFactDescriber
             {
                 return Fact(null, ValueExpressionSemanticFlags.LateBound | ValueExpressionSemanticFlags.ProcedureCall);
             }
-
-            if (calleeType is VBArrayType && Expressions.IndexExpressionStaticSemantics.IsASecondEmptyArgumentList(index))
-            {
-                return Fact(null, ValueExpressionSemanticFlags.ArrayGivenASecondEmptyArgumentList);
-            }
         }
 
         return Fact(null, 0);
     }
-
-    private static readonly string IsMissingTarget = StdLibSymbolReader.ExternalTargetOf(
-        typeof(IStdInformationModule), typeof(IStdInformationModule).GetMethod(nameof(IStdInformationModule.IsMissing))!);
-
-    // IsMissing of a parameter of the procedure that can never be missing: one that is not a Variant, or an Optional Variant with a default value. A ParamArray
-    // with no elements is missing (recorded in Excel: oracle\ismissing I01-I09).
-    private static ValueExpressionSemanticFlags IsMissingFlags(StaticEvaluationContext context, IndexExpressionNode call, Symbol procedure)
-        => procedure.GetProperty(SymbolProperties.ExternalTarget) == IsMissingTarget
-            && call.Arguments is [SimpleNameExpressionNode argument]
-            && context.Resolver.ResolveValue(argument, ScopeKind.Local, context.Scope.Uri).Symbol is VBParameterSymbol parameter and not ParamArrayParameterSymbol
-            && (parameter.ResolvedType is not VBVariantType || parameter.DefaultValue is not null)
-                ? ValueExpressionSemanticFlags.IsMissingAlwaysFalse
-                : 0;
-
-    // a name that resolves to nothing, or to the variable it declares by being named, written as a document module's: MS-VBA's host makes it the document, and
-    // RD-VBA hosts none (ValueExpressionSemanticFlags.HostedDocumentName). A name the code declares as its own is its own, whatever modules there are.
-    private static bool NamesAHostedDocument(StaticEvaluationContext context, SimpleNameExpressionNode name, Symbol? symbol)
-        => (symbol is null || symbol.GetProperty(SymbolProperties.ImplicitlyDeclared) || symbol is VBLocalVariableSymbol { DeclaredBy: var declared } && declared.IsImplicit())
-            && context.Resolver.ResolveType(name.IdentifierName, ScopeKind.Global, context.Scope.Uri).Symbol is VBClassModuleSymbol { IsDocument: true };
 
     private static ExpressionFact DescribeMember(
         StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode? owner, string memberName, VBType? type,
         ExpressionNode expression, ValueExpressionSemanticFlags kind, VBCompileErrorInfo? error)
     {
         ExpressionFact Fact(ExpressionClassification classification, Symbol? binding, ValueExpressionSemanticFlags flags)
-            => new(expression.Identity, expression.Location, type, classification, binding?.SemanticId, flags, error);
+            => MemberFacts.WithAccessors(context, facts, expression,
+                new(expression.Identity, expression.Location, type, classification, binding?.SemanticId, flags | BindingFlagsOf(binding), error)
+                {
+                    ConstantValue = ConstantBindings.Of(context, binding),
+                }, binding);
 
         // an access with no owner is relative to the object of the enclosing With block.
         var flags = kind | (owner is null ? ValueExpressionSemanticFlags.WithBlockRelative : 0);
@@ -177,4 +160,8 @@ internal static class ExpressionFactDescriber
 
         return string.Equals(symbol.Name, written, StringComparison.Ordinal) ? flags : flags | ValueExpressionSemanticFlags.CaseMismatch;
     }
+
+    // MS-VBAL §4.1: what a library the project references declares (the standard library, a type library, another project) is not a module of the project.
+    internal static ValueExpressionSemanticFlags BindingFlagsOf(Symbol? binding)
+        => binding?.GetProperty(SymbolProperties.Library) is not null ? ValueExpressionSemanticFlags.BoundToLibrary : 0;
 }

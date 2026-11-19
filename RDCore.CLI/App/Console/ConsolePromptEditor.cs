@@ -122,6 +122,19 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     public Func<string, string?>? Ghost { get; init; }
 
     /// <summary>
+    /// Whether the line, once <kbd>Tab</kbd> has taken all of its ghost text (<see cref="Ghost"/>), is entered with it: a line the ghost text makes whole, such as
+    /// the closer of a block a shell offers. Given the line with the ghost text typed. Taken with <kbd>End</kbd> or <kbd>→</kbd>, the ghost text never enters
+    /// the line.
+    /// </summary>
+    public Func<string, bool>? EntersWithGhost { get; init; }
+
+    /// <summary>
+    /// Rows drawn under the line, faint, while it is edited: the lines a shell expects to follow it, say. Given the line as it is typed; none when it returns
+    /// none. They are read-only: no key takes them. They are drawn under what <see cref="Status"/> says, and above what the call being typed takes.
+    /// </summary>
+    public Func<string, IReadOnlyList<string>>? GhostRows { get; set; }
+
+    /// <summary>
     /// Where what the call being typed takes comes from: its signature, drawn on one line under the line with the parameter the argument at the cursor is given to
     /// underlined, and what the procedure and that parameter do under it, faint - the VBE's <em>Parameter Info</em>. None is shown without it.
     /// </summary>
@@ -197,9 +210,13 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     /// Reads a line.
     /// </summary>
     /// <param name="token">Stops waiting for a key.</param>
+    /// <param name="start">
+    /// What the line starts as: a snippet of one line, put in place with the cursor at its first tab stop, such as a number a shell suggests, selected so
+    /// that typing replaces it. A snippet of more lines, or none, starts an empty line; so does an input that is read as a whole line.
+    /// </param>
     /// <returns>The line entered, or <see langword="null"/> at the end of the input.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="token"/> was cancelled before the line was entered.</exception>
-    public async Task<string?> ReadLineAsync(CancellationToken token)
+    public async Task<string?> ReadLineAsync(CancellationToken token, Snippet? start = null)
     {
         if (!_keys.IsInteractive)
         {
@@ -211,7 +228,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         string entered;
         try
         {
-            entered = await line.EditAsync(token);
+            entered = await line.EditAsync(token, start is { IsMultiline: false } ? start : null);
         }
         finally
         {
@@ -272,9 +289,17 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
         private string? _textAsItIs;
 
-        public async Task<string> EditAsync(CancellationToken token)
+        public async Task<string> EditAsync(CancellationToken token, Snippet? start)
         {
             _history = editor._history.Count;
+            if (start is not null)
+            {
+                _text.Append(start.Text);
+                var session = ConsoleSnippetSession.Start(start, 0);
+                _cursor = session.Next() ?? start.Text.Length;
+                _snippet = session.IsDone ? null : session;
+            }
+
             Task<ConsoleKeyInfo>? key = null;
             var invalidated = editor.Invalidation;
 
@@ -493,7 +518,10 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     case ConsoleKey.RightArrow:
                         Take(ghost[..NextTokenOf(ghost)]);
                         return false;
-                    case ConsoleKey.Tab or ConsoleKey.End:
+                    case ConsoleKey.Tab:
+                        Take(ghost);
+                        return editor.EntersWithGhost?.Invoke(Text) == true;
+                    case ConsoleKey.End:
                         Take(ghost);
                         return false;
                 }
@@ -1142,6 +1170,11 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             if (!entered && editor.Status?.Invoke(columns) is { } status)
             {
                 rows.AddRange(status.Select(row => ToColumn(1) + row));
+            }
+
+            if (!entered && editor.GhostRows?.Invoke(Text) is { Count: > 0 } ghostRows)
+            {
+                rows.AddRange(ghostRows.Select(row => $"{ToColumn(1)}{Faint}{ConsoleText.Truncate(row, columns - 1)}{NormalIntensity}"));
             }
 
             if (!entered)

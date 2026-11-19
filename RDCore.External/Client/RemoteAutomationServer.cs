@@ -44,6 +44,10 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     private bool _running;
     private Incarnation? _told;
 
+    // the program's App.KeepSystemTheme, as it was last said, and the incarnation last told it, as for the hold.
+    private bool _keepSystemTheme;
+    private Incarnation? _themeTold;
+
     [ThreadStatic]
     private static long _handlingEvent;
 
@@ -130,6 +134,9 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     // as for the servers: an external host that cannot be started is not a machine with no forms, and the program that shows one is told it could not be started.
     bool Forms.IFormHost.IsAvailable => !_host.TryConnect(out var incarnation) || incarnation!.IsFormHostAvailable;
 
+    // nor a host of no Visual Basic 6.0 forms: the New of such a form's class goes on to the form's creation, which says the host could not be started.
+    bool Forms.IFormHost.HostsVisualBasic6Forms => !_host.TryConnect(out var incarnation) || incarnation!.HostsVisualBasic6Forms;
+
     /// <inheritdoc/>
     public object Create(Forms.FormDefinition form)
     {
@@ -137,15 +144,20 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         // told first whether a program runs, false as well as true, so that what Microsoft Forms posts as it creates the form waits as it would in a host told.
         var incarnation = Connect();
         TellHold(incarnation, onlyIfUntold: true);
+        // and the theme its windows are in, so that the form is made in it.
+        TellTheme(incarnation, onlyIfUntold: true);
         var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
         return ObjectOf(incarnation, created.Handle);
     }
 
     /// <inheritdoc/>
-    public void Show(object form, bool modal)
+    public void Show(object form, bool modal, object? owner = null)
     {
+        // the external host gives its form an owner only when it holds the owner: an owner from another incarnation of the host is not one of its forms.
         var remote = Live(form);
-        _ = Send<FormShowParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormShow, new FormShowParams { Target = remote.Handle, Modal = modal, HandlingEvent = _handlingEvent });
+        long? ownerHandle = owner is RemoteObject { Incarnation.IsLost: false } held && held.Incarnation == remote.Incarnation ? held.Handle : null;
+        _ = Send<FormShowParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormShow,
+            new FormShowParams { Target = remote.Handle, Modal = modal, Owner = ownerHandle, HandlingEvent = _handlingEvent });
     }
 
     /// <inheritdoc/>
@@ -236,6 +248,63 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         }
     }
 
+    // kept here, and told to the external host when it runs: one that does not is not started for it, and is told when a form starts it (Create). A
+    // telling that fails leaves that incarnation untold, and its next form tells it again.
+    bool Forms.IFormHost.KeepSystemTheme
+    {
+        get
+        {
+            lock (_holdGate)
+            {
+                return _keepSystemTheme;
+            }
+        }
+        set
+        {
+            lock (_holdGate)
+            {
+                _keepSystemTheme = value;
+            }
+
+            if (_host.Running is { } incarnation)
+            {
+                try
+                {
+                    TellTheme(incarnation, onlyIfUntold: false);
+                }
+                catch (AutomationException)
+                {
+                    lock (_holdGate)
+                    {
+                        _themeTold = null;
+                    }
+                }
+            }
+        }
+    }
+
+    // says to an incarnation the theme its windows are in; one that was told already is not told again when only the untold are.
+    private void TellTheme(Incarnation incarnation, bool onlyIfUntold)
+    {
+        bool keep;
+        lock (_holdGate)
+        {
+            if (onlyIfUntold && ReferenceEquals(_themeTold, incarnation))
+            {
+                return;
+            }
+
+            keep = _keepSystemTheme;
+        }
+
+        _ = Send<FormKeepSystemThemeParams, ExternalDoneResult>(
+            incarnation, ExternalProtocol.FormKeepSystemTheme, new FormKeepSystemThemeParams { KeepSystemTheme = keep, HandlingEvent = _handlingEvent });
+        lock (_holdGate)
+        {
+            _themeTold = incarnation;
+        }
+    }
+
     /// <inheritdoc/>
     public void DoEvents()
     {
@@ -251,7 +320,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
 
     // the external host is started on a thread of its own; a call that comes before it is up waits for it as it would have started it.
     /// <inheritdoc/>
-    public void Prepare() => _ = Task.Run(() => _host.TryConnect(out _));
+    public void Prepare() => _host.Prepare();
 
     /// <inheritdoc/>
     public object GetObject(SDK.Runtime.Abstract.Execution.ExternalObjectRequest request)
@@ -278,6 +347,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
 
     /// <inheritdoc/>
     public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
+        => Invoke(target, member, invocation, arguments, byReference, [], culture);
+
+    /// <inheritdoc/>
+    public object? Invoke(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
     {
         var remote = Live(target);
         var incarnation = remote.Incarnation;
@@ -293,6 +367,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
             Invocation = invocation,
             Arguments = [.. arguments.Select(argument => ExternalValues.ToWire(argument, value => HandleIn(incarnation, value)))],
             ByReference = byReference,
+            ArgumentNames = [.. names],
             Culture = culture.Name,
             HandlingEvent = _handlingEvent,
         });
@@ -368,7 +443,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     public void Advise(object source, IAutomationEventSink sink)
     {
         var remote = Live(source);
-        _sinks[(remote.Incarnation.Number, remote.Handle)] = sink;
+        if (!_sinks.TryAdd((remote.Incarnation.Number, remote.Handle), sink))
+        {
+            return;
+        }
+
         _ = Send<AutomationAdviseParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.AutomationAdvise, new AutomationAdviseParams { Source = remote.Handle, HandlingEvent = _handlingEvent });
     }
 

@@ -29,7 +29,8 @@ internal sealed record TypeLibraryExport(LibraryDescription Description, IReadOn
 /// whose default interface it is (<c>_Worksheet</c> is <c>Worksheet</c>), as the object browser names it.
 /// </para>
 /// <para>
-/// What a description cannot hold is left out, and said: records, unions and modules. A member that the library marks restricted is not one VBA can call and is
+/// A module is a standard module whose functions are its procedures. What a description cannot hold is left out, and said: records, unions, and the
+/// constants and variables of a module. A member that the library marks restricted is not one VBA can call and is
 /// not described. The output is the same for the same library: nothing in it depends on when or where it was made, so that a change to a description is a change
 /// to the library.
 /// </para>
@@ -63,6 +64,7 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
 
         var enums = new List<EnumDescription>();
         var classes = new List<ClassDescription>();
+        var modules = new List<ModuleDescription>();
         var sources = SourceInterfaces(library);
 
         for (var i = 0; i < library.GetTypeInfoCount(); i++)
@@ -103,7 +105,11 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
 
                     break;
 
-                case TYPEKIND.TKIND_RECORD or TYPEKIND.TKIND_UNION or TYPEKIND.TKIND_MODULE:
+                case TYPEKIND.TKIND_MODULE:
+                    modules.Add(DescribeModule(loaded, info, attr, name, flags));
+                    break;
+
+                case TYPEKIND.TKIND_RECORD or TYPEKIND.TKIND_UNION:
                     _skipped.Add($"{attr.typekind.ToString()[6..].ToLowerInvariant()} {name}");
                     break;
             }
@@ -125,6 +131,7 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             DependsOn = [.. _dependencies.OrderBy(dependency => dependency.Key, StringComparer.OrdinalIgnoreCase).Select(dependency => IdentityOf(dependency.Key, dependency.Value))],
             Enums = [.. enums],
             Classes = [.. classes],
+            Modules = [.. modules],
         };
 
         return new TypeLibraryExport(description, _dependencies, [.. _skipped.Distinct()]);
@@ -172,6 +179,68 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             IsDefaultInterfaceHidden = namesItsInterface && ((TYPEFLAGS)Attr(defaultInterface!).wTypeFlags).HasFlag(TYPEFLAGS.TYPEFLAG_FHIDDEN),
             Members = defaultInterface is null ? [] : Ordered(MembersOf(loaded, defaultInterface, [])),
             Events = defaultSource is null ? [] : [.. EventsOf(loaded, defaultSource)],
+        };
+    }
+
+    // a module's functions are procedures of a standard module, called on no object (stdole's StdFunctions declares LoadPicture and SavePicture), and its
+    // constants are its Public Consts (DAO's LanguageConstants). Its variables are not described, and are said.
+    private ModuleDescription DescribeModule(LoadedTypeLibrary loaded, ITypeInfo info, TYPEATTR attr, string name, TYPEFLAGS flags)
+    {
+        var members = new List<MemberDescription>();
+        var constants = new List<ConstantDescription>();
+        for (var i = 0; i < attr.cFuncs; i++)
+        {
+            info.GetFuncDesc(i, out var pointer);
+            var function = Marshal.PtrToStructure<FUNCDESC>(pointer);
+            try
+            {
+                if (Member(loaded, info, function) is { } member)
+                {
+                    members.Add(member);
+                }
+            }
+            catch (COMException exception) when (exception.HResult == CannotLoadLibrary)
+            {
+                SkipMemberOfAMissingLibrary(info, function.memid);
+            }
+            finally
+            {
+                info.ReleaseFuncDesc(pointer);
+            }
+        }
+
+        for (var i = 0; i < attr.cVars; i++)
+        {
+            info.GetVarDesc(i, out var pointer);
+            try
+            {
+                var variable = Marshal.PtrToStructure<VARDESC>(pointer);
+                var varFlags = (VARFLAGS)variable.wVarFlags;
+                if (variable.varkind != VARKIND.VAR_CONST)
+                {
+                    Skip("variable", info, variable.memid);
+                }
+                else if (!varFlags.HasFlag(VARFLAGS.VARFLAG_FRESTRICTED))
+                {
+                    constants.Add(new ConstantDescription
+                    {
+                        Name = NameOf(info, variable.memid),
+                        Type = TypeNameOf(variable.elemdescVar.tdesc, info),
+                        Value = variable.desc.lpvarValue == IntPtr.Zero ? null : LiteralOf(Marshal.GetObjectForNativeVariant(variable.desc.lpvarValue)),
+                        Description = Doc(info, variable.memid),
+                        IsHidden = varFlags.HasFlag(VARFLAGS.VARFLAG_FHIDDEN),
+                    });
+                }
+            }
+            finally
+            {
+                info.ReleaseVarDesc(pointer);
+            }
+        }
+
+        return new ModuleDescription
+        {
+            Name = name, Description = Doc(info, -1), IsHidden = flags.HasFlag(TYPEFLAGS.TYPEFLAG_FHIDDEN), Members = [.. members], Constants = [.. constants],
         };
     }
 
@@ -730,7 +799,12 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             return null;
         }
 
-        var value = Marshal.GetObjectForNativeVariant(IntPtr.Add(parameterDescription, 8));
+        return LiteralOf(Marshal.GetObjectForNativeVariant(IntPtr.Add(parameterDescription, 8)));
+    }
+
+    // a value as the literal VBA would write: a Boolean, a string in double quotes, or a number.
+    private static string? LiteralOf(object? value)
+    {
         return value switch
         {
             null or DBNull => null,

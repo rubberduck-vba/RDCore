@@ -44,6 +44,13 @@ A step stops once per statement, as MS-VBA's step does:
   at the body, then at the `Loop` line, where its test is. A `Do While…Loop` is stopped on at its `Do While` line
   for each test.
 
+A step into a procedure, at a call or into the handler of an event, stops at the procedure's first executable
+statement. The `Sub`, `Function` or `Property` line declares the procedure, and a declaration is not a statement a
+program stops at. The procedure's `End` line is one (below).
+
+**RD-VBA differs from MS-VBA:** a step into a procedure in MS-VBA stops on its declaration line first, then at its
+first executable statement (observed in Excel).
+
 The procedure's `End` line:
 
 - A breakpoint on `End Sub`, `End Function` or `End Property` is hit before the procedure returns, with its variables

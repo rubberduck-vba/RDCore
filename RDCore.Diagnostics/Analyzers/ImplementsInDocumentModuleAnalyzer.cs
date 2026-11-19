@@ -16,6 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ImplementsInDocumentModuleAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplementsInDocumentModule.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => context.Semantics?.Document is not null && context.ParseResult.SyntaxTree is { } module
             ? module.GetImplementedInterfaceNames().Zip(module.GetImplementedInterfaceRanges()).Select(directive => new AnalyzerFinding(

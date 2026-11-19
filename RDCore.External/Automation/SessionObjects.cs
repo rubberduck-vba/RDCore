@@ -20,7 +20,25 @@ public interface ISessionObjectStandIn
 /// </summary>
 /// <param name="SessionObject">The identity of the object, as the session writes it.</param>
 /// <param name="Host">What answers the calls the server makes to it, and is told when the server lets go of it.</param>
-public sealed record class SessionObjectReference(string SessionObject, ISessionObjectHost Host) : ISessionObjectStandIn;
+public sealed record class SessionObjectReference(string SessionObject, ISessionObjectHost Host) : ISessionObjectStandIn
+{
+    /// <summary>
+    /// What the object pictures, when it is a picture of the session's (a <c>StdPicture</c>): what the server's side makes a picture of its own from, which a
+    /// server draws. <see langword="null"/> for any other object.
+    /// </summary>
+    public SessionPicture? Picture { get; init; }
+}
+
+/// <summary>
+/// The content of a picture of the session's: the file it was loaded from, and the image of it that was picked.
+/// </summary>
+/// <param name="Bytes">The file the picture was loaded from, as it was read; empty for a picture that holds none.</param>
+/// <param name="Width">The width in pixels of the image of an icon or a cursor that the picture is; <c>0</c> for any other picture.</param>
+/// <param name="Height">The height in pixels of the image of an icon or a cursor that the picture is; <c>0</c> for any other picture.</param>
+/// <param name="IsNew">
+/// Whether the picture is a <c>New StdPicture</c>, which holds none: a picture of its own to MS-VBA, unlike the empty one <c>LoadPicture()</c> returns.
+/// </param>
+public sealed record class SessionPicture(byte[] Bytes, int Width, int Height, bool IsNew);
 
 /// <summary>
 /// An object of the session, by its identity alone: what a stand-in is when it comes back across the external host, which the session finds its object by.

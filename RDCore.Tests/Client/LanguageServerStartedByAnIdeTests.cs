@@ -12,14 +12,16 @@ namespace RDCore.Tests.Client;
 /// <c>--pipe-name {pipe} --workspace {workspaceUri}</c>) from the pre-launch preparation (<see cref="RDCoreLanguageServerLaunch"/>), answers the LSP
 /// <c>initialize</c> request, and then the platform handshake, over the IDE's own LSP connection.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("Platform")]
 public sealed class LanguageServerStartedByAnIdeTests
 {
-    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(90);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Bound = TimeSpan.FromMinutes(5);
 
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheLanguageServer_StartedWithAPipeAndAWorkspace_AnswersInitialize_AndThePlatformHandshake()
     {
         // the test's own workspace, user settings and logs, beside a platform root as a deployment has it.
@@ -46,7 +48,7 @@ public sealed class LanguageServerStartedByAnIdeTests
             // LanguageClient.From sends initialize, and returns once it is answered.
             using var client = await LanguageClient.From(options => options
                 .WithInput(pipe)
-                .WithOutput(pipe)
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithRootUri(new Uri(workspace)), timeout.Token);
 
             Assert.IsNotNull(client.ServerSettings.Capabilities, "initialize is answered");

@@ -15,11 +15,12 @@
 #   Antlr4.Runtime-4.6.6*.txt  tunnelvisionlabs/antlr4cs v4.6.6 (3f15cfb): LICENSE.txt, THIRD-PARTY-NOTICES.txt
 #   Testably.Abstractions.FileSystem.Interface-10.3.0.txt
 #                              Testably/Testably.Abstractions core/v10.3.0 (9b967ee, the commit its nuspec names): LICENSE
-#   dotnet-runtime-*.txt       dotnet/dotnet v10.0.11 (e2f47b0), src/runtime: LICENSE.TXT, THIRD-PARTY-NOTICES.TXT
-#                              (the same texts Microsoft.Bcl.AsyncInterfaces 7.0.0 and the 10.0.11 packages ship)
+#   dotnet-runtime-*.txt       dotnet/dotnet v11.0.0 (297acf9), src/runtime: LICENSE.TXT, THIRD-PARTY-NOTICES.TXT
+#                              (the LICENSE.TXT Microsoft.Bcl.AsyncInterfaces 7.0.0 ships, and the THIRD-PARTY-NOTICES.TXT
+#                              the 11.0.0 packages ship)
 #
-# -DataFile also writes the same data as JSON: each package with the assemblies it ships, each text with the packages it
-# applies to, and the application host's texts. rdc build writes a built program's THIRD-PARTY-NOTICES.txt from it, for
+# -DataFile also writes the same data as JSON: each package with the assemblies and the native libraries it ships, each text
+# with the packages it applies to, and the application host's texts. rdc build writes a built program's THIRD-PARTY-NOTICES.txt from it, for
 # exactly the packages the program's folder holds, so a program's notices are decided here and nowhere else.
 [CmdletBinding()]
 param(
@@ -27,7 +28,8 @@ param(
     [Parameter(Mandatory)][string]$OutFile,
     [string]$DataFile,
     [string]$PackagesRoot,
-    [string[]]$AllowedLicenses = @("MIT", "Apache-2.0", "BSD-3-Clause")
+    # BSD-2-Clause: Avalonia.Angle.Windows.Natives, the ANGLE build RDForms draws with on Windows, which ships its LICENSE in the package
+    [string[]]$AllowedLicenses = @("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause")
 )
 
 $ErrorActionPreference = "Stop"
@@ -56,7 +58,7 @@ $Overrides = @{
 # dotnet/runtime's own texts: its license names ".NET Foundation and Contributors", not the nuspecs' "(c) Microsoft
 # Corporation". from 10.0 its packages are built in the dotnet/dotnet VMR (src/runtime) and their nuspecs name that.
 $DotnetRuntime = @{
-    Origin = "dotnet/dotnet v10.0.11 (e2f47b0), src/runtime"
+    Origin = "dotnet/dotnet v11.0.0 (297acf9), src/runtime"
     LicenseFile = "dotnet-runtime-LICENSE.txt"; NoticeFile = "dotnet-runtime-THIRD-PARTY-NOTICES.txt"
     Repository = '^https://github\.com/dotnet/(runtime|dotnet)(\.git)?/?$'
     ProjectUrl = "https://github.com/dotnet/runtime"; Copyright = "Copyright (c) .NET Foundation and Contributors"
@@ -290,15 +292,27 @@ foreach ($depsPath in (ConvertTo-OrdinalOrder $DepsFiles.FullName)) {
                 Id = $id; Version = $version; Path = $library.path
                 Components = [Collections.Generic.List[string]]::new()
                 Assemblies = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                Natives = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             }
         }
         if (-not $Packages[$key].Components.Contains($component)) { $Packages[$key].Components.Add($component) }
-        # the assemblies it ships, by name: what a built program's folder is matched against (-DataFile)
+        # the assemblies it ships, by name, and its native libraries, by file name, for every runtime identifier: what a built program's folder is matched
+        # against (-DataFile). a publish for one identifier lists that one's natives under "native"; a portable build lists each one's under "runtimeTargets"
         foreach ($target in $deps.targets.Values) {
             $entry = $target[$key]
-            if (-not $entry -or -not $entry.runtime) { continue }
-            foreach ($asset in $entry.runtime.Keys) {
-                if ($asset -like "*.dll") { [void]$Packages[$key].Assemblies.Add([IO.Path]::GetFileNameWithoutExtension($asset)) }
+            if (-not $entry) { continue }
+            if ($entry.runtime) {
+                foreach ($asset in $entry.runtime.Keys) {
+                    if ($asset -like "*.dll") { [void]$Packages[$key].Assemblies.Add([IO.Path]::GetFileNameWithoutExtension($asset)) }
+                }
+            }
+            if ($entry.native) {
+                foreach ($asset in $entry.native.Keys) { [void]$Packages[$key].Natives.Add([IO.Path]::GetFileName($asset)) }
+            }
+            if ($entry.runtimeTargets) {
+                foreach ($asset in $entry.runtimeTargets.Keys) {
+                    if ($entry.runtimeTargets[$asset].assetType -eq "native") { [void]$Packages[$key].Natives.Add([IO.Path]::GetFileName($asset)) }
+                }
             }
         }
     }
@@ -544,14 +558,17 @@ if ($Executables.Count) {
             continue
         }
         if (-not $found.ContainsKey($matched[0])) { $found[$matched[0]] = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase) }
-        [void]$found[$matched[0]].Add([IO.Path]::GetRelativePath($PlatformRoot, $exe.DirectoryName).Replace('\', '/'))
+        # the component it ships in: the one whose folder holds it, as rdc's holds the apphost it makes programs of (apphost/packs/...)
+        $folder = [IO.Path]::GetRelativePath($PlatformRoot, $exe.DirectoryName).Replace('\', '/')
+        $component = @($Components | Where-Object { $folder -ceq $_ -or $folder.StartsWith("$_/", [StringComparison]::Ordinal) } | Sort-Object Length -Descending | Select-Object -First 1)
+        [void]$found[$matched[0]].Add($(if ($component.Count) { $component[0] } else { $folder }))
         $HostFiles.Add($relative)
     }
     foreach ($key in (ConvertTo-OrdinalOrder @($found.Keys))) {
         $hostId, $hostVersion = $key.Split(' ', 2)
         $hostPackage = [pscustomobject]@{ Id = $hostId; Version = $hostVersion }
         # the NuGet host packs carry dotnet/runtime's LICENSE.TXT and THIRD-PARTY-NOTICES.TXT; the SDK's copies don't.
-        # the vendored ones go with whatever version matched, since release.yml's SDK floats (10.0.x); keying them to
+        # the vendored ones go with whatever version matched, since release.yml's SDK floats (11.0.x); keying them to
         # the exact version would stop every servicing release. the source line names the version they're from.
         Add-Section -Kind "license" -Title "MIT" -Text (Read-Text (Join-Path $LicensesDir $DotnetRuntime.LicenseFile)) -Source "tools/release/licenses/$($DotnetRuntime.LicenseFile), from $($DotnetRuntime.Origin)" -Package $hostPackage
         Add-Section -Kind "notice" -Title "THIRD-PARTY-NOTICES.TXT" -Text (Read-Text (Join-Path $LicensesDir $DotnetRuntime.NoticeFile)) -Source "tools/release/licenses/$($DotnetRuntime.NoticeFile), from $($DotnetRuntime.Origin)" -Package $hostPackage
@@ -562,6 +579,23 @@ if ($Executables.Count) {
             ShippedIn = if (-not (Compare-Object $hostComponents @($Components))) { "all" } else { $hostComponents -join ", " }
         })
     }
+}
+
+# third-party source compiled into an RDCore assembly, which no deps.json lists: each with the component whose assembly it is in, and its license.
+#   Microsoft.NET.HostModel/MachO  dotnet/runtime v10.0.0, src/installer/managed/Microsoft.NET.HostModel/MachO (and the two exceptions of
+#                                  AppHost/AppHostExceptions.cs it throws), in RDCore.CLI/App/Build/MachO with its MIT headers: the managed signer
+#                                  that gives the macOS executables of rdc build their ad-hoc signature. the LICENSE.TXT is dotnet/runtime's, byte for byte.
+$SourceRows = [Collections.Generic.List[object]]::new()
+$CompiledSource = @(
+    [pscustomobject]@{ Id = "Microsoft.NET.HostModel/MachO"; Version = "10.0.0"; Component = "RDCore.CLI"; Origin = "dotnet/runtime v10.0.0" }
+)
+foreach ($source in $CompiledSource) {
+    if (-not $Components.Contains($source.Component)) { continue }
+    Add-Section -Kind "license" -Title "MIT" -Text (Read-Text (Join-Path $LicensesDir $DotnetRuntime.LicenseFile)) -Source "tools/release/licenses/$($DotnetRuntime.LicenseFile), the LICENSE.TXT of $($source.Origin)" -Package $source
+    $SourceRows.Add([pscustomobject]@{
+        Package = $source.Id; Version = $source.Version; License = "MIT"; Copyright = $DotnetRuntime.Copyright
+        ProjectUrl = $DotnetRuntime.ProjectUrl; ShippedIn = $source.Component
+    })
 }
 
 if ($Failures.Count) {
@@ -586,14 +620,18 @@ if ($HostRows.Count) {
 else { Add-Line "is not listed here." }
 Add-Line "RDCore's own license terms are in NOTICE.md and LICENSE-GPLv3.md at the root of this package. RDCore.SDK, listed"
 Add-Line "below, is the MIT-licensed package RDCore is built on, from the same authors; the RDCore.SDK.Protocol assembly is in it."
+if ($SourceRows.Count) {
+    Add-Line "Third-party source compiled into RDCore's own assemblies is listed too, with the component whose assembly it is in."
+}
 Add-Line
 Add-Line "Platform components: $((ConvertTo-OrdinalOrder $Components) -join ', ')"
 Add-Line "Third-party packages: $($Rows.Count)"
 if ($HostRows.Count) { Add-Line ".NET application host: $((ConvertTo-OrdinalOrder $HostFiles) -join ', ')" }
+if ($SourceRows.Count) { Add-Line "Third-party source: $((ConvertTo-OrdinalOrder @($SourceRows | ForEach-Object { "$($_.Package) $($_.Version)" })) -join ', ')" }
 Add-Line
 
 $TableRows = [Collections.Generic.List[object]]::new()
-foreach ($row in @($Rows) + @($HostRows)) { $TableRows.Add($row) }
+foreach ($row in @($Rows) + @($HostRows) + @($SourceRows)) { $TableRows.Add($row) }
 $TableRows.Sort([Comparison[object]] { param($a, $b) [StringComparer]::OrdinalIgnoreCase.Compare("$($a.Package) $($a.Version)", "$($b.Package) $($b.Version)") })
 $columns = [ordered]@{
     Package = "Package"; Version = "Version"; License = "License"; Copyright = "Copyright"
@@ -647,6 +685,7 @@ if ($DataFile) {
                 package = $row.Package; version = $row.Version; license = $row.License; copyright = $row.Copyright; projectUrl = $row.ProjectUrl
                 # ConvertTo-OrdinalOrder returns its array whole, which @() would nest in another
                 assemblies = (ConvertTo-OrdinalOrder @($Packages["$($row.Package)/$($row.Version)"].Assemblies))
+                natives    = (ConvertTo-OrdinalOrder @($Packages["$($row.Package)/$($row.Version)"].Natives))
             }
         })
         texts    = @(foreach ($sortKey in (ConvertTo-OrdinalOrder @($sortKeys))) {

@@ -18,6 +18,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class VariantNumberStringComparisonAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.VariantNumberStringComparison.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

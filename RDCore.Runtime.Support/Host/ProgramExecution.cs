@@ -84,6 +84,105 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     // until it is done. Set and cleared with the lock held; the code itself runs with nothing locked (OffTheConnectionAsync).
     private bool _alongside;
 
+    // the session's gate while no program runs, when somebody is told of a handler that stops (IEnvironmentSessionProvider.SessionStopped): the handler that
+    // waits at it is then the program that waits.
+    private SuspendableExecution? _sessionEvents;
+
+    /// <summary>
+    /// Holds the handler of an event of the session that stops while no program runs, or lets it be stopped, as
+    /// <see cref="IEnvironmentSessionProvider.SessionStopped"/> says. Called when it is set.
+    /// </summary>
+    internal void SessionStopsChanged()
+    {
+        lock (_sync)
+        {
+            if (_state is ProgramState.Idle)
+            {
+                OpenToSessionStops();
+            }
+        }
+    }
+
+    // with no program, a handler that stops waits when somebody is told of it, and is stopped otherwise. A breakpoint is waited at only under a gate, and so is
+    // never one with nobody to tell. Called with the lock held.
+    private void OpenToSessionStops()
+    {
+        var session = provider.Session;
+        if (provider.SessionStopped is null)
+        {
+            CloseToSessionStops(session);
+            return;
+        }
+
+        _sessionEvents ??= SuspendableExecution.ForSessionEvents(session, TellSessionStopAsync);
+        session.Halt.Gate = _sessionEvents;
+    }
+
+    // a program runs: the session's gate is not its. Called with the lock held.
+    private void CloseToSessionStops(IRuntimeSession session)
+    {
+        if (_sessionEvents is not null && ReferenceEquals(session.Halt.Gate, _sessionEvents))
+        {
+            session.Halt.Gate = null;
+        }
+    }
+
+    // A handler of an event of the session stopped (SuspendableExecution.ForSessionEvents): it is the program that waits, as a run under a debugger that stopped
+    // would be, when nothing else runs and somebody takes the stop. Called while the handler waits for the answer.
+    private async Task<bool> TellSessionStopAsync(ExecutionStop stop)
+    {
+        if (provider.SessionStopped is not { } tell)
+        {
+            return false;
+        }
+
+        var session = provider.Session;
+        ExecuteResult stopped;
+        lock (_sync)
+        {
+            if (_state is not ProgramState.Idle || _alongside || _sessionEvents is not { } gate)
+            {
+                return false;
+            }
+
+            _execution = gate;
+            _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            (_terminating, _debugging, _stopWhenStarted, _streaming) = (false, true, false, false);
+            _output = new RuntimeOutputBuffer();
+            HeldDefinitions.Hold(session);
+            stopped = Segment(session, stop);
+        }
+
+        bool taken;
+        try
+        {
+            taken = await tell(stopped);
+        }
+        catch (Exception exception)
+        {
+            logger?.LogError(exception, "❌ A handler that stopped with no program running could not be told.");
+            taken = false;
+        }
+
+        if (!taken)
+        {
+            lock (_sync)
+            {
+                if (_state is ProgramState.Suspended && _execution is not null && ReferenceEquals(_execution, _sessionEvents))
+                {
+                    _execution = null;
+                    _suspendedWith = null;
+                    _ = HeldDefinitions.Release(session);
+                    Become(ProgramState.Idle);
+                    _inspector.Forget();
+                    _idle.TrySetResult();
+                }
+            }
+        }
+
+        return taken;
+    }
+
     /// <summary>
     /// Runs program code on a thread of its own, and not on the thread of the request that asked for it.
     /// </summary>
@@ -233,6 +332,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 EndSuspended(session, wipe: false);
             }
 
+            CloseToSessionStops(session);
             Become(ProgramState.Running);
             _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _terminating = false;
@@ -535,9 +635,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <returns>None when no program waits.</returns>
     public DebugVariablesResult Variables(int frameId, DebugVariableScope scope, int reference)
     {
+        // reading a variable that holds a server's object is a call to it, beside the program that waits.
         lock (_sync)
         {
-            return _state is ProgramState.Suspended ? _inspector.Variables(frameId, scope, reference) : new DebugVariablesResult();
+            if (_state is not ProgramState.Suspended)
+            {
+                return new DebugVariablesResult();
+            }
+
+            using (provider.Session.Turn.Alongside())
+            {
+                return _inspector.Variables(frameId, scope, reference);
+            }
         }
     }
 
@@ -710,7 +819,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         {
             // what the code as edited declares, the statement names: the locals an edit added, the fields a class was given.
             ProgramEdits.Prepare(session);
-            return run(session, stack, selected, procedure);
+
+            // the code runs beside the program that waits: the events its calls raise are its own, and none of the program's runs meanwhile.
+            using (session.Turn.Alongside())
+            {
+                return run(session, stack, selected, procedure);
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -822,6 +936,25 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
             StopAtTheNextInstruction();
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Ends the program that waits, as the session it waits in is replaced or let go of: its thread runs out of the entry point, and the session keeps what
+    /// the program made of it.
+    /// </summary>
+    /// <remarks>
+    /// Does nothing for a program that is over, or that is running: one that is running ends when it ends. What runs alongside a program that waits is let
+    /// finish, as <see cref="TerminateAsync"/> lets it, and the program is not ended.
+    /// </remarks>
+    public void EndWaiting()
+    {
+        lock (_sync)
+        {
+            if (_state is ProgramState.Suspended && !_alongside)
+            {
+                EndSuspended(provider.Session, wipe: false);
+            }
         }
     }
 
@@ -951,7 +1084,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             var arguments = started is null
                 ? RuntimeProcedureInvoker.ProgramArguments(entryPoint)
                 : RuntimeProcedureInvoker.ProgramArguments(entryPoint, started.Arguments);
-            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, arguments), session, output, token);
+            return ReportEnd(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, arguments), session, output, token);
         }
         finally
         {
@@ -1006,7 +1139,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         {
             try
             {
-                return Report(stop.Result!.Value, session, output, CancellationToken.None);
+                return ReportEnd(stop.Result!.Value, session, output, CancellationToken.None);
             }
             finally
             {
@@ -1040,6 +1173,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             Output = output.Lines,
             ErrorLine = stop.Location?.Range.Start.Line ?? -1,
             ErrorCharacter = stop.Location?.Range.Start.Character ?? -1,
+            ErrorModule = session.CallStack.Current is CallStackFrame waitsIn ? ProgramInspector.ModuleNameOf(waitsIn) : string.Empty,
             ErrorNumber = error?.ErrorId ?? 0,
             ErrorMessage = error?.Description ?? string.Empty,
             ErrorCode = error?.ToDiagnosticCode() ?? string.Empty,
@@ -1072,6 +1206,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         session.Memory.Reclaim();
         _ = HeldDefinitions.Release(session);
         LeaveTurn(session);
+        OpenToSessionStops();
         _idle.TrySetResult();
     }
 
@@ -1091,6 +1226,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             Become(ProgramState.Idle);
             _inspector.Forget();
             LeaveTurn(session);
+            OpenToSessionStops();
             _idle.TrySetResult();
         }
     }
@@ -1124,6 +1260,20 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         var settled = new TaskCompletionSource();
         settled.SetResult();
         return settled;
+    }
+
+    // what the invoker answered of a program that is over: one that ended on an error nothing handled, or on an internal error, ends as an End ends it - the
+    // session is wiped, once the error is reported with where it was raised and its stack trace.
+    private ExecuteResult ReportEnd(
+        RuntimeSemanticsEvaluationResult invocation, IRuntimeSession session, RuntimeOutputBuffer output, CancellationToken token)
+    {
+        var result = Report(invocation, session, output, token);
+        if (result.Outcome is ExecutionOutcome.RuntimeError or ExecutionOutcome.NotImplemented)
+        {
+            SessionWipe.End(session);
+        }
+
+        return result;
     }
 
     // What the invoker answered, as the caller sees it. An internal error means the interpreter met
@@ -1189,13 +1339,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             ErrorSource = session.Errors.Source is { Length: > 0 } source ? source : provider.ProjectName,
             ErrorLine = error.Location.Range.Start.Line,
             ErrorCharacter = error.Location.Range.Start.Character,
+            // the error was raised in the innermost activation of the trace, which was captured where it was raised.
+            ErrorModule = session.Errors.StackTrace.Frames is [var raisedIn, ..] ? raisedIn.Module : string.Empty,
             StackTrace =
             [
                 .. session.Errors.StackTrace.Frames.Select(frame => new ExecuteStackFrame(
                     frame.ProcedureName,
                     frame.Location?.Range.Start.Line ?? -1,
                     frame.Location?.Range.Start.Character ?? -1,
-                    frame.GoSubs.IsDefaultOrEmpty ? null : [.. frame.GoSubs.Select(gosub => gosub.Range.Start.Line)])),
+                    frame.GoSubs.IsDefaultOrEmpty ? null : [.. frame.GoSubs.Select(gosub => gosub.Range.Start.Line)])
+                {
+                    Module = frame.Module,
+                }),
             ],
             ErrorDetails = error.AsErrorInfo.Details,
         };

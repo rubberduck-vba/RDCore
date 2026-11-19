@@ -40,6 +40,20 @@ internal static class ExtractionRuns
         return (before, after, extracted.Module, extracted.Plan);
     }
 
+    // The program run with the module as it is, then with the GoSub routine the label starts converted to a procedure, as ExtractionFixture.Converted writes it.
+    public static async Task<(Run Before, Run After, string Module)> ConvertedBeforeAndAfterAsync(
+        string body, string label, string driver = "Run 3", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", string declarations = "",
+        VBErlLineNumbering erl = VBErlLineNumbering.DocumentLine)
+    {
+        var converted = ExtractionFixture.Converted(body, label, header: header, end: end, declarations: declarations);
+        Assert.IsNull(converted.Edit.Refusal, $"refused: {converted.Edit.Refusal}");
+        Assert.AreNotEqual(converted.Original, converted.Module);
+
+        var before = await RunAsync(converted.Original, driver, [], classModule: false, erl, "before");
+        var after = await RunAsync(converted.Module, driver, [], classModule: false, erl, "after");
+        return (before, after, converted.Module);
+    }
+
     // the module, named Program and given the Main that runs it, run as the platform runs a program; a class module is named Worker, beside a Program that has
     // only the Main. A module that does not load fails the test with its text, which says which run it is.
     private static async Task<Run> RunAsync(

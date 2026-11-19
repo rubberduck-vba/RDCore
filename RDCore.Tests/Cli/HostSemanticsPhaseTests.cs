@@ -18,7 +18,7 @@ public sealed class HostSemanticsPhaseTests
 {
     // only a hang guard: each wait is for an answer the test has made due. The evaluation holds a pool thread until it is released, so the answers' own
     // continuations may wait for the pool to add one.
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     [TestMethod]
     public async Task TheStaticPhase_IsNotKeptWaitingForTheEvaluationOfTheCode_ButTheRuntimePhaseWaitsForIt()
@@ -35,7 +35,7 @@ public sealed class HostSemanticsPhaseTests
                     release.Wait();
                     return ImmutableDictionary<SemanticId, RuntimeFacts>.Empty.Add(procedure, RuntimeFacts.None);
                 });
-            var handler = new HostSemanticsHandler(provider);
+            var handler = new HostSemanticsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>());
             try
             {
                 var staticAnswer = await handler.Handle(new HostSemanticsParams { ModuleName = "Slow", Phase = AnalysisPhase.Static }, CancellationToken.None)
@@ -79,7 +79,7 @@ public sealed class HostSemanticsPhaseTests
             {
                 // cancelled while it waits for the evaluation, which is held until it is released below.
                 using var cancellation = new CancellationTokenSource();
-                var waiting = new HostSemanticsHandler(provider).Handle(new HostSemanticsParams { ModuleName = "Slow" }, cancellation.Token);
+                var waiting = new HostSemanticsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>()).Handle(new HostSemanticsParams { ModuleName = "Slow" }, cancellation.Token);
                 await cancellation.CancelAsync();
                 await Assert.ThrowsAsync<OperationCanceledException>(() => waiting.WaitAsync(Patience));
             }

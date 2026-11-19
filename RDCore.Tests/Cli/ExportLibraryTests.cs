@@ -249,6 +249,41 @@ public sealed class ExportLibraryTests
         Assert.HasCount(others.Count + 1, files.Directory.GetFiles(@"c:\out"), "one file of the library exported");
     }
 
+    // stdole2.tlb's StdFunctions: two functions, LoadPicture's optional parameters with the defaults the library gives them.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AModulesFunctions_AreItsProcedures()
+    {
+        var export = new TypeLibraryExporter().Export(TypeLibraryLocator.Load(Path.Combine(Environment.SystemDirectory, "stdole2.tlb"))!, "tests");
+
+        var module = export.Description.Modules.Single();
+        Assert.AreEqual("StdFunctions", module.Name);
+        CollectionAssert.AreEqual(new[] { "LoadPicture", "SavePicture" }, module.Members.Select(member => member.Name).ToArray());
+        var load = module.Members[0];
+        Assert.AreEqual("StdPicture", load.Type);
+        CollectionAssert.AreEqual(
+            new[] { ("filename", "Variant", (string?)null), ("widthDesired", "Long", "0"), ("heightDesired", "Long", "0"), ("flags", "LoadPictureConstants", "0") },
+            load.Parameters.Select(parameter => (parameter.Name, parameter.Type, parameter.DefaultValue)).ToArray());
+        Assert.IsTrue(load.Parameters.All(parameter => parameter.IsOptional && parameter.IsByVal));
+        Assert.IsNull(module.Members[1].Type, "SavePicture is a Sub");
+        Assert.IsFalse(export.Skipped.Any(skipped => skipped.Contains("StdFunctions")));
+    }
+
+    // VBRUN's RecordsetTypeConstants: a module of constants alone.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AModulesConstants_AreDescribed_WithTheirTypesAndValues()
+    {
+        var runtime = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "MSVBVM60.DLL");
+
+        var module = Export(runtime + @"\3").Modules.Single(declared => declared.Name == "RecordsetTypeConstants");
+
+        Assert.IsEmpty(module.Members);
+        CollectionAssert.AreEqual(
+            new[] { ("vbRSTypeTable", "Integer", "0"), ("vbRSTypeDynaset", "Integer", "1"), ("vbRSTypeSnapShot", "Integer", "2") },
+            module.Constants.Select(constant => (constant.Name, constant.Type, constant.Value)).ToArray());
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task ALibraryExportedAgain_IsWrittenOverItsOwnDescription()

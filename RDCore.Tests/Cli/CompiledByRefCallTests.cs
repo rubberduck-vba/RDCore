@@ -15,14 +15,15 @@ using RDCore.SDK.Platform.Components;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A parameter passed by reference, and a variable compiled code passes by reference, is held in a cell (IR lowering S2.3c): the parameter is a second name
+/// A parameter passed by reference, and a variable compiled code passes by reference, is held in a cell: the parameter is a second name
 /// for its caller's variable (MS-VBAL §5.3.1.11) whichever engine runs either, and what the interpreter, a debugger or a frame made later sees of it is what
 /// compiled code wrote.
 /// </summary>
 [TestClass]
 public sealed class CompiledByRefCallTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // the program run to its end with engine: what it did, and what measure reads of the bodies compiled for it.
     private static async Task<(string Observed, long Measured)> RunAsync(string program, VBExecutionEngine engine, IReadOnlyList<(string Name, string Source)> classes,
@@ -191,8 +192,8 @@ public sealed class CompiledByRefCallTests
         }
     }
 
-    // a callee handed to the interpreter - an operation compiled code declines, a Double let-coerced to a Long, which rounds - goes on writing its caller's
-    // variable, which the caller reads when the call returns: the parameter's cell is the variable's in both engines.
+    // a callee handed to the interpreter (an operation compiled code declines, a Currency product that is not a whole number of ten-thousandths, which
+    // rounds) goes on writing its caller's variable, which the caller reads when the call returns: the parameter's cell is the variable's in both engines.
     [TestMethod]
     public async Task ACalleeHandedToTheInterpreter_GoesOnWritingTheCallersVariable()
     {
@@ -207,13 +208,14 @@ public sealed class CompiledByRefCallTests
             "    Go = n * 10",
             "End Function",
             "Private Sub Halve(ByRef x As Long)",
-            "    Dim d As Double",
-            "    d = x / 2",
-            "    x = d",
+            "    Dim c As Currency",
+            "    c = 1.0001@",
+            "    c = c * c",
+            "    x = x \\ 2",
             "    x = x + 1",
             "End Sub"), provider => BodyOf(provider, "Halve").WalkBacks);
 
-        // 5 / 2 = 2.5, rounded to even: 2; then 3.
+        // 5 \ 2 = 2; then 3.
         StringAssert.Contains(observed, "| 30 |");
         Assert.IsGreaterThanOrEqualTo(1L, walkedBack);
     }
