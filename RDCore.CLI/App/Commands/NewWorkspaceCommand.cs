@@ -97,7 +97,7 @@ internal sealed class NewWorkspaceCommand(
                 continue;
             }
 
-            if (Language.IsSourceFile(file))
+            if (Language.IsModuleFile(file))
             {
                 modules.Add(new RDCoreModule { RelativeUri = relative });
             }

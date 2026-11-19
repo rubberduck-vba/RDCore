@@ -1,4 +1,8 @@
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics;
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Semantics.Precompiler;
@@ -31,4 +35,18 @@ public static class ProjectConditionalConstants
     /// <param name="session">A session.</param>
     /// <returns>The names, compared without regard to case.</returns>
     public static IReadOnlySet<string> Of(IRuntimeSession session) => Defined.TryGetValue(session, out var names) ? names : None;
+
+    /// <summary>
+    /// The constants the project of <paramref name="session"/> defines, each with the value the session binds it to, in the order of their names.
+    /// </summary>
+    /// <param name="session">A session.</param>
+    /// <returns>The facts the host states of them to the analyzers; none for a session composed without a project.</returns>
+    public static ImmutableArray<ConditionalConstantFact> FactsOf(IRuntimeSession session)
+        =>
+        [
+            .. Of(session).Order(StringComparer.OrdinalIgnoreCase)
+                .Select(name => session.Symbols.Resolver.ResolveConditionalConstant(name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol)
+                .OfType<PrecompilerConstantSymbol>()
+                .Select(constant => new ConditionalConstantFact(constant.Name, constant.Value)),
+        ];
 }

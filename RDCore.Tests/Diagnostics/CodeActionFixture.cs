@@ -4,6 +4,7 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.Tests.Cli;
 
@@ -27,8 +28,8 @@ internal static class CodeActionFixture
             [.. type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Single().GetParameters().Select(ArgumentOf)], null)!)];
 
     private static object ArgumentOf(ParameterInfo parameter)
-        => parameter.ParameterType == typeof(IOptions<DiagnosticsOptions>)
-            ? Options.Create(new DiagnosticsOptions())
+        => parameter.ParameterType == typeof(IOptions<DiagnosticsOptions>) ? Options.Create(new DiagnosticsOptions())
+            : parameter.ParameterType == typeof(IOptions<SdkAppOptions>) ? Options.Create(new SdkAppOptions())
             : throw new NotSupportedException($"an analyzer takes a {parameter.ParameterType}, which the fixture does not make");
 
     /// <summary>
@@ -46,14 +47,15 @@ internal static class CodeActionFixture
     /// <summary>
     /// The fix of the first finding of the code in the module of <paramref name="before"/>, made: the module is <paramref name="after"/>, and analyzed
     /// again, that finding is gone and none is found that was not found before; it compiles if it did; and if it <paramref name="runs"/>, <c>Main</c> prints
-    /// what it printed.
+    /// what it printed. A finding that carries more than one fix is fixed by the one at <paramref name="choice"/>; one that carries one fix, by it.
     /// </summary>
-    public static async Task AssertFixedAsync(RDCoreDiagnosticId code, string[] before, string[] after, bool runs = false, int finding = 0)
+    public static async Task AssertFixedAsync(
+        RDCoreDiagnosticId code, string[] before, string[] after, bool runs = false, int finding = 0, int? choice = null)
     {
         var program = Module(before);
         var found = await FindingsOfAsync(program);
         var fixedOne = found.Where(each => each.Id == code).ElementAt(finding);
-        var fix = fixedOne.Fixes?.Edits.SingleOrDefault();
+        var fix = choice is { } index ? fixedOne.Fixes?.Edits.ElementAtOrDefault(index) : fixedOne.Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix, $"the finding carries a fix: {fixedOne.Message}");
 
         var fixedProgram = fix.Edits.ApplyTo(program);
