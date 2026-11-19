@@ -239,11 +239,10 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(provider =>
         {
             var fixes = provider.GetRequiredService<Assistant.FixToolEdits>();
-            var documents = ExternalServices.GetRequiredService<Assistant.AssistantDocuments>();
             return new RDCore.SDK.Server.Assistant.AssistantToolCatalog(ExternalServices.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>().Concat(
             [
-                new Assistant.ListFixesTool(documents, fixes), new Assistant.PreviewFixTool(fixes), new Assistant.ApplyFixTool(fixes),
-                new Assistant.RenameTool(documents, provider.GetRequiredService<IRenameService>(), fixes),
+                new Assistant.ListFixesTool(fixes), new Assistant.PreviewFixTool(fixes), new Assistant.ApplyFixTool(fixes),
+                new Assistant.RenameTool(provider.GetRequiredService<IRenameService>(), fixes),
             ]));
         });
 

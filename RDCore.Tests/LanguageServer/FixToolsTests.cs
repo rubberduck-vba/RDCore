@@ -124,7 +124,7 @@ public sealed class FixToolsTests
         var rename = Rename();
         var documents = new AssistantDocuments(_documents, Substitute.For<ISymbolSyncService>());
         var fixes = Fixes(documents, rename);
-        return new AssistantToolCatalog([new ListFixesTool(documents, fixes), new PreviewFixTool(fixes), new ApplyFixTool(fixes), new RenameTool(documents, rename, fixes)]);
+        return new AssistantToolCatalog([new ListFixesTool(fixes), new PreviewFixTool(fixes), new ApplyFixTool(fixes), new RenameTool(rename, fixes)]);
     }
 
     private async Task<ToolCallResult> CallAsync(string tool, JsonObject arguments)

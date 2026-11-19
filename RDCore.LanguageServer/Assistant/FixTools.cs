@@ -167,7 +167,7 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
         return fileSystem.File.Exists(path) ? fileSystem.File.ReadAllText(path) : null;
     }
 
-    private static string KindOf(CodeAction action) => action.Kind?.Name ?? string.Empty;
+    private static string KindOf(CodeAction action) => action.Kind.Name ?? string.Empty;
 
     public static LspRange LspRangeOf(SourceRange range) => new(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
 
@@ -177,7 +177,7 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
     private static bool Overlaps(LspRange left, LspRange right) => !(left.End < right.Start || right.End < left.Start);
 }
 
-internal sealed class ListFixesTool(AssistantDocuments documents, FixToolEdits fixes) : AssistantTool<ListFixesToolArguments, ListFixesToolResult>
+internal sealed class ListFixesTool(FixToolEdits fixes) : AssistantTool<ListFixesToolArguments, ListFixesToolResult>
 {
     public override string Name => CoreAssistantTools.ListFixes;
 
@@ -292,7 +292,7 @@ internal sealed class ApplyFixTool(FixToolEdits fixes) : AssistantTool<ApplyFixT
     protected override string Render(EditToolResult result, CultureInfo culture) => FixToolText.Of(result, culture);
 }
 
-internal sealed class RenameTool(AssistantDocuments documents, IRenameService rename, FixToolEdits fixes) : AssistantTool<RenameToolArguments, EditToolResult>
+internal sealed class RenameTool(IRenameService rename, FixToolEdits fixes) : AssistantTool<RenameToolArguments, EditToolResult>
 {
     public override string Name => CoreAssistantTools.Rename;
 
