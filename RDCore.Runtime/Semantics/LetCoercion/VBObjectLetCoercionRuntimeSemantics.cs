@@ -126,12 +126,15 @@ public record class VBObjectLetCoercionRuntimeSemantics(
             : Failed(session, invocation, expression, defaultMember);
     }
 
-    // what the failed call raised. A call that failed without an error had no answer, which a coercion's result cannot carry as such: it is an internal error,
-    // which says whether the program was stopped while the member ran (an End or a Stop in it, which ends the statement as the session's halt says) or the
-    // platform failed.
-    private static LetCoercionResult Failed(IRuntimeSession session, RuntimeSemanticsEvaluationResult call, ExpressionNode expression, VBReturningMemberSymbol member)
+    // what the failed call raised. A call that failed without an error had no answer, which a coercion's result cannot carry as such: it is an
+    // internal error, which says whether the program was stopped while the member ran (an End or a Stop in it, which ends the statement as the session's
+    // halt says) or the platform failed.
+    private static LetCoercionResult Failed(
+        IRuntimeSession session, RuntimeSemanticsEvaluationResult call, ExpressionNode expression, VBReturningMemberSymbol member)
         => LetCoercionResult.Error(call.ErrorInfo ?? VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, expression.Location, string.Format(
-            session.Halt.Pending is null ? Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError : Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberStopped,
+            session.Halt.Pending is null
+                ? Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError
+                : Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberStopped,
             member.Name)));
 
     // MS-VBAL 5.3.1.11: an omitted argument takes what it takes on any call - its default, reduced and Let-coerced to the

@@ -178,7 +178,8 @@ public sealed class EndAndStopTests
     [DataRow("If e Then Total = 9", DisplayName = "a condition")]
     [DataRow("Select Case e: Case 1: End Select", DisplayName = "a Select Case's test expression")]
     [DataRow("Debug.Print VarType(e)", DisplayName = "VarType's argument")]
-    [DataRow("Dim r As Object: Set r = CreateObject(\"VBScript.RegExp\"): r.Pattern = \"a\": Debug.Print r.Replace(\"a\", e)", DisplayName = "a RegExp's replacement")]
+    [DataRow("Dim r As Object: Set r = CreateObject(\"VBScript.RegExp\"): r.Pattern = \"a\": Debug.Print r.Replace(\"a\", e)",
+        DisplayName = "a RegExp's replacement")]
     public Task End_InADefaultMemberRead_EndsTheProgramThere(string read) => EndsTheProgramAt(read);
 
     [TestMethod]
@@ -220,11 +221,13 @@ public sealed class EndAndStopTests
                 again = await runAgain();
             });
 
-            var said = $"{(policy.Length == 0 ? "no handler" : policy)}: {first!.Outcome} | {string.Join(" ; ", first.Output)} | {first.ErrorNumber} {first.ErrorMessage}";
+            var said = $"{(policy.Length == 0 ? "no handler" : policy)}: {first!.Outcome} | {string.Join(" ; ", first.Output)}"
+                + $" | {first.ErrorNumber} {first.ErrorMessage}";
             Assert.AreEqual(ExecutionOutcome.Halted, first.Outcome, said);
             CollectionAssert.AreEqual(new[] { "before 0" }, first.Output.Select(line => line.Trim()).ToArray(), said);
             Assert.AreEqual(0, total, $"{said}: End reset the variable the program had set to 7");
-            CollectionAssert.AreEqual(new[] { "before 0" }, again!.Output.Select(line => line.Trim()).ToArray(), $"{said}: the program run again starts from the start");
+            CollectionAssert.AreEqual(
+                new[] { "before 0" }, again!.Output.Select(line => line.Trim()).ToArray(), $"{said}: the program run again starts from the start");
         }
     }
 

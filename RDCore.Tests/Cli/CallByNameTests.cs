@@ -320,6 +320,7 @@ public sealed class CallByNameTests
         Assert.AreEqual(ExecutionOutcome.Halted, first!.Outcome, first.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "before 0" }, first.Output.Select(line => line.Trim()).ToArray());
         Assert.AreEqual(0, total, "End reset the module's variable, which the program had set to 7");
-        CollectionAssert.AreEqual(new[] { "before 0" }, again!.Output.Select(line => line.Trim()).ToArray(), "and the program run again starts from the start");
+        CollectionAssert.AreEqual(
+            new[] { "before 0" }, again!.Output.Select(line => line.Trim()).ToArray(), "and the program run again starts from the start");
     }
 }
