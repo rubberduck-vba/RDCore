@@ -68,7 +68,10 @@ namespace RDCore.CLI;
 
 public class Program
 {
-    public static async Task<int> Main(string[] args)
+    // the process's main thread is served while rdc runs on another: on macOS, the RDForms windows of an external host run their loop on it.
+    public static int Main(string[] args) => ProcessMainThread.Serve(() => MainAsync(args));
+
+    private static async Task<int> MainAsync(string[] args)
     {
         var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
         // in every mode, the version of the platform rdc runs from is held until it exits: a deployment into the shared root does not remove it.

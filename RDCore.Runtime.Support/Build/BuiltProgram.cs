@@ -75,13 +75,17 @@ public static class BuiltProgram
     {
         ArgumentNullException.ThrowIfNull(program);
 
-        // the process's entry point: nothing awaits it, and the main thread has no context a continuation would wait for.
-#pragma warning disable VSTHRD002
+        // the process's main thread is served while the program runs on another, as rdc's is: on macOS, the RDForms windows of its external host run their loop on it.
+        return ProcessMainThread.Serve(() => EntryAsync(program, args));
+    }
+
+    private static async Task<int> EntryAsync(Assembly program, string[] args)
+    {
         // started by the program as its external host: it makes the calls the program makes to the outside world, and runs no program of its own.
         if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
         {
             using var host = new MachineExternalHost(logFileName: null, hostsRDForms: File.Exists(Path.Combine(AppContext.BaseDirectory, $"{FormsAssembly}.dll")));
-            return host.RunAsync(args).GetAwaiter().GetResult();
+            return await host.RunAsync(args);
         }
 
         if (ExecutableOf(program) is { } executable)
@@ -91,13 +95,12 @@ public static class BuiltProgram
 
         try
         {
-            return RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None).GetAwaiter().GetResult();
+            return await RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None);
         }
         finally
         {
             MachineExternal.Shutdown();
         }
-#pragma warning restore VSTHRD002
     }
 
     // the program's executable beside its assembly, which is its external host too; none when the program was built without one (and is run with dotnet).
