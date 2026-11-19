@@ -44,6 +44,12 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "AssignTheDefaultMemberByName|Dim h As New Holder|h.Value = 5",
         "AssignTheDefaultMemberByNameInAWith|Dim h As New Holder|With h|.Value = 5|End With",
         "LetAnObjectToTheDefaultMemberByName|Dim h As New Holder|Dim h2 As New Holder|h.Value = h2",
+        "AssignWhatAPropertyReturns|Dim o As New Outer|o.Inner = 5",
+        "LetWhatAPropertyReturns|Dim o As New Outer|Let o.Inner = 6",
+        "AssignWhatAPropertyReturnsGivenNoArgument|Dim o As New Outer|o.Inner() = 8",
+        "AssignWhatAFunctionReturns|Dim o As New Outer|o.Made = 5",
+        "AssignTheObjectAPropertyReturns|Dim o As New Outer|o.Unbound = 5",
+        "AssignAnArgumentListToWhatAPropertyReturns|Dim o As New Outer|o.Boxed(1) = 5",
     ];
 
     private static string _source = string.Empty;
@@ -56,7 +62,10 @@ public sealed class DefaultMemberAccessAnalyzerTests
         var holder = ModuleWorkspace.ClassModule("Holder", "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "Value = 1", "End Property",
             "Public Property Let Value(ByVal v As Long)", "Attribute Value.VB_UserMemId = 0", "End Property");
         var bag = ModuleWorkspace.ClassModule("Bag", "Public Function Item(ByVal key As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Function");
-        var outer = ModuleWorkspace.ClassModule("Outer", "Public Property Get Inner() As Holder", "Set Inner = New Holder", "End Property");
+        var outer = ModuleWorkspace.ClassModule("Outer", "Public Property Get Inner() As Holder", "Set Inner = New Holder", "End Property",
+            "Public Function Made() As Holder", "Set Made = New Holder", "End Function",
+            "Public Property Get Unbound() As Object", "Set Unbound = New Holder", "End Property",
+            "Public Property Get Boxed() As Box", "Set Boxed = New Box", "End Property");
         var box = ModuleWorkspace.ClassModule("Box", "Public Property Get Item(ByVal key As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Property",
             "Public Property Let Item(ByVal key As Variant, ByVal v As Long)", "End Property");
         var opt = ModuleWorkspace.ClassModule("Opt", "Public Function Item(Optional ByVal key As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Function");
@@ -70,7 +79,7 @@ public sealed class DefaultMemberAccessAnalyzerTests
             lines.AddRange(parts.Skip(1).Select(line => "    " + line));
             lines.Add("End Sub");
         }
-        lines.AddRange(["Public Sub Take(ByVal n As Long)", "End Sub"]);
+        lines.AddRange(["Public Sub AssignAParameter(ByVal p As Holder)", "    p = 5", "End Sub", "Public Sub Take(ByVal n As Long)", "End Sub"]);
 
         var program = ModuleWorkspace.StandardModule("Program", [.. lines]);
         var payload = await ModuleWorkspace.SemanticsAsync([("Holder", holder), ("Bag", bag), ("Outer", outer), ("Box", box), ("Opt", opt)], program);
@@ -100,22 +109,34 @@ public sealed class DefaultMemberAccessAnalyzerTests
 
     [TestMethod]
     public void AnObjectUsedAsAValue_OrAssignedOne_CallsItsDefaultMember()
-        => CollectionAssert.AreEqual(
-            new[] { "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)", "LetAnObjectToTheDefaultMemberByName: h2" },
-            Findings(new ImplicitDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitDefaultMemberAccess, DiagnosticSeverity.Information),
-            "not an Object, a Variant, a member named (the default member included), nor an object assigned to an object");
+        => Assert.AreEqual(
+            string.Join(Environment.NewLine,
+                "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)",
+                "LetAnObjectToTheDefaultMemberByName: h2", "AssignWhatAPropertyReturns: o.Inner", "LetWhatAPropertyReturns: o.Inner",
+                "AssignWhatAPropertyReturnsGivenNoArgument: o.Inner()", "AssignWhatAFunctionReturns: o.Made", "AssignAParameter: p"),
+            string.Join(Environment.NewLine,
+                Findings(new ImplicitDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitDefaultMemberAccess, DiagnosticSeverity.Information)),
+            "what a member returns included, and not an Object, a Variant, a member named (the default member included), nor an object assigned to an object");
 
     [TestMethod]
     public void AnObjectUsedAsAValue_HasADefaultMemberKnownOnlyAtRunTime()
         => CollectionAssert.AreEqual(
-            new[] { "ReadAnUnboundObject: v", "AssignAnUnboundObject: v", "AssignAnElementThatHoldsAnUnboundObject: a(1)" },
+            new[]
+            {
+                "ReadAnUnboundObject: v", "AssignAnUnboundObject: v", "AssignAnElementThatHoldsAnUnboundObject: a(1)",
+                "AssignTheObjectAPropertyReturns: o.Unbound",
+            },
             Findings(new ImplicitUnboundDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitUnboundDefaultMemberAccess, DiagnosticSeverity.Warning),
             "not a Variant, which nothing says holds an object, nor the Object assigned to an object");
 
     [TestMethod]
     public void AnArgumentListGivenToAnObject_GoesToItsDefaultMember()
         => CollectionAssert.AreEqual(
-            new[] { "IndexAnObject: b(1)", "IndexAnObjectWithAnEmptyList: op()", "AssignAnIndexedObject: bx(1)" },
+            new[]
+            {
+                "IndexAnObject: b(1)", "IndexAnObjectWithAnEmptyList: op()", "AssignAnIndexedObject: bx(1)",
+                "AssignAnArgumentListToWhatAPropertyReturns: o.Boxed(1)",
+            },
             Findings(new IndexedDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.IndexedDefaultMemberAccess, DiagnosticSeverity.Information),
             "read or assigned, an empty list too, and not a member named");
 
