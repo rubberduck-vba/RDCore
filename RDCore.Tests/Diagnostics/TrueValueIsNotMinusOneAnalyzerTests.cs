@@ -129,4 +129,34 @@ public sealed class TrueValueIsNotMinusOneAnalyzerTests
     [DataRow("#Const Win64 = True ;; #If Not Win64 Then ;; #End If", DisplayName = "a predefined constant the module defines again")]
     public void ATruthTheBitsDoNotChange_InADirective_IsNotReported(string lines)
         => Assert.IsEmpty(InDirectives(lines));
+
+    // a constant of the project is what the host's session binds it to, and only the host can say.
+    private static async Task<AnalyzerFinding[]> InDirectivesOfAProjectAsync(string lines, string name, string value)
+    {
+        var program = $"Attribute VB_Name = \"Program\"\r\n{lines.Replace(" ;; ", "\r\n")}\r\nPublic Sub Probe()\r\nEnd Sub\r\n";
+        var payload = await ModuleWorkspace.SemanticsAsync([], program, constants: new Dictionary<string, string> { [name] = value });
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
+        return [.. new TrueValueIsNotMinusOneAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model))];
+    }
+
+    [TestMethod]
+    [DataRow("#If Not DEV Then ;; #End If", "DEV", "1", "Not", DisplayName = "#If Not of a constant the project defines as 1")]
+    [DataRow("#If DEV = True Then ;; #End If", "DEV", "2", "=", DisplayName = "a constant the project defines as 2, compared with True")]
+    [DataRow("#If Not Win64 Then ;; #End If", "Win64", "1", "Not", DisplayName = "a predefined constant the project defines as 1")]
+    public async Task ATrueOtherThanMinusOne_OfTheProject_IsAWarning(string lines, string name, string value, string op)
+    {
+        var finding = Assert.ContainsSingle(await InDirectivesOfAProjectAsync(lines, name, value));
+
+        Assert.AreEqual(RDCoreDiagnosticId.TrueValueIsNotMinusOne, finding.Id);
+        StringAssert.Contains(finding.Message, $"'{op}'");
+    }
+
+    [TestMethod]
+    [DataRow("#If Not DEV Then ;; #End If", "DEV", "-1", DisplayName = "a constant the project defines as -1")]
+    [DataRow("#If Not DEV Then ;; #End If", "DEV", "0", DisplayName = "a constant the project defines as 0")]
+    [DataRow("#If Not Win64 Then ;; #End If", "Win64", "-1", DisplayName = "a predefined constant the project defines as -1")]
+    [DataRow("#Const DEV = -1 ;; #If Not DEV Then ;; #End If", "DEV", "1", DisplayName = "a constant of the project the module defines again")]
+    public async Task ATruthTheBitsDoNotChange_OfTheProject_IsNotReported(string lines, string name, string value)
+        => Assert.IsEmpty(await InDirectivesOfAProjectAsync(lines, name, value));
 }

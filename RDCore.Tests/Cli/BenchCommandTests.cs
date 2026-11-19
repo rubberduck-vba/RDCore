@@ -515,6 +515,59 @@ public sealed class BenchCommandTests
         Assert.IsFalse(calls.Contains($"(line {Array.IndexOf(source, "        Set G = New Gadget") + 1})", StringComparison.Ordinal), calls);
     }
 
+    // a reason names the code it is about as the module writes it: a Debug.Print, a ReDim and an assignment of an element of an array of the module, each
+    // by the line it is on, and none by what the parser or the instructions call it. No reason is said twice of a procedure.
+    [TestMethod]
+    public async Task TheCompilationReport_QuotesTheCodeEachReasonIsAbout()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        string[] numbers =
+        [
+            "Private Values() As Long",
+            "Public Sub PrintAll(ByVal Items As Collection)",
+            "    Dim Item As Variant",
+            "    For Each Item In Items",
+            "        Debug.Print Item",
+            "    Next",
+            "End Sub",
+            "Public Function Squares(ByVal N As Long) As Long()",
+            "    Dim Index As Long",
+            "    ReDim Values(1 To N)",
+            "    For Index = 1 To N",
+            "        Values(Index) = Index * Index",
+            "    Next",
+            "    Squares = Values",
+            "End Function",
+        ];
+        var fileSystem = Files(("Numbers.bas", Module("Numbers", numbers)));
+        var output = new StringWriter();
+        var command = new CompilationCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem), Runner(fileSystem),
+            output);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root], CancellationToken.None), output.ToString());
+
+        var report = output.ToString();
+        foreach (var internalName in new[] { "ForEachOpener", "ForEachNext", "DebugPrint", "RedimDeclaration", "IndexExpressionNode", "Node" })
+        {
+            Assert.IsFalse(report.Contains(internalName, StringComparison.Ordinal), $"{internalName}: {report}");
+        }
+
+        var source = Module("Numbers", numbers).Split("\r\n");
+        var quoted = System.Text.RegularExpressions.Regex.Matches(report, @": ([^:;|]+?) \(line (\d+)\)")
+            .Select(match => (Code: match.Groups[1].Value, Line: int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture)))
+            .ToArray();
+        Assert.IsNotEmpty(quoted, report);
+        foreach (var (code, line) in quoted)
+        {
+            Assert.AreEqual(source[line - 1].Trim(), code, report);
+        }
+
+        foreach (var line in report.Split(Environment.NewLine))
+        {
+            var reasons = line.Split(" | ").SelectMany(handed => handed.Split("; ")).ToArray();
+            Assert.HasCount(reasons.Length, reasons.Distinct(), line);
+        }
+    }
+
     // an Enum, a Type, a Const and a field are members of a module that are no procedure: the report says nothing of them - of an Enum a Property Get is
     // named as either, as an interface's PlayerType is. A Property Get and its Let are two.
     [TestMethod]

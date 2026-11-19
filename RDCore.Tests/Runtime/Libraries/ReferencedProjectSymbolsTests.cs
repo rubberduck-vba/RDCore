@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
@@ -247,5 +248,26 @@ public sealed class ReferencedProjectSymbolsTests
 
         CollectionAssert.AreEqual(new[] { "NavalLib", "Module1", "PlaceShip" }, names.Select(name => name.Name).ToArray());
         Assert.IsTrue(names.All(name => name.GetProperty(SymbolProperties.Library) == "NavalLib"));
+    }
+
+    // MS-VBAL §5.3.1.1: a Friend member is accessible within its project only. The class a referencing project names has none, so an object of it offers
+    // none to complete after its dot.
+    [TestMethod]
+    public void TheClassAReferencingProjectNames_HasNoFriendMember_AndCompletionOffersNone()
+    {
+        var crew = Class("Crew", exposed: true);
+        VBTypeMemberSymbol[] members = [Member("Promote", AccessModifier.Friend), Member("Muster", AccessModifier.Public)];
+        crew = crew with { Members = [.. members], DefaultInterfaceMembers = [.. members] };
+
+        var names = ReferencedProjectSymbols.Of(ReferencingRoot, "NavalLib", [crew, .. members], 1);
+        var named = names.OfType<VBClassModuleSymbol>().Single();
+
+        CollectionAssert.AreEqual(new[] { "NavalLib", "Crew", "Muster" }, names.Select(name => name.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Muster" }, named.Members.Select(member => member.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Muster" }, CompletionCandidates.MembersOf(VBClassType.Of(named)).Select(candidate => candidate.Label).ToArray());
+        CollectionAssert.AreEqual(new[] { "Muster" }, VBClassType.FromClassModule(named).Members.Select(member => member.Name).ToArray());
+
+        VBProcedureMemberSymbol Member(string name, AccessModifier access)
+            => new(Root, crew.Uri, name, ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, access);
     }
 }
