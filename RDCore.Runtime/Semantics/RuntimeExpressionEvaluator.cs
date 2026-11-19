@@ -959,9 +959,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return result;
     }
 
+    // isRecursive: the arguments went to the default member of an object a default member returned (MS-VBAL §5.6.13), and not to the first one.
     private RuntimeSemanticsEvaluationResult CallDefaultMember(
-        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression, VBObjectValue indexed)
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression, VBObjectValue indexed,
+        out bool isRecursive)
     {
+        isRecursive = false;
         if (indexed.IsNothing())
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
@@ -993,6 +996,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     expression.Location, "The default member takes no arguments, and what it returned is not an object to give them to."));
             }
 
+            isRecursive = returned.IsSuccess && held is VBObjectValue;
             return IndexValue(session, context, expression, indexExpression, returned);
         }
 
@@ -1684,10 +1688,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             var unknown = RuntimeSemanticsEvaluationResult.Success(VBVariantType.TypeInfo.CreateIndeterminateValue());
 
             // what is not known is still declared: an object that is indexed is a call of its default member, whichever object it is.
-            if (Observation is not null && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBClassType or VBObjectType)
+            if (Observation is not null && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is { } declared && declared is VBClassType or VBObjectType)
             {
                 ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList
+                        | (IndexesThroughMoreThanOneDefaultMember(session, declared, indexExpression.Arguments) ? MemberAccessOperationSemanticFlags.Recursive : 0),
                     assumedBefore, unknown);
             }
 
@@ -1698,9 +1703,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (calleeValue is VBObjectValue indexed)
         {
             var assumedBefore = AssumedSoFar;
-            var called = CallDefaultMember(session, context, expression, indexExpression, indexed);
+            var called = CallDefaultMember(session, context, expression, indexExpression, indexed, out var isRecursive);
             ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList
+                    | (isRecursive ? MemberAccessOperationSemanticFlags.Recursive : 0),
                 assumedBefore, called);
             return called;
         }
@@ -1811,6 +1817,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         => callee is SimpleNameExpressionNode name
             && session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is { } variable
             && variable.GetProperty(SymbolProperties.AutoInstantiated);
+
+    // MS-VBAL §5.6.13: an object of the class it is declared as, given arguments, goes through more than one default member when its default member takes none
+    // and returns an object: of a class, or an Object. What the declaration says, where the object is not known.
+    private static bool IndexesThroughMoreThanOneDefaultMember(IRuntimeSession session, VBType declared, ImmutableArray<ExpressionNode> arguments)
+        => declared is VBClassType declaredClass
+            && CurrentTypes.Of(session.Symbols.Resolver, declaredClass) is { DefaultMember: VBReturningMemberSymbol member }
+            && ReturnsToBeIndexed(member, arguments)
+            && member.ResolvedType is VBClassType or VBObjectType;
 
     // a Function or Property Get that declares no parameters, called with arguments: they are not its own, and index what it returns.
     private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments)
@@ -3558,16 +3572,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         IRuntimeSession session, RuntimeEvaluationContext context, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
     {
         var assumedBefore = AssumedSoFar;
-        var result = CallThroughDictionary(session, context, dictionaryAccess, dictionaryAccess, owner);
+        var result = CallThroughDictionary(session, context, dictionaryAccess, dictionaryAccess, owner, out var isRecursive);
         ObserveMemberAccess(session, context, dictionaryAccess, Tokens.DictionaryAccess, dictionaryAccess.Owner, owner, null,
-            MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.DictionaryAccess,
+            MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.DictionaryAccess
+                | (isRecursive ? MemberAccessOperationSemanticFlags.Recursive : 0),
             assumedBefore, result);
         return result;
     }
 
     private RuntimeSemanticsEvaluationResult CallThroughDictionary(
-        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner,
+        out bool isRecursive)
     {
+        isRecursive = false;
         while (owner is VBVariantValue { TypedValue: { } wrapped })
         {
             owner = wrapped;
@@ -3595,6 +3612,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var name = new LiteralExpressionNode(
             dictionaryAccess.Member.Identity, dictionaryAccess.Member.Location, new VBStringValue(dictionaryAccess.Member.IdentifierName));
+
+        // MS-VBAL §5.6.14: the access is the index expression of the owner given the name as its argument, so a default member that takes no parameters is
+        // called with none, and the name given to what it returns (§5.6.13).
+        if (ReturnsToBeIndexed(defaultMember.Member, [name]) && (dictionaryAccess.Owner ?? context.EnclosingWithTargetExpression) is { } callee)
+        {
+            var index = new IndexExpressionNode(dictionaryAccess.Identity, dictionaryAccess.Location, callee, [name]);
+            return CallDefaultMember(session, context, expression, index, objectValue, out isRecursive);
+        }
+
         return InvokeProcedure(session, context, defaultMember.Member, [name], defaultMember.Receiver, call: expression);
     }
 
