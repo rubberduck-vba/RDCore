@@ -465,6 +465,24 @@
   <data name="NativeCallReachableOnEveryPlatform_Fix" xml:space="preserve">
     <value>Write the Declare statement in #If {0} Then</value>
   </data>
+  <data name="Win64IsABitnessTest_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is 1 on a 64-bit Mac too, as in Excel for Mac. Test Is64BitEnv for a 64-bit environment, or Win32 And Is64BitEnv for 64-bit Windows.</value>
+  </data>
+  <data name="Win64IsABitnessTest_Fix" xml:space="preserve">
+    <value>Test Is64BitEnv</value>
+  </data>
+  <data name="Win64IsABitnessTest_WindowsFix" xml:space="preserve">
+    <value>Test Win32 And Is64BitEnv</value>
+  </data>
+  <data name="UndefinedConditionalConstant_Message" xml:space="preserve">
+    <value>Nothing defines &apos;{0}&apos;: it is 0, and a condition that tests it is False.</value>
+  </data>
+  <data name="UndefinedConditionalConstant_Retired_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is a retired predefined constant, which nothing defines: it is 0. {1} tests the same thing.</value>
+  </data>
+  <data name="UndefinedConditionalConstant_Fix" xml:space="preserve">
+    <value>Test {0}</value>
+  </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA.</value>
   </data>
@@ -596,6 +614,12 @@
   </data>
   <data name="BangNotation_Message" xml:space="preserve">
     <value>&apos;!&apos; gives the name as a String to &apos;{0}&apos;, the default member of the object.</value>
+  </data>
+  <data name="IndexedRecursiveDefaultMemberAccess_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, the default member of the object, takes no arguments: they go to the default member of what it returns, and the code names neither.</value>
+  </data>
+  <data name="RecursiveBangNotation_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, the default member of the object, takes no arguments: &apos;!&apos; gives the name as a String to the default member of what it returns.</value>
   </data>
   <data name="UnboundBangNotation_Message" xml:space="preserve">
     <value>&apos;!&apos; gives the name as a String to the default member of an Object, known only at run time: an object with none raises run-time error 438.</value>

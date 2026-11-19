@@ -705,7 +705,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
         try
         {
             // a folder with no project file is the project it holds, as the language server makes it up.
-            var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
+            var workspace = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace;
+            var language = workspace.SupportedLanguage;
             var root = request.RootUri.GetFileSystemPath();
             ProjectFile project;
             try
@@ -720,7 +721,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
                 project = new ProjectFile(root, new RDCoreProject { Name = RDCoreProject.DefaultName });
             }
 
-            sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
+            // the constants of the command line are the project's, over those of its file.
+            sessionProvider.Compose(workspace.WithDefines(project.ProjectInfo), SymbolUri.Root(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }
         catch (Exception exception)
