@@ -60,7 +60,8 @@ public static class CompileErrors
     private static SymbolResolutionResult Unresolved(VBCompileErrorId errorId, IEnumerable<Symbol> candidates)
         => new(null, errorId.ToCode(), [.. candidates]);
 
-    // in the language of the user interface (CultureInfo.CurrentUICulture) at the call: it is not the same for every thread, nor for the life of the process.
+    // in the language of the resources' culture when one is set (Exceptions.Culture), and otherwise of the user interface (CultureInfo.CurrentUICulture)
+    // at the call: the user interface's is not the same for every thread, nor for the life of the process.
     internal static string MessageOf(VBCompileErrorId errorId)
     {
         var messages = MessagesByCulture.GetOrAdd(Exceptions.Culture ?? CultureInfo.CurrentUICulture, _ => Messages());
