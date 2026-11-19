@@ -92,8 +92,8 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     }
 
     // the record type as the session has it now (CurrentTypes), looked up by its name once for each version of the session's table (SymbolTable.Version),
-    // which a type defined, removed or defined again changes: each object of a class with a record field is given the same one until then. A session whose
-    // table is not known looks it up each time.
+    // which a type defined, removed or defined again changes, and for each resolver: every record made until then (a variable, an object's field, a value a
+    // function returns) is given the same one. A session whose table is not known looks it up each time.
     internal VBUserDefinedType CurrentRecordOf(VBUserDefinedType declared)
     {
         var resolver = session.Symbols.Resolver;

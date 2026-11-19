@@ -77,7 +77,7 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
     internal static bool HandlesTerminate(IObjectInstance live)
         => SDK.Workspace.Forms.FormObject.IsFormClass(live.ClassModule) || HandlerOf(live, terminate: true) is not null;
 
-    // the event of the object's class: its Terminate, or its Initialize.
+    // runs the handler the object's class has for its Terminate event, or for its Initialize event.
     private RuntimeSemanticsEvaluationResult Raise(VBRuntimeObjectId instance, bool terminate)
     {
         if (!session.Symbols.TryGetInstance(instance, out var live) || HandlerOf(live, terminate) is not { } handler)
