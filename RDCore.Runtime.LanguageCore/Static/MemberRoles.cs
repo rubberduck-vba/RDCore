@@ -20,14 +20,11 @@ public static class MemberRoles
         VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer, DocumentModuleFact? document = null)
         => BindingsOf(module, resolver, designer, document).ToDictionary(binding => binding.Key, binding => binding.Value.Role);
 
-    // the procedure a run of the project starts with (DeclarationRole.EntryPoint, ProgramEntryPoint.Of): the one its build section names, or the Sub Main of
-    // the one standard module that declares one, each module with the members the session defined for it. None for a library, or when no standard module
-    // declares it, or more than one does.
-    public static SemanticId? EntryPointOf(
-        ProjectBuild? build, IEnumerable<VBModuleSymbol> project, Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf)
-        => ProgramEntryPoint.Of(build, project.Select(module => (module, membersOf(module)))) is { IsFound: true } found
-            ? found.Procedure!.SemanticId
-            : null;
+    // the procedure a run of the project starts with (DeclarationRole.EntryPoint, ProgramEntryPoint.InSession): the one the session's build section names, or
+    // the Sub Main of the one standard module that declares one, as the session defined them. None for a library, or when no standard module declares it, or
+    // more than one does.
+    public static SemanticId? EntryPointOf(IRuntimeSession session, IEnumerable<VBModuleSymbol> project)
+        => ProgramEntryPoint.InSession(session, project) is { IsFound: true } found ? found.Procedure!.SemanticId : null;
 
     // what each handler and implementation of a class is bound to: its source and the event or interface member, by the symbols that declare them. A member
     // that is named like one and is bound to nothing has no entry.

@@ -60,7 +60,7 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
         var named = asked.Select(module => module.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
         List<VBModuleSymbol> project = [.. session.Symbols.ScopeOf(StaticSymbol.GlobalUri)?.Declarations.OfType<VBModuleSymbol>()
             .Where(module => module.GetProperty(SymbolProperties.Library) is null) ?? []];
-        var entryPoint = MemberRoles.EntryPointOf(SessionProjectBuild.Of(session), project, module => session.Symbols.MembersOf(module.Uri));
+        var entryPoint = MemberRoles.EntryPointOf(session, project);
         var models = store.AcrossProject(project, entryPoint)
             .Where(model => named.Contains(model.Module.AbsoluteUri))
             .Select(store.WithNativeCalls)
