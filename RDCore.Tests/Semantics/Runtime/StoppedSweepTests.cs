@@ -83,7 +83,8 @@ public sealed class StoppedSweepTests
     {
         if (type is not "TPoint" && !UnboxedEvaluation.IsEnabled)
         {
-            Assert.Inconclusive("values are boxed (RDCORE_UNBOXED=0): an element is in the cell the array makes of its default value, made with nothing asked");
+            Assert.Inconclusive(
+                "values are boxed (RDCORE_UNBOXED=0): an element is in the cell the array makes of its default value, made with nothing asked");
         }
 
         var (_, thrown, array) = await SweepStoppedAsync(type, MostElements);
