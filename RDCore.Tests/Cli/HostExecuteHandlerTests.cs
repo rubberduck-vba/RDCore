@@ -13,6 +13,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Execution;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.SDK.Platform.Components;
@@ -708,21 +709,25 @@ public sealed class HostExecuteHandlerTests
     public async Task AnEndlessLoop_StopsWhenTheRunIsCancelled()
     {
         // the interpreter checks the token between instructions, so a program whose own control flow
-        // never terminates still does. Cancelled from outside once the program is seen in Main, where it
-        // spins for as long as it is let: never before it runs, whatever the machine's speed.
+        // never terminates still does. Cancelled from outside once the program has started (the session's
+        // turn says so as it is taken), never before it runs: the check between instructions is what sees
+        // it, whether before the first GoTo or among those that follow, and nothing else would end the loop.
         var source = Module("10 GoTo 10");
         var composed = Compose(source);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ((SessionTurn)composed.Session.Session.Turn).Running += running =>
+        {
+            if (running)
+            {
+                started.TrySetResult();
+            }
+        };
         using var cancelled = new CancellationTokenSource();
         var running = Task.Run(() => ExecuteAsync(composed, source, token: cancelled.Token));
 
-        // only a hang guard: the program is in Main until it is cancelled.
-        var deadline = DateTime.UtcNow + SafetyCap;
-        while (composed.Session.Session.CallStack.Depth < 1)
-        {
-            Assert.IsFalse(running.IsCompleted, "the endless loop ended on its own");
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen in Main");
-            await Task.Delay(5);
-        }
+        // the cap only keeps a program that never starts from hanging the run.
+        await Task.WhenAny(started.Task, running).WaitAsync(SafetyCap);
+        Assert.IsFalse(running.IsCompleted, "the endless loop ended on its own");
 
         await cancelled.CancelAsync();
         var result = await running.WaitAsync(SafetyCap);

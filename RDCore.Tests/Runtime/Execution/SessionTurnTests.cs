@@ -21,6 +21,9 @@ public sealed class SessionTurnTests
             using (turn.Waiting())
             {
                 waits?.TrySetResult();
+
+                // as a server's thread waits (ServerEventRouter): it reads the turn until it is open, for no set time, so how long it spins changes nothing
+                // but how soon it sees the turn open.
                 SpinWait.SpinUntil(() => turn.IsOpenForEvents);
                 turn.RunEvent(() => said.Add(name));
             }

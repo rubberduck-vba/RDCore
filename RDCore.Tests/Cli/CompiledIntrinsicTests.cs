@@ -251,6 +251,45 @@ public sealed class CompiledIntrinsicTests
             "    Whole = R",
             "End Function"), [("Whole", 0)]);
 
+    // MS-VBAL §6.1.2.3.1.18 and §6.1.2.3.1.16: Int and Fix of a Date are CDate(Int(CDbl(Number))) and CDate(Fix(CDbl(Number))), a Date, which a Variant
+    // holds as one (VarType 7), as Int and Fix of a Variant that holds a Date are. Before 1899-12-30 a Date's serial is negative, and Int goes a day down
+    // where Fix does not. Int of a time on the first day of the Date range is below the range, which raises 6 (Overflow): the interpreter's.
+    [TestMethod]
+    public async Task IntAndFixOfADate_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim D As Date, V As Variant",
+            "    D = -1.25",
+            "    V = D",
+            "    Debug.Print Days(6), First()",
+            "    Debug.Print VarType(Floor(D)), VarType(Truncation(D)), VarType(Int(V)), VarType(Fix(V)), CDbl(Floor(D)), CDbl(Truncation(D))",
+            "End Sub",
+            "Private Function Days(ByVal N As Long) As Double",
+            "    Dim I As Long, D As Date, F As Double, R As Double",
+            "    For I = -N To N",
+            "        D = I / 4 + 0.1",
+            "        F = Int(D)",
+            "        R = R + F * 1000",
+            "        F = Fix(D)",
+            "        R = R + F",
+            "    Next",
+            "    Days = R",
+            "End Function",
+            "Private Function Floor(ByVal D As Date) As Variant",
+            "    Floor = Int(D)",
+            "End Function",
+            "Private Function Truncation(ByVal D As Date) As Variant",
+            "    Truncation = Fix(D)",
+            "End Function",
+            "Private Function First() As Double",
+            "    Dim D As Date, F As Double",
+            "    On Error Resume Next",
+            "    D = -657434.5",
+            "    F = Fix(D)",
+            "    D = Int(D)",
+            "    First = F * 10 + Err.Number",
+            "End Function"), [("Days", 0), ("Floor", 0), ("Truncation", 0), ("First", 1)]);
+
     // MS-VBAL §6.1.2.10.1.10: Sqr of a Double, and of a Long or an Integer let-coerced to Double, as Sqr declares its parameter. A negative number has no
     // square root and raises 5 (Invalid procedure call or argument): the interpreter's.
     [TestMethod]
@@ -302,6 +341,32 @@ public sealed class CompiledIntrinsicTests
             "    FewerThanNone = Err.Number",
             "End Function"), [("Rounded", 0), ("FewerThanNone", 1)], lcid);
 
+    // MS-VBAL §6.1.2.4.1.6-10, 14: Year, Month, Day, Hour, Minute and Second of a Date, each held in an Integer: of the date rounded to the nearest second
+    // (23:59:59.6 is the next day), before 1899, and in the Hijri calendar, where a date before its first day raises 5 for the year, the month and the day:
+    // the interpreter's, given the statement, which Resume Next goes on after.
+    [TestMethod]
+    public async Task ThePartsOfADate_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim D As Date",
+            "    D = DateSerial(2026, 3, 15) + TimeSerial(23, 59, 59) + 0.6 / 86400",
+            "    Debug.Print Parts(D), Parts(#12/31/1899 6:30:00 AM#), Parts(CDate(-1.25))",
+            "    Calendar = vbCalHijri",
+            "    Debug.Print Parts(D), Parts(CDate(-600000))",
+            "    Calendar = vbCalGreg",
+            "End Sub",
+            "Private Function Parts(ByVal D As Date) As Double",
+            "    Dim N As Double, K As Integer",
+            "    On Error Resume Next",
+            "    K = 0: K = Year(D): N = K",
+            "    K = 0: K = Month(D): N = N * 100 + K",
+            "    K = 0: K = Day(D): N = N * 100 + K",
+            "    K = 0: K = Hour(D): N = N * 100 + K",
+            "    K = 0: K = Minute(D): N = N * 100 + K",
+            "    K = 0: K = Second(D): N = N * 100 + K",
+            "    Parts = N * 10 + Err.Number",
+            "End Function"), [("Parts", 3)]);
+
     // MS-VBAL §6.1.2.11.1.20, .26 and .31: Mid$, Left$ and Right$ of a String, a Start and a Length given as a Long or as an Integer the call let-coerces,
     // past the end too; Mid and Left, which return a Variant, assigned to a String; and vbNullString. A Start below 1 and a negative Length raise 5: the
     // interpreter's.
@@ -352,6 +417,29 @@ public sealed class CompiledIntrinsicTests
             "    Trimmed = R & S & L",
             "End Function"), [("Trimmed", 0)]);
 
+    // MS-VBAL §6.1.2.11.1.42 and §6.1.2.11.1.18: UCase$ and LCase$ of a String, cased by the session's regional settings (in Turkish, "i" is a dotted
+    // capital and "I" a dotless small letter), one character for one ("ß" stays); UCase and LCase, which return a Variant, assigned to a String; and the
+    // cased text given to Len, Left$ and AscW.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    [DataRow(1055, DisplayName = "tr-TR")]
+    public async Task UCaseAndLCaseOfAString_AreTheirTypedForms(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Cased(\"Rd-Vba \" & ChrW(223) & \" \" & ChrW(304) & ChrW(305) & \" iI \" & ChrW(233), 3)",
+            "End Sub",
+            "Private Function Cased(ByVal P As String, ByVal N As Long) As String",
+            "    Dim I As Long, L As Long, R As String, S As String, W As String",
+            "    For I = 1 To N",
+            "        R = R & \"[\" & UCase$(P) & \"][\" & LCase$(P) & \"]\" & Left$(UCase$(P), I)",
+            "        L = L + Len(UCase$(P)) + Len(LCase$(vbNullString)) + AscW(UCase$(\"i\")) + AscW(LCase$(\"I\"))",
+            "        S = UCase(P)",
+            "        W = LCase(P)",
+            "    Next",
+            "    Cased = R & S & W & L",
+            "End Function"), [("Cased", 0)], lcid);
+
     // MS-VBAL §6.1.2.11.1.14: InStr of two Strings, from a start given as a Long or as an Integer the call let-coerces, in a module that compares Binary: a
     // zero-length pattern is found at the start, past the end too (InStr(9, "abc", "") is 9), and nothing is found in a zero-length String. A start below 1
     // raises 5: the interpreter's.
@@ -387,6 +475,40 @@ public sealed class CompiledIntrinsicTests
             "End Sub",
             "Private Function Found(ByVal P As String) As Long",
             "    Found = InStr(P, \"b\") + InStr(2, P, \"c\") * 10",
+            "End Function"), []);
+
+    // MS-VBAL §6.1.2.11.1.29: Replace of three Strings, in a module that compares Binary and in one that says nothing: every match from left to right,
+    // never overlapping ("aaa" has one "aa"), what is put in not searched again, a zero-length or vbNullString Find leaving the text as it is, a zero-length
+    // Replace removing what is found, and a zero-length String having nothing to replace.
+    [TestMethod]
+    [DataRow("Option Compare Binary", DisplayName = "Option Compare Binary")]
+    [DataRow("", DisplayName = "no Option Compare")]
+    public async Task ReplaceOfThreeStrings_IsItsTypedForm(string directive)
+        => await AssertAlikeAsync(Program(
+            directive,
+            "Public Sub Main()",
+            "    Debug.Print Replaced(\"a,b,,cA,aaa\", 3)",
+            "End Sub",
+            "Private Function Replaced(ByVal P As String, ByVal N As Long) As String",
+            "    Dim I As Long, R As String, S As String",
+            "    S = P",
+            "    For I = 1 To N",
+            "        S = Replace(S, \"a\", \"aa\")",
+            "        R = R & \"[\" & Replace(P, \",\", \"\") & \"][\" & Replace(P, \"aa\", \"X\") & \"][\" & Replace(P, \"A\", Left$(P, I)) & \"]\"",
+            "    Next",
+            "    Replaced = R & S & Replace(P, \"\", \"X\") & Replace(P, vbNullString, \"X\") & Replace(\"\", \"a\", \"b\") & Replace(vbNullString, \"a\", \"b\")",
+            "End Function"), [("Replaced", 0)]);
+
+    // MS-VBAL §5.2.1.1: in a module that compares Text, Replace with its comparison left out is the library's, which replaces "A" for "a".
+    [TestMethod]
+    public async Task ReplaceUnderOptionCompareText_IsTheLibrarys()
+        => await AssertAlikeAsync(Program(
+            "Option Compare Text",
+            "Public Sub Main()",
+            "    Debug.Print Replaced(\"aAbB\")",
+            "End Sub",
+            "Private Function Replaced(ByVal P As String) As String",
+            "    Replaced = Replace(P, \"a\", \"x\")",
             "End Function"), []);
 
     // MS-VBAL §6.1.2.11.1.1 and .3: Asc of a String that begins with an ASCII character, and AscW of any, a code from 32,768 on being negative. Asc of a
@@ -454,4 +576,24 @@ public sealed class CompiledIntrinsicTests
             "    Next",
             "    Made = R",
             "End Function"), [("Made", 0)]);
+
+    // MS-VBAL §6.1.2.4.2.2 to §6.1.2.4.2.4: Now, Date and Time, named with no arguments, qualified or not, or with an empty list, assigned to a Date and to
+    // a Variant, each read from the session's clock: what Read adds up depends only on how they relate, which is the same on each run, and Main prints the
+    // subtype each returns, a Date (MS-VBAL §6.1.2.7.1.13).
+    [TestMethod]
+    public async Task NowDateAndTime_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Read(2); VarType(Now); VarType(Date); VarType(Time)",
+            "End Sub",
+            "Private Function Read(ByVal N As Long) As Long",
+            "    Dim I As Long, T As Date, D As Date, H As Date, V As Variant",
+            "    For I = 1 To N",
+            "        T = Now",
+            "        D = VBA.DateTime.Date",
+            "        H = Time()",
+            "        V = Now",
+            "        Read = Read * 100 - (T - D > -1) - (T - D < 1) * 2 - (H >= 0) * 4 - (H < 1) * 8 - (Int(D) = D) * 16 - (V > T - 1) * 32",
+            "    Next",
+            "End Function"), [("Read", 0)]);
 }

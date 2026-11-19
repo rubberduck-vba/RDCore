@@ -9,6 +9,7 @@ namespace RDCore.Tests.Cli;
 /// A module named with a letter that is not ASCII - <c>Modèle</c>, the common case in a French project - is the module its name says, wherever the name is
 /// read from its address: the address escapes it (<c>#Mod%C3%A8le</c>), and the name it is found, compared and shown by is the one its code was written with.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class AccentedModuleNameTests
 {

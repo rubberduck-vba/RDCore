@@ -102,8 +102,53 @@ public sealed class BenchCommandTests
 
         CollectionAssert.AreEqual(new[] { "Cases", "Tally" }, workspace.Modules.Select(module => module.Name).ToArray());
         CollectionAssert.AreEqual(new[] { ModuleType.StdModule, ModuleType.ClassModule }, workspace.Modules.Select(module => module.Type).ToArray());
-        CollectionAssert.AreEqual(new[] { "Cases.bas", Path.Combine("Model", "Tally.cls") }, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(new[] { "Cases.bas", "Model/Tally.cls" }, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());
         Assert.IsEmpty(workspace.Project.References, "the standard library is every project's own, and no reference of it");
+    }
+
+    [TestMethod]
+    [DataRow("vba", new[] { "Cases.bas", "ThisWorkbook.doccls", "Model/Tally.cls" }, DisplayName = "RD-VBA: a document module is one, a UserControl is not")]
+    [DataRow("vb6", new[] { "Cases.bas", "Gauge.ctl", "Model/Tally.cls" }, DisplayName = "VB6: a UserControl is one, a document module is not")]
+    public async Task AFolderWithNoProject_IsTheProjectTheLanguageServerMakesOfIt_OfTheFilesOfItsLanguage(string language, string[] modules)
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Model/Tally.cls", Tally), ("ThisWorkbook.doccls", ClassModule("ThisWorkbook")),
+            ("Gauge.ctl", ClassModule("Gauge")), ("notes.txt", "not a module"));
+        var supported = SupportedLanguages.Get(language);
+
+        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None, supported);
+        var synthesized = (await new ProjectFileLoader(fileSystem).LoadOrSynthesizeAsync(Root, supported)).ProjectInfo;
+
+        CollectionAssert.AreEquivalent(modules, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(synthesized.Modules.Select(module => module.RelativeUri).ToArray(),
+            workspace.Project.Modules.Select(module => module.RelativeUri).ToArray(), "in the language server's order");
+    }
+
+    // a folder's .doccls is what legacy Rubberduck exported of a document's code: the text of its code pane, which no project gives a host (Super), so it is
+    // the standard module its text makes it, as the language server reads it (DocumentModuleTests); nothing of it is hosted.
+    [TestMethod]
+    public async Task AFoldersDocumentModule_WithNothingInIt_LoadsAsAStandardModule_AndTheCasesRun()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally), ("ThisWorkbook.doccls", "Option Explicit\r\n"));
+
+        var workspace = await Load(fileSystem);
+        var report = await Runner(fileSystem).RunAsync(workspace, new BenchOptions(Runs: 1, Filter: "count"));
+
+        Assert.AreEqual(ModuleType.StdModule, workspace.Modules.Single(module => module.Name == "ThisWorkbook").Type);
+        Assert.IsEmpty(report.Problems, string.Join("; ", report.Problems));
+        Assert.IsNull(report.Cases.Single().Error, report.Cases.Single().Error);
+    }
+
+    [TestMethod]
+    public async Task AFoldersDocumentModule_WhoseCodeNamesItsDocument_IsAProblem_AsInTheLanguageServer_AndTheCasesAreRefused()
+    {
+        var sheet = "Option Explicit\r\nPublic Sub Reset()\r\n    Me.Range(\"A1\").Value = 1\r\nEnd Sub\r\n";
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally), ("GameSheet.doccls", sheet));
+
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count"));
+
+        Assert.IsTrue(report.Problems.Any(problem => problem.StartsWith("GameSheet:", StringComparison.Ordinal) && problem.Contains("Invalid use of Me keyword")),
+            string.Join("; ", report.Problems));
+        Assert.IsEmpty(report.Cases.Single().Runs);
     }
 
     [TestMethod]

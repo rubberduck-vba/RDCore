@@ -17,29 +17,35 @@ public static class MemberRoles
 {
     public static IReadOnlyDictionary<SemanticId, DeclarationRole> Of(
         VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer, DocumentModuleFact? document = null)
+        => BindingsOf(module, resolver, designer, document).ToDictionary(binding => binding.Key, binding => binding.Value.Role);
+
+    // what each handler and implementation of a class is bound to: its source and the event or interface member, by the symbols that declare them. A member
+    // that is named like one and is bound to nothing has no entry.
+    public static IReadOnlyDictionary<SemanticId, DeclarationBinding> BindingsOf(
+        VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer, DocumentModuleFact? document = null)
     {
-        var roles = new Dictionary<SemanticId, DeclarationRole>();
+        var bindings = new Dictionary<SemanticId, DeclarationBinding>();
 
         // the language raises a class's Initialize and Terminate events, which a subroutine with no parameters handles; a form's are the UserForm's, below,
         // and its Class_Initialize and Class_Terminate never run.
         if (designer is null)
         {
-            foreach (var handled in (string[])[ClassLifecycleInterface.InitializeName, ClassLifecycleInterface.TerminateName])
+            foreach (var handled in (VBTypeMemberSymbol[])[ClassLifecycleInterface.Initialize, ClassLifecycleInterface.Terminate])
             {
                 foreach (var handler in module.Members.Where(member => ClassModuleEventSemantics.Matches(member, [])
-                    && string.Equals(member.Name, $"{ClassLifecycleInterface.InterfaceName}_{handled}", StringComparison.OrdinalIgnoreCase)))
+                    && string.Equals(member.Name, $"{ClassLifecycleInterface.InterfaceName}_{handled.Name}", StringComparison.OrdinalIgnoreCase)))
                 {
-                    roles.TryAdd(handler.SemanticId, DeclarationRole.EventHandler);
+                    bindings.TryAdd(handler.SemanticId, new(handler.SemanticId, DeclarationRole.EventHandler, module.SemanticId, handled.SemanticId));
                 }
             }
         }
 
         // a document module handles the events of its host's class by procedures named for that class, as a form does its own.
-        if (document is { HandlerPrefix: { } documentPrefix })
+        if (document is { HandlerPrefix: { } documentPrefix } && VBProjectSymbol.ResolveHostClass(resolver, module) is { } host)
         {
-            foreach (var handled in document.HostEvents)
+            foreach (var handled in host.Members.OfType<VBEventMemberSymbol>().Where(declared => document.HostEvents.Contains(declared.Name)))
             {
-                Mark(module, $"{documentPrefix}{handled}", DeclarationRole.EventHandler, roles);
+                Mark(module, $"{documentPrefix}{handled.Name}", DeclarationRole.EventHandler, host, handled, bindings);
             }
         }
 
@@ -54,7 +60,7 @@ public static class MemberRoles
 
             foreach (var member in ImplementsSemantics.InterfaceMembersOf(implemented))
             {
-                Mark(module, $"{implemented.Name}_{member.Name}", DeclarationRole.InterfaceImplementation, roles);
+                Mark(module, $"{implemented.Name}_{member.Name}", DeclarationRole.InterfaceImplementation, implemented, member, bindings);
             }
         }
 
@@ -82,11 +88,11 @@ public static class MemberRoles
                 if (isControl)
                 {
                     var required = array is not null ? WithIndex(handled) : handled.Parameters;
-                    MarkHandlers(ClassModuleEventSemantics.HandlersOf(module, variable, handled), required, roles);
+                    MarkHandlers(ClassModuleEventSemantics.HandlersOf(module, variable, handled), required, variable, handled, bindings);
                     continue;
                 }
 
-                Mark(module, $"{variable.Name}_{handled.Name}", DeclarationRole.EventHandler, roles);
+                Mark(module, $"{variable.Name}_{handled.Name}", DeclarationRole.EventHandler, variable, handled, bindings);
             }
         }
 
@@ -95,23 +101,28 @@ public static class MemberRoles
         // event is never called by it, as for a control's.
         if (designer is not null && FormClasses.HandlerPrefixOf(designer) is { } prefix)
         {
-            foreach (var handled in FormClasses.Of(designer, resolver, module.Uri, module.WorkspaceRoot).SelectMany(form => form.Events))
+            foreach (var form in FormClasses.Of(designer, resolver, module.Uri, module.WorkspaceRoot))
             {
-                MarkHandlers(module.Members.Where(member => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol
-                    && string.Equals(member.Name, $"{prefix}_{handled.Name}", StringComparison.OrdinalIgnoreCase)), handled.Parameters, roles);
+                foreach (var handled in form.Events)
+                {
+                    MarkHandlers(module.Members.Where(member => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol
+                        && string.Equals(member.Name, $"{prefix}_{handled.Name}", StringComparison.OrdinalIgnoreCase)), handled.Parameters, form, handled, bindings);
+                }
             }
         }
 
-        return roles;
+        return bindings;
     }
 
-    private static void MarkHandlers(
-        IEnumerable<VBTypeMemberSymbol> candidates, ImmutableArray<VBParameterSymbol> required, Dictionary<SemanticId, DeclarationRole> roles)
+    // a handler that does not match its event is bound to its source, and to no event.
+    private static void MarkHandlers(IEnumerable<VBTypeMemberSymbol> candidates, ImmutableArray<VBParameterSymbol> required, Symbol source, Symbol handled,
+        Dictionary<SemanticId, DeclarationBinding> bindings)
     {
         foreach (var candidate in candidates)
         {
-            roles.TryAdd(candidate.SemanticId,
-                ClassModuleEventSemantics.Matches(candidate, required) ? DeclarationRole.EventHandler : DeclarationRole.UnmatchedEventHandler);
+            bindings.TryAdd(candidate.SemanticId, ClassModuleEventSemantics.Matches(candidate, required)
+                ? new(candidate.SemanticId, DeclarationRole.EventHandler, source.SemanticId, handled.SemanticId)
+                : new(candidate.SemanticId, DeclarationRole.UnmatchedEventHandler, source.SemanticId, null));
         }
     }
 
@@ -126,12 +137,13 @@ public static class MemberRoles
 
     // a property's Let and Set are subroutine symbols, and its Get a returning one, as a function's is: each accessor is marked, the Get that stands for the
     // property included.
-    private static void Mark(VBClassModuleSymbol module, string name, DeclarationRole role, Dictionary<SemanticId, DeclarationRole> roles)
+    private static void Mark(VBClassModuleSymbol module, string name, DeclarationRole role, Symbol source, Symbol bound,
+        Dictionary<SemanticId, DeclarationBinding> bindings)
     {
         foreach (var candidate in module.Members.Where(member =>
             member is VBProcedureMemberSymbol or VBReturningMemberSymbol && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
-            roles.TryAdd(candidate.SemanticId, role);
+            bindings.TryAdd(candidate.SemanticId, new(candidate.SemanticId, role, source.SemanticId, bound.SemanticId));
         }
     }
 }

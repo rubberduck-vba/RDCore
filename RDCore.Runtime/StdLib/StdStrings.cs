@@ -1246,6 +1246,17 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBStringValue> LCaseString(VBVariantValue @string) => Twin("LCase$", LCase(@string));
 
+    /// <summary>
+    /// <c>LCase$</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.11.1.18</strong>): what <see cref="LCaseString"/> returns for it, cased by
+    /// the session's regional settings.
+    /// </summary>
+    /// <param name="session">The session, whose regional settings case the text.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The text with each uppercase letter made lowercase, one character for one.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(LCase))]
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(LCaseString))]
+    public static string LowerOf(IRuntimeSession session, string? text) => CasedOf(session, text ?? string.Empty, upper: false);
+
     // LCase and UCase: TextInfo maps each character to one character, so "ß" stays "ß" and the length never changes.
     private RuntimeSemanticsEvaluationResult<VBVariantValue> Cased(string member, VBVariantValue @string, bool upper)
     {
@@ -1259,8 +1270,13 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return InVariant(VBNullValue.Null);
         }
 
+        return InVariant(CasedOf(session, Text(text), upper));
+    }
+
+    private static string CasedOf(IRuntimeSession session, string text, bool upper)
+    {
         var casing = session.Environment.Culture.TextInfo;
-        return InVariant(upper ? casing.ToUpper(Text(text)) : casing.ToLower(Text(text)));
+        return upper ? casing.ToUpper(text) : casing.ToLower(text);
     }
 
     /// <inheritdoc/>
@@ -1425,6 +1441,19 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(RTrim))]
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(RTrimString))]
     public static string TrailingTrimmedOf(string? text) => (text ?? string.Empty).TrimEnd(SpaceCharacter);
+
+    /// <summary>
+    /// <c>Replace</c> of three <c>String</c>s held as text, compared as <c>Option Compare Binary</c> compares them (<strong>MS-VBAL §6.1.2.11.1.29</strong>):
+    /// what <see cref="Replace"/> returns for them from the first character, every match replaced.
+    /// </summary>
+    /// <param name="expression">The text to search; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="find">The text to search for; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="replace">The text each match is replaced with; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The text with each match of <paramref name="find"/>, from left to right and never overlapping, replaced; the text as it is for a
+    /// zero-length <paramref name="find"/>.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Replace))]
+    public static string ReplacedIn(string? expression, string? find, string? replace)
+        => string.IsNullOrEmpty(find) ? expression ?? string.Empty : (expression ?? string.Empty).Replace(find, replace, StringComparison.Ordinal);
 
     /// <inheritdoc/>
     /// <remarks>
@@ -2155,6 +2184,17 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBStringValue> UCaseString(VBVariantValue @string) => Twin("UCase$", UCase(@string));
+
+    /// <summary>
+    /// <c>UCase$</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.11.1.42</strong>): what <see cref="UCaseString"/> returns for it, cased by
+    /// the session's regional settings.
+    /// </summary>
+    /// <param name="session">The session, whose regional settings case the text.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The text with each lowercase letter made uppercase, one character for one.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(UCase))]
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(UCaseString))]
+    public static string UpperOf(IRuntimeSession session, string? text) => CasedOf(session, text ?? string.Empty, upper: true);
 
     /// <inheritdoc/>
     /// <remarks>

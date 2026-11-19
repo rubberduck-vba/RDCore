@@ -2425,141 +2425,174 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             // what is passed is a value, which keeps nothing of whether it is known: the call is told here.
             isKnown &= !argumentResult.Value.Result!.IsIndeterminate;
-
-            // a scalar or a String a call returned, passed to a Variant: the Variant holds it as it is, of its own type (MS-VBAL §5.5.1.2.12).
-            if (!external && parameter.ResolvedType is VBVariantType && TryHoldInVariant(argumentResult.Value.Result!, out var held))
+            if (BindValue(session, context, parameter, argumentNode, argumentResult.Value.Result!, external, anyByAddress, lateBound, dispatchedThrough,
+                out bound[i]) is { } bindingError)
             {
-                bound[i] = held;
-                continue;
+                return bindingError;
             }
-
-            // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
-            // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value. So is
-            // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class
-            // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns. That is
-            // the argument's value type, which is the object's class whether the object is held by an object variable or by a Variant.
-            // a parameter passed by address (ObjPtr) is given the object where it is, or in a temporary (below).
-            if (SetCoercion is { } setCoercion
-                && HeldObject(argumentResult.Value.Result) is { } passedObject
-                && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType
-                && !(anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress)))
-            {
-                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, passedObject, parameter.ResolvedType);
-                if (!setResult.IsSuccess)
-                {
-                    return RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!);
-                }
-
-                bound[i] = setResult.Result!.RuntimeValue;
-                continue;
-            }
-
-            // `As Any` has no type to coerce to: the argument is passed as what it is.
-            if (external && parameter.ResolvedType is VBUnknownType)
-            {
-                bound[i] = argumentResult.Value.Result!.RuntimeValue;
-                continue;
-            }
-
-            // a library member's `As Any` is given an address (VarPtr): what is no variable is passed in a temporary of the statement, which has one until
-            // the statement is over (MS-VBA: VarPtr(1) is not 0, and two of one statement differ - ArgumentTemporary).
-            var typedByAddress = anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress);
-            if (anyByAddress && parameter.ResolvedType is VBUnknownType || typedByAddress)
-            {
-                var passed = argumentResult.Value.Result!;
-
-                // `ByVal` passes the bytes the value is stored in where an address goes (StdLibAsAnyAttribute): VarPtr(ByVal 1234) is 1234.
-                if (!typedByAddress && argumentNode is ByValArgumentExpressionNode && PassedByValAsAny(passed) is { } pointer)
-                {
-                    bound[i] = new VBRuntimeValue<long>(pointer);
-                    continue;
-                }
-
-                // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5" (StdLibByAddressAttribute).
-                // An object is one as it is: ObjPtr(New Thing) is the address of the new object's interface.
-                if (typedByAddress && !(parameter.ResolvedType is VBObjectType && HeldObject(passed) is not null))
-                {
-                    var temporaryFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
-                        passed, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
-                    var coerced = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, temporaryFrame);
-                    if (!coerced.IsSuccess)
-                    {
-                        return coerced.IsApplicable ? RuntimeSemanticsEvaluationResult.Error(coerced.ErrorInfo!) : RuntimeSemanticsEvaluationResult.InternalError();
-                    }
-
-                    passed = coerced.Result!;
-                }
-
-                if (!session.Storage.TryAllocate(passed.Size, SymbolAddressTable.FreshBinding(passed), out var temporary))
-                {
-                    return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
-                        Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
-                }
-
-                HoldsPointer(session, temporary, passed.TypeInfo);
-                session.Objects.PushTemporary(new ArgumentTemporary(temporary));
-                bound[i] = new VBRuntimeReference(temporary, passed.TypeInfo);
-                continue;
-            }
-
-            // ByVal parameter passing Let-coerces the argument to the parameter's own declared type
-            // (MS-VBAL §5.5.1.2) before it's ever wrapped into a fresh binding - the same rule any other
-            // Let-target follows, a literal "5" (Integer) passed to a Long parameter included. A ByRef
-            // parameter whose argument wasn't recognized as an aliasable variable above falls through to
-            // this exact same path (MS-VBAL §5.3.1.11's own "otherwise" case) - a fresh local, never a
-            // reported error.
-            // by its plan when it can be: a number, a Boolean, a date or a String let-coerced to a parameter of a type a plan converts to.
-            if (TryConvertUnobserved(argumentResult.Value.Result!, parameter.ResolvedType, out var planned))
-            {
-                bound[i] = planned.RuntimeValue;
-                continue;
-            }
-
-            var coercionFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
-                argumentResult.Value.Result!, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
-            var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, coercionFrame);
-            if (!coercionResult.IsApplicable)
-            {
-                return RuntimeSemanticsEvaluationResult.InternalError();
-            }
-            if (!coercionResult.IsSuccess)
-            {
-                // reached late bound, a value other than an object given to a parameter of a class or Object is a type mismatch, as the IDispatch the call
-                // goes through makes it, and not error 424; the member is not entered (observed in VB6: a class's method and PaintPicture's picture).
-                var error = coercionResult.ErrorInfo!;
-                return RuntimeSemanticsEvaluationResult.Error(
-                    lateBound && error.ErrorId == (int)VBRuntimeErrorId.ObjectRequired && parameter.ResolvedType is VBObjectType or VBClassType
-                        && HeldObject(argumentResult.Value.Result) is null
-                        ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, error.Location, error.Verbose)
-                        : AsDispatched(session, context, dispatchedThrough, error));
-            }
-
-            // an array coerced to an array parameter is a fresh copy nothing has bound yet, so it has no
-            // RuntimeValue of its own to hand over: it is boxed around itself instead, the same shape
-            // SymbolAddressTable.FreshBinding gives an array variable and a ParamArray is collected into. A
-            // standard-library array parameter always arrives here, being ByVal; a ByRef one does when its
-            // argument is not a variable it can alias - an array of another element type (IsOfDeclaredType).
-            // a record that is no variable - what a function or a property returns - is passed by reference as a copy, in a temporary of the statement: it is no
-            // value with a binding of its own to hand over. (A field of a record held by a variable is one: TryResolveRecordFieldByRefArgument.)
-            if (coercionResult.Result is VBUserDefinedTypeValue record && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
-            {
-                if (!session.Storage.TryAllocate(record.Size, SymbolAddressTable.FreshBinding(record), out var copy))
-                {
-                    return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
-                        Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
-                }
-
-                session.Objects.PushTemporary(new ArgumentTemporary(copy));
-                bound[i] = new VBRuntimeReference(copy, record.TypeInfo);
-                continue;
-            }
-
-            bound[i] = coercionResult.Result is VBArrayValue array
-                ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
-                : coercionResult.Result!.RuntimeValue;
         }
 
         arguments = bound;
+        return null;
+    }
+
+    /// <summary>
+    /// What a parameter passed by value is given of <paramref name="value"/>, which its argument evaluated to (MS-VBAL §5.3.1.11), as a call the interpreter
+    /// makes gives it: what compiled code gives a <c>Variant</c> parameter of a function of the standard library, of what a call of the workspace returned.
+    /// </summary>
+    /// <param name="session">The session the call is made in.</param>
+    /// <param name="context">The scope the argument is written in.</param>
+    /// <param name="parameter">The parameter.</param>
+    /// <param name="argumentNode">The argument, as written, where an error coercing it is raised.</param>
+    /// <param name="value">What the argument evaluated to.</param>
+    /// <param name="bound">What the parameter is given.</param>
+    /// <returns>The error giving it raised, or <see langword="null"/> when it was given.</returns>
+    internal RuntimeSemanticsEvaluationResult? BindArgumentValue(IRuntimeSession session, RuntimeEvaluationContext context, VBParameterSymbol parameter,
+        ExpressionNode argumentNode, VBTypedValue value, out IRuntimeValue bound)
+    {
+        bound = null!;
+        return LetCoercionProvider is null ? RuntimeSemanticsEvaluationResult.InternalError()
+            : BindValue(session, context, parameter, argumentNode, value, external: false, anyByAddress: false, lateBound: false, dispatchedThrough: null, out bound);
+    }
+
+    // the parameter given the value its argument evaluated to, for BindArguments: held in a Variant, Set-coerced, or let-coerced to the parameter's type.
+    private RuntimeSemanticsEvaluationResult? BindValue(IRuntimeSession session, RuntimeEvaluationContext context, VBParameterSymbol parameter,
+        ExpressionNode argumentNode, VBTypedValue value, bool external, bool anyByAddress, bool lateBound, ExpressionNode? dispatchedThrough, out IRuntimeValue bound)
+    {
+        bound = null!;
+
+        // a scalar or a String a call returned, passed to a Variant: the Variant holds it as it is, of its own type (MS-VBAL §5.5.1.2.12).
+        if (!external && parameter.ResolvedType is VBVariantType && TryHoldInVariant(value, out var held))
+        {
+            bound = held;
+            return null;
+        }
+
+        // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
+        // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value. So is
+        // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class
+        // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns. That is
+        // the argument's value type, which is the object's class whether the object is held by an object variable or by a Variant.
+        // a parameter passed by address (ObjPtr) is given the object where it is, or in a temporary (below).
+        if (SetCoercion is { } setCoercion
+            && HeldObject(value) is { } passedObject
+            && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType
+            && !(anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress)))
+        {
+            var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, passedObject, parameter.ResolvedType);
+            if (!setResult.IsSuccess)
+            {
+                return RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!);
+            }
+
+            bound = setResult.Result!.RuntimeValue;
+            return null;
+        }
+
+        // `As Any` has no type to coerce to: the argument is passed as what it is.
+        if (external && parameter.ResolvedType is VBUnknownType)
+        {
+            bound = value.RuntimeValue;
+            return null;
+        }
+
+        // a library member's `As Any` is given an address (VarPtr): what is no variable is passed in a temporary of the statement, which has one until
+        // the statement is over (MS-VBA: VarPtr(1) is not 0, and two of one statement differ - ArgumentTemporary).
+        var typedByAddress = anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress);
+        if (anyByAddress && parameter.ResolvedType is VBUnknownType || typedByAddress)
+        {
+            var passed = value;
+
+            // `ByVal` passes the bytes the value is stored in where an address goes (StdLibAsAnyAttribute): VarPtr(ByVal 1234) is 1234.
+            if (!typedByAddress && argumentNode is ByValArgumentExpressionNode && PassedByValAsAny(passed) is { } pointer)
+            {
+                bound = new VBRuntimeValue<long>(pointer);
+                return null;
+            }
+
+            // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5"
+            // (StdLibByAddressAttribute).
+            // An object is one as it is: ObjPtr(New Thing) is the address of the new object's interface.
+            if (typedByAddress && !(parameter.ResolvedType is VBObjectType && HeldObject(passed) is not null))
+            {
+                var temporaryFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
+                    passed, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
+                var coerced = LetCoercionProvider!.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, temporaryFrame);
+                if (!coerced.IsSuccess)
+                {
+                    return coerced.IsApplicable ? RuntimeSemanticsEvaluationResult.Error(coerced.ErrorInfo!) : RuntimeSemanticsEvaluationResult.InternalError();
+                }
+
+                passed = coerced.Result!;
+            }
+
+            if (!session.Storage.TryAllocate(passed.Size, SymbolAddressTable.FreshBinding(passed), out var temporary))
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
+                    Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
+            }
+
+            HoldsPointer(session, temporary, passed.TypeInfo);
+            session.Objects.PushTemporary(new ArgumentTemporary(temporary));
+            bound = new VBRuntimeReference(temporary, passed.TypeInfo);
+            return null;
+        }
+
+        // ByVal parameter passing Let-coerces the argument to the parameter's own declared type
+        // (MS-VBAL §5.5.1.2) before it's ever wrapped into a fresh binding - the same rule any other
+        // Let-target follows, a literal "5" (Integer) passed to a Long parameter included. A ByRef
+        // parameter whose argument wasn't recognized as an aliasable variable above falls through to
+        // this exact same path (MS-VBAL §5.3.1.11's own "otherwise" case) - a fresh local, never a
+        // reported error.
+        // by its plan when it can be: a number, a Boolean, a date or a String let-coerced to a parameter of a type a plan converts to.
+        if (TryConvertUnobserved(value, parameter.ResolvedType, out var planned))
+        {
+            bound = planned.RuntimeValue;
+            return null;
+        }
+
+        var coercionFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
+            value, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
+        var coercionResult = LetCoercionProvider!.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, coercionFrame);
+        if (!coercionResult.IsApplicable)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+        if (!coercionResult.IsSuccess)
+        {
+            // reached late bound, a value other than an object given to a parameter of a class or Object is a type mismatch, as the IDispatch the call
+            // goes through makes it, and not error 424; the member is not entered (observed in VB6: a class's method and PaintPicture's picture).
+            var error = coercionResult.ErrorInfo!;
+            return RuntimeSemanticsEvaluationResult.Error(
+                lateBound && error.ErrorId == (int)VBRuntimeErrorId.ObjectRequired && parameter.ResolvedType is VBObjectType or VBClassType
+                    && HeldObject(value) is null
+                    ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, error.Location, error.Verbose)
+                    : AsDispatched(session, context, dispatchedThrough, error));
+        }
+
+        // an array coerced to an array parameter is a fresh copy nothing has bound yet, so it has no
+        // RuntimeValue of its own to hand over: it is boxed around itself instead, the same shape
+        // SymbolAddressTable.FreshBinding gives an array variable and a ParamArray is collected into. A
+        // standard-library array parameter always arrives here, being ByVal; a ByRef one does when its
+        // argument is not a variable it can alias - an array of another element type (IsOfDeclaredType).
+        // a record that is no variable - what a function or a property returns - is passed by reference as a copy, in a temporary of the statement: it is no
+        // value with a binding of its own to hand over. (A field of a record held by a variable is one: TryResolveRecordFieldByRefArgument.)
+        if (coercionResult.Result is VBUserDefinedTypeValue record && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
+        {
+            if (!session.Storage.TryAllocate(record.Size, SymbolAddressTable.FreshBinding(record), out var copy))
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
+                    Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
+            }
+
+            session.Objects.PushTemporary(new ArgumentTemporary(copy));
+            bound = new VBRuntimeReference(copy, record.TypeInfo);
+            return null;
+        }
+
+        bound = coercionResult.Result is VBArrayValue array
+            ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
+            : coercionResult.Result!.RuntimeValue;
         return null;
     }
 
@@ -3430,6 +3463,31 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // binding reads as a Variant, and is assigned as that type. A parameter of the variable's own type needs nothing more than the address.
     private static VBType? ReferencedType(VBParameterSymbol parameter, VBType variableType)
         => parameter.ResolvedType is VBVariantType && !variableType.Equals(parameter.ResolvedType) ? variableType : null;
+
+    /// <summary>
+    /// The argument of a parameter passed by reference that is <paramref name="variable"/>, a variable of the activation <paramref name="frame"/> is of, as
+    /// a call the interpreter makes gives it (MS-VBAL §5.3.1.11, TryResolveByRefArgument): the variable's address, and the type it is declared as when the
+    /// parameter is a <c>Variant</c> and the variable is not, or is a reference parameter bound to a variable of another type. What compiled code gives a
+    /// <c>Variant</c> parameter of a procedure of the workspace, of a <c>Variant</c> variable or parameter of its activation.
+    /// </summary>
+    /// <param name="frame">The frame of the activation the variable is of.</param>
+    /// <param name="variable">The variable.</param>
+    /// <param name="parameter">The parameter it is given to.</param>
+    /// <param name="reference">The argument.</param>
+    /// <returns><see langword="false"/> when the variable has no address, or cannot be assigned: the interpreter then makes the call.</returns>
+    internal static bool TryReferenceTo(Execution.Frames.CallStackFrame frame, Symbol variable, VBParameterSymbol parameter, out VBRuntimeReference reference)
+    {
+        reference = VBRuntimeReference.NullRef;
+        if (variable is not ITypedSymbol typed || !frame.TryGetAddress(variable, out var address) || !frame.TryResolve(variable, out var binding)
+            || !binding.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        var declared = frame.TryGetReferencedType(variable, out var referenced) ? referenced : typed.ResolvedType;
+        reference = new VBRuntimeReference(address, ReferencedType(parameter, declared));
+        return true;
+    }
 
     // the declared type of the variable a name is: its own, unless the name is a reference parameter of the current activation bound to a variable of another
     // type - which is the variable it hands on when it is passed by reference again.

@@ -3,6 +3,7 @@ BEGIN
   MultiUse = -1  'True
 END
 Attribute VB_Name = "Counter"
+' <Counter>
 Option Explicit
 
 Private mValue As Long
@@ -13,4 +14,5 @@ End Sub
 
 Public Property Get Value() As Long
     Value = mValue
-End Property
+End Property
+' </Counter>

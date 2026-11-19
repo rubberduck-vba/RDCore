@@ -400,8 +400,9 @@ public sealed class CompiledArrayTests
             "End Function"), "Assigned", recoveries: 3);
 
     // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
-    // the interpreter's to read, and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 3 statements
-    // the interpreter runs (the String, Len, the member). The prints are compiled code's. The Set of an element to a New object is a support call the
+    // the interpreter's to read, and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 2 statements
+    // the interpreter runs (the String, the member). Len of the element that holds the String is compiled code's, given what the element holds. The
+    // prints are compiled code's. The Set of an element to a New object is a support call the
     // interpreter runs, no recovery.
     [TestMethod]
     public async Task AnElementOfAVariantArray_IsReadAndWrittenInItsVariantsCell()
@@ -429,7 +430,7 @@ public sealed class CompiledArrayTests
             "    V(2) = 4",
             "    Debug.Print \"let go\"",
             "    Mixed = Mixed + V(2)",
-            "End Function"), "Mixed", recoveries: 3 + 1, classes: Noisy);
+            "End Function"), "Mixed", recoveries: 2 + 1, classes: Noisy);
 
     // an element of an array of objects compared with Nothing and with another, and tested with TypeOf, in compiled code: an element no object was ever Set
     // to holds Nothing. Each Set of an element, and the Set of O to one, is a support call the interpreter runs, no recovery; the Set of O to Nothing, which
