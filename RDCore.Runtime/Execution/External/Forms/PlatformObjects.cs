@@ -83,7 +83,7 @@ internal sealed class PlatformObjects
 
     /// <summary>
     /// Whether the platform answers <paramref name="request"/>: a member a form's designer declares, or a member of one of the platform's objects, a
-    /// <c>Controls.Add</c> of a class of any library included. Never a creation or an obtaining.
+    /// <c>Controls.Add</c> of a class of any library included. Never a <c>New</c>, a <c>CreateObject</c> or a <c>GetObject</c>.
     /// </summary>
     /// <param name="session">The session the call is made in.</param>
     /// <param name="request">The call.</param>
@@ -162,7 +162,7 @@ internal sealed class PlatformObjects
 
     /// <summary>
     /// The enumerator a server returned for a <c>For Each</c>, which the session bound to <paramref name="identity"/> now: the platform's when the collection
-    /// it enumerates is (rule 3). It is of no library's class, the standard library's <c>IEnumVARIANT</c>; what it hands out is judged by its own class.
+    /// it enumerates is (rule 3). It has no library's class (it is an <c>IEnumVARIANT</c>); what it hands out is judged by its own class.
     /// </summary>
     /// <param name="session">The session.</param>
     /// <param name="identity">The identity the session bound the enumerator to.</param>
