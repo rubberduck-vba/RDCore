@@ -28,8 +28,8 @@ public sealed class CompiledPowerTests
             "    Powers = S",
             "End Function"), [], "| 38.4375  1 |", ("Powers", 0));
 
-    // MS-VBAL §5.6.9.3.7: 0 to a negative power is error 5, as is a negative number to a fraction, which has no real power; and a power past the range of a
-    // Double is error 6. The interpreter is given the statement, and raises it.
+    // 0 to a negative power is error 5 (MS-VBAL §5.6.9.3.7); a negative number to a fraction, which has no real power, is error 5 in MS-VBA; and a power
+    // past the range of a Double is error 6 (MS-VBAL §5.6.9.3). The interpreter is given the statement, and raises it.
     [TestMethod]
     [DataRow("0", "-1", "| 5 |", DisplayName = "0 ^ -1")]
     [DataRow("-8", "1 / 3", "| 5 |", DisplayName = "-8 ^ (1 / 3)")]
