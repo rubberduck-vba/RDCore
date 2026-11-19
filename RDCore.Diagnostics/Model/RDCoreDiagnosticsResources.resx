@@ -222,6 +222,9 @@
   <data name="IntegerDataTypeDeclaration_Message" xml:space="preserve">
     <value>Integer is a 16-bit type that overflows at 32,767. Use a Long, unless an Integer is what a procedure or a file format expects.</value>
   </data>
+  <data name="IntegerDataTypeDeclaration_Fix" xml:space="preserve">
+    <value>Change the type from Integer to Long</value>
+  </data>
   <data name="ModuleScopeDimDeclaration_Message" xml:space="preserve">
     <value>Dim at the module level declares a Private variable. Use Private to say so.</value>
   </data>

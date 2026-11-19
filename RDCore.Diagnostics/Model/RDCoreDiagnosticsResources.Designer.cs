@@ -360,6 +360,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change the type from Integer to Long.
+        /// </summary>
+        public static string IntegerDataTypeDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("IntegerDataTypeDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Integer is a 16-bit type that overflows at 32,767. Use a Long, unless an Integer is what a procedure or a file format expects..
         /// </summary>
         public static string IntegerDataTypeDeclaration_Message {
