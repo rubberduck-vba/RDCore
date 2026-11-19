@@ -1532,6 +1532,7 @@ internal sealed partial class ProcedureEmitter
         ConvertNode convert => ReadsVariant(convert.Operand),
         IntegralNode integral => ReadsVariant(integral.Left) || ReadsVariant(integral.Right),
         LogicalNode logical => ReadsVariant(logical.Left) || ReadsVariant(logical.Right),
+        PowerNode power => ReadsVariant(power.Left) || ReadsVariant(power.Right),
         CompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
         NotNode not => ReadsVariant(not.Operand),
         NegateNode negate => ReadsVariant(negate.Operand),
@@ -2000,6 +2001,19 @@ internal sealed partial class ProcedureEmitter
                 return new Operand(result, 0, 0);
             }
 
+            case PowerNode power:
+            {
+                var left = EmitPayload(power.Left, failure);
+                var right = EmitPayload(power.Right, failure);
+                var result = _il.DeclareLocal(typeof(double));
+                Load(left, power.Left.Kind);
+                Load(right, power.Right.Kind);
+                _il.Emit(OpCodes.Ldloca, result);
+                _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.Power))!);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
+                return new Operand(result, 0, 0);
+            }
+
             case CompareNode compare:
                 EmitCompare(compare, failure);
                 return AsBoolean();
@@ -2277,6 +2291,7 @@ internal sealed partial class ProcedureEmitter
         ConvertNode convert => MakesACall(convert.Operand),
         IntegralNode integral => MakesACall(integral.Left) || MakesACall(integral.Right),
         LogicalNode logical => MakesACall(logical.Left) || MakesACall(logical.Right),
+        PowerNode power => MakesACall(power.Left) || MakesACall(power.Right),
         CompareNode compare => MakesACall(compare.Left) || MakesACall(compare.Right),
         NotNode not => MakesACall(not.Operand),
         NegateNode negate => MakesACall(negate.Operand),
