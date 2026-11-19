@@ -249,7 +249,9 @@ and are `null` otherwise, which says the references are not known, and not that 
    array, the value of another constant), which are not evaluated as those of a procedure are: none of them has references yet.
 2. The code that could refer to it was analyzed completely (`ProcedureSemanticModel.IsFullyAnalyzed`): the procedure has no
    error, and the body was looked at again, apart from the pass, for each place a name is written that refers to something,
-   and every one has a fact. For a local or a parameter that is its procedure; for a variable of the module, every procedure.
+   and every one has a fact. For a local or a parameter that is its procedure; for a variable of the module, every procedure
+   that names it. A procedure refers to a variable by writing its name (**MS-VBAL §5.6.10**): one that was not analyzed
+   completely, and that writes the variable's name nowhere, not even in what the parser could not read, does not refer to it.
 
 An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its
 to say.
