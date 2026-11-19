@@ -726,6 +726,38 @@ public sealed class UnusedDeclarationAnalyzerTests
             "Unused:",
             "End Sub")));
 
+    // Rubberduck's quick fix removes the label; the program does what it did, and nothing else is reported of it.
+    [TestMethod]
+    [DataRow("Unused:", null, DisplayName = "a label on a line of its own: the line")]
+    [DataRow("Unused: Debug.Print 1", "Debug.Print 1", DisplayName = "a label before a statement: the label")]
+    [DataRow("Unused: ' the end", "' the end", DisplayName = "a label before a comment: the label")]
+    [DataRow("10 Unused:", "10 ", DisplayName = "a label after a line number: the label")]
+    public async Task TheFix_RemovesTheLabel(string line, string? left)
+    {
+        static string Program(params string[] middle)
+            => ModuleWorkspace.StandardModule("Program", ["Public Sub Main()", "    Debug.Print 0", .. middle, "End Sub"]);
+
+        var program = Program(line);
+        var fix = WithoutSemantics(new LineLabelNotUsedAnalyzer(), "Public Sub Main()", "    Debug.Print 0", line, "End Sub").Single().Fixes?.Edits.SingleOrDefault();
+        Assert.IsNotNull(fix, "the finding carries the fix");
+        Assert.AreEqual("Remove line label 'Unused'", fix.Title);
+
+        var fixedProgram = EveryAnalyzer.Applied(program, fix);
+        Assert.AreEqual(left is null ? Program() : Program(left), fixedProgram);
+        await EveryAnalyzer.AssertBringsNothingNewAsync(program, fixedProgram);
+    }
+
+    // the parser gives a label and a jump the name without its square brackets.
+    [TestMethod]
+    public void ALabelInSquareBrackets_IsTheOneAJumpNamesInThem()
+        => CollectionAssert.AreEqual(new[] { 5 }, Lines(WithoutSemantics(new LineLabelNotUsedAnalyzer(),
+            "Public Sub Main()",
+            "    GoTo [Try Again]",
+            "[Try Again]:",
+            "    Debug.Print 1",
+            "[Not Again]:",
+            "End Sub")));
+
     [TestMethod]
     public void ALabel_BelongsToItsProcedure()
         => CollectionAssert.AreEqual(new[] { 6 }, Lines(WithoutSemantics(new LineLabelNotUsedAnalyzer(),

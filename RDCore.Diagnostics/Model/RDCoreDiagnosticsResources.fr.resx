@@ -567,6 +567,9 @@
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Aucun saut ne mène à l&apos;étiquette de ligne &apos;{0}&apos;.</value>
   </data>
+  <data name="LineLabelNotUsed_Fix" xml:space="preserve">
+    <value>Retirer l&apos;étiquette de ligne &apos;{0}&apos;</value>
+  </data>
   <data name="KeywordUsedAsMemberName_Message" xml:space="preserve">
     <value>Le membre &apos;{0}&apos; porte le nom d&apos;un mot clé du langage : le code qui l&apos;utilise se lit comme le mot clé. Donnez-lui un nom qui n&apos;en est pas un.</value>
   </data>
