@@ -615,6 +615,12 @@
   <data name="BangNotation_Message" xml:space="preserve">
     <value>Le &apos;!&apos; donne le nom, en String, à &apos;{0}&apos;, le membre par défaut de l&apos;objet.</value>
   </data>
+  <data name="IndexedRecursiveDefaultMemberAccess_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, le membre par défaut de l&apos;objet, ne prend pas d&apos;arguments : ils vont au membre par défaut de ce qu&apos;il retourne, et le code ne nomme ni l&apos;un ni l&apos;autre.</value>
+  </data>
+  <data name="RecursiveBangNotation_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, le membre par défaut de l&apos;objet, ne prend pas d&apos;arguments : le &apos;!&apos; donne le nom, en String, au membre par défaut de ce qu&apos;il retourne.</value>
+  </data>
   <data name="UnboundBangNotation_Message" xml:space="preserve">
     <value>Le &apos;!&apos; donne le nom, en String, au membre par défaut d&apos;un Object, connu seulement à l&apos;exécution : un objet qui n&apos;en a pas lève l&apos;erreur d&apos;exécution 438.</value>
   </data>

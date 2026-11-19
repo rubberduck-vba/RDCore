@@ -45,6 +45,8 @@ public enum RDCoreDiagnosticId
     BangNotation = 123, // b!key: the default member of a known class given the name as a String
     UnboundBangNotation = 124, // v!key of an Object: its default member is known only at run time
     SuspiciousLetAssignment = 125, // an object assigned to an object without Set: default member to default member, where Set was likelier meant
+    IndexedRecursiveDefaultMemberAccess = 126, // an argument list given to an object of a known class that goes through more than one default member
+    RecursiveBangNotation = 127, // b!key of a known class that goes through more than one default member
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,

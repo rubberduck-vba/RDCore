@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Errors;
+using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
@@ -26,7 +27,12 @@ public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSe
             throw new ArgumentException($"Expected a {nameof(DictionaryAccessExpressionNode)}.", nameof(expression));
         }
 
-        var owner = operandDeclaredTypes[(int)InputIndex.DictionaryAccessOwner];
+        return DetermineDeclaredType(context, expression, operandDeclaredTypes[(int)InputIndex.DictionaryAccessOwner], []);
+    }
+
+    // restarted is each class whose default member the analysis already restarted on, so a default member that returns its own class ends it.
+    private static StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, VBType owner, ImmutableHashSet<VBClassType> restarted)
+    {
         if (owner is VBVariantType or VBObjectType)
         {
             // syntactically translated into an index expression over Owner with a single String
@@ -47,8 +53,24 @@ public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSe
 
         // the default member of the class as the composition has it now (CurrentTypes).
         var classType = CurrentTypes.Of(context.Resolver, declaredClass);
-        return classType.DefaultMember is { } defaultMember
-            ? StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType)
-            : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));
+        if (classType.DefaultMember is not { } defaultMember)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));
+        }
+
+        // the access is the index expression of the owner given the name (MS-VBAL §5.6.13): a default member that takes no parameters is called with none,
+        // and the analysis restarts on what it returns, given the name.
+        if (ObjectValueStaticSemantics.ReturnsWhatArgumentsApplyTo(defaultMember) && !restarted.Contains(classType))
+        {
+            switch (defaultMember.ResolvedType)
+            {
+                case VBArrayType array:
+                    return StaticSemanticsEvaluationResult.Success(array.ItemType);
+                case VBClassType or VBObjectType or VBVariantType:
+                    return DetermineDeclaredType(context, expression, defaultMember.ResolvedType, restarted.Add(classType));
+            }
+        }
+
+        return StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType);
     }
 }
