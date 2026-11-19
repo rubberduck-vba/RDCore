@@ -313,7 +313,7 @@ public sealed class SegmentedParseEquivalenceTests
         _ = AssertTheSameAsAWholeParse(source, anchor, stitches: true);
     }
 
-    // an LSet: the fast prediction can't read it, and the member that holds it is read slowly on its own.
+    // an LSet: the fast prediction cannot read it, and the member that holds it is read slowly on its own.
     private static readonly string[] SlowMember =
     [
         "Public Sub Slow()",
