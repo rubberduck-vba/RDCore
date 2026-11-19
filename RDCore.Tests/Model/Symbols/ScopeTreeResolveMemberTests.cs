@@ -2,6 +2,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -49,7 +50,7 @@ public sealed class ScopeTreeResolveMemberTests
             Helper = Function(Util.Uri, "Helper");
             Secret = Function(Util.Uri, "Secret", AccessModifier.Private);
             OtherHelper = Function(Other.Uri, "Helper");
-            Resolver = new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(
+            Resolver = new ScopeTreeSymbolResolver(ProjectVisibility.ScopeTreeOf(
                 [Enclosing, LibraryProject, Strings, Util, Other, LenB, Helper, Secret, OtherHelper]));
         }
     }
@@ -134,7 +135,7 @@ public sealed class ScopeTreeResolveMemberTests
     {
         // the order is the specification's: a procedural module named so is what the project's member is.
         var shadow = new VBStandardModuleSymbol(Root, Root, "Helper");
-        var resolver = new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build([W.Enclosing, shadow, W.Util, W.Helper]));
+        var resolver = new ScopeTreeSymbolResolver(ProjectVisibility.ScopeTreeOf([W.Enclosing, shadow, W.Util, W.Helper]));
 
         Assert.AreEqual(shadow.Uri, resolver.ResolveMember(W.Enclosing, "Helper", W.Util.Uri).Symbol?.Uri);
     }
@@ -146,7 +147,7 @@ public sealed class ScopeTreeResolveMemberTests
     {
         // a class's members are reached through an instance, which is a member access on a value.
         var widget = new VBClassModuleSymbol(Root, Root, "Widget");
-        var resolver = new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build([widget, Function(widget.Uri, "Size")]));
+        var resolver = new ScopeTreeSymbolResolver(ProjectVisibility.ScopeTreeOf([widget, Function(widget.Uri, "Size")]));
 
         Assert.IsTrue(resolver.ResolveMember(widget, "Size", widget.Uri).IsUnbound);
     }

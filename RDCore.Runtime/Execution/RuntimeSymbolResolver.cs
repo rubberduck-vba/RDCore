@@ -37,6 +37,9 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
     public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name) => names.ResolveProjectType(project, name);
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle) => names.ResolveProjectType(project, name, handle);
+
+    /// <inheritdoc/>
     public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle)
         => names.ResolveConditionalConstant(name, scope, handle);
 

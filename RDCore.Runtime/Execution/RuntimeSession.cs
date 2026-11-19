@@ -1089,6 +1089,8 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public bool TryGetModule(string moduleName, [NotNullWhen(true)] out VBModuleSymbol? module) => table.TryGetModule(moduleName, out module);
 
+    public bool TryGetModule(Uri moduleUri, [NotNullWhen(true)] out VBModuleSymbol? module) => table.TryGetModule(moduleUri, out module);
+
     public bool TryResolveValue(string name, Symbol scope, out Symbol? symbol)
     {
         symbol = Resolver.ResolveValue(name, ScopeKind.Unallocated, scope.Uri).Symbol;

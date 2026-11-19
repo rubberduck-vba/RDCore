@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
@@ -31,7 +32,7 @@ public sealed class LabelStaticSemanticsTests
 
         var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var module = new VBStandardModuleSymbol(Root, Root, "Mod1") with { Directives = new ModuleDirectives(Explicit: true) };
-        var tree = ScopeTreeBuilder.Build([module]);
+        var tree = ProjectVisibility.ScopeTreeOf([module]);
         var context = new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
 
         return StatementStaticSemanticsEvaluator.Evaluate(context, new StatementBlock([.. member.Children]));
