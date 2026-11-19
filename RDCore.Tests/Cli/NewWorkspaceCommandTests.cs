@@ -83,6 +83,20 @@ public sealed class NewWorkspaceCommandTests
     }
 
     [TestMethod]
+    public async Task Scan_TakesTheModulesOfTheFilesOfTheLanguage_AndAFormsBinaryFileIsAnotherFile()
+    {
+        var (sut, fs) = NewSut(("UserForm1.frm", ""), ("UserForm1.frx", "x"), ("Gauge.ctl", ""), ("Module1.BAS", ""));
+
+        await sut.ExecuteAsync([Root], CancellationToken.None);
+
+        var project = await LoadProjectAsync(fs);
+        var written = project.Modules.Select(module => module.RelativeUri).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "Module1.BAS", "UserForm1.frm" }, written);
+        Assert.IsTrue(written.All(SupportedLanguages.RDVBA.IsSourceFile), "the files RD-VBA is written in");
+        CollectionAssert.AreEquivalent(new[] { "Gauge.ctl", "UserForm1.frx" }, project.OtherFiles.Select(other => other.RelativeUri).ToArray());
+    }
+
+    [TestMethod]
     public async Task Scan_SkipsBuildOutputAndDotDirectories()
     {
         var (sut, fs) = NewSut(

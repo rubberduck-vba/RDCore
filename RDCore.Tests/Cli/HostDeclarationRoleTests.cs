@@ -79,6 +79,42 @@ public sealed class HostDeclarationRoleTests
         Assert.AreEqual(DeclarationRole.None, RoleOf(model!, "Other_Draw"));
     }
 
+    // MS-VBAL §5.3.1.8, §5.3.1.9: what a member is bound to is the symbols that name it, by their identity.
+    [TestMethod]
+    [DataRow("IShape_Draw", "IShape", "IShape.Draw", DisplayName = "an implementation: the interface, and its member")]
+    [DataRow("Source_Click", "Implementer.Source", "Button.Click]Event", DisplayName = "a handler: the WithEvents variable, and the event")]
+    public async Task ABoundMember_IsBoundToItsSource_AndToWhatItHandlesOrImplements(string member, string source, string bound)
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer(
+            "Public Sub IShape_Draw()", "End Sub", "Public Function IShape_Area() As Long", "End Function", "Public Sub Source_Click()", "End Sub")));
+
+        var binding = model!.Declarations.First(declaration => declaration.Name == member).Binding;
+
+        Assert.IsNotNull(binding);
+        Assert.AreEqual(source, Uri.UnescapeDataString(binding.Source.Fragment.TrimStart('#')));
+        Assert.AreEqual(bound, Uri.UnescapeDataString(binding.Bound!.Fragment.TrimStart('#')));
+    }
+
+    [TestMethod]
+    public async Task ALifecycleHandler_IsBoundToItsClass_AndToTheEventOfTheLifecycle()
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer("Private Sub Class_Initialize()", "End Sub")));
+
+        var binding = model!.Declarations.First(declaration => declaration.Name == "Class_Initialize").Binding;
+
+        Assert.AreEqual("Implementer", Uri.UnescapeDataString(binding!.Source.Fragment.TrimStart('#')));
+        Assert.AreEqual(RDCore.SDK.Model.Symbols.ClassLifecycleInterface.Initialize.SemanticId.Uri.AbsoluteUri, binding.Bound?.AbsoluteUri);
+    }
+
+    [TestMethod]
+    public async Task AMemberThatOnlyBeginsLikeOne_IsBoundToNothing()
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer("Public Sub IShape_Helper()", "End Sub", "Public Sub Source_Other()", "End Sub")));
+
+        Assert.IsNull(model!.Declarations.First(declaration => declaration.Name == "IShape_Helper").Binding);
+        Assert.IsNull(model.Declarations.First(declaration => declaration.Name == "Source_Other").Binding);
+    }
+
     [TestMethod]
     [DataRow("Get", DisplayName = "the Get first")]
     [DataRow("Let", DisplayName = "the Let first")]

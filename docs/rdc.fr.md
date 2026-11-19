@@ -87,7 +87,8 @@ dans un module d'un espace de travail liste de la même façon les lignes du mod
 ## Les commandes
 
 Chaque commande prend un espace de travail, soit un dossier, avec ou sans `.rdproj`, soit un seul fichier de module. Sans espace de travail, elle
-travaille sur le dossier courant.
+travaille sur le dossier courant. Un dossier sans `.rdproj` est lu comme un éditeur le lit : chaque fichier de module qu'il contient, à toute profondeur,
+est un module, et un seul `.vbp` qui s'y trouve en fait un projet VB6 (voir [**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Commande|Alias|Ce qu'elle fait|
 |---|---|---|
@@ -114,7 +115,7 @@ Dans une console, une commande commence par l'écran d'accueil de la plateforme.
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
 Un projet sans point d'entrée ([RDC30001](diagnostics/rdc30001.md)), ou avec un `Sub Main` dans plus d'un module standard ([RDC30002](diagnostics/rdc30002.md)), ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
-ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` s'affiche dans la console et on y répond, comme dans le _shell_, sous tous les systèmes d'exploitation. Le paramètre `CLI.NativeDialogs` les affiche plutôt comme des boîtes de dialogue Windows, sous Windows. Le paramètre ne change pas la façon dont un formulaire s'affiche : il ouvre sa propre fenêtre.
+ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Dans une application console (`"build": { "outputType": "ConsoleApplication" }`), un `MsgBox` ou un `InputBox` s'affiche dans la console et on y répond, comme dans le _shell_, sous tous les systèmes d'exploitation; le paramètre `CLI.NativeDialogs` les affiche plutôt comme des boîtes de dialogue Windows, sous Windows. Dans tout autre programme, ce sont des boîtes de dialogue Windows sous Windows, et ils s'affichent dans la console ailleurs. Un formulaire ouvre sa propre fenêtre dans les deux cas.
 
 |Option|Ce qu'elle fait|
 |---|---|
