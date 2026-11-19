@@ -17,8 +17,8 @@ public static class ImplementedInterfaceResolution
             .ToDictionary(namesakes => namesakes.Key, namesakes => namesakes.ToArray(), StringComparer.OrdinalIgnoreCase);
 
         // the name is a type expression of the implementing class (MS-VBAL §5.6.16.7), bound in the type binding context (§5.6.10): a class of its own
-        // project comes first, and then the one of the project with the highest reference precedence. A library's hidden interface (Excel's IShape) never
-        // takes the place of the workspace's class of the same name.
+        // project comes first, then the standard library's, then each reference's by its precedence (ReferencePrecedence). A library's hidden interface
+        // (Excel's IShape) never takes the place of the workspace's class of the same name.
         VBClassModuleSymbol? Named(VBClassModuleSymbol classModule, string name)
         {
             if (!byName.TryGetValue(name, out var namesakes))
