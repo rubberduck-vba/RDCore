@@ -272,6 +272,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00123](rdc00123.md)|Bang notation|`b!key`: a name given as a `String` to the default member|
 |[RDC00124](rdc00124.md)|Unbound bang notation|`v!key` of an `Object`: its default member is known only at run time|
 |[RDC00125](rdc00125.md)|Suspicious Let assignment|An object assigned to an object without `Set`|
+|[RDC00128](rdc00128.md)|Undeclared variable|A variable that no statement declares, in a module with no `Option Explicit`|
 |[RDC00201](rdc00201.md)|Integer data type declaration|An As Integer clause or a % type character|
 |[RDC00202](rdc00202.md)|Module-scope Dim declaration|A module-level variable declared with Dim|
 |[RDC00203](rdc00203.md)|Multiline parameter declaration|One parameter declared over several lines|

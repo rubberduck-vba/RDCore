@@ -45,6 +45,7 @@ public enum RDCoreDiagnosticId
     BangNotation = 123, // b!key: the default member of a known class given the name as a String
     UnboundBangNotation = 124, // v!key of an Object: its default member is known only at run time
     SuspiciousLetAssignment = 125, // an object assigned to an object without Set: default member to default member, where Set was likelier meant
+    UndeclaredVariable = 128, // [RD2: UndeclaredVariableInspection] a name that matches nothing, which declares a local where it is first used, with no Option Explicit
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,

@@ -50,6 +50,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00123`](../diagnostics/rdc00123.md)|Bang notation|Information|the member accesses with `Implicit`, `DefaultMember` and `DictionaryAccess`, and not `LateBound`|
 |[`RDC00124`](../diagnostics/rdc00124.md)|Unbound bang notation|Warning|the same, with `DictionaryAccess` and `LateBound`|
 |[`RDC00125`](../diagnostics/rdc00125.md)|Suspicious Let assignment|Warning|the syntax tree's `Let` assignments whose target is an object (a `DefaultMember` access, or declared `Object`) and whose value is the operand of a `ConversionSemanticFlags.ObjectOperand` conversion|
+|[`RDC00128`](../diagnostics/rdc00128.md)|Undeclared variable|Warning|`ModuleSemanticModel.Declarations`: a local whose `DeclarationFact.DeclaredBy` is `Implicit`|
 |[`RDC00201`](../diagnostics/rdc00201.md)|Integer data type declaration|Information|the syntax tree: `AsTypeExpressionNode` and the `TypeHint` of a declaration node, except in the header of a procedure whose `DeclarationFact.Role` is `InterfaceImplementation` or `EventHandler`; for the fix, the `DeclarationFact.References` of the variable or the parameter (`PassedAsArguments`)|
 |[`RDC00202`](../diagnostics/rdc00202.md)|Module-scope Dim declaration|Information|the syntax tree: a module-level variable with no access modifier|
 |[`RDC00203`](../diagnostics/rdc00203.md)|Multiline parameter declaration|Information|the syntax tree: the range of a `ParameterDeclarationNode`|
