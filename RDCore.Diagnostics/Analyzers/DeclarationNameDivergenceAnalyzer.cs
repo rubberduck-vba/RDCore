@@ -4,7 +4,6 @@ using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Workspace;
 
@@ -34,9 +33,8 @@ internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
     {
         // the module's own name (MS-VBAL §4.2): its VB_Name, or its file's when it says none. MS-VBA refuses to rename or import a module so named.
-        var said = module.Children.OfType<AttributeDirectiveNode>()
-            .FirstOrDefault(attribute => attribute.Binding is null && string.Equals(attribute.Name, Tokens.VB_Name, StringComparison.OrdinalIgnoreCase));
-        var moduleName = said?.Value.Trim('"') ?? ModuleName.FromFileName(module.SourceLocation.Uri.IsAbsoluteUri
+        var said = module.GetDeclaredNameDirective();
+        var moduleName = module.GetDeclaredName() ?? ModuleName.FromFileName(module.SourceLocation.Uri.IsAbsoluteUri
             ? module.SourceLocation.Uri.LocalPath
             : module.SourceLocation.Uri.OriginalString);
         if (IsRefusedByMSVBAButAsATypeMember(moduleName))

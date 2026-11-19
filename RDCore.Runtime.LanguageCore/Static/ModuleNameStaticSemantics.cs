@@ -2,7 +2,6 @@ using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
@@ -24,9 +23,7 @@ public static class ModuleNameStaticSemantics
         }
 
         // the name is reported where the module says it, and at the start of the module when its file says it.
-        var said = module.Children.OfType<AttributeDirectiveNode>()
-            .FirstOrDefault(attribute => attribute.Binding is null && string.Equals(attribute.Name, Tokens.VB_Name, StringComparison.OrdinalIgnoreCase));
-        var location = said?.Location ?? new SourceLocation(module.SourceLocation.Uri, new SourceRange(0, 0, 0, 0));
+        var location = module.GetDeclaredNameDirective()?.Location ?? new SourceLocation(module.SourceLocation.Uri, new SourceRange(0, 0, 0, 0));
         return [VBCompileErrorInfo.For(VBCompileErrorId.NotALegalObjectName, location,
             string.Format(Exceptions.VBCompileError_NotALegalObjectName_Verbose, name))];
     }
