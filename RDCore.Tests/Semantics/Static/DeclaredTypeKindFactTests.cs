@@ -6,7 +6,7 @@ namespace RDCore.Tests.Semantics.Static;
 
 /// <summary>
 /// What the facts of a declaration say of the type it is declared as (<strong>MS-VBAL §5.2.3.1.4</strong>, <strong>§5.2.3.1.5</strong>), and of an array
-/// (<strong>MS-VBAL §5.4.3.3</strong>).
+/// (<strong>MS-VBAL §5.2.3.1.3</strong>, and <strong>§5.4.3.3</strong> for one a <c>ReDim</c> declares).
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §5.0.3 Semantic Analysis")]
