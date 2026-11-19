@@ -110,4 +110,11 @@ public sealed class RDFormsFormLifecycleTests
         => CollectionAssert.AreEqual(new[] { "Initialize", "Load", "True", "True", "True", "QueryUnload 1", "Unload" },
             await RunAsync(Document, "Dim f As RDForms.Font", "Set f = Form2.Text1.Font", "Debug.Print TypeOf Form2.Text1.Font Is RDForms.Font",
                 "Debug.Print TypeOf f Is stdole.StdFont", "Dim s As stdole.StdFont", "Set s = f", "Debug.Print s Is Form2.Text1.Font", "Unload Form2"));
+
+    // the font's TypeName is VB6's, through a variable of any type; MSForms gives "IFont" for a UserForm control's.
+    [TestMethod]
+    public async Task APortedFormsControlsFont_IsNamedStdFont()
+        => CollectionAssert.AreEqual(new[] { "Initialize", "Load", "StdFont", "StdFont", "StdFont", "StdFont", "QueryUnload 1", "Unload" },
+            await RunAsync(Document, "Debug.Print TypeName(Form2.Text1.Font)", "Dim f As RDForms.Font", "Set f = Form2.Text1.Font", "Debug.Print TypeName(f)",
+                "Dim s As stdole.StdFont", "Set s = f", "Debug.Print TypeName(s)", "Dim o As Object", "Set o = f", "Debug.Print TypeName(o)", "Unload Form2"));
 }
