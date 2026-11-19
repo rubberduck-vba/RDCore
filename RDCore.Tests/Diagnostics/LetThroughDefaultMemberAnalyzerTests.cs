@@ -103,7 +103,7 @@ public sealed class LetThroughDefaultMemberAnalyzerTests
 
         Assert.AreEqual(RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember.ToCode(), finding.Code);
         Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
-        StringAssert.Contains(finding.Message, $"'{name}' is an object of class 'Bare'");
+        StringAssert.Contains(finding.Message, $"'{name}' is of class 'Bare'");
     }
 
     [TestMethod]
