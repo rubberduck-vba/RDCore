@@ -117,7 +117,7 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
         return await actions.ActionsAsync(request, Client, token);
     }
 
-    // the fix an id names, with its edit; refused when the id is not one, the document changed since it was listed, or the fix is no edit.
+    // the fix an id names, with its edit; refused when the id is not one, the document changed since it was listed, or the fix is not an edit.
     public async Task<(CodeAction Action, WorkspaceDocument Document)> FindAsync(string fixId, CancellationToken token)
     {
         if (!FixIds.TryRead(fixId, out var fix))
