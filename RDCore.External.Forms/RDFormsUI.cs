@@ -23,9 +23,9 @@ public enum RDFormsPlatform
     Headless,
 }
 
-// the one Avalonia application of the process, on its UI thread: Avalonia allows one UI thread to a process, and the thread that sets it up is that thread. It is
-// a thread of its own, or the process's main thread on macOS (RDFormsUIThread). Every call on an RDForms object is made there, inline when it is made there
-// already, as the calls an event's handlers make are.
+// the one Avalonia application of the process, on its UI thread: Avalonia allows one UI thread to a process, and the thread that sets it up is that thread.
+// It is a thread of its own, or the process's main thread on macOS (RDFormsUIThread). Every call on an RDForms object is made there, inline when it is made
+// there already, as the calls an event's handlers make are.
 internal static class RDFormsUI
 {
     private const int Failed = unchecked((int)0x80004005);

@@ -68,7 +68,8 @@ public sealed class RDFormsUIThreadTests
         Assert.AreSame(main, looped);
     }
 
-    // a desktop that cannot be set up (no window server) fails the start, runs no loop, and leaves the main thread to the program, which ends as any other does.
+    // a desktop that cannot be set up (no window server) fails the start, runs no loop, and leaves the main thread to the program, which ends as any other
+    // does.
     [TestMethod]
     public void OnTheMainThread_ASetupThatFails_FailsTheStart_AndTheProgramEnds()
     {
