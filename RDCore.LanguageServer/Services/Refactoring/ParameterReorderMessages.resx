@@ -70,4 +70,7 @@
   <data name="ReorderParameters_MayEvaluate" xml:space="preserve">
     <value>The call to '{0}' at {2} passes arguments that do more than read a value: another order can change what the code does.</value>
   </data>
+  <data name="ReorderParameters_UnknownDocumentHost" xml:space="preserve">
+    <value>'{0}' is a procedure of a document module whose host is not known: what the host calls it for, and with which arguments, is not known.</value>
+  </data>
 </root>

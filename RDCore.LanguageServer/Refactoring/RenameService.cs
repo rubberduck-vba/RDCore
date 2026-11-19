@@ -17,6 +17,7 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.SDK.Model.Symbols;
 using RDCore.Symbols;
 using RDCore.Runtime.LanguageCore.Refactoring;
@@ -210,7 +211,7 @@ internal sealed class RenameService(
             projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
-            [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source))],
+            [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source, module.Parse.Designer))],
             new StaticEnvironment(options.Value.Environment.Is64Bit));
         return new RenameWorkspace.ProjectPart(context, modules, Recompose);
     }
@@ -397,17 +398,19 @@ internal sealed class RenameWorkspace
         };
     }
 
-    // the binary file of a designer's file, by the extension of each (a form's .frx, a user control's .ctx), when the designer's text names it as the file of
-    // the same name (OleObjectBlob = "Dialog.frx":0000): its rename, and where the text names it, in the text of the module.
+    // the binary file of a designer's file (a form's .frx, a user control's .ctx), when the designer's text names it as the file of the same name
+    // (OleObjectBlob = "Dialog.frx":0000): its rename, and where the text names it, in the text of the module.
     private static (RenameFile Rename, IReadOnlyList<SDK.Model.Source.SourceRange> Names, string NewName)? CompanionOf(DocumentModule module, string newName)
     {
         var path = module.Document.Id.Uri.GetFileSystemPath();
-        if (!BinaryExtensions.TryGetValue(Path.GetExtension(path), out var extension))
+        if (!FormDesigner.CompanionExtensions.TryGetValue(Path.GetExtension(path), out var extension)
+            || CompanionNamedBy(module.Source) is not { } named
+            || !string.Equals(named.FileName, Path.GetFileNameWithoutExtension(path) + extension, StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        var companion = Path.GetFileNameWithoutExtension(path) + extension;
+        var companion = named.FileName;
         var names = new List<SDK.Model.Source.SourceRange>();
         var lines = module.Source.Split('\n');
         for (var line = 0; line < lines.Length && !lines[line].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase); line++)
@@ -432,11 +435,18 @@ internal sealed class RenameWorkspace
         }, names, newName + extension);
     }
 
-    // the binary files of the designers' files of VBA and Visual Basic 6.0: a form, a user control, a designer, a property page, a user document.
-    private static readonly Dictionary<string, string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    // a designer block that is not terminated names no companion a rename can change.
+    private static FormDesignerReference? CompanionNamedBy(string source)
     {
-        [".frm"] = ".frx", [".ctl"] = ".ctx", [".dsr"] = ".dsx", [".pag"] = ".pgx", [".dob"] = ".dox",
-    };
+        try
+        {
+            return FormDesigner.CompanionOf(source);
+        }
+        catch (FormDesignerFormatException)
+        {
+            return null;
+        }
+    }
 
     // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
     // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the

@@ -52,4 +52,7 @@
   <data name="RemoveParameter_Unresolved" xml:space="preserve">
     <value>What '{0}' refers to at {2} is not known: the change could miss it.</value>
   </data>
+  <data name="RemoveParameter_UnknownDocumentHost" xml:space="preserve">
+    <value>'{0}' is a procedure of a document module whose host is not known: what the host calls it for, and with which arguments, is not known.</value>
+  </data>
 </root>

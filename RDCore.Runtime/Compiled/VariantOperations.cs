@@ -69,20 +69,25 @@ public static class VariantOperations
 
     /// <summary>
     /// <c>IsEmpty</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.4): whether it holds <c>Empty</c>. A Variant that holds a value of
-    /// a scalar type, a <c>String</c>, <c>Null</c> or an error does not.
+    /// a scalar type, a <c>String</c>, <c>Null</c>, an error or an array does not.
     /// </summary>
     /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
     /// <param name="empty">Whether the Variant holds <c>Empty</c>.</param>
     /// <returns>
     /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
-    /// <c>IsEmpty</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// <c>IsEmpty</c> looks at), its value is not known, or its frame holds it in no Variant's cell.
     /// </returns>
     public static bool IsEmpty(object? cell, out bool empty)
     {
         var known = TrySubtypeOf(cell, out var subtype);
         empty = known && subtype == VBVarType.VBEmpty;
-        return known;
+        return known || HoldsAnArray(cell);
     }
+
+    // whether the Variant held in cell holds an array, its value known, in it or in a Variant it holds (StdInformation.Unwrapped).
+    private static bool HoldsAnArray(object? cell)
+        => cell is not null && Unsafe.As<VariantCell>(cell) is { IsKnown: true, Value: VBRuntimeVariantValue { WrappedValue: var wrapped } }
+            && StdInformation.Unwrapped(wrapped) is VBArrayValue;
 
     /// <summary>
     /// <c>IsNull</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.7): whether it holds <c>Null</c>. A Variant that holds a value of a
