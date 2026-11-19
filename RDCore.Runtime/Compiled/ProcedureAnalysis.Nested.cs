@@ -78,7 +78,9 @@ internal sealed partial class ProcedureAnalysis
                 when IsTextTarget(Bind(assignment.Target))
                 => CallsInsideText(Bind(assignment.Value)),
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment }
-                => IsNestedTarget(assignment.Target) && (CallsInside(Bind(assignment.Value)) || SubscriptsCall(assignment.Target)),
+                => IsNestedTarget(assignment.Target)
+                && (CallsInside(Bind(assignment.Value)) || SubscriptsCall(assignment.Target)
+                    || CallsForAnotherKind(Bind(assignment.Target), Bind(assignment.Value))),
             // a Debug.Print of an item that calls a function of the workspace.
             { Kind: InstructionKind.Simple, Node: DebugPrintStatementNode print }
                 => print.Items.Any(item => item.Value is { } value and not (PrintSpcClauseNode or PrintTabClauseNode) && CallsWorkspace(Bind(value))),
@@ -147,6 +149,34 @@ internal sealed partial class ProcedureAnalysis
         BoundVariable variable => SlotOf(variable) is not null || VariantSlotOf(variable) is not null,
         _ => false,
     };
+
+    // the function of the workspace a Let calls for the whole value it assigns: a function of a standard module, or a function or Property Get member of an
+    // object. None of the standard library, which compiled code calls otherwise.
+    private VBTypeMemberSymbol? WholeCallOf(BoundNode value) => value switch
+    {
+        BoundCall { Procedure: VBTypeMemberSymbol called } when !IsCompiledLibrary(called) && !IsVariantLibrary(called) => called,
+        BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } member
+            when ErrNumberOf(member) is null && LibraryMemberCallOf(member) is null => called,
+        _ => null,
+    };
+
+    // whether a function returns kind, or what is not a scalar: one that returns another scalar kind is called inside the value, as NestedCall calls one,
+    // and what it returns is let-coerced to kind (MS-VBAL §5.4.3.8).
+    private static bool ReturnsKind(VBTypeMemberSymbol function, ScalarKind kind)
+        => ScalarKinds.Of(ReturnedType(function)) is not { } returned || returned == kind;
+
+    // a Let of a scalar variable of the activation, or of the scalar result variable, of what a function returns of another scalar kind.
+    private bool CallsForAnotherKind(BoundNode target, BoundNode value)
+    {
+        var kind = target switch
+        {
+            BoundName { Symbol: var function } when IsOwnFunction(function) => ResultKind,
+            BoundVariable variable when SlotOf(variable) is { } slot => _slots[slot],
+            _ => null,
+        };
+
+        return kind is { } assigned && WholeCallOf(value) is { } called && !ReturnsKind(called, assigned);
+    }
 
     private bool IsTextTarget(BoundNode target) => target switch
     {

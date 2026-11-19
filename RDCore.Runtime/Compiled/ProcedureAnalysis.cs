@@ -710,30 +710,31 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        // a function called for the whole value assigned, of the kind of what it is assigned to, is a call step: nothing of it can fail after the call.
+        // a function called for the whole value assigned, of the kind of what it is assigned to, is a call step: nothing of it can fail after the call. One
+        // that returns another scalar kind is called inside the value (NestingOf), what it returns let-coerced as any payload is.
         var assigned = Bind(assignment.Value);
         switch (Bind(assignment.Target))
         {
             case BoundName { Symbol: var function } when ResultKind is { } result && IsOwnFunction(function):
-                return assigned switch
-                {
-                    BoundCall resultCall when !IsCompiledLibrary(resultCall.Procedure) && !IsVariantLibrary(resultCall.Procedure)
-                        => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
-                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember when ErrNumberOf(resultMember) is null && LibraryMemberCallOf(resultMember) is null
-                        => MemberCallOf(resultMember, -1, offset, result)
-                        ?? RefusedCall(resultMember.Access, assignment.SourceLocation),
-                    _ => PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null,
-                };
+                return WholeCallOf(assigned) is { } resultCalled && ReturnsKind(resultCalled, result)
+                    ? assigned switch
+                    {
+                        BoundCall resultCall => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
+                        BoundMember resultMember
+                            => MemberCallOf(resultMember, -1, offset, result) ?? RefusedCall(resultMember.Access, assignment.SourceLocation),
+                        _ => null,
+                    }
+                    : PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null;
             case BoundVariable variable when SlotOf(variable) is { } slot:
-                return assigned switch
-                {
-                    BoundCall slotCall when !IsCompiledLibrary(slotCall.Procedure) && !IsVariantLibrary(slotCall.Procedure)
-                        => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
-                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember when ErrNumberOf(slotMember) is null && LibraryMemberCallOf(slotMember) is null
-                        => MemberCallOf(slotMember, slot, offset, _slots[slot])
-                        ?? RefusedCall(slotMember.Access, assignment.SourceLocation),
-                    _ => PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null,
-                };
+                return WholeCallOf(assigned) is { } slotCalled && ReturnsKind(slotCalled, _slots[slot])
+                    ? assigned switch
+                    {
+                        BoundCall slotCall => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
+                        BoundMember slotMember
+                            => MemberCallOf(slotMember, slot, offset, _slots[slot]) ?? RefusedCall(slotMember.Access, assignment.SourceLocation),
+                        _ => null,
+                    }
+                    : PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null;
 
             // the result of a function of the Variant type: assigned what a call returns, as a Variant variable is, or the payload of a Variant expression.
             case BoundName { Symbol: var function } when ResultIsVariant && IsOwnFunction(function):
