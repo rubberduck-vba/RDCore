@@ -88,7 +88,7 @@ namespace RDCore.LanguageServer.Workspace {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to The project file is in the format {0}, newer than this platform&apos;s {1}: what this platform doesn&apos;t know of it is kept as it is..
+        ///   Looks up a localized string similar to The project file is in the format {0}, newer than this platform&apos;s {1}: what this platform does not know of it is kept as it is..
         /// </summary>
         internal static string ProjectFileFormatNewerMinor {
             get {

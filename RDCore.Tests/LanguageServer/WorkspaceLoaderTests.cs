@@ -247,7 +247,7 @@ public sealed class WorkspaceLoaderTests
         StringAssert.StartsWith(sut.FormatNote?.Message, said);
     }
 
-    // the note goes over the wire while initialize is not answered yet, as window/logMessage, as the language server sends it once it has loaded the
+    // the note goes over the wire before initialize is answered, as window/logMessage, as the language server sends it once it has loaded the
     // workspace.
     [TestMethod]
     [Timeout(600_000, CooperativeCancellation = true)]
