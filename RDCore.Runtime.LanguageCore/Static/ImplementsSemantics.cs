@@ -90,8 +90,9 @@ public static class ImplementsSemantics
 
         for (var index = 0; index < module.ImplementedInterfaceNames.Length; index++)
         {
+            // MS-VBAL §5.6.4: the name is bound in the type binding context of the module, as its own project sees the classes.
             var name = module.ImplementedInterfaceNames[index];
-            if (resolver.ResolveType(name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is not VBClassModuleSymbol named)
+            if (resolver.ResolveType(name, ScopeKind.Global, module.Uri).Symbol is not VBClassModuleSymbol named)
             {
                 errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, LocationOfDirective(module, index),
                     $"'Implements {name}' names no class (MS-VBAL §5.2.4.2)."));

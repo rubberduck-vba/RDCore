@@ -327,12 +327,14 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         return symbol;
     }
 
-    private static bool IsOfALibrary(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is not null;
+    // MS-VBAL §4.1: a function of a source project the project references is VBA code, as the project's own is; one of a library project is not.
+    private static bool IsOfALibrary(Symbol symbol) => SymbolProperties.IsOfALibraryProject(symbol);
 
     private static string? NotAVariable(Symbol? symbol, LibraryFunctions functions) => symbol switch
     {
         VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol => $"the constant {symbol.Name}",
-        VBFunctionMemberSymbol function when function.GetProperty(SymbolProperties.Library) is { } library && !Admits(functions, function)
+        VBFunctionMemberSymbol function when IsOfALibrary(function) && function.GetProperty(SymbolProperties.Library) is { } library
+            && !Admits(functions, function)
             => $"the function {function.Name} of the {library} library",
         _ => null,
     };

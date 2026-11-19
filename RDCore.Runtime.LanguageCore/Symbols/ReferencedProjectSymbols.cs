@@ -88,7 +88,51 @@ public static class ReferencedProjectSymbols
         names.AddRange(all.OfType<VBEnumConstMemberSymbol>().Where(constant => enums.Contains(constant.ParentUri.AbsoluteUri)).Select(Tagged));
         return names.ToImmutable();
 
-        Symbol Tagged(Symbol symbol) => symbol.With(SymbolProperties.Library, projectName).With(SymbolProperties.LibraryPriority, priority);
+        Symbol Tagged(Symbol symbol) => ReferencedProjectSymbols.Tagged(symbol, projectName, priority);
+    }
+
+    // what a session that runs the project's code defines of it: the project symbol, as Of has it, then every module and every member, tagged as Of tags
+    // them, and the default instance of every predeclared class (§5.2.4.1.2), which the project's own code names whether or not the class is exposed. The
+    // session's resolver sees from the referencing projects only what is accessible (ScopeTreeProjects). The rest of the symbols is left out, as Of leaves
+    // it.
+    public static ImmutableArray<Symbol> Defined(Uri workspaceRoot, string projectName, IEnumerable<Symbol> symbols, int priority)
+    {
+        ArgumentNullException.ThrowIfNull(workspaceRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectName);
+        ArgumentNullException.ThrowIfNull(symbols);
+
+        var all = symbols.ToArray();
+        var modules = all.OfType<VBModuleSymbol>()
+            .Where(module => module.GetProperty(SymbolProperties.Library) is null)
+            .GroupBy(module => module.Uri.AbsoluteUri, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => (VBModuleSymbol)Tagged(group.First()), StringComparer.Ordinal);
+
+        var names = ImmutableArray.CreateBuilder<Symbol>();
+        names.Add(Tagged(new VBProjectSymbol(workspaceRoot, projectName)));
+        names.AddRange(modules.Values);
+        names.AddRange(modules.Values.OfType<VBClassModuleSymbol>()
+            .Where(module => module.GetProperty(SymbolProperties.PredeclaredId))
+            .Select(DefaultInstanceOf));
+
+        // an enum's members parent to the enum, which parents to its module.
+        var enums = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var member in all.Where(symbol => symbol is not VBModuleSymbol and not VBEnumConstMemberSymbol))
+        {
+            if (modules.ContainsKey(member.ParentUri.AbsoluteUri))
+            {
+                if (member is VBEnumMemberSymbol)
+                {
+                    enums.Add(member.Uri.AbsoluteUri);
+                }
+
+                names.Add(Tagged(member));
+            }
+        }
+
+        names.AddRange(all.OfType<VBEnumConstMemberSymbol>().Where(constant => enums.Contains(constant.ParentUri.AbsoluteUri)).Select(Tagged));
+        return names.ToImmutable();
+
+        Symbol Tagged(Symbol symbol) => ReferencedProjectSymbols.Tagged(symbol, projectName, priority);
     }
 
     // a global variable named after the class, declared as the class, with the library and the precedence of the class module (as Of tags it). It is
@@ -107,8 +151,10 @@ public static class ReferencedProjectSymbols
             Uri = SymbolUri.DefaultInstance(classModule.Uri),
         };
 
-        return (VBPredeclaredInstanceSymbol)instance
-            .With(SymbolProperties.Library, library)
-            .With(SymbolProperties.LibraryPriority, classModule.GetProperty(SymbolProperties.LibraryPriority));
+        return (VBPredeclaredInstanceSymbol)Tagged(instance, library, classModule.GetProperty(SymbolProperties.LibraryPriority));
     }
+
+    // a symbol of the referenced project, by its name and precedence: of a source project (MS-VBAL §4.1), whose code runs in the session.
+    private static Symbol Tagged(Symbol symbol, string projectName, int priority)
+        => symbol.With(SymbolProperties.Library, projectName).With(SymbolProperties.LibraryPriority, priority).With(SymbolProperties.OfSourceProject, true);
 }

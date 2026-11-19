@@ -371,6 +371,7 @@ internal sealed class SymbolSyncService(
                 }
             }
 
+            await SendReferencedProjectsCodeAsync(referenced, workspaceRoot, token);
             LogIfEnabled(LogLevel.Information, $"✅ Workspace symbols defined in the environment host ({totalDefined} total)");
             await SyncOtherProjectsAsync(host, token);
         }
@@ -497,8 +498,8 @@ internal sealed class SymbolSyncService(
     }
 
     // the modules of the projects the primary project references are defined in its session as names of those projects (DefineSymbolsParams.Library),
-    // beside its own modules: a Module1 of a project referenced is another module than the project's own Module1. Their code is not sent, and what fails
-    // is said, and is not of Unsynced: no module of them is one the program runs.
+    // beside its own modules: a Module1 of a project referenced is another module than the project's own Module1. What fails is said, and is not of
+    // Unsynced, which lists the modules of the primary project.
     private async Task<int> DefineReferencedProjectsAsync(
         List<ReferencedModules> referenced, Uri sessionRoot, bool replace, bool declareTypesOnly, CancellationToken token)
     {
@@ -523,6 +524,28 @@ internal sealed class SymbolSyncService(
         }
 
         return defined;
+    }
+
+    // the code of the modules of the projects the primary project references, once every module of the session is defined: the program calls into it.
+    private async Task SendReferencedProjectsCodeAsync(List<ReferencedModules> referenced, Uri sessionRoot, CancellationToken token)
+    {
+        foreach (var (project, root, modules, _) in referenced)
+        {
+            foreach (var module in modules)
+            {
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    await SendModuleCodeAsync(root, module.Uri, module.Name, module.Kind, module.Parse, token,
+                        library: new LibraryModule(sessionRoot, project.Name, project.Priority));
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogError(exception, "❌ The code of module {module} of the referenced project {project} could not be loaded; continuing.",
+                        module.Name, project.Name);
+                }
+            }
+        }
     }
 
     // what the session a module of a referenced project is defined in calls it: the session's root, and the project's name and precedence.
@@ -681,14 +704,15 @@ internal sealed class SymbolSyncService(
 
     // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded - once for as long as
     // it fails the same way, for the module is sent again at every edit of it (ModuleLoadFailures). A module is known by its address; a shell's program, which
-    // can be named as a module of the workspace is, by its own.
+    // can be named as a module of the workspace is, by its own. A module of a referenced project is sent as its symbols are (library).
     private async Task SendModuleCodeAsync(
-        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult, CancellationToken token, bool fromShell = false)
+        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult, CancellationToken token,
+        bool fromShell = false, LibraryModule? library = null)
     {
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             new DefineSymbolsParams
             {
-                WorkspaceRoot = workspaceRoot,
+                WorkspaceRoot = library?.SessionRoot ?? workspaceRoot,
                 ModuleUri = moduleUri,
                 ModuleName = moduleName,
                 Directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives()),
@@ -696,6 +720,9 @@ internal sealed class SymbolSyncService(
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = ParserJson.Of(parseResult),
                 CodeOnly = true,
+                Library = library?.Name,
+                LibraryPriority = library?.Priority ?? 0,
+                ModuleType = moduleType,
             }, token);
 
         switch (_loadFailures.Record((fromShell ? "shell " : string.Empty) + moduleUri.AbsoluteUri, result.CodeErrors))

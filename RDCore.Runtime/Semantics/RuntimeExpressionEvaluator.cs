@@ -44,6 +44,7 @@ using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Semantics;
 
@@ -891,7 +892,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var result = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
+        var result = VBProjectSymbol.ResolveQualifiedType(
+            session.Symbols.Resolver, qualifier, typeName, context.Scope,
+            ProjectVisibility.Instance, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
         return result.Symbol is VBClassModuleSymbol classModule
             ? CreateObject(session, expression, classModule)
             : RuntimeSemanticsEvaluationResult.InternalError();
@@ -1999,7 +2002,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && UnwrappedOwner(owner) is VBObjectValue objectValue
             && session.Symbols.TryGetInstance(objectValue.Value, out var instance)
             && !Execution.External.Automation.LateBinding.IsLateBound(instance.ClassModule)
-            && instance.ClassModule.GetProperty(SymbolProperties.Library) is null
+            && !SymbolProperties.IsOfALibraryProject(instance.ClassModule)
                 ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, access.Location,
                     $"'{member.Name}' is a property, which a call statement does not call."))
                 : null;
@@ -3620,7 +3623,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         // a user-defined type or an enumeration is a type no object is (MS-VBA: False, Excel-verified); a name that binds no type is a compile error.
-        var targetResult = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
+        var targetResult = VBProjectSymbol.ResolveQualifiedType(
+            session.Symbols.Resolver, qualifier, typeName, context.Scope,
+            ProjectVisibility.Instance, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
         return targetResult.Symbol switch
         {
             VBClassModuleSymbol targetClass => IsOfClass(session, operandResult, targetClass, expression),

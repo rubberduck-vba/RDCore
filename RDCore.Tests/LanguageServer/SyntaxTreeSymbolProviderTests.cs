@@ -88,7 +88,7 @@ public sealed class SyntaxTreeSymbolProviderTests
             .With(SymbolProperties.Creatable, true);
         var resolver = Substitute.For<ISymbolResolver>();
         resolver.ResolveQualifier("MyProject", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(project));
-        resolver.ResolveProjectType(project, "Widget").Returns(SymbolResolutionResult.Resolved(classModule));
+        resolver.ResolveProjectType(project, "Widget", Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(classModule));
 
         var symbol = Single<VBModuleFieldVariableMemberSymbol>(Provide("Public X As MyProject.Widget", resolver));
 
