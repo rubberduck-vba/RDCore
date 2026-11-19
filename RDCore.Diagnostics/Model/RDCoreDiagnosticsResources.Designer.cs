@@ -1555,7 +1555,7 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
-        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;, given the name as a String.
+        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;, passing it the name as a String.
         /// </summary>
         public static string BangNotation_Fix {
             get {
