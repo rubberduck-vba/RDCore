@@ -49,9 +49,9 @@ internal sealed record class ReferencedProject(WorkspaceProject Project, string 
 
 /// <inheritdoc cref="IReferencedProjectService"/>
 /// <remarks>
-/// A reference to a project names it (MS-VBAL §4.1): the one project of the workspace with that name, composed of its modules as they are parsed, among what
-/// it references itself. A name no project has, or two projects share, names none. A project on a circular reference of projects is reported
-/// (RDC31001); the reference that closes the circle gives no names, and the others give theirs.
+/// A reference to a project names it (MS-VBAL §4.1): the one project of the workspace with that name (<see cref="ProjectReferences.Resolve"/>), composed
+/// of its modules as they are parsed, among what it references itself. A name no project has, or two projects share, names none. A project on a circular
+/// reference of projects is reported (RDC31001); the reference that closes the circle gives no names, and the others give theirs.
 /// </remarks>
 internal sealed class ReferencedProjectService(
     IReferencedLibraryService libraries,
@@ -153,12 +153,14 @@ internal sealed class ReferencedProjectService(
         ];
     }
 
-    // the one project of the workspace with the name; none when no project, or more than one, has it.
+    // the one project of the workspace with the name, as every component resolves a reference to a project (ProjectReferences.Resolve); none when no
+    // project, or more than one, has it.
     private WorkspaceProject? NamedProject(string projectName)
     {
-        var named = projects.Projects
-            .Where(candidate => string.Equals(candidate.Project.ProjectInfo.Name, projectName, StringComparison.OrdinalIgnoreCase)).ToList();
-        return named.Count == 1 ? named[0] : null;
+        var all = projects.Projects;
+        var resolution = ProjectReferences.Resolve(
+            new RDCoreReference { Name = projectName, IsProject = true }, [.. all.Select(candidate => candidate.Project.ProjectInfo)]);
+        return resolution.IsResolved ? all[resolution.Index] : null;
     }
 
     // the symbols of the composition of the one project of the workspace with the name; none when no project, or more than one, has it.

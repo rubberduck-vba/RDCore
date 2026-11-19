@@ -354,6 +354,54 @@ public sealed class ReferencedClassMemberTests
         Assert.IsTrue(errors.Any(error => IsOf(error, "Program", "Plot")), string.Join("; ", errors));
     }
 
+    // a class of the referenced project with a Friend member of each kind, and a Private one.
+    private static readonly Source Crew = new("Crew", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Crew",
+        "Attribute VB_Exposed = True", "Option Explicit", "Private mRank As Long",
+        "Friend Sub Promote()", "    mRank = mRank + 1", "End Sub",
+        "Friend Function Badge() As String", "    Badge = \"r\" & mRank", "End Function",
+        "Friend Property Get Rank() As Long", "    Rank = mRank", "End Property",
+        "Friend Property Let Rank(ByVal Value As Long)", "    mRank = Value", "End Property",
+        "Private Sub Hide()", "End Sub"));
+
+    // MS-VBAL §5.3.1.1: a Friend procedure is accessible within its own project. Another module of the referenced project calls each, early-bound, and it
+    // runs.
+    [TestMethod]
+    public async Task TheFriendMembersOfAReferencedProjectsClass_AreCalledEarlyBound_ByAnotherModuleOfItsProject()
+    {
+        var roster = new Source("Roster", ModuleType.StdModule, ModuleWorkspace.StandardModule("Roster", "Option Explicit",
+            "Public Function Drill() As String", "    Dim c As Crew", "    Set c = New Crew", "    c.Rank = 2", "    c.Promote",
+            "    Drill = c.Badge() & \"/\" & c.Rank", "End Function"));
+
+        var (errors, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, Crew, roster] }], run: true, "Debug.Print Drill()");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "r3/3" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §5.3.1.1: a Friend procedure is not accessible from a project that references its project. The referencing project's code that calls one
+    // early-bound is refused when it loads, with the error a call of the class's Private member is.
+    [TestMethod]
+    [DataRow("c.Promote", "Promote", DisplayName = "a Friend Sub")]
+    [DataRow("Debug.Print c.Badge()", "Badge", DisplayName = "a Friend Function")]
+    [DataRow("Debug.Print c.Rank", "Rank", DisplayName = "a Friend Property Get")]
+    [DataRow("c.Rank = 1", "Rank", DisplayName = "a Friend Property Let")]
+    public async Task AFriendMemberOfAReferencedProjectsClass_CalledEarlyBoundByTheProject_IsRefused_AsItsPrivateMemberIs(string call, string member)
+    {
+        static Source Caller(string line) => new("Caller", ModuleType.StdModule, ModuleWorkspace.StandardModule("Caller", "Option Explicit",
+            "Public Sub Go()", "    Dim c As Crew", "    Set c = New Crew", $"    {line}", "End Sub"));
+        Project[] references = [NavalLib with { Modules = [.. Library, Crew] }];
+
+        var (friend, _) = await LoadAsync([Caller(call)], references, run: false);
+        var (hidden, _) = await LoadAsync([Caller("c.Hide")], references, run: false);
+
+        var refused = friend.Where(error => IsOf(error, "Caller", member)).ToArray();
+        var refusedPrivate = hidden.Where(error => IsOf(error, "Caller", "Hide")).ToArray();
+        Assert.HasCount(1, refused, string.Join("; ", friend));
+        Assert.HasCount(1, refusedPrivate, string.Join("; ", hidden));
+        Assert.AreEqual(refusedPrivate[0].Replace("Hide", "…", StringComparison.Ordinal), refused[0].Replace(member, "…", StringComparison.Ordinal));
+    }
+
     // an error of the module that names the name.
     private static bool IsOf(string error, string module, string name)
         => error.StartsWith($"{module}: ", StringComparison.Ordinal) && error.Contains(name, StringComparison.Ordinal);
