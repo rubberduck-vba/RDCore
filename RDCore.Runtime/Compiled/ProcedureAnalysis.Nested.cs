@@ -768,7 +768,8 @@ internal sealed partial class ProcedureAnalysis
             _ => (IEnumerable<VariantNode>)[],
         };
 
-        // a text's too: the argument of TypeName of a value, in a String Let or an item of a Debug.Print.
+        // a text's too, in a String Let or an item of a Debug.Print: the Variant arguments of a function of the standard library that returns a String
+        // (TypeName, CStr), through every part of a concatenation.
         var texts = step switch
         {
             TextLetStep let => [let.Value],
