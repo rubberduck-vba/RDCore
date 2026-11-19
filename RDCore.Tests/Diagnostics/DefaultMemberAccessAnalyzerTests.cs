@@ -44,7 +44,8 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "AssignTheDefaultMemberByName|Dim h As New Holder|h.Value = 5",
         "AssignTheDefaultMemberByNameInAWith|Dim h As New Holder|With h|.Value = 5|End With",
         "LetAnObjectToTheDefaultMemberByName|Dim h As New Holder|Dim h2 As New Holder|h.Value = h2",
-        // the runtime pass reaches none of these: the statement raises 13 before the object is read, or an error ends the procedure first.
+        // in the next two, the statement raises 13 before the object is read, so the runtime pass does not read it: the static facts state it. The runtime
+        // pass states the statements after an Error statement as well (the third).
         "ReadAnObjectAfterAnError|Dim h As New Holder|x = CLng(\"abc\") + h",
         "ReadAnUnboundObjectAfterAnError|Dim v As Object|Set v = New Holder|x = CLng(\"abc\") + v",
         "ReadAnObjectAfterAnErrorStatement|Dim h As New Holder|Error 5|x = h",
