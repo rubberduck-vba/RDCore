@@ -1203,6 +1203,60 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_Fix", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is 1 on a 64-bit Mac too, as in Excel for Mac. Test Is64BitEnv for a 64-bit environment, or Win32 And Is64BitEnv for 64-bit Windows..
+        /// </summary>
+        public static string Win64IsABitnessTest_Message {
+            get {
+                return ResourceManager.GetString("Win64IsABitnessTest_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Test Is64BitEnv.
+        /// </summary>
+        public static string Win64IsABitnessTest_Fix {
+            get {
+                return ResourceManager.GetString("Win64IsABitnessTest_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Test Win32 And Is64BitEnv.
+        /// </summary>
+        public static string Win64IsABitnessTest_WindowsFix {
+            get {
+                return ResourceManager.GetString("Win64IsABitnessTest_WindowsFix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing defines &apos;{0}&apos;: it is 0, and a condition that tests it is False..
+        /// </summary>
+        public static string UndefinedConditionalConstant_Message {
+            get {
+                return ResourceManager.GetString("UndefinedConditionalConstant_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a retired predefined constant, which nothing defines: it is 0. {1} tests the same thing..
+        /// </summary>
+        public static string UndefinedConditionalConstant_Retired_Message {
+            get {
+                return ResourceManager.GetString("UndefinedConditionalConstant_Retired_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Test {0}.
+        /// </summary>
+        public static string UndefinedConditionalConstant_Fix {
+            get {
+                return ResourceManager.GetString("UndefinedConditionalConstant_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA..

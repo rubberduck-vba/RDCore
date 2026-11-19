@@ -112,6 +112,8 @@ public enum RDCoreDiagnosticId
     LineLabelNotUsed = 1016, // a line label nothing jumps to
     WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
     KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
+    Win64IsABitnessTest = 1019, // #If Win64 Then: 1 on a 64-bit Mac too, as in Excel for Mac; Is64BitEnv tests the bitness
+    UndefinedConditionalConstant = 1020, // #If DEV Then, DEV defined nowhere: 0, so False; a retired predefined one (Linux64) names its replacement
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,

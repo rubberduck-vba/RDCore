@@ -166,6 +166,9 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, KeywordUsedAsMemberNameAnalyzer>();
         // what calls a library that is not on every platform, wherever it runs.
         services.AddSingleton<IModuleAnalyzer, NativeCallReachableOnEveryPlatformAnalyzer>();
+        // what a directive's constants are: Win64 on a Mac, and a name nothing defines.
+        services.AddSingleton<IModuleAnalyzer, Win64IsABitnessTestAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UndefinedConditionalConstantAnalyzer>();
 
         // what has nothing in it: a block, a procedure, a module.
         services.AddSingleton<IModuleAnalyzer, EmptyIfBlockAnalyzer>();
