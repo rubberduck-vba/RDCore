@@ -465,7 +465,7 @@ public sealed record class ReplCommandContext(
     public System.IO.Abstractions.IFileSystem Files { get; init; } = new System.IO.Abstractions.FileSystem();
 
     /// <summary>
-    /// The code page a module file of <see cref="Files"/> without a byte order mark that is not UTF-8 is in (<see cref="SDK.Workspace.ModuleFileText"/>):
+    /// The code page of a module file of <see cref="Files"/> that has no byte order mark and is not valid UTF-8 (<see cref="SDK.Workspace.ModuleFileText"/>):
     /// the environment's (<see cref="SDK.Server.Configuration.SdkEnvironmentOptions.AnsiCodePage"/>).
     /// </summary>
     public int AnsiCodePage { get; init; } = SDK.Workspace.ModuleFileText.DefaultAnsiCodePage;
