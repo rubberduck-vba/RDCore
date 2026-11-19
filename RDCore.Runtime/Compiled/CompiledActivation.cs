@@ -118,9 +118,9 @@ public sealed partial class CompiledActivation : ILightActivation
         _untilFailedAccess = CompiledExecution.FailsReloadsAtRandom ? _body.NextRandomFailedAccess() : 0;
     }
 
-    // whether the interpreter was given the activation's frame since it began (Interpret, AfterFailedCall, Recover). One it was not given ran its compiled code
-    // to the end, and holds what an activation that returned from a call made directly holds: the invoker may begin it again for its next call of the body
-    // (BeginAgain).
+    // whether the interpreter was given the activation's frame since it began (Interpret, AfterFailedCall, Recover). One it was not given ran its compiled
+    // code to the end, and holds what an activation that returned from a call made directly holds: the invoker may begin it again for its next call of the
+    // body (BeginAgain).
     private bool _handedOver;
 
     /// <summary>
@@ -133,12 +133,15 @@ public sealed partial class CompiledActivation : ILightActivation
     /// Whether the activation runs <paramref name="list"/>, the instructions <paramref name="body"/> was compiled from, for <paramref name="invoker"/>: an
     /// activation the invoker keeps is begun again only for a call of the same code.
     /// </summary>
+    /// <param name="body">The compiled body of the call.</param>
+    /// <param name="list">The instructions the body was compiled from.</param>
+    /// <param name="invoker">The invoker that makes the call.</param>
     internal bool Runs(CompiledBody body, InstructionList list, RuntimeProcedureInvoker invoker)
         => ReferenceEquals(_body, body) && ReferenceEquals(_list, list) && ReferenceEquals(_invoker, invoker);
 
     /// <summary>
-    /// Begins the activation again for another call the invoker makes of the body, in <paramref name="frame"/>, the call's frame, as an activation made for the
-    /// call begins.
+    /// Begins the activation again for another call the invoker makes of the body, in <paramref name="frame"/>, the call's frame, as an activation made for
+    /// the call begins.
     /// </summary>
     /// <param name="frame">The call's frame.</param>
     /// <param name="context">The context the body's code is evaluated in.</param>
