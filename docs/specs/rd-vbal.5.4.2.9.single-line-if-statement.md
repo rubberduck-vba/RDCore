@@ -26,7 +26,8 @@ after it run whatever the condition. MS-VBAL gives the line no reading: a `<list
 `<if-statement>` ([**RD-VBAL §5.4.2.8** If Statement](rd-vbal.5.4.2.8.if-statement.md)) ends its line right after `Then`.
 [`RDC11049`](../diagnostics/rdc11049.md) marks the line.
 
-When an `End If` closes a block that starts on the next line, the line is the header of that block `If`.
+When an `End If` closes a block that starts on the next line, the line is the header of that block `If`. MS-VBAL does not allow that header either: its
+`<if-statement>` takes an `EOL` after `Then`, and no `:`.
 
 ## Runtime Semantics
 

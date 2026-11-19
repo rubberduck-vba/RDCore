@@ -1145,7 +1145,7 @@ End Sub
         Assert.IsEmpty(member.Children.OfType<IfBlockStatementNode>());
     }
 
-    // MS-VBAL §5.4.2.8 reads the same header as a block If, a ':' ending its statement as a line end does; with an End If to close it, it is one.
+    // with an End If to close it, the same header is a block If, where MS-VBAL §5.4.2.8 takes an EOL after Then and no ':'.
     [TestMethod]
     public void BlockIf_ThenAndAColon_IsABlockIf_WhereAnEndIfClosesIt()
     {
