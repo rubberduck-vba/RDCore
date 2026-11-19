@@ -68,10 +68,11 @@ public static class StringOperations
 
     /// <summary>
     /// Appends <paramref name="text"/> to the String variable held in <paramref name="cell"/>, as <c>S = S &amp; text</c> assigns it (MS-VBAL §5.6.9.4,
-    /// §5.4.3.8). The first append of the activation writes the joined String into the cell; the ones after it go to <paramref name="appender"/>, which
-    /// holds the text until <see cref="WriteAppended"/> writes it into the cell, so that each append does not copy the whole String.
+    /// §5.4.3.8). The first append of the activation, before any <c>Mid</c> statement of the variable, writes the joined String into the cell; the ones
+    /// after it go to <paramref name="appender"/>, which holds the text until <see cref="WriteAppended"/> writes it into the cell, so that each append does
+    /// not copy the whole String.
     /// </summary>
-    /// <param name="appender">The activation's appender of the variable; <see langword="null"/> until its first append.</param>
+    /// <param name="appender">The activation's appender of the variable; <see langword="null"/> until its first append or <c>Mid</c> statement.</param>
     /// <param name="cell">The cell of the String variable.</param>
     /// <param name="text">The text appended; <see langword="null"/> for <c>vbNullString</c>.</param>
     /// <returns><see langword="false"/> when the cell holds no text compiled code reads: the interpreter runs the statement.</returns>
@@ -122,33 +123,43 @@ public static class StringOperations
 }
 
 /// <summary>
-/// The text compiled code appends to a <c>String</c> variable of an activation (<see cref="StringOperations.TryAppend"/>), held in a builder until it is
-/// written into the variable's cell (<see cref="StringOperations.WriteAppended"/>). A <c>Mid</c> statement of the variable replaces characters of the
-/// builder (<see cref="CompiledActivation.TryMid"/>). No String is changed in place: the cell is given a new String made of the builder. A cell that
-/// holds a value other than the one the builder was made of was assigned by something else, and the builder is made again of it.
+/// The text of a <c>String</c> variable of an activation that compiled code appends to (<see cref="StringOperations.TryAppend"/>) or changes the
+/// characters of with a <c>Mid</c> statement (<see cref="CompiledActivation.TryMid"/>), held in a builder until it is written into the variable's cell
+/// (<see cref="StringOperations.WriteAppended"/>). A <c>Mid</c> statement replaces characters of the builder where they are. No String is changed in
+/// place: the cell is given a new String made of the builder, which no other variable holds. A cell that holds a value other than the one the builder
+/// was made of was assigned by something else, and the builder is made again of it.
 /// </summary>
 public sealed class TextAppender
 {
     private readonly StringBuilder _builder = new();
 
-    // the value of the cell the builder was made of, or last written as; and whether the builder holds appends the cell does not have yet.
+    // the value of the cell the builder was made of, or last written as; and whether the builder holds changes the cell does not have yet.
     private object? _held;
     private bool _behind;
 
+    // whether the builder holds the value the cell holds, and what was appended to it or replaced in it since.
+    internal bool Holds(ValueBindingHandle handle) => _held is not null && ReferenceEquals(handle.Value, _held);
+
+    // the builder made again of the String the cell holds; false when the cell holds no text compiled code reads.
+    internal bool TryTake(ValueBindingHandle handle)
+    {
+        _behind = false;
+        if (!StringOperations.TryRead(handle, out var held))
+        {
+            _held = null;
+            return false;
+        }
+
+        _ = _builder.Clear().Append(held);
+        _held = handle.Value;
+        return true;
+    }
+
     internal bool TryAppend(ValueBindingHandle handle, string? text)
     {
-        var value = handle.Value;
-        if (value is null || !ReferenceEquals(value, _held))
+        if (!Holds(handle) && !TryTake(handle))
         {
-            if (!StringOperations.TryRead(handle, out var held))
-            {
-                _held = null;
-                _behind = false;
-                return false;
-            }
-
-            _ = _builder.Clear().Append(held);
-            _held = value;
+            return false;
         }
 
         _ = _builder.Append(text);
@@ -160,8 +171,7 @@ public sealed class TextAppender
     // String is not made of the builder for it. False when the builder is not in step with the cell, or the statement raises.
     internal bool TryMid(ValueBindingHandle handle, long start, long count, bool hasCount, string? value)
     {
-        if (_held is null || !ReferenceEquals(handle.Value, _held)
-            || StringOperations.MidReplaced(_builder.Length, start, count, hasCount, value) is not var (index, replaced))
+        if (!Holds(handle) || StringOperations.MidReplaced(_builder.Length, start, count, hasCount, value) is not var (index, replaced))
         {
             return false;
         }

@@ -418,7 +418,7 @@ internal sealed record class VariantForNextStep(int Offset, int Opener, int Body
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
 
 // a Mid statement of a String variable of the activation, in characters (MS-VBAL §5.4.3.5): its start and its length (none when the statement gives none)
-// let-coerced to Long, and the text of the value, given to CompiledActivation.TryMid.
+// let-coerced to Long, and the text of the value, given to CompiledActivation.TryMid (TryMidInCell for a parameter by reference).
 internal sealed record class MidStep(int Offset, int Slot, PayloadNode Start, PayloadNode? Length, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a String variable of the activation that appends to it (S = S & ...): the texts appended, evaluated before anything is appended, then appended
