@@ -144,6 +144,23 @@ public sealed class CompiledRecordTests
         => [("Noisy", ModuleWorkspace.ClassModule("Noisy", ["Option Explicit", "Public Name As String",
             "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Name", "End Sub"]))];
 
+    // a Variant field that holds an object is the object to a member access (MS-VBAL §5.6.12): its member is let and read through the field, of a record,
+    // of a record's record, and of a record an array holds, as through a Variant variable.
+    [TestMethod]
+    [DataRow("A.V", DisplayName = "a field of a record")]
+    [DataRow("P.Inner.V", DisplayName = "a field of a record's record")]
+    [DataRow("R(1).V", DisplayName = "a field of an element of an array")]
+    public async Task AVariantFieldHoldingAnObject_GivesTheObjectsMembers(string field)
+        => await AssertPrintsAsync(Noisy(), Module(
+            "Public Sub Main()",
+            "    Dim A As TPoint, P As TPair, R(1) As TPoint",
+            $"    Set {field} = New Noisy",
+            $"    {field}.Name = \"a\"",
+            $"    Debug.Print {field}.Name; TypeName({field})",
+            $"    Set {field} = Nothing",
+            "    Debug.Print \"after\"",
+            "End Sub"), null, 0, 0, "aNoisy", "gone a", "after");
+
     // an object a field holds is let go of where the interpreter lets go of it: a copy of another record over the record, a Let of a number to a Variant
     // field that held it - which compiled code hands to the interpreter - and the end of the activation whose variable the record is.
     [TestMethod]
