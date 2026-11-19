@@ -92,9 +92,14 @@ public record class VBObjectLetCoercionRuntimeSemantics(
 
         // MS-VBAL 5.5.1.2.13 only needs the member's declared parameter list "compatible with an argument list containing 0
         // parameters" - every declared parameter is Optional or a ParamArray, not that there are none at all.
+        // a default member that takes an argument is there, and the read gives it none: 450, as every read of an object's value has it
+        // (MS-VBAL 5.6.2.2, ObjectDefaultMember.NoValue); 438 is for an object that has no default member at all.
         if (!ObjectDefaultMember.TryFind(instance.ClassModule, out var defaultMember))
         {
-            return LetCoercionResult.Error(OnLetCoercionObjectDoesntSupportThisPropertyOrMethod(expression, frame));
+            return LetCoercionResult.Error(VBClassType.FromClassModule(instance.ClassModule).DefaultMember is not null
+                ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, expression.Location,
+                    "The object's default member takes an argument, which reading its value does not give it.")
+                : OnLetCoercionObjectDoesntSupportThisPropertyOrMethod(expression, frame));
         }
 
         if (ProcedureInvoker is not { } invoker)

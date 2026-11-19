@@ -7,7 +7,6 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using System.Globalization;
-using System.Resources;
 using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
@@ -19,8 +18,6 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
     // RD-VBAL §2.6.1
     public IReadOnlyList<SymbolSite> Unresolved { get; init; } = [];
 
-    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
-
     public string? IncompleteMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
     {
         if (Unresolved is not [var first, ..])
@@ -28,9 +25,8 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
             return null;
         }
 
-        culture ??= CultureInfo.CurrentUICulture;
         var where = locate?.Invoke(first.Module, first.Range.Start) ?? $"{SymbolUri.ModuleNameOf(first.Module)} {first.Range.Start.Line + 1}:{first.Range.Start.Character + 1}";
-        return string.Format(culture, Messages.GetString("References_Incomplete", culture)!, Symbol.Name, where);
+        return SymbolTexts.ReferencesIncomplete(Symbol.Name, where, culture);
     }
 }
 

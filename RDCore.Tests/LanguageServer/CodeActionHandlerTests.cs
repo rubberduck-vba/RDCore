@@ -86,14 +86,21 @@ public sealed class CodeActionHandlerTests
 
     private CodeActionHandler Handler()
     {
+        var rename = Rename();
+        return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, AppOptions()),
+            new MoveMemberService(rename, _parsing), _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles,
+            _libraries, closerToUsage: new MoveCloserToUsageService(rename), parameterReorder: new ParameterReorderService(rename));
+    }
+
+    private static IOptions<SdkAppOptions> AppOptions()
+        => Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+
+    private RenameService Rename()
+    {
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
-        var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
-        return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
-            new MoveMemberService(rename, _parsing), _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), _projectFiles,
-            _libraries);
+        return new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, AppOptions(), NullLogger<RenameService>.Instance, OneProject.Registry());
     }
 
     private static DocumentUri Document => DocumentUri.From(Path.Combine(Root, "Main.rdc"));
@@ -151,23 +158,29 @@ public sealed class CodeActionHandlerTests
     private static Diagnostic Coded(string code, Range range) => new() { Range = range, Code = code, Source = "RDCore", Message = code };
 
     [TestMethod]
-    public async Task ACodeOfTheDiagnosticsOfTheRange_IsOfferedTheActionThatDisablesIt_InEveryWorkspace_Once()
+    public async Task ACodeOfTheDiagnosticsOfTheRange_IsOfferedTheActionsThatDisableIt_InEveryWorkspace_ThenInThisWorkspace_Once()
     {
         ClientTakesListChanges();
         var first = Coded("RDC01002", new Range(0, 7, 0, 14));
         var second = Coded("RDC01002", new Range(3, 15, 3, 22));
 
-        var action = Assert.ContainsSingle(await ActionsAsync(new Range(0, 0, 3, 22), [CodeActionKind.QuickFix], first, second));
+        var actions = await ActionsAsync(new Range(0, 0, 3, 22), [CodeActionKind.QuickFix], first, second);
 
-        Assert.AreEqual("Disable RDC01002 in every workspace", action.Title);
-        Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
-        CollectionAssert.AreEqual(new[] { first, second }, action.Diagnostics!.ToArray());
-        Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
-        var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
-        Assert.AreEqual("Analysis.DisabledDiagnostics", (string?)change["key"]);
-        Assert.AreEqual("RDC01002", (string?)change["value"]);
-        Assert.AreEqual((int)RDCore.SDK.Platform.Protocol.SettingScope.Platform, (int?)change["scope"]);
-        Assert.IsFalse((bool?)change["remove"]);
+        Assert.HasCount(2, actions);
+        CollectionAssert.AreEqual(new[] { "Disable RDC01002 in every workspace", "Disable RDC01002 in this workspace" }, actions.Select(action => action.Title).ToArray());
+        var scopes = new[] { RDCore.SDK.Platform.Protocol.SettingScope.Platform, RDCore.SDK.Platform.Protocol.SettingScope.Workspace };
+        for (var index = 0; index < actions.Count; index++)
+        {
+            var action = actions[index];
+            Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
+            CollectionAssert.AreEqual(new[] { first, second }, action.Diagnostics!.ToArray());
+            Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
+            var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
+            Assert.AreEqual("Analysis.DisabledDiagnostics", (string?)change["key"]);
+            Assert.AreEqual("RDC01002", (string?)change["value"]);
+            Assert.AreEqual((int)scopes[index], (int?)change["scope"]);
+            Assert.IsFalse((bool?)change["remove"]);
+        }
     }
 
     [TestMethod]
@@ -335,6 +348,19 @@ public sealed class CodeActionHandlerTests
     }
 
     [TestMethod]
+    public async Task AVariableOfAProcedure_IsOfferedTheMoveOfItsDeclaration_ToItsFirstUse()
+    {
+        var document = DocumentUri.From(Path.Combine(Root, "Module1.bas"));
+
+        var actions = await ActionsAsync(document, new Range(3, 8, 3, 8), [CodeActionHandler.RefactorMoveCloserToUsage]);
+
+        var action = actions.Single();
+        Assert.AreEqual("Move 'x' closer to its usage", action.Title);
+        var edits = action.Edit!.Changes!.Single().Value.Select(edit => (edit.Range, edit.NewText)).ToArray();
+        CollectionAssert.AreEqual(new[] { (new Range(3, 0, 4, 0), string.Empty), (new Range(5, 0, 5, 0), "    Dim x As Long\r\n") }, edits);
+    }
+
+    [TestMethod]
     public async Task AClientThatAsksForQuickFixesOnly_IsNotOfferedTheRefactorings()
         => Assert.IsEmpty(await ActionsAsync(new Range(0, 0, 3, 0), [CodeActionKind.QuickFix]));
 
@@ -405,6 +431,62 @@ public sealed class CodeActionHandlerTests
         Assert.AreEqual(diagnostic, extraction.Diagnostics!.Single());
         Assert.IsNotNull(extraction.Edit, "a client with no dialog is sent the edit");
         Assert.ContainsSingle(forTheRange.Where(action => action.Kind == CodeActionHandler.RefactorExtractMethod), "the selection is the range of the diagnostic");
+    }
+
+    [TestMethod]
+    public async Task AParameterThatIsNotUsed_IsOfferedItsRemoval_AsAPreferredFix_AndAParameterThatIsUsed_IsNot()
+    {
+        const string tools = "Attribute VB_Name = \"Tools\"\r\nPublic Sub Go(ByVal a As Long, ByVal b As Long)\r\n    Debug.Print a\r\nEnd Sub\r\nPublic Sub One()\r\n    Go 1, 2\r\nEnd Sub\r\n";
+        Hold(new WorkspaceDocument("Tools.bas", Root, tools, version: 1));
+        var document = DocumentUri.From(Path.Combine(Root, "Tools.bas"));
+        var unused = new Diagnostic
+        {
+            Range = new Range(1, 37, 1, 38),
+            Code = "RDC01013",
+            Source = "RDCore",
+            Message = "Not used",
+            Data = new DiagnosticFixes { Refactoring = new RefactoringFix { Kind = RefactoringKinds.RemoveParameter } }.ToData(),
+        };
+
+        var fixes = await ActionsAsync(document, unused.Range, null, unused);
+        var atTheUsedOne = await ActionsAsync(document, new Range(1, 20, 1, 20), null);
+
+        var fix = Assert.ContainsSingle(fixes.Where(action => action.Title == "Remove parameter 'b'"), "offered once, as the fix");
+        Assert.AreEqual(CodeActionKind.QuickFix, fix.Kind);
+        Assert.IsTrue(fix.IsPreferred);
+        Assert.AreEqual(2, fix.Edit!.Changes!.Single().Value.Count(), "the declaration and the call");
+        Assert.IsFalse(atTheUsedOne.Any(action => action.Kind == CodeActionHandler.RefactorRemoveParameter), "a client that shows no disabled action is offered none");
+    }
+
+    [TestMethod]
+    public async Task AProcedureWithParameters_IsOfferedTheirReordering_AsACommand_ThatPutsThemInTheOrderAnswered()
+    {
+        const string tools = "Attribute VB_Name = \"Tools\"\r\nPublic Sub Go(ByVal a As Long, ByVal b As String)\r\nEnd Sub\r\nPublic Sub One()\r\n    Go 1, \"x\"\r\nEnd Sub\r\n";
+        Hold(new WorkspaceDocument("Tools.bas", Root, tools, version: 1));
+        var document = DocumentUri.From(Path.Combine(Root, "Tools.bas"));
+        _capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(true);
+
+        var rename = Rename();
+        var at = new RDCore.SDK.Model.Source.SourceRange(1, 12, 1, 12);
+
+        var offered = await ActionsAsync(document, new Range(1, 12, 1, 12), null);
+        var prepared = await new RefactorPrepareHandler(new ExtractMethodService(rename, _parsing, AppOptions()), _capabilities, parameterReorder: new ParameterReorderService(rename)).Handle(
+            new RDCore.SDK.Platform.Protocol.RefactorPrepareRequest { Kind = RefactoringKinds.ReorderParameters, Uri = document.ToUri(), Range = at }, CancellationToken.None);
+        var applied = await new RefactorApplyHandler(new ExtractMethodService(rename, _parsing, AppOptions()), _capabilities, parameterReorder: new ParameterReorderService(rename)).Handle(
+            new RDCore.SDK.Platform.Protocol.RefactorApplyRequest
+            {
+                Kind = RefactoringKinds.ReorderParameters,
+                Uri = document.ToUri(),
+                Range = at,
+                Answers = [new() { Id = ParameterReorderService.ParametersChoice, Items = [new() { Id = "b" }, new() { Id = "a" }] }],
+            }, CancellationToken.None);
+
+        var reorder = Assert.ContainsSingle(offered.Where(action => action.Kind == CodeActionHandler.RefactorReorderParameters));
+        Assert.AreEqual("Reorder the parameters of 'Go'", reorder.Title);
+        Assert.AreEqual(RefactoringCommands.Refactor, reorder.Command!.Name);
+        CollectionAssert.AreEqual(new[] { "ByVal a As Long", "ByVal b As String" }, prepared.Choices.Single().Items.Select(item => item.Label).ToArray());
+        Assert.AreEqual(tools.Replace("(ByVal a As Long, ByVal b As String)", "(ByVal b As String, ByVal a As Long)").Replace("Go 1, \"x\"", "Go \"x\", 1"),
+            DeclarationEdits.ApplyTo(tools, applied.Documents.Single().Edits));
     }
 
     [TestMethod]

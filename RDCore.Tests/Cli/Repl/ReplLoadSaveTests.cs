@@ -11,6 +11,7 @@ namespace RDCore.Tests.Cli.Repl;
 /// <c>LOAD</c> and <c>SAVE</c> read and write a <c>.rdc</c> file, and the language server is told of the program as an editor tells it of a document
 /// (<strong>LSP 3.17</strong> §Text Document Synchronization): opened, changed, about to be saved, saved, closed.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ReplLoadSaveTests
 {

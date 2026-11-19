@@ -351,7 +351,7 @@ internal static class ObjectReferences
         }
 
         // an element of a param array given a variable is the variable (MS-VBAL §5.3.1.5): what it holds is the variable's, which lets go of it, and not the
-        // array's - the activation that ends with the array does not. An element whose cell is not made holds its type's default, which holds no object.
+        // array's - the activation that ends with the array does not. An element that has no cell yet holds its type's default value, which holds no object.
         foreach (var (_, cell) in array.MadeCells)
         {
             if (cell is not VariantReferenceBindingHandle && !HoldsNoObject(cell) && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))

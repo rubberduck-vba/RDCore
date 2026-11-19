@@ -204,7 +204,14 @@ internal sealed partial class ProcedureAnalysis
 
     private bool IsVariantElement(BoundNode node) => ElementOf(node) is { } index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };
 
-    private const string IsEmptyFunction = "IStdInformationModule.IsEmpty/1";
+    // the function of the standard library a VariantInformationNode answers for library, if it is one: IsEmpty, IsNull or VarType.
+    private static VariantInformation? VariantInformationOf(Symbol library) => library.GetProperty(SymbolProperties.ExternalTarget) switch
+    {
+        "IStdInformationModule.IsEmpty/1" => VariantInformation.IsEmpty,
+        "IStdInformationModule.IsNull/1" => VariantInformation.IsNull,
+        "IStdInformationModule.VarType/1" => VariantInformation.VarType,
+        _ => null,
+    };
 
     // whether node is a Variant compiled code reads in its cell: a Variant of the activation, or an element of an array of Variants.
     private bool IsVariantInItsCell(BoundNode node)

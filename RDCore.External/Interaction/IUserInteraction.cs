@@ -58,10 +58,6 @@ public sealed class DialogNotAnsweredException(RDCoreDiagnosticCode Code, string
 /// <param name="Style">The buttons, the icon, the default button and the modality, summed.</param>
 public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgBoxStyle Style)
 {
-    private const int IconMask = 0x70;
-    private const int DefaultButtonMask = 0x300;
-    private const int DefaultButtonShift = 8;
-
     /// <summary>
     /// The set of buttons: <see cref="VBMsgBoxStyle.VBOKOnly"/> through <see cref="VBMsgBoxStyle.VBRetryCancel"/>. A value that names none of them is
     /// <see cref="VBMsgBoxStyle.VBOKOnly"/>.
@@ -72,7 +68,7 @@ public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgB
     /// The icon: <see cref="VBMsgBoxStyle.VBCritical"/>, <see cref="VBMsgBoxStyle.VBQuestion"/>, <see cref="VBMsgBoxStyle.VBExclamation"/>,
     /// <see cref="VBMsgBoxStyle.VBInformation"/>, or <c>0</c> for none.
     /// </summary>
-    public VBMsgBoxStyle Icon => (VBMsgBoxStyle)((int)Style & IconMask);
+    public VBMsgBoxStyle Icon => VBMsgBoxButtons.IconOf(Style);
 
     /// <summary>
     /// The buttons of the dialog, in the order they are shown, as the answer each of them gives.
@@ -83,19 +79,14 @@ public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgB
     /// The index in <see cref="Choices"/> of the button that has the focus when the dialog opens: the one <c>vbDefaultButton1</c> through <c>vbDefaultButton4</c>
     /// names, or the first when the dialog has no such button - as Windows has it.
     /// </summary>
-    public int DefaultChoice => (((int)Style & DefaultButtonMask) >> DefaultButtonShift) is var index && index < Choices.Count ? index : 0;
+    public int DefaultChoice => VBMsgBoxButtons.DefaultChoiceOf(Style);
 
     /// <summary>
     /// The answer of a dialog closed at window level - <kbd>Esc</kbd>, or its close button - without choosing a button: <see cref="VBMsgBoxResult.VBCancel"/> when
     /// it has a <em>Cancel</em> button, <see cref="VBMsgBoxResult.VBOK"/> when <em>OK</em> is its only one, and <see langword="null"/> for a dialog that cannot be
     /// closed that way (<see cref="VBMsgBoxStyle.VBYesNo"/>, <see cref="VBMsgBoxStyle.VBAbortRetryIgnore"/>), as Windows has it.
     /// </summary>
-    public VBMsgBoxResult? EscapeResult => Choices switch
-    {
-        [VBMsgBoxResult.VBOK] => VBMsgBoxResult.VBOK,
-        var choices when choices.Contains(VBMsgBoxResult.VBCancel) => VBMsgBoxResult.VBCancel,
-        _ => null,
-    };
+    public VBMsgBoxResult? EscapeResult => VBMsgBoxButtons.EscapeResultOf(Style);
 }
 
 /// <summary>

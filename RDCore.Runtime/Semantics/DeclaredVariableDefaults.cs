@@ -40,9 +40,8 @@ namespace RDCore.Runtime.Semantics;
 /// <param name="session">The session the variables are allocated in, which resolves what the bounds name.</param>
 /// <param name="bounds">Reduces a bound to an integer.</param>
 /// <param name="stop">
-/// Stops the making of an element of a fixed-size array. An element is made the first time it is used, not with the array, and one statement can use
-/// millions of them: an analysis that is told to stop does not first make the rest. <see cref="OperationCanceledException"/> is what a stopped element
-/// throws.
+/// Stops an analysis that is told to stop when it next makes an element of a fixed-size array: an element is made the first time it is used
+/// (<see cref="VBArrayValue.MadeCells"/>), and one made after the analysis is told to stop throws <see cref="OperationCanceledException"/>.
 /// </param>
 public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBoundEvaluator bounds, CancellationToken stop = default) : IVariableDefaults
 {
@@ -99,7 +98,7 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     public Func<IBindingHandle>? ElementCellOf(VBType itemType) => ElementCells.Of(itemType);
 
     // what makes each element of a declared array, asking first whether to stop. An element kept in the cell VBArrayValue makes of its default value (a
-    // String's, an Object's, any element of an array when values are boxed) is made with nothing asked.
+    // String's, an Object's, any element of an array when values are boxed) is made with nothing asked: the analysis stops at its next instruction.
     private Func<T>? Stopping<T>(Func<T>? make) => make is null || !stop.CanBeCanceled ? make : () =>
     {
         stop.ThrowIfCancellationRequested();

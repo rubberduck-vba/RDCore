@@ -169,6 +169,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.HostedDocumentCode, 1005),
         (RDCoreDiagnosticId.UnsupportedDocumentModule, 1006),
         (RDCoreDiagnosticId.HostLibraryNotReferenced, 1007),
+        (RDCoreDiagnosticId.NativeCallReachableOnEveryPlatform, 1008),
         (RDCoreDiagnosticId.EmptyProcedure, 1009),
         (RDCoreDiagnosticId.EmptyModule, 1010),
         (RDCoreDiagnosticId.VariableNotUsed, 1011),
@@ -194,6 +195,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ObjectLetToObjectProperty, 11047),
         (RDCoreDiagnosticId.NoEntryPoint, 30001),
         (RDCoreDiagnosticId.AmbiguousEntryPoint, 30002),
+        (RDCoreDiagnosticId.CircularProjectReference, 31001),
     ];
 
     [TestMethod]

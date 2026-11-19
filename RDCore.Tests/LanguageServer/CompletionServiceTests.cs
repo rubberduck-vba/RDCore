@@ -1720,4 +1720,17 @@ public sealed class CompletionServiceTests
     [TestMethod]
     public async Task AnIdentifier_TypedWithAnOpeningBracket_IsOffered()
         => CollectionAssert.Contains(await LabelsAsync("Attribute VB_Name = \"Main\"\r\nPrivate Total As Long\r\nPublic Sub Run()\r\n    x = [To|\r\nEnd Sub\r\n"), "Total");
+
+    // Debug is written only as its two statements, which are its members after the dot, as VB6 and MS-VBA list them.
+    [TestMethod]
+    [DataRow("Debug.|", DisplayName = "Debug.")]
+    [DataRow("Debug.Pr|", DisplayName = "Debug.Pr, a member started")]
+    [DataRow("debug.|", DisplayName = "debug., in any case")]
+    public async Task Debug_AfterItsDot_OffersPrintAndAssert(string line)
+    {
+        var labels = await LabelsAsync($"Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    {line}\r\nEnd Sub\r\n");
+
+        CollectionAssert.Contains(labels, "Print", string.Join(", ", labels));
+        CollectionAssert.IsSubsetOf(labels, new[] { "Assert", "Print" }, string.Join(", ", labels));
+    }
 }

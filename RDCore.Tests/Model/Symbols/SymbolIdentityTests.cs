@@ -200,7 +200,7 @@ public sealed class SymbolIdentityTests
         }
     }
 
-    // IPlayer.cls of OOPBattleship, as it is written: an Enum, then a Property Get of the Enum's name and type.
+    // a real project's class, as it is written: an Enum, then a Property Get of the Enum's name and type.
     private static string Player(string getBody) => ModuleWorkspace.ClassModule("Player",
         "Public Enum PlayerType", "    HumanControlled", "    ComputerControlled", "End Enum", "",
         "Option Explicit", "",

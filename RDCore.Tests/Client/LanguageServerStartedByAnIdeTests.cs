@@ -12,6 +12,7 @@ namespace RDCore.Tests.Client;
 /// <c>--pipe-name {pipe} --workspace {workspaceUri}</c>) from the pre-launch preparation (<see cref="RDCoreLanguageServerLaunch"/>), answers the LSP
 /// <c>initialize</c> request, and then the platform handshake, over the IDE's own LSP connection.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("Platform")]
 public sealed class LanguageServerStartedByAnIdeTests
@@ -47,7 +48,7 @@ public sealed class LanguageServerStartedByAnIdeTests
             // LanguageClient.From sends initialize, and returns once it is answered.
             using var client = await LanguageClient.From(options => options
                 .WithInput(pipe)
-                .WithOutput(pipe)
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithRootUri(new Uri(workspace)), timeout.Token);
 
             Assert.IsNotNull(client.ServerSettings.Capabilities, "initialize is answered");

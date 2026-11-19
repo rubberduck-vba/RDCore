@@ -36,17 +36,32 @@ internal static class OperatorTokens
     /// </summary>
     public static PayloadStatus OperateIntegral(string token, ScalarKind kind, long left, long right, out long result)
     {
-        switch (token)
+        if (VariantOperators.Of(token) is { } @operator)
         {
-            case Tokens.AdditionOp:
+            return OperateIntegral(@operator, kind, left, right, out result);
+        }
+
+        result = 0;
+        return PayloadStatus.Decline;
+    }
+
+    /// <summary>
+    /// The operation of payloads of an integral kind <paramref name="operator"/> is, as <see cref="OperateIntegral(string, ScalarKind, long, long, out long)"/>
+    /// does the operation of its token.
+    /// </summary>
+    public static PayloadStatus OperateIntegral(VariantOperator @operator, ScalarKind kind, long left, long right, out long result)
+    {
+        switch (@operator)
+        {
+            case VariantOperator.Add:
                 return PayloadOperations.Add(kind, left, right, out result);
-            case Tokens.SubtractionOp:
+            case VariantOperator.Subtract:
                 return PayloadOperations.Subtract(kind, left, right, out result);
-            case Tokens.MultiplicationOp:
+            case VariantOperator.Multiply:
                 return PayloadOperations.Multiply(kind, left, right, out result);
-            case Tokens.IntegerDivisionOp:
+            case VariantOperator.IntegerDivide:
                 return PayloadOperations.IntegerDivide(kind, left, right, out result);
-            case Tokens.ModuloOp:
+            case VariantOperator.Modulo:
                 return PayloadOperations.Modulo(kind, left, right, out result);
             default:
                 result = 0;

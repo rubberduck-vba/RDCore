@@ -9,20 +9,34 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <c>Circle</c>, <c>Line</c>, <c>PSet</c> and <c>Scale</c> draw on an object, and the platform has no object that can be drawn on. Written with no object
-/// they are undefined; written with one they are a method it does not have. Neither is a statement that does nothing: a drawing that is skipped is a program
-/// that lies about what it did.
+/// <c>Circle</c>, <c>Line</c>, <c>PSet</c> and <c>Scale</c> draw on an object. Written with no object they are undefined, except in a Visual Basic 6.0 form's
+/// code, where they are the form's; written with an object they are a call of its method, which an object that cannot draw does not have. Neither is a
+/// statement that does nothing: a drawing that is skipped is a program that lies about what it did.
 /// </summary>
 [TestClass]
 public sealed class GraphicsStatementSemanticsTests
 {
-    private static InstructionListLoweringResult Lower(SupportedLanguage? language, string statement)
+    // drawsOnMe: the body is a Visual Basic 6.0 form's code.
+    private static InstructionListLoweringResult Lower(SupportedLanguage? language, string statement, bool drawsOnMe = false)
     {
         var parse = new RDCore.Parsing.ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Sub Foo()\r\n{statement}\r\nEnd Sub\r\n");
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
         var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
-        return InstructionListLowering.Lower(new StatementBlock([.. member.Children]), new InstructionLoweringOptions(Language: language));
+        return InstructionListLowering.Lower(new StatementBlock([.. member.Children]), new InstructionLoweringOptions(Language: language, DrawsOnMe: drawsOnMe));
+    }
+
+    [TestMethod]
+    [DataRow("Circle (1, 1), 2")]
+    [DataRow("PSet (1, 1)")]
+    [DataRow("Scale (0, 0)-(1, 1)")]
+    [DataRow("Line (0, 0)-(1, 1)")]
+    public void AGraphicsStatementWithNoObject_InAVisualBasicFormsCode_IsACallToTheForm(string statement)
+    {
+        var result = Lower(SupportedLanguages.Get("vb6"), statement, drawsOnMe: true);
+
+        Assert.IsEmpty(result.Errors);
+        Assert.IsNotEmpty(result.InstructionList.Items);
     }
 
     [TestMethod]
