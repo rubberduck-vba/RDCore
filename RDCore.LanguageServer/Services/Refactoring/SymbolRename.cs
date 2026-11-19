@@ -17,8 +17,9 @@ using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
@@ -689,66 +690,27 @@ public static class SymbolRename
         return null;
     }
 
-    // where a module's VB_Name attribute writes its name, between the quotes.
-    private static (Uri Module, SourceRange Range)? VbNameRange(RenameContext context, Symbol module)
+    // the text of the module a symbol is of, as the rename reads it.
+    private static RenameModule? SourceOf(RenameContext context, Symbol module)
     {
         var at = NameOccurrences.ModuleOf(module.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
-        {
-            return null;
-        }
-
-        var lines = source.Source.Split('\n');
-        for (var line = 0; line < lines.Length; line++)
-        {
-            if (VbName.Match(lines[line]) is { Success: true } match)
-            {
-                var name = match.Groups["name"];
-                return (source.Module, new SourceRange(line, name.Index, line, name.Index + name.Length));
-            }
-        }
-
-        return null;
+        return context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri);
     }
 
-    private static readonly Regex VbName = new(@"^\s*Attribute\s+VB_Name\s*=\s*""(?<name>[^""]*)""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    // where a module's VB_Name attribute writes its name, between the quotes.
+    private static (Uri Module, SourceRange Range)? VbNameRange(RenameContext context, Symbol module)
+        => SourceOf(context, module) is { } source && ModuleHeader.NameRangeOf(source.Source) is { } range ? (source.Module, range) : null;
 
-    // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name, first of its header: after the VERSION line
-    // of a class's or a designer's file, the Object lines of the controls it uses and its Begin ... End block, or on the first line.
+    // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name where its first attribute goes, after
+    // its header.
     private static RenameEdit? VbNameInsertion(RenameContext context, Symbol module, string newName)
     {
-        var at = NameOccurrences.ModuleOf(module.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
+        if (SourceOf(context, module) is not { } source)
         {
             return null;
         }
 
-        var lines = source.Source.Split('\n');
-        var line = 0;
-        if (lines[0].TrimStart().StartsWith("VERSION ", StringComparison.OrdinalIgnoreCase))
-        {
-            line = 1;
-            while (line < lines.Length - 1 && lines[line].TrimStart().StartsWith("Object ", StringComparison.OrdinalIgnoreCase))
-            {
-                line++;
-            }
-
-            if (IsBegin(lines[line]))
-            {
-                // the block ends at the End of its own Begin: a designer's blocks hold the blocks of its controls.
-                for (var depth = 0; line < lines.Length; line++)
-                {
-                    depth += IsBegin(lines[line]) ? 1 : lines[line].Trim().Equals("End", StringComparison.OrdinalIgnoreCase) ? -1 : 0;
-                    if (depth == 0)
-                    {
-                        break;
-                    }
-                }
-
-                line = Math.Min(line + 1, lines.Length - 1);
-            }
-        }
-
+        var line = ModuleHeader.AttributesLineOf(source.Source);
         var newLine = source.Source.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         return new RenameEdit(source.Module, new SourceRange(line, 0, line, 0), $"Attribute VB_Name = \"{newName}\"{newLine}");
     }
@@ -757,34 +719,26 @@ public static class SymbolRename
     // Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog), before its attributes.
     private static (Uri Module, SourceRange Range)? DesignerNameRange(RenameContext context, Symbol module)
     {
-        var at = NameOccurrences.ModuleOf(module.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
+        if (SourceOf(context, module) is not { } source || FormNameRangeOf(source.Source) is not { } range)
         {
             return null;
         }
 
-        var lines = source.Source.Split('\n');
-        for (var line = 0; line < lines.Length && !VbName.IsMatch(lines[line]); line++)
-        {
-            if (Designer.Match(lines[line]) is { Success: true } match)
-            {
-                var name = match.Groups["name"];
-                return string.Equals(name.Value, module.Name, StringComparison.OrdinalIgnoreCase)
-                    ? (source.Module, new SourceRange(line, name.Index, line, name.Index + name.Length))
-                    : null;
-            }
-        }
-
-        return null;
+        var name = source.Source.Split('\n')[range.Start.Line][range.Start.Character..range.End.Character];
+        return string.Equals(name, module.Name, StringComparison.OrdinalIgnoreCase) ? (source.Module, range) : null;
     }
 
-    private static readonly Regex Designer = new(@"^Begin\s+\S+\s+(?<name>[^\s']+)", RegexOptions.CultureInvariant);
-
-    // a line that opens a block of a class's or a designer's file: BEGIN, or Begin and what it describes.
-    private static bool IsBegin(string line)
+    // a designer block that is not terminated names no form a rename can change.
+    private static SourceRange? FormNameRangeOf(string source)
     {
-        var trimmed = line.Trim();
-        return trimmed.StartsWith("Begin", StringComparison.OrdinalIgnoreCase) && (trimmed.Length == 5 || char.IsWhiteSpace(trimmed[5]));
+        try
+        {
+            return FormDesigner.FormNameRangeOf(source);
+        }
+        catch (FormDesignerFormatException)
+        {
+            return null;
+        }
     }
 
     // the name an Implements directive writes, where it is the module's.
