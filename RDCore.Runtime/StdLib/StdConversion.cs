@@ -460,8 +460,8 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     private static string ErrorCodeText(VBErrorValue error)
         => ValueConversions.ToText(new VBLongValue(error.Value), CultureInfo.InvariantCulture).Value is VBStringValue code ? code.Value : string.Empty;
 
-    // the length of the number text begins with, 0 for none: a sign, then digits with a decimal point after them or among them, or a decimal point and
-    // digits, then an exponent of e, E, d or D with a sign, read only when digits follow it. The digits are the ASCII ones.
+    // the length of the number text begins with, 0 for none: an optional sign, then digits with an optional decimal point after them or among them, or a
+    // decimal point and digits, then an exponent of e, E, d or D with an optional sign, read only when digits follow it. The digits are the ASCII ones.
     private static int LeadingNumberLength(ReadOnlySpan<char> text)
     {
         var index = text is ['+' or '-', ..] ? 1 : 0;
