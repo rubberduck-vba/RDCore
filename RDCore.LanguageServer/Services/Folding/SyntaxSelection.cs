@@ -54,6 +54,7 @@ public static class SyntaxSelection
         return inner;
     }
 
-    // the end is in it: a position at the end of a node, where the cursor is after its last character, selects it.
+    // the range's end is in it, where SourceRange.Contains leaves it out: a position at the end of a node, where the cursor is after its last character,
+    // selects the node.
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
 }
