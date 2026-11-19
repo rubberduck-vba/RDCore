@@ -12,7 +12,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// The host counts the references of a constant (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>). A constant of a procedure is counted over
 /// the code of the procedure: its statements, the values of its other constants and the bounds of its arrays. A <c>Private</c> constant of the module,
-/// declared with no access keyword too, is counted over the code and the declarations of the module. A <c>Public</c> constant has no count, and is not
+/// declared with no access keyword too, is counted over the code and the declarations of the module, and a <c>Public</c> one of an
+/// <c>Option Private Module</c> module over every module of the project. A <c>Public</c> constant that other projects can use has no count, and is not
 /// reported. The finding comes with the fix that removes the declaration.
 /// </remarks>
 internal sealed class ConstantNotUsedAnalyzer : IModuleAnalyzer

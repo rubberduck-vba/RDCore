@@ -23,7 +23,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Runtime.Semantics;
 
 // MS-VBAL §5.6.9.3: an expression of Single, Double and Date operations of operands of declared types is computed in the x87's extended format, and
-// rounded where its value is stored (ExtendedIntermediates; recorded in Excel, grid oracle\s42). An operation's plan, made of the declared types of its
+// rounded where its value is stored (ExtendedIntermediates; observed in Excel). An operation's plan, made of the declared types of its
 // operands, says whether it is one: a plan that is not deferred, of such an effective type. Its value is a WideValue until something takes it - stored as
 // the type of the expression by default, converted to its own type by what let-coerces it to a numeric one, compared at its precision by a comparison.
 public sealed partial class RuntimeExpressionEvaluator
@@ -44,7 +44,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     // the type of an extended intermediate's expression; null for a node that is not one. CSng of one is a Single and CDbl a Double, as they are declared
     // (MS-VBAL §6.1.2.3.1.11, §6.1.2.3.1.5); Abs, Int and Fix, declared to return a Variant (§6.1.2.10.1.1, §6.1.2.3.1.18, §6.1.2.3.1.16), are of the type
-    // of the number they are given in MS-VBA, which computes them on it (s42 A10-A13).
+    // of the number they are given in MS-VBA, which computes them on it (observed in Excel).
     private static VBType? WideTypeOf(BoundNode node) => node switch
     {
         BoundBinary binary => PlanOf(binary) is { IsDeferred: false } plan && ExtendedIntermediates.IsArithmetic(plan.Operator)
@@ -273,13 +273,13 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // an operand of an operation that is not itself an extended one: an extended intermediate is converted to the type the operation coerces its operands
-    // to, when that is a numeric one (MS-VBA: (2.5 + 2^-60) \ 1 is 3, (s + 1) ^ 1 is 16777217 - s42 D06, D15), and stored as its own type otherwise.
+    // to, when that is a numeric one (MS-VBA: (2.5 + 2^-60) \ 1 is 3, (s + 1) ^ 1 is 16777217, observed in Excel), and stored as its own type otherwise.
     private RuntimeSemanticsEvaluationResult EvaluateOperandOf(IRuntimeSession session, BoundNode operand, VBType? destination, RuntimeEvaluationContext context)
         => !IsWide(operand) ? EvaluateBoundNode(session, operand, context)
             : destination is not null ? Unvalued(EvaluateConverted(session, operand, destination, context))
             : Unvalued(EvaluateStored(session, operand, context));
 
-    // a call of CByte, CInt, CLng, CLngLng, CCur or CBool of an extended intermediate, which converts it from its 80 bits (s42 C15, D12), or of Sgn, which
+    // a call of CByte, CInt, CLng, CLngLng, CCur or CBool of an extended intermediate, which converts it from its 80 bits (observed in Excel), or of Sgn, which
     // gives its sign; null for any other call.
     private RuntimeSemanticsEvaluationResult? EvaluateWideConversion(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
     {

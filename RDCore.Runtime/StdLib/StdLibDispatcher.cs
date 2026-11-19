@@ -61,13 +61,8 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// <param name="cancellation">The run's cancellation, which stops a member that waits - a dialog - from waiting.</param>
     public static StdLibDispatcher For(IRuntimeSession session, ExternalWorld? outside = null, CancellationToken cancellation = default)
     {
-        // a collection makes the enumerator its For Each is driven by, which is an object of a class of its own.
-        var enumerators = new StdEnumVariant(session);
-
-        // a RegExp makes the collection of its matches, which makes each match, which makes what its groups matched.
-        var subMatches = new StdSubMatches(session, enumerators);
-        var match = new StdMatch(session, subMatches);
-        var matches = new StdMatchCollection(session, match, enumerators);
+        // the classes whose objects hold something are the session's, which every dispatcher composed on it reaches.
+        var objects = SessionLibraryObjects.Of(session);
 
         return new(new Dictionary<Type, object>
         {
@@ -81,14 +76,15 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdConversionModule)] = new StdConversion(session),
             [typeof(IStdHiddenModule)] = new StdHidden(session),
             [typeof(IStdInteractionModule)] = new StdInteraction(session, outside, cancellation),
-            [typeof(IStdCollectionClass)] = new StdCollection(session, enumerators),
-            [typeof(IStdEnumVariantClass)] = enumerators,
-            [typeof(IStdRegExpClass)] = new StdRegExp(session, matches),
-            [typeof(IStdMatchCollectionClass)] = matches,
-            [typeof(IStdMatchClass)] = match,
-            [typeof(IStdSubMatchesClass)] = subMatches,
+            [typeof(IStdCollectionClass)] = objects.Collections,
+            [typeof(IStdEnumVariantClass)] = objects.Enumerators,
+            [typeof(IStdRegExpClass)] = objects.RegExps,
+            [typeof(IStdMatchCollectionClass)] = objects.Matches,
+            [typeof(IStdMatchClass)] = objects.Match,
+            [typeof(IStdSubMatchesClass)] = objects.SubMatches,
             [typeof(IStdGlobalClass)] = new StdGlobal(session),
-            [typeof(IStdUserFormsClass)] = new StdUserForms(session, enumerators),
+            [typeof(IStdUserFormsClass)] = new StdUserForms(session, objects.Enumerators),
+            [typeof(IStdFormsClass)] = new StdForms(session, objects.Enumerators),
         });
     }
 
@@ -141,7 +137,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     {
         if (EntryOf(request.Member) is not { } entry)
         {
-            return NotImplemented(request, "nothing implements it yet");
+            return NotImplemented(request, "the dispatcher was composed with no code for it");
         }
 
         if (!TryMarshalArguments(entry, request, resolver, out var arguments))
@@ -172,7 +168,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
-    // a member of the library, bound once to the code behind it (IR lowering S1.9): its method and implementation, found by the key the reader stamped on
+    // a member of the library, bound once to the code behind it: its method and implementation, found by the key the reader stamped on
     // it, the call of it generated from its declaration (StdLibInvokers) - reflected, for a member none is generated for - and what reflection says of each
     // parameter, which it would otherwise be asked again on every call. A member nothing implements has no entry.
     private sealed record class StdLibEntry(
@@ -220,12 +216,11 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         return new StdLibEntry(method, StdLibInvokers.For(target), implementation, [.. parameters], hasReceiver);
     }
 
-    // MS-VBAL 6.1.3.2.1.2's "Application-defined or object-defined error" is what VBA says about a member it
-    // has no answer for, and it is the honest answer here too: the symbol resolves, the call is well-formed,
-    // and the platform has not got the code.
+    // every member the library declares has its code among the implementations the platform composes the dispatcher with: a member with none is a fault
+    // of the platform's, an internal error, and no error a program could trap and go on from.
     private static RuntimeSemanticsEvaluationResult NotImplemented(ExternalCallRequest request, string because)
         => RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
-            VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
+            VBRuntimeErrorId.InternalError, request.CallSite,
             $"'{request.Member.Name}' could not be called: {because}."));
 
     // a variable passed to a ByRef parameter (StdLibByRefAttribute) arrives as its address: what the member is given is the value the variable holds, read

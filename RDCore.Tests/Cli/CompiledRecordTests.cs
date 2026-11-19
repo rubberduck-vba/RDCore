@@ -144,6 +144,23 @@ public sealed class CompiledRecordTests
         => [("Noisy", ModuleWorkspace.ClassModule("Noisy", ["Option Explicit", "Public Name As String",
             "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Name", "End Sub"]))];
 
+    // a Variant field that holds an object is the object to a member access (MS-VBAL §5.6.12): its member is let and read through the field, of a record,
+    // of a record's record, and of a record an array holds, as through a Variant variable.
+    [TestMethod]
+    [DataRow("A.V", DisplayName = "a field of a record")]
+    [DataRow("P.Inner.V", DisplayName = "a field of a record's record")]
+    [DataRow("R(1).V", DisplayName = "a field of an element of an array")]
+    public async Task AVariantFieldHoldingAnObject_GivesTheObjectsMembers(string field)
+        => await AssertPrintsAsync(Noisy(), Module(
+            "Public Sub Main()",
+            "    Dim A As TPoint, P As TPair, R(1) As TPoint",
+            $"    Set {field} = New Noisy",
+            $"    {field}.Name = \"a\"",
+            $"    Debug.Print {field}.Name; TypeName({field})",
+            $"    Set {field} = Nothing",
+            "    Debug.Print \"after\"",
+            "End Sub"), null, 0, 0, "aNoisy", "gone a", "after");
+
     // an object a field holds is let go of where the interpreter lets go of it: a copy of another record over the record, a Let of a number to a Variant
     // field that held it - which compiled code hands to the interpreter - and the end of the activation whose variable the record is.
     [TestMethod]
@@ -339,6 +356,50 @@ public sealed class CompiledRecordTests
         CollectionAssert.AreEqual(printed, await ModuleWorkspace.RunAsync(classes, program, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine.Interpreter));
     }
 
+    // a field of each scalar type, written in a loop and read after it, where the record holds it; a field of an enumeration (a Long, MS-VBAL §5.2.3.4)
+    // and a LongPtr field among them.
+    [TestMethod]
+    public async Task AFieldOfEachScalarType_IsWrittenWhereTheRecordHoldsIt()
+        => await AssertAlikeAsync(Program(
+            "Private Enum EColor",
+            "    Red = 1",
+            "    Blue = 2",
+            "End Enum",
+            "Private Type TAll",
+            "    B As Byte",
+            "    F As Boolean",
+            "    I As Integer",
+            "    L As Long",
+            "    LL As LongLong",
+            "    P As LongPtr",
+            "    S As Single",
+            "    D As Double",
+            "    C As Currency",
+            "    T As Date",
+            "    E As EColor",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim R As TAll",
+            "    Filled R, 4",
+            "    Debug.Print R.B & \" \" & R.F & \" \" & R.I & \" \" & R.L & \" \" & R.LL & \" \" & R.P & \" \" & R.S & \" \" & R.D & \" \" & R.C & \" \" & CDbl(R.T) & \" \" & R.E",
+            "End Sub",
+            "Private Sub Filled(ByRef R As TAll, ByVal N As Long)",
+            "    Dim K As Long",
+            "    For K = 1 To N",
+            "        R.B = K * 2",
+            "        R.F = K Mod 2 = 0",
+            "        R.I = -K",
+            "        R.L = K * 1000",
+            "        R.LL = K * 100000",
+            "        R.P = K + 7",
+            "        R.S = K / 8",
+            "        R.D = K / 3",
+            "        R.C = K * 1.25",
+            "        R.T = K + 0.5",
+            "        R.E = K",
+            "    Next",
+            "End Sub"), "Filled", recoveries: 0);
+
     // a field given by reference is the field (MS-VBAL §5.3.1.11): a Let of the field through its record is what the parameter reads after, and what the
     // parameter is assigned, the record's field holds. A field of a scalar type is written in its cell, compiled or not; a Variant field given by reference
     // is bound to the record and the field's position.
@@ -519,6 +580,28 @@ public sealed class CompiledRecordTests
             "    D.Inn.N = 5",
             "    Debug.Print C.Inn.S; C.Inn.N; D.Inn.S; D.Inn.N",
             "End Sub"]), null, 0, 0, "a 1 b 2", "c 3 d 5");
+
+    // a String field of a record is a String target of LSet and RSet as a String variable is (MS-VBAL §5.4.3.6, §5.4.3.7): the String it is given is fitted
+    // to the length the field holds, a fixed-length field's or a variable-length field's current one, and a field of a record's record is one too.
+    [TestMethod]
+    [DataRow("LSet", "[x  ]", "[y   ]", "[z ]")]
+    [DataRow("RSet", "[  x]", "[   y]", "[ z]")]
+    public async Task AStringFieldOfARecord_IsFittedByLSetAndRSet(string statement, string variable, string fixedLength, string inner)
+        => await AssertPrintsAsync(Module([.. Texts,
+            "Private Type TFit",
+            "    F As String * 4",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As TText, B As TFit, C As TWrap",
+            "    A.S = \"abc\"",
+            $"    {statement} A.S = \"x\"",
+            "    Debug.Print \"[\" & A.S & \"]\"",
+            $"    {statement} B.F = \"y\"",
+            "    Debug.Print \"[\" & B.F & \"]\"",
+            "    C.Inn.S = \"ab\"",
+            $"    {statement} C.Inn.S = \"z\"",
+            "    Debug.Print \"[\" & C.Inn.S & \"]\"",
+            "End Sub"]), null, 0, 0, variable, fixedLength, inner);
 
     private static (string Name, string Source)[] Box()
         => [("Box", ModuleWorkspace.ClassModule("Box", ["Option Explicit", "Public Name As String"]))];

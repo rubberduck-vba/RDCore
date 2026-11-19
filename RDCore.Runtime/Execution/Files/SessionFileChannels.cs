@@ -64,13 +64,13 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
 
         public long Length => Stream.Length;
 
-        // an Append channel begins where the file ends, which is what MS-VBA counts its Seek and Loc from (recorded in Excel, oracle\s25 Q03).
+        // an Append channel begins where the file ends, which is what MS-VBA counts its Seek and Loc from (observed in Excel).
         public long Origin { get; init; }
 
         // the complete path of the file, which the channel is compared by: Path is as the Open gave it.
         public string FullPath { get; init; } = Path;
 
-        // what the last Get read: EOF of a Random or Binary channel is that it could not read an entire record (oracle\s25 E03, E04).
+        // what the last Get read: EOF of a Random or Binary channel is that it could not read an entire record (observed in Excel).
         public bool IsPastEndOfRecords { get; private set; }
 
         public RDCoreDiagnosticCode? LockRange(FileRecordRange range)

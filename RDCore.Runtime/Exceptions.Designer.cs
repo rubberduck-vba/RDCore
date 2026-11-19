@@ -628,5 +628,32 @@ namespace RDCore.Runtime {
                 return ResourceManager.GetString("VBDeclare_ObjectNotPassed_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No form host of this platform hosts a Visual Basic 6.0 form..
+        /// </summary>
+        internal static string FormHost_VisualBasic6FormUnavailable_Verbose {
+            get {
+                return ResourceManager.GetString("FormHost_VisualBasic6FormUnavailable_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: the picture is cut short..
+        /// </summary>
+        internal static string VBLoadPicture_CutShort_Verbose {
+            get {
+                return ResourceManager.GetString("VBLoadPicture_CutShort_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: the metafile states no size..
+        /// </summary>
+        internal static string VBLoadPicture_MetafileStatesNoSize_Verbose {
+            get {
+                return ResourceManager.GetString("VBLoadPicture_MetafileStatesNoSize_Verbose", resourceCulture);
+            }
+        }
     }
 }

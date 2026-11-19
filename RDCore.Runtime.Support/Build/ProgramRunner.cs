@@ -1,6 +1,7 @@
 using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -21,6 +22,12 @@ internal static class ProgramRunner
     // no entry point, or code that does not load.
     public const int Refused = 2;
 
+    // the builder's codes (RDCoreDiagnosticId, in RDCore.Diagnostics, which a program does not ship): each refusal ends with its code, which names the page
+    // that documents it.
+    public static readonly RDCoreDiagnosticCode NoEntryPoint = new(RDCoreDiagnosticCode.CorePrefix, 30001);
+
+    public static readonly RDCoreDiagnosticCode AmbiguousEntryPoint = new(RDCoreDiagnosticCode.CorePrefix, 30002);
+
     // the entry point of the project's modules, as the session defined them (ProgramEntryPoint.Of); null, with what rdc says of it, when it has none.
     public static (string Module, VBTypeMemberSymbol Procedure)? EntryPointOf(IRuntimeSession session, IEnumerable<string> modules, ProjectBuild? build,
         out string? refusal)
@@ -33,12 +40,17 @@ internal static class ProgramRunner
         refusal = resolved.Refusal switch
         {
             null => null,
-            ProgramEntryPointRefusal.Ambiguous => string.Format(CultureInfo.CurrentCulture, Resources.Build_AmbiguousEntryPoint,
-                string.Join(", ", resolved.Candidates.Select(module => module.Name))),
-            _ => Resources.Build_NoEntryPoint,
+            ProgramEntryPointRefusal.Ambiguous => Refusal(AmbiguousEntryPoint, string.Format(CultureInfo.CurrentCulture, Resources.Build_AmbiguousEntryPoint,
+                string.Join(", ", resolved.Candidates.Select(module => module.Name)))),
+            ProgramEntryPointRefusal.Library => Refusal(NoEntryPoint, Resources.Build_LibraryNotRun),
+            _ when build?.EntryPoint is { Length: > 0 } named => Refusal(NoEntryPoint,
+                string.Format(CultureInfo.CurrentCulture, Resources.Build_NamedEntryPointNotFound, named)),
+            _ => Refusal(NoEntryPoint, Resources.Build_NoEntryPoint),
         };
         return resolved.IsFound ? (resolved.Module.Name, resolved.Procedure) : null;
     }
+
+    private static string Refusal(RDCoreDiagnosticCode code, string message) => string.Format(CultureInfo.CurrentCulture, Resources.Build_Refusal, message, code);
 
     // Command$: an argument that is empty or holds whitespace is quoted, so that each is still one argument.
     public static string CommandLineOf(IReadOnlyList<string> arguments)

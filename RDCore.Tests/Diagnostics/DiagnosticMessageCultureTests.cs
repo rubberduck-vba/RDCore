@@ -13,10 +13,11 @@ namespace RDCore.Tests.Diagnostics;
 /// The messages of the diagnostics are in the language of the user interface: English is the neutral set, every English culture and the invariant
 /// culture included, and French is the <c>fr</c> set, which every French culture reads.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class DiagnosticMessageCultureTests
 {
-    private const string Source = "Attribute VB_Name = \"Module1\"\r\nSub DoWork()\r\n    Dim x As Long\r\nEnd Sub\r\n";
+    private const string Source = "Attribute VB_Name = \"Payroll\"\r\nSub DoWork()\r\n    Dim x As Long\r\nEnd Sub\r\n";
 
     private const string English = "en";
     private const string French = "fr";
@@ -66,7 +67,7 @@ public sealed class DiagnosticMessageCultureTests
         }
         else
         {
-            Assert.AreEqual("'x' est trop court pour dire ce qu'il est: un nom devrait avoir au moins 3 caractères.", tooShort, "RDC01001");
+            Assert.AreEqual("'x' est trop court pour dire ce qu'il est : un nom devrait avoir au moins 3 caractères.", tooShort, "RDC01001");
             Assert.AreEqual("'DoWork' est implicitement Public. Indiquez son accessibilité.", implicitPublic, "RDC00105");
             StringAssert.StartsWith(reDim, "'{0}' a été déclaré implicitement", "RDC11022");
         }

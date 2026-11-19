@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A project lists its modules in any order, and the workspace's modules are defined, and then loaded, in that order: a module that uses another listed
-/// after it is the same program as one listed before it. HexIDE's parity runner lists the module it starts first (findings desk #1, #23).
+/// after it is the same program as one listed before it. HexIDE's parity runner lists the module it starts first.
 /// </summary>
 [TestClass]
 public sealed class ModuleOrderTests

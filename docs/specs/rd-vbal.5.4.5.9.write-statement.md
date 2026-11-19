@@ -25,7 +25,7 @@ See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 |`Null`|`#NULL#`|
 |An `Error` value|`#ERROR n#`, where `n` is the error value's number.|
 |`Date`|`#yyyy-mm-dd hh:mm:ss#`|
-|A number|Let-coerced to `String` with `.` as the decimal separator. A number between -1 and 1 has no zero before its decimal point (`.5`, `-.25`), as in MS-VBA (recorded in Excel).|
+|A number|Let-coerced to `String` with `.` as the decimal separator. A number between -1 and 1 has no zero before its decimal point (`.5`, `-.25`), as in MS-VBA (recorded in Excel); [RDC11042](../diagnostics/rdc11042.md) warns of it.|
 |An object|What it stands for, its default member's value, let-coerced to `String` and quoted (`"7"` for an Excel range that holds 7), as in MS-VBA (recorded in Excel). `Nothing` is error 91, and an object whose default member takes an argument (a `Collection`) error 450.|
 
 A `Variant` is written as the value it holds, through a `Variant` within a `Variant`: a `Boolean`, `Null`, `Error`,
@@ -35,6 +35,12 @@ an output expression's data value.
 The spellings are fixed, whatever the regional settings of the session's environment: a number's decimal separator is
 `.`, and a date's separators and year are those above, in the Gregorian calendar. They are the spellings `Input #`
 reads back.
+
+### Separators
+
+A comma follows every value but the last, whatever separates the two in the source: a `,`, a `;`, or only a space
+(`Write #1, 1 2` writes `1,2`), which is an implicit `;`. After the last value, a `,` or a `;` writes a comma and
+leaves the line open; with neither, the line ends.
 
 ## Implementation
 

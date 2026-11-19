@@ -255,6 +255,15 @@
   <data name="Build_AmbiguousEntryPoint" xml:space="preserve">
     <value>Plus d'un module déclare un Sub Main, et le programme a donc plus d'un point de départ : {0}.</value>
   </data>
+  <data name="Build_NamedEntryPointNotFound" xml:space="preserve">
+    <value>Aucun module standard ne déclare {0}, le point d'entrée que nomme la section build du projet : le programme n'a pas de point de départ.</value>
+  </data>
+  <data name="Build_LibraryNotRun" xml:space="preserve">
+    <value>Le projet est une bibliothèque (l'outputType de sa section build), qui ne s'exécute pas : il n'a pas de point d'entrée.</value>
+  </data>
+  <data name="Build_Refusal" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
   <data name="Run_RuntimeError" xml:space="preserve">
     <value>{0} '{1}' : {2} ({3})</value>
   </data>

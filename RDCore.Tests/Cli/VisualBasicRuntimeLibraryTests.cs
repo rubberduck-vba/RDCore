@@ -1,6 +1,9 @@
+using RDCore.Forms.Libraries;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
+using RDCore.Symbols;
+using RDCore.Tests.Runtime.Libraries;
 using System.IO.Abstractions;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
@@ -18,23 +21,11 @@ public sealed class VisualBasicRuntimeLibraryTests
     private static string Program(params string[] lines)
         => $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n{string.Join("\r\n", lines)}\r\nEnd Sub\r\n";
 
-    private static string Symbols
-    {
-        get
-        {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
-            {
-                directory = directory.Parent;
-            }
+    // the libraries that ship: RDForms' VB, then Symbols/*.json.
+    private static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
-            Assert.IsNotNull(directory, "the repository root, where RDCore.slnx is");
-            return Path.Combine(directory.FullName, "Symbols");
-        }
-    }
-
-    // the libraries that ship (Symbols/*.json), of which the project lists none.
-    private static WorkspaceLibraries NoneListed => new([], new DirectoryLibrarySource(new FileSystem(), Symbols));
+    // the libraries that ship, of which the project lists none.
+    private static WorkspaceLibraries NoneListed => new([], Shipped);
 
     // names only the runtime declares, none of them the standard library's.
     private static readonly string[] UsesTheRuntime =
@@ -134,7 +125,7 @@ public sealed class VisualBasicRuntimeLibraryTests
     [TestMethod]
     public async Task AnotherLibrarysApplicationObject_GivesTheProjectNoNameOfItsOwn()
     {
-        var errors = await LoadErrorsAsync([], Program("Debug.Print Workbooks.Count"), new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Symbols)));
+        var errors = await LoadErrorsAsync([], Program("Debug.Print Workbooks.Count"), new WorkspaceLibraries(["Excel"], Shipped));
 
         Assert.IsTrue(errors.Any(error => error.Contains("Workbooks")), string.Join("; ", errors));
     }
@@ -150,7 +141,7 @@ public sealed class VisualBasicRuntimeLibraryTests
     [TestMethod]
     public void TheVisualBasicRuntime_ComesAfterTheStandardLibrary_AndBeforeTheReferencesTheProjectLists()
     {
-        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var source = Shipped;
 
         var libraries = LibrarySymbolProvider.Load(source, [new RDCoreReference { Name = "Scripting" }], SupportedLanguages.VB6);
 
@@ -163,7 +154,7 @@ public sealed class VisualBasicRuntimeLibraryTests
     [TestMethod]
     public void AVBAProject_LoadsOnlyTheReferencesItLists()
     {
-        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var source = Shipped;
 
         var libraries = LibrarySymbolProvider.Load(source, [new RDCoreReference { Name = "Scripting" }], SupportedLanguages.RDVBA);
 
@@ -204,7 +195,7 @@ public sealed class VisualBasicRuntimeLibraryTests
     [TestMethod]
     public void TheDataControlsRecordset_IsTheDaoLibraryVisualBasicIsBuiltAgainst_WhenTheProjectReferencesNoDao()
     {
-        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var source = Shipped;
 
         var libraries = LibrarySymbolProvider.Load(source, [], SupportedLanguages.VB6);
 
@@ -217,7 +208,7 @@ public sealed class VisualBasicRuntimeLibraryTests
     [TestMethod]
     public void TheDataControlsRecordset_IsTheDaoLibraryTheProjectReferences()
     {
-        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var source = Shipped;
         var dao = new RDCoreReference { Name = "DAO", Guid = new Guid("00025E01-0000-0000-C000-000000000046"), Major = 5, Minor = 0 };
 
         var libraries = LibrarySymbolProvider.Load(source, [dao], SupportedLanguages.VB6);
@@ -236,7 +227,7 @@ public sealed class VisualBasicRuntimeLibraryTests
     [DataRow("Scripting", "420B2830-E718-11CF-893D-00A0C9054228", 1, 0)]
     public void AReferenceByIdentity_ToALibraryReferencedByName_IsOneReference(string name, string guid, int major, int minor)
     {
-        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var source = Shipped;
         RDCoreReference[] references = name == "Scripting"
             ? [new RDCoreReference { Name = name }, new RDCoreReference { Name = name, Guid = new Guid(guid), Major = major, Minor = minor }]
             : [new RDCoreReference { Name = name, Guid = new Guid(guid), Major = major, Minor = minor }];
@@ -252,7 +243,7 @@ public sealed class VisualBasicRuntimeLibraryTests
     [TestMethod]
     public void AReferenceToADaoTheSourceDoesNotHave_IsADaoVisualBasicCannotBeLoadedWith()
     {
-        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var source = Shipped;
         var dao = new RDCoreReference { Name = "DAO", Guid = new Guid("00025E01-0000-0000-C000-000000000046"), Major = 6, Minor = 0 };
 
         var libraries = LibrarySymbolProvider.Load(source, [dao], SupportedLanguages.VB6);
@@ -262,5 +253,47 @@ public sealed class VisualBasicRuntimeLibraryTests
             libraries.Problems.Select(problem => $"{problem.Name} {problem.Kind}").ToArray());
         Assert.IsFalse(libraries.Priorities.ContainsKey("VB"));
         Assert.IsTrue(libraries.Priorities.ContainsKey("VBRUN"));
+    }
+
+    // ---- VB, from the RDForms package ----
+
+    private static LibraryDescription PackagesVB()
+    {
+        Assert.IsTrue(RDFormsLibraries.Instance.TryGet("VB", out var vb));
+        return vb;
+    }
+
+    [TestMethod]
+    public void TheVBLibrary_IsTheRDFormsPackages_AheadOfOneInTheSymbolsFolder()
+    {
+        var folder = new InMemoryLibrarySource(new LibraryDescription { Name = "VB", Origin = PackagesVB().Origin });
+
+        Assert.IsTrue(PlatformLibraries.With(folder).TryGet("VB", out var vb));
+
+        Assert.AreEqual(LibraryJson.Write(PackagesVB()), LibraryJson.Write(vb));
+        Assert.IsTrue(Shipped.TryGet("VB", out var shipped));
+        Assert.AreEqual(LibraryJson.Write(PackagesVB()), LibraryJson.Write(shipped));
+    }
+
+    [TestMethod]
+    public void TheVBLibrary_IsFoundByItsGuid()
+    {
+        var guid = new Guid(PackagesVB().Origin!.Guid!);
+
+        Assert.IsTrue(Shipped.TryGetByGuid(guid, out var vb));
+
+        Assert.AreEqual("VB", vb.Name);
+    }
+
+    [TestMethod]
+    public void AVbpThatReferencesTheVBLibraryByItsGuid_ReferencesIt()
+    {
+        var guid = PackagesVB().Origin!.Guid!;
+
+        var import = VbpProjectImporter.Import($"Reference=*\\G{guid}#6.0#0#C:\\Windows\\System32\\VB6.OLB#Visual Basic objects and procedures\r\n",
+            "Project1.vbp", Shipped);
+
+        Assert.IsFalse(import.Notes.Any(note => note.Kind == VbpImportNoteKind.UnresolvedReference), string.Join("; ", import.Notes.Select(note => note.ToMessage())));
+        Assert.AreEqual(new Guid(guid), import.Project.References.Single(reference => reference.Name == "VB").Guid);
     }
 }

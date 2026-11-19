@@ -9,7 +9,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11025</c>: an array given a second empty argument list, <c>f()()</c>, which MS-VBAL §5.6.13.1 makes invalid and MS-VBA compiles, raising 9 when it
-/// runs (Excel-measured, oracle\s53 E07, E08, F07, F08).
+/// runs (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class ArrayGivenASecondEmptyArgumentListAnalyzerTests

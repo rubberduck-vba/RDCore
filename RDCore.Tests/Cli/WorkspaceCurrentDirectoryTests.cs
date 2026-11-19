@@ -10,6 +10,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Execution.External.Application;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Platform;
@@ -23,6 +24,7 @@ namespace RDCore.Tests.Cli;
 /// where a relative path finds the workspace's files, and <c>ChDir</c> moves it. The session's directory is the process's, so these tests run alone, in a workspace
 /// on disk, and put the test host's directory back.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [DoNotParallelize]
 [TestCategory("MS-VBAL 6.1.2.5 FileSystem")]
@@ -242,6 +244,49 @@ public sealed class WorkspaceCurrentDirectoryTests
         Assert.AreEqual(start, CurrentDirectoryOf(provider));
     }
 
+    // RD-VBAL §2.2.2: a project that a .rdworkspace lists is in that workspace, whose root is the file's folder; the program starts there, and App.Path
+    // is still the folder of the project that runs.
+    [TestMethod]
+    public async Task AProjectAWorkspaceFileLists_StartsInTheWorkspaceFilesFolder_AndAppPathIsItsOwnFolder()
+    {
+        var project = NewWorkspace("NavalConsole");
+        File.WriteAllText(Path.Combine(_root, WorkspaceFile.FileName), """{ "Folders": [ "NavalLib", "NavalConsole" ] }""");
+        Directory.CreateDirectory(Path.Combine(_root, "NavalLib"));
+        using var provider = Compose(project);
+
+        var printed = await RunAsync(provider, project, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")");
+
+        CollectionAssert.AreEqual(new[] { _root, "data.txt" }, printed, string.Join("|", printed));
+        // App.Path reads the folder the session says the program runs from.
+        Assert.AreEqual(project, SessionApplication.Of(provider.Session).Folder);
+    }
+
+    [TestMethod]
+    public async Task AReloadedSessionOfAWorkspaceFilesProject_StartsInTheWorkspaceFilesFolderAgain()
+    {
+        var project = NewWorkspace("NavalConsole");
+        File.WriteAllText(Path.Combine(_root, WorkspaceFile.FileName), """{ "Folders": [ "NavalConsole" ] }""");
+        using var provider = Compose(project);
+        await RunAsync(provider, project, "ChDir \"NavalConsole\"");
+        Assert.AreEqual(project, CurrentDirectoryOf(provider));
+
+        provider.Compose(Project(project).ProjectInfo, Wire.FileUri(project));
+
+        Assert.AreEqual(_root, CurrentDirectoryOf(provider));
+    }
+
+    // a .rdworkspace above a folder it does not list makes no workspace of it: the program starts in its own folder, as with no .rdworkspace at all.
+    [TestMethod]
+    public void AFolderTheWorkspaceFileAboveItDoesNotList_StartsInItsOwnFolder()
+    {
+        var scratch = NewWorkspace("Scratch");
+        File.WriteAllText(Path.Combine(_root, WorkspaceFile.FileName), """{ "Folders": [ "NavalConsole" ] }""");
+
+        using var provider = Compose(scratch);
+
+        Assert.AreEqual(scratch, CurrentDirectoryOf(provider));
+    }
+
     // a workspace folder with a Sub folder in it, under the test's own folder, which the cleanup deletes.
     private string NewWorkspace(string name)
     {
@@ -280,7 +325,7 @@ public sealed class WorkspaceCurrentDirectoryTests
 
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-        await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        await new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

@@ -7,7 +7,7 @@ using RDCore.Runtime.LanguageCore.Plans;
 namespace RDCore.Tests.Semantics;
 
 /// <summary>
-/// The plan of an operation (IR lowering §3.2): decided from the types of the operands alone, once, by the one table the binder and the interpreter both consult.
+/// The plan of an operation: decided from the types of the operands alone, once, by the one table the binder and the interpreter both consult.
 /// What each operation yields is pinned by <c>ArithmeticOperatorsGoldenMasterTests</c> and <c>OtherOperatorsGoldenMasterTests</c>; this is what a plan is.
 /// </summary>
 [TestClass]

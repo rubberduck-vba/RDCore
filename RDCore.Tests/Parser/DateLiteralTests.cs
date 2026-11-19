@@ -77,4 +77,23 @@ public sealed class DateLiteralTests
             CultureInfo.CurrentCulture = original;
         }
     }
+
+    // MS-VBAL §3.3.3: a literal with no date-value is a time of 1899/12/30, whatever day the code is parsed on.
+    [TestMethod]
+    [DataRow("#12:00:00 AM#", 0, 0, DisplayName = "midnight, the default value of a Date")]
+    [DataRow("#3:30:00 PM#", 15, 30, DisplayName = "an afternoon time")]
+    [DataRow("#08:15#", 8, 15, DisplayName = "a 24-hour time with no seconds")]
+    [DataRow("#13:45#", 13, 45, DisplayName = "an afternoon 24-hour time")]
+    public void ATimeWithNoDate_IsATimeOf18991230(string literal, int hour, int minute)
+        => Assert.AreEqual(new DateTime(1899, 12, 30, hour, minute, 0), ResolveFirstConstDate($"Public Const D = {literal}"));
+
+    [TestMethod]
+    public void ADateWithATime_KeepsItsDate()
+        => Assert.AreEqual(new DateTime(2020, 1, 2, 13, 45, 0), ResolveFirstConstDate("Public Const D = #1/2/2020 1:45:00 PM#"));
+
+    [TestMethod]
+    public async Task ATimeWithNoDate_RunsAsATimeOf18991230()
+        => CollectionAssert.AreEqual(new[] { "0", "1899", "1899", "2020" }, await Cli.ModuleWorkspace.RunAsync([], Cli.ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()", "    Debug.Print CDbl(#12:00:00 AM#)", "    Debug.Print Year(#3:30:00 PM#)", "    Dim d As Date", "    d = #13:45#", "    Debug.Print Year(d)",
+            "    Debug.Print Year(#1/2/2020 1:45:00 PM#)", "End Sub")));
 }

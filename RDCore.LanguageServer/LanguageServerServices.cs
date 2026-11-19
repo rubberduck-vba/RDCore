@@ -85,27 +85,36 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.OutlineTool>()
             .AddSingleton(provider => new RDCore.SDK.Server.Assistant.AssistantToolCatalog(provider.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>()))
             .AddSingleton<RDCore.LanguageServer.Refactoring.IExtractMethodService, RDCore.LanguageServer.Refactoring.ExtractMethodService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveMemberService, RDCore.LanguageServer.Refactoring.MoveMemberService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IEncapsulateFieldService, RDCore.LanguageServer.Refactoring.EncapsulateFieldService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IImplementInterfaceService, RDCore.LanguageServer.Refactoring.ImplementInterfaceService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveCloserToUsageService, RDCore.LanguageServer.Refactoring.MoveCloserToUsageService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IParameterReorderService, RDCore.LanguageServer.Refactoring.ParameterReorderService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             // the codes disabled for the workspace's documents: the user's, which change while the server runs, and the workspace's.
             .AddSingleton<IDisabledDiagnostics>(provider => new DisabledDiagnostics(
                 provider.GetRequiredService<IOptions<SdkAppOptions>>(), provider.GetRequiredService<ILiveSettings>(), provider.GetRequiredService<IWorkspaceRefresh>(),
                 () => provider.GetRequiredService<IWorkspaceDocumentService>().WorkspaceRoot, provider.GetService<IWorkspaceSettings>()))
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
+            .AddSingleton<IProjectFileDiagnostics, ProjectFileDiagnostics>()
             .AddSingleton<IWorkspaceRefresh>(_ => new WorkspaceRefresh(WorkspaceRefresh.Burst))
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()
-            // intrinsic-only type resolution until project/library symbols can be composed (Slice 4).
+            // intrinsic-only type resolution until project/library symbols can be composed.
             .AddSingleton<RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver>(provider => new IntrinsicSymbolResolver(
                 provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RDCore.SDK.Server.Configuration.SdkAppOptions>>().Value.Environment.Is64Bit))
             .AddSingleton<IReferencedLibraryService, ReferencedLibraryService>()
+            .AddSingleton<IReferencedProjectService, ReferencedProjectService>()
             .AddSingleton<ISymbolSyncService, SymbolSyncService>()
             .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
             .AddSingleton<IWorkspaceFileOperationService, WorkspaceFileOperationService>()
             .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWatchedFileChanges, RDCore.LanguageServer.Server.Handlers.Workspace.WatchedFileChanges>()
+            .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWorkspaceFolderChanges, RDCore.LanguageServer.Server.Handlers.Workspace.WorkspaceFolderChanges>()
             .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWorkspaceFileSystemWatcher, RDCore.LanguageServer.Server.Handlers.Workspace.WorkspaceFileSystemWatcher>()
             .AddSingleton<IProgramDebugService, ProgramDebugService>()
             .AddSingleton<RDCore.LanguageServer.Debugging.IEditStatusMonitor, RDCore.LanguageServer.Debugging.EditStatusMonitor>()
             .AddSingleton<RDCore.LanguageServer.Debugging.EditStatusPublication>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
+            .AddSingleton<ISessionStopRelay, SessionStopRelay>()
             // a pull declined while a dialog of the program was open is made again once it closes: the client is asked to pull its diagnostics again.
             .AddSingleton(provider => new OpenDialogs { PullAgain = provider.GetRequiredService<IWorkspaceRefresh>().PullsDeclined })
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>()
@@ -142,6 +151,7 @@ internal static class LanguageServerServices
                             SessionExecute = new SessionExecute(true),
                             SessionDiscard = new SessionDiscard(true),
                             ProjectReload = new ProjectReload(true),
+                            ProjectAnalysis = new ProjectAnalysis(true),
                             ProgramDebugging = new ProgramDebugging(true),
                             SessionMemoryAccess = new SessionMemoryAccess(true),
                         }

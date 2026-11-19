@@ -7,7 +7,9 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -74,16 +76,56 @@ public static class PrecompilerLiveBranchEvaluator
     /// (<see cref="LargeStackThread"/>).
     /// </remarks>
     public static PrecompilerEvaluation Evaluate(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SyntaxNode> precompilerTrivia)
+        => EvaluateUnder(session, evaluator, context, precompilerTrivia, platform: null).Evaluation;
+
+    /// <summary>
+    /// The platforms each position of a module is compiled on (<see cref="CompiledPlatforms"/>): the module's <c>#If</c> blocks evaluated once for each
+    /// platform of <see cref="CompiledPlatformProfiles.Each"/>, with that platform's predefined constants and every other constant as the session has it.
+    /// </summary>
+    /// <param name="session">The runtime session <paramref name="evaluator"/> resolves the project's conditional-compilation constants against.</param>
+    /// <param name="evaluator">Evaluates a condition's expression tree.</param>
+    /// <param name="context">The scope a condition's constants resolve from.</param>
+    /// <param name="precompilerTrivia">A module's <c>ModuleParseResult.PrecompilerTrivia</c>.</param>
+    /// <remarks>
+    /// A predefined constant the project defines (<see cref="ProjectConditionalConstants"/>), or the module, has that value on every platform. A position in
+    /// a chain whose conditions cannot all be evaluated on some platform has no platforms to state.
+    /// </remarks>
+    public static ModulePlatforms CompiledPlatformsOf(
+        IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SyntaxNode> precompilerTrivia)
+    {
+        if (precompilerTrivia.IsDefaultOrEmpty || !precompilerTrivia.Any(node => node.Descendants().Prepend(node).Any(each => each is PrecompilerIfBlockStatementNode)))
+        {
+            return ModulePlatforms.Everywhere;
+        }
+
+        var projects = ProjectConditionalConstants.Of(session);
+        var environment = RuntimeEnvironmentProfile.Of(session.Environment);
+        var each = ImmutableArray.CreateBuilder<(CompiledPlatforms, ImmutableArray<SourceRange>, ImmutableArray<SourceRange>)>();
+        foreach (var (platform, operatingSystem, is64Bit) in CompiledPlatformProfiles.Each)
+        {
+            var predefined = PredefinedConditionalConstants.Of(environment with { OperatingSystem = operatingSystem, Is64Bit = is64Bit })
+                .Where(constant => !projects.Contains(constant.Name))
+                .ToDictionary(constant => constant.Name, constant => (VBTypedValue)new VBIntegerValue(constant.Value), StringComparer.OrdinalIgnoreCase);
+            var (evaluation, undecided) = EvaluateUnder(session, evaluator, context, precompilerTrivia, name => predefined.GetValueOrDefault(name));
+            each.Add((platform, evaluation.DeadRanges, undecided));
+        }
+
+        return new ModulePlatforms(each.ToImmutable());
+    }
+
+    private static (PrecompilerEvaluation Evaluation, ImmutableArray<SourceRange> Undecided) EvaluateUnder(
+        IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SyntaxNode> precompilerTrivia,
+        Func<string, VBTypedValue?>? platform)
     {
         if (!LargeStackThread.IsCurrent)
         {
-            return LargeStackThread.Run(() => Evaluate(session, evaluator, context, precompilerTrivia));
+            return LargeStackThread.Run(() => EvaluateUnder(session, evaluator, context, precompilerTrivia, platform));
         }
 
-        var state = new Evaluation(session, evaluator, context);
+        var state = new Evaluation(session, evaluator, context, platform);
         if (precompilerTrivia.IsDefaultOrEmpty)
         {
-            return new([], []);
+            return (new([], []), []);
         }
 
         foreach (var node in precompilerTrivia)
@@ -96,7 +138,7 @@ public static class PrecompilerLiveBranchEvaluator
             Visit(node, state);
         }
 
-        return new(state.DeadRanges.ToImmutable(), state.Errors.ToImmutable());
+        return (new(state.DeadRanges.ToImmutable(), state.Errors.ToImmutable()), state.Undecided.ToImmutable());
     }
 
     private static void Visit(SyntaxNode node, Evaluation state)
@@ -136,6 +178,7 @@ public static class PrecompilerLiveBranchEvaluator
             }
             if (!state.TryEvaluateCondition(condition, out var isTrue))
             {
+                state.Undecided.AddRange(branches.Where(branch => branch.Body is not null).Select(branch => branch.Body!.SourceLocation.Range));
                 return;
             }
             if (isTrue)
@@ -205,14 +248,21 @@ public static class PrecompilerLiveBranchEvaluator
         private readonly HashSet<string> _evaluating = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _analyzing = new(StringComparer.OrdinalIgnoreCase);
 
-        public Evaluation(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context)
+        // the predefined constants of the platform the module is evaluated for, when it is not the session's: after the module's own, before the session's.
+        private readonly Func<string, VBTypedValue?>? _platform;
+
+        public Evaluation(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, Func<string, VBTypedValue?>? platform)
         {
             _session = session;
             _evaluator = evaluator;
+            _platform = platform;
             _context = context with { ConditionalConstant = ConstantOf };
         }
 
         public ImmutableArray<SourceRange>.Builder DeadRanges { get; } = ImmutableArray.CreateBuilder<SourceRange>();
+
+        // the chains whose conditions could not all be evaluated: which of their branches is live is not known.
+        public ImmutableArray<SourceRange>.Builder Undecided { get; } = ImmutableArray.CreateBuilder<SourceRange>();
 
         public ImmutableArray<VBCompileErrorInfo>.Builder Errors { get; } = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
 
@@ -239,7 +289,7 @@ public static class PrecompilerLiveBranchEvaluator
             }
         }
 
-        // null when the module declares no such constant, and the name is the project's to bind (or is nothing, which is 0).
+        // the platform's value, or null, when the module declares no such constant: the name is then the project's to bind (or is nothing, which is 0).
         private VBTypedValue? ConstantOf(string name)
         {
             if (_values.TryGetValue(name, out var known))
@@ -250,7 +300,7 @@ public static class PrecompilerLiveBranchEvaluator
             // a constant that names itself, directly or through others, has nothing to be but what the name means without it.
             if (!_declared.TryGetValue(name, out var expression) || !_evaluating.Add(name))
             {
-                return null;
+                return _platform?.Invoke(name);
             }
 
             try

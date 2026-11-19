@@ -71,7 +71,8 @@ public sealed class CompiledSetFromCallTests
             "    Next",
             "End Function"), [("Names", 1)], classes: Classes);
 
-    // the function result variable Set to what a call returns, and to a new object.
+    // the function result variable Set to what a call returns, and to a new object. The recovery is the Set to New in pass 2 of the second call, which
+    // destroys the object of pass 1: the interpreter's, with the new object compiled code made known.
     [TestMethod]
     public async Task TheFunctionResult_IsSetToWhatACallReturns_OrToANewObject()
         => await AssertAlikeAsync(Program(
@@ -83,7 +84,7 @@ public sealed class CompiledSetFromCallTests
             "    For I = 1 To 2",
             "        If Made Then Set Pick = Noisy.Create(\"p\" & I) Else Set Pick = New Noisy",
             "    Next",
-            "End Function"), [("Pick", 0)], classes: Classes);
+            "End Function"), [("Pick", 1)], classes: Classes);
 
     // New of a class of the workspace, in a loop: each object made is let go of by the next pass.
     [TestMethod]

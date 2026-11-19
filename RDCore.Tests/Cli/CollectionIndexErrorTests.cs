@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The error a <c>Collection</c> raises for an item it does not have, as MS-VBA raises it: a number on an empty collection is 5, as a key is on any; a number
-/// outside the items of one that has some is 9 (recorded in Excel: oracle\s56 G13, s57 K01).
+/// outside the items of one that has some is 9 (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class CollectionIndexErrorTests

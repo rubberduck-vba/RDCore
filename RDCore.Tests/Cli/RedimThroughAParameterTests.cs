@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// 5.4.3.3): an upper bound below its lower, and an array too big to hold.
 /// </summary>
 /// <remarks>
-/// Each expected line is what MS-VBA printed for the same code in Excel (64-bit, en-US, <c>oracle\s68</c> and <c>oracle\s68b</c>): the shape of what the ReDim was given, and then of
+/// Each expected line is what MS-VBA printed for the same code in Excel (64-bit, en-US): the shape of what the ReDim was given, and then of
 /// the caller's array, each <c>TypeName (bounds) [1]=element</c>, <c>erased</c> for an array with no dimensions, and <c>?</c> for an element that can't be read.
 /// The caller's array is <c>a() As Long</c>, <c>(0 To 3)</c> with <c>a(1) = 7</c>, before each.
 /// </remarks>
@@ -92,7 +92,7 @@ public sealed class RedimThroughAParameterTests
         ["VW"] = "v",
     };
 
-    // the module's array, the trace, and what reads it: as oracle\s68 and s68b have them.
+    // the module's array, the trace, and what reads it.
     private static readonly string[] Helpers =
         [
             "Attribute VB_Name = \"Program\"",
@@ -171,7 +171,7 @@ public sealed class RedimThroughAParameterTests
         CollectionAssert.AreEqual(expected, printed.Select((line, index) => $"{kind}{first + index:00} ({Bounds[index]}): {line}").ToArray());
     }
 
-    // oracle\s68b: G and GP re-dimension a Variant parameter, GLAP a v() As Long, with Preserve or without, to the bounds they are given; G2 passes its own
+    // G and GP re-dimension a Variant parameter, GLAP a v() As Long, with Preserve or without, to the bounds they are given; G2 passes its own
     // Variant parameter on to G.
     private static readonly string[] Parameters68b =
         [
@@ -190,7 +190,7 @@ public sealed class RedimThroughAParameterTests
     private const string TracesB = "    P \"b \" & Shape(b) & \" \" & First(b)";
     private const string ALocal = "    ReDim b(3): b(1) = 7";
 
-    // each case of oracle\s68b, the body of its Case sub, which has a Variant w and a local b() As Long. T02, every Long subscript of Variants, is not
+    // each case, the body of its Case sub, which has a Variant w and a local b() As Long. T02, every Long subscript of Variants, is not
     // here: it is a deliberate divergence, as MS-VBA accepts the bounds and holds no elements, and ReDimSizeLimitTests has RD-VBA's error 7.
     private static readonly Dictionary<string, string[]> Cases68b = new()
     {

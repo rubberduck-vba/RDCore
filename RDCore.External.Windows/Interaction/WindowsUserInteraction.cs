@@ -87,6 +87,7 @@ public sealed class WindowsUserInteraction : IUserInteraction
         private const int PromptId = 101;
 
         private const uint WM_INITDIALOG = 0x0110;
+        private const uint WM_TAKEFOCUS = 0x8000 + 1; // WM_APP + 1
         private const uint WM_COMMAND = 0x0111;
         private const uint EM_SETSEL = 0x00B1;
 
@@ -155,8 +156,15 @@ public sealed class WindowsUserInteraction : IUserInteraction
                             (request.XPos ?? 0) * dpi / TwipsPerInch, (request.YPos ?? 0) * dpi / TwipsPerInch, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
                     }
 
+                    // the dialog is shown once this returns, and takes the keyboard when its loop runs.
+                    _ = PostMessageW(dialog, WM_TAKEFOCUS, IntPtr.Zero, IntPtr.Zero);
+
                     // the focus was set here, which the dialog manager is told by answering FALSE.
                     return IntPtr.Zero;
+
+                case WM_TAKEFOCUS:
+                    TakeForeground(dialog, GetDlgItem(dialog, EditId));
+                    return new IntPtr(1);
 
                 case WM_COMMAND:
                     switch ((int)(wParam.ToInt64() & 0xFFFF))
@@ -179,6 +187,28 @@ public sealed class WindowsUserInteraction : IUserInteraction
             }
 
             return IntPtr.Zero;
+        }
+
+        // a topmost dialog is not given the keyboard while another process has the foreground, as a terminal does under rdc run: Windows only lets the foreground
+        // be taken by the thread that has it. Attached to that thread's input for as long as it takes, the dialog takes the foreground, and its text box the focus.
+        private static void TakeForeground(IntPtr dialog, IntPtr edit)
+        {
+            var ours = GetCurrentThreadId();
+            var foreground = GetForegroundWindow();
+            var theirs = foreground == IntPtr.Zero ? 0 : GetWindowThreadProcessId(foreground, out _);
+            var attached = theirs != 0 && theirs != ours && AttachThreadInput(ours, theirs, true);
+            try
+            {
+                _ = SetForegroundWindow(dialog);
+                _ = SetFocus(edit);
+            }
+            finally
+            {
+                if (attached)
+                {
+                    _ = AttachThreadInput(ours, theirs, false);
+                }
+            }
         }
 
         private static int SystemDpi()
@@ -291,6 +321,18 @@ public sealed class WindowsUserInteraction : IUserInteraction
 
     [DllImport("user32", ExactSpelling = true)]
     private static extern IntPtr SetFocus(IntPtr window);
+
+    [DllImport("user32", ExactSpelling = true)]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32", ExactSpelling = true)]
+    private static extern bool SetForegroundWindow(IntPtr window);
+
+    [DllImport("user32", ExactSpelling = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("user32", ExactSpelling = true)]
+    private static extern bool AttachThreadInput(uint attach, uint attachTo, bool doAttach);
 
     [DllImport("user32", ExactSpelling = true)]
     private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);

@@ -82,7 +82,7 @@ public sealed class RuntimeCallableBindingFactoryTests
         Assert.AreSame(receiver, binding.Receiver);
     }
 
-    // IR lowering S1.3, S1.9: a member called on nothing, from no site in particular, is bound to nothing but itself - one handle for every call.
+    // a member called on nothing, from no site in particular, is bound to nothing but itself - one handle for every call.
     [TestMethod]
     public void AMemberCalledOnNothing_IsBoundOnce()
     {

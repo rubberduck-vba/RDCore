@@ -4,6 +4,7 @@ using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.Tests.Platform;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public class PlatformHandshakeTests
 {

@@ -181,11 +181,11 @@ public sealed class CompiledStringArgumentTests
             "    Err.Raise 5",
             "End Sub"), "Caught", recoveries: 2);
 
-    // a Variant holding a String, and a Boolean, given to a String parameter by value: each is let-coerced to a String, which the interpreter does, making
-    // the call. V = "ab", a String assigned to a Variant, and the two calls are the interpreter's: 3. A whole number is given its digits by compiled code
-    // (CompiledStringResultTests).
+    // a Boolean given to a String parameter by value is let-coerced to a String, which the interpreter does, making the call: 1. A Variant holding a String
+    // is given its text by compiled code (CompiledVariantTextTests), and so is V = "ab", a String assigned to a Variant (CompiledVariantTextLetTests); a whole
+    // number is given its digits (CompiledStringResultTests).
     [TestMethod]
-    public async Task AVariantAndABooleanGivenToAString_AreTheInterpretersToCoerce()
+    public async Task ABooleanGivenToAString_IsTheInterpretersToCoerce()
     {
         var program = Program(
             "Public Sub Main()",
@@ -205,9 +205,9 @@ public sealed class CompiledStringArgumentTests
             "Private Function Size(ByVal S As String) As Long",
             "    If S = \"ab\" Then Size = 2 Else If S = \"True\" Then Size = 4",
             "End Function");
-        var result = await AssertAlikeAsync(program, "Given", recoveries: 3);
+        var result = await AssertAlikeAsync(program, "Given", recoveries: 1);
 
-        AssertCallsAreStepped(program, result, "= Size(");
+        AssertCallsAreStepped(program, result, "= Size(L)");
     }
 
     // a String literal, and a String constant, given to a String parameter: each is given its text, and no call is the interpreter's.
@@ -355,7 +355,7 @@ public sealed class CompiledStringArgumentTests
     }
 
     // a String and a Long given by reference to one call: each the caller's variable, which the callee writes. N goes 1, 2, 3, 6, 7, 14, and S is "xxx":
-    // 143. Len(S), a call that takes a String, is the interpreter's: 1.
+    // 143. Compiled code calls Len(S), so the interpreter recovers nothing: 0 recoveries.
     [TestMethod]
     public async Task AStringAndALongGivenByReference_AreBothTheCallersVariables()
     {
@@ -374,7 +374,7 @@ public sealed class CompiledStringArgumentTests
             "Private Sub Append(ByRef S As String, ByRef N As Long)",
             "    S = S & \"x\"",
             "    N = N + 1",
-            "End Sub"), "Counted", recoveries: 1, expected: " 143 ");
+            "End Sub"), "Counted", recoveries: 0, expected: " 143 ");
 
         AssertCalledThroughInvoker(result, 3);
     }

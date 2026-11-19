@@ -25,7 +25,7 @@ using RDCore.Runtime.LanguageCore.Plans;
 
 namespace RDCore.Runtime.Semantics;
 
-// IR lowering S1.2: expressions of numeric scalar variables evaluated on payloads (ScalarPayload), with no value made of what they evaluate to. A node the
+// Expressions of numeric scalar variables evaluated on payloads (ScalarPayload), with no value made of what they evaluate to. A node the
 // payload evaluation does not do - or one that would raise an error - declines it, and the boxed evaluation evaluates the expression as it always has: the
 // nodes it does are literals, variables and operators, which can be evaluated again with no other effect, so the error the boxed evaluation raises is the
 // one the expression raises.
@@ -43,7 +43,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return false;
         }
 
-        // MS-VBAL §5.3.1: the name of a function in its own body is its function result variable, which holds a payload of its scalar type (S1.3).
+        // MS-VBAL §5.3.1: the name of a function in its own body is its function result variable, which holds a payload of its scalar type.
         var bound = BoundTreeOf(session, target, context);
         if (bound is BoundName { Symbol: var function } && ResultFrameOf(session, function, context) is { } frame)
         {
@@ -56,7 +56,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return true;
         }
 
-        // an element of an array of a scalar type, written in the cell it is kept in (S1.6).
+        // an element of an array of a scalar type, written in the cell it is kept in.
         if (bound is BoundIndex index)
         {
             return ElementCellOf(session, index) is { } element
@@ -81,7 +81,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return TryEvaluatePayload(session, BoundTreeOf(session, value, context), out var payload) && TryWritePayload(cell, payload);
         }
 
-        // a String variable - not a fixed-length one, which pads or truncates what it is assigned - is assigned the text as it is (S1.4b).
+        // a String variable - not a fixed-length one, which pads or truncates what it is assigned - is assigned the text as it is.
         if (referenced is null && cell is ValueBindingHandle text && variable.Variable is ITypedSymbol { ResolvedType: VBStringType and not VBFixedStringType })
         {
             if (!TryEvaluateText(session, BoundTreeOf(session, value, context), out var assigned))
@@ -96,7 +96,7 @@ public sealed partial class RuntimeExpressionEvaluator
         return false;
     }
 
-    // MS-VBAL §5.6.9.4, §5.6.5: an expression of Strings evaluated to the runtime value of the String it is, with no value made of it (S1.4b): a String
+    // MS-VBAL §5.6.9.4, §5.6.5: an expression of Strings evaluated to the runtime value of the String it is, with no value made of it: a String
     // literal, a String variable, parentheses, and two of them joined by & (or by +, of two Strings). A String that ends with a lone byte is the boxed
     // evaluation's, which joins it byte by byte.
     private bool TryEvaluateText(IRuntimeSession session, BoundNode node, out VBRuntimeValue<string> text)
@@ -160,7 +160,7 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // a payload written to a cell that holds one: let-coerced exactly to the type of a scalar variable, and as it is to a Variant, which takes the value's
-    // type (MS-VBAL §5.5.1.2.12, S1.4).
+    // type (MS-VBAL §5.5.1.2.12).
     private static bool TryWritePayload(IBindingHandle cell, ScalarPayload payload)
     {
         switch (cell)
@@ -178,8 +178,8 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// Let-assigns <paramref name="value"/>, already evaluated, to <paramref name="target"/> on payloads, when the target is a variable that holds a payload
-    /// and the value is a scalar that converts to its type exactly: what a call returned (IR lowering S1.3) - or a Variant that holds one, whose value is
-    /// what is let-assigned (MS-VBAL §5.5.1.2.12), and a String assigned to a String variable as it is (S1.9).
+    /// and the value is a scalar that converts to its type exactly: what a call returned - or a Variant that holds one, whose value is
+    /// what is let-assigned (MS-VBAL §5.5.1.2.12), and a String assigned to a String variable as it is.
     /// </summary>
     /// <returns><see langword="false"/> when the assignment is not done here, and is to be done the way it always is.</returns>
     internal bool TryAssignValueUnboxed(IRuntimeSession session, ExpressionNode target, VBTypedValue value, RuntimeEvaluationContext context)
@@ -196,7 +196,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return false;
         }
 
-        // a String variable - not a fixed-length one, which pads or truncates what it is assigned - holds the String it is assigned (S1.4b).
+        // a String variable - not a fixed-length one, which pads or truncates what it is assigned - holds the String it is assigned.
         if (value is VBStringValue && boxed.Value is VBRuntimeValue<string> assigned)
         {
             if (BindingOf(session, variable) is (ValueBindingHandle text, null) && variable.Variable is ITypedSymbol { ResolvedType: VBStringType and not VBFixedStringType })
@@ -213,7 +213,7 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // a known value of a scalar type, or a String, let-assigned to a Variant (MS-VBAL §5.5.1.2.12): the Variant holds the very value, which nothing can change -
-    // with no let-coercion made of it (S1.9). Of a Variant, it is the value the Variant holds (whose type a VBVariantValue says is its own). An object, an
+    // with no let-coercion made of it. Of a Variant, it is the value the Variant holds (whose type a VBVariantValue says is its own). An object, an
     // array, a record and what is not known are let-coerced as they always are.
     private bool TryHoldInVariant(VBTypedValue value, out IRuntimeValue held)
     {
@@ -336,7 +336,7 @@ public sealed partial class RuntimeExpressionEvaluator
             && TryConvertPayload(loop.Step, counterType, out step) && TryConvertPayload(loop.End, counterType, out end);
     }
 
-    // a Variant counter (S1.4), which the loop gave a value of the type it counts in (ForLoopEvaluator.Operands): counter + step and the comparison with
+    // a Variant counter, which the loop gave a value of the type it counts in (ForLoopEvaluator.Operands): counter + step and the comparison with
     // the end are Variant operations, planned for what the counter holds - a sum that overflows declines, and the boxed loop widens the counter as MS-VBA
     // does. The plans are made again only when the counter's subtype changes.
     private static bool TryStepVariantFor(VariantCell cell, ForLoopPayloads loop, bool countsDown, out bool isOutOfRange)
@@ -392,7 +392,7 @@ public sealed partial class RuntimeExpressionEvaluator
                 return BindingOf(session, variable) switch
                 {
                     (ScalarCell cell, null) => cell.TryRead(out payload),
-                    // a Variant's payload is of its subtype (S1.4).
+                    // a Variant's payload is of its subtype.
                     (VariantCell cell, null) => cell.TryRead(out payload),
                     _ => false,
                 };
@@ -409,13 +409,13 @@ public sealed partial class RuntimeExpressionEvaluator
             case BoundUnary { Plan: { } plan, Operand: var operand } unary when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
                 return TryEvaluatePayload(session, operand, out var value)
                     && TryOperateUnary(PlanFor(plan, value), value, unary.NegatesAConstantExpression, out payload);
-            // two Strings compared (S1.4b).
+            // two Strings compared.
             case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } plan, Left: var left, Right: var right }:
                 return TryCompareText(session, plan, left, right, out payload);
             case BoundBinary { Plan: { } plan, Left: var left, Right: var right }:
                 return TryEvaluatePayload(session, left, out var lhs) && TryEvaluatePayload(session, right, out var rhs)
                     && TryOperateBinary(PlanFor(plan, lhs, rhs), lhs, rhs, out payload);
-            // an element of an array of a scalar type, read in the cell it is kept in (S1.6).
+            // an element of an array of a scalar type, read in the cell it is kept in.
             case BoundIndex index:
                 return ElementCellOf(session, index) is { } element && element.TryRead(out payload);
             default:
@@ -590,8 +590,8 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private readonly ConcurrentDictionary<BoundNode, ConstantPayload> _constantPayloads = new(ReferenceEqualityComparer.Instance);
 
-    // the cell of an element of an array of a scalar type a variable holds - a(i, j) - when each subscript is evaluated on payloads and selects an element
-    // (S1.6). A subscript is let-coerced to a Long, as the boxed evaluation coerces it (EvaluateSubscripts): one that would raise an error - past the range
+    // the cell of an element of an array of a scalar type a variable holds - a(i, j) - when each subscript is evaluated on payloads and selects an element.
+    // A subscript is let-coerced to a Long, as the boxed evaluation coerces it (EvaluateSubscripts): one that would raise an error - past the range
     // of a Long, outside its dimension - is that evaluation's to raise, and so is an array that is not known, or one whose elements are kept as values.
     private ScalarCell? ElementCellOf(IRuntimeSession session, BoundIndex index)
     {
@@ -633,7 +633,7 @@ public sealed partial class RuntimeExpressionEvaluator
     internal static VBArrayValue? KnownArrayOf(IBindingHandle? handle)
         => handle is ValueBindingHandle { Value: VBRuntimeValue<VBRuntimeArrayValue> { Value.Array: { IsIndeterminate: false } array } } ? array : null;
 
-    // MS-VBAL §5.6.9: a plan that depends on what a Variant operand holds is made again for the types of the payloads (S1.4) - the value types the
+    // MS-VBAL §5.6.9: a plan that depends on what a Variant operand holds is made again for the types of the payloads - the value types the
     // boxed evaluation makes it for (PlanExecutor); any other plan is final.
     private static OperationPlan PlanFor(OperationPlan plan, ScalarPayload operand)
         => plan.IsDeferred ? OperationPlanner.ForValue(plan.Operator, operand.Type) : plan;
@@ -654,6 +654,45 @@ public sealed partial class RuntimeExpressionEvaluator
         => TryOperateBinary(OperationPlanner.ForValues(token, lhs.Type, rhs.Type), lhs, rhs, out result);
 
     /// <summary>
+    /// An operation of a <c>Variant</c> operand (<see cref="TryOperateDeferred(string, ScalarPayload, ScalarPayload, out ScalarPayload)"/>) named by its
+    /// operator: planned once for each pair of kinds of the payloads, with the plan <see cref="OperationPlanner"/> makes for the types of those kinds
+    /// (MS-VBAL §5.6.9), and done on the kinds that plan converts the operands to. A payload of another type of its kind (an enumeration's, a
+    /// <c>LongPtr</c>) is done with the plan made for its own type.
+    /// </summary>
+    /// <param name="operator">The operator.</param>
+    /// <param name="lhs">The payload of the left operand.</param>
+    /// <param name="rhs">The payload of the right operand.</param>
+    /// <param name="result">The operation's result.</param>
+    /// <returns><see langword="false"/> when the operation is not done on payloads, as the operation of its token says.</returns>
+    internal static bool TryOperateDeferred(VariantOperator @operator, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
+    {
+        if (lhs.Kind is { } left && rhs.Kind is { } right
+            && ReferenceEquals(lhs.Type, ScalarKinds.TypeOf(left)) && ReferenceEquals(rhs.Type, ScalarKinds.TypeOf(right)))
+        {
+            var plan = KindPlan.Of(@operator, left, right);
+            return TryOperateBinary(@operator, plan.Destination, plan.DestinationKind, plan.Effective, plan.EffectiveKind, lhs, rhs, out result);
+        }
+
+        return TryOperateBinary(OperationPlanner.ForValues(VariantOperators.TokenOf(@operator), lhs.Type, rhs.Type), lhs, rhs, out result);
+    }
+
+    // the plan of an operator for a pair of kinds, made once from the plan OperationPlanner makes for the types of the kinds: the type each operand is
+    // converted to and the effective type, each with its kind.
+    private sealed record class KindPlan(VBType? Destination, ScalarKind? DestinationKind, VBType? Effective, ScalarKind? EffectiveKind)
+    {
+        private const int Kinds = (int)ScalarKind.Date + 1;
+
+        private static readonly KindPlan?[] _plans = new KindPlan?[VariantOperators.Count * Kinds * Kinds];
+
+        public static KindPlan Of(VariantOperator @operator, ScalarKind left, ScalarKind right)
+            => _plans[((int)@operator * Kinds + (int)left) * Kinds + (int)right]
+                ??= Made(OperationPlanner.ForValues(VariantOperators.TokenOf(@operator), ScalarKinds.TypeOf(left), ScalarKinds.TypeOf(right)));
+
+        private static KindPlan Made(OperationPlan plan)
+            => new(plan.OperandDestination, ScalarKinds.Of(plan.OperandDestination), plan.EffectiveType, ScalarKinds.Of(plan.EffectiveType));
+    }
+
+    /// <summary>
     /// A negation or a <c>Not</c> of a <c>Variant</c> operand, on its payload (<see cref="TryOperateDeferred"/>).
     /// </summary>
     /// <param name="token">The operator's token.</param>
@@ -665,12 +704,13 @@ public sealed partial class RuntimeExpressionEvaluator
         => TryOperateUnary(OperationPlanner.ForValue(token, operand.Type), operand, ofAConstantExpression, out result);
 
     /// <summary>
-    /// A payload let-coerced to <paramref name="destination"/> when the conversion is exact, as an expression evaluated on payloads is.
+    /// A payload let-coerced to <paramref name="destination"/> when the conversion is exact, or a floating-point number's to an integer type
+    /// (<strong>MS-VBAL §5.5.1.2.1</strong>), as an expression evaluated on payloads is.
     /// </summary>
     /// <param name="payload">The payload converted.</param>
     /// <param name="destination">The type it is converted to.</param>
     /// <param name="converted">The converted payload.</param>
-    /// <returns>Whether the conversion is exact.</returns>
+    /// <returns>Whether the conversion was made on the payload.</returns>
     internal static bool TryConvertExactly(ScalarPayload payload, VBType destination, out ScalarPayload converted)
         => TryConvertPayload(payload, destination, out converted);
 
@@ -689,24 +729,37 @@ public sealed partial class RuntimeExpressionEvaluator
             && (plan.Operator == Tokens.NegationOp ? TryNegate(converted, ofAConstantExpression, out result) : TryNot(converted, out result));
     }
 
+    // an operator that is none of the arithmetic, comparison and logical operators is not done on payloads.
     private static bool TryOperateBinary(OperationPlan plan, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
     {
         result = default;
-        return plan.OperandDestination is { } destination
-            && TryConvertPayload(lhs, destination, out var l) && TryConvertPayload(rhs, destination, out var r)
-            && (TryOperate(plan.Operator, plan.EffectiveType!, l, r, out result) || TryCompare(plan.Operator, l, r, out result)
-                || TryLogical(plan.Operator, plan.EffectiveType!, l, r, out result));
+        return VariantOperators.Of(plan.Operator) is { } @operator
+            && TryOperateBinary(@operator, plan.OperandDestination, ScalarKinds.Of(plan.OperandDestination), plan.EffectiveType, ScalarKinds.Of(plan.EffectiveType),
+                lhs, rhs, out result);
+    }
+
+    // MS-VBAL §5.6.9: each operand let-coerced to the plan's destination, then the operator done in the effective type: an arithmetic operator (TryOperate),
+    // a comparison (TryCompare) or a logical operator (TryLogical).
+    private static bool TryOperateBinary(VariantOperator @operator, VBType? destination, ScalarKind? destinationKind, VBType? effective,
+        ScalarKind? effectiveKind, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
+    {
+        result = default;
+        return destination is not null
+            && TryConvertPayload(lhs, destination, destinationKind, out var l) && TryConvertPayload(rhs, destination, destinationKind, out var r)
+            && (VariantOperators.IsComparison(@operator) ? TryCompare(VariantOperators.ComparisonOf(@operator), l, r, out result)
+                : VariantOperators.IsLogical(@operator) ? TryLogical(VariantOperators.LogicalOf(@operator), effective!, effectiveKind, l, r, out result)
+                : TryOperate(@operator, effective!, effectiveKind, l, r, out result));
     }
 
     /// <summary>
     /// Calls <paramref name="procedure"/>, a procedure of the workspace every parameter of which is a scalar passed by value, with its arguments evaluated
-    /// on payloads and let-coerced to the parameters' types (IR lowering S1.3): each is what the parameter's cell is made of, and no value is made of any.
+    /// on payloads and let-coerced to the parameters' types: each is what the parameter's cell is made of, and no value is made of any.
     /// </summary>
     /// <returns>
     /// <see langword="false"/> when the call is not made here - before any argument is evaluated with an effect, so it is to be made the way it always is.
     /// <see langword="true"/> when it was made: <paramref name="result"/> is what it returned, or the error it raised.
     /// </returns>
-    /// <param name="boundArguments">How each argument is passed, bound with the call (S1.7): an argument named or written in any order is given to its
+    /// <param name="boundArguments">How each argument is passed, bound with the call: an argument named or written in any order is given to its
     /// parameter. <see langword="null"/> takes <paramref name="argumentNodes"/> as they are written, one positional argument for each parameter.</param>
     internal bool TryInvokeScalars(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
         ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> argumentNodes, ImmutableArray<BoundArgument>? boundArguments,
@@ -729,7 +782,7 @@ public sealed partial class RuntimeExpressionEvaluator
             {
                 var i = order is null ? k : order[k];
                 var parameter = parameters[i];
-                // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted (S1.7).
+                // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted.
                 // any other is let-coerced to the parameter's type - an extended intermediate from its 80 bits (MS-VBAL §5.6.9.3).
                 var isVariant = parameter.ResolvedType is VBVariantType;
                 if (RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter is ParamArrayParameterSymbol
@@ -772,7 +825,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// The argument of a <c>ByRef</c> parameter of a scalar type that is a variable of the caller held in a cell of its activation, of the parameter's very
-    /// type: the cell, which the parameter's slot is to hold too (IR lowering S1.3, <see cref="CellReference"/>).
+    /// type: the cell, which the parameter's slot is to hold too (<see cref="CellReference"/>).
     /// </summary>
     /// <returns><see langword="false"/> when the argument is not passed this way, and is to be passed the way it always is.</returns>
     internal bool TryReferenceCell(IRuntimeSession session, ExpressionNode argument, VBParameterSymbol parameter, RuntimeEvaluationContext context, out IRuntimeValue reference)
@@ -792,8 +845,8 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// Evaluates the argument a parameter is passed by value on payloads (MS-VBAL §5.3.1.11), let-coerced to the parameter's type, with no value made of it
-    /// before: a scalar to a parameter of a scalar type, which its cell is made of (IR lowering S1.3); a scalar or a String to a <c>Variant</c>, which holds
-    /// it as it is, of its own type (§5.5.1.2.12); and a String to a <c>String</c>, as it is (S1.9).
+    /// before: a scalar to a parameter of a scalar type, which its cell is made of; a scalar or a String to a <c>Variant</c>, which holds
+    /// it as it is, of its own type (§5.5.1.2.12); and a String to a <c>String</c>, as it is.
     /// </summary>
     /// <param name="bound">The argument's node, bound with the call; <see langword="null"/> binds <paramref name="argument"/> here.</param>
     /// <returns><see langword="false"/> when the argument is not evaluated here, and is to be evaluated the way it always is.</returns>
@@ -854,7 +907,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return false;
         }
 
-        // an extended intermediate is converted to a Boolean from its 80 bits (MS-VBAL §5.6.9.3; s42 E01).
+        // an extended intermediate is converted to a Boolean from its 80 bits (MS-VBAL §5.6.9.3).
         var node = BoundTreeOf(session, condition, context);
         if (IsWide(node))
         {
@@ -878,7 +931,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// Evaluates the selector of a <c>Select Case</c> on payloads (MS-VBAL §5.4.2.10's select-expression, evaluated once), when it is an expression
-    /// evaluated on them: what each <c>Case</c> compares, with no value made of it (IR lowering S1.6). A selector declared <c>Variant</c> is not: the value of a
+    /// evaluated on them: what each <c>Case</c> compares, with no value made of it. A selector declared <c>Variant</c> is not: the value of a
     /// <c>Case</c> is compared with it as it is, where it is converted to the type of a selector of a scalar type (RD-VBAL §5.4.2.10), the payload's.
     /// </summary>
     /// <returns><see langword="false"/> when the selector is not evaluated here, and is to be evaluated the way it always is.</returns>
@@ -937,14 +990,19 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // the type the value of a Case is converted to, for a selector of a type (RD-VBAL 5.4.2.10): the selector's, but for an integer and a Single selector,
-    // where the integer is compared at its exact value (s48 M02, s42 D22) - as CaseMatchEvaluator converts a value that is no payload, and compiled code does.
+    // where the integer is compared at its exact value, as CaseMatchEvaluator converts a value that is no payload, and compiled code does.
     internal static VBType CaseValueTypeOf(VBType selector, VBType value)
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
-    // integer type, an integer as a floating-point value, a Single as a Double (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL
+    // integer type, an integer as a floating-point value, a Single as a Double; a Single or a Double made an integer by Banker's rounding, and a Double (or a
+    // Date's serial) made the nearest Single, as the boxed coercion makes them (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL
     // §5.5.1.2.1), which rounds.
     private static bool TryConvertPayload(ScalarPayload payload, VBType destination, out ScalarPayload converted)
+        => TryConvertPayload(payload, destination, ScalarKinds.Of(destination), out converted);
+
+    // the same, the kind of the destination found before.
+    private static bool TryConvertPayload(ScalarPayload payload, VBType destination, ScalarKind? to, out ScalarPayload converted)
     {
         converted = payload;
         if (ReferenceEquals(payload.Type, destination) || payload.Type.Equals(destination))
@@ -952,48 +1010,55 @@ public sealed partial class RuntimeExpressionEvaluator
             return true;
         }
 
-        if (ScalarKinds.Of(payload.Type) is not { } from || ScalarKinds.Of(destination) is not { } to
-            || PayloadOperations.Convert(from, payload.Integral, payload.Floating, to, out var integral, out var floating) is not PayloadStatus.Ok)
+        if (payload.Kind is not { } from || to is not { } kind
+            || PayloadOperations.Convert(from, payload.Integral, payload.Floating, kind, out var integral, out var floating) is not PayloadStatus.Ok)
         {
             return false;
         }
 
-        converted = ScalarKinds.IsIntegral(to) ? new ScalarPayload(destination, integral, 0) : new ScalarPayload(destination, 0, floating);
+        converted = ScalarKinds.IsIntegral(kind) ? new ScalarPayload(destination, integral, 0) : new ScalarPayload(destination, 0, floating);
         return true;
+    }
+
+    // the arithmetic operation of a token (TryOperate below); the operation of any other is not done on payloads.
+    private static bool TryOperate(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    {
+        result = default;
+        return VariantOperators.Of(token) is { } @operator && TryOperate(@operator, effective, ScalarKinds.Of(effective), l, r, out result);
     }
 
     // MS-VBAL §5.6.9.3: the operators on their effective type, as the boxed evaluation does them (checked, in the type's own width); a result that does not
     // fit, a division by zero and a result that is not finite are errors, which the boxed evaluation raises. The integral ones are PayloadOperations', which
-    // compiled code calls too.
-    private static bool TryOperate(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    // compiled code calls too. A comparison or a logical operator is none of these.
+    private static bool TryOperate(VariantOperator @operator, VBType effective, ScalarKind? kind, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
-        if (ScalarKinds.Of(effective) is { } kind && kind is not ScalarKind.Boolean && ScalarKinds.IsIntegral(kind))
+        if (kind is { } integral && integral is not ScalarKind.Boolean && ScalarKinds.IsIntegral(integral))
         {
-            if (OperatorTokens.OperateIntegral(token, kind, l.Integral, r.Integral, out var integral) is not PayloadStatus.Ok)
+            if (OperatorTokens.OperateIntegral(@operator, integral, l.Integral, r.Integral, out var value) is not PayloadStatus.Ok)
             {
                 return false;
             }
 
-            result = new ScalarPayload(effective, integral, 0);
+            result = new ScalarPayload(effective, value, 0);
             return true;
         }
 
         try
         {
-            return (effective, token) switch
+            return (kind, @operator) switch
             {
                 // a Date operation is evaluated in Double (OperationPlan.OperandDestination), and is a Date when it is a date's serial.
-                (VBDateType, Tokens.AdditionOp) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
-                (VBDateType, Tokens.SubtractionOp) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
-                (VBSingleType, Tokens.AdditionOp) => ScalarPayload.TryFloating(effective, (float)l.Floating + (float)r.Floating, out result),
-                (VBSingleType, Tokens.SubtractionOp) => ScalarPayload.TryFloating(effective, (float)l.Floating - (float)r.Floating, out result),
-                (VBSingleType, Tokens.MultiplicationOp) => ScalarPayload.TryFloating(effective, (float)l.Floating * (float)r.Floating, out result),
-                (VBSingleType, Tokens.DivisionOp) when r.Floating != 0 => ScalarPayload.TryFloating(effective, (float)l.Floating / (float)r.Floating, out result),
-                (VBDoubleType, Tokens.AdditionOp) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
-                (VBDoubleType, Tokens.SubtractionOp) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
-                (VBDoubleType, Tokens.MultiplicationOp) => ScalarPayload.TryFloating(effective, l.Floating * r.Floating, out result),
-                (VBDoubleType, Tokens.DivisionOp) when r.Floating != 0 => ScalarPayload.TryFloating(effective, l.Floating / r.Floating, out result),
+                (ScalarKind.Date, VariantOperator.Add) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
+                (ScalarKind.Date, VariantOperator.Subtract) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Add) => ScalarPayload.TryFloating(effective, (float)l.Floating + (float)r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Subtract) => ScalarPayload.TryFloating(effective, (float)l.Floating - (float)r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Multiply) => ScalarPayload.TryFloating(effective, (float)l.Floating * (float)r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Divide) when r.Floating != 0 => ScalarPayload.TryFloating(effective, (float)l.Floating / (float)r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Add) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Subtract) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Multiply) => ScalarPayload.TryFloating(effective, l.Floating * r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Divide) when r.Floating != 0 => ScalarPayload.TryFloating(effective, l.Floating / r.Floating, out result),
                 _ => false,
             };
         }
@@ -1003,13 +1068,11 @@ public sealed partial class RuntimeExpressionEvaluator
         }
     }
 
-    // §5.6.9.8: the bits of the operands, in the effective type - a Boolean's -1 or 0 giving -1 or 0 - which no operation takes out of its range. Apart from
-    // the arithmetic operators, which would otherwise test these tokens too.
-    private static bool TryLogical(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    // §5.6.9.8: the bits of the operands, in the effective type (a Boolean's -1 or 0 giving -1 or 0), which no operation takes out of its range.
+    private static bool TryLogical(LogicalOperator @operator, VBType effective, ScalarKind? kind, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
-        if (!l.IsIntegral || OperatorTokens.LogicalOf(token) is not { } @operator || ScalarKinds.Of(effective) is not { } kind
-            || PayloadOperations.Logical(@operator, kind, l.Integral, r.Integral, out var bits) is not PayloadStatus.Ok)
+        if (!l.IsIntegral || kind is not { } of || PayloadOperations.Logical(@operator, of, l.Integral, r.Integral, out var bits) is not PayloadStatus.Ok)
         {
             return false;
         }
@@ -1018,16 +1081,17 @@ public sealed partial class RuntimeExpressionEvaluator
         return true;
     }
 
-    // MS-VBAL §5.6.9.5: a comparison of two operands of its effective type, which they were let-coerced to, is a Boolean - the payloads are finite, so any
-    // two compare.
+    // the comparison of a token (TryCompare below); any other token is none.
     private static bool TryCompare(string token, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
-        if (OperatorTokens.ComparisonOf(token) is not { } comparison)
-        {
-            return false;
-        }
+        return OperatorTokens.ComparisonOf(token) is { } comparison && TryCompare(comparison, l, r, out result);
+    }
 
+    // MS-VBAL §5.6.9.5: a comparison of two operands of its effective type, which they were let-coerced to, is a Boolean: the payloads are finite, so any
+    // two compare.
+    private static bool TryCompare(ComparisonOperator comparison, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    {
         result = ScalarPayload.OfBoolean(l.IsIntegral ? PayloadOperations.Compare(comparison, l.Integral, r.Integral) : PayloadOperations.Compare(comparison, l.Floating, r.Floating));
         return true;
     }

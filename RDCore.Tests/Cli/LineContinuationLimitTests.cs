@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A logical line joins at most 25 physical lines: 24 line-continuations in a row, and the 25th is a syntax error, "Too many line continuations", as MS-VBA has
-/// it (MS Learn; recorded in Excel: oracle\size-limits B01-B03).
+/// it (MS Learn; observed in Excel).
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 3.2.2 Logical Line Grammar")]

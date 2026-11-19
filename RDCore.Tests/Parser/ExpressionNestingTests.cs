@@ -18,7 +18,7 @@ namespace RDCore.Tests.Parser;
 
 /// <summary>
 /// The depth of an expression RD-VBA reads (<strong>RD-VBAL §2.6.1</strong>): an expression nested in at most 2,500 others is read, loaded and run, as deep as MS-VBA
-/// runs it (recorded in Excel, oracle\s65: 2,000 nested parentheses, 1,000 nested calls, a chain of 2,500 terms); a deeper one is the syntax error
+/// runs it (observed in Excel: 2,000 nested parentheses, 1,000 nested calls, a chain of 2,500 terms); a deeper one is the syntax error
 /// <see cref="VBCompileErrorId.ExpressionNestedTooDeeply"/>, where MS-VBA crashes the host.
 /// </summary>
 [TestClass]

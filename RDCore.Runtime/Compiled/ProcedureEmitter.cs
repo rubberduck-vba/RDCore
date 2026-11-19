@@ -77,8 +77,9 @@ internal sealed partial class ProcedureEmitter
     // instruction the interpreter runs alone.
     private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
 
-    // a Select Case's selector, and the same two flags: whether its Select ever ran, and whether the frame has what it last gave the selector.
-    private sealed record class SelectLocals(LocalBuilder Selector, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
+    // a Select Case's selector, and the same two flags: whether its Select ever ran, and whether the frame has what it last gave the selector. The selector
+    // of a String one is its text.
+    private sealed record class SelectLocals(LocalBuilder Selector, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind, bool IsText);
 
     private readonly List<SelectLocals> _selects = [];
 
@@ -229,7 +230,8 @@ internal sealed partial class ProcedureEmitter
 
         foreach (var select in _analysis.Selects)
         {
-            _selects.Add(new SelectLocals(_il.DeclareLocal(ClrTypeOf(select.Kind)), _il.DeclareLocal(typeof(bool)), _il.DeclareLocal(typeof(bool)), select.Kind));
+            _selects.Add(new SelectLocals(_il.DeclareLocal(select.IsText ? typeof(string) : ClrTypeOf(select.Kind)), _il.DeclareLocal(typeof(bool)),
+                _il.DeclareLocal(typeof(bool)), select.Kind, select.IsText));
         }
 
         for (var offset = 0; offset <= _analysis.Length; offset++)
@@ -256,7 +258,16 @@ internal sealed partial class ProcedureEmitter
             }
 
             BeginKnowing(step.Offset);
+
+            // a step that may give a holder another array keeps none, from its start: whatever way it is left, no array it found is kept.
+            _keepsArrays = KeepsArrays(step);
+            if (!_keepsArrays)
+            {
+                EmitForgetArrays();
+            }
+
             EmitObjectStatement(step);
+            _keepsArrays = true;
         }
 
         // the end of the body (MS-VBAL §5.4.2.17): as an Exit.
@@ -376,14 +387,15 @@ internal sealed partial class ProcedureEmitter
 
     private void EmitStep(CompiledStep step)
     {
+        _raisesErrors = RaisesErrorsIn(step);
         switch (step)
         {
             case LetStep let when let.Slot < 0:
-                Store(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, _result!);
+                Store(EmitAssigned(let, value => Store(value, let.Value.Kind, _result!)), let.Value.Kind, _result!);
                 break;
 
             case LetStep let:
-                StoreSlot(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, let.Slot);
+                StoreSlot(EmitAssigned(let, value => StoreSlot(value, let.Value.Kind, let.Slot)), let.Value.Kind, let.Slot);
                 break;
 
             case BranchStep branch:
@@ -498,6 +510,20 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // a String selector, evaluated once to its text in the local of the Select. Where compiled code cannot evaluate it, the interpreter runs the
+            // Select alone, and compiled code reads back the selector it stashed.
+            case TextSelectStep textSelect:
+            {
+                var locals = _selects[textSelect.Select];
+                _il.Emit(OpCodes.Ldloc, EmitTextInto(textSelect.Selector, RecoverAt(textSelect.Offset)));
+                _il.Emit(OpCodes.Stloc, locals.Selector);
+                _il.Emit(OpCodes.Ldc_I4_1);
+                _il.Emit(OpCodes.Stloc, locals.Opened);
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Stloc, locals.Spilled);
+                break;
+            }
+
             case CaseStep caseStep:
                 EmitCase(caseStep);
                 break;
@@ -524,12 +550,33 @@ internal sealed partial class ProcedureEmitter
                     _il.MarkLabel(slow);
                 }
 
+                // after a call inside the value, a Let the interpreter runs is given what was evaluated (Fail): the call is not made again.
                 var value = _il.DeclareLocal(typeof(VariantPayload));
-                EmitVariantInto(variantLet.Value, value, failure);
+                if (variantLet.Value is VariantSlotNode source)
+                {
+                    // a Variant that holds a String or Null, which has no payload, is copied as it is (MS-VBAL §5.5.1.2.12).
+                    var read = _il.DefineLabel();
+                    assigned = _il.DefineLabel();
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Ldloca, value);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
+                    _il.Emit(OpCodes.Brtrue, read);
+                    _il.Emit(OpCodes.Ldloc, _variants[variantLet.Slot]);
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.CopyTextOrNull))!);
+                    _il.Emit(OpCodes.Brfalse, failure);
+                    _il.Emit(OpCodes.Br, assigned.Value);
+                    _il.MarkLabel(read);
+                }
+                else
+                {
+                    EmitVariantInto(variantLet.Value, value, failure);
+                }
+
                 _il.Emit(OpCodes.Ldloc, _variants[variantLet.Slot]);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 if (assigned is { } written)
                 {
                     _il.MarkLabel(written);
@@ -538,17 +585,82 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // a String or Null written into the Variant's cell; over an object, an array or a record, or a text compiled code reads nothing of, the
+            // interpreter runs the Let alone, and compiled code goes on after it.
+            case VariantTextLetStep textLet:
+            {
+                var failure = RecoverAt(textLet.Offset);
+                var text = EmitTextInto(textLet.Value, failure);
+                _il.Emit(OpCodes.Ldloc, _variants[textLet.Slot]);
+                _il.Emit(OpCodes.Ldloc, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.WriteText))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+
+            case VariantNullLetStep nullLet:
+                _il.Emit(OpCodes.Ldloc, _variants[nullLet.Slot]);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.WriteNull))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(nullLet.Offset));
+                break;
+
             // the result of a function of the Variant type, assigned where its frame holds it: one the interpreter's assignment would let go of an object
-            // to, the interpreter runs alone, and compiled code goes on after it.
+            // to, the interpreter runs alone, and compiled code goes on after it. A Variant variable that holds a String or Null is copied as it is.
             case VariantResultLetStep resultLet:
             {
                 var failure = RecoverAt(resultLet.Offset);
                 var value = _il.DeclareLocal(typeof(VariantPayload));
-                EmitVariantInto(resultLet.Value, value, failure);
+                var assigned = _il.DefineLabel();
+                if (resultLet.Value is VariantSlotNode source)
+                {
+                    var read = _il.DefineLabel();
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Ldloca, value);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
+                    _il.Emit(OpCodes.Brtrue, read);
+                    _il.Emit(OpCodes.Ldarg_0);
+                    _il.Emit(OpCodes.Ldloc, _variants[source.Slot]);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultTextOrNull))!);
+                    _il.Emit(OpCodes.Brfalse, failure);
+                    _il.Emit(OpCodes.Br, assigned);
+                    _il.MarkLabel(read);
+                }
+                else
+                {
+                    EmitVariantInto(resultLet.Value, value, failure);
+                }
+
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Ldloc, value);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultVariant))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                _il.MarkLabel(assigned);
+                break;
+            }
+
+            // a Variant, or the Variant result of the function, assigned what a member of a class of the standard library returns: a value of a scalar type
+            // written as a payload, as a VariantLetStep or a VariantResultLetStep writes one; anything else assigned by the call (EmitLibraryMemberCall).
+            case LibraryMemberLetStep memberLet:
+            {
+                var failure = RecoverAt(memberLet.Offset);
+                var value = _il.DeclareLocal(typeof(VariantPayload));
+                var assigned = _il.DefineLabel();
+                EmitLibraryMemberCall(memberLet.Call, value, failure, assigned);
+                if (memberLet.Slot is { } slot)
+                {
+                    _il.Emit(OpCodes.Ldloc, _variants[slot]);
+                    _il.Emit(OpCodes.Ldloc, value);
+                    _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
+                }
+                else
+                {
+                    _il.Emit(OpCodes.Ldarg_0);
+                    _il.Emit(OpCodes.Ldloc, value);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultVariant))!);
+                }
+
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                _il.MarkLabel(assigned);
                 break;
             }
 
@@ -572,12 +684,20 @@ internal sealed partial class ProcedureEmitter
                 EmitVariantFieldLet(variantFieldLet);
                 break;
 
+            case FieldTextLetStep fieldTextLet:
+                EmitFieldTextLet(fieldTextLet);
+                break;
+
             case TextAppendStep textAppend:
                 EmitTextAppend(textAppend);
                 break;
 
             case TextLetStep textLet:
                 EmitTextLet(textLet);
+                break;
+
+            case MidStep mid:
+                EmitMid(mid);
                 break;
 
             case TextResultLetStep textResultLet:
@@ -590,6 +710,10 @@ internal sealed partial class ProcedureEmitter
 
             case SupportCallStep support:
                 EmitSupportCall(support);
+                break;
+
+            case WithStep with:
+                EmitWith(with);
                 break;
 
             case EndWithStep endWith:
@@ -730,10 +854,14 @@ internal sealed partial class ProcedureEmitter
         var matched = _il.DefineLabel();
         foreach (var clause in caseStep.Clauses)
         {
-            EmitCompare(clause.Lower, failure);
+            EmitClause(clause.Lower, failure);
             if (clause.Upper is { } upper)
             {
-                EmitCompare(upper, failure);
+                // the comparison of the start is held in a local while the end's is made, which goes to failure with nothing on the stack.
+                var above = _il.DeclareLocal(typeof(bool));
+                _il.Emit(OpCodes.Stloc, above);
+                EmitClause(upper, failure);
+                _il.Emit(OpCodes.Ldloc, above);
                 _il.Emit(OpCodes.And);
             }
 
@@ -742,6 +870,18 @@ internal sealed partial class ProcedureEmitter
 
         _il.Emit(OpCodes.Br, _instructions[caseStep.Else]);
         _il.MarkLabel(matched);
+    }
+
+    // a comparison of a clause, its bool left on the stack: of a scalar selector, or of the text of a String one.
+    private void EmitClause(PayloadNode compared, Label failure)
+    {
+        if (compared is TextCompareNode text)
+        {
+            EmitTextCompare(text, failure);
+            return;
+        }
+
+        EmitCompare((CompareNode)compared, failure);
     }
 
     // the instruction at offset run by the interpreter alone (CompiledActivation.Recover). When it falls through to the next instruction, nothing changed
@@ -852,13 +992,15 @@ internal sealed partial class ProcedureEmitter
         var floating = _il.DeclareLocal(typeof(double));
         var returned = _il.DefineLabel();
 
-        // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
+        // a callee that is compiled is called through its typed entry, with the arguments as they are, while the activation can be made that
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
         // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has. A member given an object is called
-        // through its binding, which gives the object to its parameter as the interpreter gives it. One that returns an object is called through the invoker,
-        // which holds what it returns as the statement's temporary.
-        var direct = _analysis.Callees[call.Callee].ReturnsObject ? null : _directs[call.Callee];
-        if (direct is not null || call.IsOfAMember && _analysis.Callees[call.Callee].ObjectParameters.Count == 0 && !_analysis.Callees[call.Callee].ReturnsObject)
+        // through its binding, which gives the object to its parameter as the interpreter gives it, and so is one given a Variant it leaves out. One that
+        // returns an object, or a String or a Variant given to the standard library, is called through the invoker, which holds what it returns as the
+        // statement's temporary.
+        var returnsWhole = _analysis.Callees[call.Callee] is { ReturnsObject: true } or { ReturnsValue: true };
+        var direct = returnsWhole ? null : _directs[call.Callee];
+        if (direct is not null || call.IsOfAMember && !_analysis.Callees[call.Callee].Parameters.Contains(null) && !returnsWhole)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -963,6 +1105,26 @@ internal sealed partial class ProcedureEmitter
                 }
 
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObject))!);
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
+                continue;
+            }
+
+            // an optional Variant left out: what the interpreter gives the parameter of the member the call invokes. One whose default raises an error is the
+            // interpreter's, which makes the call.
+            if (call.Arguments[i] is OmittedArgumentNode)
+            {
+                _il.Emit(OpCodes.Ldc_I4, call.Callee);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetOmitted))!);
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
+                continue;
+            }
+
+            // a Variant variable given by reference: its address. One compiled code cannot give is the interpreter's, which makes the call.
+            if (call.Arguments[i] is VariantReferenceNode variant)
+            {
+                _il.Emit(OpCodes.Ldc_I4, call.Callee);
+                _il.Emit(OpCodes.Ldc_I4, variant.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetVariantReference))!);
                 _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
                 continue;
             }
@@ -1105,6 +1267,7 @@ internal sealed partial class ProcedureEmitter
     private void EmitReload(Label unread)
     {
         _unreads = true;
+        EmitForgetArrays();
         foreach (var (slot, kind) in _analysis.Slots)
         {
             if (_cells.ContainsKey(slot))
@@ -1365,7 +1528,7 @@ internal sealed partial class ProcedureEmitter
 
     private static bool ReadsVariant(PayloadNode node) => node switch
     {
-        UnvariantNode or TruthNode => true,
+        UnvariantNode or TruthNode or VariantInformationNode => true,
         ConvertNode convert => ReadsVariant(convert.Operand),
         IntegralNode integral => ReadsVariant(integral.Left) || ReadsVariant(integral.Right),
         LogicalNode logical => ReadsVariant(logical.Left) || ReadsVariant(logical.Right),
@@ -1376,6 +1539,7 @@ internal sealed partial class ProcedureEmitter
         ExtendedCompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
         TemporaryNode temporary => ReadsVariant(temporary.Value),
         LibraryCallNode library => library.Arguments.Any(argument => argument is not VariantOfNode { Value: var value } || ReadsVariant(value)),
+        IntrinsicNode intrinsic => intrinsic.Arguments.Any(argument => argument is TextArgumentNode || ReadsVariant(argument)),
         _ => false,
     };
 
@@ -1485,8 +1649,8 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
             _il.Emit(OpCodes.Ldloca, select.Selector);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(select.Kind)
-                ? nameof(CompiledActivation.ReloadSelectorIntegral)
+            _il.Emit(OpCodes.Call, Activation.GetMethod(select.IsText ? nameof(CompiledActivation.ReloadTextSelector)
+                : ScalarKinds.IsIntegral(select.Kind) ? nameof(CompiledActivation.ReloadSelectorIntegral)
                 : nameof(CompiledActivation.ReloadSelectorFloating))!);
             _il.Emit(OpCodes.Dup);
             _il.Emit(OpCodes.Stloc, select.Opened);
@@ -1580,8 +1744,16 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brtrue, closed);
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
-            LoadAsBoth(select.Selector, select.Kind);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillSelector))!);
+            if (select.IsText)
+            {
+                _il.Emit(OpCodes.Ldloc, select.Selector);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillTextSelector))!);
+            }
+            else
+            {
+                LoadAsBoth(select.Selector, select.Kind);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillSelector))!);
+            }
             _il.Emit(OpCodes.Ldc_I4_1);
             _il.Emit(OpCodes.Stloc, select.Spilled);
             _il.MarkLabel(closed);
@@ -1693,6 +1865,16 @@ internal sealed partial class ProcedureEmitter
             // an object is read from its cell, or given its address, as the call is made (CompiledActivation.SetObject, SetObjectReference).
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
+
+            // a String given by reference to a Variant: what its appender holds, written into its cell, which the callee is given the address of.
+            case VariantReferenceNode { OfText: true } text:
+                EmitWriteAppended(text.Slot);
+                return default;
+
+            // an optional Variant left out, and a Variant variable given by reference, are given as the call is made (CompiledActivation.SetOmitted,
+            // SetVariantReference).
+            case OmittedArgumentNode or VariantReferenceNode:
+                return default;
             default:
                 return EmitPayload(node, failure);
         }
@@ -1765,6 +1947,19 @@ internal sealed partial class ProcedureEmitter
             case ConvertNode convert:
             {
                 var operand = EmitPayload(convert.Operand, failure);
+
+                // a Single or a Double made an integer is rounded and checked against the type's range where it is (RoundedToWhole).
+                if (convert.Operand.Kind is ScalarKind.Single or ScalarKind.Double && PayloadOperations.IsWholeKind(convert.Kind))
+                {
+                    var whole = _il.DeclareLocal(typeof(long));
+                    Load(operand, convert.Operand.Kind);
+                    _il.Emit(OpCodes.Ldc_I4, (int)convert.Kind);
+                    _il.Emit(OpCodes.Ldloca, whole);
+                    _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.RoundedToWhole))!);
+                    _il.Emit(OpCodes.Brtrue, Fail(failure));
+                    return new Operand(whole, 0, 0);
+                }
+
                 var integral = _il.DeclareLocal(typeof(long));
                 var floating = _il.DeclareLocal(typeof(double));
                 _il.Emit(OpCodes.Ldc_I4, (int)convert.Operand.Kind);
@@ -1804,7 +1999,7 @@ internal sealed partial class ProcedureEmitter
                     Tokens.IntegerDivisionOp => nameof(PayloadOperations.IntegerDivide),
                     _ => nameof(PayloadOperations.Modulo),
                 })!);
-                _il.Emit(OpCodes.Brtrue, Fail(failure));
+                EmitArithmeticStatus(integral.Site, failure);
                 return new Operand(result, 0, 0);
             }
 
@@ -1855,10 +2050,14 @@ internal sealed partial class ProcedureEmitter
 
             case StoreNode { Value: ExtendedOperationNode { Left: WidenNode left, Right: WidenNode right } operation } store
                 when IsExactlyDouble(left.Operand.Kind) && IsExactlyDouble(right.Operand.Kind) && store.Kind is ScalarKind.Double or ScalarKind.Date:
-                return EmitExactOperation(operation.Token, left.Operand, right.Operand, store.Kind, failure);
+            {
+                var assign = TakeAssignsOnError();
+                return EmitExactOperation(operation.Token, left.Operand, right.Operand, store.Kind, failure, RaisedAt(store, assign), assign);
+            }
 
             case StoreNode store:
             {
+                var assign = TakeAssignsOnError();
                 var value = EmitExtended(store.Value, failure);
                 var integral = ScalarKinds.IsIntegral(store.Kind);
                 var result = _il.DeclareLocal(ClrTypeOf(store.Kind));
@@ -1866,7 +2065,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldc_I4, (int)store.Kind);
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(integral ? nameof(Compiled.Extended.ToIntegral) : nameof(Compiled.Extended.ToFloating))!);
-                _il.Emit(OpCodes.Brtrue, Fail(failure));
+                EmitArithmeticStatus(RaisedAt(store, assign), failure, result, assign);
                 return new Operand(result, 0, 0);
             }
 
@@ -2028,6 +2227,9 @@ internal sealed partial class ProcedureEmitter
             case LibraryCallNode library:
                 return EmitLibraryCall(library, failure);
 
+            case IntrinsicNode intrinsic:
+                return EmitIntrinsic(intrinsic, failure);
+
             default:
                 return EmitArrayPayload(node, failure);
         }
@@ -2072,13 +2274,22 @@ internal sealed partial class ProcedureEmitter
         VariantBinaryNode binary => MakesACall(binary.Left) || MakesACall(binary.Right),
         VariantUnaryNode unary => MakesACall(unary.Operand),
         LibraryVariantNode library => library.Arguments.Any(MakesACall),
+        LibraryMemberNode member => member.Arguments.Any(MakesACall),
+        VariantElementNode element => element.Subscripts.Any(MakesACall),
+        VariantElementValueNode value => MakesACall(value.Element),
+        CallValueNode => true,
         _ => false,
     };
 
+    // an element read calls what its subscripts call, and a member of what a call returns makes that call.
     private static bool MakesACall(PayloadNode node) => node switch
     {
         CallNode => true,
+        ElementNode element => element.Subscripts.Any(MakesACall),
+        MemberFieldNode { ReceiverCall: not null } => true,
+        ObjectArgumentNode { Call: not null } => true,
         LibraryCallNode library => library.Syntax >= 0 || library.Arguments.Any(MakesACall),
+        IntrinsicNode intrinsic => intrinsic.Arguments.Any(MakesACall),
         KnownNode known => MakesACall(known.Value),
         UnvariantNode unvariant => MakesACall(unvariant.Value),
         TruthNode truth => MakesACall(truth.Value),
@@ -2193,11 +2404,23 @@ internal sealed partial class ProcedureEmitter
             {
                 var left = EmitVariant(binary.Left, failure);
                 var right = EmitVariant(binary.Right, failure);
-                _il.Emit(OpCodes.Ldstr, binary.Token);
+
+                // an arithmetic, comparison or logical operator is given as its code, planned for the kinds of the operands; any other as its token.
+                var @operator = VariantOperators.Of(binary.Token);
+                if (@operator is { } code)
+                {
+                    _il.Emit(OpCodes.Ldc_I4, (int)code);
+                }
+                else
+                {
+                    _il.Emit(OpCodes.Ldstr, binary.Token);
+                }
+
                 _il.Emit(OpCodes.Ldloc, left);
                 _il.Emit(OpCodes.Ldloc, right);
                 _il.Emit(OpCodes.Ldloca, result);
-                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Binary))!);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Binary),
+                    [@operator is null ? typeof(string) : typeof(VariantOperator), typeof(VariantPayload), typeof(VariantPayload), typeof(VariantPayload).MakeByRefType()])!);
                 _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
             }
@@ -2218,6 +2441,14 @@ internal sealed partial class ProcedureEmitter
                 EmitLibraryVariantCall(library, result, failure);
                 break;
 
+            case LibraryMemberNode member:
+                EmitLibraryMemberCall(member, result, failure);
+                break;
+
+            case CallValueNode called:
+                EmitVariantCall(called, result, failure);
+                break;
+
             default:
                 EmitArrayVariantInto(node, result, failure);
                 break;
@@ -2229,7 +2460,8 @@ internal sealed partial class ProcedureEmitter
 
     // one operation of two payloads stored as a Double or a Date: computed in Double when its result is exact (Extended.TryAddExactly), which is what the
     // extended format stores; in the extended format otherwise, from the same operands.
-    private Operand EmitExactOperation(string token, PayloadNode left, PayloadNode right, ScalarKind kind, Label failure)
+    private Operand EmitExactOperation(string token, PayloadNode left, PayloadNode right, ScalarKind kind, Label failure, int site = -1,
+        Action<Operand>? assign = null)
     {
         var l = EmitPayload(left, failure);
         var r = EmitPayload(right, failure);
@@ -2266,7 +2498,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, (int)kind);
         _il.Emit(OpCodes.Ldloca, result);
         _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Compiled.Extended.ToFloating))!);
-        _il.Emit(OpCodes.Brtrue, Fail(failure));
+        EmitArithmeticStatus(site, failure, result, assign);
 
         _il.MarkLabel(done);
         return new Operand(result, 0, 0);

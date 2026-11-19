@@ -106,7 +106,7 @@ internal static class DocumentOutline
     /// source text — and the selection range is the module-level <c>Attribute VB_Name</c> directive
     /// when the module declares one, falling back to a zero-width range at the start of that span.
     /// </summary>
-    private static (SourceRange Range, SourceRange SelectionRange) ModuleRangesOf(ModuleNode module)
+    internal static (SourceRange Range, SourceRange SelectionRange) ModuleRangesOf(ModuleNode module)
     {
         if (module.Children.IsDefaultOrEmpty)
         {

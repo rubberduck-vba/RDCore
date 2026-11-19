@@ -316,7 +316,7 @@ public interface IStdInteractionModule
     /// </summary>
     /// <remarks>
     /// A hidden member of MS-VBA's <c>Interaction</c> module, kept for the Macintosh versions of Office. It resolves, so that code written for both platforms
-    /// compiles, and raises a run-time error when it is called: RD-VBA has no AppleScript to run.
+    /// compiles, and raises run-time error 5 (Invalid procedure call or argument) when it is called, as MS-VBA does on Windows: RD-VBA has no AppleScript to run.
     /// </remarks>
     /// <param name="script">The AppleScript source, or the path of a compiled script.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>

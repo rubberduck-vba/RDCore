@@ -13,8 +13,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// <strong>MS-VBAL §5.6.16.1</strong> lists <c>Len</c> among constant expressions. MS-VBA refuses it in a <c>Const</c> of a module, and compiles it in one of a
-/// procedure - whose run crashes the host (recorded in Excel: oracle\s44 C01-C04). RD-VBA compiles it to the length MS-VBAL gives it, and warns, by the
-/// author's ruling: the same declaration is an error one level up. A module's <c>Const</c> of <c>Len</c> is a compile error, and a <c>Len</c> that is no
+/// procedure - whose run crashes the host (observed in Excel). RD-VBA compiles it to the length MS-VBAL gives it, and warns: the same declaration is an error one level up. A module's <c>Const</c> of <c>Len</c> is a compile error, and a <c>Len</c> that is no
 /// function of the library makes the value no constant expression, so a module that loads has only the library's <c>Len</c> here.
 /// </remarks>
 internal sealed class ProcedureConstantLengthAnalyzer : IModuleAnalyzer
