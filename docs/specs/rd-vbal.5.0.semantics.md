@@ -262,6 +262,16 @@ and are `null` otherwise, which says the references are not known, and not that 
    not refer to it. A constant of the module is also referred to by the expressions of the module's declarations (the bounds
    of an array, the value of another constant, the default of a parameter), and every one of them was analyzed with no error.
 
+Once every procedure of the project was analyzed completely, the host also counts, over all of its modules, what only the
+project's code can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is
+`Option Private Module` (**MS-VBAL §5.3.1.1**, **§5.2.1.4**). For a `Public` member, the project's kind decides:
+
+|Project|A `Public` member|
+|---|---|
+|A program: not a library, and its entry point is found|Counted, since no other project or host calls into it. A member with a `Role` is not counted, nor a member of a class that code can reach where it runs: its default member or enumerator (`VB_UserMemId` `0` or `-4`), a member that an access bound late names (**MS-VBAL §5.6.12**), and every member of a class when the program calls `CallByName`.|
+|A library|`IsUsedByReferencingProjects` when a referencing project can name it, or reach it through an object of its class; not counted.|
+|Any other project|Not counted: the host that runs it can call it.|
+
 An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its
 to say.
 

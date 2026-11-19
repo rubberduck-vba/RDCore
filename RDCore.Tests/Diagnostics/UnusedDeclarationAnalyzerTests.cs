@@ -74,9 +74,10 @@ public sealed class UnusedDeclarationAnalyzerTests
             "    Next",
             "End Sub");
 
-        CollectionAssert.AreEqual(new[] { 2, 5, 6 }, Lines(findings), "a Private variable of the module and two locals; not a Public one, not a loop's counter");
+        CollectionAssert.AreEqual(new[] { 2, 3, 5, 6 }, Lines(findings),
+            "a Private variable of the module, a Public one of a program, and two locals; not a loop's counter");
         AssertAre(findings, RDCoreDiagnosticId.VariableNotUsed, DiagnosticSeverity.Information);
-        StringAssert.Contains(findings[2].Message, "assigned", "the variable that is only assigned says so");
+        StringAssert.Contains(findings[3].Message, "assigned", "the variable that is only assigned says so");
     }
 
     [TestMethod]
@@ -619,7 +620,7 @@ public sealed class UnusedDeclarationAnalyzerTests
     }
 
     [TestMethod]
-    public async Task AConstantOfTheModule_ReadByADeclarationOfTheModule_IsUsed_AndAPublicOneIsNotCounted()
+    public async Task AConstantOfTheModule_ReadByADeclarationOfTheModule_IsUsed_AndAPublicOneOfAProgramIsCounted()
     {
         var findings = await ProgramAsync(new ConstantNotUsedAnalyzer(),
             "Option Explicit",
@@ -632,7 +633,9 @@ public sealed class UnusedDeclarationAnalyzerTests
             "    Debug.Print Items(0), Twice",
             "End Sub");
 
-        Assert.IsEmpty(findings, "read by the bounds of an array of the module, by the value of another constant; a Public one may be read by another module");
+        // a program's code is all there is to read it: its Public constant that nothing reads is unused.
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(findings), "read by the bounds of an array of the module, by the value of another constant");
+        StringAssert.Contains(findings[0].Message, "'Limit'");
     }
 
     [TestMethod]
