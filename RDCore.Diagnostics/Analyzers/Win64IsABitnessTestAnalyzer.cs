@@ -1,10 +1,9 @@
-using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -13,11 +12,11 @@ namespace RDCore.Diagnostics.Analyzers;
 /// (<see cref="PredefinedConditionalConstants.Win64"/>). Most such tests are about the bitness of the environment, which <c>Is64BitEnv</c> tests.
 /// </summary>
 /// <remarks>
-/// Not reported when the platform sets <c>Win64</c> on Windows only (<see cref="SdkEnvironmentOptions.Win64OnlySetOnWindows"/>), nor in a module that
-/// defines its own <c>Win64</c>. The two fixes replace the name: with <c>Is64BitEnv</c>, and with <c>Win32 And Is64BitEnv</c> for a <c>Win64</c> that
-/// means 64-bit Windows, in parentheses where the name is an operand.
+/// Not reported when the host sets <c>Win64</c> on Windows only (<see cref="ModuleSemanticsDto.Win64OnlySetOnWindows"/>), nor where the module or its
+/// project defines its own <c>Win64</c> (<see cref="ModuleSemanticsDto.ProjectConditionalConstants"/>). The two fixes replace the name: with
+/// <c>Is64BitEnv</c>, and with <c>Win32 And Is64BitEnv</c> for a <c>Win64</c> that means 64-bit Windows, in parentheses where the name is an operand.
 /// </remarks>
-internal sealed class Win64IsABitnessTestAnalyzer(IOptions<SdkAppOptions> options) : IModuleAnalyzer
+internal sealed class Win64IsABitnessTestAnalyzer : IModuleAnalyzer
 {
     private const string Windows64 = "Win32 And " + PredefinedConditionalConstants.Is64BitEnv;
 
@@ -26,7 +25,7 @@ internal sealed class Win64IsABitnessTestAnalyzer(IOptions<SdkAppOptions> option
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         var trivia = context.ParseResult.PrecompilerTrivia;
-        if (options.Value.Environment.Win64OnlySetOnWindows || trivia.IsDefaultOrEmpty
+        if (trivia.IsDefaultOrEmpty || context.Semantics is { Win64OnlySetOnWindows: true } || IsDefinedByTheProject(context.Semantics)
             || ConditionalConstantReads.DeclaredBy(trivia).Contains(PredefinedConditionalConstants.Win64))
         {
             return [];
@@ -36,6 +35,10 @@ internal sealed class Win64IsABitnessTestAnalyzer(IOptions<SdkAppOptions> option
             .Where(read => string.Equals(read.Name.Name, PredefinedConditionalConstants.Win64, StringComparison.OrdinalIgnoreCase))
             .Select(Finding);
     }
+
+    private static bool IsDefinedByTheProject(ModuleSemanticsDto? semantics)
+        => semantics?.ProjectConditionalConstants is { } constants
+            && constants.Any(constant => string.Equals(constant.Name, PredefinedConditionalConstants.Win64, StringComparison.OrdinalIgnoreCase));
 
     private static AnalyzerFinding Finding(ConditionalConstantRead read)
     {

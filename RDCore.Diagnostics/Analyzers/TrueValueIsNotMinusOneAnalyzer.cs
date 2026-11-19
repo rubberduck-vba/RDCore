@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -22,8 +23,10 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <para>
 /// Which operations are wrong is <see cref="TruthValueOperations"/>'s to say. In code, an operand is read off the syntax tree and the expression facts: a
 /// literal, or the binding of the constant a name names (<see cref="ExpressionFactDto.ConstantValue"/>); otherwise its declared type. In a directive, it
-/// is read off the module's own <c>#Const</c>s and the predefined constants, which are <c>1</c> where they are true (<see cref="PredefinedConditionalConstants"/>): <c>#If Not Win64</c> is
-/// live on 64-bit Windows. Another constant the module does not define, which the project does, is <c>True</c> or <c>False</c> as far as anyone can tell.
+/// is read off the module's own <c>#Const</c>s, the constants of the project by the values the host gives them
+/// (<see cref="ModuleSemanticsDto.ProjectConditionalConstants"/>), and the predefined constants, which are <c>1</c> where they are true
+/// (<see cref="PredefinedConditionalConstants"/>): <c>#If Not Win64</c> is live on 64-bit Windows, and so is <c>#If Not DEV</c> in a project that defines
+/// <c>DEV = 1</c>. A constant the host states nothing of is <c>True</c> or <c>False</c> as far as anyone can tell.
 /// </para>
 /// <para>
 /// Only where the operation's truth value is what is tested: the condition of an <c>If</c>, a loop, a <c>Debug.Assert</c>, a <c>#If</c> or a <c>#ElseIf</c>,
@@ -39,7 +42,7 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
     private const int ConstantDepth = 8;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => [.. InCode(context), .. InDirectives(context.ParseResult.PrecompilerTrivia)];
+        => [.. InCode(context), .. InDirectives(context.ParseResult.PrecompilerTrivia, context.Semantics)];
 
     private static IEnumerable<AnalyzerFinding> InCode(ModuleAnalysisContext context)
     {
@@ -104,11 +107,18 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
         };
     }
 
-    private static IEnumerable<AnalyzerFinding> InDirectives(System.Collections.Immutable.ImmutableArray<SyntaxNode> trivia)
+    private static IEnumerable<AnalyzerFinding> InDirectives(System.Collections.Immutable.ImmutableArray<SyntaxNode> trivia, ModuleSemanticsDto? semantics)
     {
         if (trivia.IsDefaultOrEmpty)
         {
             return [];
+        }
+
+        // the constants of the project, with the values the host gives them: a module's own #Const wins over one, and one over a predefined constant.
+        var project = new Dictionary<string, VBTypedValue>(StringComparer.OrdinalIgnoreCase);
+        foreach (var constant in semantics?.ProjectConditionalConstants ?? [])
+        {
+            project.TryAdd(constant.Name, constant.Value);
         }
 
         var nodes = trivia.SelectMany(node => (IEnumerable<SyntaxNode>)[node, .. node.Descendants()]).ToList();
@@ -131,7 +141,7 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
         }
 
         return roots.SelectMany(root => TruthReads(root, _ => false))
-            .Where(read => Misleads(read, constants))
+            .Where(read => Misleads(read, constants, project))
             .Select(read => Finding(read, read.Location.Range));
     }
 
@@ -197,21 +207,26 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
     }
 
     // an operation of a directive that a constant True and not -1 makes wrong.
-    private static bool Misleads(ExpressionNode operation, Dictionary<string, ExpressionNode> constants) => operation switch
+    private static bool Misleads(
+        ExpressionNode operation, Dictionary<string, ExpressionNode> constants, Dictionary<string, VBTypedValue> project) => operation switch
     {
-        VBUnaryOperatorExpressionNode { Token: Tokens.LogicalNotOp } not => TruthValueOperations.NotMisleads(OperandOf(not.Operand, constants, 0)),
-        VBBinaryOperatorExpressionNode binary => TruthValueOperations.Misleads(binary.Token, OperandOf(binary.Left, constants, 0), OperandOf(binary.Right, constants, 0)),
+        VBUnaryOperatorExpressionNode { Token: Tokens.LogicalNotOp } not => TruthValueOperations.NotMisleads(OperandOf(not.Operand, constants, project, 0)),
+        VBBinaryOperatorExpressionNode binary =>
+            TruthValueOperations.Misleads(binary.Token, OperandOf(binary.Left, constants, project, 0), OperandOf(binary.Right, constants, project, 0)),
         _ => false,
     };
 
-    // what an operand of a directive is as a truth value: a literal, a #Const of the module whose value is one, a predefined constant (1 or 0, Win16 always
-    // 0), or - a constant the module does not define, which the project does - True or False as far as the module says.
-    private static TruthOperand OperandOf(ExpressionNode operand, Dictionary<string, ExpressionNode> constants, int depth) => operand switch
+    // what an operand of a directive is as a truth value: a literal, a #Const of the module whose value is one, a constant of the project by the value the
+    // host gives it, or a predefined constant (1 or 0, Win16 always 0). A constant that nothing the host states defines is True or False as far as anyone
+    // can tell.
+    private static TruthOperand OperandOf(
+        ExpressionNode operand, Dictionary<string, ExpressionNode> constants, Dictionary<string, VBTypedValue> project, int depth) => operand switch
     {
         LiteralExpressionNode literal => TruthOperand.Of(literal.StaticValue),
-        VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp } negation => OperandOf(negation.Operand, constants, depth).Negated,
+        VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp } negation => OperandOf(negation.Operand, constants, project, depth).Negated,
         PrecompilerNameExpressionNode name when constants.TryGetValue(name.Name, out var value) =>
-            depth < ConstantDepth ? OperandOf(value, constants, depth + 1) : TruthOperand.Opaque,
+            depth < ConstantDepth ? OperandOf(value, constants, project, depth + 1) : TruthOperand.Opaque,
+        PrecompilerNameExpressionNode name when project.TryGetValue(name.Name, out var value) => TruthOperand.Of(value),
         PrecompilerNameExpressionNode name when PredefinedConditionalConstants.CanBeTrue(name.Name) => TruthOperand.OneOrZero,
         PrecompilerNameExpressionNode name when PredefinedConditionalConstants.Names.Contains(name.Name) =>
             new TruthOperand(TruthOperandKind.Number, PredefinedConditionalConstants.False),

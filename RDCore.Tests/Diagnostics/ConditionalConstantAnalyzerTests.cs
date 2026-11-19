@@ -1,10 +1,8 @@
-using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
-using RDCore.SDK.Server.Configuration;
 using RDCore.Tests.Cli;
 using static RDCore.Tests.Diagnostics.CodeActionFixture;
 
@@ -19,12 +17,22 @@ namespace RDCore.Tests.Diagnostics;
 public sealed class ConditionalConstantAnalyzerTests
 {
     // a directive is read off the module as it is written: no host is asked.
-    private static AnalyzerFinding[] Win64Of(string lines, bool win64OnlySetOnWindows = false)
+    private static AnalyzerFinding[] Win64Of(string lines)
     {
         var program = Module([.. lines.Split(" ;; "), "Public Sub Main()", "End Sub"]);
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
-        var options = Options.Create(new SdkAppOptions { Environment = new SdkEnvironmentOptions { Win64OnlySetOnWindows = win64OnlySetOnWindows } });
-        return [.. new Win64IsABitnessTestAnalyzer(options).Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), null))];
+        return [.. new Win64IsABitnessTestAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), null))];
+    }
+
+    // what the installation sets and what the project defines are the host's to say: the module is analyzed as the host loads it.
+    private static async Task<AnalyzerFinding[]> Win64OfTheHostAsync(string lines, bool win64OnlySetOnWindows, IReadOnlyDictionary<string, string>? constants)
+    {
+        var program = Module([.. lines.Split(" ;; "), "Public Sub Main()", "End Sub"]);
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], program, environment: profile => profile with { Win64OnlySetOnWindows = win64OnlySetOnWindows }, constants: constants);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
+        return [.. new Win64IsABitnessTestAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model))];
     }
 
     // what is defined is the host's to say: the module is analyzed as the host loads it.
@@ -65,11 +73,22 @@ public sealed class ConditionalConstantAnalyzerTests
         => Assert.HasCount(2, Win64Of("#If Win64 Then ;; #ElseIf VBA7 And Win64 Then ;; #End If"));
 
     [TestMethod]
-    [DataRow("#If Win32 Then ;; #End If", false, DisplayName = "another predefined constant")]
-    [DataRow("#Const Win64 = 1 ;; #If Win64 Then ;; #End If", false, DisplayName = "a Win64 the module declares")]
-    [DataRow("#If Win64 Then ;; #End If", true, DisplayName = "Win64 set on Windows only")]
-    public void AWin64ThatMeansWhatItSays_IsNotOne(string lines, bool win64OnlySetOnWindows)
-        => Assert.IsEmpty(Win64Of(lines, win64OnlySetOnWindows));
+    [DataRow("#If Win32 Then ;; #End If", DisplayName = "another predefined constant")]
+    [DataRow("#Const Win64 = 1 ;; #If Win64 Then ;; #End If", DisplayName = "a Win64 the module declares")]
+    public void AWin64ThatMeansWhatItSays_IsNotOne(string lines)
+        => Assert.IsEmpty(Win64Of(lines));
+
+    [TestMethod]
+    [DataRow(true, null, DisplayName = "Win64 set on Windows only by the installation")]
+    [DataRow(false, "Win64", DisplayName = "a Win64 the project defines")]
+    [DataRow(false, "WIN64", DisplayName = "a Win64 the project defines, in capitals")]
+    public async Task AWin64TheHostSaysMeansWhatItSays_IsNotOne(bool win64OnlySetOnWindows, string? defined)
+        => Assert.IsEmpty(await Win64OfTheHostAsync(
+            "#If Win64 Then ;; #End If", win64OnlySetOnWindows, defined is null ? null : new Dictionary<string, string> { [defined] = "1" }));
+
+    [TestMethod]
+    public async Task AWin64_IsOne_WhereTheProjectDefinesOtherConstants()
+        => Assert.ContainsSingle(await Win64OfTheHostAsync("#If Win64 And DEV Then ;; #End If", false, new Dictionary<string, string> { ["DEV"] = "1" }));
 
     [TestMethod]
     public void AWin64InCode_IsNotADirectivesConstant()

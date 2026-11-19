@@ -502,7 +502,8 @@ internal sealed class CompletionService(
         return (composition, syntaxTree, workspaceRoot, moduleUri);
     }
 
-    // the names of the conditional-compilation constants the .rdproj of the document's project defines; a document of no project's has none.
+    // the names of the conditional-compilation constants the .rdproj of the document's project defines, and the command line's for the primary project;
+    // a document of no project's has none.
     private IEnumerable<string> ProjectConstantsOf(Uri address)
     {
         if (!address.IsFile || documents.WorkspaceRoot.Length == 0)
@@ -512,7 +513,13 @@ internal sealed class CompletionService(
 
         var root = documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
         var project = workspaceProjects.Projects.FirstOrDefault(each => WorkspacePaths.Same(each.Root, root));
-        return project is null ? [] : project.Project.ProjectInfo.PrecompilerConstants.Keys;
+        if (project is null)
+        {
+            return [];
+        }
+
+        var info = project.Project.ProjectInfo;
+        return (WorkspacePaths.Same(root, documents.WorkspaceRoot) ? options.Value.Workspace.WithDefines(info) : info).PrecompilerConstants.Keys;
     }
 
     // what host document each document module of a project is the code of, by the module's name: its code names the members of the host's class.

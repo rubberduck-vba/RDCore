@@ -11,7 +11,7 @@ An _execution session_'s services are rooted at an
 |---|---|
 |`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). With `Environment.OperatingSystem`, it sets the [predefined conditional-compilation constants](#predefined-conditional-compilation-constants).|
 |`Environment.OperatingSystem`|The operating system the environment host runs on: Windows, macOS, Linux, or another. It decides which of `Win32`, `Mac` and `Linux` is `1`, and with the bitness, `Win64` ([below](#predefined-conditional-compilation-constants)).|
-|`Environment.Win64OnlySetOnWindows`|Whether `Win64` is `1` on 64-bit Windows only. `false` unless the platform says otherwise: `Win64` is `1` on a 64-bit Mac too, as in MS-VBA.|
+|`Environment.Win64OnlySetOnWindows`|Whether `Win64` is `1` on 64-bit Windows only. One value per installation, in the environment host's `appsettings.json`: a user's settings and a workspace's cannot set it. `false` unless the installation says otherwise: `Win64` is `1` on a 64-bit Mac too, as in MS-VBA.|
 |`Environment.Culture`|The culture of the environment, which its `Lcid` selects; `0` is the invariant culture. Text compares in it (`Option Compare Text`, `Like`), and `Format` writes in it given a format.|
 |`Environment.Regional`|The regional settings of the environment: a number or a date let-coerced to `String` is written in them, and a `String` let-coerced to a number or a date is read in them ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)). en-US unless the platform says otherwise.|
 |`Environment.AnsiEncoding`|The `Encoding` of the environment's `AnsiCodePage`: what a character is as one or two bytes outside a `String`'s own data, which the session's files are written and read in. Let-coercion between `String` and `Byte()` takes no code page ([**RD-VBAL §5.5.1.2.6** Let-coercion to and from resizable Byte()](rd-vbal.5.5.1.2.runtime-semantics.md#55126-let-coercion-to-and-from-resizable-byte)).|
@@ -63,7 +63,8 @@ a directive reads as [**RDC01019** Win64 is a bitness test](../diagnostics/rdc01
 On 64-bit Linux, `Is64BitEnv` is `1` and `Win64` is `0`, so the first fix makes the branch live there, as a bitness test should.
 
 With `Environment.Win64OnlySetOnWindows`, `Win64` is `1` on 64-bit Windows only and is not reported. Code written for Excel for Mac that tests `Win64`
-then takes the other branch on a Mac.
+then takes the other branch on a Mac. A `Win64` the project defines (`.rdproj`, `--define`) is not reported either: the environment host states the
+project's constants and this setting with each module's semantics, and the analyzers read them there.
 
 `Linux64` is retired, and nothing predefines it: it is `0` unless the code defines it. RDC01020 reports it with the fix `Linux And Is64BitEnv`.
 
