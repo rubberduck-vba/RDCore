@@ -73,8 +73,9 @@ public sealed partial class CompiledActivation : ILightActivation
     // whether each numbered cell is the activation's own although its slot is a parameter passed by reference: the cell of a value (TakeReference).
     private readonly bool[] _ownsCell;
 
-    // the cell of each String of an activation without a frame (CompiledBody.TextSlots), by its number, which its frame is given once it has one
-    // (MakeFrame); and whether each is the caller's variable, which a parameter passed by reference is a second name for (TakeTextReference).
+    // the cell of each String of the activation (CompiledBody.TextSlots), by its number, which its frame is given: when it is made (MakeFrame), or as the
+    // entry finds the cell (StringCellOf); and whether each is the caller's variable, which a parameter passed by reference is a second name for
+    // (TakeTextReference).
     private readonly TextCell?[] _texts;
     private readonly bool[] _textAliases;
 
@@ -213,15 +214,12 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <param name="cell">The cell of the variable given.</param>
     public static bool IsTextCell(object? cell) => cell is TextCell;
 
-    // the cell held for the parameter, and given to the frame when the activation has one: under a debugger, which made it as the call was made.
+    // the cell held for the parameter: a frame made as the call was made, under a debugger, is given it as the entry finds its Strings' cells, before
+    // anything can see the frame (StringCellOf); any other when it is made (MakeFrame).
     private void HoldGivenText(int slot, TextCell cell, bool alias)
     {
         var number = Array.IndexOf(_body.TextSlots, slot);
         (_texts[number], _textAliases[number]) = (cell, alias);
-        if (_frame is { } frame)
-        {
-            HoldText(frame, number);
-        }
     }
 
     // the frame given the cell numbered number, when it has none for its slot: a parameter passed by reference's is its caller's variable, which the frame
@@ -1456,7 +1454,8 @@ public sealed partial class CompiledActivation : ILightActivation
     /// it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation. The frame's, which the
     /// interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>); without a frame, the activation's, which
     /// its frame is given once it has one: the cell its caller gave a parameter (<see cref="TakeText"/>, <see cref="TakeTextReference"/>), or one made
-    /// for a variable, holding what the interpreter declares it with. A frame made as the call was made, under a debugger, is given the variable's cell so.
+    /// for a variable, holding what the interpreter declares it with. A frame made as the call was made, under a debugger, is given the parameter's or
+    /// the variable's cell so.
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
