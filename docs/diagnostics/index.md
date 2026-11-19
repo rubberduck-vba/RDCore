@@ -267,6 +267,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00125](rdc00125.md)|Suspicious Let assignment|An object assigned to an object without `Set`|
 |[RDC00126](rdc00126.md)|Indexed recursive default member access|An argument list given through a default member that takes none, to the default member of what it returns|
 |[RDC00127](rdc00127.md)|Recursive bang notation|`b!key` through a default member that takes none, to the default member of what it returns|
+|[RDC00128](rdc00128.md)|Undeclared variable|A variable that no statement declares, in a module with no `Option Explicit`|
 |[RDC00201](rdc00201.md)|Integer data type declaration|An As Integer clause or a % type character|
 |[RDC00202](rdc00202.md)|Module-scope Dim declaration|A module-level variable declared with Dim|
 |[RDC00203](rdc00203.md)|Multiline parameter declaration|One parameter declared over several lines|

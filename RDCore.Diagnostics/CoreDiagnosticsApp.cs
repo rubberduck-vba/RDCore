@@ -56,6 +56,7 @@ internal class CoreDiagnosticsApp(
 
         // every analyzer the extension has, which the handler calls for each document it diagnoses.
         services.AddSingleton<IModuleAnalyzer, OptionExplicitAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UndeclaredVariableAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteCallStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NotAllPathsReturnValueAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IsMissingAlwaysFalseAnalyzer>();

@@ -47,6 +47,7 @@ public enum RDCoreDiagnosticId
     SuspiciousLetAssignment = 125, // an object assigned to an object without Set: default member to default member, where Set was likelier meant
     IndexedRecursiveDefaultMemberAccess = 126, // an argument list given to an object of a known class that goes through more than one default member
     RecursiveBangNotation = 127, // b!key of a known class that goes through more than one default member
+    UndeclaredVariable = 128, // [RD2: UndeclaredVariableInspection] a name that matches nothing, which declares a local where it is first used, with no Option Explicit
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,

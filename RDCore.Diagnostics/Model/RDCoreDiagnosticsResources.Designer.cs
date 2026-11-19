@@ -196,6 +196,24 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplicitDeclarationsEnabled_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not declared: it is a variable that comes into being where it is first used. Declare it, or correct the name if it is misspelled..
+        /// </summary>
+        public static string UndeclaredVariable_Message {
+            get {
+                return ResourceManager.GetString("UndeclaredVariable_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare &apos;{0}&apos; As {1}, the type it has.
+        /// </summary>
+        public static string UndeclaredVariable_Fix {
+            get {
+                return ResourceManager.GetString("UndeclaredVariable_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Implicit `Let` coercion (`{toType.Name}`) from `{fromType.Name}`; invoking the object&apos;s default member explicitly avoids &quot;magic&quot; procedure calls that are hard to follow and to fully understand without tracing obscure hidden attributes..

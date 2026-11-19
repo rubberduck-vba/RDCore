@@ -171,6 +171,12 @@
   <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
     <value>Option Explicit is not specified: a name that is not declared is not an error, and a variable is created where it is used. A misspelled name goes unnoticed.</value>
   </data>
+  <data name="UndeclaredVariable_Message" xml:space="preserve">
+    <value>'{0}' is not declared: it is a variable that comes into being where it is first used. Declare it, or correct the name if it is misspelled.</value>
+  </data>
+  <data name="UndeclaredVariable_Fix" xml:space="preserve">
+    <value>Declare '{0}' As {1}, the type it has</value>
+  </data>
   <data name="ObsoleteCallStatement_Message" xml:space="preserve">
     <value>The Call keyword is obsolete: the call is the same without it.</value>
   </data>

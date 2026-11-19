@@ -442,6 +442,8 @@
   href: rdc00126.md
 - name: "RDC00127: Recursive bang notation"
   href: rdc00127.md
+- name: "RDC00128: Undeclared variable"
+  href: rdc00128.md
 - name: "RDC00201: Integer data type declaration"
   href: rdc00201.md
 - name: "RDC00202: Module-scope Dim declaration"
