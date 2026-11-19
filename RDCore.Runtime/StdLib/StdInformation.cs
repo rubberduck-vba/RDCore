@@ -168,8 +168,8 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
     public RuntimeSemanticsEvaluationResult<VBLongValue> VarType(VBVariantValue varName)
         => Succeed(new VBLongValue((int)VarTypeOf(ValueOf(varName))));
 
-    // a Variant that holds a Variant holds what that one does.
-    private static VBTypedValue Unwrapped(VBTypedValue value)
+    // a Variant that holds a Variant holds what that one does, in a Variant's cell that compiled code reads too (VariantOperations).
+    internal static VBTypedValue Unwrapped(VBTypedValue value)
     {
         while (value is VBVariantValue variant)
         {
@@ -259,8 +259,8 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         return classModule.GetProperty(SymbolProperties.ReportedTypeName) ?? classModule.Name;
     }
 
-    // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of.
-    private static string NameOf(VBVarType varType) => varType switch
+    // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of: what compiled code names a Variant's subtype by too (VariantOperations.TypeName).
+    internal static string NameOf(VBVarType varType) => varType switch
     {
         VBVarType.VBEmpty => "Empty",
         VBVarType.VBNull => "Null",

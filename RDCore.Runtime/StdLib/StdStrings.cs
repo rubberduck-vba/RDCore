@@ -1442,6 +1442,19 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(RTrimString))]
     public static string TrailingTrimmedOf(string? text) => (text ?? string.Empty).TrimEnd(SpaceCharacter);
 
+    /// <summary>
+    /// <c>Replace</c> of three <c>String</c>s held as text, compared as <c>Option Compare Binary</c> compares them (<strong>MS-VBAL §6.1.2.11.1.29</strong>):
+    /// what <see cref="Replace"/> returns for them from the first character, every match replaced.
+    /// </summary>
+    /// <param name="expression">The text to search; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="find">The text to search for; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="replace">The text each match is replaced with; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The text with each match of <paramref name="find"/>, from left to right and never overlapping, replaced; the text as it is for a
+    /// zero-length <paramref name="find"/>.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Replace))]
+    public static string ReplacedIn(string? expression, string? find, string? replace)
+        => string.IsNullOrEmpty(find) ? expression ?? string.Empty : (expression ?? string.Empty).Replace(find, replace, StringComparison.Ordinal);
+
     /// <inheritdoc/>
     /// <remarks>
     /// Length characters from Start: "if omitted or if there are fewer than Length characters in the text (including the character

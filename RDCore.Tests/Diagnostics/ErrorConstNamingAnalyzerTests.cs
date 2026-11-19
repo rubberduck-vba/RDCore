@@ -224,7 +224,7 @@ public sealed class ErrorConstNamingAnalyzerTests
         var designer = FormDesigner.Read(form)!;
         var payload = await ModuleWorkspace.SemanticsAsync(
             [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n", language: SupportedLanguages.VB6,
-            libraries: new ModuleWorkspace.WorkspaceLibraries([], new DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols)),
+            libraries: new ModuleWorkspace.WorkspaceLibraries([], ShippedLibrariesTests.Platform),
             forms: [("Form1", form, designer)]);
         var model = payload.Modules.Single(module => SymbolUri.ModuleNameOf(module.Module) == "Form1");
         Assert.IsTrue(model.Declarations.Any(declaration => declaration.Name == "_Default"), "the designer declares the VB Form's members on the form's class");

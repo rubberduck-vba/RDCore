@@ -2,6 +2,9 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.Semantics.Statements;
+using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -48,7 +51,7 @@ public sealed partial class CompiledActivation
         out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        if (!TryCallLibrary(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var payload) || ScalarKinds.Of(payload.Type) != kind)
+        if (!TryCallLibrary(pc, library, receiver: null, count, first, second, third, firstValue, secondValue, thirdValue, out var payload) || ScalarKinds.Of(payload.Type) != kind)
         {
             return false;
         }
@@ -82,7 +85,7 @@ public sealed partial class CompiledActivation
         IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out VariantPayload value)
     {
         value = default;
-        if (!TryCallLibrary(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var payload))
+        if (!TryCallLibrary(pc, library, receiver: null, count, first, second, third, firstValue, secondValue, thirdValue, out var payload))
         {
             return false;
         }
@@ -116,7 +119,7 @@ public sealed partial class CompiledActivation
         IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out string? text)
     {
         text = null;
-        if (!TryCallLibraryValue(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var value)
+        if (!TryCallLibraryValue(pc, library, receiver: null, count, first, second, third, firstValue, secondValue, thirdValue, out var value)
             || value is not VBStringValue { TrailingByte: null } returned)
         {
             return false;
@@ -145,17 +148,20 @@ public sealed partial class CompiledActivation
 
     /// <summary>
     /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
-    /// (<see cref="VariantCellOf"/>): a parameter passed a <c>String</c>, an error, an object or no argument by value.
+    /// (<see cref="VariantCellOf"/>): a parameter passed an object, an array or a record by value; or a parameter passed by reference a variable of another
+    /// type (<c>CallStackFrame.TryGetReferencedType</c>), a <c>String</c> of variable length or a variable of a scalar type, which reads as a <c>Variant</c>
+    /// holding what that variable holds, as the interpreter reads it (MS-VBAL §5.3.1.11).
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
-    /// <see langword="null"/> when the frame holds no <c>Variant</c> there, or one whose value is unknown or holds an array or a record: the interpreter
-    /// is then given the call.
+    /// <see langword="null"/> when the frame holds no <c>Variant</c> there, or one whose value is unknown or holds an array or a record, or the parameter
+    /// is a second name for a variable of any other type: the interpreter is then given the call.
     /// </returns>
     public IRuntimeValue? VariantValueOf(int slot)
     {
         var frame = Frame;
-        if (!(frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)))
+        var symbol = _body.SlotSymbols[slot];
+        if (!(frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(symbol, out cell)))
         {
             return null;
         }
@@ -165,37 +171,64 @@ public sealed partial class CompiledActivation
             return VariantOperations.ValueOf(cell);
         }
 
-        return cell is not IKnowledgeBinding { IsKnown: false }
-            && cell.Value is VBRuntimeVariantValue { WrappedValue.TypeInfo: not (VBArrayType or VBUserDefinedType) } held
-                ? held
-                : null;
+        if (cell is IKnowledgeBinding { IsKnown: false })
+        {
+            return null;
+        }
+
+        if (frame.TryGetReferencedType(symbol, out var referenced))
+        {
+            return referenced is VBStringType and not VBFixedStringType || ScalarPayload.IsScalar(referenced) ? VariantCell.Holding(referenced, cell.Value) : null;
+        }
+
+        return cell.Value is VBRuntimeVariantValue { WrappedValue.TypeInfo: not (VBArrayType or VBUserDefinedType) } held ? held : null;
     }
 
-    // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else - Null, Empty, a
-    // String - is the interpreter's.
-    private bool TryCallLibrary(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
+    // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else (Null, Empty, a
+    // String, an object, an array, a record) is the interpreter's, which assigns it as the statement says. Only the value of a scalar is read: an array
+    // and a record have no binding of one value to read.
+    private bool TryCallLibrary(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second, VariantPayload third,
         IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out ScalarPayload payload)
     {
         payload = default;
-        return TryCallLibraryValue(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var value)
-            && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
+        return TryCallLibraryValue(pc, library, receiver, count, first, second, third, firstValue, secondValue, thirdValue, out var value)
+            && ScalarKinds.Of(value.TypeInfo) is not null && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
     }
 
-    // the call made, and what it returned (for a Variant, what it holds); none when the call failed, or returned nothing.
-    private bool TryCallLibraryValue(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
-        IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, [NotNullWhen(true)] out VBTypedValue? value)
+    // the call made, and what it returned (for a Variant, what it holds); none when the call failed, or returned nothing. A member of a class is called on
+    // the receiver, given before the arguments as the interpreter gives it (InvokeProcedureFrom), and is the member of the receiver's class (MemberOn); a
+    // receiver with none makes the call the interpreter's.
+    private bool TryCallLibraryValue(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second,
+        VariantPayload third, IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, [NotNullWhen(true)] out VBTypedValue? value)
+        => TryCallLibraryValue(pc, library, receiver, count, first, second, third, firstValue, secondValue, thirdValue, out value, out _);
+
+    // the same, and what the call returned as it returned it (returned): a Variant, not what it holds.
+    private bool TryCallLibraryValue(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second,
+        VariantPayload third, IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, [NotNullWhen(true)] out VBTypedValue? value,
+        out VBTypedValue? returned)
     {
-        value = null;
+        (value, returned) = (null, null);
         SetLibraryCall(pc, library);
         (_failed, _suspensionsBeforeCall) = (null, Suspensions);
         var called = _body.Libraries[library];
-        var arguments = new IRuntimeValue[called.Parameters.Length];
-        for (var i = 0; i < arguments.Length; i++)
+        if ((called.OnAnObject ? MemberOn(called, receiver) : called.Function) is not { } function)
+        {
+            return false;
+        }
+
+        var before = called.OnAnObject ? 1 : 0;
+        var arguments = new IRuntimeValue[before + called.Parameters.Length];
+        if (called.OnAnObject)
+        {
+            arguments[0] = new VBObjectValue(receiver!.ObjectId).RuntimeValue;
+        }
+
+        for (var i = 0; i < called.Parameters.Length; i++)
         {
             // a Variant variable given to a Variant parameter is given what it held when the argument was evaluated.
             if (i < count && (i == 0 ? firstValue : i == 1 ? secondValue : thirdValue) is { } held)
             {
-                arguments[i] = held;
+                arguments[before + i] = held;
                 continue;
             }
 
@@ -203,7 +236,7 @@ public sealed partial class CompiledActivation
             {
                 // a parameter of a scalar type is given the value compiled code let-coerced to it, as the interpreter gives it; a Variant one, a Variant.
                 var given = (i == 0 ? first : i == 1 ? second : third).Value;
-                arguments[i] = called.Parameters[i].ResolvedType is VBVariantType ? VariantCell.Holding(given.Type, given.Box()) : given.Box();
+                arguments[before + i] = called.Parameters[i].ResolvedType is VBVariantType ? VariantCell.Holding(given.Type, given.Box()) : given.Box();
                 continue;
             }
 
@@ -214,7 +247,7 @@ public sealed partial class CompiledActivation
                 return false;
             }
 
-            arguments[i] = omitted.Result!.RuntimeValue;
+            arguments[before + i] = omitted.Result!.RuntimeValue;
         }
 
         if (_executor.Expressions.Bindings is not { } bindings)
@@ -222,12 +255,12 @@ public sealed partial class CompiledActivation
             return false;
         }
 
-        var result = LibraryCall(bindings, called, arguments);
+        var result = LibraryCall(bindings, called, function, arguments);
 
         // Abs of the least value of a type overflows, but the interpreter decides it of the call (AbsOfTheLeast): the least Long of a constant expression is
         // itself, and of a Variant the next wider type. Compiled code declines, and the interpreter evaluates the instruction.
         if (result is { IsSuccess: false, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow }
-            && called.Function.GetProperty(SDK.Model.Symbols.Abstract.SymbolProperties.ExternalTarget) is "IStdMathModule.Abs/1")
+            && called.Function.GetProperty(SymbolProperties.ExternalTarget) is "IStdMathModule.Abs/1")
         {
             return false;
         }
@@ -238,15 +271,157 @@ public sealed partial class CompiledActivation
             return false;
         }
 
+        returned = result.Result;
         value = result.Result is VBVariantValue { TypedValue: { } inner } ? inner : result.Result;
         return value is not null;
     }
 
     // the call of a function of the standard library compiled code makes: straight to the library when nothing needs to see the call
-    // (ExternalCallPipeline.TryCallLibraryDirectly), through the pipeline otherwise.
-    private RuntimeSemanticsEvaluationResult LibraryCall(ICallableBindingFactory bindings, CompiledLibraryCall called, IRuntimeValue[] arguments)
-        => bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
-            && pipeline.TryCallLibraryDirectly(called.Function, arguments, _session.Symbols.Resolver, out var direct)
+    // (ExternalCallPipeline.TryCallLibraryDirectly, TryCallLibraryMemberDirectly), through the pipeline otherwise.
+    private RuntimeSemanticsEvaluationResult LibraryCall(
+        ICallableBindingFactory bindings, CompiledLibraryCall called, VBTypeMemberSymbol function, IRuntimeValue[] arguments)
+    {
+        _body.CountLibraryCall();
+        return bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
+            && (called.OnAnObject
+                ? pipeline.TryCallLibraryMemberDirectly(function, arguments, _session.Symbols.Resolver, out var direct)
+                : pipeline.TryCallLibraryDirectly(function, arguments, _session.Symbols.Resolver, out direct))
                 ? direct
-                : bindings.ForMember(called.Function).Call(_session.Symbols.Resolver, arguments);
+                : bindings.ForMember(function).Call(_session.Symbols.Resolver, arguments);
+    }
+
+    // the member of the receiver's class the interpreter calls for the member compiled code calls, by its name or as the default member (MS-VBAL §5.6.12,
+    // §5.6.13): the same member of the library, which its key names, whatever declaration of the class the call was bound through. None for Nothing,
+    // which is error 91, and for an object of a class with no such member: the call is then the interpreter's.
+    private static VBTypeMemberSymbol? MemberOn(CompiledLibraryCall called, IObjectInstance? receiver)
+    {
+        if (receiver is null)
+        {
+            return null;
+        }
+
+        var key = called.Function.GetProperty(SymbolProperties.ExternalTarget);
+        foreach (var member in receiver.ClassModule.DefaultInterfaceMembers)
+        {
+            if (ReferenceEquals(member, called.Function)
+                || member.GetProperty(SymbolProperties.ExternalTarget) == key && SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(member))
+            {
+                return member;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The object the object variable whose cell is <paramref name="cell"/> refers to, which a member of a class of the standard library is called on
+    /// (<see cref="CallLibraryMember"/>), read before the arguments of the call are evaluated, as the interpreter reads it (MS-VBAL §5.6.13.1).
+    /// </summary>
+    /// <param name="cell">The cell of the object variable, or of the object field of a record.</param>
+    /// <returns>
+    /// The object; <see langword="null"/> for <c>Nothing</c>, for an object the session has no instance of, and under a debugger that observes member
+    /// accesses: the call is then the interpreter's.
+    /// </returns>
+    public IObjectInstance? LibraryReceiverIn(object? cell) => InstanceIn(cell);
+
+    /// <summary>
+    /// The object of the <c>With</c> block opened at <paramref name="opener"/> (MS-VBAL §5.4.2.21), which a member of a class of the standard library is
+    /// called on, as <see cref="LibraryReceiverIn"/> reads the object a variable refers to.
+    /// </summary>
+    /// <param name="opener">The offset of the <c>With</c> statement of the block.</param>
+    /// <returns>The object; <see langword="null"/> for a block that holds none, or <c>Nothing</c>.</returns>
+    public IObjectInstance? LibraryReceiverOfWith(int opener) => InstanceOfBlock(opener);
+
+    /// <summary>
+    /// Calls the member of a class of the standard library numbered <paramref name="library"/> of the body on <paramref name="receiver"/>, for the
+    /// <c>Variant</c> it returns, given its arguments as <see cref="CallLibraryVariant"/> gives those of a function: as the interpreter calls it, through
+    /// the member's binding with the object as its implicit <c>Me</c>, or straight to the library when nothing needs to see the call. The member is a
+    /// pure one: the <c>Item</c> or the <c>Count</c> of a <c>Collection</c> (MS-VBAL §6.1.3.1.1).
+    /// </summary>
+    /// <param name="pc">The offset of the instruction that makes the call.</param>
+    /// <param name="library">The number of the call among the body's libraries.</param>
+    /// <param name="receiver">The object the member is called on (<see cref="LibraryReceiverIn"/>, <see cref="LibraryReceiverOfWith"/>).</param>
+    /// <param name="count">How many arguments the call is given.</param>
+    /// <param name="first">The first argument, when it is given one.</param>
+    /// <param name="second">The second argument, when it is given two.</param>
+    /// <param name="third">The third argument, when it is given three.</param>
+    /// <param name="firstValue">
+    /// What the Variant variable given as the first argument holds (<see cref="VariantOperations.ValueOf"/>), given in place of <paramref name="first"/>;
+    /// <see langword="null"/> when the argument is <paramref name="first"/>.
+    /// </param>
+    /// <param name="secondValue">The same, for the second argument.</param>
+    /// <param name="thirdValue">The same, for the third argument.</param>
+    /// <param name="value">What the <c>Variant</c> the member returned holds, when it holds a value of a scalar type.</param>
+    /// <returns>
+    /// Whether the <c>Variant</c> holds a value of a scalar type. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>): with the
+    /// error the member raised (5 or 9, of an <c>Item</c> no member of the collection answers to), which it raises; or to make the call itself, when the
+    /// member returns anything but a value of a scalar type (an object, an array, a <c>String</c>), or when the member is not called on the receiver here.
+    /// </returns>
+    public bool CallLibraryMember(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second,
+        VariantPayload third, IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out VariantPayload value)
+    {
+        value = default;
+        if (!TryCallLibrary(pc, library, receiver, count, first, second, third, firstValue, secondValue, thirdValue, out var payload))
+        {
+            return false;
+        }
+
+        value = new VariantPayload(payload);
+        return true;
+    }
+
+    /// <summary>
+    /// Calls the member of a class of the standard library numbered <paramref name="library"/> of the body on <paramref name="receiver"/>, as
+    /// <see cref="CallLibraryMember"/> calls it, for the <c>Let</c> of a <c>Variant</c> the call is the whole value of (MS-VBAL §5.4.3.8): what it returns,
+    /// when it is a value of a scalar type, is given back for compiled code to write; an array, a <c>String</c>, <c>Empty</c> or <c>Null</c> is assigned as
+    /// the interpreter assigns the value of a statement's expression (<c>StatementRuntimeSemanticsProvider.AssignValue</c>); an object is the interpreter's.
+    /// </summary>
+    /// <param name="pc">The offset of the <c>Let</c>.</param>
+    /// <param name="library">The number of the call among the body's libraries.</param>
+    /// <param name="receiver">The object the member is called on (<see cref="LibraryReceiverIn"/>, <see cref="LibraryReceiverOfWith"/>).</param>
+    /// <param name="count">How many arguments the call is given.</param>
+    /// <param name="first">The first argument, when it is given one.</param>
+    /// <param name="second">The second argument, when it is given two.</param>
+    /// <param name="third">The third argument, when it is given three.</param>
+    /// <param name="firstValue">What is given in place of <paramref name="first"/>, as <see cref="CallLibraryMember"/> is given it.</param>
+    /// <param name="secondValue">The same, for the second argument.</param>
+    /// <param name="thirdValue">The same, for the third argument.</param>
+    /// <param name="value">What the member returned, when it is a value of a scalar type.</param>
+    /// <returns>
+    /// 1 when <paramref name="value"/> is for compiled code to write; 2 when the <c>Let</c> is done; 0 when the interpreter is given the call
+    /// (<see cref="AfterFailedCall"/>), with the error the member or the assignment raised, or to make it itself.
+    /// </returns>
+    public int CallLibraryMemberForLet(int pc, int library, IObjectInstance? receiver, int count, VariantPayload first, VariantPayload second,
+        VariantPayload third, IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out VariantPayload value)
+    {
+        value = default;
+        if (!TryCallLibraryValue(pc, library, receiver, count, first, second, third, firstValue, secondValue, thirdValue, out var held, out var returned))
+        {
+            return 0;
+        }
+
+        // only the value of a scalar is a payload: an array and a record have no binding of one value to read.
+        if (ScalarKinds.Of(held.TypeInfo) is not null && ScalarPayload.TryOf(held.TypeInfo, held.RuntimeValue, out var payload))
+        {
+            value = new VariantPayload(payload);
+            return 1;
+        }
+
+        // an object, whose Let is of its default member's value, is the interpreter's to evaluate.
+        if (held is VBObjectValue)
+        {
+            return 0;
+        }
+
+        var outcome = _executor.Statements is StatementRuntimeSemanticsProvider statements && _list.Items[pc].Node is AssignmentStatementNode assignment
+            ? statements.AssignValue(_session, ContextAt(pc), assignment, returned!)
+            : RuntimeExecutionOutcome.InternalError;
+        if (outcome.Kind is RuntimeExecutionOutcomeKind.Next)
+        {
+            return 2;
+        }
+
+        _failed = outcome;
+        return 0;
+    }
 }
