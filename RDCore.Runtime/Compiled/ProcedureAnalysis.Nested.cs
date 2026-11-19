@@ -768,9 +768,25 @@ internal sealed partial class ProcedureAnalysis
             _ => (IEnumerable<VariantNode>)[],
         };
 
-        return variants.SelectMany(ValueCallsOf).Concat(PayloadsOf(step).SelectMany(Within).SelectMany(ValueCallsOf))
+        // a text's too: the argument of TypeName of a value, in a String Let or an item of a Debug.Print.
+        var texts = step switch
+        {
+            TextLetStep let => [let.Value],
+            TextResultLetStep let => [let.Value],
+            PrintStep print => print.Items,
+            _ => (IEnumerable<TextNode>)[],
+        };
+
+        return variants.SelectMany(ValueCallsOf).Concat(texts.SelectMany(ValueCallsOf)).Concat(PayloadsOf(step).SelectMany(Within).SelectMany(ValueCallsOf))
             .Distinct<CallValueNode>(ReferenceEqualityComparer.Instance);
     }
+
+    private static IEnumerable<CallValueNode> ValueCallsOf(TextNode node) => node switch
+    {
+        ConcatNode concat => [.. ValueCallsOf(concat.Left), .. ValueCallsOf(concat.Right)],
+        LibraryVariantTextNode library => library.Arguments.SelectMany(ValueCallsOf),
+        _ => [],
+    };
 
     // the calls of the workspace that return a String or a Variant given to a function of the standard library a payload is what it returns of.
     private static IEnumerable<CallValueNode> ValueCallsOf(PayloadNode node)
