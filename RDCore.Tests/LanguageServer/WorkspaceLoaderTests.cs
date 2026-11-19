@@ -17,6 +17,7 @@ using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.LanguageServer;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceLoaderTests
 {
@@ -87,7 +88,7 @@ public sealed class WorkspaceLoaderTests
         Assert.AreEqual("src/Mod1.bas", sut.Project.ProjectInfo.Modules[0].RelativeUri);
     }
 
-    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path (HexIDE's findings desk #26).
+    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path.
     [TestMethod]
     public async Task ProjectFileService_LoadAsync_ProjectFileThatIsNotJson_SaysWhereItIsNot()
     {
@@ -150,7 +151,7 @@ public sealed class WorkspaceLoaderTests
         Assert.IsInstanceOfType<LoadedDocumentState>(documentStates.GetCurrentState(loaded[0].Id));
     }
 
-    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
+    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed.
     [TestMethod]
     public async Task WorkspaceService_LoadAsync_LoadsTheOtherFiles_AndGivesThemToNoneThatReadsCode()
     {
@@ -163,7 +164,7 @@ public sealed class WorkspaceLoaderTests
             }))),
             [Path.Combine(Root, "src", "Mod1.bas")] = new MockFileData("Public Sub Foo()\r\nEnd Sub"),
             [Path.Combine(Root, "res", "App.res")] = new MockFileData([0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0xFF, 0xFF]),
-            [Path.Combine(Root, "README.md")] = new MockFileData("# Battleship"),
+            [Path.Combine(Root, "README.md")] = new MockFileData("# NavalBattle"),
         });
         var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
         var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
@@ -178,9 +179,11 @@ public sealed class WorkspaceLoaderTests
     }
 
     // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
-    // 0.1 platform refused as a later platform's (desk card version-010-refuses-100). What is not this platform's format is said in the log, and only there.
+    // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and only there.
     [TestMethod]
-    [DataRow("\"1.1\"", null, DisplayName = "1.1, this platform's format")]
+    [DataRow("\"1.3\"", null, DisplayName = "1.3, this platform's format")]
+    [DataRow("\"1.2\"", LogLevel.Information, DisplayName = "1.2, the format before references to projects: an older one")]
+    [DataRow("\"1.1\"", LogLevel.Information, DisplayName = "1.1, the format before KeepSystemTheme: an older one")]
     [DataRow("\"1.0.0\"", LogLevel.Information, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0, an older one")]
     [DataRow("\"1.0\"", LogLevel.Information, DisplayName = "1.0, the format before the build section")]
     [DataRow("\"0.1.3\"", LogLevel.Information, DisplayName = "0.1.3, as the next builds stamped it: an older format")]
@@ -500,7 +503,7 @@ public sealed class WorkspaceLoaderTests
         // the server goes on to run, as the language server does after a load that failed.
         var running = Substitute.For<IServerStateProvider>();
         running.State.Returns(ServerState.Running);
-        var reload = new WorkspaceReloadService(running, projectFiles, documents, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
+        var reload = new WorkspaceReloadService(running, projectFiles, documents, sut, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
             Substitute.For<RDCore.LanguageServer.Symbols.ISymbolSyncService>(), Substitute.For<RDCore.LanguageServer.IPlatformOrchestrationService>(), fs.Path,
             Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
 
@@ -673,7 +676,7 @@ public sealed class WorkspaceLoaderTests
             await pipe.WaitForConnectionAsync();
             Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
                 .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
-                .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
                 .OnInitialize((server, request, token) => initialize(server, request, token))
                 .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>

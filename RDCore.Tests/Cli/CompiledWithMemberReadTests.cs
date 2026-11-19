@@ -65,7 +65,7 @@ public sealed class CompiledWithMemberReadTests
             "            Sunk = Sunk * 2 + .Hits",
             "        Next",
             "    End With",
-            "End Function"), "Sunk", direct: 16, recoveries: 1, expected: "71");
+            "End Function"), "Sunk", direct: 16, recoveries: 0, expected: "71");
 
     // a Function of the block's object given an argument, as an operand.
     [TestMethod]
@@ -84,9 +84,10 @@ public sealed class CompiledWithMemberReadTests
             "            Rest = Rest * 10 + .Left(I)",
             "        Next",
             "    End With",
-            "End Function"), "Rest", direct: 4, recoveries: 1, expected: "456");
+            "End Function"), "Rest", direct: 4, recoveries: 0, expected: "456");
 
-    // nested blocks: a member read in the inner block is of the inner block's object, and one read after its End With of the outer block's.
+    // nested blocks: a member read in the inner block is of the inner block's object, and one read after its End With of the outer block's. Compiled code
+    // opens both blocks: nothing is handed to the interpreter.
     [TestMethod]
     public async Task AMemberOfANestedWithBlocksObject_IsOfTheInnerBlocksObject()
         => await AssertWithAsync(Program(
@@ -110,9 +111,10 @@ public sealed class CompiledWithMemberReadTests
             "        End With",
             "        Both = Both * 10 + .Left(0)",
             "    End With",
-            "End Function"), "Both", direct: 8, recoveries: 2, expected: "121");
+            "End Function"), "Both", direct: 8, recoveries: 0, expected: "121");
 
     // a member of a block whose object is Nothing, inside an expression: the interpreter's, which raises error 91, to the handler, which resumes after it.
+    // The recovery is the error; the With is compiled code's.
     [TestMethod]
     public async Task AMemberOfAWithBlocksObjectThatIsNothing_RaisesError91()
         => await AssertWithAsync(Program(
@@ -126,5 +128,5 @@ public sealed class CompiledWithMemberReadTests
             "        Guarded = 1 + .Hits",
             "    End With",
             "    Guarded = Guarded + 7",
-            "End Function"), "Guarded", direct: 0, recoveries: 2);
+            "End Function"), "Guarded", direct: 0, recoveries: 1);
 }

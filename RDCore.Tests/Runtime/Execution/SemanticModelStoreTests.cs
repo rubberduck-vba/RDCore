@@ -170,6 +170,39 @@ public sealed class SemanticModelStoreTests
         Assert.IsNotNull(RuntimeOf(store));
     }
 
+    [TestMethod]
+    public async Task StoppingTheEvaluations_StopsEachModulesEvaluation_AndKeepsTheModels()
+    {
+        var other = new Uri("file:///c:/ws/Mod2.bas#Mod2");
+        var store = new SemanticModelStore();
+        using var release = new ManualResetEventSlim();
+        using var started = new CountdownEvent(2);
+        var tokens = new CancellationToken[2];
+        store.Store(Model(Procedure), token =>
+        {
+            tokens[0] = token;
+            started.Signal();
+            release.Wait();
+            return Facts();
+        });
+        store.Store(new ModuleSemanticModel(other, [], [new ProcedureSemanticModel(new SemanticId(new Uri("file:///c:/ws/Mod2.bas#Mod2.Run")), [])]), token =>
+        {
+            tokens[1] = token;
+            started.Signal();
+            release.Wait();
+            return ImmutableDictionary<SemanticId, RuntimeFacts>.Empty;
+        });
+        Assert.IsTrue(started.Wait(HangGuard));
+
+        store.StopEvaluations();
+
+        Assert.IsTrue(tokens.All(token => token.IsCancellationRequested), "each evaluation is told to stop");
+        Assert.IsTrue(store.TryGet(Module, out _) && store.TryGet(other, out _), "the models are kept");
+        release.Set();
+        await store.WhenAllEvaluatedAsync().WaitAsync(HangGuard);
+        Assert.IsNull(RuntimeOf(store), "a stopped evaluation adds no facts");
+    }
+
     // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
     private static readonly TimeSpan HangGuard = TimeSpan.FromMinutes(5);
 

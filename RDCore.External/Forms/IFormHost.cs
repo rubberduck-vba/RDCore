@@ -90,6 +90,13 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     public string? DesignerText { get; init; }
 
     /// <summary>
+    /// Whether the program that makes the form runs unattended, with nobody to see the form: a host that can make it where no screen shows it makes it there,
+    /// so that the program can load it and use it on a machine with no display. Its <c>Show</c> fails before it reaches the host, as any dialog of such a
+    /// program does. <see langword="false"/> unless said otherwise.
+    /// </summary>
+    public bool Unattended { get; init; }
+
+    /// <summary>
     /// The definition of the form a form module's designer declares: its state, and what its designer block says of its window.
     /// </summary>
     /// <param name="name">The name of the form's module.</param>
@@ -129,6 +136,25 @@ public interface IFormHost
     /// Whether this machine can host forms at all.
     /// </summary>
     bool IsAvailable { get; }
+
+    /// <summary>
+    /// Whether this host creates the forms a Visual Basic 6.0 designer wrote. Where it does not, such a form is a class that is not registered: the
+    /// <c>New</c> of its class, and any use of its default instance that makes its form, raise 429. <see langword="false"/> unless the host says otherwise.
+    /// </summary>
+    bool HostsVisualBasic6Forms => false;
+
+    /// <summary>
+    /// Whether the windows of this host's forms follow the theme of the application, as <c>App.KeepSystemTheme</c> says: light unless it is
+    /// <see langword="true"/>. A value set is given to every form of the host, the ones it has made and the ones it makes, before any of them is shown.
+    /// </summary>
+    /// <remarks>
+    /// A host whose forms have no theme of their own ignores it: <see langword="false"/>, and setting it does nothing, unless the host says otherwise.
+    /// </remarks>
+    bool KeepSystemTheme
+    {
+        get => false;
+        set { }
+    }
 
     /// <summary>
     /// Creates a form from its definition, in a window that is not shown yet.
@@ -200,7 +226,7 @@ public interface IFormHost
     /// <summary>
     /// The focus leaves a form for good, as it does when the form is unloaded: the form is deactivated and closed, and the control that has the focus is left - the
     /// events of the extender MS-VBA wraps it in, its pending update (<c>BeforeUpdate</c>, asked once more when it is cancelled, then <c>AfterUpdate</c> unless it
-    /// is cancelled again) and its <c>Exit</c>, whose cancel changes nothing (Excel-measured, <c>oracle\s41</c> E01, E05, E10, E11). The form's window stays until
+    /// is cancelled again) and its <c>Exit</c>, whose cancel changes nothing (observed in Excel). The form's window stays until
     /// it is destroyed.
     /// </summary>
     /// <param name="form">The handle of the form.</param>
@@ -215,8 +241,8 @@ public interface IFormHost
 
     /// <summary>
     /// Says whether a program runs. While one does, the messages of the forms' windows wait - what their user does, what they draw, what Microsoft Forms posts to its
-    /// own windows - as MS-VBA dispatches none until the program waits for them (<see cref="DoEvents"/>, a modal <see cref="Show"/>) or ends (Excel-measured,
-    /// <c>oracle\s41</c> E09, E12 against E14, E15): a change Microsoft Forms has not taken in yet is the next focused control's update.
+    /// own windows - as MS-VBA dispatches none until the program waits for them (<see cref="DoEvents"/>, a modal <see cref="Show"/>) or ends (observed in Excel):
+    /// a change Microsoft Forms has not taken in yet is the next focused control's update.
     /// </summary>
     /// <param name="running">Whether a program runs.</param>
     void Hold(bool running)
@@ -273,6 +299,44 @@ public static class FormControlArrayMembers
     /// Unloads the element of the index given.
     /// </summary>
     public const string Unload = "[Unload]";
+}
+
+/// <summary>
+/// The member of a Visual Basic 6.0 form or PictureBox that its <c>Print</c> method calls (<c>picBoard.Print "Score:"; score</c>), with the output list
+/// evaluated: the object lays it out on its surface, in its font.
+/// </summary>
+/// <remarks>
+/// A program cannot name it: a name in brackets is the platform's, as <see cref="FormWindowEvents.Close"/> is. Its first argument is a <c>Boolean</c>, whether the
+/// output ends the line. A pair of arguments follows for each part of the output list, in source order: the part's <see cref="FormPrintPartKind"/> as an
+/// <c>Integer</c>, then its <c>String</c> text, its <c>Long</c> count or column, or <c>Empty</c> for a <c>Tab</c> to the next print zone.
+/// </remarks>
+public static class FormPrintMembers
+{
+    /// <summary>
+    /// Prints an output list on the object.
+    /// </summary>
+    public const string Print = "[Print]";
+}
+
+/// <summary>
+/// What a part of an output list is, as <see cref="FormPrintMembers.Print"/> takes it.
+/// </summary>
+public enum FormPrintPartKind : short
+{
+    /// <summary>
+    /// A text: the output string of an expression.
+    /// </summary>
+    Text = 0,
+
+    /// <summary>
+    /// <c>Spc(n)</c>: a number of columns.
+    /// </summary>
+    Spc = 1,
+
+    /// <summary>
+    /// <c>Tab(n)</c>, a column; <c>Tab</c> with no column, or a comma, the next print zone.
+    /// </summary>
+    Tab = 2,
 }
 
 /// <summary>

@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>MS-VBAL §5.3.1.11</strong> a <c>Variant</c> reference parameter given a variable of another type is that variable, and a <c>ReDim</c> of the parameter
 /// (<strong>§5.4.3.3</strong>) re-dimensions the variable: an array keeps the element type it is declared with. Each expectation is what MS-VBA printed for the
-/// same code, recorded in Excel (oracle\s56 I03-I06, D01-D04, D11). A variable that is no array can't be made one, nor an array be given another element
+/// same code, observed in Excel. A variable that is no array can't be made one, nor an array be given another element
 /// type: error 13, the variable keeping what it held.
 /// </summary>
 [TestClass]

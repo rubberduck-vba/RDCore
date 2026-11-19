@@ -86,6 +86,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var deadRanges = precompiled.DeadRanges;
+        // and what they are on every platform, whichever this session runs on: where a Declare and a call of it are compiled.
+        var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(
+            session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var written = syntaxTree;
         syntaxTree = WithLiveHeaders(syntaxTree, deadRanges);
 
@@ -181,16 +184,20 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             .AddRange(ReservedNameStaticSemantics.CheckSyntax(syntaxTree))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver, DeclarationRules.DeclaredTypes));
         var declared = DeclarationUsage.DeclaredBy(members).ToList();
+        var document = module is VBClassModuleSymbol documentClass ? DocumentModuleFact.Of(documentClass, session.Symbols.Resolver) : null;
+        var excludedBranchNames = ExcludedBranchNames.Of(written, deadRanges);
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {
             // a language that has no such directive has no fact to state about it.
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
-                declared, procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri), arguments, declarationFacts),
+                declared, procedureModels,
+                module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames,
+                symbol => StatementsCompiledOn(written, symbol.Name, platforms)),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
-            Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
+            Document = document,
             Classes = ClassFacts.Of(syntaxTree, procedureModels, declared),
             DocumentModules = DocumentModuleNames.Of(session.Symbols.Resolver, session.Symbols.Scopes.Global, module.Uri),
         };
@@ -198,8 +205,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
-        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, errorDetails);
-        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
+        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails);
+        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
@@ -265,7 +272,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
     // MS-VBAL §5.2.4.1.2, §5.2.3.1: whether the class has a default instance, and whether its objects - the default instance among them - hold state: a variable
     // the class declares at module level, of which each object has a distinct one, or a Static local of one of its members, which MS-VBA gives each object
-    // its own of too (Excel-verified, oracle\s19 N37), where MS-VBAL gives a static local module extent.
+    // its own of too (observed in Excel), where MS-VBAL gives a static local module extent.
     private static ClassModuleSemanticFlags ClassFlagsOf(VBClassModuleSymbol classModule, IReadOnlyList<VBTypeMemberSymbol> members)
         => (classModule.GetProperty(SymbolProperties.PredeclaredId) ? ClassModuleSemanticFlags.DefaultInstance : ClassModuleSemanticFlags.None)
             | (members.Any(member => member is VBModuleFieldVariableMemberSymbol
@@ -301,6 +308,25 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         }
 
         return default;
+    }
+
+    // MS-VBAL §5.2.3.5: the platforms each statement of a Declare is compiled on, in the order they are written: a procedure declared once in each #If
+    // branch is one procedure. Not known when a condition one of them depends on is not.
+    private static ImmutableArray<CompiledPlatforms>? StatementsCompiledOn(ModuleNode written, string name, ModulePlatforms platforms)
+    {
+        var statements = ImmutableArray.CreateBuilder<CompiledPlatforms>();
+        foreach (var statement in written.Children.OfType<ExternalMemberDeclarationNode>()
+            .Where(statement => string.Equals(statement.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (platforms.At(statement.SourceLocation.Range.Start) is not { } compiled)
+            {
+                return null;
+            }
+
+            statements.Add(compiled);
+        }
+
+        return statements.ToImmutable();
     }
 
     // the module as the constants compile it: each procedure with the header of its live branch, and a procedure whose every header is dead as it is written.

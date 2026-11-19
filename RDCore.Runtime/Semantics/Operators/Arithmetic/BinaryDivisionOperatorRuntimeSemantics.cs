@@ -58,7 +58,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
             var rhsNumeric = (VBNumericTypedValue)rhs;
             // MS-VBAL §5.6.9.3.5: a division by zero of typed operands is the extended format's (ExtendedIntermediates) - error 11, or 6 for 0 / 0, carrying
             // the IEEE 754 value of the division, which a Let assignment assigns to a Single or Double variable before raising it. A Variant operand's
-            // assigns nothing (recorded in Excel, grid oracle\s16 D08, F05-F06, H03).
+            // assigns nothing (observed in Excel).
             if (rhsNumeric.AsDouble == 0 && frame.HasVariantOperand)
             {
                 return lhsNumeric.AsDouble == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)

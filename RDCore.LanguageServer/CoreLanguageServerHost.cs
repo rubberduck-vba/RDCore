@@ -6,6 +6,7 @@ using RDCore.SDK.Platform;
 using System.IO;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Logging;
+using RDCore.Symbols;
 
 namespace RDCore.LanguageServer;
 
@@ -16,6 +17,9 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
 {
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
         => services.AddPlatformCoordination(Info.Version ?? new Version(0, 0, 0));
+
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => PlatformLibraries.With(symbols);
 
     protected override string? LogFileName => "RDCore.LanguageServer.log";
 

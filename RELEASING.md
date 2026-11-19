@@ -178,7 +178,7 @@ release.json                 release metadata: version, runtime, launch, source,
 SOURCE.md                    where to get the corresponding source
 NOTICE.md                    copyright, licence, third-party code, trademarks
 LICENSE-GPLv3.md
-THIRD-PARTY-NOTICES.txt      packages (RDCore.SDK included) and their licences
+THIRD-PARTY-NOTICES.txt      packages (RDCore.SDK included), third-party source compiled in, and their licences
 THIRD-PARTY-NOTICES.json     the same, as data: what rdc build writes a built program's notices from
 RDCore.CLI/                  rdc.exe (hostService)
 RDCore.LanguageServer/       RDCore.LanguageServer.exe (langService)

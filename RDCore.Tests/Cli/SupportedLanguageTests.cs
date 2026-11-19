@@ -89,7 +89,7 @@ public sealed class SupportedLanguageTests
             workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
 
-        await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        await new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

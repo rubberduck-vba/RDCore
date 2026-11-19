@@ -1,4 +1,7 @@
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.Semantics.Precompiler;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics;
@@ -11,8 +14,8 @@ namespace RDCore.Runtime.Execution;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The model of a module is kept whether or not its code could be loaded: what is wrong with it is what a diagnostics extension is asking after. A module that is
-/// loaded again takes the place of its model. Reads see a consistent snapshot and never block.
+/// The model of a module is kept whether or not its code could be loaded: what is wrong with it is what a diagnostics extension is asking after. A
+/// module that is loaded again takes the place of its model. Reads see a consistent snapshot and never block.
 /// </para>
 /// <para>
 /// A model is stored as soon as the static pass has made it, and the facts that come of evaluating the code (<see cref="ProcedureSemanticModel.Runtime"/>) are
@@ -24,8 +27,13 @@ namespace RDCore.Runtime.Execution;
 public sealed class SemanticModelStore
 {
     private readonly object _storing = new();
-    private volatile ImmutableDictionary<string, ModuleSemanticModel> _models = ImmutableDictionary<string, ModuleSemanticModel>.Empty;
+    private volatile ImmutableDictionary<string, Stored> _models = ImmutableDictionary<string, Stored>.Empty;
     private readonly Dictionary<string, Evaluation> _evaluations = [];
+
+    // a module's model, the facts of the expressions of its declarations that the model was made with, the names its excluded #If branches write, and
+    // the platforms each of its positions is compiled on: they are read together, from one snapshot.
+    private sealed record Stored(
+        ModuleSemanticModel Model, ModuleDeclarationFacts? Declarations, IReadOnlySet<string>? ExcludedBranchNames, ModulePlatforms? Platforms);
 
     private sealed record Evaluation(CancellationTokenSource Cancellation, Task Completion);
 
@@ -53,16 +61,30 @@ public sealed class SemanticModelStore
     /// </summary>
     /// <param name="model">The model of a module, as the static pass made it.</param>
     /// <param name="evaluate">
-    /// Finds the facts of the procedures of the module, by their <see cref="Symbol.SemanticId"/>; <see langword="null"/> when there is nothing to evaluate. It runs
-    /// on another thread, at most once - an evaluation still waiting for a thread when the module is stored again or removed never runs - and is given the token
-    /// that stops it: it reads nothing that the thread that stored the model goes on changing.
+    /// Finds the facts of the procedures of the module, by their <see cref="Symbol.SemanticId"/>; <see langword="null"/> when there is nothing to
+    /// evaluate. It runs on another thread, at most once (an evaluation still waiting for a thread when the module is stored again or removed never runs),
+    /// and is given the token that stops it: it reads nothing that the thread that stored the model goes on changing.
     /// </param>
-    public void Store(ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate)
+    /// <param name="declarations">
+    /// The facts of the expressions in the module's declarations (the value of a constant, the bounds of an array) that the model was made with;
+    /// <see langword="null"/> when the module has none to give. <see cref="AcrossProject"/> counts the references they make.
+    /// </param>
+    /// <param name="excludedBranchNames">
+    /// The names that the module's excluded <c>#If</c> branches write (<see cref="ExcludedBranchNames"/>); <see langword="null"/> when it has none.
+    /// <see cref="AcrossProject"/> states no count for a declaration of one of these names.
+    /// </param>
+    /// <param name="platforms">
+    /// The platforms each position of the module is compiled on, which the calls it makes of a <c>Declare</c>'d procedure are stated with
+    /// (<see cref="WithNativeCalls"/>); <see langword="null"/> when they are not known, and its calls are not stated.
+    /// </param>
+    public void Store(
+        ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate, ModuleDeclarationFacts? declarations = null,
+        IReadOnlySet<string>? excludedBranchNames = null, ModulePlatforms? platforms = null)
     {
         lock (_storing)
         {
             var key = model.Module.AbsoluteUri;
-            _models = _models.SetItem(key, model);
+            _models = _models.SetItem(key, new Stored(model, declarations, excludedBranchNames, platforms));
             Stop(key);
 
             if (evaluate is not null)
@@ -94,17 +116,20 @@ public sealed class SemanticModelStore
 
         lock (_storing)
         {
-            if (!_models.TryGetValue(key, out var current) || !ReferenceEquals(current, model) || token.IsCancellationRequested)
+            if (!_models.TryGetValue(key, out var current) || !ReferenceEquals(current.Model, model) || token.IsCancellationRequested)
             {
                 return;
             }
 
             // the first of the declarations that repeat one another is the one whose code the session has.
             var attached = new HashSet<SemanticId>();
-            _models = _models.SetItem(key, model with
+            _models = _models.SetItem(key, current with
             {
-                Procedures = [.. model.Procedures.Select(procedure =>
-                    facts.TryGetValue(procedure.Procedure, out var found) && attached.Add(procedure.Procedure) ? procedure with { Runtime = found } : procedure)],
+                Model = model with
+                {
+                    Procedures = [.. model.Procedures.Select(procedure =>
+                        facts.TryGetValue(procedure.Procedure, out var found) && attached.Add(procedure.Procedure) ? procedure with { Runtime = found } : procedure)],
+                },
             });
             _evaluations.Remove(key);
         }
@@ -116,6 +141,21 @@ public sealed class SemanticModelStore
         if (_evaluations.Remove(key, out var running))
         {
             running.Cancellation.Cancel();
+        }
+    }
+
+    /// <summary>
+    /// Stops the evaluation of every module's code: what the session they were evaluated for asks of them is over. The models stay as they are, and a model
+    /// whose evaluation is stopped says that its code was not evaluated.
+    /// </summary>
+    public void StopEvaluations()
+    {
+        lock (_storing)
+        {
+            foreach (var key in _evaluations.Keys.ToList())
+            {
+                Stop(key);
+            }
         }
     }
 
@@ -136,6 +176,58 @@ public sealed class SemanticModelStore
     }
 
     /// <summary>
+    /// A module's model with the platforms of each call it makes of a procedure a <c>Declare</c> statement declares (<see cref="ExpressionFact.NativeCall"/>):
+    /// where the call is compiled, and where the procedure is declared, as the model of the module that declares it says now.
+    /// </summary>
+    /// <param name="model">The model of a module of this store.</param>
+    /// <returns>
+    /// The model, its calls stated where the platforms of both the call and the procedure are known: those of the module the call is in were stored with it,
+    /// and the procedure's <see cref="DeclarationFact.CompiledOn"/> is stated.
+    /// </returns>
+    /// <remarks>
+    /// Joined when it is read, not when the module is loaded: the module that declares the procedure can be loaded again on its own, and its calls are then
+    /// of the procedure as it is declared now.
+    /// </remarks>
+    public ModuleSemanticModel WithNativeCalls(ModuleSemanticModel model)
+    {
+        var models = _models;
+        if (!models.TryGetValue(model.Module.AbsoluteUri, out var stored) || stored.Platforms is not { } platforms)
+        {
+            return model;
+        }
+
+        var declared = new Dictionary<SemanticId, (CompiledPlatforms All, ImmutableArray<CompiledPlatforms> ByStatement)>();
+        foreach (var fact in models.Values.SelectMany(module => module.Model.Declarations))
+        {
+            if (fact.CompiledOn is { } compiledOn)
+            {
+                declared.TryAdd(fact.Symbol, (compiledOn, fact.StatementsCompiledOn));
+            }
+        }
+
+        if (declared.Count == 0)
+        {
+            return model;
+        }
+
+        return model with
+        {
+            Procedures = [.. model.Procedures.Select(procedure =>
+            {
+                var calls = procedure.Expressions
+                    .Where(entry => entry.Value.Binding is { } binding && declared.ContainsKey(binding))
+                    .Select(entry => (entry.Key, Fact: entry.Value, Call: platforms.At(entry.Value.Location.Range.Start)))
+                    .Where(call => call.Call is not null)
+                    .Select(call => (call.Key, call.Fact, call.Call, Declared: declared[call.Fact.Binding!.Value]))
+                    .Select(call => KeyValuePair.Create(call.Key,
+                        call.Fact with { NativeCall = new NativeCallPlatforms(call.Call!.Value, call.Declared.All, call.Declared.ByStatement) }))
+                    .ToList();
+                return calls.Count == 0 ? procedure : procedure with { Expressions = procedure.Expressions.SetItems(calls) };
+            })],
+        };
+    }
+
+    /// <summary>
     /// The model of a module, if its code has been analyzed.
     /// </summary>
     /// <param name="module">The <see cref="RDCore.SDK.Model.Symbols.Abstract.Symbol.Uri"/> of the module.</param>
@@ -143,14 +235,32 @@ public sealed class SemanticModelStore
     public bool TryGet(Uri module, out ModuleSemanticModel model)
     {
         var found = _models.TryGetValue(module.AbsoluteUri, out var stored);
-        model = stored!;
+        model = stored?.Model!;
         return found;
     }
 
     /// <summary>
     /// The model of every module whose code has been analyzed.
     /// </summary>
-    public IReadOnlyCollection<ModuleSemanticModel> All => _models.Values.ToList();
+    public IReadOnlyCollection<ModuleSemanticModel> All => _models.Values.Select(stored => stored.Model).ToList();
+
+    /// <summary>
+    /// The model of every module whose code has been analyzed, with the references to a declaration that only the modules of a project can refer to
+    /// counted over all of them.
+    /// </summary>
+    /// <param name="project">The modules of the project.</param>
+    /// <remarks>
+    /// The models and the facts of the expressions in their declarations are read from one snapshot. See <see cref="DeclarationUsage.AcrossProject"/>.
+    /// </remarks>
+    public IReadOnlyCollection<ModuleSemanticModel> AcrossProject(IEnumerable<VBModuleSymbol> project)
+    {
+        var snapshot = _models.Values.ToList();
+        var declarations = snapshot.Where(stored => stored.Declarations is not null)
+            .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.Declarations!, StringComparer.Ordinal);
+        var excluded = snapshot.Where(stored => stored.ExcludedBranchNames is { Count: > 0 })
+            .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.ExcludedBranchNames!, StringComparer.Ordinal);
+        return DeclarationUsage.AcrossProject([.. snapshot.Select(stored => stored.Model)], declarations, project, excluded);
+    }
 
     /// <summary>
     /// Waits until the facts of the code of a module have been evaluated, or there is nothing left to wait for.
@@ -158,8 +268,8 @@ public sealed class SemanticModelStore
     /// <param name="module">The <see cref="RDCore.SDK.Model.Symbols.Abstract.Symbol.Uri"/> of the module.</param>
     /// <param name="token">Stops the wait, and not the evaluation.</param>
     /// <remarks>
-    /// A module that is loaded again while this waits is waited for again: what the caller asked after is the module as it is when the wait is over. It is over
-    /// as well when the evaluation was stopped or failed, and then the model has no facts of the code (<see cref="ProcedureSemanticModel.Runtime"/>).
+    /// A module that is loaded again while this waits is waited for again: what the caller asked after is the module as it is when the wait is over. It is
+    /// over as well when the evaluation was stopped or failed, and then the model has no facts of the code (<see cref="ProcedureSemanticModel.Runtime"/>).
     /// </remarks>
     public async Task WhenEvaluatedAsync(Uri module, CancellationToken token = default)
     {

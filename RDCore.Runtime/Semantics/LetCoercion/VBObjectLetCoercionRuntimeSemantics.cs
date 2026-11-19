@@ -114,7 +114,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
         // cannot be its parameter's value is the error a call that omits it raises, and the member is not called.
         if (ObjectDefaultMember.ArgumentsOf(defaultMember, value, parameter => OmittedArgumentOf(session, parameter), out var arguments) is { } omittedError)
         {
-            return Failed(session, omittedError, expression, defaultMember);
+            return LetCoercionResult.Error(omittedError.ErrorInfo!);
         }
 
         // the arguments already carry Me at index 0, so the binding is asked for with no receiver of its own.
@@ -123,16 +123,8 @@ public record class VBObjectLetCoercionRuntimeSemantics(
             : invoker.Invoke(defaultMember, resolver, arguments);
         return invocation.IsSuccess
             ? LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, frame with { SourceValue = invocation.Result! })
-            : Failed(session, invocation, expression, defaultMember);
+            : LetCoercionResult.Error(invocation.ErrorInfo!);
     }
-
-    // what the failed call raised. A call that failed without an error had no answer, which a coercion's result cannot carry as such: it is an internal error,
-    // which says whether the program was stopped while the member ran (an End or a Stop in it, which ends the statement as the session's halt says) or the
-    // platform failed.
-    private static LetCoercionResult Failed(IRuntimeSession session, RuntimeSemanticsEvaluationResult call, ExpressionNode expression, VBReturningMemberSymbol member)
-        => LetCoercionResult.Error(call.ErrorInfo ?? VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, expression.Location, string.Format(
-            session.Halt.Pending is null ? Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError : Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberStopped,
-            member.Name)));
 
     // MS-VBAL 5.3.1.11: an omitted argument takes what it takes on any call - its default, reduced and Let-coerced to the
     // parameter's type unless it is Nothing - which is the evaluator's to say (RuntimeExpressionEvaluator.OmittedArgument).

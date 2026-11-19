@@ -14,6 +14,7 @@ namespace RDCore.Tests.Client;
 /// The language server, started as an IDE starts it, with a client that is not OmniSharp's: one that writes and reads JSON-RPC itself, as HexIDE's does. The requests the
 /// language server sends it are answered, and the answers reach what is waiting for them.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("Platform")]
 public sealed class ClientWithoutOmniSharpTests
@@ -60,6 +61,23 @@ public sealed class ClientWithoutOmniSharpTests
             "window": { "workDoneProgress": true }
         }
         """;
+
+    // what HexIDE declares, but work-done progress (window.workDoneProgress): the server then asks no window/workDoneProgress/create before a program's
+    // MsgBox. It asks one for each phase of its bring-up that runs past the progress threshold, so the ids of the requests after them would depend on how
+    // long each phase takes.
+    private static readonly string AsHexIdeDeclaresButProgress = WithoutWorkDoneProgress(AsHexIdeDeclares);
+
+    private static string WithoutWorkDoneProgress(string capabilities)
+    {
+        var declared = JsonNode.Parse(capabilities)!.AsObject();
+        declared.Remove("window");
+        return declared.ToJsonString();
+    }
+
+    // the id of the server's msgBox, for a client that declares no progress (AsHexIdeDeclaresButProgress) and runs its program once the server has asked it
+    // to refresh its diagnostics, which the server does once it has brought the workspace up: the refresh is the server's first request, the msgBox its
+    // second. A client that runs its program sooner has the two asked in either order.
+    private const int MessageBoxId = 2;
 
     private const string ClaimsDialogs = """
         { "expectedComponent": 1, "expected": { "languageServer": { "sessionExecute": { "isSupported": true }, "sessionInteraction": { "isSupported": true } } } }
@@ -209,15 +227,17 @@ public sealed class ClientWithoutOmniSharpTests
         });
     }
 
-    // the order HexIDE's add-in sent its messages in (C:\Dev\Claude\hexide-msgbox-wire-2026-10-30.txt): the document opened and its diagnostics asked for before the
-    // platform handshake, which is sent without waiting for them; its requests numbered from 2, so that the handshake is 4, as the language server's msgBox is.
+    // the order HexIDE's add-in sent its messages in (a byte tap of HexIDE's messages): the document opened and its diagnostics asked for before the
+    // platform handshake, which is sent without waiting for them, and whose id is the one the language server's msgBox then has. HexIDE's handshake was 4,
+    // behind the server's progress requests; this client declares no progress, so the server asks none (MessageBoxId), and the client numbers its
+    // handshake 2.
     [TestMethod]
     public async Task AClientInHexIdesOrder_AnswersTheMsgBoxOfAProgram_AndTheProgramCompletes()
     {
         await using var platform = await Platform.StartAsync();
         var rpc = platform.Rpc;
 
-        var initialize = await rpc.RequestAsync(2, "initialize", platform.InitializeParams(AsHexIdeDeclares));
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclaresButProgress));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
         await rpc.NotifyAsync("textDocument/didOpen", new JsonObject
@@ -226,12 +246,15 @@ public sealed class ClientWithoutOmniSharpTests
         });
 
         var diagnostics = rpc.RequestAsync(3, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        var handshake = await rpc.RequestAsync(4, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = await rpc.RequestAsync(MessageBoxId, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         Assert.IsNull(handshake["error"], handshake.ToJsonString());
 
+        _ = await rpc.FirstAsked(DiagnosticRefresh);
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
+        Assert.AreEqual(MessageBoxId, await rpc.FirstAsked(RDCorePlatformProtocol.SessionMessageBox),
+            $"the msgBox has the id of the handshake: asked {string.Join(", ", rpc.Requests)}");
         Assert.IsNull((await diagnostics)["error"], (await diagnostics).ToJsonString());
         await platform.ShutdownAsync(6);
 
@@ -240,18 +263,20 @@ public sealed class ClientWithoutOmniSharpTests
             "what the client claimed is in the language server's file");
     }
 
-    // a module of the workspace with enough code to take the language server a while to parse, bind and define.
+    // a module of the workspace besides Program, with code the language server parses, binds and defines.
     private static string OtherModule(int index)
         => $"Attribute VB_Name = \"Other{index}\"\r\nOption Explicit\r\n"
             + string.Concat(Enumerable.Range(0, 20).Select(procedure =>
                 $"Public Function F{procedure}(ByVal a As Long, ByVal b As String) As Long\r\n    Dim i As Long, s As String\r\n    For i = 1 To a\r\n        s = s & b & CStr(i)\r\n        If Len(s) > 10 Then s = Left$(s, 5)\r\n    Next\r\n    F{procedure} = Len(s) + i\r\nEnd Function\r\n"));
 
-    // the order HexIDE's add-in sent its messages in when the reply was lost (C:\Dev\Claude\hexide-msgbox-tap-2026-10-30.log): the program run as soon as the client
-    // is connected, while the language server is still parsing the workspace and composing the session - which replaces the module just before it runs it.
+    // the order HexIDE's add-in sent its messages in when the reply was lost (a byte tap of HexIDE's messages): the platform handshake sent before the
+    // document's diagnostics are asked for, and the program run once the handshake is answered. Whether the run comes before the language server has
+    // brought the workspace up is not forced here. A run that does waits for the workspace's modules, and is given the host after them:
+    // SymbolSyncServiceTests.AProgramRunWhileTheWorkspaceIsBroughtUp_IsGivenTheHost_OnceTheWorkspacesModulesAre.
     [TestMethod]
-    public async Task AProgramRunWhileTheWorkspaceIsComposed_AsksTheClient_AndCompletesWithItsAnswer()
+    public async Task AClientInTheOrderHexIdeLostAReplyIn_AnswersTheMsgBoxOfAProgram_AndTheProgramCompletes()
     {
-        await using var platform = await Platform.StartAsync(others: 60);
+        await using var platform = await Platform.StartAsync();
         var rpc = platform.Rpc;
 
         var initialize = await rpc.RequestAsync(2, "initialize", platform.InitializeParams(AsHexIdeDeclares));
@@ -306,14 +331,13 @@ public sealed class ClientWithoutOmniSharpTests
         }
     }
 
-    // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
-    // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once. The refresh comes of the document's open and the
-    // workspace's bring-up, not of the run, so the client holds it and the program's MsgBox for each other: the document is pulled again while the program
-    // waits.
+    // a second byte tap of HexIDE's messages: the language server asks the client to refresh its diagnostics, and the client, as HexIDE does, answers
+    // and pulls the document's diagnostics again at once. The refresh comes of the document's open and the workspace's bring-up, not of the run, so the
+    // client holds it and the program's MsgBox for each other: the document is pulled again while the program waits.
     [TestMethod]
     public async Task AProgramRunWhileTheClientPullsItsDiagnosticsAgain_AsksTheClient_AndCompletesWithItsAnswer()
     {
-        await using var platform = await Platform.StartAsync(others: 60);
+        await using var platform = await Platform.StartAsync();
         var rpc = platform.Rpc;
         var refreshed = new TaskCompletionSource<Task<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
         PullsAgainWhileTheProgramWaits(rpc, refreshed.Task);
@@ -372,13 +396,14 @@ public sealed class ClientWithoutOmniSharpTests
         Assert.IsFalse(error["data"]!["retriggerRequest"]!.GetValue<bool>(), $"and not to be retriggered: {reply.ToJsonString()}");
     }
 
-    // the third byte tap (C:\Dev\Claude\hexide-msgbox-tap3-2026-10-30.log), in its order to the byte: HexIDE pulls the document's diagnostics again before it answers
-    // the refresh, and writes both at once; the program's msgBox is then the language server's request 5, which is the id of the client's execute, still running.
-    // The client holds the refresh and the MsgBox for each other, as above: the pull and the refresh's answer are written while the program waits.
+    // a third byte tap of HexIDE's messages: HexIDE pulls the document's diagnostics again before it answers the refresh, and writes both at once; the
+    // program's msgBox then has the id of the client's execute, still running. HexIDE's was 5, behind the server's progress requests; this client declares
+    // no progress, so the server asks none (MessageBoxId), and the client numbers its execute 2. The client holds the refresh and the MsgBox for each
+    // other, as above: the pull and the refresh's answer are written while the program waits.
     [TestMethod]
     public async Task AProgramRunWhileTheClientPullsAgainBeforeItAnswersTheRefresh_AsksTheClient_AndCompletesWithItsAnswer()
     {
-        await using var platform = await Platform.StartAsync(others: 60);
+        await using var platform = await Platform.StartAsync();
         var rpc = platform.Rpc;
         var refreshed = new TaskCompletionSource<Task<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var written = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -407,7 +432,7 @@ public sealed class ClientWithoutOmniSharpTests
             };
         };
 
-        var initialize = await rpc.RequestAsync(2, "initialize", platform.InitializeParams(AsHexIdeDeclares));
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclaresButProgress));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
         await rpc.NotifyAsync("textDocument/didOpen", new JsonObject
@@ -418,9 +443,13 @@ public sealed class ClientWithoutOmniSharpTests
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
         Assert.IsNull((await handshake)["error"], (await handshake).ToJsonString());
 
-        var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
+        _ = await rpc.FirstAsked(DiagnosticRefresh);
+        var executed = await rpc.RequestAsync(MessageBoxId, RDCorePlatformProtocol.SessionExecute,
+            new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
+        Assert.AreEqual(MessageBoxId, await rpc.FirstAsked(RDCorePlatformProtocol.SessionMessageBox),
+            $"the msgBox has the id of the execute, still running: asked {string.Join(", ", rpc.Requests)}");
         AssertAnsweredOrDeclinedForTheDialog(await diagnostics);
         var pulledAgain = await Unhung(refreshed.Task, "the server's refresh: asked " + string.Join(", ", platform.Asked));
         AssertAnsweredOrDeclinedForTheDialog(await pulledAgain, "the second pull");
@@ -457,7 +486,7 @@ public sealed class ClientWithoutOmniSharpTests
         };
     }
 
-    // overnight #39/#75, what hung HexIDE: its probe answered a vbOKOnly box with vbYes, and the host showed a native dialog nobody saw. A client that shows dialogs
+    // what hung HexIDE: its probe answered a vbOKOnly box with vbYes, and the host showed a native dialog nobody saw. A client that shows dialogs
     // is the one that answers, and an answer the dialog cannot have fails the run, untrappably, instead; one it can have is the program's.
     private const string OkOnly = "Public Sub Main()\r\n    On Error Resume Next\r\n    Debug.Print MsgBox(\"from the add-in probe\")\r\n    Debug.Print \"after\"\r\nEnd Sub\r\n";
 
@@ -827,6 +856,7 @@ public sealed class ClientWithoutOmniSharpTests
         private readonly Stream _stream;
         private readonly Func<string, JsonNode?, JsonNode?> _answer;
         private readonly ConcurrentDictionary<int, TaskCompletionSource<JsonObject>> _pending = new();
+        private readonly ConcurrentDictionary<string, TaskCompletionSource<long>> _asked = new(StringComparer.Ordinal);
         private readonly SemaphoreSlim _writing = new(1, 1);
         private readonly CancellationTokenSource _stop = new();
         private readonly Task _reading;
@@ -856,6 +886,17 @@ public sealed class ClientWithoutOmniSharpTests
         /// <summary>What the client waits for before it answers a request of the server, given its method, reading on meanwhile; or nothing, to answer at once.</summary>
         public Func<string, Task?>? Hold { get; set; }
 
+        /// <summary>
+        /// The requests the server made of the client, each method with its id, in the order they were read.
+        /// </summary>
+        public ConcurrentQueue<(string Method, long Id)> Requests { get; } = [];
+
+        /// <summary>
+        /// The id of the first request of a method that the server makes of the client, once it is read.
+        /// </summary>
+        /// <param name="method">The method of the request.</param>
+        public Task<long> FirstAsked(string method) => Unhung(Asked(method).Task, $"the server's {method}: asked {string.Join(", ", Requests)}");
+
         /// <summary>The answer to a request with this id, which the client writes itself.</summary>
         public Task<JsonObject> Expect(int id) => Unhung(Pending(id), $"the answer to request {id}");
 
@@ -881,6 +922,23 @@ public sealed class ClientWithoutOmniSharpTests
             {
                 pending.TrySetException(_failure!);
             }
+
+            foreach (var asked in _asked.Values)
+            {
+                asked.TrySetException(_failure!);
+            }
+        }
+
+        // what is set once the server asks its first request of a method; already failed when the server is gone.
+        private TaskCompletionSource<long> Asked(string method)
+        {
+            var asked = _asked.GetOrAdd(method, _ => new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously));
+            if (Interlocked.CompareExchange(ref _failure, null, null) is { } failure)
+            {
+                asked.TrySetException(failure);
+            }
+
+            return asked;
         }
 
         // what answers the request with this id; already failed when the server is gone.
@@ -908,6 +966,12 @@ public sealed class ClientWithoutOmniSharpTests
                         var method = called.GetValue<string>();
                         if (message["id"] is { } asked)
                         {
+                            if (asked.GetValueKind() == JsonValueKind.Number)
+                            {
+                                Requests.Enqueue((method, asked.GetValue<long>()));
+                                Asked(method).TrySetResult(asked.GetValue<long>());
+                            }
+
                             // a request from the server is answered: what the client does with it, or nothing. One the client holds is answered once it lets
                             // it go, and the client reads on meanwhile.
                             if (Hold?.Invoke(method) is { } held)

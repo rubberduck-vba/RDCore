@@ -2,6 +2,7 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.LanguageCore.StdLib.Abstract;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
@@ -63,14 +64,14 @@ internal sealed partial class ProcedureAnalysis
             node = enclosed;
         }
 
-        return node switch
+        return TextCalledBy(node) is not null || node switch
         {
             BoundLiteral { Literal.StaticValue: VBStringValue } => true,
             BoundVariable variable => TextSlotOf(variable) is not null,
             BoundName { Symbol: var symbol } => IsTextConstant(node, symbol),
             BoundQualifiedName { Member: var member } => IsTextConstant(node, member),
-            BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } => true,
-            BoundCall { Procedure: var called } => IsChrString(called) || IsTypeName(called) || IsTextLibrary(called),
+            BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } or { IsDeferred: true, Operator: Tokens.ConcatOp } } => true,
+            BoundCall { Procedure: var called } => IsChrString(called) || IsTypeName(called) || IsTextLibrary(called) || IsVariantTextLibrary(called),
             BoundMember member => ErrTextOf(member) is not null || MemberTextOf(member) is not null,
             _ => false,
         };
@@ -90,15 +91,72 @@ internal sealed partial class ProcedureAnalysis
         StdLibSymbolReader.ExternalTargetOf(typeof(IStdStringsModule), typeof(IStdStringsModule).GetMethod(nameof(IStdStringsModule.Replace))!),
     ];
 
+    // the functions of the library that return a String, or a Variant that holds one, and take Variants or scalars, which compiled code calls with its
+    // arguments as it calls a function that returns a Variant (LibraryArgumentsOf): CStr (MS-VBAL §6.1.2.3.1.12), TypeName of what is not an object
+    // (§6.1.2.7.1.12), Format (§6.1.2.11.1.8), LCase (§6.1.2.11.1.17), Left (§6.1.2.11.1.19), LTrim, RTrim and Trim (§6.1.2.11.1.23),
+    // Mid (§6.1.2.11.1.25), Right (§6.1.2.11.1.30) and UCase (§6.1.2.11.1.41), each with its $ form. A Variant one that returns Null, which
+    // no String holds, is the interpreter's call (CompiledActivation.TryCallLibraryVariantText).
+    private static readonly string[] VariantTextLibraryFunctions =
+    [
+        StdLibSymbolReader.ExternalTargetOf(typeof(IStdConversionModule), typeof(IStdConversionModule).GetMethod(nameof(IStdConversionModule.CStr))!),
+        TypeNameFunction,
+        .. new[]
+        {
+            nameof(IStdStringsModule.Format), nameof(IStdStringsModule.FormatString),
+            nameof(IStdStringsModule.LCase), nameof(IStdStringsModule.LCaseString),
+            nameof(IStdStringsModule.Left), nameof(IStdStringsModule.LeftString),
+            nameof(IStdStringsModule.LTrim), nameof(IStdStringsModule.LTrimString),
+            nameof(IStdStringsModule.RTrim), nameof(IStdStringsModule.RTrimString),
+            nameof(IStdStringsModule.Trim), nameof(IStdStringsModule.TrimString),
+            nameof(IStdStringsModule.Mid), nameof(IStdStringsModule.MidString),
+            nameof(IStdStringsModule.Right), nameof(IStdStringsModule.RightString),
+            nameof(IStdStringsModule.UCase), nameof(IStdStringsModule.UCaseString),
+        }.Select(name => StdLibSymbolReader.ExternalTargetOf(typeof(IStdStringsModule), typeof(IStdStringsModule).GetMethod(name)!)),
+    ];
+
+    private static bool IsVariantTextLibrary(Symbol symbol)
+        => StandardLibrary.IsLibraryMember(symbol) && symbol is VBTypeMemberSymbol
+            && Array.IndexOf(VariantTextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
+
+    // a call of a function of VariantTextLibraryFunctions. Inside an instruction that calls inside an expression, only TypeName: the call is made when the
+    // text is evaluated, and when the interpreter is handed the instruction after a call, it makes it again of the arguments it is given: TypeName names the
+    // same type of the same value.
+    private TextNode? LibraryVariantTextOf(BoundCall call)
+    {
+        var function = (VBTypeMemberSymbol)call.Procedure;
+        var parameters = RuntimeProcedureInvoker.GetParameters(function);
+        if (_nesting is not null && !IsTypeName(function) || call.BoundArguments is not { } arguments || LibraryArgumentsOf(parameters, arguments) is not { } values)
+        {
+            _ = Unsupported(call);
+            return null;
+        }
+
+        Libraries.Add(new CompiledLibraryCall(function, parameters, call.Expression.SourceLocation));
+        return new LibraryVariantTextNode(Libraries.Count - 1, values);
+    }
+
     private static bool IsTextLibrary(Symbol symbol)
         => StandardLibrary.IsLibraryMember(symbol) && symbol is VBTypeMemberSymbol
             && Array.IndexOf(TextLibraryFunctions, symbol.GetProperty(SymbolProperties.ExternalTarget)) >= 0;
 
     // TypeName of an object variable of the activation, of Me, or of Nothing (MS-VBAL §6.1.2.7.1.12): the library's function names it when compiled code
-    // calls it. Any other argument, and a call inside an instruction that calls inside an expression, is the interpreter's.
+    // calls it, and so does TypeName of an object field of one of its records. Any other argument is given as a call of VariantTextLibraryFunctions
+    // gives it.
     private TextNode? TypeNameOf(BoundCall call)
     {
-        if (_nesting is not null || call.BoundArguments is not [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } named }]
+        if (call.BoundArguments is [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } argument }] && ObjectFieldOf(argument) is { } field
+            && call.Procedure is VBTypeMemberSymbol typeName)
+        {
+            Libraries.Add(new CompiledLibraryCall(typeName, RuntimeProcedureInvoker.GetParameters(typeName), call.Expression.SourceLocation));
+            return new FieldTypeNameTextNode(Libraries.Count - 1, field);
+        }
+
+        if (call.BoundArguments is [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } value }] && !TryObjectArgument(value, out _))
+        {
+            return LibraryVariantTextOf(call);
+        }
+
+        if (call.BoundArguments is not [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } named }]
             || !TryObjectArgument(named, out var slot) || call.Procedure is not VBTypeMemberSymbol function)
         {
             _ = Unsupported(call);

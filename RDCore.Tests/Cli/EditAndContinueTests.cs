@@ -179,6 +179,41 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(AsItWas, Output(resumed));
     }
 
+    // a class given a public variable while an object of it lives: the object is given it too, and a compiled procedure that wrote a public variable of the
+    // object before the edit writes the one it holds after it, found again.
+    [TestMethod]
+    public async Task AClassGivenAVariableWhileAnObjectOfItLives_HasTheVariablesOfTheObjectWrittenAfter_AsBefore()
+    {
+        var point = ModuleWorkspace.ClassModule("Point", "Option Explicit", "Public X As Long");
+        var edited = ModuleWorkspace.ClassModule("Point", "Option Explicit", "Public X As Long", "Public Y As Long");
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim P As Point",
+            "    Set P = New Point",
+            "    Fill P, 3",
+            "    Stop",
+            "    Fill P, 4",
+            "    Debug.Print \"x=\" & P.X",
+            "End Sub",
+            "Private Sub Fill(ByVal P As Point, ByVal N As Long)",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        P.X = P.X + I",
+            "    Next",
+            "End Sub");
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([("Point", point)], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Point"], ("Point", ModuleType.ClassModule, edited), ("Program", ModuleType.StdModule, program));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "x=16" }, Output(resumed));
+    }
+
     // what MS-VBA applies and goes on with, and RD-VBA does: the program runs the edited code where it next reaches it.
     [TestMethod]
     [DataRow(new[] { "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:EDITED obj=\" & Obj.Value" }, new[] { "other:EDITED obj=10" },
@@ -346,6 +381,30 @@ public sealed class EditAndContinueTests
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
                 ("Program", ModuleType.StdModule, LocalConstants.Replace("Const L As Long = 7", "Const L As Long = 8", StringComparison.Ordinal)));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "main:9", "other:8" }, Output(resumed));
+    }
+
+    // a caller that runs compiled code goes on with the procedures it calls as they are now: a callee edited while the program waits is called edited.
+    [TestMethod]
+    [DataRow("    o = Other()", DisplayName = "what the call returns, assigned")]
+    [DataRow("    o = Other() + 0", DisplayName = "a call inside an expression")]
+    public async Task AConstantOfAProcedureTheProgramIsNotIn_Revalued_IsApplied_ToACompiledCaller(string call)
+    {
+        var program = LocalConstants.Replace(
+            Lines("    Debug.Print \"main:\" & Outer(3)", "    Debug.Print \"other:\" & Other()"),
+            Lines("    Dim m As Long", "    Dim o As Long", "    m = Outer(3)", call, "    Debug.Print \"main:\" & m", "    Debug.Print \"other:\" & o"),
+            StringComparison.Ordinal);
+        Assert.AreNotEqual(LocalConstants, program);
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
+                ("Program", ModuleType.StdModule, program.Replace("Const L As Long = 7", "Const L As Long = 8", StringComparison.Ordinal)));
             resumed = await Resume(provider);
         }, debug: true);
 
@@ -1169,6 +1228,48 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "Integer 1" }, Output(done));
     }
 
+    // a class whose member says a word its private member gives it, called by name, on Me.
+    private static string SayingClass(string word) => ModuleWorkspace.ClassModule("D",
+        "Option Explicit",
+        "Public Function Says() As String",
+        "    Says = Word",
+        "End Function",
+        "Private Function Word() As String",
+        $"    Word = \"{word}\"",
+        "End Function");
+
+    // an object whose members were called before its class was edited, while the program waits, is called as the class is defined from then on: through
+    // a variable, a With block, and on Me.
+    [TestMethod]
+    public async Task AnObjectCalledBeforeItsClassWasEditedWhileTheProgramWaits_IsCalledAsTheClassIsEdited()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public X As D",
+            "Public Sub Main()",
+            "    Set X = New D",
+            "    Dim I As Long",
+            "    For I = 1 To 2",
+            "        Debug.Print X.Says",
+            "        With X",
+            "            Debug.Print .Says",
+            "        End With",
+            "        If I = 1 Then Stop",
+            "    Next",
+            "End Sub");
+        ExecuteResult? done = null;
+        await ModuleWorkspace.InspectAsync([("D", SayingClass("before"))], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "before", "before" }, Output(stopped));
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["D"], ("D", ModuleType.ClassModule, SayingClass("after")), ("Program", ModuleType.StdModule, program));
+            done = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, done!.Outcome, done.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "after", "after" }, Output(done));
+    }
+
     // the object a variable of a class holds, the variable retyped while the program waits, is still held: its Class_Terminate does not run, and the edit
     // taken back, the program goes on with it.
     [TestMethod]
@@ -1320,7 +1421,7 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(expected, Output(resumed));
     }
 
-    // a program moved while it waits at an error goes on from where it was moved to, the error not given to it; Err keeps it (MS-VBA, oracle\error-break B2).
+    // a program moved while it waits at an error goes on from where it was moved to, the error not given to it; Err keeps it (MS-VBA, observed in Excel).
     [TestMethod]
     [DataRow(false, DisplayName = "and goes on")]
     [DataRow(true, DisplayName = "its module loaded again, and goes on")]
@@ -1342,7 +1443,7 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "two 5" }, Output(resumed));
     }
 
-    // an error nothing catches is not given to the program that waits at it: it runs the statement that raised it again, as it now is (oracle\error-break B1).
+    // an error nothing catches is not given to the program that waits at it: it runs the statement that raised it again, as it now is (observed in Excel).
     [TestMethod]
     public async Task AProgramThatWaitsAtAnErrorNothingCatches_RunsTheStatementThatRaisedItAgain_AndWaitsAgain()
     {
@@ -1359,7 +1460,7 @@ public sealed class EditAndContinueTests
         Assert.AreEqual((ExecutionOutcome.Suspended, 5), (again!.Outcome, again.ErrorLine), again.ErrorMessage);
     }
 
-    // the statement edited runs edited: MS-VBA goes on after it instead (oracle\error-break B3), which runs no line of what the person wrote.
+    // the statement edited runs edited: MS-VBA goes on after it instead (observed in Excel), which runs no line of what the person wrote.
     [TestMethod]
     public async Task TheStatementThatRaisedAnErrorNothingCatches_Edited_RunsEdited_AndErrStillHasTheError()
     {

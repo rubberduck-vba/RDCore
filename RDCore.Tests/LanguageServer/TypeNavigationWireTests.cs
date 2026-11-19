@@ -144,5 +144,11 @@ public sealed class TypeNavigationWireTests
         CollectionAssert.AreEqual(new[] { "Square" }, subtypes.Select(type => type.Name).ToArray());
         CollectionAssert.AreEqual(new[] { "IShape" },
             (await languageClient.SendRequest(new TypeHierarchySupertypesParams { Item = subtypes[0] }, timeout.Token))!.Select(type => type.Name).ToArray());
+
+        // a class is the whole of its module, from its VB_Name to its last line of code, and is named by its VB_Name.
+        Assert.AreEqual(new Range(4, 0, 6, 12), shape.Range, "IShape, from Attribute VB_Name to End Function");
+        Assert.AreEqual(new Range(4, 0, 4, 28), shape.SelectionRange, "Attribute VB_Name = \"IShape\"");
+        Assert.AreEqual(new Range(4, 0, 7, 12), subtypes[0].Range, "Square, from Attribute VB_Name to End Function");
+        Assert.AreEqual(new Range(4, 0, 4, 28), subtypes[0].SelectionRange, "Attribute VB_Name = \"Square\"");
     }
 }

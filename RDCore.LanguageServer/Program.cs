@@ -23,6 +23,8 @@ using RDCore.SDK.Client;
 [assembly: ProvidesCorePlatformClientCapability<RubberduckIndenterSettings>]
 // and says what a refactoring asks, to a client that shows a dialog of its own before it is applied:
 [assembly: ProvidesCorePlatformClientCapability<Refactoring>]
+// and serves the tools an assistant calls (rdcore/tools/list, rdcore/tools/call):
+[assembly: ProvidesCorePlatformClientCapability<AssistantTools>]
 namespace RDCore.LanguageServer;
 
 public class Program

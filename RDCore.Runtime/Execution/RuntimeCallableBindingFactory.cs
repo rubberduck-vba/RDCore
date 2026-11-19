@@ -32,7 +32,7 @@ public sealed record class RuntimeCallableBindingFactory(
     public ICallableBinding ForMember(
         VBTypeMemberSymbol member, IRuntimeValue? receiver = null, SourceLocation callSite = default)
     {
-        // a procedure of a standard module, or of a library's, is bound to nothing but itself: one handle for every call of it (IR lowering S1.3, S1.9).
+        // a procedure of a standard module, or of a library's, is bound to nothing but itself: one handle for every call of it.
         if (receiver is null && callSite == default && _procedures.TryGetValue(member, out var binding))
         {
             return binding;

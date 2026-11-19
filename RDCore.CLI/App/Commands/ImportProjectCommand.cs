@@ -1,7 +1,6 @@
 using CommandLine;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
-using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
 using System.Globalization;
@@ -31,7 +30,7 @@ internal sealed class ImportProjectCommand(
     IFileSystem fileSystem,
     IProjectFileWriter projectWriter,
     IProjectFileLoader projectLoader,
-    IPlatformEnvironment environment) : ICliCommand
+    ILibrarySource libraries) : ICliCommand
 {
     public string Name => CommandNames.ImportProjectCommand.Name;
     public IReadOnlyList<string> Aliases => [CommandNames.ImportProjectCommand.Alias];
@@ -82,7 +81,6 @@ internal sealed class ImportProjectCommand(
 
         // VB6 writes its project files in the ANSI code page of the machine.
         var ansi = CodePagesEncodingProvider.Instance.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage) ?? Encoding.Latin1;
-        var libraries = new DirectoryLibrarySource(fileSystem, environment.Resolve(PlatformEnvironment.SymbolsDirectory));
         var import = VbpProjectImporter.Import(VbpProjectImporter.Decode(await fileSystem.File.ReadAllBytesAsync(path, token), ansi),
             fileSystem.Path.GetFileName(path), libraries, folder);
 

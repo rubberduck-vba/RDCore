@@ -101,7 +101,7 @@ public sealed class SessionErrorStateTests
     [TestMethod]
     public void AHandlerThatReachesTheEndOfTheProcedure_ClearsIt()
     {
-        // as an Exit Sub from the handler does (MS-VBA, recorded in Excel: oracle\s44 U01).
+        // as an Exit Sub from the handler does (MS-VBA, observed in Excel).
         var session = Run(
             "10 On Error GoTo 30",
             "20 Error 11",
@@ -150,7 +150,7 @@ public sealed class SessionErrorStateTests
     public void AnExitProcedureStatement_PastAnErrorResumeNextWentOnFrom_LeavesItSet()
     {
         // MS-VBAL 6.1.3.2.1 has Exit Sub clear Err; MS-VBA clears it only from within an error handler, and an error On Error Resume Next went on past
-        // was handled by none (recorded in Excel: oracle\s44 U06).
+        // was handled by none (observed in Excel).
         var session = Run(
             "10 On Error Resume Next",
             "20 Error 11",
@@ -255,5 +255,18 @@ public sealed class SessionErrorStateTests
             "30 Error 9");
 
         Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, session.Errors.Current!.ErrorId);
+    }
+
+    // every code an error can have, against the rule as the enum states it: a VBA run-time error's own message below RD-VBA's codes, 95 for any other code,
+    // and 440 outside the range of a standard error code.
+    [TestMethod]
+    public void TheHelpContext_IsTheMessageOfEachCode()
+    {
+        foreach (var number in Enumerable.Range(-2, 65540).Append(int.MinValue).Append(int.MaxValue))
+        {
+            var message = number is < 0 or > 65535 ? 440
+                : number < (int)VBRuntimeErrorId.NobodyToAnswer && Enum.IsDefined(typeof(VBRuntimeErrorId), number) ? number : 95;
+            Assert.AreEqual(1000000 + message, SessionErrorState.HelpContextOf(number), $"{number}");
+        }
     }
 }

@@ -1,5 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Server.ProtocolExtensions;
@@ -80,6 +81,8 @@ internal static class DocumentSymbolProjector
         return new DocumentSymbol
         {
             Name = bound.Name,
+            // the accessors of a property share its name and its kind: their keywords tell them apart.
+            Detail = bound.Kind == SymbolKindExt.Property ? ProcedureKeywords.Of(bound) : null,
             Kind = kind,
             // the primary declaration site: one outline entry per logical symbol, even when the same
             // name is declared in more than one conditional-compilation branch.

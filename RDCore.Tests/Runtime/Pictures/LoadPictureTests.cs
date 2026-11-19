@@ -23,10 +23,14 @@ public sealed class LoadPictureTests
         ["bmp300dpi.bmp"] = Bitmap(10, 20, pixelsPerMeter: 11811),
         ["pic.gif"] = Gif(7, 5),
         ["pic.jpg"] = Jpeg(9, 11),
+        ["cut.jpg"] = Jpeg(9, 11)[..JpegScanAt],
         ["pic.png"] = Png(6, 4),
+        ["cut.png"] = Png(6, 4)[..20],
         ["three.ico"] = Icon(1, 16, 32, 48),
         ["one32.ico"] = Icon(1, 32),
         ["arrow.cur"] = Icon(2, 32),
+        ["png32.ico"] = PngIcon(1, 32),
+        ["png32.cur"] = PngIcon(2, 32),
         ["placeable.wmf"] = Metafile(placeable: true),
         ["plain.wmf"] = Metafile(placeable: false),
         ["frame.emf"] = EnhancedMetafile(4964, 2964),
@@ -64,7 +68,12 @@ public sealed class LoadPictureTests
     // and its first 16 bytes.
     private static Task<string[]> RunAsync(params string[] lines) => ModuleWorkspace.RunAsync([], Source(lines), Stdole);
 
-    // a Visual Basic 6.0 project, which references the Visual Basic objects and procedures (VB.Global's LoadPicture), and stdole, without listing them.
+    // an environment that allows no automation, for a project that references stdole and Scripting: stdole's pictures are the platform's own.
+    private static Task<string[]> RunWithoutAutomationAsync(params string[] lines)
+        => ModuleWorkspace.RunAsync([], Source(lines), Stdole with { References = ["stdole", "Scripting"], AllowAutomation = false });
+
+    // a Visual Basic 6.0 project, which references the Visual Basic objects and procedures (VB.Global's LoadPicture), and stdole, without listing them. VB is
+    // the RDForms package's library.
     private static async Task<string[]> RunVB6Async(params string[] lines)
     {
         ExecuteResult? ran = null;
@@ -72,7 +81,7 @@ public sealed class LoadPictureTests
         {
             ran = result;
             return Task.CompletedTask;
-        }, libraries: new([], Stdole.Source), language: SupportedLanguages.VB6);
+        }, libraries: new([], RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform), language: SupportedLanguages.VB6);
 
         Assert.AreEqual(ExecutionOutcome.Completed, ran!.Outcome, $"{ran.ErrorMessage} {string.Join("; ", ran.Diagnostics)}");
         return [.. ran.Output.Select(line => line.Trim())];
@@ -120,9 +129,12 @@ public sealed class LoadPictureTests
     [DataRow("D & \"bmp300dpi.bmp\"", "1 265 529 True", DisplayName = "a bitmap of 300 dpi, whose resolution changes nothing")]
     [DataRow("D & \"pic.gif\"", "1 185 132 True", DisplayName = "a GIF, 7 by 5, which is a bitmap")]
     [DataRow("D & \"pic.jpg\"", "1 238 291 True", DisplayName = "a JPEG, 9 by 11, which is a bitmap")]
+    [DataRow("D & \"pic.png\"", "1 159 106 True", DisplayName = "a PNG, 6 by 4, which is a bitmap (an RD-VBA addition: MS-VBA raises 481)")]
     [DataRow("D & \"three.ico\"", "3 847 847 True", DisplayName = "an icon of 16, 32 and 48, its 32")]
     [DataRow("D & \"one32.ico\"", "3 847 847 True", DisplayName = "an icon of 32")]
     [DataRow("D & \"arrow.cur\"", "3 847 847 True", DisplayName = "a cursor, which is an icon")]
+    [DataRow("D & \"png32.ico\"", "3 847 847 True", DisplayName = "an icon whose image is a PNG (an RD-VBA addition: MS-VBA raises 481)")]
+    [DataRow("D & \"png32.cur\"", "3 847 847 True", DisplayName = "a cursor whose image is a PNG (an RD-VBA addition: MS-VBA raises 481)")]
     [DataRow("D & \"placeable.wmf\"", "2 2540 1270 True", DisplayName = "a placeable metafile, an inch by half an inch")]
     [DataRow("D & \"frame.emf\"", "4 4964 2964 True", DisplayName = "an enhanced metafile, its frame")]
     public async Task APictureFile_LoadsAsItsType_InHimetric(string arguments, string expected)
@@ -141,8 +153,9 @@ public sealed class LoadPictureTests
     [DataRow("Null", "err 13", DisplayName = "Null: 13")]
     [DataRow("D & \"text.txt\"", "err 481", DisplayName = "a text file: 481")]
     [DataRow("D & \"empty.bmp\"", "err 481", DisplayName = "an empty file: 481")]
-    [DataRow("D & \"pic.png\"", "err 481", DisplayName = "a PNG: 481")]
+    [DataRow("D & \"cut.png\"", "err 481", DisplayName = "a PNG cut short: 481")]
     [DataRow("D & \"cut.bmp\"", "err -2147418113", DisplayName = "a bitmap cut short: E_UNEXPECTED")]
+    [DataRow("D & \"cut.jpg\"", "err -2147418113", DisplayName = "a JPEG that ends before its scan: E_UNEXPECTED")]
     [DataRow("D & \"plain.wmf\"", "err -2147467259", DisplayName = "a metafile that is not placeable: E_FAIL")]
     [DataRow("D & \"folder.bmp\"", "err 75", DisplayName = "a folder: 75")]
     [DataRow("D", "err 76", DisplayName = "a path ending in a separator: 76")]
@@ -193,6 +206,17 @@ public sealed class LoadPictureTests
     public async Task LoadPicture_IsReachedQualified()
         => Printed(new[] { "1 265 529 True", "1 265 529 True" }, await RunAsync(
             "Set p = stdole.LoadPicture(D & \"bmp24.bmp\"): R p", "Set p = stdole.StdFunctions.LoadPicture(D & \"bmp24.bmp\"): R p"));
+
+    [TestMethod]
+    public async Task Pictures_AreMade_WhereNoAutomationIsAllowed()
+        => Printed(new[] { "1 265 529 True", "0 0 0 False", "0" }, await RunWithoutAutomationAsync(
+            Load("D & \"bmp24.bmp\""),
+            "Set p = New StdPicture: R p",
+            "SavePicture LoadPicture(D & \"bmp24.bmp\"), D & \"saved-without-automation.bmp\": Debug.Print Err.Number"));
+
+    [TestMethod]
+    public async Task AServersObject_IsRefused_WhereNoAutomationIsAllowed()
+        => Printed(new[] { "70" }, await RunWithoutAutomationAsync("Dim d As Object: Set d = New Scripting.Dictionary: Debug.Print Err.Number"));
 
     [TestMethod]
     public async Task ANewStdPicture_HoldsNoPicture()
@@ -282,6 +306,13 @@ public sealed class LoadPictureTests
         Printed(new[] { $"0 len {bytes.Length} {Convert.ToHexString(bytes[..16])}" }, printed);
     }
 
+    // an RD-VBA addition: a PNG is a bitmap, with a palette as a bitmap has.
+    [TestMethod]
+    public async Task APngsPalette_Is0_AndKeepsWhatIsAssigned()
+        => Printed(new[] { "0 0", "7 0" }, await RunAsync(
+            "Set p = LoadPicture(D & \"pic.png\"): Debug.Print p.hPal & \" \" & Err.Number",
+            "p.hPal = 7: Debug.Print p.hPal & \" \" & Err.Number"));
+
     [TestMethod]
     public async Task ANewStdPicture_IsSavedAsAFileOfNoBytes()
         => Printed(new[] { "0 len 0" }, await RunAsync(
@@ -319,17 +350,31 @@ public sealed class LoadPictureTests
             "SavePicture p, D & \"saved-vb6.bmp\": Debug.Print Err.Number & \" \" & Head(D & \"saved-vb6.bmp\")"));
 
     [TestMethod]
-    [Ignore("TypeName of a StdPicture is \"Picture\" in MS-VBA; the library states no type name for its objects")]
-    public async Task APicturesTypeName_IsPicture()
-        => Printed(new[] { "Picture" }, await RunAsync("Set p = LoadPicture(D & \"bmp24.bmp\"): Debug.Print TypeName(p)"));
+    [DataRow("LoadPicture(D & \"bmp24.bmp\")", DisplayName = "a loaded picture")]
+    [DataRow("New StdPicture", DisplayName = "a new StdPicture")]
+    public async Task APicturesTypeName_IsPicture(string picture)
+        => Printed(new[] { "Picture" }, await RunAsync($"Set p = {picture}: Debug.Print TypeName(p)"));
 
+    // the length and the first 16 bytes of each saved file.
     [TestMethod]
-    [Ignore("SavePicture of a GIF, a JPEG, an icon or a cursor needs the picture decoded: not implemented")]
-    [DataRow("pic.gif", "len 1118 424D5E04000000000000360400002800", DisplayName = "a GIF: an 8-bit bitmap")]
     [DataRow("pic.jpg", "len 362 424D6A01000000000000360000002800", DisplayName = "a JPEG: a 24-bit bitmap")]
-    [DataRow("three.ico", "len 766 0000010001002020100000000000E802", DisplayName = "an icon: one 32 by 32 image of 16 colours")]
+    [DataRow("three.ico", "len 766 0000010001002020100000000000E802", DisplayName = "an icon: one 32 by 32 image of 16 colors")]
     [DataRow("arrow.cur", "len 766 0000010001002020100000000000E802", DisplayName = "a cursor: an icon")]
     public async Task ASavedPictureOfAnotherFormat_IsWrittenAsMSVBAWritesIt(string file, string expected)
         => Printed(new[] { "0 " + expected }, await RunAsync(
             $"SavePicture LoadPicture(D & \"{file}\"), D & \"saved-{file}\": Debug.Print Err.Number & \" \" & Head(D & \"saved-{file}\")"));
+
+    // RD-VBA addition: a GIF one of whose pixels is its transparent color (this one's GIF has its color 0 transparent) is a bitmap of 32 bits per pixel under a
+    // BITMAPV5HEADER (124 bytes) that states the alpha: 14 + 124 + 7 by 5 pixels of 4 bytes, where MS-VBA writes a bitmap of its color table.
+    [TestMethod]
+    public async Task ASavedGifWithATransparentColor_IsABitmapThatKeepsTheAlpha()
+        => Printed(["0 len 278 424D16010000000000008A0000007C00"], await RunAsync(
+            "SavePicture LoadPicture(D & \"pic.gif\"), D & \"saved-pic.gif\": Debug.Print Err.Number & \" \" & Head(D & \"saved-pic.gif\")"));
+
+    // RD-VBA addition: a PNG is written as a PNG, which keeps its alpha (its signature, then its IHDR chunk), and loads back at its size; MS-VBA does not load one.
+    [TestMethod]
+    public async Task ASavedPng_IsAPng_ThatLoadsBackAtItsSize()
+        => Printed(["0 89504E470D0A1A0A0000000D49484452", "1 159 106 True"], await RunAsync(
+            "SavePicture LoadPicture(D & \"pic.png\"), D & \"saved-pic.png\": Debug.Print Err.Number & \" \" & Right(Head(D & \"saved-pic.png\"), 32)",
+            Load("D & \"saved-pic.png\"")));
 }

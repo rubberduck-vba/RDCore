@@ -270,12 +270,6 @@
   <data name="VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable" xml:space="preserve">
     <value>Let-coercion evaluation strategy unexpectedly returned a 'NotApplicable' result.</value>
   </data>
-  <data name="VBRuntimeInternalError_LetCoercionDefaultMemberStopped" xml:space="preserve">
-    <value>The program was stopped while the object's default member '{0}' ran, so it returned no value.</value>
-  </data>
-  <data name="VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError" xml:space="preserve">
-    <value>The call of the object's default member '{0}' failed inside the platform and gave no error.</value>
-  </data>
   <data name="VBRuntimeTypeMismatch_OperationEffectiveType_Verbose" xml:space="preserve">
     <value>No semantics defined an effective type for the specified operator data types ({$OPERANDS}).</value>
   </data>
@@ -311,5 +305,14 @@
   </data>
   <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
     <value>An object cannot be passed to or from a function of a native library yet.</value>
+  </data>
+  <data name="FormHost_VisualBasic6FormUnavailable_Verbose" xml:space="preserve">
+    <value>No form host of this platform hosts a Visual Basic 6.0 form.</value>
+  </data>
+  <data name="VBLoadPicture_CutShort_Verbose" xml:space="preserve">
+    <value>{0}: the picture is cut short.</value>
+  </data>
+  <data name="VBLoadPicture_MetafileStatesNoSize_Verbose" xml:space="preserve">
+    <value>{0}: the metafile states no size.</value>
   </data>
 </root>

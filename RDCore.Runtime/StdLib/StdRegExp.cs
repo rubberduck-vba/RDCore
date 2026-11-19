@@ -129,15 +129,7 @@ internal sealed class StdRegExp : IStdRegExpClass, IStdLibReceiverBound
             return RuntimeSemanticsEvaluationResult<VBStringValue>.Error(failure);
         }
 
-        // an object stands for its default member's value. A default member that had no answer (an End or a Stop in it) fails the call as it failed; an
-        // object whose default member gives no value is the replacement itself.
-        var read = ObjectDefaultMember.ValueOf(session, replaceVar);
-        if (read.IsInternalError)
-        {
-            return RuntimeSemanticsEvaluationResult<VBStringValue>.InternalError();
-        }
-
-        if (ReplacementOf(read.IsSuccess ? read.Result! : replaceVar) is not { } replacement)
+        if (ReplacementOf(replaceVar) is not { } replacement)
         {
             return RuntimeSemanticsEvaluationResult<VBStringValue>.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.TypeMismatch, default, "A match cannot be replaced with Null."));
@@ -165,8 +157,9 @@ internal sealed class StdRegExp : IStdRegExpClass, IStdLibReceiverBound
     }
 
     // what a match is replaced with, as text: a Boolean as the number it is (VBScript's, not VBA's, way of writing one), Empty as nothing; Null as none.
-    private string? ReplacementOf(VBTypedValue value)
+    private string? ReplacementOf(VBVariantValue replaceVar)
     {
+        var value = ObjectDefaultMember.ValueOf(session, replaceVar) is { IsSuccess: true, Result: { } read } ? read : replaceVar;
         return value switch
         {
             VBNullValue => null,

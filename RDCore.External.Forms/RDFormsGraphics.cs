@@ -1,14 +1,13 @@
 using RDCore.External.Automation;
 using RDCore.Forms.Drawing;
 using RDCore.Forms.Model;
-using RDCore.Forms.Model.VB;
 using System.Globalization;
 
 namespace RDCore.External.Forms.RDForms;
 
 // what a Visual Basic 6.0 form or PictureBox draws with: the methods its graphics statements call (Line, Circle, PSet, Scale, with GraphicsFlags first), Cls,
-// Point, CurrentX and CurrentY, on the component's RDForms surface. Coordinates are in the component's scale, which the surface reads them in. A component
-// that is not shown has no surface yet: it draws nothing, Point reads -1 there, and CurrentX and CurrentY read 0.
+// Point, PaintPicture, CurrentX and CurrentY, on the component's RDForms surface. Coordinates are in the component's scale, which the surface reads them
+// in. A component that is not shown has no surface yet: it draws nothing, Point reads -1 there, and CurrentX and CurrentY read 0.
 internal static class RDFormsGraphics
 {
     private const int BadParameterCount = unchecked((int)0x8002000E);
@@ -22,7 +21,7 @@ internal static class RDFormsGraphics
         out object? result)
     {
         result = null;
-        if (component.Class != VBClasses.Form && component.Class != VBClasses.PictureBox)
+        if (component.Class != ComponentClasses.Form && component.Class != ComponentClasses.PictureBox)
         {
             return false;
         }
@@ -104,9 +103,104 @@ internal static class RDFormsGraphics
                 });
                 return true;
 
+            case "PAINTPICTURE" when reads:
+                PaintPicture(surface, arguments, culture);
+                return true;
+
+            case "[PRINT]" when reads && member == FormPrintMembers.Print:
+                var (items, endsLine) = PrintItems(arguments, culture);
+                if (surface is null)
+                {
+                    return true;
+                }
+
+                try
+                {
+                    surface.Print(items, endsLine);
+                }
+                catch (FormErrorException exception)
+                {
+                    throw new AutomationException(VisualBasicError | exception.Error.Number, exception.Error.Description);
+                }
+
+                return true;
+
             default:
                 return false;
         }
+    }
+
+    // vbSrcCopy, the opcode PaintPicture draws with when it is given none.
+    private const int SourceCopy = 0xCC0020;
+
+    // PaintPicture's picture, x1 and y1, then width1, height1, x2, y2, width2, height2 and the opcode, any of which can be left out. As VB6 does, the
+    // numbers are read before the picture: a size of "x" is error 13 even where the picture is Nothing.
+    private static void PaintPicture(IDrawingSurface? surface, object?[] arguments, CultureInfo culture)
+    {
+        if (arguments.Length is < 3 or > 10 || arguments.Take(3).Any(argument => argument is System.Reflection.Missing))
+        {
+            throw new AutomationException(BadParameterCount, "PaintPicture takes a picture, x1 and y1, then up to seven more.");
+        }
+
+        bool Given(int index) => index < arguments.Length && arguments[index] is not System.Reflection.Missing;
+        double? Optional(int index) => Given(index) ? Coordinate(arguments[index], culture) : null;
+        var (x1, y1) = (Coordinate(arguments[1], culture), Coordinate(arguments[2], culture));
+        var (width1, height1, x2, y2, width2, height2) = (Optional(3), Optional(4), Optional(5), Optional(6), Optional(7), Optional(8));
+        var opcode = Given(9) ? (int)RDFormsValues.FromNeutral(arguments[9], typeof(int), culture)! : SourceCopy;
+        var picture = PictureOf(arguments[0]);
+        if (surface is null)
+        {
+            return;
+        }
+
+        try
+        {
+            surface.PaintPicture(picture, x1, y1, width1, height1, x2, y2, width2, height2, opcode);
+        }
+        catch (FormErrorException exception)
+        {
+            throw new AutomationException(VisualBasicError | exception.Error.Number, exception.Error.Description);
+        }
+    }
+
+    // the program's picture, as its file holds it. An early-bound call has Set-coerced the argument to a StdPicture already; a late-bound one passes it as it
+    // is, and VB6 then raises 13 for a value other than an object and 481 for an object other than a picture. Nothing is error 91.
+    // CA1416: matching a wrapper asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+    private static byte[] PictureOf(object? value) => value switch
+    {
+        null or System.Runtime.InteropServices.DispatchWrapper { WrappedObject: null }
+            => throw new AutomationException(VisualBasicError | 91, "Object variable or With block variable not set"),
+        SessionObjectReference { Picture: { } picture } => picture.Bytes,
+        string or bool or byte or short or int or long or float or double or decimal or DateTime or DBNull
+            or System.Runtime.InteropServices.ErrorWrapper or System.Runtime.InteropServices.CurrencyWrapper
+            => throw new AutomationException(VisualBasicError | 13, "Type mismatch"),
+        _ => throw new AutomationException(VisualBasicError | 481, "Invalid picture"),
+    };
+#pragma warning restore CA1416
+
+    // whether the output ends the line, then a kind and a value for each part (FormPrintMembers).
+    private static (IReadOnlyList<PrintItem> Items, bool EndsLine) PrintItems(object?[] arguments, CultureInfo culture)
+    {
+        if (arguments.Length % 2 != 1)
+        {
+            throw new AutomationException(BadParameterCount, "Print takes whether the output ends the line, then a kind and a value for each part.");
+        }
+
+        var endsLine = (bool)RDFormsValues.FromNeutral(arguments[0], typeof(bool), culture)!;
+        var items = new List<PrintItem>(arguments.Length / 2);
+        for (var index = 1; index < arguments.Length; index += 2)
+        {
+            var value = arguments[index + 1];
+            items.Add((FormPrintPartKind)(short)RDFormsValues.FromNeutral(arguments[index], typeof(short), culture)! switch
+            {
+                FormPrintPartKind.Text => new PrintItem.Text(value as string ?? Convert.ToString(value, culture) ?? string.Empty),
+                FormPrintPartKind.Spc => new PrintItem.Spc((int)RDFormsValues.FromNeutral(value, typeof(int), culture)!),
+                _ => new PrintItem.Tab(value is null ? null : (int)RDFormsValues.FromNeutral(value, typeof(int), culture)!),
+            });
+        }
+
+        return (items, endsLine);
     }
 
     // a drawing with its flags, the first argument, read before anything is drawn; what the surface raises is the program's error.

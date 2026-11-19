@@ -8,7 +8,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A module declares at most 10,000 names at module level, all kinds together, and the 10,001st is "Out of memory" (VBC09380): RD-VBA's cap, below the 10,800
-/// to 11,000 at which MS-VBA refuses a module (recorded in Excel: oracle\size-limits G01-G10, J01-J05).
+/// to 11,000 at which MS-VBA refuses a module (observed in Excel).
 /// </summary>
 /// <remarks>
 /// One test loads such a module end to end; the others ask the rule of the declarations of a parsed module, which is all the rule reads, because loading ten

@@ -1,6 +1,7 @@
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution.External;
+using RDCore.Runtime.Execution.External.Application;
 using RDCore.Runtime.Execution.External.Automation;
 using RDCore.External;
 using RDCore.Runtime.Execution.External.Forms;
@@ -111,7 +112,10 @@ public sealed class RuntimeExecutionPipeline
     /// <param name="bodies">Every procedure's lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
     /// <param name="errorDetails">Records the details of the run-time errors raised.</param>
     /// <param name="observer">Told of every conversion and operation the analysis evaluates.</param>
-    /// <param name="cancellation">Stops the interpreter between instructions.</param>
+    /// <param name="cancellation">
+    /// Stops the interpreter between instructions, and while it makes the elements of a fixed-size array a procedure declares
+    /// (<see cref="DeclaredVariableDefaults"/>), which throws <see cref="OperationCanceledException"/>.
+    /// </param>
     /// <remarks>
     /// <para>
     /// The code runs: assignments, objects, and the workspace's own procedures are evaluated for real, against state that belongs to the
@@ -136,7 +140,10 @@ public sealed class RuntimeExecutionPipeline
     /// <param name="bodies">Every procedure's lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
     /// <param name="errorDetails">Records the details of the run-time errors raised.</param>
     /// <param name="observer">Told of every conversion and operation the sweep evaluates.</param>
-    /// <param name="cancellation">Stops the sweep between instructions.</param>
+    /// <param name="cancellation">
+    /// Stops the sweep between instructions, and while it makes the elements of a fixed-size array a procedure declares
+    /// (<see cref="DeclaredVariableDefaults"/>), which throws <see cref="OperationCanceledException"/>.
+    /// </param>
     /// <remarks>
     /// <para>
     /// A sweep follows no path, so it can trust nothing that a path made true: what a variable holds is not known whatever was assigned to it
@@ -244,6 +251,8 @@ public sealed class RuntimeExecutionPipeline
         var world = outside ?? ExternalWorld.None;
         var servers = new AutomationCallProvider(session, world.Automation);
         var forms = new FormCallProvider(session, world, servers, bodies is ProgramImage image ? image.Forms : NoForms);
+        var pictures = new PictureCallProvider(session);
+        var app = new AppCallProvider(session) { Forms = world.Forms };
         var external = analysis
             ? new ExternalCallPipeline(session, observation is null ? [] : [new AssumedCallInterceptor(observation)], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
             // a member a form's designer declares is the form host's, which calls the members of the form object itself through the servers' provider.
@@ -254,16 +263,26 @@ public sealed class RuntimeExecutionPipeline
                     // the image keeps what the designers of its forms declare; bodies that are only bodies have no forms.
                     forms,
                     // stdole's pictures are the platform's own, which no server holds.
-                    new PictureCallProvider(session),
+                    pictures,
+                    // and Visual Basic 6.0's App, which says what the session knows of its program.
+                    app,
                     servers,
                     StdLibDispatcher.For(session, outside, cancellation),
                     // the shlwapi function that connects an object of the program's own to a server's events is the session's to run, not the native library's.
                     new ConnectionPointCallProvider(session, world.Automation),
                     new DeclaredProcedureProvider(session, world.Libraries),
-                ]);
+                ],
+                // a library the platform implements does not count as automation: an environment that allows none still has stdole's pictures, and App.
+                implementations: [pictures, app]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         // Unload runs a form's QueryClose and Terminate, which are code the bindings call: the last edge of that cycle too.
         forms.Bindings = bindings;
+        // a New of a form's class asks the form host whether its form can be made, and a program that runs asks this pipeline's; an analysis makes no form.
+        if (!analysis)
+        {
+            SessionForms.Of(session).CreatesWith(forms);
+        }
+
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;
         expressions.AssumesVariables = mode is PipelineMode.Sweep;
@@ -283,7 +302,8 @@ public sealed class RuntimeExecutionPipeline
         // and an event that something outside the workspace raises, when nothing runs, is handled by the procedures this pipeline binds.
         session.Callables = bindings;
         // a fixed-size array is as big as its declaration says, which takes evaluating its bounds: this is what can.
-        var defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, letCoercion));
+        // an analysis that is stopped stops while it makes an array too; a program that runs is stopped between its instructions.
+        var defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, letCoercion), analysis ? cancellation : default);
         if (analysis)
         {
             // the session shares the declared symbols of another, and holds none of its storage yet: what that starts as is the analysis's to say.

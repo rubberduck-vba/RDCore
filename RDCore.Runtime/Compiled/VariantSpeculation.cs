@@ -7,7 +7,8 @@ namespace RDCore.Runtime.Compiled;
 /// The subtypes compiled code speculates a <c>Variant</c> holds: where every Variant an expression reads holds the subtype the analysis
 /// speculates it holds (<see cref="ProcedureAnalysis.SpeculatedKinds"/>), the expression's operations are chosen when it is compiled (the plan
 /// <c>TryOperateDeferred</c> makes for those subtypes) and done on the interpreter's own payload operations (<see cref="PayloadOperations"/>). A Variant
-/// that holds another subtype, or what is no payload, is evaluated as any is (<see cref="VariantOperations.Binary"/>): a speculation that does not hold is
+/// that holds another subtype, or what is not a payload, is evaluated as any is
+/// (<see cref="VariantOperations.Binary(VariantOperator, VariantPayload, VariantPayload, out VariantPayload)"/>): a speculation that does not hold is
 /// slower, and its result is the same.
 /// </summary>
 internal static class VariantSpeculation

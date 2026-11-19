@@ -18,7 +18,7 @@ namespace RDCore.Tests.Workspace.Forms;
 [TestClass]
 public sealed class FormHeldWithEventsTests
 {
-    private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    private static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
     private static readonly FormDescriptor Designer = new(
         "Window", FormDesignerKind.MSForms, new FormControlClass("MSForms", "UserForm", FormDesigner.MSFormsClassId),

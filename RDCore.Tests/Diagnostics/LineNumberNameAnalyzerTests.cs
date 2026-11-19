@@ -69,6 +69,16 @@ public sealed class LineNumberNameAnalyzerTests
     }
 
     [TestMethod]
+    public void AModuleNameWithANonBreakingSpace_IsReported_AtItsAttribute()
+    {
+        var source = $"Attribute VB_Name = \"Program{Nbsp}Module\"\r\nPrivate Sub Work()\r\nEnd Sub\r\n";
+        var finding = Assert.ContainsSingle(Run(new NonBreakingSpaceInNameAnalyzer(), source));
+
+        Assert.AreEqual(0, finding.Range.Start.Line);
+        StringAssert.Contains(finding.Message, "'Program Module'", "the name as it reads, without its quotes");
+    }
+
+    [TestMethod]
     public void OrdinaryNames_AreNot()
         => Assert.IsEmpty(Run(new NonBreakingSpaceInNameAnalyzer(), Module("Private myValue As Long\nPublic Sub DoIt(ByVal someArg As Long)\nRetry:\nEnd Sub")));
 

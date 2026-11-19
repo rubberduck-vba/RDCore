@@ -519,7 +519,9 @@ internal static class ReplExecution
 
             // and how the activation got there, when it was by a GoSub: from the line of the last one it had not returned from, and the one before that - as STACK
             // says it of a program that waits.
-            yield return at + string.Concat(frame.ReturnLines.Select(gosub => program.LineNumberAt(gosub) is { } from ? $" from {from}" : string.Empty));
+            yield return at + string.Concat(frame.ReturnLines.Select(gosub => program.LineNumberAt(gosub) is { } from
+                ? " " + string.Format(Resources.Repl_Frame_FromGoSub, from)
+                : string.Empty));
         }
     }
 }

@@ -1,8 +1,9 @@
 using Avalonia.Threading;
 using RDCore.External.Automation;
+using RDCore.Forms.Avalonia.Rendering;
 using RDCore.Forms.Menus;
 using RDCore.Forms.Model;
-using RDCore.Forms.Model.VB;
+using RDCore.Forms.Porting;
 using System.Globalization;
 
 namespace RDCore.External.Forms.RDForms;
@@ -26,6 +27,26 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private const string PopupMenuMember = "PopupMenu";
     private const string ControlsMember = "Controls";
     private const string NameMember = "Name";
+    private const string IndexMember = "Index";
+    private const string ContainerMember = "Container";
+    private const string FontProperty = "Font";
+    private const string StdFontClass = "stdole.StdFont";
+
+    // a control's font is a StdFont, and of the interfaces it implements, as TypeOf reads them in VB6.
+    private static readonly string[] FontClasses = ["StdFont", "Font", "IFontDisp", "IFont"];
+
+    // the forms are Visual Basic 6.0 forms, whose code knows a component by its class of the VB library (VB.TextBox): the class each RDForms class
+    // (RDForms.TextBox) ports from, by the RDForms class's name.
+    private static readonly Dictionary<string, TypePort> VisualBasicClasses = FormsPortMap.VB6.Types
+        .Where(type => type.Kind == TypePortKind.Class)
+        .GroupBy(type => type.RDFormsName, StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+    private static bool? IsFontClass(string library, string className)
+        => string.Equals(library, "stdole", StringComparison.OrdinalIgnoreCase)
+            ? FontClasses.Contains(className, StringComparer.OrdinalIgnoreCase)
+            : null;
+
     private const string DefaultMemberName = "_Default";
     private const string DefaultMemberDispatchName = "[DISPID=0]";
 
@@ -47,10 +68,10 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     public RDFormsPlatform Platform { get; }
 
     /// <summary>
-    /// Whether an object is one of this server's: a form, or one of its controls.
+    /// Whether an object is one of this server's: a form, one of its controls, or a font one of them hands out.
     /// </summary>
     /// <param name="handle">The handle of the object.</param>
-    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator or RDFormsMenuArray;
+    public bool Owns(object handle) => handle is RDFormsObject or RDFormsControls or RDFormsControlsEnumerator or RDFormsArray or RDFormsFont;
 
     /// <inheritdoc/>
     public bool IsAvailable => true;
@@ -70,13 +91,19 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             });
         }
 
-        if (target is RDFormsMenuArray menuArray)
+        if (target is RDFormsArray array)
         {
             return RDFormsUI.Run(() =>
             {
-                Alive(menuArray.Form.Handle);
-                return RDFormsMenuArrayMembers.Invoke(menuArray, member, invocation, arguments, culture);
+                Alive(array.Form.Handle);
+                return RDFormsArrayMembers.Invoke(array, member, invocation, arguments, culture);
             });
+        }
+
+        // a font is read after its control's form is gone, as VB6 reads it.
+        if (target is RDFormsFont font)
+        {
+            return RDFormsUI.Run(() => RDFormsFontMembers.Invoke(font, member, invocation, arguments, culture));
         }
 
         var handle = HandleOf(target);
@@ -84,6 +111,13 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         {
             Alive(handle);
             var component = handle.Component;
+
+            // FontBold and its kin are members of the control's Font.
+            if (component.Class.Property(member) is null && RDFormsFontMembers.TryShorthand(member, out var fontMember)
+                && component.Class.Property(FontProperty) is { } fontProperty && RDFormsFonts.IsFont(fontProperty))
+            {
+                return RDFormsFontMembers.Invoke(handle.Form.Fonts.FontOf(component, fontProperty), fontMember, invocation, arguments, culture);
+            }
 
             // a control's default member (_Default early bound, DISPID 0 late bound) is the member its class names for it, reached as if the program named it.
             if (IsDefaultMember(member) && component.Class.DefaultMember is { } named)
@@ -96,6 +130,15 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             if (invocation is AutomationInvocation.Let && arguments.Length == 1 && component.Class.Property(member) is null && Control(handle, member) is { } assigned)
             {
                 return Invoke(assigned, DefaultMemberName, invocation, arguments, byReference, culture);
+            }
+
+            // a property the form's window answers, whose value its control holds, or which takes arguments: a ListBox's ListIndex and List(Index). It comes
+            // before the model's property of the same name (a ListBox's List), which is the designer's.
+            if (component.Class.Method(member) is { IsProperty: true } answered)
+            {
+                return invocation is AutomationInvocation.Let or AutomationInvocation.Set
+                    ? AssignThroughWindow(handle, answered, arguments, culture)
+                    : Call(handle, answered, arguments, culture);
             }
 
             if (RDFormsGraphics.TryInvoke(component, member, invocation, arguments, culture, out var drawn))
@@ -119,8 +162,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
                 return invocation switch
                 {
-                    AutomationInvocation.Let or AutomationInvocation.Set => Assign(component, property, arguments, culture, handle.Form.Unit),
-                    _ when arguments.Length == 0 => Read(component, property, handle.Form.Unit),
+                    AutomationInvocation.Let or AutomationInvocation.Set => Assign(handle.Form, component, property, arguments, culture),
+                    _ when arguments.Length == 0 => Read(handle.Form, component, property),
                     _ => throw new AutomationException(BadParameterCount, $"{handle}.{member} takes no argument."),
                 };
             }
@@ -137,6 +180,31 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return component.Name;
             }
 
+            // an element's index in its array is not a property of its class either: the file gives it, and Load the one it loads. A control of no array has
+            // none (343).
+            if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && arguments.Length == 0
+                && string.Equals(member, IndexMember, StringComparison.OrdinalIgnoreCase) && component.Class.Property(member) is null)
+            {
+                return component.Index is { } index ? (short)index : throw FormFailure(FormError.ObjectNotAnArray);
+            }
+
+            // a control's container is not a property of its class either: the form, a Frame or a PictureBox, read as its object and placed with Set.
+            // A Timer, a menu and a form have none (438), and an assignment without Set is 438 too.
+            if (component.Class.HasContainer && component.Class.Property(member) is null
+                && string.Equals(member, ContainerMember, StringComparison.OrdinalIgnoreCase))
+            {
+                if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && arguments.Length == 0)
+                {
+                    return handle.Form.HandleOf(component.Container!);
+                }
+
+                if (invocation is AutomationInvocation.Set && arguments.Length == 1)
+                {
+                    PlaceIn(handle, arguments[0]);
+                    return null;
+                }
+            }
+
             // the form's collection of its controls, which a control of its file cannot be named for; given arguments, its default member: Controls(0) is
             // Controls.Item(0).
             if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm
@@ -151,10 +219,10 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return control;
             }
 
-            // a menu array, given arguments, is its default member, as a late-bound call reaches an element (f.mnuRecent(2)) in one call.
-            if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm && handle.Form.MenuArrayOf(member) is { } indexed)
+            // an array, given arguments, is its default member, as a late-bound call reaches an element (f.mnuRecent(2), f.picCell(0)) in one call.
+            if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm && handle.Form.ArrayOf(member) is { } indexed)
             {
-                return RDFormsMenuArrayMembers.Invoke(indexed, DefaultMemberDispatchName, invocation, arguments, culture);
+                return RDFormsArrayMembers.Invoke(indexed, DefaultMemberDispatchName, invocation, arguments, culture);
             }
 
             if (invocation is AutomationInvocation.Get or AutomationInvocation.Method && handle.IsForm
@@ -169,26 +237,74 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     }
 
     // a method runs on the form's window, which checks the arguments as VB6 does and raises what the method raises. An argument left out is none, and one for a
-    // typed parameter is let-coerced to its type first, as a typed parameter's argument is before the call.
+    // typed parameter is let-coerced to its type first, as a typed parameter's argument is before the call. A property the window answers is read the same way,
+    // and returns its value.
     private static object? Call(RDFormsObject handle, MethodDefinition method, object?[] arguments, CultureInfo culture)
     {
-        var given = new FormValue?[arguments.Length];
-        for (var index = 0; index < arguments.Length; index++)
-        {
-            given[index] = arguments[index] is System.Reflection.Missing
-                ? null
-                : RDFormsValues.ArgumentOf(arguments[index], index < method.Parameters.Count ? method.Parameters[index] : null, culture);
-        }
-
+        var given = ArgumentsOf(method, arguments, arguments.Length, culture);
         try
         {
-            _ = handle.Form.Window.Invoke(handle.Component, method, given, handle.Form.Unit);
+            var result = handle.Form.Window.Invoke(handle.Component, method, given, handle.Form.Unit);
+            return RDFormsValues.ToNeutral(result, handle.Form.HandleOf);
+        }
+        catch (FormErrorException exception)
+        {
+            throw FormFailure(exception.Error);
+        }
+    }
+
+    // Set Control.Container: the form places the control and its window moves it. Nothing, an object other than one of the same form's, and what the form
+    // refuses are 425.
+    private static void PlaceIn(RDFormsObject handle, object? value)
+    {
+        if (value is not RDFormsObject container || !ReferenceEquals(container.Form, handle.Form))
+        {
+            throw FormFailure(FormError.InvalidObjectUse);
+        }
+
+        Alive(container);
+        try
+        {
+            handle.Form.Model.SetContainer(handle.Component, container.Component);
+        }
+        catch (FormErrorException exception)
+        {
+            throw FormFailure(exception.Error);
+        }
+    }
+
+    // a property the form's window answers, assigned: its arguments come first, and the value last, let-coerced to the property's type (List(0) = 5 assigns "5").
+    private static object? AssignThroughWindow(RDFormsObject handle, MethodDefinition property, object?[] arguments, CultureInfo culture)
+    {
+        if (arguments.Length == 0)
+        {
+            throw new AutomationException(BadParameterCount, $"{handle}.{property.Name} is assigned no value.");
+        }
+
+        var given = ArgumentsOf(property, arguments, arguments.Length - 1, culture);
+        var value = RDFormsValues.ArgumentOf(arguments[^1], property.Value, culture);
+        try
+        {
+            handle.Form.Window.Assign(handle.Component, property, given, value);
             return null;
         }
         catch (FormErrorException exception)
         {
             throw FormFailure(exception.Error);
         }
+    }
+
+    private static FormValue?[] ArgumentsOf(MethodDefinition method, object?[] arguments, int count, CultureInfo culture)
+    {
+        var given = new FormValue?[count];
+        for (var index = 0; index < count; index++)
+        {
+            given[index] = arguments[index] is System.Reflection.Missing
+                ? null
+                : RDFormsValues.ArgumentOf(arguments[index], index < method.Parameters.Count ? method.Parameters[index] : null, culture);
+        }
+
+        return given;
     }
 
     // VB's PopupMenu Menu, [Flags], [X], [Y], [BoldCommand]: the form's window pops up the menu's items, and the call waits, as a modal Show does, until the menu
@@ -233,27 +349,45 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
     // the item a menu of the form's own is; null for any other value.
     private static FormMenuItem? MenuOf(RDFormsObject form, object? value)
-        => value is RDFormsObject { IsForm: false } menu && ReferenceEquals(menu.Form, form.Form) && menu.Component.Class == VBClasses.Menu
+        => value is RDFormsObject { IsForm: false } menu && ReferenceEquals(menu.Form, form.Form) && menu.Component.Class == ComponentClasses.Menu
             ? FormMenuItem.Of(menu.Component)
             : null;
 
     private static AutomationException NotAMenu(RDFormsObject handle)
         => new(VisualBasicError | 5, $"{handle}.{PopupMenuMember}: the argument is not a menu of the form.");
 
-    // a control of the form, by its name: a control that is an element of an array is reached through the array, which its name alone names. A menu array has a handle;
-    // an array of any other control has none, and its name is unknown (438).
+    // a control of the form, by its name: a control that is an element of an array is reached through the array, which its name alone names.
     private static object? Control(RDFormsObject handle, string name)
         => !handle.IsForm ? null
             : handle.Form.Model.Find(name) is { } control && !ReferenceEquals(control, handle.Component) ? handle.Form.HandleOf(control)
-            : handle.Form.MenuArrayOf(name);
+            : handle.Form.ArrayOf(name);
 
     // the model holds a component's position and size in pixels: the program reads and writes them in its form's unit.
-    private static object? Read(ComponentInstance component, PropertyDefinition property, CodeUnit unit)
+    private static object? Read(RDFormsForm form, ComponentInstance component, PropertyDefinition property)
     {
+        if (RDFormsFonts.IsFont(property))
+        {
+            return form.Fonts.FontOf(component, property);
+        }
+
         var stored = component.GetBoxed(property);
+        if (RDFormsPictures.IsPicture(property) && form.Pictures.PictureOf(component, property, stored as byte[]) is { } picture)
+        {
+            return picture;
+        }
+
+        // a picture property that holds none is Nothing, which a late-bound read (a Label's Picture, RDForms' own) takes as Nothing too.
+        // CA1416: a wrapper of no object asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+        if (RDFormsPictures.IsPicture(property) && stored is null)
+        {
+            return new System.Runtime.InteropServices.DispatchWrapper(null);
+        }
+#pragma warning restore CA1416
+
         if (CodeUnits.IsExtent(property))
         {
-            stored = CodeUnits.ToCode(component, property, (double)stored!, unit);
+            stored = CodeUnits.ToCode(component, property, (double)stored!, form.Unit);
         }
 
         return RDFormsValues.TryToNeutral(stored, out var value)
@@ -261,17 +395,25 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             : throw new AutomationException(NotImplemented, $"{component}.{property.Name}: a value of type {property.ValueType.Name} cannot be given to a program.");
     }
 
-    private static object? Assign(ComponentInstance component, PropertyDefinition property, object?[] arguments, CultureInfo culture, CodeUnit unit)
+    private static object? Assign(RDFormsForm form, ComponentInstance component, PropertyDefinition property, object?[] arguments, CultureInfo culture)
     {
         if (arguments.Length != 1)
         {
             throw new AutomationException(BadParameterCount, $"{component}.{property.Name} takes no argument.");
         }
 
-        var value = RDFormsValues.FromNeutral(arguments[0], property.ValueType, culture);
+        if (RDFormsFonts.IsFont(property))
+        {
+            AssignFont(form, component, property, arguments[0], culture);
+            return null;
+        }
+
+        var value = RDFormsPictures.IsPicture(property)
+            ? form.Pictures.Assign(component, property, arguments[0])
+            : RDFormsValues.FromNeutral(arguments[0], property.ValueType, culture);
         if (CodeUnits.IsExtent(property))
         {
-            value = CodeUnits.FromCode(component, property, (double)value!, unit);
+            value = CodeUnits.FromCode(component, property, (double)value!, form.Unit);
         }
 
         if (!component.TrySet(property, value))
@@ -282,17 +424,48 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         return null;
     }
 
+    // Set of a font shares it: the control draws it, and a change through any reference is the control's (measured in VB6). Nothing is 380, and the font stays. A
+    // String or a number, which a Let of a font gives as its default member, sets the font's name.
+    private static void AssignFont(RDFormsForm form, ComponentInstance component, PropertyDefinition property, object? value, CultureInfo culture)
+    {
+        switch (value)
+        {
+            case RDFormsFont font:
+                form.Fonts.Share(component, property, font);
+                return;
+
+            // CA1416: a wrapper of no object asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+            case null or System.Runtime.InteropServices.DispatchWrapper { WrappedObject: null }:
+#pragma warning restore CA1416
+                throw FormFailure(FormError.InvalidPropertyValue);
+
+            case string or bool or byte or short or int or long or float or double or decimal or DateTime:
+                _ = RDFormsFontMembers.Invoke(form.Fonts.FontOf(component, property), NameMember, AutomationInvocation.Let, [value], culture);
+                return;
+
+            default:
+                throw new AutomationException(NotImplemented, $"{component}.{property.Name}: only a font a form's control holds can be given to it.");
+        }
+    }
+
     /// <inheritdoc/>
     public string? ClassNameOf(object target)
-        // the Controls collection and a menu array are not of a library's class: a late-bound Object.
-        => target is RDFormsControls or RDFormsMenuArray ? null : HandleOf(target).Component.Class.TypeName;
+        // the Controls collection and a control array are not of a library's class: a late-bound Object.
+        => target is RDFormsFont ? StdFontClass
+            : target is RDFormsControls or RDFormsArray ? null
+            : VisualBasicClasses.TryGetValue(HandleOf(target).Component.Class.TypeName, out var ported)
+                ? $"{ported.LegacyLibrary}.{ported.LegacyName}"
+                : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
-        => target is RDFormsControls or RDFormsMenuArray
+        => target is RDFormsFont ? IsFontClass(library, className)
+            : target is RDFormsControls or RDFormsArray
             ? null
             : string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
-                ? string.Equals(HandleOf(target).Component.Class.ClassName, className, StringComparison.OrdinalIgnoreCase)
+                ? VisualBasicClasses.TryGetValue(HandleOf(target).Component.Class.TypeName, out var ported)
+                    && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
                 : null;
 
     /// <inheritdoc/>
@@ -315,10 +488,10 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// <inheritdoc/>
     public void Advise(object source, IAutomationEventSink sink)
     {
-        // a menu array raises the events of its elements, each with the element's index first.
-        if (source is RDFormsMenuArray array)
+        // an array raises the events of its elements, each with the element's index first.
+        if (source is RDFormsArray array)
         {
-            RDFormsUI.Run(() => array.Form.Advise(array.Array, sink));
+            RDFormsUI.Run(() => array.Form.Advise(array, sink));
             return;
         }
 
@@ -329,9 +502,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     /// <inheritdoc/>
     public void Unadvise(object source)
     {
-        if (source is RDFormsMenuArray array)
+        if (source is RDFormsArray array)
         {
-            RDFormsUI.Run(() => array.Form.Unadvise(array.Array));
+            RDFormsUI.Run(() => array.Form.Unadvise(array));
             return;
         }
 
@@ -356,6 +529,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
     // the forms that are not destroyed, which a modal one keeps from being used. Touched on the UI thread only.
     internal List<RDFormsForm> Forms { get; } = [];
+
+    // the program the forms are of, as RDForms sees it: its windows share one active form, which another program's window taking the activation leaves alone.
+    internal RDFormsProgram Program { get; } = new();
 
     internal void Destroy(RDFormsForm form) => RDFormsUI.Run(() =>
     {

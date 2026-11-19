@@ -156,7 +156,7 @@ internal sealed class ParsingClientService(
             return ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
         }
 
-        var parse = envelope.Unwrap<ModuleParseResult>();
+        var parse = ParserJson.Unwrap(envelope);
         lock (_fragments)
         {
             _fragments.Insert(0, (documentUri.AbsoluteUri, source, parse));
@@ -298,7 +298,7 @@ internal sealed class ParsingClientService(
         // an error response from the parser comes back as a null envelope; degrade this one document
         // rather than abort the whole workspace parse.
         var result = envelope is not null
-            ? envelope.Unwrap<ModuleParseResult>() with { Designer = DesignerOf(document) }
+            ? WithDesigner(ParserJson.Unwrap(envelope), DesignerOf(document))
             : ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
 
         // what the parser answered is the parse of the version it was sent. A failure to answer is not: it is kept under no version, so that it is what the last
@@ -380,6 +380,10 @@ internal sealed class ParsingClientService(
     // what a form module's designer declares, from its text and its companion file: the parser reads text alone. A form whose designer data cannot be read
     // declares no controls; the designer's own problem is logged.
     // TODO: report an unreadable designer as a diagnostic of the form module, by its FormDesignerFormatProblem.
+    // a module that is no form, or whose designer cannot be read, keeps the parse the parser answered, and with it the JSON that goes to the host.
+    private static ModuleParseResult WithDesigner(ModuleParseResult parse, FormDescriptor? designer)
+        => designer is null ? parse : parse with { Designer = designer };
+
     private FormDescriptor? DesignerOf(WorkspaceDocument document)
     {
         var designer = FormDesigner.Read(document.Text, document.Companion, out var problem);

@@ -62,6 +62,12 @@ public static class ConversionPlanner
             _ => RuleOf(destination),
         };
 
+        // MS-VBAL §5.5.1.2.13: a value other than an object, let-coerced to a class, is let-coerced as to Object, whose rule raises error 424 for it.
+        if (destination is VBClassType && rule == ConversionRule.Object)
+        {
+            destination = VBObjectType.TypeInfo;
+        }
+
         return new ConversionPlan(source, destination, TakesTheSource(source, rule) ? rule : ConversionRule.None);
     }
 
@@ -90,7 +96,7 @@ public static class ConversionPlanner
         VBBooleanType => ConversionRule.Boolean,
         VBDateType => ConversionRule.Date,
         VBVariantType => ConversionRule.Variant,
-        VBObjectType => ConversionRule.Object,
+        VBObjectType or VBClassType => ConversionRule.Object,
         VBEmptyType => ConversionRule.Empty,
         VBNullType => ConversionRule.Null,
         VBErrorType => ConversionRule.Error,

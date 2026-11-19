@@ -70,7 +70,7 @@ internal sealed class ReplShell(
         };
         _debugger = context.Debugger;
 
-        // a handler of an event that stops while no program runs - a click on a form the shell loaded - breaks there, above the line being typed.
+        // a handler of an event that stops while no program runs (a click on a form the shell loaded) breaks there, above the line being typed.
         void OnSessionStopped(SDK.Platform.Protocol.ExecuteResult stop) => _ = SayTheSessionStopAsync(context, stop);
         if (stops is not null)
         {
@@ -115,7 +115,7 @@ internal sealed class ReplShell(
 
     private async Task RunShellAsync(ReplCommandContext context, CancellationToken token)
     {
-        await dispatcher.DispatchAsync(context, "SPLASH", string.Empty, CancellationToken.None);
+        // the splash is shown once, as the shell's host starts (ReplSplash): not again here.
         await dispatcher.DispatchAsync(context, "MEMORY", string.Empty, CancellationToken.None);
         WriteReady();
 

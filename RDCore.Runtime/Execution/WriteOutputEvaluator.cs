@@ -61,15 +61,14 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                         : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
                 }
 
-                // an object is written as what it stands for, as Print # prints it: let-coerced to a String, and quoted as one (MS-VBA, oracle\s28 D02, D04).
+                // an object is written as what it stands for, as Print # prints it: let-coerced to a String, and quoted as one (observed in MS-VBA).
                 var written = evaluated.Result!;
                 if (Unwrapped(written) is VBObjectValue)
                 {
                     var read = ObjectDefaultMember.ValueOf(session, written);
-                    // a default member that had no answer (an End or a Stop in it) raised nothing: the statement fails as the call did.
                     if (!read.IsSuccess)
                     {
-                        return read.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(read.ErrorInfo!);
+                        return RuntimeExecutionOutcome.Error(read.ErrorInfo!);
                     }
 
                     var text = ValueConversions.ToText(read.Result!, session.Environment.Culture, session.Environment.Regional);

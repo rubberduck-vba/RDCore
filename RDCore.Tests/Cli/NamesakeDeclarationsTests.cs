@@ -2,8 +2,8 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An Enum, or an Event, and a procedure of one name in one module (<c>Property Get PlayerType() As PlayerType</c>, <c>Event Changed</c> and
-/// <c>Sub Changed</c>): in a value, the name is the procedure; as a type, it is the Enum; an Event is only ever raised. As MS-VBA has them (Excel-verified,
-/// oracle\s64).
+/// <c>Sub Changed</c>): in a value, the name is the procedure; as a type, it is the Enum; an Event is only ever raised. As MS-VBA has them (observed in
+/// Excel).
 /// </summary>
 [TestClass]
 public sealed class NamesakeDeclarationsTests
@@ -53,7 +53,7 @@ public sealed class NamesakeDeclarationsTests
             "Public Function F(ByVal n As Long) As Long\r\n    If n <= 0 Then F = 0 Else F = n + F(n - 1)\r\nEnd Function", "    Debug.Print Program.F(4)"));
 
     // a Property Get and its Property Let beside an Enum of their name: assigned, the name is the Let; read, the Get; as a type, the Enum. Not measured in
-    // Excel yet (oracle-pending-rows: S01): what MS-VBAL says, as the measured Function and Get rows have it.
+    // Excel: what MS-VBAL says, as the measured Function and Get rows have it.
     [TestMethod]
     public async Task InAStandardModule_AnEnumBesideAPropertyGetAndLetOfItsName_IsAType_AndTheNameAValueOfTheProperty()
         => Assert.AreEqual("5 1", await RunStandardAsync(
@@ -107,7 +107,7 @@ public sealed class NamesakeDeclarationsTests
         Assert.IsTrue(errors.All(error => error.Contains(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
     }
 
-    // Program, and Second, and Globals when it has `globals`: the names of Second and Globals seen from Program (oracle\s66).
+    // Program, and Second, and Globals when it has `globals`: the names of Second and Globals seen from Program.
     private static IReadOnlyList<(string Name, string Source)> OtherModules(string second, string globals = "")
         => globals.Length == 0
             ? [("Second", ModuleWorkspace.StandardModule("Second", "Option Explicit", second))]
@@ -119,7 +119,7 @@ public sealed class NamesakeDeclarationsTests
 
     [TestMethod]
     public async Task FromAnotherModule_AnEnumAndAFunctionOfOneModule_TheBareNameIsTheFunction()
-        // s66 X01, and X07: as a type, the name is the Enum.
+        // as a type, the name is the Enum.
         => Assert.AreEqual("8 0", string.Join(" ", await ModuleWorkspace.RunAsync([], OtherModules($"{EnumF}\r\n{FunctionF}"),
             StandardProgram(string.Empty, string.Empty, "    Debug.Print F(4)\r\n    Dim t As F\r\n    t = Zero\r\n    Debug.Print t"))));
 
@@ -137,7 +137,7 @@ public sealed class NamesakeDeclarationsTests
     [TestMethod]
     public async Task FromAnotherModule_AnEnumAndAFunctionOfOneModule_TheNameQualifyingAMember_IsTheFunctionsValue_AnInvalidQualifier()
     {
-        // s66 X08
+        // the name qualifying a member is the function's value
         var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules($"{EnumF}\r\n{FunctionFOfNoArgument}"), StandardProgram(string.Empty, string.Empty, "    Debug.Print F.One"));
 
         StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
@@ -156,7 +156,7 @@ public sealed class NamesakeDeclarationsTests
     }
 
     [TestMethod]
-    // not measured (oracle-pending-rows.md): an Enum's constant and another Enum of one module, which the constant's parent, its Enum, does not tell apart
+    // not measured: an Enum's constant and another Enum of one module, which the constant's parent, its Enum, does not tell apart
     // from two modules' namesakes. Seen from another module, the name is what it is in its own.
     public async Task FromAnotherModule_AnEnumsConstantAndAnotherEnumOfOneModule_AreWhatTheyAreInTheirModule()
     {

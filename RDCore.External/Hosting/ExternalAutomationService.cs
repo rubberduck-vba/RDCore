@@ -64,6 +64,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormLeave, LeaveForm);
         channel.Handle<FormHoldParams, ExternalDoneResult>(ExternalProtocol.FormHold, HoldForms);
         channel.Handle<FormDoEventsParams, ExternalDoneResult>(ExternalProtocol.FormDoEvents, DoEvents);
+        channel.Handle<FormKeepSystemThemeParams, ExternalDoneResult>(ExternalProtocol.FormKeepSystemTheme, KeepSystemTheme);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
         InvokeOnClient = call => channel.CallAsync<SessionInvokeParams, SessionInvokeResult>(ExternalProtocol.SessionInvoke, call);
         ReleaseOnClient = released => channel.CallAsync<SessionReleaseParams, ExternalDoneResult>(ExternalProtocol.SessionRelease, released);
@@ -158,7 +159,12 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     }
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
-    public AutomationStatusResult Status(AutomationStatusParams request) => new() { IsAvailable = platform.IsAvailable, IsFormHostAvailable = _forms.IsAvailable };
+    public AutomationStatusResult Status(AutomationStatusParams request) => new()
+    {
+        IsAvailable = platform.IsAvailable,
+        IsFormHostAvailable = _forms.IsAvailable,
+        HostsVisualBasic6Forms = _forms.HostsVisualBasic6Forms,
+    };
 
     /// <summary>Answers <see cref="ExternalProtocol.FormCreate"/>.</summary>
     public AutomationObjectResult CreateForm(FormCreateParams request)
@@ -196,6 +202,16 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     public ExternalDoneResult DoEvents(FormDoEventsParams request) => Answer(request.HandlingEvent, () =>
     {
         _forms.DoEvents();
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormKeepSystemTheme"/>.
+    /// </summary>
+    /// <param name="request">The request, which says whether the forms' windows follow the application's theme.</param>
+    public ExternalDoneResult KeepSystemTheme(FormKeepSystemThemeParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.KeepSystemTheme = request.KeepSystemTheme;
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 

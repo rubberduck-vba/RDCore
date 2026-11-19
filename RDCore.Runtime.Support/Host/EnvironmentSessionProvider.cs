@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.External.Application;
 using RDCore.External;
 using RDCore.External.Settings;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -41,6 +42,11 @@ public interface IEnvironmentSessionProvider
     /// has run, or when the project declares no name.
     /// </summary>
     string ProjectName { get; }
+
+    /// <summary>
+    /// The root the session was composed under, which its modules are addressed under; <see langword="null"/> before <see cref="Compose"/> has run.
+    /// </summary>
+    Uri? WorkspaceRoot { get; }
 
     /// <summary>
     /// The number of modules the project the session was composed from declares; <c>0</c> before
@@ -120,6 +126,15 @@ public interface IEnvironmentSessionProvider
     IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot);
 
     /// <summary>
+    /// Composes the session as <see cref="Compose(RDCoreProject, Uri)"/> does, in a language the project is written in from then on: its libraries, the
+    /// implicit references of the language among them, are that language's. Every session composed after it is of that language.
+    /// </summary>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
+    /// <param name="language">The language the project is written in.</param>
+    IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, SupportedLanguage language);
+
+    /// <summary>
     /// The module symbols a project lists, each a standard module or a class as <see cref="Compose"/> composes it, without composing anything: what a project
     /// gained while a program is in progress is.
     /// </summary>
@@ -139,6 +154,9 @@ public sealed class EnvironmentSessionProvider(
     private IRuntimeSession? _session;
     private ExternalWorld? _world;
 
+    // the environment the sessions are composed in: the host's, in the language the project was last composed in.
+    private IRuntimeEnvironmentProfile _environment = environment;
+
     // the directory the process was in when the session was composed, given back when the session is replaced or the provider disposed.
     private string? _directoryBefore;
 
@@ -153,6 +171,9 @@ public sealed class EnvironmentSessionProvider(
 
     /// <inheritdoc/>
     public string ProjectName { get; private set; } = string.Empty;
+
+    /// <inheritdoc/>
+    public Uri? WorkspaceRoot { get; private set; }
 
     /// <inheritdoc/>
     public int ModuleCount { get; private set; }
@@ -238,6 +259,18 @@ public sealed class EnvironmentSessionProvider(
     /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot) => Compose(project, workspaceRoot, known: null);
 
+    /// <inheritdoc/>
+    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, SupportedLanguage language)
+    {
+        ArgumentNullException.ThrowIfNull(language);
+        if (language.Id != _environment.Language.Id)
+        {
+            _environment = RDCore.SDK.Runtime.RuntimeEnvironmentProfile.Of(_environment) with { SourceLanguage = language };
+        }
+
+        return Compose(project, workspaceRoot, known: null);
+    }
+
     /// <summary>
     /// Composes the session as <see cref="Compose(RDCoreProject, Uri)"/> does, the name and the kind of each module in <paramref name="known"/> given rather
     /// than read from its source: a built program's, whose sources are not where it runs.
@@ -250,6 +283,60 @@ public sealed class EnvironmentSessionProvider(
         // a reload starts where the host did, as at start-up, and not where the session it replaces left the process.
         LeaveSession();
 
+        _world = ComposeWorld(project, workspaceRoot);
+        var (session, referenced, constants) = ComposeSession(_environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known);
+        _session = session;
+        // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
+        _session.Turn.EventScope = BeginEvent;
+        Image = NewImage(logger);
+        Execution = new ProgramExecution(this, logger);
+        Execution.SessionStopsChanged();
+        ProjectName = project.Name;
+        WorkspaceRoot = workspaceRoot;
+        ModuleCount = project.Modules.Length;
+        // App says the program is the workspace project, run from its folder; a built program says otherwise once it is composed.
+        SessionApplication.Of(_session).Runs(project.Name, FolderOf(workspaceRoot) ?? string.Empty);
+        // and its forms keep the system's theme as the project says, until the program says otherwise: the host knows it before it makes the first one.
+        SessionApplication.Of(_session).KeepSystemTheme = project.KeepSystemTheme;
+        Outside.Forms.KeepSystemTheme = project.KeepSystemTheme;
+        _directoryBefore = CurrentDirectory();
+        EnterWorkspaceRoot(workspaceRoot);
+
+        // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
+        // makes no such call, and nothing is started for it. A console application's user interface is its console: what makes the call, which hosts its forms
+        // too, is started when the program first makes one.
+        if (_environment.AllowAutomation && !referenced.Libraries.IsEmpty && !RDCore.Runtime.Support.Build.ProgramDialogs.IsConsole(project.Build))
+        {
+            Outside.Automation.Prepare();
+        }
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
+                project.Modules.Length, _session.References.Count, constants, _environment.ExecutionEngine, _environment.Configuration);
+        }
+
+        return _session;
+    }
+
+    /// <summary>
+    /// Composes a session of a project: its precompiler constants, the standard library, the libraries the project references and its modules, which is what
+    /// the runtime session and an analysis session (<see cref="ProjectAnalysisSessions"/>) are composed of alike.
+    /// </summary>
+    /// <param name="environment">The environment the session runs in.</param>
+    /// <param name="fileSystem">The file system the modules are read from.</param>
+    /// <param name="librarySource">Where the referenced libraries are found; the platform's library folder when <see langword="null"/>.</param>
+    /// <param name="logger">Where a library that cannot be loaded is said.</param>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The root the project's modules are relative to, and addressed under.</param>
+    /// <param name="output">The session's output channel.</param>
+    /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+    /// <returns>The session, the libraries it references, and how many precompiler constants it has (built-ins included).</returns>
+    internal static (IRuntimeSession Session, ReferencedLibraries Referenced, int Constants) ComposeSession(
+        IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, ILibrarySource? librarySource, ILogger logger, RDCoreProject project, Uri workspaceRoot,
+        RuntimeOutputRouter output, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null)
+    {
         var configuration = new ConfigurationSymbolProvider(environment, project);
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known);
         // the standard library and the environment's own globals resolve in the session too, so a name
@@ -267,46 +354,51 @@ public sealed class EnvironmentSessionProvider(
 
         var libraries = new LibrarySymbolProvider(workspaceRoot, referenced, environment.Is64Bit);
 
-        _world = ComposeWorld(project, workspaceRoot);
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
-        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], Output, libraries: source);
-        // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
-        _session.Turn.EventScope = BeginEvent;
-        Image = new ProgramImage();
-        Image.CompilationRefused += (procedure, exception)
-            => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
-        Execution = new ProgramExecution(this, logger);
-        Execution.SessionStopsChanged();
-        ProjectName = project.Name;
+        var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], output, libraries: source);
+        // a predefined constant the project defines has the project's value on every platform a #If is evaluated for, and not that platform's.
+        RDCore.Runtime.Semantics.Precompiler.ProjectConditionalConstants.Set(session, project.PrecompilerConstants.Select(constant => constant.Key));
         // an error raised with no source is the project's (Err.Source).
         if (project.Name is { Length: > 0 } name)
         {
-            _session.Errors.ProjectName = name;
+            session.Errors.ProjectName = name;
         }
 
-        ModuleCount = project.Modules.Length;
-        _directoryBefore = CurrentDirectory();
-        EnterWorkspaceRoot(workspaceRoot);
+        return (session, referenced, configuration.ProvideSymbols().Count());
+    }
 
-        // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
-        // makes no such call, and nothing is started for it.
-        if (environment.AllowAutomation && !referenced.Libraries.IsEmpty)
+    /// <summary>
+    /// The code of a session, empty: a procedure the compiler refuses runs in the interpreter, and that is said.
+    /// </summary>
+    /// <param name="logger">Where a refused procedure is said.</param>
+    internal static ProgramImage NewImage(ILogger logger)
+    {
+        var image = new ProgramImage();
+        image.CompilationRefused += (procedure, exception)
+            => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
+        return image;
+    }
+
+    // the folder a file: root names, as the platform spells it. A root that is not a full path on this platform (file:///C:/... on Linux) names none here:
+    // resolving it would read the current directory, which may be gone.
+    private static string? FolderOf(Uri workspaceRoot)
+    {
+        if (!workspaceRoot.IsFile || !Path.IsPathFullyQualified(workspaceRoot.LocalPath))
         {
-            Outside.Automation.Prepare();
+            return null;
         }
 
-        if (logger.IsEnabled(LogLevel.Information))
-        {
-            logger.LogInformation(
-                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
-                project.Modules.Length, _session.References.Count, configuration.ProvideSymbols().Count(), environment.ExecutionEngine, environment.Configuration);
-        }
-
-        return _session;
+        // a client's file: URI may spell the drive in lower case (file:///c:/...), which CurDir and App.Path would give back as it was set: a drive is its
+        // upper-case letter.
+        var root = WorkspacePaths.Normalized(workspaceRoot.LocalPath);
+        return OperatingSystem.IsWindows() && root.Length >= 2 && root[1] == ':' && char.IsAsciiLetterLower(root[0])
+            ? char.ToUpperInvariant(root[0]) + root[1..]
+            : root;
     }
 
     // a program starts in the folder of its workspace, as opening a project in VB6 makes its folder current: a relative path is a file of the workspace. The
     // directory is the session's, which ChDir moves too; End leaves it where the program put it. The shell's scratch workspace is no folder of the user's.
+    // A project that a .rdworkspace lists is in that workspace, whose root is the file's folder (RD-VBAL §2.2.2); App.Path stays the project's own folder.
     private void EnterWorkspaceRoot(Uri workspaceRoot)
     {
         if (!workspaceRoot.IsFile)
@@ -314,23 +406,17 @@ public sealed class EnvironmentSessionProvider(
             return;
         }
 
-        // a root that is no full path on this platform (file:///C:/... on Linux) is no folder here: resolving it would read the current directory, which may be gone.
         var root = workspaceRoot.LocalPath;
         RDCoreDiagnosticCode? error = VBRuntimeErrorId.PathNotFound.ToCode();
-        if (Path.IsPathFullyQualified(root))
+        if (FolderOf(workspaceRoot) is { } folder)
         {
-            // a client's file: URI may spell the drive in lower case (file:///c:/...), which CurDir would give back as it was set: a drive is its upper-case letter.
-            root = WorkspacePaths.Normalized(root);
-            if (OperatingSystem.IsWindows() && root.Length >= 2 && root[1] == ':' && char.IsAsciiLetterLower(root[0]))
-            {
-                root = char.ToUpperInvariant(root[0]) + root[1..];
-            }
-
+            root = folder;
             if (ScratchWorkspace.Is(fileSystem, root))
             {
                 return;
             }
 
+            root = WorkspaceRootOf(root);
             error = _session!.Files.TryChangeDirectory(root);
         }
 
@@ -340,13 +426,39 @@ public sealed class EnvironmentSessionProvider(
         }
     }
 
+    // the folder of the .rdworkspace that lists the project's folder, or is in it; the project's folder when none does, or when the file cannot be read.
+    private string WorkspaceRootOf(string projectFolder)
+    {
+        try
+        {
+            return WorkspaceFolderList.Read(fileSystem, projectFolder)?.Root ?? projectFolder;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+            {
+                logger.LogWarning("📂 The workspace file above {folder} could not be read ({error}): the program starts in the project's folder.",
+                    projectFolder, exception.Message);
+            }
+
+            return projectFolder;
+        }
+    }
+
     // the directory is the process's, so a session that ends gives it back. Otherwise Windows could not delete the folder the process is in, and on Linux,
     // once that folder is deleted, every later read of the current directory fails. When the directory the session found is gone, the process stays where it is.
     private void LeaveSession()
     {
+        // a program that waits at a stop holds a thread of its own, and the session it runs in, until it is ended: nothing resumes it once its session is left.
+        Execution?.EndWaiting();
+
         // the files a program left open are the session's, and close with it: a session replaced or let go of holds none of them open, whichever way its
         // program ended (an internal error, which closes nothing, included).
         _ = _session?.Files.CloseAll();
+
+        // and the evaluation of its code is the session's too: a session replaced or let go of has no use for what is still to be found out, which can
+        // take seconds and gigabytes (an array of millions of elements).
+        Image.Semantics.StopEvaluations();
 
         if (_session is null || _directoryBefore is not { } before)
         {
@@ -400,7 +512,7 @@ public sealed class EnvironmentSessionProvider(
             Interaction = new RelayedUserInteraction(this, host.Interaction, logger),
             DialogTitle = project.Name is { Length: > 0 } name ? name : host.DialogTitle,
             WorkspaceSettings = settings,
-            ProgramSettings = MachinePlatform.ProgramSettings(environment, settings),
+            ProgramSettings = MachinePlatform.ProgramSettings(_environment, settings),
         };
     }
 

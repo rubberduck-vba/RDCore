@@ -68,7 +68,8 @@ une instruction.
 le _shell_ liste les deux lignes au-dessus de la ligne de l'arrêt et les deux au-dessous, la ligne de l'arrêt étant mise en évidence, puis affiche
 `INTERRUPTION À LA LIGNE` et le numéro de ligne. Une erreur d'exécution que rien ne gère arrête le programme à l'instruction qui l'a déclenchée,
 comme dans le VBIDE : le _shell_ liste de la même façon les lignes autour de cette instruction, puis affiche l'erreur. `CONT` exécute de nouveau
-l'instruction, et `END` termine le programme. Une erreur qu'une instruction `On Error` gère ne l'arrête pas. Un pas ne liste rien : il affiche
+l'instruction, et `END` termine le programme comme une instruction `End` : les variables que les lignes précédentes ont affectées, les
+variables locales `Static`, les objets et les fichiers ouverts disparaissent avec lui, et aucun `Class_Terminate` ne s'exécute. Une erreur qu'une instruction `On Error` gère ne l'arrête pas. Un pas ne liste rien : il affiche
 seulement `INTERRUPTION À LA LIGNE` et le numéro de ligne, ou l'erreur à laquelle il s'est arrêté. `CONFIG CLI.BreakListingLines` fixe combien de lignes
 sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme
 dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
@@ -86,7 +87,8 @@ dans un module d'un espace de travail liste de la même façon les lignes du mod
 ## Les commandes
 
 Chaque commande prend un espace de travail, soit un dossier, avec ou sans `.rdproj`, soit un seul fichier de module. Sans espace de travail, elle
-travaille sur le dossier courant.
+travaille sur le dossier courant. Un dossier sans `.rdproj` est lu comme un éditeur le lit : chaque fichier de module qu'il contient, à toute profondeur,
+est un module, et un seul `.vbp` qui s'y trouve en fait un projet VB6 (voir [**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Commande|Alias|Ce qu'elle fait|
 |---|---|---|
@@ -97,9 +99,13 @@ travaille sur le dossier courant.
 |`rdc config`|`configure`|Affiche les paramètres de la plateforme et les modifie, comme le `CONFIG` du _shell_, sans démarrer la plateforme.|
 |`rdc export-library <bibliothèque>`|`xl`|Décrit une bibliothèque de types de cette machine (un fichier comme `scrrun.dll`, son identifiant ou son nom) dans un fichier qu'un projet peut référencer par son nom. `--dependencies` décrit aussi les bibliothèques dont elle dépend.|
 |`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, ce qui la garde dans l'interpréteur, et ce que l'interpréteur exécute pour elle lorsqu'elle est compilée.|
-|`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré.|
+|`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré, avec ce que chaque cas alloue.|
+|`rdc bench-msvba`|`bm`|Écrit les chiffres de référence MS-VBA des bancs d'essai (`msvba.json`, ou le fichier que nomme `--out`). Il exécute le corpus intégré et les cas d'automatisation d'Excel dans MS-VBA, dans un Excel masqué, et dans RD-VBA, en tours alternés sur cette machine (`--rounds`, 5; les `--excel-rounds` premiers, 3, avec les cas d'automatisation d'Excel), exécute chaque cas `--runs` fois par tour (7; `--excel-runs`, 5, pour un cas d'automatisation d'Excel), et retient l'exécution la plus rapide de chaque cas, de chaque côté. Il requiert Windows, Excel, et le paramètre « Accès approuvé au modèle d'objet du projet VBA » d'Excel.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
+|`rdc splash`|`s`|Écrit l'écran d'accueil de la plateforme en texte brut, que sa sortie soit une console ou non. Elle ne prend pas d'espace de travail.|
+
+Dans une console, une commande commence par l'écran d'accueil de la plateforme. Une sortie redirigée vers un fichier ou un tube n'en a pas : elle ne contient que ce que la commande écrit.
 
 ### Exécuter un programme
 
@@ -108,8 +114,8 @@ travaille sur le dossier courant.
 - la procédure que le `.rdproj` nomme comme point d'entrée dans sa section `build`, `Module.Procedure` ou `Procedure` : `"build": { "entryPoint": "Module1.Main" }`;
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
-Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
-ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il s'affiche dans la console et on y répond, comme dans le _shell_.
+Un projet sans point d'entrée ([RDC30001](diagnostics/rdc30001.md)), ou avec un `Sub Main` dans plus d'un module standard ([RDC30002](diagnostics/rdc30002.md)), ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
+ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Dans une application console (`"build": { "outputType": "ConsoleApplication" }`), un `MsgBox` ou un `InputBox` s'affiche dans la console et on y répond, comme dans le _shell_, sous tous les systèmes d'exploitation; le paramètre `CLI.NativeDialogs` les affiche plutôt comme des boîtes de dialogue Windows, sous Windows. Dans tout autre programme, ce sont des boîtes de dialogue Windows sous Windows, et ils s'affichent dans la console ailleurs. Un formulaire ouvre sa propre fenêtre dans les deux cas.
 
 |Option|Ce qu'elle fait|
 |---|---|
@@ -150,8 +156,15 @@ le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui 
 Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
 Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
-second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
-installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui.
+
+L'exécutable est fait de l'hôte d'application .NET du _runtime_ du programme. `rdc` est livré avec les hôtes de `win-x64`, `linux-x64`, `osx-x64` et
+`osx-arm64`, les _runtimes_ pour lesquels la plateforme est publiée : il construit donc un programme pour chacun d'eux, où qu'il s'exécute. Pour un autre
+_runtime_, il prend l'hôte d'un SDK .NET installé. Là où ni l'un ni l'autre ne l'a, le programme est construit sans exécutable; exécuté avec
+`dotnet <nom>.dll`, il n'appelle pas le monde extérieur.
+
+L'exécutable d'un programme construit pour macOS (`osx-x64`, `osx-arm64`) est signé ad hoc, comme le SDK .NET signe celui d'une application : un Mac
+doté d'une puce Apple n'exécute aucun exécutable qui n'est pas signé. La signature n'a pas de certificat : ce n'est pas une signature Developer ID.
 
 Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
 dépendent. Le programme les lit à partir de là, où que soit le dossier.

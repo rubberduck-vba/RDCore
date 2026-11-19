@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// module or library is the match - an array to re-dimension, or an error - and a name that matches nothing declares a new array.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA did with the same code, in Excel (64-bit, en-US, oracle\s29 R and E cases), under <c>Option Explicit</c>.
+/// Each expected outcome is what MS-VBA did with the same code, in Excel (64-bit, en-US), under <c>Option Explicit</c>.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.3 ReDim Statement")]

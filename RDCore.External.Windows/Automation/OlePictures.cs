@@ -1,4 +1,5 @@
 using RDCore.External.Automation;
+using RDCore.SDK.Workspace.Pictures;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Versioning;
@@ -16,8 +17,8 @@ internal static class OlePictures
     private const uint DefaultColours = 0;
 
     /// <summary>
-    /// The OLE picture of <paramref name="picture"/>: a <c>New StdPicture</c> made as MS-VBA makes one, an empty picture, or the picture of its file at the size of
-    /// the image of it that was picked.
+    /// The OLE picture of <paramref name="picture"/>: a <c>New StdPicture</c> made as MS-VBA makes one, an empty picture, the picture of its file at the size of
+    /// the image of it that was picked, or for a PNG, an icon of its pixels at 32 bits.
     /// </summary>
     /// <param name="picture">The session's picture.</param>
     /// <param name="newPicture">Makes a <c>New StdPicture</c>.</param>
@@ -36,11 +37,24 @@ internal static class OlePictures
             return Checked(OleCreatePictureIndirect(ref description, ref guid, true, out var empty), empty);
         }
 
+        var (bytes, width, height) = OleReadable(picture);
         Checked(CreateStreamOnHGlobal(IntPtr.Zero, true, out var stream), stream);
-        stream.Write(picture.Bytes, picture.Bytes.Length, IntPtr.Zero);
+        stream.Write(bytes, bytes.Length, IntPtr.Zero);
         stream.Seek(0, 0, IntPtr.Zero);
         var iid = PictureDispatch;
-        return Checked(OleLoadPictureEx(stream, picture.Bytes.Length, false, ref iid, picture.Width, picture.Height, DefaultColours, out var loaded), loaded);
+        return Checked(OleLoadPictureEx(stream, bytes.Length, false, ref iid, width, height, DefaultColours, out var loaded), loaded);
+    }
+
+    // OLE reads no PNG, which LoadPicture accepts: a PNG goes as an icon of its pixels at 32 bits, which a control draws with their alpha, at the PNG's size.
+    private static (byte[] Bytes, int Width, int Height) OleReadable(SessionPicture picture)
+    {
+        if (!PictureHeader.TryRead(picture.Bytes, out var info) || info.Format != PictureFormat.Png
+            || PictureDecoder.TryDecode(picture.Bytes, out var decoded) != PictureDecodeFailure.None || decoded is null)
+        {
+            return (picture.Bytes, picture.Width, picture.Height);
+        }
+
+        return (PictureWriter.WriteIcon(decoded, 32), decoded.Width, decoded.Height);
     }
 
     private static T Checked<T>(int status, T made)

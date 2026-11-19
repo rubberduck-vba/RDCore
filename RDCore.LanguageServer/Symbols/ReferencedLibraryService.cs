@@ -4,6 +4,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Symbols;
 
@@ -22,6 +23,21 @@ internal interface IReferencedLibraryService
     /// </summary>
     /// <param name="workspaceRoot">The workspace.</param>
     IReadOnlyList<Symbol> SymbolsUnder(Uri workspaceRoot);
+
+    /// <summary>
+    /// The symbols of the libraries another project of the workspace references, addressed under its root: what its names are bound against, as the host's
+    /// analysis session of it binds them.
+    /// </summary>
+    /// <param name="workspaceRoot">The project's root.</param>
+    /// <param name="project">The project.</param>
+    IReadOnlyList<Symbol> SymbolsOf(Uri workspaceRoot, RDCoreProject project);
+
+    /// <summary>
+    /// The libraries another project of the workspace references that were loaded, the ones that could not be, and the reference precedence of each,
+    /// a reference to a project among them (<see cref="ReferencedLibraries.Priorities"/>).
+    /// </summary>
+    /// <param name="project">The project.</param>
+    ReferencedLibraries LibrariesOf(RDCoreProject project) => ReferencedLibraries.None;
 
     /// <summary>
     /// The name of the project that references them, which qualifies the project's own names as a library's qualifies its own (<c>MVVM.AppContext</c>);
@@ -43,7 +59,7 @@ internal interface IReferencedLibraryService
 /// <remarks>
 /// The libraries are read when they are first asked for, and again when the references of the project are not the ones they were read for: the files that
 /// describe them are the platform's, and do not change while it runs. A library that cannot be loaded is said once, in the log, each time the references
-/// change - the names that use its types are what tell the author, and say that a reference may be missing.
+/// change - the names that use its types are what tell the user, and say that a reference may be missing.
 /// </remarks>
 internal sealed class ReferencedLibraryService(
     IProjectFileService project,
@@ -55,6 +71,8 @@ internal sealed class ReferencedLibraryService(
     private (string Key, ReferencedLibraries Libraries)? _loaded;
     private (Uri Root, IReadOnlyList<Symbol> Symbols)? _symbols;
     private readonly Dictionary<(string Root, string Library), IReadOnlyList<Symbol>> _described = [];
+    private readonly Dictionary<(string Root, string References), IReadOnlyList<Symbol>> _others = [];
+    private readonly Dictionary<string, ReferencedLibraries> _othersLoaded = [];
 
     public string? ProjectName => project.Project?.ProjectInfo?.Name is { Length: > 0 } name ? name : null;
 
@@ -63,8 +81,7 @@ internal sealed class ReferencedLibraryService(
         get
         {
             var references = project.Project?.ProjectInfo?.References ?? [];
-            // a reference is the library its identity finds: the same name of another type library or version is another library.
-            var key = string.Join('\n', references.Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}"));
+            var key = KeyOf(references);
 
             lock (_loading)
             {
@@ -99,6 +116,48 @@ internal sealed class ReferencedLibraryService(
             return cached.Symbols;
         }
     }
+
+    public IReadOnlyList<Symbol> SymbolsOf(Uri workspaceRoot, RDCoreProject project)
+    {
+        var libraries = LibrariesOf(project);
+        var key = (workspaceRoot.AbsoluteUri, KeyOf(project.References ?? []));
+        lock (_loading)
+        {
+            if (!_others.TryGetValue(key, out var symbols))
+            {
+                _others[key] = symbols = [.. new LibrarySymbolProvider(workspaceRoot, libraries, options.Value.Environment.Is64Bit).ProvideSymbols()];
+            }
+
+            return symbols;
+        }
+    }
+
+    public ReferencedLibraries LibrariesOf(RDCoreProject project)
+    {
+        var references = project.References ?? [];
+        var key = KeyOf(references);
+        lock (_loading)
+        {
+            if (!_othersLoaded.TryGetValue(key, out var libraries))
+            {
+                libraries = LibrarySymbolProvider.Load(source, references, options.Value.Workspace.SupportedLanguage);
+                foreach (var problem in libraries.Problems)
+                {
+                    logger.LogWarning("📚 The library '{library}' that {project} references could not be loaded ({kind}); a type of it is not a type of that project.",
+                        problem.Name, project.Name, problem.Kind);
+                }
+
+                _othersLoaded[key] = libraries;
+            }
+
+            return libraries;
+        }
+    }
+
+    // a reference is the library its identity finds: the same name of another type library or version is another library, and a reference to a project of
+    // the workspace finds that project, never a library of the same name.
+    private static string KeyOf(IEnumerable<RDCoreReference> references)
+        => string.Join('\n', references.Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}|{reference.IsProject}"));
 
     public IReadOnlyList<Symbol> DescribedSymbolsOf(Uri workspaceRoot, string library)
     {

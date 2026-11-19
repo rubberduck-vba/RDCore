@@ -245,11 +245,18 @@ internal sealed class ProgramDebugAdapter(
         _entryPoint = string.IsNullOrWhiteSpace(request.EntryPoint) ? ProgramEntryPoint.Name : request.EntryPoint;
         _module = string.IsNullOrWhiteSpace(request.Module) ? null : request.Module;
 
+        // a workspace that cannot be loaded, or a platform whose components cannot be brought up (no manifest), refuses the launch with what went wrong: the
+        // requests a client sends beside the launch, which wait for it, are answered with that too.
         try
         {
             await workspace.OpenAsync(cancellationToken);
         }
-        catch (InvalidOperationException exception)
+        catch (OperationCanceledException)
+        {
+            _ = _opened.TrySetCanceled(CancellationToken.None);
+            throw;
+        }
+        catch (Exception exception)
         {
             _ = _opened.TrySetException(Refusal(exception.Message));
             throw Refusal(exception.Message);
@@ -644,7 +651,8 @@ internal sealed class ProgramDebugAdapter(
     private static string Describe(ExecuteResult result) => result.Outcome switch
     {
         ExecutionOutcome.SyntaxError => string.Join("\n", result.Diagnostics),
-        ExecutionOutcome.RuntimeError => $"{(result.ErrorTitle.Length > 0 ? result.ErrorTitle : DebuggerMessages.RuntimeErrorTitle)} '{result.ErrorNumber}': {result.ErrorMessage}",
+        ExecutionOutcome.RuntimeError => string.Format(DebuggerMessages.RuntimeErrorMessage,
+            result.ErrorTitle.Length > 0 ? result.ErrorTitle : DebuggerMessages.RuntimeErrorTitle, result.ErrorNumber, result.ErrorMessage),
         _ => result.ErrorMessage.Length > 0 ? result.ErrorMessage : result.Outcome.ToString(),
     };
 

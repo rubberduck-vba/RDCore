@@ -197,7 +197,7 @@ public sealed class SyntaxTreeSymbolProvider(
                 case MemberDeclarationNode member:
                     foreach (var declared in member.WithEachHeader())
                     {
-                        var symbols = FromMember(builder, declared, moduleScopeNames, conditional, directives, withImplicitDeclarations, implicitScope);
+                        var symbols = FromMember(builder, declared, moduleScopeNames, conditional, blocks, directives, withImplicitDeclarations, implicitScope);
                         var isRepeat = !ReferenceEquals(declared, member) && string.Equals(declared.Name, member.Name, StringComparison.OrdinalIgnoreCase);
                         foreach (var symbol in isRepeat ? symbols.Take(1) : symbols)
                         {
@@ -252,7 +252,7 @@ public sealed class SyntaxTreeSymbolProvider(
 
     private static IEnumerable<Symbol> FromMember(
         SymbolBuilder builder, MemberDeclarationNode member, IReadOnlySet<string> moduleScopeNames,
-        IReadOnlyDictionary<string, ImmutableArray<SourcePosition>> conditional,
+        IReadOnlyDictionary<string, ImmutableArray<SourcePosition>> conditional, ConditionalCompilationBlocks blocks,
         ModuleDirectives directives, bool withImplicitDeclarations, ImplicitDeclarationScope implicitScope)
     {
         switch (member.MemberKind)
@@ -287,7 +287,7 @@ public sealed class SyntaxTreeSymbolProvider(
                 var conditionalOuter = conditional.Where(site => !member.Children.OfType<ParameterDeclarationNode>()
                     .Any(parameter => string.Equals(parameter.Name, site.Key, StringComparison.OrdinalIgnoreCase)))
                     .ToDictionary(site => site.Key, site => site.Value, StringComparer.OrdinalIgnoreCase);
-                foreach (var local in builder.BuildLocals(member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope, conditionalOuter))
+                foreach (var local in builder.BuildLocals(member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope, conditionalOuter, blocks.IsConditional))
                 {
                     yield return local;
                 }

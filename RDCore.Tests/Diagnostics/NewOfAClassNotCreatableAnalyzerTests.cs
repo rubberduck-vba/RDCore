@@ -13,7 +13,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC11028</c>: <c>New</c> of a class whose objects are never created, and a variable declared <c>As New</c> of one, which MS-VBA compiles and which
-/// raises -2147221164 when it runs (Excel-measured, <c>oracle\s62</c> X04, X06-X09): a Warning, wherever it is written.
+/// raises -2147221164 when it runs (observed in Excel): a Warning, wherever it is written.
 /// </summary>
 [TestClass]
 public sealed class NewOfAClassNotCreatableAnalyzerTests
