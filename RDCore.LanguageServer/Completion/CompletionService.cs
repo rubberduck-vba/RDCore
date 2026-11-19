@@ -58,8 +58,8 @@ internal interface ICompletionService
     /// keywords that start a block as the block (<see cref="CompletionSnippets"/>).
     /// </param>
     /// <returns>The list; empty for a document the server does not hold, and where nothing is written - in a comment, in a string literal.</returns>
-    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null, bool insertReplace = false,
-        CompletionItemCapabilityOptions? items = null);
+    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null,
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null);
 
     /// <summary>
     /// The completion list at a position of a module a client supplies, which stands for the module of the workspace by its name.
