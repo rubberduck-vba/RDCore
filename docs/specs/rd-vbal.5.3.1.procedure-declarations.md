@@ -10,7 +10,7 @@ This section corresponds to [**MS-VBAL §5.3.1** Procedure Declarations](https:/
 
 |§|Title|MS-VBAL|
 |---|---|---|
-|5.3.1.1|[Procedure Scope](rd-vbal.5.3.1.1.procedure-scope.md) (*reserved*)|[§5.3.1.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d1bd9698-ff9d-4945-9518-ad6009e5544d)|
+|5.3.1.1|[Procedure Scope](rd-vbal.5.3.1.1.procedure-scope.md)|[§5.3.1.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d1bd9698-ff9d-4945-9518-ad6009e5544d)|
 |5.3.1.2|[Static Procedures](rd-vbal.5.3.1.2.static-procedures.md)|[§5.3.1.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/125068ec-a57e-4296-843b-5d009169de2f)|
 |5.3.1.3|[Procedure Names](rd-vbal.5.3.1.3.procedure-names.md) (*reserved*)|[§5.3.1.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/209b3216-d3e1-4146-90a9-0ecf58becdcd)|
 |5.3.1.4|[Function Type Declarations](rd-vbal.5.3.1.4.function-type-declarations.md) (*reserved*)|[§5.3.1.4](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/486ff99d-57a7-4def-998e-be8edcbf7f2c)|

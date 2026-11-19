@@ -27,6 +27,16 @@ public static class PublicMemberSemantics
 
         foreach (var member in members)
         {
+            // MS-VBAL §5.3.1.1: Friend declares a procedure of a class module, which a procedural module has no access level for.
+            if (!isObjectModule && member.AccessModifier is AccessModifier.Friend
+                && member is (VBProcedureMemberSymbol or VBFunctionMemberSymbol or IVBPropertyMemberSymbol)
+                    and not (VBExternalSubMemberSymbol or VBExternalFunctionMemberSymbol))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.OnlyValidInObjectModule, LocationOf(member),
+                    string.Format(Exceptions.VBCompileError_OnlyValidInObjectModule_Verbose, member.Name)));
+                continue;
+            }
+
             if (member is VBEnumConstMemberSymbol or VBUserDefinedTypeFieldSymbol || !IsPublic(member))
             {
                 continue;
