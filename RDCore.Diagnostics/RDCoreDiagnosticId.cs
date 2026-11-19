@@ -164,6 +164,7 @@ public enum RDCoreDiagnosticId
     LetThroughAVariantGetOrFunction = 11046, // o.Value = 5, Value a Variant Property Get with no Let (or a Variant Function): MS-VBAL 451/450, MS-VBA assigns through what it returns, or 424
     ObjectLetToObjectProperty = 11047, // h.Pic = p, Property Let Pic(v As Object): MS-VBA passes the object; MS-VBAL §5.5.1.1 makes the Let invalid, §5.5.1.2.13 424
     SingleLineIfWithNoStatement = 11049, // If x Then: with nothing after the colon: VB6 runs it as an If with no statement; MS-VBAL §5.4.2.9 has no reading
+    LetToAnObjectWithNoDefaultMember = 11050, // p = 5, h.Plain = 5, of a class with no default member: compiles, raises 438 (91 for Nothing) whenever it runs
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits

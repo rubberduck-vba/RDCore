@@ -130,6 +130,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, DeclarationNameDivergenceAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetToADefaultMemberWithNoPropertyLetAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetThroughAVariantGetOrFunctionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, LetToAnObjectWithNoDefaultMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectLetToVariantPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
