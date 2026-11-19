@@ -28,8 +28,8 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// <c>list_fixes</c> and <c>preview_fix</c>: the code actions of a document as an assistant reads them, each named by an id that finds it again, and what a fix
-/// would change as a unified diff of each document.
+/// The tools that fix code: the code actions of a document as an assistant reads them, each named by an id that finds it again; what a fix would change, as
+/// a unified diff of each document; and the fix or the rename applied by the client, once the questions of its edit are answered.
 /// </summary>
 [TestClass]
 public sealed class FixToolsTests

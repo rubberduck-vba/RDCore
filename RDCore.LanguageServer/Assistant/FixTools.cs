@@ -316,7 +316,8 @@ internal sealed class RenameTool(IRenameService rename, FixToolEdits fixes) : As
         var answer = await rename.RenameAsync(document.Id.Uri.ToUri(), position, arguments.NewName, token);
         var edit = answer.Value ?? throw new AssistantToolRefusedException(answer.Refusal ?? string.Empty);
 
-        // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit, as a rename asked of it is.
+        // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit, as a rename asked
+        // of it is.
         if (!fixes.ClientCapabilities.TakesResourceOperation(ResourceOperationKind.Rename))
         {
             edit = edit.WithoutFileRenames();

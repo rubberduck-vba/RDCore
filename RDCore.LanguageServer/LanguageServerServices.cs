@@ -83,7 +83,8 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.DefinitionTool>()
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.DescribeAtTool>()
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.OutlineTool>()
-            // the catalog is the server's (CoreLanguageServerApp.ConfigureServices): the tools that fix code ask for the code actions, of the server's container.
+            // the catalog is the server's (CoreLanguageServerApp.ConfigureServices): the tools that fix code ask for the code actions, which are of the
+            // server's container.
             .AddSingleton<RDCore.LanguageServer.Refactoring.IExtractMethodService, RDCore.LanguageServer.Refactoring.ExtractMethodService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveMemberService, RDCore.LanguageServer.Refactoring.MoveMemberService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IEncapsulateFieldService, RDCore.LanguageServer.Refactoring.EncapsulateFieldService>()
