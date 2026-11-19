@@ -1523,6 +1523,22 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos;, the default member of the object, takes no arguments: they go to the default member of what it returns, and the code names neither..
+        /// </summary>
+        public static string IndexedRecursiveDefaultMemberAccess_Message {
+            get {
+                return ResourceManager.GetString("IndexedRecursiveDefaultMemberAccess_Message", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos;, the default member of the object, takes no arguments: &apos;!&apos; gives the name as a String to the default member of what it returns..
+        /// </summary>
+        public static string RecursiveBangNotation_Message {
+            get {
+                return ResourceManager.GetString("RecursiveBangNotation_Message", resourceCulture);
+            }
+        }
+        /// <summary>
         ///   Looks up a localized string similar to &apos;!&apos; gives the name as a String to the default member of an Object, known only at run time: an object with none raises run-time error 438..
         /// </summary>
         public static string UnboundBangNotation_Message {
