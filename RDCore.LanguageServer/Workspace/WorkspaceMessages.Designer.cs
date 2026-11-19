@@ -79,6 +79,42 @@ namespace RDCore.LanguageServer.Workspace {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The project file is in the format {0}, a major version newer than this platform&apos;s {1}: it was read as the format {1}, and what it holds may not all have been read..
+        /// </summary>
+        internal static string ProjectFileFormatNewerMajor {
+            get {
+                return ResourceManager.GetString("ProjectFileFormatNewerMajor", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The project file is in the format {0}, newer than this platform&apos;s {1}: what this platform doesn&apos;t know of it is kept as it is..
+        /// </summary>
+        internal static string ProjectFileFormatNewerMinor {
+            get {
+                return ResourceManager.GetString("ProjectFileFormatNewerMinor", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The project file is in the format {0}, older than this platform&apos;s {1}: it is written in the format {1} when it is next saved..
+        /// </summary>
+        internal static string ProjectFileFormatOlder {
+            get {
+                return ResourceManager.GetString("ProjectFileFormatOlder", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The project file says its format is &apos;{0}&apos;, which is no format&apos;s version: it was read as the format {1}..
+        /// </summary>
+        internal static string ProjectFileFormatUnparseable {
+            get {
+                return ResourceManager.GetString("ProjectFileFormatUnparseable", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The files changed, and the project file could not be written: {0} The project is as it was..
         /// </summary>
         internal static string ProjectFileNotWritten {
