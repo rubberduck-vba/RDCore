@@ -21,13 +21,12 @@ See [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md) an
 ## Static Semantics
 
 **RD-VBA differs from MS-VBAL:** a line that ends with `Then` and one or more colons, with no statement after them and no `Else`
-(`If x Then:`), is a single-line `If` with no statement, as VB6 reads it. Its `ThenBody` is empty and its `ElseBody` is `null`, and the lines
+(`If x Then:`), is a single-line `If` with no statement, as VB6 and MS-VBA read it. Its `ThenBody` is empty and its `ElseBody` is `null`, and the lines
 after it run whatever the condition. MS-VBAL gives the line no reading: a `<list-or-label>` needs a statement after its colon, and an
 `<if-statement>` ([**RD-VBAL §5.4.2.8** If Statement](rd-vbal.5.4.2.8.if-statement.md)) ends its line right after `Then`.
 [`RDC11049`](../diagnostics/rdc11049.md) marks the line.
 
-When an `End If` closes a block that starts on the next line, the line is the header of that block `If`. MS-VBAL does not allow that header either: its
-`<if-statement>` takes an `EOL` after `Then`, and no `:`.
+The line opens no block, so an `End If` after it closes none: it is [`VBC00047`](../diagnostics/vbc00047.md) (End If without block If), as in MS-VBA.
 
 ## Runtime Semantics
 

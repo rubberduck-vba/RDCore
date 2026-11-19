@@ -107,15 +107,6 @@ public sealed class EmptyAnalyzerTests
     }
 
     [TestMethod]
-    public void ABlockIfWhoseThenHasAColon_IsNoSingleLineIf()
-    {
-        var findings = Run(new EmptyIfBlockAnalyzer(),
-            Module("Public Sub DoSomething(ByVal foo As Boolean)\n    If foo Then:\n        Debug.Print 1\n    End If\nEnd Sub"));
-
-        Assert.IsEmpty(findings);
-    }
-
-    [TestMethod]
     public void ABranchWithAStatementUnderADirective_IsNotEmpty()
         => Assert.IsEmpty(Run(new EmptyIfBlockAnalyzer(), Module(
             "Public Sub DoSomething(ByVal foo As Boolean)\n    If foo Then\n#If DEBUG Then\n        Debug.Print 1\n#End If\n    End If\nEnd Sub")));

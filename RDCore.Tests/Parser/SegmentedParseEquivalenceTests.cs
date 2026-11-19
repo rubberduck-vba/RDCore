@@ -313,14 +313,12 @@ public sealed class SegmentedParseEquivalenceTests
         _ = AssertTheSameAsAWholeParse(source, anchor, stitches: true);
     }
 
-    // a block If around a one-line If whose Then a colon follows: the fast prediction can't read it, and the member that holds it is read slowly on its own.
+    // an LSet: the fast prediction can't read it, and the member that holds it is read slowly on its own.
     private static readonly string[] SlowMember =
     [
-        "Public Sub Slow(ByVal a As Boolean, ByVal b As Boolean)",
-        "    Dim c As Long",
-        "    If a Then",
-        "        If b Then: c = -c",
-        "    End If",
+        "Public Sub Slow()",
+        "    Dim c As String",
+        "    LSet c = \"x\"",
         "End Sub",
     ];
 
@@ -359,12 +357,10 @@ public sealed class SegmentedParseEquivalenceTests
         var source = Lines([
             "Public Sub A()",
             "End Sub",
-            "Public Sub Overflowing(ByVal a As Boolean, ByVal b As Boolean)",
+            "Public Sub Overflowing()",
             "    Const K = &H1FFFFFFFF",
-            "    Dim c As Variant",
-            "    If a Then",
-            "        If b Then: c = -c",
-            "    End If",
+            "    Dim c As String",
+            "    LSet c = \"x\"",
             "End Sub",
             .. SlowMember]);
         var parser = new ModuleParser();

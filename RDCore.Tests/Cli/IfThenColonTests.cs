@@ -1,10 +1,11 @@
+using RDCore.SDK.Platform.Protocol;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <strong>RD-VBAL §5.4.2.9</strong>: <c>If x Then:</c> at the end of a line is a single-line <c>If</c> with no statement where no <c>End If</c> closes
-/// a block, as vb6.exe runs it, and a block <c>If</c> (<strong>MS-VBAL §5.4.2.8</strong>) where one does.
+/// <strong>RD-VBAL §5.4.2.9</strong>: <c>If x Then:</c> at the end of a line is a single-line <c>If</c> with no statement, as vb6.exe and MS-VBA read it.
+/// An <c>End If</c> after it closes no block (<strong>MS-VBAL §5.4.2.8</strong> takes the end of the line after <c>Then</c>, and a <c>:</c> is not one).
 /// </summary>
 [TestClass]
 public sealed class IfThenColonTests
@@ -24,13 +25,18 @@ public sealed class IfThenColonTests
         CollectionAssert.AreEqual(new[] { "A" }, await RunAsync([], program));
     }
 
+    // MS-VBA refuses to compile it, with the End If's error.
     [TestMethod]
-    [DataRow("True", "A|B", DisplayName = "a true condition")]
-    [DataRow("False", "B", DisplayName = "a false condition")]
-    public async Task ABlockIfClosedByEndIf_RunsItsBodyWhereTheConditionIsTrue(string condition, string expected)
+    [DataRow("True", DisplayName = "a true condition")]
+    [DataRow("False", DisplayName = "a false condition")]
+    public async Task AnIfWithNoStatement_ThenAnEndIf_IsRefused_AsAnEndIfWithoutBlockIf(string condition)
     {
-        var program = Program($"    If {condition} Then:", "        Debug.Print \"A\"", "    End If", "    Debug.Print \"B\"");
+        var result = await RunWithSyntaxErrorsAsync(Program($"    If {condition} Then:", "        Debug.Print \"A\"", "    End If", "    Debug.Print \"B\""));
 
-        CollectionAssert.AreEqual(expected.Split('|'), await RunAsync([], program));
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        var endIfWithoutBlockIf = RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_EndIfWithoutBlockIf;
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.StartsWith(endIfWithoutBlockIf, StringComparison.Ordinal)),
+            string.Join("; ", result.Diagnostics!));
     }
 }
