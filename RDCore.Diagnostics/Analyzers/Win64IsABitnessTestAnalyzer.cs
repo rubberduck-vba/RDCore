@@ -13,7 +13,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// Not reported when the host sets <c>Win64</c> on Windows only (<see cref="ModuleSemanticsDto.Win64OnlySetOnWindows"/>), nor where the module or its
-/// project defines its own <c>Win64</c> (<see cref="ModuleSemanticsDto.ProjectConditionalConstants"/>). The two fixes replace the name: with
+/// project defines <c>Win64</c> (<see cref="ModuleSemanticsDto.ProjectConditionalConstants"/>). The two fixes replace the name: with
 /// <c>Is64BitEnv</c>, and with <c>Win32 And Is64BitEnv</c> for a <c>Win64</c> that means 64-bit Windows, in parentheses where the name is an operand.
 /// </remarks>
 internal sealed class Win64IsABitnessTestAnalyzer : IModuleAnalyzer

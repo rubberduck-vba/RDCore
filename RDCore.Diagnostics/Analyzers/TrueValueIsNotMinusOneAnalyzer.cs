@@ -26,7 +26,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// is read off the module's own <c>#Const</c>s, the constants of the project by the values the host gives them
 /// (<see cref="ModuleSemanticsDto.ProjectConditionalConstants"/>), and the predefined constants, which are <c>1</c> where they are true
 /// (<see cref="PredefinedConditionalConstants"/>): <c>#If Not Win64</c> is live on 64-bit Windows, and so is <c>#If Not DEV</c> in a project that defines
-/// <c>DEV = 1</c>. A constant the host states nothing of is <c>True</c> or <c>False</c> as far as anyone can tell.
+/// <c>DEV = 1</c>. A constant the host states no value of is <c>True</c> or <c>False</c> as far as anyone can tell.
 /// </para>
 /// <para>
 /// Only where the operation's truth value is what is tested: the condition of an <c>If</c>, a loop, a <c>Debug.Assert</c>, a <c>#If</c> or a <c>#ElseIf</c>,
@@ -217,8 +217,7 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
     };
 
     // what an operand of a directive is as a truth value: a literal, a #Const of the module whose value is one, a constant of the project by the value the
-    // host gives it, or a predefined constant (1 or 0, Win16 always 0). A constant that nothing the host states defines is True or False as far as anyone
-    // can tell.
+    // host gives it, or a predefined constant (1 or 0, Win16 always 0). A constant the host states no value of is True or False as far as anyone can tell.
     private static TruthOperand OperandOf(
         ExpressionNode operand, Dictionary<string, ExpressionNode> constants, Dictionary<string, VBTypedValue> project, int depth) => operand switch
     {
