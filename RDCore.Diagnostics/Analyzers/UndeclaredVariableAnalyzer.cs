@@ -18,10 +18,10 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>RDC00101</c> reports the module once; this reports each variable, where it is first used, as Rubberduck's <em>undeclared variable</em> inspection does: a
-/// misspelled name (<c>totl</c> for <c>total</c>) is one of them. That the name matched nothing is a fact of the declaration the host vouches for
-/// (<see cref="SDK.Semantics.DeclarationFact.DeclaredBy"/> is <see cref="LocalDeclarationKind.Implicit"/>), which it never states under <c>Option Explicit</c>,
-/// where the name is a compile error instead. A <c>ReDim</c> that declares its array is <c>RDC00114</c>'s.
+/// <c>RDC00101</c> reports the module once; this reports each variable, where it is first used, as Rubberduck's <em>undeclared variable</em> inspection
+/// does: a misspelled name (<c>totl</c> for <c>total</c>) is one of them. That the name matched nothing is a fact of the declaration the host vouches for
+/// (<see cref="SDK.Semantics.DeclarationFact.DeclaredBy"/> is <see cref="LocalDeclarationKind.Implicit"/>), which it never states under
+/// <c>Option Explicit</c>, where the name is a compile error instead. A <c>ReDim</c> that declares its array is <c>RDC00114</c>'s.
 /// </para>
 /// <para>
 /// The fix declares the variable with a <c>Dim</c> before the first statement of its procedure, of the type it already has: the type of the character its
