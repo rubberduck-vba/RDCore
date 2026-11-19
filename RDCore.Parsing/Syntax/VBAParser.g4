@@ -687,7 +687,7 @@ typeHint : PERCENT | AMPERSAND | POW | EXCLAMATIONPOINT | HASH | AT | DOLLAR;
 
 visibility : PRIVATE | PUBLIC | FRIEND | GLOBAL;
 
-// MS-VBAL §5.2.3.1.1, §5.2.3.2: a variable or a constant is declared Public, Global or Private, never Friend.
+// MS-VBAL §5.2.3.1, §5.2.3.2: a variable or a constant is declared Public, Global or Private, never Friend.
 variableVisibility : PRIVATE | PUBLIC | GLOBAL;
 
 // 5.6 Expressions
