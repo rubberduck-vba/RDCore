@@ -1767,5 +1767,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("WriteOnlyProperty_Fix", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing follows the colon after Then: this line runs as an If with no statement, as in VB6, and the lines after it run whatever the condition. MS-VBAL §5.4.2.9 gives the line no reading..
+        /// </summary>
+        public static string SingleLineIfWithNoStatement_Message {
+            get {
+                return ResourceManager.GetString("SingleLineIfWithNoStatement_Message", resourceCulture);
+            }
+        }
     }
 }

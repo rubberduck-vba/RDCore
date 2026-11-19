@@ -690,4 +690,7 @@
   <data name="WriteOnlyProperty_Fix" xml:space="preserve">
     <value>Add a Property Get &apos;{0}&apos; that returns the value the Let keeps in &apos;{1}&apos;</value>
   </data>
+  <data name="SingleLineIfWithNoStatement_Message" xml:space="preserve">
+    <value>Nothing follows the colon after Then: this line runs as an If with no statement, as in VB6, and the lines after it run whatever the condition. MS-VBAL §5.4.2.9 gives the line no reading.</value>
+  </data>
 </root>
