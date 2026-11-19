@@ -45,13 +45,13 @@ public sealed class WorkspaceLanguageTests
         Assert.AreEqual(expected, workspace.Language);
     }
 
-    // a folder with no project file, opened by the shell, whose lines are the platform's BASIC: the test expects the project made up for it to be the
-    // folder's modules, the .bas and .cls files the shell's lines call, and not the shell's own .rdc programs, which are text files of lines.
+    // a folder with no project file, opened by the shell, whose lines are the platform's BASIC: the project made up for it is the folder's modules, the .bas
+    // and .cls files the shell's lines call, and not the shell's own .rdc programs, which are text files of lines.
     [TestMethod]
-    [Ignore("Which files of a BASIC workspace are its modules is not defined: the SDK makes the folder a project of its .rdc files, the shell's programs.")]
     public async Task AFolderOpenedByTheShell_IsMadeAProjectOfItsModules()
     {
-        var workspace = new SdkWorkspaceOptions { WorkspaceUri = Root };
+        // the shell starts its language server in its own language (--language basic), which the client's options name again.
+        var workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = SupportedLanguages.BASIC.Id };
         var fs = new MockFileSystem(new Dictionary<string, MockFileData>
         {
             [Path.Combine(Root, "Other.bas")] = new MockFileData("Attribute VB_Name = \"Other\"\r\nPublic Sub Divide()\r\nEnd Sub\r\n"),

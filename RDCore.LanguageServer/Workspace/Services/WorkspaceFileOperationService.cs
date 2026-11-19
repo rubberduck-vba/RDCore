@@ -195,7 +195,7 @@ internal sealed class WorkspaceFileOperationService(
             {
                 modules.Add(module);
             }
-            else if (IsSourceFile(target.Relative))
+            else if (IsModuleFile(target.Relative))
             {
                 modules.Add(module with { RelativeUri = target.Relative });
                 moved.Add((target.Old, target.Now));
@@ -297,7 +297,7 @@ internal sealed class WorkspaceFileOperationService(
 
     private ProjectFile AddModule(ProjectFile project, string path, List<(string, string)> notAdded)
     {
-        if (!IsSourceFile(path) || project.ProjectInfo.Modules.Any(module => IsPath(module.RelativeUri, path)))
+        if (!IsModuleFile(path) || project.ProjectInfo.Modules.Any(module => IsPath(module.RelativeUri, path)))
         {
             return project;
         }
@@ -339,7 +339,7 @@ internal sealed class WorkspaceFileOperationService(
             {
                 Modules = [.. info.Modules
                     .Select(module => IsUnder(module.RelativeUri, oldPath) ? module with { RelativeUri = Moved(module.RelativeUri, oldPath, newPath) } : module)
-                    .Where(module => IsSourceFile(module.RelativeUri))],
+                    .Where(module => IsModuleFile(module.RelativeUri))],
                 OtherFiles = [.. info.OtherFiles
                     .Select(file => IsUnder(file.RelativeUri, oldPath) ? file with { RelativeUri = Moved(file.RelativeUri, oldPath, newPath) } : file)],
                 Folders = [.. info.Folders.Select(folder => IsUnder(folder, oldPath) ? Moved(folder, oldPath, newPath) : folder)],
@@ -407,10 +407,10 @@ internal sealed class WorkspaceFileOperationService(
 
     private static bool IsUnderADotFolder(string relativePath) => relativePath.Split('/').Any(segment => segment.StartsWith('.'));
 
-    private bool IsSourceFile(string path)
+    // a module of the workspace is a file of one of its language's module types: a BASIC workspace's are RD-VBA's, not the shell's programs.
+    private bool IsModuleFile(string path)
     {
-        var extension = ioPath.GetExtension(path);
-        return language().FileTypes.Any(fileType => string.Equals(fileType.TrimStart('*'), extension, StringComparison.OrdinalIgnoreCase));
+        return language().IsModuleFile(path);
     }
 
     private string NameOf(ProjectFile project, RDCoreModule module)
