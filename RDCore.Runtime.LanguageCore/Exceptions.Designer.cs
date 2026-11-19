@@ -868,6 +868,15 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New {1}, a class of the {2} project that only its own project creates (Attribute VB_Creatable = False)..
+        /// </summary>
+        internal static string VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0}: the {1} library does not say {0} can be created: an interface, or a class the library makes itself..
         /// </summary>
         internal static string VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose {

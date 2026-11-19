@@ -11,6 +11,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
@@ -120,6 +121,7 @@ public static class PublicMemberSemantics
     {
         var split = name.LastIndexOf('.');
         var (qualifier, typeName) = split < 0 ? ((string?)null, name) : (name[..split], name[(split + 1)..]);
-        return VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, module.Uri) is { IsResolved: true, Symbol: var symbol } ? symbol : null;
+        return VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, module.Uri, ProjectVisibility.Instance, module.WorkspaceRoot)
+            is { IsResolved: true, Symbol: var symbol } ? symbol : null;
     }
 }

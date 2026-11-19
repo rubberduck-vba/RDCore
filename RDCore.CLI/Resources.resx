@@ -876,6 +876,20 @@
   <data name="Install_ProfileHasBlock" xml:space="preserve">
     <value>{0} is not on this terminal&apos;s PATH yet: {1} adds it in a new terminal.</value>
   </data>
+  <data name="Mcp_Summary" xml:space="preserve">
+    <value>Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output.</value>
+  </data>
+  <data name="Mcp_Usage" xml:space="preserve">
+    <value>Usage: rdc mcp --workspace &lt;path&gt;. The workspace is a folder, with or without a .rdproj.</value>
+  </data>
+  <data name="Mcp_NoSuchWorkspace" xml:space="preserve">
+    <value>The workspace folder "{0}" does not exist.</value>
+    <comment>{0}: the full path of the folder.</comment>
+  </data>
+  <data name="Mcp_Instructions" xml:space="preserve">
+    <value>The tools read and check the VBA code of the RDCore workspace at {0}. Paths are relative to that folder, or absolute; lines and columns are 1-based.</value>
+    <comment>{0}: the full path of the workspace folder.</comment>
+  </data>
   <data name="BenchMsVba_Summary" xml:space="preserve">
     <value>Runs the benchmark corpus and the Excel automation cases in MS-VBA and in RD-VBA, in alternated rounds on this machine, and writes the reference figures (msvba.json). Needs Windows and Excel.</value>
   </data>

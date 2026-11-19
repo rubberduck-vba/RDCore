@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -55,7 +56,7 @@ public sealed class ByValArgumentStaticSemanticsTests
             : new VBFunctionMemberSymbol(Root, module.Uri, "Foo", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public);
         foo = foo with { Parameters = [new VBParameterSymbol(Root, foo.Uri, "p", R, R, parameterKind, VBLongType.TypeInfo)] };
 
-        var tree = ScopeTreeBuilder.Build([module, x, a, foo]);
+        var tree = ProjectVisibility.ScopeTreeOf([module, x, a, foo]);
         return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
     }
 

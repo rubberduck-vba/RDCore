@@ -2,6 +2,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -35,7 +36,7 @@ public sealed class DeclarationStaticSemanticsTests
     {
         var module = Module("Mod1");
         var field = Field(module.Uri, "x", declared);
-        var tree = ScopeTreeBuilder.Build([module, field, .. others]);
+        var tree = ProjectVisibility.ScopeTreeOf([module, field, .. others]);
         return DeclarationStaticSemanticsEvaluator.Evaluate(module, [field], new ScopeTreeSymbolResolver(tree), rules);
     }
 

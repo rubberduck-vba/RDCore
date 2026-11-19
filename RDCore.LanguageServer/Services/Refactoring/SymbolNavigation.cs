@@ -71,7 +71,8 @@ public static class SymbolNavigation
     public static SymbolNavigationTarget? OccurrencesAt(RenameContext context, Uri module, SourcePosition position)
         => NamesOf(context, module, position, includeDeclaration: true, byAccess: false);
 
-    private static SymbolNavigationTarget? NamesOf(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess)
+    private static SymbolNavigationTarget? NamesOf(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess,
+        bool throughInterfaces = true)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
@@ -160,7 +161,36 @@ public static class SymbolNavigation
         // a name written as the symbol's whose meaning is not known, where the symbol could be what it means, as a rename refuses it.
         var unresolved = found.Unknown
             .Where(unknown => unknown.Kind == OccurrenceKind.Member || together.Any(defined => RenameBinding.ChainIndex(unknown.Scope, defined) < int.MaxValue))
-            .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range));
+            .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range))
+            .ToList();
+
+        // a call through an interface runs the procedure of the object's class that implements the member it calls (MS-VBAL §5.2.4.2), which may be any of
+        // them: a procedure that implements a member is referred to by the calls of that member, and a member by the procedures that implement it.
+        if (byAccess && throughInterfaces && symbol is VBTypeMemberSymbol)
+        {
+            var referred = called is null ? together : together.Where(defined => defined.SemanticId == accessor);
+            foreach (var member in referred.OfType<VBTypeMemberSymbol>())
+            {
+                foreach (var implemented in InterfaceMembersImplementedBy(context, member))
+                {
+                    if (Definitions(implemented) is [var first, ..]
+                        && NamesOf(context, first.Module, first.SelectionRange.Start, includeDeclaration: false, byAccess: true, throughInterfaces: false)
+                            is { } calls)
+                    {
+                        sites.AddRange(calls.Sites);
+                        unresolved.AddRange(calls.Unresolved);
+                    }
+                }
+
+                if (includeDeclaration)
+                {
+                    sites.AddRange(ImplementationsOf(context, member)
+                        .SelectMany(Definitions)
+                        .Select(site => new SymbolSite(site.Module, site.SelectionRange, site.SelectionRange)));
+                }
+            }
+        }
+
         return new SymbolNavigationTarget(origin, symbol, Ordered(sites)) { Unresolved = Ordered(unresolved) };
     }
 
@@ -213,18 +243,11 @@ public static class SymbolNavigation
                 sites.Add(new SymbolSite(NameOccurrences.ModuleOf(implementer.Uri), range, range));
             }
         }
-        else if (symbol is VBTypeMemberSymbol
-            && NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(symbol.Uri))) is VBClassModuleSymbol owner)
+        else if (symbol is VBTypeMemberSymbol)
         {
-            foreach (var implementer in ImplementersOf(context, owner))
+            foreach (var member in RenameBinding.DefinedTogether(context, symbol).OfType<VBTypeMemberSymbol>())
             {
-                foreach (var member in RenameBinding.DefinedTogether(context, symbol).OfType<VBTypeMemberSymbol>())
-                {
-                    if (implementer.FindImplementation(owner, member, AccessOf(member)) is { } implementation)
-                    {
-                        sites.AddRange(Definitions(implementation));
-                    }
-                }
+                sites.AddRange(ImplementationsOf(context, member).SelectMany(Definitions));
             }
         }
 
@@ -240,6 +263,33 @@ public static class SymbolNavigation
             .Select(candidate => NameOccurrences.SymbolOf(context, new SemanticId(candidate.Module)))
             .OfType<VBClassModuleSymbol>()
             .Where(candidate => candidate.ImplementedInterfaces.Any(implementedBy => implementedBy.SemanticId == implemented.SemanticId));
+
+    // the procedure of each class of the workspace that implements a member of a class it implements as an interface.
+    private static IEnumerable<Symbol> ImplementationsOf(RenameContext context, VBTypeMemberSymbol member)
+        => NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(member.Uri))) is VBClassModuleSymbol owner
+            ? ImplementersOf(context, owner).Select(implementer => implementer.FindImplementation(owner, member, AccessOf(member))).OfType<Symbol>()
+            : [];
+
+    // the members of the interfaces of its class that a procedure implements (MS-VBAL §5.3.1.9): each one whose implementation it is.
+    private static IEnumerable<Symbol> InterfaceMembersImplementedBy(RenameContext context, VBTypeMemberSymbol procedure)
+    {
+        if (NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(procedure.Uri))) is not VBClassModuleSymbol owner)
+        {
+            yield break;
+        }
+
+        foreach (var implemented in owner.ImplementedInterfaces)
+        {
+            foreach (var member in implemented.DefaultInterfaceMembers.OfType<VBTypeMemberSymbol>())
+            {
+                if (owner.FindImplementation(implemented, member, AccessOf(member)) is { } implementation
+                    && implementation.SemanticId == procedure.SemanticId)
+                {
+                    yield return NameOccurrences.SymbolOf(context, member.SemanticId) ?? member;
+                }
+            }
+        }
+    }
 
     // which procedure of an implementation implements an accessor of a property: the one of its kind.
     private static ImplementationAccess AccessOf(VBTypeMemberSymbol member) => member switch

@@ -10,6 +10,7 @@ using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Services;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Symbols;
 
@@ -89,10 +90,10 @@ public static class WorkspaceSymbolResolver
         // resolves — so it must not do implicit declaration, which would take every reference in every
         // procedure for an undeclared name.
         var declared = BuildSymbols(workspaceRoot, parsed, fallback, projectName, withImplicitDeclarations: false, libraries: libraries, documentHosts: documentHosts);
-        var declaredResolver = new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(declared)), fallback);
+        var declaredResolver = new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ProjectVisibility.ScopeTreeOf(declared)), fallback);
 
         var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
-        var scopeTree = ScopeTreeBuilder.Build(bound);
+        var scopeTree = ProjectVisibility.ScopeTreeOf(bound);
         var designers = parsed.Where(module => module.Parse.Designer is not null)
             .GroupBy(module => module.ModuleUri.AbsoluteUri)
             .ToDictionary(group => group.Key, group => group.First().Parse.Designer!);

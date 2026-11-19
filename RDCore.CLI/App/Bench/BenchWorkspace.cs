@@ -57,16 +57,21 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// <param name="path">The file or the folder.</param>
     /// <param name="token">A token that cancels the reading.</param>
     /// <param name="language">The language whose files are the modules of a folder that has no <c>.rdproj</c>; RD-VBA when it is not given.</param>
+    /// <param name="ansiCodePage">
+    /// The code page of a module file that has no byte order mark and is not valid UTF-8 (<see cref="ModuleFileText.Decode(byte[], int)"/>): the
+    /// environment's.
+    /// </param>
     /// <exception cref="FileNotFoundException">There is no such file or folder.</exception>
-    public static async Task<BenchWorkspace> LoadAsync(
-        IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default, SupportedLanguage? language = null)
+    public static async Task<BenchWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default,
+        SupportedLanguage? language = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage)
     {
         var full = fileSystem.Path.GetFullPath(path);
         if (fileSystem.File.Exists(full))
         {
             var root = fileSystem.Path.GetDirectoryName(full)!;
             var name = fileSystem.Path.GetFileNameWithoutExtension(full);
-            return Compose(fileSystem, root, new RDCoreProject { Name = name }, [new RDCoreModule { RelativeUri = fileSystem.Path.GetFileName(full) }]);
+            var module = new RDCoreModule { RelativeUri = fileSystem.Path.GetFileName(full) };
+            return Compose(fileSystem, root, new RDCoreProject { Name = name }, [module], ansiCodePage);
         }
 
         if (!fileSystem.Directory.Exists(full))
@@ -75,17 +80,17 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
         }
 
         var project = (await projects.LoadOrSynthesizeAsync(full, language ?? SupportedLanguages.RDVBA, token)).ProjectInfo;
-        return Compose(fileSystem, full, project, project.Modules);
+        return Compose(fileSystem, full, project, project.Modules, ansiCodePage);
     }
 
-    // the project lists the modules by where they are, and says which are document modules; the session reads the same files, a form's companion file with its
-    // module as the language server reads it, and the standard library is referenced first, as it always is.
-    private static BenchWorkspace Compose(IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<RDCoreModule> listed)
+    // the project lists the modules by where they are, and says which are document modules; the session reads the same files, in their own encoding, a form's
+    // companion file with its module as the language server reads it, and the standard library is referenced first, as it always is.
+    private static BenchWorkspace Compose(IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<RDCoreModule> listed, int ansiCodePage)
     {
         var modules = listed.Select(module =>
         {
             var path = fileSystem.Path.Combine(root, module.RelativeUri);
-            var source = fileSystem.File.ReadAllText(path);
+            var source = ModuleFileText.Decode(fileSystem.File.ReadAllBytes(path), ansiCodePage).Text;
             var companion = FormDesigner.ReadCompanion(fileSystem, path, source, out var problem);
             return new BenchModule(ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source), module.RelativeUri, source, companion, problem);
         }).ToArray();

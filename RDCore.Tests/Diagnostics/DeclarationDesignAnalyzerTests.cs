@@ -74,11 +74,12 @@ public sealed class DeclarationDesignAnalyzerTests
     }
 
     [TestMethod]
-    public async Task APublicMemberOfAClassModule_MayBeOfAnInterface()
+    public async Task APublicMemberOfAnExposedClassModule_MayBeOfAnInterface()
     {
         var findings = await WorkspaceAsync(new ProcedureCanBeWrittenAsFunctionAnalyzer(), "Panel",
             ["Option Explicit"],
             [
+                "Attribute VB_Exposed = True",
                 "Option Explicit",
                 "Public Sub Measure(ByRef width As Long)",
                 "    width = 10",
@@ -88,7 +89,22 @@ public sealed class DeclarationDesignAnalyzerTests
                 "End Sub",
             ]);
 
-        CollectionAssert.AreEqual(new[] { 9 }, Lines(findings), "only the Private procedure (a class module's source has five lines of header)");
+        CollectionAssert.AreEqual(new[] { 10 }, Lines(findings), "only the Private procedure (a class module's source has five lines of header)");
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfAClassModuleThatNoProjectCanImplement_IsJudged()
+    {
+        var findings = await WorkspaceAsync(new ProcedureCanBeWrittenAsFunctionAnalyzer(), "Panel",
+            ["Option Explicit"],
+            [
+                "Option Explicit",
+                "Public Sub Measure(ByRef width As Long)",
+                "    width = 10",
+                "End Sub",
+            ]);
+
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(findings), "not implemented, not exposed (a class module's source has five lines of header)");
     }
 
     #endregion

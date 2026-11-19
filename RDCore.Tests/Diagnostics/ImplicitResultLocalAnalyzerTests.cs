@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.Tests.Cli;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
@@ -25,27 +26,13 @@ public sealed class ImplicitResultLocalAnalyzerTests
         return [.. new ImplicitResultLocalAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model))];
     }
 
-    // the program with the edits of the fix made, the last first so that the positions of the others hold.
-    private static string Fixed(string program, EditFix fix)
-    {
-        var lines = program.Split("\r\n").ToList();
-        foreach (var edit in fix.Edits.OrderByDescending(edit => edit.Range.Start.Line).ThenByDescending(edit => edit.Range.Start.Character))
-        {
-            Assert.AreEqual(edit.Range.Start.Line, edit.Range.End.Line, "an edit of one line");
-            var line = lines[edit.Range.Start.Line];
-            lines[edit.Range.Start.Line] = line[..edit.Range.Start.Character] + edit.NewText + line[edit.Range.End.Character..];
-        }
-
-        return string.Join("\r\n", lines);
-    }
-
     private static async Task AssertFixedAsync(string[] before, string[] after)
     {
         var program = Module(before);
         var fix = (await FindingsOfAsync(program)).Select(finding => finding.Fixes?.Edits.SingleOrDefault()).Distinct().Single();
         Assert.IsNotNull(fix, "the findings carry the fix");
 
-        var fixedProgram = Fixed(program, fix);
+        var fixedProgram = fix.Edits.ApplyTo(program);
         Assert.AreEqual(Module(after), fixedProgram);
         Assert.IsEmpty(await FindingsOfAsync(fixedProgram), "nothing is left to report");
         Assert.IsEmpty(await ModuleWorkspace.LoadErrorsAsync([], fixedProgram), "and it compiles");
