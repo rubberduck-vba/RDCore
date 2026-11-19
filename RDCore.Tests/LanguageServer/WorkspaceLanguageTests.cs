@@ -45,10 +45,10 @@ public sealed class WorkspaceLanguageTests
         Assert.AreEqual(expected, workspace.Language);
     }
 
-    // a folder with no project file, opened by the shell, whose lines are the platform's BASIC: the project made up for it is the folder's modules, the
-    // .bas and .cls files the shell's lines call. The shell's own .rdc programs are text files of lines, not modules.
+    // a folder with no project file, opened by the shell, whose lines are the platform's BASIC: the test expects the project made up for it to be the
+    // folder's modules, the .bas and .cls files the shell's lines call, and not the shell's own .rdc programs, which are text files of lines.
     [TestMethod]
-    [Ignore("Which files a BASIC workspace holds as modules is not defined yet: the SDK makes the folder a project of its .rdc files, the shell's programs.")]
+    [Ignore("Which files of a BASIC workspace are its modules is not defined: the SDK makes the folder a project of its .rdc files, the shell's programs.")]
     public async Task AFolderOpenedByTheShell_IsMadeAProjectOfItsModules()
     {
         var workspace = new SdkWorkspaceOptions { WorkspaceUri = Root };
