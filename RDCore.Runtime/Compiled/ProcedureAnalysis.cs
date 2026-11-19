@@ -995,7 +995,7 @@ internal sealed partial class ProcedureAnalysis
     // nowhere, located by its statement.
     private CallStep? CallWith(VBTypeMemberSymbol procedure, ReadOnlySpan<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments, int result, int offset,
         ScalarKind? resultKind, BoundMember? site, int? receiver, bool assigns, SourceLocation? at, bool returnsObject = false, bool returnsText = false,
-        bool returnsValue = false)
+        bool returnsValue = false, VBClassModuleSymbol? defaultOf = null)
     {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar or a Variant: what the Variant holds is let go of when the statement is over, as the interpreter
@@ -1077,7 +1077,7 @@ internal sealed partial class ProcedureAnalysis
             }
 
             // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
-            if (parameters[i] is not ParamArrayParameterSymbol && site is null && receiver is null && IsText(parameters[i].ResolvedType))
+            if (parameters[i] is not ParamArrayParameterSymbol && site is null && defaultOf is null && receiver is null && IsText(parameters[i].ResolvedType))
             {
                 if (TextArgumentOf(arguments[i]) is not { } text)
                 {
@@ -1109,7 +1109,8 @@ internal sealed partial class ProcedureAnalysis
         Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference)
         {
             Site = site,
-            CallsOwnMember = site is null && receiver is not null,
+            DefaultOf = defaultOf,
+            CallsOwnMember = site is null && defaultOf is null && receiver is not null,
             CallLocation = at,
             AssignsResult = assigns,
             HoldsWhatItReturns = assigns || resultKind is null && ReturnedType(procedure) is VBVariantType,
@@ -1496,6 +1497,7 @@ internal sealed partial class ProcedureAnalysis
     // a function or a Property Get of the workspace that returns a Variant, called inside an expression of an instruction that calls (ValueCallOf).
     private bool CallsForAVariant(BoundNode node) => _nesting is not null && node switch
     {
+        BoundIndex or BoundMember when DefaultCallOf(node) is ({ } defaultMember, _, _, _, _) => ReturnedType(defaultMember) is VBVariantType,
         BoundCall { Procedure: VBTypeMemberSymbol called } => !IsCompiledLibrary(called) && !IsVariantLibrary(called) && ReturnedType(called) is VBVariantType,
         BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } member
             => LibraryMemberCallOf(member) is null && ReturnedType(called) is VBVariantType,
@@ -1630,6 +1632,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember or BoundIndex when LibraryMemberCallOf(node) is { Member: var libraryMember } && ScalarKinds.Of(ReturnedType(libraryMember)) is { } returned:
                 return LibraryMemberOf(node) is { } libraryCall ? new UnvariantNode(libraryCall, returned) : null;
 
+            // the default member of an object of a class of the workspace, called inside an expression (ProcedureAnalysis.DefaultMembers.cs).
+            case BoundMember or BoundIndex when _nesting is not null && DefaultCallOf(node) is ({ } defaultMember, _, _, _, _):
+                return NestedCall(node, defaultMember);
+
             // an element of an array field of a record of the activation.
             case BoundMember member when FieldElementOf(member) is { } fieldElement:
                 return Element(fieldElement) is { } fieldElementRead ? Read(fieldElementRead, member) : null;
@@ -1760,7 +1766,7 @@ internal sealed partial class ProcedureAnalysis
 
             // a function of the workspace that returns a Variant, called inside an expression: what it returns, of its own subtype, known once it is made
             // (CompiledActivation.TakeReturnedPayload).
-            case BoundCall or BoundMember or BoundName when CallsForAVariant(node) && ValueCallOf(node) is { } called:
+            case BoundCall or BoundMember or BoundName or BoundIndex when CallsForAVariant(node) && ValueCallOf(node) is { } called:
                 return called;
 
             default:

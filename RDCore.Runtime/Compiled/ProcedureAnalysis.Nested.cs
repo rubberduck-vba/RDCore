@@ -234,6 +234,8 @@ internal sealed partial class ProcedureAnalysis
         // a pure member of a class of the standard library compiled code calls on an object calls nothing of the workspace: only what its arguments call.
         // The interpreter makes it again when the instruction is handed to it (ProcedureAnalysis.LibraryMembers.cs).
         (BoundMember or BoundIndex) and var library when LibraryMemberCallOf(library) is { Arguments: var given } => given.Any(argument => Calls(argument.Value)),
+        // the default member of an object of a class of the workspace is a call (ProcedureAnalysis.DefaultMembers.cs).
+        BoundMember or BoundIndex when DefaultCallOf(node) is not null => true,
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
         // an element of an array field of a record, which calls what its subscripts call.
         BoundMember member when FieldElementOf(member) is { } element => Calls(element),
@@ -258,6 +260,7 @@ internal sealed partial class ProcedureAnalysis
 
         var made = node switch
         {
+            BoundIndex or BoundMember when DefaultCallOf(node) is not null => DefaultMemberCallOf(node, CallStep.NoResult, -1, kind),
             BoundCall call => CallOf(call, CallStep.NoResult, -1, kind),
             BoundMember member => MemberCallOf(member, CallStep.NoResult, -1, kind),
             _ => BareCallOf(function, -1, kind, node.Expression),
@@ -321,6 +324,7 @@ internal sealed partial class ProcedureAnalysis
     {
         if (_nesting is null || _withoutObjectCalls
             || node is not (BoundCall or BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } or BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol })
+                && DefaultCallOf(node) is null
             || KnownOperands.IndexOf(_nesting, node.Expression) is not (>= 0 and var syntax))
         {
             return null;
@@ -330,6 +334,8 @@ internal sealed partial class ProcedureAnalysis
         var before = _reasons.Count;
         var made = node switch
         {
+            BoundIndex or BoundMember when DefaultCallOf(node) is not null
+                => DefaultMemberCallOf(node, CallStep.NoResult, -1, resultKind: null, returnsValue: true),
             BoundCall call => CallOf(call, CallStep.NoResult, -1, resultKind: null, returnsValue: true),
             BoundMember member when LibraryMemberCallOf(member) is null => MemberCallOf(member, CallStep.NoResult, -1, resultKind: null, returnsValue: true),
             // a function, or a member of the class whose code runs, named by itself (BareCallOf); not the function's own result variable.
