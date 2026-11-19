@@ -22,6 +22,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// is that a file written here is one MS-VBA reads, and a round trip through <c>Put</c> and <c>Get</c> alone
 /// would pass just as well on a format of this suite's own invention.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.11 Put")]
 [TestCategory("MS-VBAL 5.4.5.12 Get")]

@@ -186,6 +186,9 @@ public sealed class EventHandlerBreakTests
                     sink.OnEvent(new AutomationEvent("Tick", [], isSynchronous: false, time =>
                     {
                         waited();
+
+                        // the event's serve: this thread has no calls of the program to make, so it lets the time the runtime gives it go by. The runtime
+                        // reads the session again after each serve, until it is open, so how long one lasts changes nothing but how soon it reads.
                         Thread.Sleep(time);
                     }));
                 }

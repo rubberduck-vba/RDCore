@@ -59,9 +59,11 @@ internal sealed class CoreLanguageServerApp(
     IDiagnosticsPublisher publisher,
     Debugging.EditStatusPublication editStatusPublication,
     IClientInteractionRelay interaction,
+    ISessionStopRelay stops,
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
-    ILogger<CoreLanguageServerApp> logger)
+    ILogger<CoreLanguageServerApp> logger,
+    IProjectFileDiagnostics? projectFiles = null)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
@@ -141,6 +143,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<RefactorIdentifierCheckHandler>();
         builder.WithHandler<Server.Handlers.Workspace.ExecuteCommandHandler>();
         builder.WithHandler<InlayHintHandler>();
+        builder.WithHandler<Debugging.InlineValueHandler>();
+        builder.WithHandler<LinkedEditingRangeHandler>();
         builder.WithHandler<CodeLensHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
@@ -333,6 +337,9 @@ internal sealed class CoreLanguageServerApp(
         // the dialogs of the program that runs in the environment host are relayed to this client, if it answers them.
         interaction.Attach(new LanguageServerInteractionClient(server));
 
+        // and so are the stops of the handlers of events that run while no program runs, if it takes them.
+        stops.Attach(new LanguageServerSessionStopClient(server));
+
         // and the progress of the work the server does is reported to it, if it shows it.
         progress.Attach(server.WorkDoneManager);
 
@@ -407,6 +414,7 @@ internal sealed class CoreLanguageServerApp(
     {
         // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
         await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, _workspaceExpected, token);
+        projectFiles?.Publish();
 
         using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
         await RunDiagnosticsBringUpAsync(token, analyzingWork);

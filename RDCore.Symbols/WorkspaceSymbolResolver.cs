@@ -21,7 +21,9 @@ namespace RDCore.Symbols;
 /// <param name="ScopeTree">The scope tree over the composed workspace's symbols.</param>
 /// <param name="Designers">What the designer of each form module of the workspace declares, by the module's <see cref="Uri.AbsoluteUri"/> (a module's Uri
 /// differs from its siblings' only in the fragment, which Uri equality ignores).</param>
-public readonly record struct WorkspaceComposition(ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyDictionary<string, FormDescriptor>? Designers = null)
+/// <param name="Symbols">The symbols the scope tree is built over: the workspace's, its project's, and those of the libraries it was composed with.</param>
+public readonly record struct WorkspaceComposition(
+    ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyDictionary<string, FormDescriptor>? Designers = null, IReadOnlyList<Symbol>? Symbols = null)
 {
     /// <summary>
     /// What the designer of the module <paramref name="module"/> declares, or <see langword="null"/> when it is no form module of the workspace.
@@ -94,7 +96,7 @@ public static class WorkspaceSymbolResolver
         var designers = parsed.Where(module => module.Parse.Designer is not null)
             .GroupBy(module => module.ModuleUri.AbsoluteUri)
             .ToDictionary(group => group.Key, group => group.First().Parse.Designer!);
-        return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree, designers);
+        return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree, designers, bound);
     }
 
     // one extraction pass: every module symbol and member symbol, with each declared type name bound
@@ -138,6 +140,8 @@ public static class WorkspaceSymbolResolver
                         HostClass = moduleType == ModuleType.DocumentModule && documentHosts?.TryGetValue(moduleName, out var super) == true
                             ? ModuleKinds.HostClassOf(super)
                             : null,
+                        // a UserControl's, a PropertyPage's or a UserDocument's code names the members of the class its designer block names.
+                        BaseClass = parseResult.Designer?.BaseClass,
                         Directives = directives,
                         ImplementedInterfaceNames = implementedInterfaceNames,
                         ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],

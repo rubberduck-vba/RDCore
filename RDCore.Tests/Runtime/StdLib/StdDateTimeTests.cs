@@ -319,6 +319,26 @@ public sealed class StdDateTimeTests
         Assert.AreEqual(new DateTime(2026, 10, 14, 8, 1, 30), session.Clock.Now.AddTicks(-(session.Clock.Now.Ticks % TimeSpan.TicksPerSecond)));
     }
 
+    // MS-VBAL §6.1.2.4.2.2 to §6.1.2.4.2.4: the typed forms compiled code calls in place of Date, Now and Time are the serials of the Dates the members
+    // return, read from the session's clock to the second, a time it was set to included: 08:01:30.5 is 08:01:30.
+    [TestMethod]
+    public void DateNowAndTime_TypedForms_AreTheSerialsOfWhatTheMembersReturn()
+    {
+        var clock = new FixedClock(Moment);
+        var (_, session) = RunWith(clock, "Time = \"08:00:00\"");
+        clock.Current = Moment.AddSeconds(90.5);
+        var module = new StdDateTime(session);
+
+        Assert.AreEqual(new DateTime(2026, 10, 14, 8, 1, 30).ToOADate(), StdDateTime.NowOf(session));
+        Assert.AreEqual(SerialOf(module.Now()), StdDateTime.NowOf(session));
+        Assert.AreEqual(new DateTime(2026, 10, 14).ToOADate(), StdDateTime.DateOf(session));
+        Assert.AreEqual(SerialOf(module.Date()), StdDateTime.DateOf(session));
+        Assert.AreEqual(new DateTime(1899, 12, 30, 8, 1, 30).ToOADate(), StdDateTime.TimeOf(session));
+        Assert.AreEqual(SerialOf(module.Time()), StdDateTime.TimeOf(session));
+
+        static double SerialOf(RuntimeSemanticsEvaluationResult<VBVariantValue> result) => ((VBDateValue)Held(result)!).SerialValue;
+    }
+
     [TestMethod]
     public void Time_ThatIsNoTime_IsTheErrorOfLetCoercingIt()
         => Assert.AreEqual(13, Fail("Time = \"not a time\""));

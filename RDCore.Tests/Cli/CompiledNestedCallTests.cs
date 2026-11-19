@@ -43,10 +43,10 @@ public sealed class CompiledNestedCallTests
         return new Run(observed, compiled);
     }
 
-    // the program run both ways: the compiled run is the interpreted one; the caller is compiled, and made its calls, all directly, in compiled code; it was
-    // handed to the interpreter only where it is said to be.
+    // the program run both ways: the compiled run is the interpreted one; the caller is compiled, and made its calls in compiled code, all directly but the
+    // indirect ones, made through the invoker; it was handed to the interpreter only where it is said to be.
     internal static async Task<string> AssertAlikeAsync(string program, string caller, long calls, bool walksBack = false,
-        IReadOnlyList<(string Name, string Source)>? classes = null)
+        IReadOnlyList<(string Name, string Source)>? classes = null, long indirect = 0)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes);
@@ -62,7 +62,7 @@ public sealed class CompiledNestedCallTests
         else if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(0L, result.Body.WalkBacks, $"{caller} was handed to the interpreter");
-            CompiledDirectCallTests.AssertCalls(calls, (result.Body.DirectCalls, result.Body.IndirectCalls));
+            CompiledDirectCallTests.AssertCalls(calls, (result.Body.DirectCalls, result.Body.IndirectCalls), indirect);
         }
 
         return compiled.Observed;

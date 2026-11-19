@@ -3,8 +3,11 @@ Option Explicit
 ' One call of a standard-library function per iteration, a function a case: conversions, strings, information, math, dates and arrays. What each
 ' returns is assigned to a variable of its type.
 
+' <Declarations>
 Private Const Iterations As Long = 100000
+' </Declarations>
 
+' <BenchCLng>
 Public Sub BenchCLng()
     Dim I As Long
     Dim X As Double
@@ -14,7 +17,9 @@ Public Sub BenchCLng()
         N = CLng(X)
     Next
 End Sub
+' </BenchCLng>
 
+' <BenchCDbl>
 Public Sub BenchCDbl()
     Dim I As Long
     Dim D As Double
@@ -22,7 +27,9 @@ Public Sub BenchCDbl()
         D = CDbl(I)
     Next
 End Sub
+' </BenchCDbl>
 
+' <BenchCStr>
 Public Sub BenchCStr()
     Dim I As Long
     Dim S As String
@@ -30,7 +37,9 @@ Public Sub BenchCStr()
         S = CStr(I)
     Next
 End Sub
+' </BenchCStr>
 
+' <BenchVal>
 Public Sub BenchVal()
     Dim I As Long
     Dim S As String
@@ -40,7 +49,9 @@ Public Sub BenchVal()
         D = Val(S)
     Next
 End Sub
+' </BenchVal>
 
+' <BenchLen>
 Public Sub BenchLen()
     Dim I As Long
     Dim S As String
@@ -50,7 +61,9 @@ Public Sub BenchLen()
         N = Len(S)
     Next
 End Sub
+' </BenchLen>
 
+' <BenchLeft>
 Public Sub BenchLeft()
     Dim I As Long
     Dim S As String
@@ -60,7 +73,9 @@ Public Sub BenchLeft()
         T = Left$(S, 2)
     Next
 End Sub
+' </BenchLeft>
 
+' <BenchMidFunction>
 Public Sub BenchMidFunction()
     Dim I As Long
     Dim S As String
@@ -70,7 +85,9 @@ Public Sub BenchMidFunction()
         T = Mid$(S, 4, 3)
     Next
 End Sub
+' </BenchMidFunction>
 
+' <BenchInStr>
 Public Sub BenchInStr()
     Dim I As Long
     Dim S As String
@@ -80,7 +97,9 @@ Public Sub BenchInStr()
         N = InStr(S, "V")
     Next
 End Sub
+' </BenchInStr>
 
+' <BenchReplace>
 Public Sub BenchReplace()
     Dim I As Long
     Dim S As String
@@ -90,7 +109,9 @@ Public Sub BenchReplace()
         T = Replace(S, "-", "_")
     Next
 End Sub
+' </BenchReplace>
 
+' <BenchTrim>
 Public Sub BenchTrim()
     Dim I As Long
     Dim S As String
@@ -100,7 +121,9 @@ Public Sub BenchTrim()
         T = Trim$(S)
     Next
 End Sub
+' </BenchTrim>
 
+' <BenchUCase>
 Public Sub BenchUCase()
     Dim I As Long
     Dim S As String
@@ -110,7 +133,9 @@ Public Sub BenchUCase()
         T = UCase$(S)
     Next
 End Sub
+' </BenchUCase>
 
+' <BenchStrComp>
 Public Sub BenchStrComp()
     Dim I As Long
     Dim S As String
@@ -120,7 +145,9 @@ Public Sub BenchStrComp()
         N = StrComp(S, "rd-vba", vbTextCompare)
     Next
 End Sub
+' </BenchStrComp>
 
+' <BenchAsc>
 Public Sub BenchAsc()
     Dim I As Long
     Dim S As String
@@ -130,7 +157,9 @@ Public Sub BenchAsc()
         N = Asc(S)
     Next
 End Sub
+' </BenchAsc>
 
+' <BenchChr>
 Public Sub BenchChr()
     Dim I As Long
     Dim T As String
@@ -138,7 +167,9 @@ Public Sub BenchChr()
         T = Chr$(65 + I Mod 26)
     Next
 End Sub
+' </BenchChr>
 
+' <BenchFormat>
 Public Sub BenchFormat()
     Dim I As Long
     Dim D As Double
@@ -148,7 +179,9 @@ Public Sub BenchFormat()
         T = Format$(D, "0.00")
     Next
 End Sub
+' </BenchFormat>
 
+' <BenchIsNumeric>
 Public Sub BenchIsNumeric()
     Dim I As Long
     Dim S As String
@@ -158,7 +191,9 @@ Public Sub BenchIsNumeric()
         B = IsNumeric(S)
     Next
 End Sub
+' </BenchIsNumeric>
 
+' <BenchIsEmpty>
 Public Sub BenchIsEmpty()
     Dim I As Long
     Dim V As Variant
@@ -167,7 +202,9 @@ Public Sub BenchIsEmpty()
         B = IsEmpty(V)
     Next
 End Sub
+' </BenchIsEmpty>
 
+' <BenchVarType>
 Public Sub BenchVarType()
     Dim I As Long
     Dim V As Variant
@@ -177,7 +214,9 @@ Public Sub BenchVarType()
         N = VarType(V)
     Next
 End Sub
+' </BenchVarType>
 
+' <BenchTypeName>
 Public Sub BenchTypeName()
     Dim I As Long
     Dim V As Variant
@@ -187,7 +226,9 @@ Public Sub BenchTypeName()
         T = TypeName(V)
     Next
 End Sub
+' </BenchTypeName>
 
+' <BenchAbs>
 Public Sub BenchAbs()
     Dim I As Long
     Dim N As Long
@@ -195,7 +236,9 @@ Public Sub BenchAbs()
         N = Abs(-I)
     Next
 End Sub
+' </BenchAbs>
 
+' <BenchRound>
 Public Sub BenchRound()
     Dim I As Long
     Dim D As Double
@@ -205,7 +248,9 @@ Public Sub BenchRound()
         R = Round(D, 2)
     Next
 End Sub
+' </BenchRound>
 
+' <BenchSqr>
 Public Sub BenchSqr()
     Dim I As Long
     Dim D As Double
@@ -213,7 +258,9 @@ Public Sub BenchSqr()
         D = Sqr(I)
     Next
 End Sub
+' </BenchSqr>
 
+' <BenchInt>
 Public Sub BenchInt()
     Dim I As Long
     Dim D As Double
@@ -223,7 +270,9 @@ Public Sub BenchInt()
         R = Int(D)
     Next
 End Sub
+' </BenchInt>
 
+' <BenchDateAdd>
 Public Sub BenchDateAdd()
     Dim I As Long
     Dim T As Date
@@ -233,7 +282,9 @@ Public Sub BenchDateAdd()
         R = DateAdd("d", 1, T)
     Next
 End Sub
+' </BenchDateAdd>
 
+' <BenchYear>
 Public Sub BenchYear()
     Dim I As Long
     Dim T As Date
@@ -243,7 +294,9 @@ Public Sub BenchYear()
         N = Year(T)
     Next
 End Sub
+' </BenchYear>
 
+' <BenchNow>
 Public Sub BenchNow()
     Dim I As Long
     Dim T As Date
@@ -251,7 +304,9 @@ Public Sub BenchNow()
         T = Now
     Next
 End Sub
+' </BenchNow>
 
+' <BenchUBound>
 Public Sub BenchUBound()
     Dim I As Long
     Dim A(1 To 10) As Long
@@ -260,3 +315,4 @@ Public Sub BenchUBound()
         N = UBound(A)
     Next
 End Sub
+' </BenchUBound>

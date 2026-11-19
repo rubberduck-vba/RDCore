@@ -42,7 +42,7 @@ public sealed class MacOSSignatureTests
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, AppleSiliconHost.Value);
 
-        var (executable, _) = new ProgramOutput(fileSystem, Runtime).Write(Output, "Hello", SupportAssembly.Value, [], Host, runtime, []);
+        var (executable, _) = new ProgramOutput(fileSystem, Runtime).Write(Output, "Hello", SupportAssembly.Value, [], Host, runtime, [], hostsForms: false);
 
         Assert.AreEqual(Path.Combine(Output, "Hello"), executable);
         return fileSystem.File.ReadAllBytes(executable!);

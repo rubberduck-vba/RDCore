@@ -69,6 +69,9 @@
   <data name="RuntimeErrorTitle" xml:space="preserve">
     <value>Erreur d'exécution</value>
   </data>
+  <data name="RuntimeErrorMessage" xml:space="preserve">
+    <value>{0} '{1}' : {2}</value>
+  </data>
   <data name="StopStep" xml:space="preserve">
     <value>Pas</value>
   </data>

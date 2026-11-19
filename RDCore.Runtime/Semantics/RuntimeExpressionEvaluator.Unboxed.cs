@@ -654,6 +654,45 @@ public sealed partial class RuntimeExpressionEvaluator
         => TryOperateBinary(OperationPlanner.ForValues(token, lhs.Type, rhs.Type), lhs, rhs, out result);
 
     /// <summary>
+    /// An operation of a <c>Variant</c> operand (<see cref="TryOperateDeferred(string, ScalarPayload, ScalarPayload, out ScalarPayload)"/>) named by its
+    /// operator: planned once for each pair of kinds of the payloads, with the plan <see cref="OperationPlanner"/> makes for the types of those kinds
+    /// (MS-VBAL §5.6.9), and done on the kinds that plan converts the operands to. A payload of another type of its kind (an enumeration's, a
+    /// <c>LongPtr</c>) is done with the plan made for its own type.
+    /// </summary>
+    /// <param name="operator">The operator.</param>
+    /// <param name="lhs">The payload of the left operand.</param>
+    /// <param name="rhs">The payload of the right operand.</param>
+    /// <param name="result">The operation's result.</param>
+    /// <returns><see langword="false"/> when the operation is not done on payloads, as the operation of its token says.</returns>
+    internal static bool TryOperateDeferred(VariantOperator @operator, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
+    {
+        if (lhs.Kind is { } left && rhs.Kind is { } right
+            && ReferenceEquals(lhs.Type, ScalarKinds.TypeOf(left)) && ReferenceEquals(rhs.Type, ScalarKinds.TypeOf(right)))
+        {
+            var plan = KindPlan.Of(@operator, left, right);
+            return TryOperateBinary(@operator, plan.Destination, plan.DestinationKind, plan.Effective, plan.EffectiveKind, lhs, rhs, out result);
+        }
+
+        return TryOperateBinary(OperationPlanner.ForValues(VariantOperators.TokenOf(@operator), lhs.Type, rhs.Type), lhs, rhs, out result);
+    }
+
+    // the plan of an operator for a pair of kinds, made once from the plan OperationPlanner makes for the types of the kinds: the type each operand is
+    // converted to and the effective type, each with its kind.
+    private sealed record class KindPlan(VBType? Destination, ScalarKind? DestinationKind, VBType? Effective, ScalarKind? EffectiveKind)
+    {
+        private const int Kinds = (int)ScalarKind.Date + 1;
+
+        private static readonly KindPlan?[] _plans = new KindPlan?[VariantOperators.Count * Kinds * Kinds];
+
+        public static KindPlan Of(VariantOperator @operator, ScalarKind left, ScalarKind right)
+            => _plans[((int)@operator * Kinds + (int)left) * Kinds + (int)right]
+                ??= Made(OperationPlanner.ForValues(VariantOperators.TokenOf(@operator), ScalarKinds.TypeOf(left), ScalarKinds.TypeOf(right)));
+
+        private static KindPlan Made(OperationPlan plan)
+            => new(plan.OperandDestination, ScalarKinds.Of(plan.OperandDestination), plan.EffectiveType, ScalarKinds.Of(plan.EffectiveType));
+    }
+
+    /// <summary>
     /// A negation or a <c>Not</c> of a <c>Variant</c> operand, on its payload (<see cref="TryOperateDeferred"/>).
     /// </summary>
     /// <param name="token">The operator's token.</param>
@@ -690,13 +729,26 @@ public sealed partial class RuntimeExpressionEvaluator
             && (plan.Operator == Tokens.NegationOp ? TryNegate(converted, ofAConstantExpression, out result) : TryNot(converted, out result));
     }
 
+    // an operator that is none of the arithmetic, comparison and logical operators is not done on payloads.
     private static bool TryOperateBinary(OperationPlan plan, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
     {
         result = default;
-        return plan.OperandDestination is { } destination
-            && TryConvertPayload(lhs, destination, out var l) && TryConvertPayload(rhs, destination, out var r)
-            && (TryOperate(plan.Operator, plan.EffectiveType!, l, r, out result) || TryCompare(plan.Operator, l, r, out result)
-                || TryLogical(plan.Operator, plan.EffectiveType!, l, r, out result));
+        return VariantOperators.Of(plan.Operator) is { } @operator
+            && TryOperateBinary(@operator, plan.OperandDestination, ScalarKinds.Of(plan.OperandDestination), plan.EffectiveType, ScalarKinds.Of(plan.EffectiveType),
+                lhs, rhs, out result);
+    }
+
+    // MS-VBAL §5.6.9: each operand let-coerced to the plan's destination, then the operator done in the effective type: an arithmetic operator (TryOperate),
+    // a comparison (TryCompare) or a logical operator (TryLogical).
+    private static bool TryOperateBinary(VariantOperator @operator, VBType? destination, ScalarKind? destinationKind, VBType? effective,
+        ScalarKind? effectiveKind, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
+    {
+        result = default;
+        return destination is not null
+            && TryConvertPayload(lhs, destination, destinationKind, out var l) && TryConvertPayload(rhs, destination, destinationKind, out var r)
+            && (VariantOperators.IsComparison(@operator) ? TryCompare(VariantOperators.ComparisonOf(@operator), l, r, out result)
+                : VariantOperators.IsLogical(@operator) ? TryLogical(VariantOperators.LogicalOf(@operator), effective!, effectiveKind, l, r, out result)
+                : TryOperate(@operator, effective!, effectiveKind, l, r, out result));
     }
 
     /// <summary>
@@ -943,9 +995,14 @@ public sealed partial class RuntimeExpressionEvaluator
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
-    // integer type, an integer as a floating-point value, a Single as a Double; and a Single or a Double made an integer by Banker's rounding, as the boxed
-    // coercion makes it (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL §5.5.1.2.1), which rounds.
+    // integer type, an integer as a floating-point value, a Single as a Double; a Single or a Double made an integer by Banker's rounding, and a Double (or a
+    // Date's serial) made the nearest Single, as the boxed coercion makes them (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL
+    // §5.5.1.2.1), which rounds.
     private static bool TryConvertPayload(ScalarPayload payload, VBType destination, out ScalarPayload converted)
+        => TryConvertPayload(payload, destination, ScalarKinds.Of(destination), out converted);
+
+    // the same, the kind of the destination found before.
+    private static bool TryConvertPayload(ScalarPayload payload, VBType destination, ScalarKind? to, out ScalarPayload converted)
     {
         converted = payload;
         if (ReferenceEquals(payload.Type, destination) || payload.Type.Equals(destination))
@@ -953,48 +1010,55 @@ public sealed partial class RuntimeExpressionEvaluator
             return true;
         }
 
-        if (ScalarKinds.Of(payload.Type) is not { } from || ScalarKinds.Of(destination) is not { } to
-            || PayloadOperations.Convert(from, payload.Integral, payload.Floating, to, out var integral, out var floating) is not PayloadStatus.Ok)
+        if (payload.Kind is not { } from || to is not { } kind
+            || PayloadOperations.Convert(from, payload.Integral, payload.Floating, kind, out var integral, out var floating) is not PayloadStatus.Ok)
         {
             return false;
         }
 
-        converted = ScalarKinds.IsIntegral(to) ? new ScalarPayload(destination, integral, 0) : new ScalarPayload(destination, 0, floating);
+        converted = ScalarKinds.IsIntegral(kind) ? new ScalarPayload(destination, integral, 0) : new ScalarPayload(destination, 0, floating);
         return true;
+    }
+
+    // the arithmetic operation of a token (TryOperate below); the operation of any other is not done on payloads.
+    private static bool TryOperate(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    {
+        result = default;
+        return VariantOperators.Of(token) is { } @operator && TryOperate(@operator, effective, ScalarKinds.Of(effective), l, r, out result);
     }
 
     // MS-VBAL §5.6.9.3: the operators on their effective type, as the boxed evaluation does them (checked, in the type's own width); a result that does not
     // fit, a division by zero and a result that is not finite are errors, which the boxed evaluation raises. The integral ones are PayloadOperations', which
-    // compiled code calls too.
-    private static bool TryOperate(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    // compiled code calls too. A comparison or a logical operator is none of these.
+    private static bool TryOperate(VariantOperator @operator, VBType effective, ScalarKind? kind, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
-        if (ScalarKinds.Of(effective) is { } kind && kind is not ScalarKind.Boolean && ScalarKinds.IsIntegral(kind))
+        if (kind is { } integral && integral is not ScalarKind.Boolean && ScalarKinds.IsIntegral(integral))
         {
-            if (OperatorTokens.OperateIntegral(token, kind, l.Integral, r.Integral, out var integral) is not PayloadStatus.Ok)
+            if (OperatorTokens.OperateIntegral(@operator, integral, l.Integral, r.Integral, out var value) is not PayloadStatus.Ok)
             {
                 return false;
             }
 
-            result = new ScalarPayload(effective, integral, 0);
+            result = new ScalarPayload(effective, value, 0);
             return true;
         }
 
         try
         {
-            return (effective, token) switch
+            return (kind, @operator) switch
             {
                 // a Date operation is evaluated in Double (OperationPlan.OperandDestination), and is a Date when it is a date's serial.
-                (VBDateType, Tokens.AdditionOp) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
-                (VBDateType, Tokens.SubtractionOp) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
-                (VBSingleType, Tokens.AdditionOp) => ScalarPayload.TryFloating(effective, (float)l.Floating + (float)r.Floating, out result),
-                (VBSingleType, Tokens.SubtractionOp) => ScalarPayload.TryFloating(effective, (float)l.Floating - (float)r.Floating, out result),
-                (VBSingleType, Tokens.MultiplicationOp) => ScalarPayload.TryFloating(effective, (float)l.Floating * (float)r.Floating, out result),
-                (VBSingleType, Tokens.DivisionOp) when r.Floating != 0 => ScalarPayload.TryFloating(effective, (float)l.Floating / (float)r.Floating, out result),
-                (VBDoubleType, Tokens.AdditionOp) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
-                (VBDoubleType, Tokens.SubtractionOp) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
-                (VBDoubleType, Tokens.MultiplicationOp) => ScalarPayload.TryFloating(effective, l.Floating * r.Floating, out result),
-                (VBDoubleType, Tokens.DivisionOp) when r.Floating != 0 => ScalarPayload.TryFloating(effective, l.Floating / r.Floating, out result),
+                (ScalarKind.Date, VariantOperator.Add) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
+                (ScalarKind.Date, VariantOperator.Subtract) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Add) => ScalarPayload.TryFloating(effective, (float)l.Floating + (float)r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Subtract) => ScalarPayload.TryFloating(effective, (float)l.Floating - (float)r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Multiply) => ScalarPayload.TryFloating(effective, (float)l.Floating * (float)r.Floating, out result),
+                (ScalarKind.Single, VariantOperator.Divide) when r.Floating != 0 => ScalarPayload.TryFloating(effective, (float)l.Floating / (float)r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Add) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Subtract) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Multiply) => ScalarPayload.TryFloating(effective, l.Floating * r.Floating, out result),
+                (ScalarKind.Double, VariantOperator.Divide) when r.Floating != 0 => ScalarPayload.TryFloating(effective, l.Floating / r.Floating, out result),
                 _ => false,
             };
         }
@@ -1004,13 +1068,11 @@ public sealed partial class RuntimeExpressionEvaluator
         }
     }
 
-    // §5.6.9.8: the bits of the operands, in the effective type - a Boolean's -1 or 0 giving -1 or 0 - which no operation takes out of its range. Apart from
-    // the arithmetic operators, which would otherwise test these tokens too.
-    private static bool TryLogical(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    // §5.6.9.8: the bits of the operands, in the effective type (a Boolean's -1 or 0 giving -1 or 0), which no operation takes out of its range.
+    private static bool TryLogical(LogicalOperator @operator, VBType effective, ScalarKind? kind, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
-        if (!l.IsIntegral || OperatorTokens.LogicalOf(token) is not { } @operator || ScalarKinds.Of(effective) is not { } kind
-            || PayloadOperations.Logical(@operator, kind, l.Integral, r.Integral, out var bits) is not PayloadStatus.Ok)
+        if (!l.IsIntegral || kind is not { } of || PayloadOperations.Logical(@operator, of, l.Integral, r.Integral, out var bits) is not PayloadStatus.Ok)
         {
             return false;
         }
@@ -1019,16 +1081,17 @@ public sealed partial class RuntimeExpressionEvaluator
         return true;
     }
 
-    // MS-VBAL §5.6.9.5: a comparison of two operands of its effective type, which they were let-coerced to, is a Boolean - the payloads are finite, so any
-    // two compare.
+    // the comparison of a token (TryCompare below); any other token is none.
     private static bool TryCompare(string token, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
-        if (OperatorTokens.ComparisonOf(token) is not { } comparison)
-        {
-            return false;
-        }
+        return OperatorTokens.ComparisonOf(token) is { } comparison && TryCompare(comparison, l, r, out result);
+    }
 
+    // MS-VBAL §5.6.9.5: a comparison of two operands of its effective type, which they were let-coerced to, is a Boolean: the payloads are finite, so any
+    // two compare.
+    private static bool TryCompare(ComparisonOperator comparison, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
+    {
         result = ScalarPayload.OfBoolean(l.IsIntegral ? PayloadOperations.Compare(comparison, l.Integral, r.Integral) : PayloadOperations.Compare(comparison, l.Floating, r.Floating));
         return true;
     }
