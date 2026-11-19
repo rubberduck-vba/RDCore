@@ -32,11 +32,11 @@ internal static class CodeActionFixture
             : throw new NotSupportedException($"an analyzer takes a {parameter.ParameterType}, which the fixture does not make");
 
     /// <summary>
-    /// What every analyzer finds in the <c>Program</c> standard module whose source is given.
+    /// What every analyzer finds in the <c>Program</c> standard module whose source is given, in a workspace with the given class modules (none when omitted).
     /// </summary>
-    public static async Task<AnalyzerFinding[]> FindingsOfAsync(string program)
+    public static async Task<AnalyzerFinding[]> FindingsOfAsync(string program, IReadOnlyList<(string Name, string Source)>? classes = null)
     {
-        var payload = await ModuleWorkspace.SemanticsAsync([], program);
+        var payload = await ModuleWorkspace.SemanticsAsync(classes ?? [], program);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
         var context = new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model);
@@ -46,12 +46,14 @@ internal static class CodeActionFixture
     /// <summary>
     /// The fix of the first finding of the code in the module of <paramref name="before"/>, made: the module is <paramref name="after"/>, and analyzed
     /// again, that finding is gone and none is found that was not found before; it compiles if it did; and if it <paramref name="runs"/>, <c>Main</c> prints
-    /// what it printed.
+    /// what it printed. The workspace has the given class modules, none when omitted.
     /// </summary>
-    public static async Task AssertFixedAsync(RDCoreDiagnosticId code, string[] before, string[] after, bool runs = false, int finding = 0)
+    public static async Task AssertFixedAsync(
+        RDCoreDiagnosticId code, string[] before, string[] after, bool runs = false, int finding = 0,
+        IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         var program = Module(before);
-        var found = await FindingsOfAsync(program);
+        var found = await FindingsOfAsync(program, classes);
         var fixedOne = found.Where(each => each.Id == code).ElementAt(finding);
         var fix = fixedOne.Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix, $"the finding carries a fix: {fixedOne.Message}");
@@ -61,26 +63,32 @@ internal static class CodeActionFixture
 
         // a finding is new when it is not one of the others found before: the fixed one, found again, is new. A fix may make others go with it.
         var others = found.Where(each => !ReferenceEquals(each, fixedOne)).Select(Said).ToList();
-        var appeared = (await FindingsOfAsync(fixedProgram)).Select(Said).Where(each => !others.Remove(each)).ToArray();
+        var appeared = (await FindingsOfAsync(fixedProgram, classes)).Select(Said).Where(each => !others.Remove(each)).ToArray();
         Assert.IsEmpty(appeared, $"the finding is gone, and nothing new is found: {string.Join(" | ", appeared)}");
 
-        if ((await ModuleWorkspace.LoadErrorsAsync([], program)).Length == 0)
+        if ((await ModuleWorkspace.LoadErrorsAsync(classes ?? [], program)).Length == 0)
         {
-            Assert.IsEmpty(await ModuleWorkspace.LoadErrorsAsync([], fixedProgram), "it compiles, as it did");
+            Assert.IsEmpty(await ModuleWorkspace.LoadErrorsAsync(classes ?? [], fixedProgram), "it compiles, as it did");
         }
 
         if (runs)
         {
-            CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "it does what it did");
+            CollectionAssert.AreEqual(
+                await ModuleWorkspace.RunAsync(classes ?? [], program), await ModuleWorkspace.RunAsync(classes ?? [], fixedProgram), "it does what it did");
         }
     }
 
     /// <summary>
     /// That no finding of the code in the module of the lines carries a fix.
     /// </summary>
-    public static async Task AssertNoFixAsync(RDCoreDiagnosticId code, params string[] lines)
+    public static Task AssertNoFixAsync(RDCoreDiagnosticId code, params string[] lines) => AssertNoFixAsync(code, [], lines);
+
+    /// <summary>
+    /// That no finding of the code in the module of the lines, in a workspace with the given class modules, carries a fix.
+    /// </summary>
+    public static async Task AssertNoFixAsync(RDCoreDiagnosticId code, IReadOnlyList<(string Name, string Source)> classes, params string[] lines)
     {
-        var found = (await FindingsOfAsync(Module(lines))).Where(each => each.Id == code).ToArray();
+        var found = (await FindingsOfAsync(Module(lines), classes)).Where(each => each.Id == code).ToArray();
         Assert.IsNotEmpty(found, "the code is found");
         Assert.IsTrue(found.All(each => each.Fixes?.Edits.SingleOrDefault()is null), "and offers no fix");
     }
