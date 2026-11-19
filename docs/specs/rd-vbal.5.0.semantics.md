@@ -243,15 +243,18 @@ could use it, and the language core makes it only when it can vouch for all of t
 expressions that read it, write to it, and pass it as an argument that may be taken by reference) are stated when both hold,
 and are `null` otherwise, which says the references are not known, and not that there are none:
 
-1. Nothing outside the code analyzed can refer to it: a local, a parameter, or a variable that is not `Public` or `Friend`. A
-   procedure, a property and an event are also called through what they are bound to (an event handler, a member that
-   implements an interface) or by name at run time, and a constant is referred to by the expressions of declarations (the bounds of an
-   array, the value of another constant), which are not evaluated as those of a procedure are: none of them has references yet.
+1. Nothing outside the code analyzed can refer to it: a local, a parameter, or a variable or a constant that is not `Public`,
+   `Global` or `Friend`. A procedure, a property and an event are also called through what they are bound to (an event handler,
+   a member that implements an interface) or by name at run time: they have no references, except a `Private` procedure named
+   as the handler of an event of a control that it does not match (`DeclarationRole.UnmatchedEventHandler`), which only the
+   form's own code can call.
 2. The code that could refer to it was analyzed completely (`ProcedureSemanticModel.IsFullyAnalyzed`): the procedure has no
    error, and the body was looked at again, apart from the pass, for each place a name is written that refers to something,
-   and every one has a fact. For a local or a parameter that is its procedure; for a variable of the module, every procedure
-   that names it. A procedure refers to a variable by writing its name (**MS-VBAL §5.6.10**): one that was not analyzed
-   completely, and that writes the variable's name nowhere, not even in what the parser could not read, does not refer to it.
+   and every one has a fact. For a local or a parameter that is its procedure; for a variable or a constant of the module,
+   every procedure that names it. A procedure refers to a variable or a constant by writing its name (**MS-VBAL §5.6.10**):
+   one that was not analyzed completely, and that writes the name nowhere, not even in what the parser could not read, does
+   not refer to it. A constant of the module is also referred to by the expressions of the module's declarations (the bounds
+   of an array, the value of another constant, the default of a parameter), and every one of them was analyzed with no error.
 
 An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its
 to say.
