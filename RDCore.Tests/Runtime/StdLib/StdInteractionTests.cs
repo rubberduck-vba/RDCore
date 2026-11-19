@@ -608,9 +608,18 @@ public sealed class StdInteractionTests
 
     // ---- MacScript ----
 
+    // as MS-VBA on Windows (recorded in Excel 64-bit): there is no AppleScript to run a script, whatever it is.
     [TestMethod]
-    public void MacScript_IsNotImplemented_AndSaysSo()
-        => StringAssert.Contains(Fail("Debug.Print MacScript(\"tell application \"\"Finder\"\" to activate\")").Verbose, "MacScript");
+    [DataRow("Debug.Print MacScript(\"tell application \"\"Finder\"\" to activate\")", DisplayName = "a script")]
+    [DataRow("Debug.Print MacScript(\"\")", DisplayName = "no script")]
+    [DataRow("x = MacScript(\"return 1\")", DisplayName = "assigned")]
+    public void MacScript_IsError5(string statement)
+    {
+        var error = Fail(statement);
+
+        Assert.AreEqual(5, error.Number);
+        StringAssert.Contains(error.Verbose, "MacScript");
+    }
 
     // ---- what the declaration says ----
 

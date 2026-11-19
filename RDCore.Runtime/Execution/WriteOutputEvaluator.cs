@@ -49,8 +49,9 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
         IRuntimeSession session, RuntimeEvaluationContext context,
         ImmutableArray<PrintOutputItemNode> items, IRuntimeOutput output)
     {
-        foreach (var item in items)
+        for (var index = 0; index < items.Length; index++)
         {
+            var item = items[index];
             if (item.Value is not null)
             {
                 var evaluated = Expressions.Evaluate(session, item.Value, context);
@@ -61,7 +62,7 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                         : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
                 }
 
-                // an object is written as what it stands for, as Print # prints it: let-coerced to a String, and quoted as one (MS-VBA, oracle\s28 D02, D04).
+                // an object is written as what it stands for, as Print # prints it: let-coerced to a String, and quoted as one (observed in MS-VBA).
                 var written = evaluated.Result!;
                 if (Unwrapped(written) is VBObjectValue)
                 {
@@ -89,6 +90,13 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                 }
 
                 output.Write(OutputString(written));
+
+                // a value the next value follows with nothing between them (`Write #1, 1 2`) is followed by a comma all the same: a missing
+                // <char-position> is an implicit ';', and every value but the last of the record has its comma.
+                if (item.Separator is null && index + 1 < items.Length && items[index + 1].Value is not null)
+                {
+                    output.Write(",");
+                }
             }
 
             // a char-position between two values is an <output-item> of its own (the grammar's `outputItem :

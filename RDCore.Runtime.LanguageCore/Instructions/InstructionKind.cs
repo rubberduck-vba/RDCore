@@ -139,7 +139,7 @@ public enum InstructionKind
     /// <c>On Error GoTo</c> &lt;label&gt; (<strong>MS-VBAL §5.4.4.1</strong>): sets the activation's
     /// error-handling policy to branch to <see cref="Instruction.Target"/> on the next error. Always
     /// falls through — the branch only happens later, when (if) an error is actually raised. Inside an active handler, it sets only the policy the
-    /// activation has once the handler is over: a second error raised in the handler still goes to the caller (MS-VBA, Excel-verified, oracle\s53).
+    /// activation has once the handler is over: a second error raised in the handler still goes to the caller (MS-VBA, observed in Excel).
     /// </summary>
     OnErrorGoTo,
 
@@ -151,7 +151,7 @@ public enum InstructionKind
 
     /// <summary>
     /// <c>On Error GoTo -1</c>, which MS-VBAL does not specify and MS-VBA compiles: ends the error the activation's handler is handling, and keeps the
-    /// error-handling policy - an <c>On Error GoTo</c> label is the handler of the next error again (MS-VBA, Excel-verified, oracle\s53 A05, C04). Always falls
+    /// error-handling policy - an <c>On Error GoTo</c> label is the handler of the next error again (MS-VBA, observed in Excel). Always falls
     /// through.
     /// </summary>
     OnErrorReset,

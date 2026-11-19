@@ -1,4 +1,5 @@
 using CommandLine;
+using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
 using RDCore.CLI.ConsoleIO;
@@ -9,6 +10,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
 using System.IO.Abstractions;
 using System.Reflection;
@@ -37,7 +39,7 @@ internal sealed class BuildCommandOptions
 // rdc build [path]: the workspace loaded as rdc bench loads it, each procedure compiled as its first call would compile it, and the load itself kept in the
 // assembly, which the program replays when it runs: a built program runs with no parser.
 internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner,
-    ProgramOutput? output = null, Func<string, string?>? hosts = null) : ICliCommand
+    ProgramOutput? output = null, Func<string, string?>? hosts = null, IOptions<AppOptions>? settings = null) : ICliCommand
 {
     private ProgramOutput Output => output ?? new ProgramOutput(fileSystem, AppContext.BaseDirectory);
 
@@ -101,7 +103,8 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
 
         builder.DefineEntryPoint(typeof(BuiltProgram).GetMethod(nameof(BuiltProgram.Run))!);
         var image = new BuiltProgramImage(workspace.Project, workspace.RootUri, BuiltEnvironment.Of(built.Environment), entryPoint.Module,
-            entryPoint.Procedure.Name, built.Definitions, [.. workspace.Modules.Select(module => new BuiltModule(module.RelativePath, module.Name, module.Type))]);
+            entryPoint.Procedure.Name, built.Definitions, [.. workspace.Modules.Select(module => new BuiltModule(module.RelativePath, module.Name, module.Type))],
+            NativeDialogs: ProgramDialogs.WantsNative(workspace.Project.Build, settings?.Value.NativeDialogs ?? false));
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));
 
         using var assembly = new MemoryStream();
@@ -109,7 +112,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         builder.Save(assembly, pdb, $"{name}.pdb");
         var folder = options.Output ?? fileSystem.Path.Combine(workspace.Root, "bin", options.Configuration.ToString(), runtime);
         var (executable, lacking) = Output.Write(folder, name, assembly.ToArray(), pdb.ToArray(), (hosts ?? (rid => AppHost.Find(rid)))(runtime), runtime,
-            built.Libraries);
+            built.Libraries, hostsForms: built.Provider.Image.Forms.Values.Any(form => form.Kind == FormDesignerKind.VisualBasic6));
 
         if (executable is null)
         {

@@ -41,12 +41,17 @@ internal sealed partial class ProcedureAnalysis
     }
 
     /// <summary>
-    /// Whether <paramref name="step"/> calls a function or a <c>Property Get</c> that returns an object (<see cref="ObjectCallNode"/>): the statement is begun
-    /// before its first call, and ended once it is over (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>).
+    /// Whether <paramref name="step"/> calls a function or a <c>Property Get</c> that returns an object (<see cref="ObjectCallNode"/>), or a function that
+    /// returns a String or a Variant given to the standard library (<see cref="CallValueNode"/>), or makes an object (<see cref="NewNode"/>): the statement
+    /// is begun before its first call, and ended once it is over (<see cref="CompiledActivation.BeginStatement"/>,
+    /// <see cref="CompiledActivation.EndStatement"/>).
     /// </summary>
     /// <param name="step">The step.</param>
     internal static bool CallsForAnObject(CompiledStep step)
-        => step is CallStep { ReceiverCall: not null } or SetStep { SourceCall: not null } || PayloadsOf(step).SelectMany(Within).Any(node => ReceiverCallsOf(node).Any());
+        => step is CallStep { ReceiverCall: not null } or SetStep { SourceCall: not null } or SetStep { SourceNew: not null }
+            or WithStep { SourceCall: not null } or WithStep { SourceNew: not null }
+        || PayloadsOf(step).SelectMany(Within).Any(node => ReceiverCallsOf(node).Any())
+        || ValueCallsOf(step).Any();
 
     // the calls that return an object a member is called on, or read of, the outermost first: each one's receiver is the next.
     private static IEnumerable<ObjectCallNode> ObjectCallsOf(ObjectCallNode? call)

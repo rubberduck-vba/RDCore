@@ -9,6 +9,7 @@ using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Tests.Cli;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class DescribeExtensionCommandTests
 {

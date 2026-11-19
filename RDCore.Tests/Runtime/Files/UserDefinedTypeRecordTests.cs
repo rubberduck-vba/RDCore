@@ -25,6 +25,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// order. Nothing pads between them, which is what makes <c>Len</c> of a UDT "the size as it will be written
 /// to the file" and not the in-memory size <c>LenB</c> reports.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.11 Put")]
 [TestCategory("MS-VBAL 5.4.5.12 Get")]

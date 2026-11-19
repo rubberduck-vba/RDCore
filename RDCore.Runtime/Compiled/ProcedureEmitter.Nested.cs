@@ -13,7 +13,7 @@ internal sealed partial class ProcedureEmitter
     private readonly List<KnownLocal> _known = [];
     private readonly List<(Label Label, KnownLocal[] Known, Label Failure)> _knownFailures = [];
 
-    // a payload of its kind, or the object a call returned (IsObject: CompiledActivation.KnowObject).
+    // a payload of its kind, or the object or the String a call returned (IsObject: CompiledActivation.KnowObject).
     private sealed record class KnownLocal(int Syntax, ScalarKind Kind, LocalBuilder Local, bool IsObject = false);
 
     private void BeginKnowing(int offset)
@@ -103,6 +103,46 @@ internal sealed partial class ProcedureEmitter
         _known.Add(new KnownLocal(node.Syntax, node.Kind, returned));
         EmitAfterNestedCall(offset);
         return new Operand(returned, 0, 0);
+    }
+
+    // the call, then the text of the String it returned into text (CompiledActivation.TakeReturnedText). The String is known as an object a call returned is,
+    // and so is given to the interpreter as it is: one whose text compiled code does not read is the interpreter's to go on with.
+    private void EmitTextCall(TextCallNode node, LocalBuilder text, Label failure)
+    {
+        var offset = _knowingAt;
+        _ = EmitCallOf(new CallStep(offset, node.Callee, node.Arguments, CallStep.NoResult, node.Receiver)
+        {
+            WithAt = node.WithAt, ReceiverField = node.ReceiverField, ReceiverCall = node.ReceiverCall,
+        }, failure);
+        var returned = _il.DeclareLocal(typeof(object));
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldloca, returned);
+        _il.Emit(OpCodes.Ldloca, text);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TakeReturnedText))!);
+        _called = true;
+        _known.Add(new KnownLocal(node.Syntax, default, returned, IsObject: true));
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
+        EmitAfterNestedCall(offset);
+    }
+
+    // the call, then the payload of what it returned of the Variant type into result (CompiledActivation.TakeReturnedPayload). The value is known as an
+    // object a call returned is, and so is given to the interpreter as it is: one of no scalar type is the interpreter's to go on with.
+    private void EmitVariantCall(CallValueNode node, LocalBuilder result, Label failure)
+    {
+        var offset = _knowingAt;
+        _ = EmitCallOf(new CallStep(offset, node.Callee, node.Arguments, CallStep.NoResult, node.Receiver)
+        {
+            WithAt = node.WithAt, ReceiverField = node.ReceiverField, ReceiverCall = node.ReceiverCall,
+        }, failure);
+        var returned = _il.DeclareLocal(typeof(object));
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldloca, returned);
+        _il.Emit(OpCodes.Ldloca, result);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TakeReturnedPayload))!);
+        _called = true;
+        _known.Add(new KnownLocal(node.Syntax, default, returned, IsObject: true));
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
+        EmitAfterNestedCall(offset);
     }
 
     // after a call inside an expression: the activation handed to the interpreter in the middle of the instruction, what was evaluated of it known, when

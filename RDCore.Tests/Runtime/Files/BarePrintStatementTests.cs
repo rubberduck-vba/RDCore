@@ -11,6 +11,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// In VB6 it is the <c>Print</c> member of the form or report it is written in. Nothing here is one, so it is what an interactive shell
 /// - which has no form - writes its output with, and what a <c>BASIC</c> program is written with.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class BarePrintStatementTests
 {

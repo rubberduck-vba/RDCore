@@ -14,9 +14,11 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
+using LspModels = OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace RDCore.Tests.LanguageServer;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceLoaderTests
 {
@@ -87,7 +89,7 @@ public sealed class WorkspaceLoaderTests
         Assert.AreEqual("src/Mod1.bas", sut.Project.ProjectInfo.Modules[0].RelativeUri);
     }
 
-    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path (HexIDE's findings desk #26).
+    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path.
     [TestMethod]
     public async Task ProjectFileService_LoadAsync_ProjectFileThatIsNotJson_SaysWhereItIsNot()
     {
@@ -150,7 +152,7 @@ public sealed class WorkspaceLoaderTests
         Assert.IsInstanceOfType<LoadedDocumentState>(documentStates.GetCurrentState(loaded[0].Id));
     }
 
-    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
+    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed.
     [TestMethod]
     public async Task WorkspaceService_LoadAsync_LoadsTheOtherFiles_AndGivesThemToNoneThatReadsCode()
     {
@@ -163,7 +165,7 @@ public sealed class WorkspaceLoaderTests
             }))),
             [Path.Combine(Root, "src", "Mod1.bas")] = new MockFileData("Public Sub Foo()\r\nEnd Sub"),
             [Path.Combine(Root, "res", "App.res")] = new MockFileData([0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0xFF, 0xFF]),
-            [Path.Combine(Root, "README.md")] = new MockFileData("# Battleship"),
+            [Path.Combine(Root, "README.md")] = new MockFileData("# NavalBattle"),
         });
         var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
         var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
@@ -178,9 +180,12 @@ public sealed class WorkspaceLoaderTests
     }
 
     // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
-    // 0.1 platform refused as a later platform's (desk card version-010-refuses-100). What is not this platform's format is said in the log, and only there.
+    // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and to the client: an older format as
+    // information, and a newer one, or no format's version, as a warning.
     [TestMethod]
-    [DataRow("\"1.1\"", null, DisplayName = "1.1, this platform's format")]
+    [DataRow("\"1.3\"", null, DisplayName = "1.3, this platform's format")]
+    [DataRow("\"1.2\"", LogLevel.Information, DisplayName = "1.2, the format before references to projects: an older one")]
+    [DataRow("\"1.1\"", LogLevel.Information, DisplayName = "1.1, the format before KeepSystemTheme: an older one")]
     [DataRow("\"1.0.0\"", LogLevel.Information, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0, an older one")]
     [DataRow("\"1.0\"", LogLevel.Information, DisplayName = "1.0, the format before the build section")]
     [DataRow("\"0.1.3\"", LogLevel.Information, DisplayName = "0.1.3, as the next builds stamped it: an older format")]
@@ -206,6 +211,76 @@ public sealed class WorkspaceLoaderTests
         Assert.ContainsSingle(documents.GetAllDocuments(), "the project's module is loaded");
         var said = logger.Entries.Where(entry => entry.Message.Contains("format", StringComparison.Ordinal)).Select(entry => entry.Level).ToArray();
         CollectionAssert.AreEqual(logged is { } level ? new[] { level } : Array.Empty<LogLevel>(), said);
+        Assert.AreEqual(logged switch
+        {
+            null => (LspModels.MessageType?)null,
+            LogLevel.Information => LspModels.MessageType.Info,
+            _ => LspModels.MessageType.Warning,
+        }, sut.FormatNote?.Type);
+        if (logged is not null)
+        {
+            StringAssert.Contains(sut.FormatNote!.Message, ProjectFile.SchemaVersion);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("en", "The project file is in the format 1.0, older than this platform's ")]
+    [DataRow("fr", "Le fichier de projet est au format 1.0, plus ancien que le format ")]
+    public async Task WorkspaceService_LoadAsync_AProjectFileInAnotherFormat_IsSaidInTheUsersLanguage(string culture, string said)
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData("""{ "Version": "1.0", "ProjectInfo": { "Name": "Written", "Modules": [] } }"""),
+        });
+        var sut = WorkspaceService(fs);
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+        try
+        {
+            await sut.LoadAsync(Root);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+
+        StringAssert.StartsWith(sut.FormatNote?.Message, said);
+    }
+
+    // the note goes over the wire before initialize is answered, as window/logMessage, as the language server sends it once it has loaded the
+    // workspace.
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task AProjectFileInAnotherFormat_IsSaidToTheClient_DuringInitialize()
+    {
+        using var timeout = new CancellationTokenSource(SafetyCap);
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData("""{ "Version": "2.0", "ProjectInfo": { "Name": "Written", "Modules": [] } }"""),
+        });
+        var sut = WorkspaceService(fs);
+        var toServer = new System.IO.Pipelines.Pipe();
+        var toClient = new System.IO.Pipelines.Pipe();
+        var told = new TaskCompletionSource<LspModels.LogMessageParams>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serving = OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
+            .WithInput(toServer.Reader).WithOutput(toClient.Writer)
+            .OnInitialize(async (server, request, token) =>
+            {
+                await sut.LoadAsync(Root, [Root], ask: null, token);
+                RDCore.LanguageServer.CoreLanguageServerApp.TellFormatOf(server, sut);
+            }), timeout.Token);
+        var connecting = OmniSharp.Extensions.LanguageServer.Client.LanguageClient.From(client => client
+            .WithInput(toClient.Reader).WithOutput(toServer.Writer)
+            .OnLogMessage(message => told.TrySetResult(message)), timeout.Token);
+
+        await Task.WhenAll(serving, connecting).WaitAsync(SafetyCap);
+        using var server = await serving;
+        using var client = await connecting;
+
+        // not a timing: a note the client is never sent fails the test here.
+        var note = await told.Task.WaitAsync(SafetyCap);
+        Assert.AreEqual(LspModels.MessageType.Warning, note.Type);
+        StringAssert.Contains(note.Message, "2.0");
     }
 
     private const string Unreadable = "{ \"Version\": \"1.0\", \"ProjectInfo\": { \"Name\": \"Broken\", \"Modules\": 5 } }";
@@ -447,6 +522,7 @@ public sealed class WorkspaceLoaderTests
             Substitute.For<RDCore.SDK.Server.Configuration.ILiveSettings>(),
             Microsoft.Extensions.Options.Options.Create(new RDCore.CLI.AppOptions()),
             new RDCore.CLI.App.Repl.ReplServerQuestions(keys),
+            new RDCore.CLI.App.Repl.ReplSessionStops(),
             NullLogger<RDCore.CLI.RDCoreConsoleClientApp>.Instance);
         var platform = Substitute.For<RDCore.SDK.Platform.IPlatformCompositionService>();
         platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });
@@ -499,7 +575,7 @@ public sealed class WorkspaceLoaderTests
         // the server goes on to run, as the language server does after a load that failed.
         var running = Substitute.For<IServerStateProvider>();
         running.State.Returns(ServerState.Running);
-        var reload = new WorkspaceReloadService(running, projectFiles, documents, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
+        var reload = new WorkspaceReloadService(running, projectFiles, documents, sut, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
             Substitute.For<RDCore.LanguageServer.Symbols.ISymbolSyncService>(), Substitute.For<RDCore.LanguageServer.IPlatformOrchestrationService>(), fs.Path,
             Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
 
@@ -672,7 +748,7 @@ public sealed class WorkspaceLoaderTests
             await pipe.WaitForConnectionAsync();
             Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
                 .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
-                .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
+                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
                 .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
                 .OnInitialize((server, request, token) => initialize(server, request, token))
                 .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>

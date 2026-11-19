@@ -1,5 +1,5 @@
 {
-  "formatVersion": 3,
+  "formatVersion": 4,
   "name": "stdole",
   "description": "OLE Automation",
   "origin": {
@@ -617,6 +617,7 @@
       "progId": "StdPicture",
       "isCreatable": true,
       "defaultInterface": "Picture",
+      "typeName": "Picture",
       "members": [
         {
           "name": "Render",

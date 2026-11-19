@@ -37,8 +37,7 @@ public static partial class ValueConversions
         // its data - a trailing byte included - and a copy of vbNullString is vbNullString.
         VBStringValue text => ValueConversionResult.Success(new VBStringValue(new ValueBindingHandle(text.RuntimeValue))),
 
-        VBNumericTypedValue number => ValueConversionResult.Success(new VBStringValue(NumberToText(number,
-            regional?.DecimalSymbol ?? (culture ?? CultureInfo.InvariantCulture).NumberFormat.NumberDecimalSeparator))),
+        VBNumericTypedValue number => ValueConversionResult.Success(new VBStringValue(NumberToText(number, DecimalSymbolOf(culture, regional)))),
 
         VBBooleanValue boolean => ValueConversionResult.Success(new VBStringValue((bool)boolean.Value ? Tokens.True : Tokens.False)),
 
@@ -117,7 +116,27 @@ public static partial class ValueConversions
         // BoxedValue's CLR type tracks the source's own numeric type (int for Long, short for
         // Integer, ...), not always double — a direct (double) unboxing cast throws for anything
         // that isn't already a boxed double. AsDouble widens through Convert.ToDouble instead.
-        var numericValue = value.AsDouble;
+        return FloatingToText(value.AsDouble, value is VBSingleValue, decimalSymbol);
+    }
+
+    /// <summary>
+    /// The decimal symbol a number is written in (<see cref="ToText"/>): the one of <paramref name="regional"/>, or else of <paramref name="culture"/>, or
+    /// else of the invariant culture.
+    /// </summary>
+    /// <param name="culture">The culture of the session's environment, if any.</param>
+    /// <param name="regional">The regional settings of the session's environment, if any.</param>
+    internal static string DecimalSymbolOf(CultureInfo? culture, RegionalSettings? regional)
+        => regional?.DecimalSymbol ?? (culture ?? CultureInfo.InvariantCulture).NumberFormat.NumberDecimalSeparator;
+
+    /// <summary>
+    /// A <c>Single</c> or a <c>Double</c> let-coerced to <c>String</c> (<strong>MS-VBAL §5.5.1.2.4</strong>), as <see cref="ToText"/> writes it: at most 7
+    /// significant digits of a <c>Single</c> and 15 of a <c>Double</c>, in scientific notation past them, with <paramref name="decimalSymbol"/>.
+    /// </summary>
+    /// <param name="numericValue">The value; a <c>Single</c> is held as a <see cref="double"/>.</param>
+    /// <param name="isSingle">Whether the value is a <c>Single</c>.</param>
+    /// <param name="decimalSymbol">The decimal symbol (<see cref="DecimalSymbolOf"/>).</param>
+    internal static string FloatingToText(double numericValue, bool isSingle, string decimalSymbol)
+    {
         if (numericValue == 0)
         {
             // a floating-point zero has a sign, and MS-VBA shows it: CStr(Round(-0.5)) is "-0".
@@ -134,7 +153,7 @@ public static partial class ValueConversions
             return VBStringValue.NegativeInfinity;
         }
 
-        // MS-VBA shows the sign of a NaN: the one an invalid operation makes is negative, and Abs clears it (recorded in Excel, grid oracle\s16 H06).
+        // MS-VBA shows the sign of a NaN: the one an invalid operation makes is negative, and Abs clears it (observed in Excel).
         if (double.IsNaN(numericValue))
         {
             return double.IsNegative(numericValue) ? VBStringValue.NaN : VBStringValue.PositiveNaN;
@@ -150,7 +169,7 @@ public static partial class ValueConversions
         // scientific notation first (which would otherwise hide the decimal separator this method used
         // to gate on, undercounting whole-number values entirely).
         var integerPartDigitCount = absoluteValue < 1 ? 1 : absoluteValue.ToString("F0", CultureInfo.InvariantCulture).Length;
-        var significantIntegerDigits = value is VBSingleValue
+        var significantIntegerDigits = isSingle
             ? VBSingleType.SignificantIntegerDigits
             : VBDoubleType.SignificantIntegerDigits;
 
@@ -160,7 +179,7 @@ public static partial class ValueConversions
     }
 
     // a Currency or a Decimal is every digit it has, with trailing zeros removed: MS-VBA prints 922337203685477.5807 and 0.1234567890123456789 whole
-    // (recorded in Excel, through CStr, &, Str and Format alike), where MS-VBAL 5.5.1.2.4 caps any number at 15 digits - RD-VBA is MS-VBA (author's ruling).
+    // (observed in Excel, through CStr, &, Str and Format alike), where MS-VBAL 5.5.1.2.4 caps any number at 15 digits - RD-VBA is MS-VBA.
     private static string FixedPointToText(decimal value, string decimalSeparator)
     {
         if (value == 0)

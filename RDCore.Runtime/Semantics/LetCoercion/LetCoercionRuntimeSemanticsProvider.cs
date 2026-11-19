@@ -162,6 +162,13 @@ public class LetCoercionRuntimeSemanticsProvider(
             frame = frame with { DestinationTypeDesc = new VBTypeDescValue(VBLongType.TypeInfo) };
         }
 
+        // MS-VBAL §5.5.1.2.13: a value other than an object, let-coerced to a class, is let-coerced as to Object (Coerce), and is analyzed as that coercion.
+        if (frame.DestinationTypeDesc.Target is VBClassType
+            && ConversionPlanner.ForValue(ValueTypeOf(Unwrapped(frame.SourceValue)), frame.DestinationTypeDesc.Target).Destination is VBObjectType)
+        {
+            frame = frame with { DestinationTypeDesc = new VBTypeDescValue(VBObjectType.TypeInfo) };
+        }
+
         var coercionResult = LetCoercionResult.NotApplicable(frame);
         var context = new LetCoercionAnalysisContext(expression.Identity, coercionResult, 0);
 

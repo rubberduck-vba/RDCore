@@ -36,11 +36,39 @@ public interface IStdGlobalClass
     /// </summary>
     /// <remarks>
     /// A UserForm is asked first (<c>QueryClose</c>, with <c>vbFormCode</c>), and stays loaded when it cancels; otherwise its <c>Terminate</c> runs, its window is
-    /// destroyed, and a default instance is let go of, so that the next reference to it loads another (Excel-measured, <c>oracle\s41</c>).
+    /// destroyed, and a default instance is let go of, so that the next reference to it loads another (observed in Excel).
     /// </remarks>
     /// <param name="object">The form.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     public RuntimeSemanticsEvaluationResult Unload(VBObjectValue @object);
+
+    /// <summary>
+    /// <c>Load</c> of an element of a Visual Basic 6.0 control array (<c>Load mnuRecent(3)</c>): what the statement calls in place of <see cref="Load"/>, with the
+    /// array and the index, since the element does not exist before it is loaded.
+    /// </summary>
+    /// <remarks>
+    /// An RD-VBA addition, hidden, which a program cannot name. The array raises what VB6 raises: 360 for an element that is loaded already, 341 for a negative
+    /// index, 6 for one above 32767.
+    /// </remarks>
+    /// <param name="array">The control array, the element's index left out.</param>
+    /// <param name="index">The new element's index, let-coerced to <c>Integer</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember("_LoadElement", IsHidden = true)]
+    public RuntimeSemanticsEvaluationResult LoadElement(VBObjectValue array, VBIntegerValue index);
+
+    /// <summary>
+    /// <c>Unload</c> of an element of a Visual Basic 6.0 control array (<c>Unload mnuRecent(3)</c>): what the statement calls in place of <see cref="Unload"/>,
+    /// with the array and the index.
+    /// </summary>
+    /// <remarks>
+    /// An RD-VBA addition, hidden, which a program cannot name. The array raises what VB6 raises: 340 for an index no element has, 362 for an element of the
+    /// form's file.
+    /// </remarks>
+    /// <param name="array">The control array, the element's index left out.</param>
+    /// <param name="index">The element's index, let-coerced to <c>Integer</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember("_UnloadElement", IsHidden = true)]
+    public RuntimeSemanticsEvaluationResult UnloadElement(VBObjectValue array, VBIntegerValue index);
     #endregion
 
     #region Properties
@@ -49,7 +77,7 @@ public interface IStdGlobalClass
     /// </summary>
     /// <remarks>
     /// Declared <c>As Object</c>, as MS-VBA declares it: its members are late-bound, and what they are is the collection's, not any interface's a program could
-    /// name. It is the same object every time (Excel-measured, <c>oracle\s41</c> U01, U02).
+    /// name. It is the same object every time (observed in Excel).
     /// </remarks>
     [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
     public RuntimeSemanticsEvaluationResult<VBObjectValue> UserForms();
@@ -57,7 +85,7 @@ public interface IStdGlobalClass
 }
 
 /// <summary>
-/// The <c>UserForms</c> collection: the forms that are loaded, in the order they were, numbered from 0 (Excel-measured, <c>oracle\s41</c> U01-U19).
+/// The <c>UserForms</c> collection: the forms that are loaded, in the order they were, numbered from 0 (observed in Excel).
 /// </summary>
 /// <remarks>
 /// Its class is one MS-VBA names nothing - <c>TypeName(UserForms)</c> is <c>Object</c> - and nothing can declare a variable of it: it is reached late-bound, through

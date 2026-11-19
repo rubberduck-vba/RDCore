@@ -3,6 +3,8 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -25,12 +27,13 @@ public sealed partial class CompiledActivation
         => (_knowns ??= []).Add((syntax, new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating)));
 
     /// <summary>
-    /// Keeps the object a call of an instruction returned (<see cref="TakeReturnedObject"/>), for the interpreter it hands the activation to after the call,
-    /// as <see cref="Know"/> keeps a payload: the interpreter does not make the call again. The statement's temporaries hold the object until the instruction
-    /// is over.
+    /// Keeps the object a call of an instruction returned (<see cref="TakeReturnedObject"/>), or the <c>String</c> (<see cref="TakeReturnedText"/>), for the
+    /// interpreter it hands the activation to after the call, as <see cref="Know"/> keeps a payload: the interpreter does not make the call again. The
+    /// statement's temporaries hold an object until the instruction is over.
     /// </summary>
     /// <param name="syntax">Where the call is in the instruction's statement (<c>KnownOperands.IndexOf</c>).</param>
-    /// <param name="returned">The object, as <see cref="TakeReturnedObject"/> took it.</param>
+    /// <param name="returned">The object, as <see cref="TakeReturnedObject"/> took it, or the <c>String</c>, as <see cref="TakeReturnedText"/>
+    /// took it.</param>
     public void KnowObject(int syntax, object? returned)
     {
         if (returned is VBTypedValue value)
@@ -55,6 +58,59 @@ public sealed partial class CompiledActivation
         _returnedObject = null;
         cell = returned is null ? null : new ValueBindingHandle(returned.RuntimeValue);
         return returned;
+    }
+
+    // what the last call of a function or a Property Get that returns a String returned (CompiledCallee.ReturnsText).
+    private VBTypedValue? _returnedText;
+
+    /// <summary>
+    /// Takes what the call just made returned, of a function or a <c>Property Get</c> that returns a <c>String</c> (<see cref="CompiledCallee.ReturnsText"/>),
+    /// inside the text of an expression (MS-VBAL §5.6.9.4): its text, as the interpreter's call returns it.
+    /// </summary>
+    /// <param name="returned">The <c>String</c>, as the call returned it, which the interpreter is given when the statement is handed to it
+    /// (<see cref="KnowObject"/>).</param>
+    /// <param name="text">Its text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>Whether what the call returned holds a text compiled code reads; when not, the interpreter is given it, and goes on with the
+    /// statement.</returns>
+    public bool TakeReturnedText(out object? returned, out string? text)
+    {
+        var value = _returnedText;
+        _returnedText = null;
+        returned = value;
+        if (value?.RuntimeValue is VBRuntimeValue<string> held)
+        {
+            text = held.StoredValue;
+            return true;
+        }
+
+        text = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Takes what the call just made returned, of a function or a <c>Property Get</c> of the workspace that returns a <c>Variant</c>
+    /// (<see cref="CompiledCallee.ReturnsValue"/>), inside an expression compiled code evaluates on payloads (<see cref="CallValueNode"/>): the payload of the
+    /// value of a scalar type it holds, of its own subtype.
+    /// </summary>
+    /// <param name="returned">The value, as the call returned it, which the interpreter is given when the statement is handed to it
+    /// (<see cref="KnowObject"/>).</param>
+    /// <param name="value">The payload of the value; the default when it is of no scalar type.</param>
+    /// <returns>Whether what the call returned holds a value of a scalar type; when not (a <c>String</c>, <c>Empty</c>, <c>Null</c>, an object, an array),
+    /// the interpreter is given it, and goes on with the statement.</returns>
+    public bool TakeReturnedPayload(out object? returned, out VariantPayload value)
+    {
+        var held = _returnedObject;
+        _returnedObject = null;
+        returned = held;
+        value = default;
+        var inner = held is VBVariantValue { TypedValue: var wrapped } ? wrapped : held;
+        if (inner is null or VBVariantValue || !ScalarPayload.TryOf(inner.TypeInfo, inner.RuntimeValue, out var payload))
+        {
+            return false;
+        }
+
+        value = new VariantPayload(payload);
+        return true;
     }
 
     // the frame given what compiled code evaluated of the instruction at pc, which the interpreter runs from the middle (inside); nothing, when it runs the

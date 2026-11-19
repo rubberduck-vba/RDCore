@@ -10,7 +10,7 @@ using RDCore.SDK.Platform.Components;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// Error handling and <c>GoSub</c> in compiled code (IR lowering S2.4): the <c>On Error</c> statements, <c>GoSub</c> and <c>Return</c> compiled; an error
+/// Error handling and <c>GoSub</c> in compiled code: the <c>On Error</c> statements, <c>GoSub</c> and <c>Return</c> compiled; an error
 /// raised under a handler, a <c>Resume</c>, an <c>Error</c> statement, an <c>On...GoTo</c> run by the interpreter alone, and the activation gone on
 /// compiled where it was left. A program runs the same either way - what it prints, the error it raises and where, what <c>Err</c> holds after it.
 /// </summary>
@@ -89,6 +89,137 @@ public sealed class CompiledErrorHandlingTests
             "        Total = Total + D",
             "    Next",
             "End Function"), "Total", recoveries: 3);
+
+    // MS-VBAL §5.6.9.3.6: a \ or a Mod by 0 raises error 11; MS-VBAL §5.6.9.3.2, §5.6.9.3.4: a sum or a product an Integer does not hold raises error 6.
+    // Each is raised where compiled code found it, and the interpreter is given it without evaluating the statement again.
+    [TestMethod]
+    public async Task AnIntegralOperationThatFails_RaisesItsErrorFromCompiledCode()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Failing()",
+            "End Sub",
+            "Private Function Failing() As String",
+            "    On Error Resume Next",
+            "    Dim I As Long",
+            "    Dim Q As Long",
+            "    Dim N As Integer",
+            "    Dim Divisions As Long",
+            "    Dim Overflows As Long",
+            "    N = 1",
+            "    For I = 1 To 30",
+            "        Err.Clear",
+            "        Q = 100 \\ (I Mod 10)",
+            "        If Err.Number = 11 Then Divisions = Divisions + 1",
+            "        Err.Clear",
+            "        N = N * 2",
+            "        If Err.Number = 6 Then Overflows = Overflows + 1",
+            "    Next",
+            "    Failing = \"e11=\" & Divisions & \" e6=\" & Overflows & \" q=\" & Q & \" n=\" & N",
+            "End Function"), "Failing", recoveries: 19, expected: "e11=3 e6=16 q=11 n=16384");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(19, result.Body!.RaisedErrors, "Failing's errors raised from compiled code");
+        }
+    }
+
+    // MS-VBAL §5.6.9.3.5: a / by 0 raises error 11; a Single product past the range of a Single, error 6. A Single or Double variable is assigned what
+    // IEEE 754 arithmetic made of it first, an infinity, and a Long is left as it was (StatementRuntimeSemanticsProvider.AssignFloatingPointValue). The 5
+    // instructions the interpreter runs alone are the errors. Compiled code lets 3E+38 to the Single, and compares the infinity with 3E+38 as Singles, the
+    // type a Single and a Double are compared in (MS-VBAL §5.6.9.5).
+    [TestMethod]
+    public async Task AFloatingPointOperationThatFails_AssignsWhatIeeeMadeOfIt_AndRaisesItsErrorFromCompiledCode()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Floating()",
+            "End Sub",
+            "Private Function Floating() As String",
+            "    On Error Resume Next",
+            "    Dim I As Long",
+            "    Dim D As Double",
+            "    Dim S As Single",
+            "    Dim L As Long",
+            "    Dim Errors As Long",
+            "    Dim Raised As Long",
+            "    Dim Infinite As Long",
+            "    For I = 1 To 20",
+            "        Err.Clear",
+            "        D = 10 / (I Mod 10)",
+            "        If Err.Number = 11 Then Errors = Errors + 1",
+            "    Next",
+            "    Err.Clear",
+            "    D = 10 / (I - I)",
+            "    If Err.Number = 11 Then Raised = Raised + 1",
+            "    If D > 1E+308 Then Infinite = Infinite + 1",
+            "    Err.Clear",
+            "    S = 3E+38",
+            "    S = S * 10",
+            "    If Err.Number = 6 Then Raised = Raised + 1",
+            "    If S > 3E+38 Then Infinite = Infinite + 1",
+            "    Err.Clear",
+            "    L = 5",
+            "    L = L / (I - I)",
+            "    If Err.Number = 11 Then Raised = Raised + 1",
+            "    Floating = Errors & \" \" & Raised & \" \" & Infinite & \" \" & L",
+            "End Function"), "Floating", recoveries: 5, expected: "2 3 2 5");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(5, result.Body!.RaisedErrors, "Floating's errors raised from compiled code");
+        }
+    }
+
+    // a statement that calls before the operation fails: the call is made once, and the error raised where the operation is.
+    [TestMethod]
+    public async Task AnIntegralOperationThatFailsAfterACall_MakesTheCallOnce()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Private Calls As Long",
+            "Public Sub Main()",
+            "    Debug.Print Failing() & \" \" & Calls",
+            "End Sub",
+            "Private Function Counted(ByVal K As Long) As Long",
+            "    Calls = Calls + 1",
+            "    Counted = K",
+            "End Function",
+            "Private Function Failing() As Long",
+            "    On Error Resume Next",
+            "    Dim I As Long",
+            "    For I = 1 To 4",
+            "        Failing = Failing + Counted(I) \\ (I Mod 2)",
+            "    Next",
+            "End Function"), "Failing", recoveries: 2, expected: "4 4");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(2, result.Body!.RaisedErrors, "Failing's errors raised from compiled code");
+        }
+    }
+
+    // the error is the one the operator raises: its number, its description, the line it is on (Erl, the line of the document by default). The handler's
+    // line, of Err.Description and Erl, is the interpreter's too: 2 errors, and the handler run twice.
+    [TestMethod]
+    public async Task AnIntegralOperationThatFails_IsTheErrorTheHandlerIsGiven()
+    {
+        var result = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Caught(0)",
+            "    Debug.Print Caught(32767)",
+            "End Sub",
+            "Private Function Caught(ByVal K As Integer) As String",
+            "    On Error GoTo Failed",
+            "    Dim N As Integer",
+            "    N = 7 Mod K",
+            "    N = K + 1",
+            "    Caught = \"none\"",
+            "    Exit Function",
+            "Failed:",
+            "    Caught = Err.Number & \" \" & Err.Description & \" \" & Erl",
+            "End Function"), "Caught", recoveries: 4, expected: "11 Division by zero 8 ; 6 Overflow 9");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(2, result.Body!.RaisedErrors, "Caught's errors raised from compiled code");
+        }
+    }
 
     [TestMethod]
     public async Task AnErrorOnErrorGoToCatches_RunsTheHandlerCompiled_AndResumeNextGoesOnAfterIt()
@@ -318,7 +449,7 @@ public sealed class CompiledErrorHandlingTests
             "    Return",
             "End Function"), "Summed", recoveries: 1);
 
-    // an error in a For header gone past: the loop the interpreter gave its state - a 0 end and a step of 1 (oracle s54) - is stepped in compiled code.
+    // an error in a For header gone past: the loop the interpreter gave its state - a 0 end and a step of 1, as observed in Excel - is stepped in compiled code.
     [TestMethod]
     public async Task AnErrorInAForHeader_GonePast_RunsTheSameAsTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -395,7 +526,7 @@ public sealed class CompiledErrorHandlingTests
             "    Resume Inside",
             "End Function"), "Again", recoveries: 2);
 
-    // a For statement that fails the second time it runs, gone past: its loop has the end and the step the first time gave it (oracle s54), which the
+    // a For statement that fails the second time it runs, gone past: its loop has the end and the step the first time gave it (observed in Excel), which the
     // counter, not assigned, is stepped to.
     [TestMethod]
     public async Task AForHeaderThatFailsTheSecondTime_GonePast_KeepsTheEndAndTheStepTheFirstTimeGaveIt()

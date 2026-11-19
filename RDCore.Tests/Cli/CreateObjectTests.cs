@@ -413,7 +413,7 @@ public sealed class CreateObjectTests
             "Set s = CreateObject(\"No.Such\")",
             "Debug.Print Err.Number"));
 
-    // MS-VBA reports a machine that is not there by its HRESULT, not as error 462 (oracle\s25 O03).
+    // MS-VBA reports a machine that is not there by its HRESULT, not as error 462 (observed in Excel).
     [TestMethod]
     public async Task AnObjectOnAMachineThatIsNotThere_IsTheServersHResult()
     {
@@ -459,7 +459,7 @@ public sealed class CreateObjectTests
             "Set s = GetObject(\"missing.shelf\")",
             "Debug.Print Err.Number"));
 
-    // an empty path is a new object of the class (oracle\s25).
+    // an empty path is a new object of the class (observed in Excel).
     [TestMethod]
     public async Task GetObject_WithAnEmptyPathAndAClass_IsANewObject()
     {

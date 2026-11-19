@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// RD-VBAL §5.4.2.10: the value of each <c>Case</c> clause is let-coerced to the declared type of the selector, and compared with the selector in that type,
 /// as MS-VBA does - where MS-VBAL §5.4.2.10 states the comparison as an expression of the two. A selector declared <c>Variant</c> is compared with the value as
-/// it is. Each row is the probe it was recorded with in Excel, under <c>On Error Resume Next</c> (grids <c>oracle\s46</c> F15a-g, <c>oracle\s48</c>).
+/// it is. Each row is the probe it was observed with in Excel, under <c>On Error Resume Next</c>.
 /// </summary>
 [TestClass]
 public sealed class SelectCaseSelectorTypeTests
@@ -37,7 +37,7 @@ public sealed class SelectCaseSelectorTypeTests
     public async Task TheValueOfACase_IsConvertedToTheDeclaredTypeOfTheSelector(string body, string expected)
         => Assert.AreEqual(expected, await Run(body));
 
-    // a Single, a Double and a Currency selector convert a value too; an integer is not rounded to a Single, and is compared at its exact value (s48 M01-M07).
+    // a Single, a Double and a Currency selector convert a value too; an integer is not rounded to a Single, and is compared at its exact value.
     [TestMethod]
     [DataRow("Dim s As Single: s = 0.1 ;; Select Case s ;; Case 0.1: P \"m\" ;; Case Else: P \"e\" ;; End Select", "m", DisplayName = "M01 Single, Case 0.1")]
     [DataRow("Dim s As Single: s = 16777216 ;; Select Case s ;; Case 16777217: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; Select Case s ;; Case Is < 16777217: P \"m\" ;; Case Else: P \"e\" ;; End Select", "e/m", DisplayName = "M02 Single, an integer at its exact value")]
@@ -54,7 +54,7 @@ public sealed class SelectCaseSelectorTypeTests
         => Assert.AreEqual("5 matched", await Run("Dim e As Size: e = szFive ;; Select Case e ;; Case 4.6: P \"5 matched\" ;; Case Else: P \"5 else\" ;; End Select",
             "Public Enum Size ;; szFive = 5 ;; End Enum"));
 
-    // the error a conversion raises is the Case's: Resume Next goes on in its body (MS-VBA, s48 G01).
+    // the error a conversion raises is the Case's: Resume Next goes on in its body (MS-VBA).
     [TestMethod]
     [DataRow("Dim n As Long: n = 2 ;; Select Case n ;; Case \"abc\": P \"m\" ;; Case Else: P \"e\" ;; End Select ;; P \"after \" & Err.Number", "m/after 13", DisplayName = "G01 Long, Case \"abc\": 13")]
     [DataRow("Dim i As Integer: i = 2 ;; Select Case i ;; Case 40000: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; P \"after \" & Err.Number", "m/after 6", DisplayName = "G02 Integer, Case 40000: 6")]
@@ -74,7 +74,7 @@ public sealed class SelectCaseSelectorTypeTests
         => Assert.AreEqual(expected, await Run(body));
 
     // an expression over a Variant is declared Variant (MS-VBAL §5.6.9.3), and so is a selector it is: its value is compared as a Variant's, where a Long
-    // expression converts the value of a clause (s56 R08-R14; HexIDE's findings desk, select-case-variant-expr).
+    // expression converts the value of a clause.
     [TestMethod]
     [DataRow("Dim v As Variant ;; v = 1 ;; Select Case v + 1 ;; Case \"2\": P \"match\" ;; Case Else: P \"else\" ;; End Select", "match", DisplayName = "R08 v + 1, Case \"2\"")]
     [DataRow("Dim v As Variant ;; v = \"2.5\" ;; Select Case v ;; Case 2: P \"two\" ;; Case Else: P \"else\" ;; End Select", "else", DisplayName = "R09 v of \"2.5\", Case 2")]
@@ -86,7 +86,7 @@ public sealed class SelectCaseSelectorTypeTests
     public async Task AnExpressionOverAVariant_IsAVariantSelector(string body, string expected)
         => Assert.AreEqual(expected, await Run(body));
 
-    // a String selector and a number, a Variant or declared, compared as MS-VBA compares them (s56 G03, G06, G07; RD-VBAL 5.6.9.5).
+    // a String selector and a number, a Variant or declared, compared as MS-VBA compares them (RD-VBAL 5.6.9.5).
     [TestMethod]
     [DataRow("Dim s As String ;; s = \"2.5\" ;; P (s = 2) ;; Select Case s ;; Case 2: P \"two\" ;; Case Else: P \"else\" ;; End Select", "False/else",
         DisplayName = "G03 a String \"2.5\", Case 2")]

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Move Closer To Usage: {0} is the variable, {1} the procedure it is moved into, or the procedures that use it. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="MoveCloserToUsage_Title" xml:space="preserve">
+    <value>Rapprocher « {0} » de son utilisation</value>
+  </data>
+  <data name="MoveCloserToUsage_Keyword" xml:space="preserve">
+    <value>La déclarer avec</value>
+  </data>
+  <data name="MoveCloserToUsage_KeywordDescription" xml:space="preserve">
+    <value>Le mot-clé de la déclaration dans la procédure.</value>
+  </data>
+  <data name="MoveCloserToUsage_Static" xml:space="preserve">
+    <value>Static : elle garde sa valeur d'un appel à l'autre</value>
+  </data>
+  <data name="MoveCloserToUsage_Dim" xml:space="preserve">
+    <value>Dim : elle est initialisée à chaque appel</value>
+  </data>
+  <data name="MoveCloserToUsage_NotAccepted" xml:space="preserve">
+    <value>La déclaration n'a pas été déplacée : {0}</value>
+  </data>
+  <data name="MoveCloserToUsage_NotAnAnswer" xml:space="preserve">
+    <value>« {0} » n'est pas une réponse à « {1} ».</value>
+  </data>
+  <data name="MoveCloserToUsage_NotAVariable" xml:space="preserve">
+    <value>Rien ici n'est une variable dont la déclaration peut être déplacée.</value>
+  </data>
+  <data name="MoveCloserToUsage_NotPrivate" xml:space="preserve">
+    <value>« {0} » peut être utilisée par d'autres modules : seule une variable Private d'un module est déplacée dans une procédure.</value>
+  </data>
+  <data name="MoveCloserToUsage_WithEvents" xml:space="preserve">
+    <value>« {0} » est déclarée WithEvents, ce qu'une procédure ne peut pas déclarer.</value>
+  </data>
+  <data name="MoveCloserToUsage_NotUsed" xml:space="preserve">
+    <value>Rien n'utilise « {0} ».</value>
+  </data>
+  <data name="MoveCloserToUsage_SeveralProcedures" xml:space="preserve">
+    <value>« {0} » est utilisée par plus d'une procédure ({1}), ou hors d'une procédure.</value>
+  </data>
+  <data name="MoveCloserToUsage_Conditional" xml:space="preserve">
+    <value>« {0} » est déclarée, ou utilisée la première fois, dans une branche d'un bloc #If.</value>
+  </data>
+  <data name="MoveCloserToUsage_AlreadyClose" xml:space="preserve">
+    <value>« {0} » est déjà déclarée avant l'instruction qui l'utilise la première fois.</value>
+  </data>
+  <data name="MoveCloserToUsage_SharesItsLine" xml:space="preserve">
+    <value>« {0} » est déclarée par une instruction qui partage sa ligne avec une autre instruction.</value>
+  </data>
+  <data name="MoveCloserToUsage_ModuleExtent" xml:space="preserve">
+    <value>« {0} » est une variable de chaque objet de la classe : déclarée Static dans « {1} », c'est une variable du module, dont tous les objets partagent la valeur.</value>
+  </data>
+  <data name="MoveCloserToUsage_NotKept" xml:space="preserve">
+    <value>« {0} » garde sa valeur entre les appels : déclarée avec Dim dans « {1} », elle est initialisée à chaque appel.</value>
+  </data>
+</root>

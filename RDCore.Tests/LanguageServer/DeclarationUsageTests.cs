@@ -56,20 +56,27 @@ public sealed class DeclarationUsageTests
             var members = symbols.OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == uri.AbsoluteUri).ToList();
 
             var procedures = new List<ProcedureSemanticModel>();
+            var unanalyzedNames = new List<string>();
             foreach (var declaration in parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Where(declaration => declaration.MemberKind is not (MemberKind.Enum or MemberKind.UserDefinedType)))
             {
                 var procedure = members.First(member => string.Equals(member.Name, declaration.Name, StringComparison.OrdinalIgnoreCase)
                     && member is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
-                procedures.Add(StatementStaticSemanticsEvaluator.Analyze(
+                var model = StatementStaticSemanticsEvaluator.Analyze(
                     procedure.SemanticId, new StatementBlock([.. declaration.Children]), kind: declaration.MemberKind,
-                    context: new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(procedure.Uri))));
+                    context: new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(procedure.Uri)));
+                procedures.Add(model);
+                if (!model.IsFullyAnalyzed)
+                {
+                    unanalyzedNames.AddRange(DeclarationUsage.NamesIn(declaration));
+                }
             }
 
             var declarations = ModuleDeclarationStaticSemantics.Analyze(parse.SyntaxTree.Children, new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(uri)));
             // a provider may state a procedure's locals and parameters as symbols of their own, as well as on the procedure.
             models.Add(new ModuleSemanticModel(uri, [], [.. procedures])
             {
-                Declarations = DeclarationUsage.Of(DeclarationUsage.DeclaredBy(members).Concat(symbols), procedures, declarations: declarations),
+                Declarations = DeclarationUsage.Of(
+                    DeclarationUsage.DeclaredBy(members).Concat(symbols), procedures, declarations: declarations, namesInUnanalyzedCode: unanalyzedNames),
             });
         }
 
@@ -199,10 +206,16 @@ public sealed class DeclarationUsageTests
     public void ALocalOfAProcedureWithAnError_HasNoCount_ForWhatIsAfterTheErrorWasNotLookedAt()
         => Assert.IsNull(Fact(Facts("Option Explicit", "Public Sub Run()", "Dim x", "Dim n As Long", "x = Undeclared + n", "End Sub"), "n").References);
 
+    // a procedure with an error that names the variable may refer to it, in what is after the error.
     [TestMethod]
-    public void AModuleVariable_HasNoCount_WhenAnyProcedureOfTheModuleHasAnError()
+    [DataRow("x = Undeclared + Total", DisplayName = "named by an expression")]
+    [DataRow("x = Undeclared + Total&", DisplayName = "named with its type-declaration character")]
+    [DataRow("x = Undeclared + [Total]", DisplayName = "named in square brackets")]
+    [DataRow("If Undeclared Then x = Total", DisplayName = "named in the body of a statement")]
+    [DataRow("x = Undeclared: Total = 1", DisplayName = "assigned after the error")]
+    public void AModuleVariable_HasNoCount_WhenAProcedureWithAnErrorNamesIt(string statement)
     {
-        var facts = Facts("Option Explicit", "Private Total As Long", "Public Sub Show()", "Debug.Print Total", "End Sub", "Public Sub Broken()", "Dim x", "x = Undeclared", "End Sub");
+        var facts = Facts("Option Explicit", "Private Total As Long", "Public Sub Show()", "Debug.Print Total", "End Sub", "Public Sub Broken()", "Dim x", statement, "End Sub");
 
         Assert.IsNull(Fact(facts, "Total").References);
     }
@@ -250,8 +263,67 @@ public sealed class DeclarationUsageTests
         => Assert.IsNull(Fact(Facts("Option Explicit", "Private Const Size As Long = 3", "Private Const Twice As Long = Undeclared + Size", "Public Sub Run()", "End Sub"), "Size").References);
 
     [TestMethod]
-    public void AConstantOfTheModule_HasNoCount_WhenAProcedureOfTheModuleHasAnError()
-        => Assert.IsNull(Fact(Facts("Option Explicit", "Private Const Size As Long = 3", "Public Sub Run()", "Debug.Print Undeclared", "End Sub"), "Size").References);
+    public void AConstantOfTheModule_HasNoCount_WhenAProcedureWithAnErrorNamesIt()
+        => Assert.IsNull(Fact(Facts("Option Explicit", "Private Const Size As Long = 3", "Public Sub Run()", "Debug.Print Undeclared + Size", "End Sub"), "Size")
+            .References);
+
+    [TestMethod]
+    public void AConstantOfTheModule_IsCounted_WhenNoProcedureWithAnErrorNamesIt()
+        => Assert.AreEqual(
+            default, References(Facts("Option Explicit", "Private Const Size As Long = 3", "Public Sub Run()", "Debug.Print Undeclared", "End Sub"), "Size"));
+
+    // Rubberduck's unused-variable inspection reports a variable of a module with an error elsewhere, that the code with the error never names.
+    [TestMethod]
+    public void AModuleVariable_IsCounted_WhenNoProcedureWithAnErrorNamesIt()
+    {
+        var facts = Facts(
+            "Option Explicit", "Private Total As Long", "Private Unused As Long",
+            "Public Sub Show()", "Debug.Print Total", "End Sub",
+            "Public Sub Broken()", "Dim x", "x = Undeclared", "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), References(facts, "Total"));
+        Assert.AreEqual(default, References(facts, "Unused"));
+    }
+
+    [TestMethod]
+    public void AModuleVariable_HasNoCount_WhenAProcedureHasAnError_AndWhatItNamesIsNotKnown()
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"),
+            "Attribute VB_Name = \"Main\"\r\nOption Explicit\r\nPrivate Unused As Long\r\nPublic Sub Broken()\r\nDim x\r\nx = Undeclared\r\nEnd Sub\r\n");
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(Main, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
+        var symbols = new SyntaxTreeSymbolProvider(Root, Main, ModuleType.StdModule, parse, composition.Resolver, withImplicitDeclarations: true).ProvideSymbols().ToList();
+        var broken = symbols.OfType<VBProcedureMemberSymbol>().Single(member => member.Name == "Broken");
+        var declaration = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var model = StatementStaticSemanticsEvaluator.Analyze(
+            broken.SemanticId, new StatementBlock([.. declaration.Children]), kind: declaration.MemberKind,
+            context: new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(broken.Uri)));
+
+        var facts = DeclarationUsage.Of(symbols, [model]);
+
+        Assert.IsFalse(model.IsFullyAnalyzed);
+        Assert.IsNull(Fact(facts, "Unused").References);
+    }
+
+    [TestMethod]
+    public void TheNamesOfAProcedure_AreThoseOfItsExpressionsAndOfTheirMembers_InEveryBodyOfIt()
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), string.Join("\r\n",
+            "Attribute VB_Name = \"Main\"",
+            "Public Sub Run()",
+            "If Ready Then",
+            "    Counter = Counter + 1",
+            "End If",
+            "Debug.Print Sheet.Range(Address)",
+            "ReDim Items(Size)",
+            "End Sub",
+            ""));
+        var names = DeclarationUsage.NamesIn(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single());
+
+        foreach (var name in new[] { "Ready", "Counter", "Sheet", "Range", "Address", "Items", "Size" })
+        {
+            Assert.IsTrue(names.Contains(name), $"'{name}' is a name of the procedure: {string.Join(", ", names)}");
+        }
+    }
 
     [TestMethod]
     [DataRow("Public", DisplayName = "Public")]

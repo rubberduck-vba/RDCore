@@ -3,6 +3,7 @@ BEGIN
   MultiUse = -1  'True
 END
 Attribute VB_Name = "ICounter"
+' <ICounter>
 Option Explicit
 ' An interface: what Calls.BenchInterfaceMemberCalls calls InterfaceCounter's members through.
 
@@ -11,3 +12,4 @@ End Sub
 
 Public Property Get Value() As Long
 End Property
+' </ICounter>

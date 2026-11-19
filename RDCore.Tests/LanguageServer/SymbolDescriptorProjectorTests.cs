@@ -212,8 +212,7 @@ public sealed class SymbolDescriptorProjectorTests
     [TestMethod]
     public void UnmappedSymbolKind_IsSkippedRatherThanThrowingOrDefaultingToModuleField()
         // regression, escalated: KindOf's default arm first silently mislabeled any unrecognized
-        // symbol type as ModuleField, then (post-#204) was made to throw instead. Adversarial review
-        // PRs #208-224 (item 7) found the throw crashes projection for the WHOLE module over one
+        // symbol type as ModuleField, then was made to throw instead. The throw crashes projection for the WHOLE module over one
         // stray top-level symbol - e.g. a local wrongly parented to the module by a Uri collision.
         // Neither extreme is right: skip just that one symbol, project everything else normally. A
         // hand-built symbol of a kind this projector was never taught about is the only way to
@@ -236,7 +235,7 @@ public sealed class SymbolDescriptorProjectorTests
 
     [TestMethod]
     public void ProcedureWithALocalVariable_DoesNotThrow_AndTheLocalIsNotProjectedAsAMember()
-        // regression: KindOf's throwing default (post-#204) had no arm for VBLocalVariableSymbol, so
+        // regression: KindOf's throwing default had no arm for VBLocalVariableSymbol, so
         // any procedure declaring a local Dim aborted projection for the whole module.
     {
         var descriptor = Project("""

@@ -236,7 +236,7 @@ public sealed class CompiledCallerWaitingTests
         "Private Function Outer(ByVal n As Long) As Long",
         "    Dim i As Long, t As Long, s As String, u As Long",
         "    For i = 1 To n",
-        "        s = \"n\" & CDbl(i)",
+        "        s = \"n\" & CDec(i)",
         "        t = t + Inner(s)",
         "        u = u + i",
         "    Next",

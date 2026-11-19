@@ -165,6 +165,55 @@ public sealed class MemberEditsTests
         StringAssert.Contains(moved, "End Sub\n\nPublic Sub First()\n");
     }
 
+    // the members by name, the last first.
+    private static readonly IComparer<MemberExtent> NameDescending = Comparer<MemberExtent>.Create((first, second) => string.CompareOrdinal(second.Member.Name, first.Member.Name));
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "a text that ends its last line")]
+    [DataRow(false, DisplayName = "a text that ends none")]
+    public void MembersReordered_AreWrittenInTheOrderGiven_WithTheirComments_AndTheTextEndsAsItDid(bool endsLine)
+    {
+        var text = endsLine ? Module : Module.TrimEnd('\r', '\n');
+        var (first, second, third) = Extents(text);
+
+        var edits = MemberEdits.Reorder(text, [first, second, third], NameDescending);
+
+        Assert.HasCount(1, edits);
+        var expected = "Option Explicit\r\n' the declarations\r\n\r\n" +
+            "Public Sub Third()\r\n    Debug.Print 3\r\nEnd Sub\r\n\r\n" +
+            "'@Description(\"Second\")\r\n' the second one\r\nPublic Sub Second()\r\nAttribute Second.VB_Description = \"Second\"\r\n    Debug.Print 2\r\nEnd Sub\r\n\r\n" +
+            "Public Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First";
+        Assert.AreEqual(endsLine ? expected + "\r\n" : expected, Applied(text, edits));
+    }
+
+    [TestMethod]
+    public void ACommentOnLinesOfItsOwnBetweenTwoMembers_IsPassedByNone()
+    {
+        var text = Module.Replace("End Sub ' after First\r\n\r\n", "End Sub ' after First\r\n\r\n' on its own\r\n\r\n", StringComparison.Ordinal);
+        var (first, second, third) = Extents(text);
+
+        var reordered = Applied(text, MemberEdits.Reorder(text, [first, second, third], NameDescending));
+
+        StringAssert.StartsWith(reordered, "Option Explicit\r\n' the declarations\r\n\r\nPublic Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First\r\n\r\n' on its own\r\n\r\nPublic Sub Third()");
+        StringAssert.EndsWith(reordered, "Public Sub Second()\r\nAttribute Second.VB_Description = \"Second\"\r\n    Debug.Print 2\r\nEnd Sub\r\n");
+    }
+
+    [TestMethod]
+    public void MembersInTheOrderGiven_AreNotEdited()
+    {
+        var (first, second, third) = Extents(Module);
+
+        Assert.IsEmpty(MemberEdits.Reorder(Module, [first, second, third], Comparer<MemberExtent>.Create((one, other) => one.Range.Start.Line.CompareTo(other.Range.Start.Line))));
+    }
+
+    [TestMethod]
+    public void MembersNotInTheOrderTheyAreWritten_AreRefused()
+    {
+        var (first, second, _) = Extents(Module);
+
+        Assert.ThrowsExactly<ArgumentException>(() => MemberEdits.Reorder(Module, [second, first], NameDescending));
+    }
+
     // the text with the edits made, each of the text as it was before any of them.
     private static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
     {

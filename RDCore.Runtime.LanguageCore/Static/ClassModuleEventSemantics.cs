@@ -21,7 +21,12 @@ public static class ClassModuleEventSemantics
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
 
         CheckEvents(module, errors);
-        foreach (var variable in module.WithEventsVariables)
+
+        // MS-VBAL §5.2.3.1.2 and §5.3.1.8 constrain the WithEvents variables the code declares. A form's designer declares its controls, of any control
+        // class, one with no events (a Line, a Shape) included. MS-VBA binds the handlers of a control's events when the event is raised, and compiles one
+        // that does not match the event, which is then never called (observed in Excel). It is dead code, which the static pass says
+        // (DeclarationRole.UnmatchedEventHandler), and not an error.
+        foreach (var variable in module.WithEventsVariables.Where(variable => !variable.GetProperty(SymbolProperties.DesignerControl)))
         {
             if (CheckWithEventsType(module, variable, resolver, errors) is { } source)
             {
@@ -92,17 +97,9 @@ public static class ClassModuleEventSemantics
         return source;
     }
 
-    // a form's control is no variable the code declares: MS-VBA binds the handlers of its events when the event is raised, and compiles one that does not match
-    // the event, which is then never called (Excel-measured, oracle\s30 C06, C19). It is dead code, which the static pass says (DeclarationRole.UnmatchedEventHandler),
-    // and not an error.
     private static void CheckHandlers(
         VBClassModuleSymbol module, VBTypeMemberSymbol variable, VBClassModuleSymbol source, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {
-        if (variable.GetProperty(SymbolProperties.DesignerControl))
-        {
-            return;
-        }
-
         foreach (var handled in source.Events)
         {
             foreach (var candidate in HandlersOf(module, variable, handled))

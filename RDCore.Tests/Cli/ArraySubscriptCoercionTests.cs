@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A subscript of an element of an array is let-coerced to a <c>Long</c>, as a bound is: MS-VBAL §5.6.13 only says it selects the element when it is within
 /// its dimension, and MS-VBA rounds a <c>Double</c> to even, reads a <c>String</c> as a number, a <c>Boolean</c> as 0/-1, <c>Empty</c> as 0, and raises 6
-/// past the range of a <c>Long</c>, 13 for text that is no number, 94 for <c>Null</c>. Every expected line was recorded in Excel (grid <c>oracle\s16</c>).
+/// past the range of a <c>Long</c>, 13 for text that is no number, 94 for <c>Null</c>. Every expected line was observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class ArraySubscriptCoercionTests

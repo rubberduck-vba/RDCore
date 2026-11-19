@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// The <c>Static</c> locals of the members of a class module: <strong>MS-VBA</strong> gives each object its own, which goes with the object, where
 /// <strong>MS-VBAL §5.4.3.1</strong> gives a <c>Static</c> local module extent. A <c>Static</c> local of a standard module's procedure is one for the module.
-/// Recorded in Excel (oracle\s19 N37, oracle\s20).
+/// Observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class ClassStaticLocalTests

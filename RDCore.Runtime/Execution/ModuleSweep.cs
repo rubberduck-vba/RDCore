@@ -1,4 +1,6 @@
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.SDK.Model.Errors.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Facts;
@@ -17,6 +19,11 @@ namespace RDCore.Runtime.Execution;
 /// is stated as a fact (<see cref="RuntimeExecutionPipeline.CreateForSweep"/>).
 /// </para>
 /// <para>
+/// The facts are those of the module's own code. Its code also evaluates expressions another module declares (the value of a constant or of an enumeration
+/// member, the default of an optional parameter), and what such an expression is, is a fact of the module that declares it, not of this one: a fact located
+/// in another document is not stated.
+/// </para>
+/// <para>
 /// It happens in two steps because it is not done where it is asked for. <see cref="Prepare"/> is done on the thread that owns the session the program runs
 /// in, and takes what the evaluation needs of it as it is at that moment (<see cref="RuntimeSessionComposer.ComposeForAnalysis"/>); <see cref="Evaluate"/> then
 /// reads nothing but what <see cref="Prepare"/> took, and can run on any thread, while the session goes on changing.
@@ -25,12 +32,15 @@ namespace RDCore.Runtime.Execution;
 public sealed class ModuleSweep
 {
     private readonly IRuntimeSession _analysis;
+    private readonly Uri _document;
     private readonly IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> _procedures;
     private readonly IErrorDetailsRecorder _errorDetails;
 
-    private ModuleSweep(IRuntimeSession analysis, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
+    private ModuleSweep(
+        IRuntimeSession analysis, Uri document, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
     {
         _analysis = analysis;
+        _document = document;
         _procedures = procedures;
         _errorDetails = errorDetails;
     }
@@ -39,16 +49,19 @@ public sealed class ModuleSweep
     /// Takes what the evaluation of <paramref name="procedures"/> needs of <paramref name="session"/>, as it is now.
     /// </summary>
     /// <param name="session">A session whose symbols are declared: the context the code is evaluated in. It is not changed.</param>
+    /// <param name="document">The document the module's code is in, where each of its facts is located.</param>
     /// <param name="procedures">The procedures to evaluate with their lowered bodies.</param>
     /// <param name="errorDetails">Records the details of the errors the evaluation raises.</param>
     public static ModuleSweep Prepare(
-        IRuntimeSession session, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
-        => new(RuntimeSessionComposer.ComposeForAnalysis(session), procedures, errorDetails);
+        IRuntimeSession session, Uri document, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
+        => new(RuntimeSessionComposer.ComposeForAnalysis(session), document, procedures, errorDetails);
 
     /// <summary>
     /// Evaluates the procedures.
     /// </summary>
-    /// <param name="cancellation">Stops the evaluation between instructions.</param>
+    /// <param name="cancellation">
+    /// Stops the evaluation between instructions, and when it makes an element of a fixed-size array a procedure declares.
+    /// </param>
     /// <returns>
     /// The facts of each procedure, by the <see cref="Symbol.SemanticId"/> of the procedure. A procedure that could not be evaluated in full has the facts
     /// that were stated before it stopped, and says it was not fully analyzed.
@@ -64,7 +77,7 @@ public sealed class ModuleSweep
 
         var collector = new AnalysisFactCollector();
         var bodies = _procedures.ToDictionary(entry => entry.Procedure.SemanticId, entry => entry.Body);
-        var pipeline = RuntimeExecutionPipeline.CreateForSweep(_analysis, bodies, _errorDetails, collector, cancellation);
+        var pipeline = RuntimeExecutionPipeline.CreateForSweep(_analysis, bodies, _errorDetails, new FactsOfTheDocument(_document, collector), cancellation);
 
         foreach (var (procedure, _) in _procedures)
         {
@@ -88,5 +101,44 @@ public sealed class ModuleSweep
         }
 
         return facts.ToImmutable();
+    }
+
+    // tells the collector of each fact located in the module's document, and of none located in another.
+    private sealed class FactsOfTheDocument(Uri document, IAnalysisObserver collector) : IAnalysisObserver
+    {
+        public void OnConversion(ConversionFact fact)
+        {
+            if (IsInTheDocument(fact.Location))
+            {
+                collector.OnConversion(fact);
+            }
+        }
+
+        public void OnOperation(OperatorFact fact)
+        {
+            if (IsInTheDocument(fact.Location))
+            {
+                collector.OnOperation(fact);
+            }
+        }
+
+        public void OnStatement(StatementFact fact)
+        {
+            if (IsInTheDocument(fact.Location))
+            {
+                collector.OnStatement(fact);
+            }
+        }
+
+        public void OnError(VBErrorInfo error)
+        {
+            if (IsInTheDocument(error.Location))
+            {
+                collector.OnError(error);
+            }
+        }
+
+        // a fact that says no document is the code's: it is not another module's either.
+        private bool IsInTheDocument(SourceLocation location) => location.Uri is null || location.Uri == document;
     }
 }

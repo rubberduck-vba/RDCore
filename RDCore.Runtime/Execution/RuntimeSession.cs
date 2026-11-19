@@ -63,7 +63,9 @@ internal sealed class RuntimeSession(
 
     public IObjectLifecycle? Lifecycle { get; set; }
 
-    public ISessionExternalObjects ExternalObjects { get; } = new SessionExternalObjects();
+    public ISessionExternalObjects ExternalObjects => LazyInitializer.EnsureInitialized(ref _externalObjects, () => new SessionExternalObjects(Turn));
+
+    private SessionExternalObjects? _externalObjects;
 
     public IExternalDispatcher? External { get; set; }
 
@@ -114,7 +116,7 @@ internal sealed class RuntimeSession(
         // MS-VBAL §5.3.1.10: Terminate runs while the object is still whole, and may give it a reference again; an
         // object that has one is not destroyed, and is a candidate again when it next loses its last. An error the
         // handler leaves unhandled ends the program, whatever handler the code that let go of the object has (MS-VBA,
-        // grid oracle\s44): a release has no result to carry it in, so it is recorded, and the executor stops with it.
+        // observed in Excel): a release has no result to carry it in, so it is recorded, and the executor stops with it.
         if (!_resetting && Lifecycle is { } lifecycle && Objects.TryBeginTerminate(instance))
         {
             _terminating.Add(instance);
@@ -211,20 +213,47 @@ internal sealed class SessionHalt : ISessionHalt
         Location = null;
         (_step, _stepping) = (null, false);
         _lastWaitedAt = null;
+        Changed();
     }
 
-    public IExecutionGate? Gate { get; set; }
+    public IExecutionGate? Gate
+    {
+        get => _gate;
+        set
+        {
+            _gate = value;
+            Changed();
+        }
+    }
+
+    private IExecutionGate? _gate;
+
+    // how many times what the interpreter is wanted for changed: a gate given or taken, a step asked for or taken. Read by the program's thread while the
+    // debugger's thread changes it.
+    private int _changes;
+
+    private void Changed() => Interlocked.Increment(ref _changes);
+
+    /// <summary>
+    /// A number that is the same for as long as the interpreter is wanted for the same things (<see cref="WantsInterpreter"/>): no gate given or taken, no
+    /// step asked for or taken, no breakpoint set or cleared. Compiled code that found it need not hand a call to the interpreter compares this number at
+    /// each call instead of asking again.
+    /// </summary>
+    internal int Epoch => Volatile.Read(ref _changes) + _breakpoints.Version;
 
     // under a debugger, compiled code runs on until something only the interpreter can do is asked for: a breakpoint, set anywhere, or a step - which a pause
     // is too, a step into whatever runs next.
     public bool WantsInterpreter => Gate is not null && (_stepping || Breakpoints.HasAny);
 
-    public IBreakpointTable Breakpoints { get; } = new BreakpointTable();
+    public IBreakpointTable Breakpoints => _breakpoints;
+
+    private readonly BreakpointTable _breakpoints = new();
 
     public void RequestStep(StepKind kind, int callDepth)
     {
         (_step, _stepDepth) = (kind, callDepth);
         _stepping = true;
+        Changed();
     }
 
     public bool TakeStep(int callDepth)
@@ -245,6 +274,7 @@ internal sealed class SessionHalt : ISessionHalt
         if (due)
         {
             (_step, _stepping) = (null, false);
+            Changed();
         }
 
         return due;
@@ -350,12 +380,23 @@ internal sealed class SessionObjects : ISessionObjects
 
     public void OnDestroying(Action<VBRuntimeObjectId> release) => _destroying.Add(release);
 
+    /// <summary>
+    /// How many handlers let go of what a destroyed object holds (<see cref="OnDestroying"/>).
+    /// </summary>
+    internal int DestroyingHandlerCount => _destroying.Count;
+
+    /// <summary>
+    /// How many objects the session has.
+    /// </summary>
+    internal int ObjectCount => _roots.Count;
+
     public void NotifyDestroying(VBRuntimeObjectId instance)
     {
-        // a copy: a handler that lets go of what the object holds can destroy another object, which notifies again.
-        foreach (var release in _destroying.ToArray())
+        // by their place, as many as there are now: a handler that lets go of what the object holds can destroy another object, which notifies again, and a
+        // handler is never taken off.
+        for (int i = 0, count = _destroying.Count; i < count; i++)
         {
-            release(instance);
+            _destroying[i](instance);
         }
     }
 
@@ -394,8 +435,8 @@ internal sealed class SessionObjects : ISessionObjects
         => _roots.TryGetValue(instance, out var roots) && IndexOfRoot(roots, handle) >= 0;
 
     // a handle is a root by identity: handles are records, and two variables holding the same object compare equal by value while being two references.
-    // Searched without a predicate, which would be made for each reference counted (IR lowering S1.3), from the last: the cell that lets go of an object is
-    // most often the last that took it - a parameter, a local, a temporary (S1.4c).
+    // Searched without a predicate, which would be made for each reference counted, from the last: the cell that lets go of an object is
+    // most often the last that took it - a parameter, a local, a temporary.
     private static int IndexOfRoot(List<IBindingHandle> roots, IBindingHandle handle)
     {
         for (var i = roots.Count - 1; i >= 0; i--)
@@ -981,13 +1022,25 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     public bool TryComposeClassModule(
         string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
     {
-        var module = table.All().OfType<VBClassModuleSymbol>()
-            .FirstOrDefault(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase));
-        if (module is null)
-        {
-            return false;
-        }
+        // a class of the session's own project before a referenced project's of the same name.
+        var named = table.All().OfType<VBClassModuleSymbol>()
+            .Where(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase)).ToList();
+        var module = named.Find(candidate => candidate.GetProperty(SymbolProperties.Library) is null) ?? named.FirstOrDefault();
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+    }
 
+    public bool TryComposeClassModule(
+        Uri moduleUri, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
+    {
+        ArgumentNullException.ThrowIfNull(moduleUri);
+
+        var module = table.All().OfType<VBClassModuleSymbol>()
+            .FirstOrDefault(candidate => string.Equals(candidate.Uri.AbsoluteUri, moduleUri.AbsoluteUri, StringComparison.Ordinal));
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+    }
+
+    private bool Compose(VBClassModuleSymbol module, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges)
+    {
         // what the class declares: every member defined under its identity.
         var composed = module with { Members = [.. MembersOf(module.Uri)], ImplementedInterfaceNames = implementedInterfaceNames,
             ImplementedInterfaceRanges = implementedInterfaceRanges.IsDefault ? [] : implementedInterfaceRanges,

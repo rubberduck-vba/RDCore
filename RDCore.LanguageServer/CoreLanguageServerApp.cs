@@ -59,9 +59,11 @@ internal sealed class CoreLanguageServerApp(
     IDiagnosticsPublisher publisher,
     Debugging.EditStatusPublication editStatusPublication,
     IClientInteractionRelay interaction,
+    ISessionStopRelay stops,
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
-    ILogger<CoreLanguageServerApp> logger)
+    ILogger<CoreLanguageServerApp> logger,
+    IProjectFileDiagnostics? projectFiles = null)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
@@ -79,6 +81,9 @@ internal sealed class CoreLanguageServerApp(
 
     // the workspace as it is brought up, which what the client supplies the host waits for: begun as the server initializes, ended by the bring-up.
     private IDisposable? _workspaceExpected;
+
+    // what the client says of the workspace folders it adds and removes, read from OmniSharp's workspace folder manager until the server stops.
+    private IDisposable? _workspaceFolderChanges;
 
     protected override async Task BeforeRunAsync(string[] args)
     {
@@ -141,6 +146,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<RefactorIdentifierCheckHandler>();
         builder.WithHandler<Server.Handlers.Workspace.ExecuteCommandHandler>();
         builder.WithHandler<InlayHintHandler>();
+        builder.WithHandler<Debugging.InlineValueHandler>();
+        builder.WithHandler<LinkedEditingRangeHandler>();
         builder.WithHandler<CodeLensHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
@@ -197,6 +204,9 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IRenameService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IExtractMethodService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IMoveMemberService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IEncapsulateFieldService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IImplementInterfaceService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
@@ -239,6 +249,9 @@ internal sealed class CoreLanguageServerApp(
         // what the client sends once it is answered - a program it runs, a document it opens - is given the host once the workspace's modules are.
         _workspaceExpected = symbolSync.ExpectWorkspace();
         await LoadWorkspaceAsync(server, request, cancellationToken);
+        // and the folders the client adds and removes once it is answered are loaded and dropped as those it gave now were. They are read from OmniSharp's own
+        // folder manager, which keeps serving workspace/didChangeWorkspaceFolders and stating changeNotifications: a handler of ours would take its place.
+        _workspaceFolderChanges = ExternalServices.GetRequiredService<IWorkspaceFolderChanges>().Attach(server.WorkspaceFolderManager, server);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }
 
@@ -269,8 +282,7 @@ internal sealed class CoreLanguageServerApp(
         {
             LogIfEnabled(LogLevel.Error, $"❌ Workspace could not be loaded:\n{exception}");
 
-            // a project file that is not JSON, or is missing, otherwise only showed later, as a didOpen error that did not say what was wrong (HexIDE's
-            // findings desk #26).
+            // a project file that is not JSON, or is missing, otherwise only showed later, as a didOpen error that did not say what was wrong.
             server.Window.ShowMessage(new ShowMessageParams
             {
                 Type = MessageType.Error,
@@ -279,20 +291,27 @@ internal sealed class CoreLanguageServerApp(
         }
 
         // a project that lists a file no workspace folder holds does not have it: the client is told which, and why.
-        foreach (var (project, relativeUri) in projects.Refused)
+        WorkspaceFolderChanges.TellRefused(server, projects.Refused);
+        TellFormatOf(server, workspace);
+    }
+
+    // a project file in a format that is not this platform's is said to the client as it is to the log: window/logMessage, which LSP allows before initialize
+    // is answered.
+    internal static void TellFormatOf(ILanguageServerFacade server, IWorkspaceService workspace)
+    {
+        if (workspace.FormatNote is { } note)
         {
-            server.Window.ShowMessage(new ShowMessageParams
-            {
-                Type = MessageType.Warning,
-                Message = string.Format(DebuggerMessages.FileOutsideTheWorkspaceFolders, relativeUri, project),
-            });
+            server.Window.Log(note);
         }
     }
 
     // the language a client names in its initializationOptions is already the server's, and wins; one that names none leaves it to the project file. The
     // children are started with the setting once initialize is answered, so they are told the language taken here too.
     internal static Action<SupportedLanguage>? LanguageTakerOf(InitializeParams request, SdkWorkspaceOptions workspace)
-        => ClientLanguage(request) is null ? language => workspace.Language = language.Id : null;
+        => ClientLanguage(request) is null ? ProjectLanguageTaker(workspace) : null;
+
+    // the project file's language, taken as the server's: what a workspace whose client names none is written in, the debug adapter's included.
+    internal static Action<SupportedLanguage> ProjectLanguageTaker(SdkWorkspaceOptions workspace) => language => workspace.Language = language.Id;
 
     // a project file that can't be read is offered to be regenerated: asked with window/showMessageRequest, which LSP allows before initialize is answered, and
     // only of a client that says it answers then. One that can't, or has no handler for the request, would leave initialize unanswered for good; one that runs
@@ -331,6 +350,9 @@ internal sealed class CoreLanguageServerApp(
 
         // the dialogs of the program that runs in the environment host are relayed to this client, if it answers them.
         interaction.Attach(new LanguageServerInteractionClient(server));
+
+        // and so are the stops of the handlers of events that run while no program runs, if it takes them.
+        stops.Attach(new LanguageServerSessionStopClient(server));
 
         // and the progress of the work the server does is reported to it, if it shows it.
         progress.Attach(server.WorkDoneManager);
@@ -406,6 +428,7 @@ internal sealed class CoreLanguageServerApp(
     {
         // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
         await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, _workspaceExpected, token);
+        projectFiles?.Publish();
 
         using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
         await RunDiagnosticsBringUpAsync(token, analyzingWork);
@@ -501,6 +524,7 @@ internal sealed class CoreLanguageServerApp(
         await _componentsCts.CancelAsync();
         // a bring-up that never began lets go of what waits for it.
         _workspaceExpected?.Dispose();
+        _workspaceFolderChanges?.Dispose();
 
         // what a change of the project left to do (composing the host's session, defining the symbols) waits for components that are going away.
         ExternalServices.GetService<IWorkspaceReloadService>()?.Stop();

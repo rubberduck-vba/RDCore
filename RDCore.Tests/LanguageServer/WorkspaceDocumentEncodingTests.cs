@@ -25,11 +25,7 @@ public sealed class WorkspaceDocumentEncodingTests
     public async Task AWindows1252Document_IsReadWithItsAccentedLetters_AndSavedInWindows1252()
     {
         var files = new MockFileSystem(new Dictionary<string, MockFileData> { [Module] = new(Windows1252.GetBytes(Text)) });
-        var documents = new WorkspaceDocumentService(new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance), NullLogger<WorkspaceDocumentService>.Instance,
-            files.Path, files.File);
-        documents.Initialize(Root);
-        var uri = DocumentUri.FromFileSystemPath(Module);
-        var id = new TextDocumentIdentifier(uri);
+        var (documents, uri, id) = Workspace(files);
 
         Assert.IsTrue(await documents.TryLoadAsync(id));
         Assert.IsTrue(documents.TryGetDocument(uri.ToUri(), out var loaded));
@@ -49,11 +45,7 @@ public sealed class WorkspaceDocumentEncodingTests
     {
         var bytes = Windows1252.GetBytes(Text);
         var files = new MockFileSystem(new Dictionary<string, MockFileData> { [Module] = new(bytes) });
-        var documents = new WorkspaceDocumentService(new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance), NullLogger<WorkspaceDocumentService>.Instance,
-            files.Path, files.File);
-        documents.Initialize(Root);
-        var uri = DocumentUri.FromFileSystemPath(Module);
-        var id = new TextDocumentIdentifier(uri);
+        var (documents, uri, id) = Workspace(files);
         Assert.IsTrue(await documents.TryLoadAsync(id));
 
         documents.Open(uri.ToUri(), Text, 1);
@@ -61,5 +53,17 @@ public sealed class WorkspaceDocumentEncodingTests
 
         Assert.IsFalse(await documents.TrySaveAsync(id));
         CollectionAssert.AreEqual(bytes, files.File.ReadAllBytes(Module));
+    }
+
+    // the workspace as it is once it has found the module: the module is tracked, and not yet loaded.
+    private static (WorkspaceDocumentService Documents, DocumentUri Uri, TextDocumentIdentifier Id) Workspace(MockFileSystem files)
+    {
+        var state = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(state, NullLogger<WorkspaceDocumentService>.Instance, files.Path, files.File);
+        documents.Initialize(Root);
+        var uri = DocumentUri.FromFileSystemPath(Module);
+        var id = new TextDocumentIdentifier(uri);
+        state.Initialize([id]);
+        return (documents, uri, id);
     }
 }

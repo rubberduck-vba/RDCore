@@ -204,6 +204,9 @@
   <data name="VBCompileError_ExpectedLib_Verbose" xml:space="preserve">
     <value>Expected: Lib</value>
   </data>
+  <data name="VBCompileError_ExpectedSubOrFunctionOrProperty_Verbose" xml:space="preserve">
+    <value>Expected: Sub or Function or Property</value>
+  </data>
   <data name="VBCompileError_ExpectedTextOrBinary_Verbose" xml:space="preserve">
     <value>Expected: Text or Binary</value>
   </data>

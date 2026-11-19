@@ -375,8 +375,8 @@ public sealed class CompiledArrayTests
             "End Function"), "Copied", recoveries: 7, expected: "1,10,77,s|5,99,20,t");
 
     // a Variant assigned to an element of an array of a scalar type, holding a String: compiled code declines it, as it does a Variant's Let to a variable,
-    // and the interpreter runs the Let (let-coercing "5"); with no handler, the procedure goes on in compiled code after it, each time round. A Variant
-    // holding a number is compiled code's own.
+    // and the interpreter runs the Let (let-coercing "5"); with no handler, the procedure goes on in compiled code after it, each time round: 3. A Variant
+    // holding a number is compiled code's own, and so is V = "5" (CompiledVariantTextLetTests).
     [TestMethod]
     public async Task AVariantAssignedToAnElement_ThatCompiledCodeDeclines_IsTheInterpretersLet()
         => await AssertAlikeAsync(Program(
@@ -397,11 +397,12 @@ public sealed class CompiledArrayTests
             "    For I = 1 To 3",
             "        Assigned = Assigned * 10 + A(I)",
             "    Next",
-            "End Function"), "Assigned", recoveries: 1 + 3);
+            "End Function"), "Assigned", recoveries: 3);
 
     // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
-    // the interpreter's to read, and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 3 statements
-    // the interpreter runs (the String, Len, the member). The prints are compiled code's. The Set of an element to a New object is a support call the
+    // the interpreter's to read, and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 2 statements
+    // the interpreter runs (the String, the member). Len of the element that holds the String is compiled code's, given what the element holds. The
+    // prints are compiled code's. The Set of an element to a New object is a support call the
     // interpreter runs, no recovery.
     [TestMethod]
     public async Task AnElementOfAVariantArray_IsReadAndWrittenInItsVariantsCell()
@@ -429,7 +430,7 @@ public sealed class CompiledArrayTests
             "    V(2) = 4",
             "    Debug.Print \"let go\"",
             "    Mixed = Mixed + V(2)",
-            "End Function"), "Mixed", recoveries: 3 + 1, classes: Noisy);
+            "End Function"), "Mixed", recoveries: 2 + 1, classes: Noisy);
 
     // an element of an array of objects compared with Nothing and with another, and tested with TypeOf, in compiled code: an element no object was ever Set
     // to holds Nothing. Each Set of an element, and the Set of O to one, is a support call the interpreter runs, no recovery; the Set of O to Nothing, which

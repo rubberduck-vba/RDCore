@@ -24,6 +24,7 @@ public sealed class FormPictureTests
         ["arrow.cur"] = Icon(2, 32),
         ["placeable.wmf"] = Metafile(placeable: true),
         ["frame.emf"] = EnhancedMetafile(4964, 2964),
+        ["sprite.png"] = Png(6, 4),
     };
 
     private static readonly string Folder = Path.Combine(Path.GetTempPath(), $"rdcore-form-pictures-{Guid.NewGuid():N}");
@@ -84,6 +85,16 @@ public sealed class FormPictureTests
             "Set p = LoadPicture(D & \"bmp24.bmp\")",
             "Set img.Picture = p: Debug.Print Err.Number & \" \" & (img.Picture Is p) & \" \" & (img.Picture.Handle = p.Handle) & \" \" & Desc(img.Picture)",
             "Debug.Print (img.Picture Is img.Picture) & \" \" & (TypeOf img.Picture Is StdPicture)"));
+
+    // an RD-VBA addition: OLE reads no PNG, so the server is given an icon of the PNG's pixels; the program reads back its own picture, a bitmap.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the process")]
+    [DataRow(true, DisplayName = "through an external host")]
+    public async Task APng_IsGivenToAControl_AndToTheForm(bool external)
+        => Printed(["0 True True True h set type 1 159x106"], await RunAsync(external,
+            "Set p = LoadPicture(D & \"sprite.png\"): Set img.Picture = p",
+            "Set o = ExampleView.Controls.Add(\"Forms.Label.1\", \"Label1\"): Set o.Picture = p: Set ExampleView.Picture = p",
+            "Debug.Print Err.Number & \" \" & (img.Picture Is p) & \" \" & (o.Picture Is p) & \" \" & (ExampleView.Picture Is p) & \" \" & Desc(img.Picture)"));
 
     [TestMethod]
     public async Task OnePicture_IsSharedByTheControlsGivenIt_AndByTheForm()
