@@ -309,6 +309,10 @@ internal sealed record class VariantSlotTextNode(int Slot) : TextNode;
 // regional setting changes (StringOperations.OfWhole).
 internal sealed record class WholeTextNode(PayloadNode Value) : TextNode;
 
+// a Single or a Double let-coerced to String (MS-VBAL §5.5.1.2.4): written as the interpreter's let-coercion writes it, with the decimal symbol of the
+// session's regional settings (CompiledActivation.FloatingText).
+internal sealed record class FloatingTextNode(PayloadNode Value) : TextNode;
+
 // Chr$ of a Byte, an Integer, a Long or a LongLong (MS-VBAL §6.1.2.11.1.4): the character the code names, as the library's Chr$ makes it
 // (CompiledActivation.TryChr); a code it names none for is the interpreter's, which raises the error.
 internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;

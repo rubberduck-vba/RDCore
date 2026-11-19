@@ -439,6 +439,9 @@ internal sealed partial class ProcedureAnalysis
             case WholeTextNode { Value: var whole }:
                 return Admits(whole, ref calledAfter);
 
+            case FloatingTextNode { Value: var floating }:
+                return Admits(floating, ref calledAfter);
+
             case ChrTextNode { Code: var code }:
                 return Admits(code, ref calledAfter);
 
@@ -617,6 +620,9 @@ internal sealed partial class ProcedureAnalysis
                 case WholeTextNode { Value: var whole }:
                     CollectPayload(whole);
                     return;
+                case FloatingTextNode { Value: var floating }:
+                    CollectPayload(floating);
+                    return;
                 case ChrTextNode { Code: var code }:
                     CollectPayload(code);
                     return;
@@ -683,12 +689,13 @@ internal sealed partial class ProcedureAnalysis
         _ => [],
     };
 
-    // the payloads a text is made of: the whole numbers joined to it, the codes of Chr$, the arguments of TypeName of a value, and what the calls that
+    // the payloads a text is made of: the numbers joined to it, the codes of Chr$, the arguments of TypeName of a value, and what the calls that
     // return a String are given.
     private static IEnumerable<PayloadNode> PayloadsOf(TextNode node) => node switch
     {
         ConcatNode concat => [.. PayloadsOf(concat.Left), .. PayloadsOf(concat.Right)],
         WholeTextNode whole => [whole.Value],
+        FloatingTextNode floating => [floating.Value],
         ChrTextNode chr => [chr.Code],
         LibraryVariantTextNode library => library.Arguments.SelectMany(OperandsOf),
         TextCallNode call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
