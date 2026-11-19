@@ -55,6 +55,16 @@ public sealed class EncapsulateFieldServiceTests
         "    Origin.X = 5\r\n" +
         "End Sub\r\n";
 
+    private const string Widget =
+        "VERSION 1.0 CLASS\r\n" +
+        "BEGIN\r\n" +
+        "  MultiUse = -1  'True\r\n" +
+        "END\r\n" +
+        "Attribute VB_Name = \"Widget\"\r\n" +
+        "Option Explicit\r\n" +
+        "Public Size As Long\r\n" +
+        "Public Owner As Collection\r\n";
+
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly EncapsulateFieldService _service;
@@ -62,7 +72,11 @@ public sealed class EncapsulateFieldServiceTests
     public EncapsulateFieldServiceTests()
     {
         _documents.WorkspaceRoot.Returns(Root);
-        var documents = new[] { new WorkspaceDocument("Fields.bas", Root, Fields, version: 3), new WorkspaceDocument("Main.bas", Root, Main, version: 1) };
+        var documents = new[]
+        {
+            new WorkspaceDocument("Fields.bas", Root, Fields, version: 3), new WorkspaceDocument("Main.bas", Root, Main, version: 1),
+            new WorkspaceDocument("Widget.cls", Root, Widget, version: 1),
+        };
         _documents.GetAllDocuments().Returns(documents);
         foreach (var document in documents)
         {
@@ -159,7 +173,8 @@ public sealed class EncapsulateFieldServiceTests
         CollectionAssert.AreEqual(
             new[]
             {
-                EncapsulateFieldService.ModeChoice, EncapsulateFieldService.BackingFieldChoice, EncapsulateFieldService.ReadOnlyChoice, EncapsulateFieldService.InsideChoice,
+                EncapsulateFieldService.ModeChoice, EncapsulateFieldService.BackingFieldChoice, EncapsulateFieldService.ReadOnlyChoice,
+                EncapsulateFieldService.ReadAccessChoice, EncapsulateFieldService.WriteAccessChoice, EncapsulateFieldService.InsideChoice,
                 EncapsulateFieldService.FieldsChoice,
             },
             prepared.Choices.Select(choice => choice.Id).ToArray());
@@ -191,10 +206,14 @@ public sealed class EncapsulateFieldServiceTests
         var total = fields.Items[1];
         Assert.AreEqual("Public total As Currency", total.Label);
         CollectionAssert.AreEqual(
-            new[] { EncapsulateFieldService.EncapsulateChoice, EncapsulateFieldService.ReadOnlyChoice, EncapsulateFieldService.BackingFieldChoice },
+            new[]
+            {
+                EncapsulateFieldService.EncapsulateChoice, EncapsulateFieldService.ReadOnlyChoice, EncapsulateFieldService.ReadAccessChoice,
+                EncapsulateFieldService.WriteAccessChoice, EncapsulateFieldService.BackingFieldChoice,
+            },
             total.Choices.Select(choice => choice.Id).ToArray());
         Assert.AreEqual("false", total.Choices[0].Default);
-        Assert.AreEqual("mTotal", total.Choices[2].Default);
+        Assert.AreEqual("mTotal", total.Choices[4].Default);
         var origin = prepared.Notices.Single(notice => notice.Item == "Origin");
         Assert.AreEqual(RefactorNoticeKind.Refusal, origin.Kind);
         Assert.AreEqual("encapsulateField.writesThroughACopy", origin.Code);
@@ -311,5 +330,79 @@ public sealed class EncapsulateFieldServiceTests
         var prepared = await _service.PrepareAsync(Document("Main.bas"), new SourcePosition(5, 12), CancellationToken.None);
 
         Assert.AreEqual("encapsulateField.notAField", prepared.Notices.Single().Code);
+    }
+
+    private static (string Default, string[] Options) AccessOf(IEnumerable<RefactorChoice> choices, string id)
+        => choices.Single(choice => choice.Id == id) is var choice ? (choice.Default!, [.. choice.Options.Select(option => option.Value)]) : default;
+
+    [TestMethod]
+    public async Task TheAccessChoices_OfAClassModulesField_OfferFriend_AndTheWritersAreFriendByDefault()
+    {
+        var prepared = await _service.PrepareAsync(Document("Widget.cls"), new SourcePosition(6, 8), CancellationToken.None);
+        var answer = await _service.ApplyAsync(Document("Widget.cls"), new SourcePosition(6, 8), [], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        var (read, readOptions) = AccessOf(prepared.Choices, EncapsulateFieldService.ReadAccessChoice);
+        var (write, writeOptions) = AccessOf(prepared.Choices, EncapsulateFieldService.WriteAccessChoice);
+        Assert.AreEqual(EncapsulateFieldService.PublicAccess, read);
+        Assert.AreEqual(EncapsulateFieldService.FriendAccess, write);
+        string[] accesses = [EncapsulateFieldService.PublicAccess, EncapsulateFieldService.FriendAccess, EncapsulateFieldService.PrivateAccess];
+        CollectionAssert.AreEqual(accesses, readOptions);
+        CollectionAssert.AreEqual(accesses, writeOptions);
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = DeclarationEdits.ApplyTo(Widget, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Public Property Get Size() As Long\r\n");
+        StringAssert.Contains(text, "Friend Property Let Size(ByVal value As Long)\r\n");
+    }
+
+    [TestMethod]
+    public async Task TheAccessChoices_OfAStandardModulesField_OfferNoFriend_AndArePublicByDefault()
+    {
+        var prepared = await _service.PrepareAsync(Document("Fields.bas"), new SourcePosition(5, 8), CancellationToken.None);
+
+        var total = prepared.Choices.Single(choice => choice.Id == EncapsulateFieldService.FieldsChoice).Items[1];
+        string[] accesses = [EncapsulateFieldService.PublicAccess, EncapsulateFieldService.PrivateAccess];
+        foreach (var choices in new[] { prepared.Choices, total.Choices })
+        {
+            foreach (var id in new[] { EncapsulateFieldService.ReadAccessChoice, EncapsulateFieldService.WriteAccessChoice })
+            {
+                var (access, options) = AccessOf(choices, id);
+                Assert.AreEqual(EncapsulateFieldService.PublicAccess, access, id);
+                CollectionAssert.AreEqual(accesses, options, id);
+            }
+        }
+    }
+
+    [TestMethod]
+    [DataRow(EncapsulateFieldService.ReadAccessChoice, DisplayName = "a Friend Get")]
+    [DataRow(EncapsulateFieldService.WriteAccessChoice, DisplayName = "a Friend Let")]
+    public async Task AFriendAccessAnswered_ForAStandardModulesField_IsRefused(string id)
+    {
+        var answer = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8),
+            [new RefactorAnswer { Id = id, Value = EncapsulateFieldService.FriendAccess }], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        Assert.IsNull(answer.Edit);
+        StringAssert.Contains(answer.Refusal, "'count'");
+        StringAssert.Contains(answer.Refusal, "Friend");
+    }
+
+    [TestMethod]
+    public async Task TheAccessAnswered_ForAFieldPicked_DeclaresItsOwnProperties()
+    {
+        var prepared = await _service.PrepareAsync(Document("Widget.cls"), new SourcePosition(6, 8), CancellationToken.None);
+        RefactorAnswer[] answers =
+        [
+            new() { Id = EncapsulateFieldService.ReadAccessChoice, Value = EncapsulateFieldService.FriendAccess },
+            Picked(("Owner", [new RefactorAnswer { Id = EncapsulateFieldService.WriteAccessChoice, Value = EncapsulateFieldService.PrivateAccess }])),
+        ];
+        var answer = await _service.ApplyAsync(Document("Widget.cls"), new SourcePosition(6, 8), answers, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+
+        var owner = prepared.Choices.Single(choice => choice.Id == EncapsulateFieldService.FieldsChoice).Items.Single();
+        Assert.AreEqual(EncapsulateFieldService.FriendAccess, AccessOf(owner.Choices, EncapsulateFieldService.WriteAccessChoice).Default);
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = DeclarationEdits.ApplyTo(Widget, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Friend Property Get Size() As Long\r\n");
+        StringAssert.Contains(text, "Friend Property Let Size(ByVal value As Long)\r\n");
+        StringAssert.Contains(text, "Public Property Get Owner() As Collection\r\n");
+        StringAssert.Contains(text, "Private Property Set Owner(ByVal value As Collection)\r\n");
     }
 }
