@@ -693,7 +693,7 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public LanguageCore.Binding.BoundMember? Site { get; init; }
 
     /// <summary>
-    /// The class an object is declared as, of a call of its default member that an index expression makes (MS-VBAL §5.6.13.1): <see cref="Procedure"/> is
+    /// The class an object is declared as, of a call of its default member that an index expression makes (MS-VBAL §5.6.13): <see cref="Procedure"/> is
     /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class only; an object of another class is the interpreter's.
     /// <see cref="Site"/> is then <see langword="null"/>.
     /// </summary>

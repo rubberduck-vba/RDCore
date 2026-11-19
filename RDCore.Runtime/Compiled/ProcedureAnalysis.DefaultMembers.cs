@@ -12,9 +12,9 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a call of the default member of an object of a class of the workspace, which an index expression makes (MS-VBAL §5.6.13.1):
-// `F(K)` of an object variable of the activation, `this.State(K)` of an object field of one of its records. The call is made as a call of a member named
-// is (MemberCallOf), on an object of the class the object is declared as; one of another class is the interpreter's (CompiledCallee.DefaultOf).
+// what compiled code does of a call of the default member of an object of a class of the workspace, which an index expression makes (MS-VBAL §5.6.13):
+// `F(K)` of an object variable of the activation, `this.State(K)` of an object field of one of its records. The call is made as the call of a member by
+// its name is (MemberCallOf), on an object of the class the object is declared as; one of another class is the interpreter's (CompiledCallee.DefaultOf).
 internal sealed partial class ProcedureAnalysis
 {
     // the default member an index expression calls, the class the object is declared as, the arguments bound for the member's parameters, and the object
@@ -59,8 +59,8 @@ internal sealed partial class ProcedureAnalysis
         => ArgumentMapping.Bind(RuntimeProcedureInvoker.GetParameters(member).RemoveAt(0), index.Arguments, Bind,
             argument => _evaluator.DeclaredTypeOf(_session, argument, new RuntimeEvaluationContext(_procedure.Uri)));
 
-    // the call of the default member, made as MemberCallOf makes a call of a member named: on the object of an object variable, or of an object field of a
-    // record, found where the record holds it.
+    // the call of the default member, made as MemberCallOf makes the call of a member by its name: on the object of an object variable, or of an object
+    // field of a record, found where the record holds it.
     private CallStep? DefaultMemberCallOf(BoundNode node, int result, int offset, ScalarKind? resultKind, bool returnsValue = false)
     {
         if (DefaultCallOf(node) is not ({ } member, { } declared, var arguments, var receiver, var held))

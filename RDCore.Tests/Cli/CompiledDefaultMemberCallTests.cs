@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The default member of an object of a class of the workspace, called by an index expression on an object variable (<c>F(K)</c>,
-/// <strong>MS-VBAL §5.6.13.1</strong>): compiled code calls the member the class marks <c>VB_UserMemId = 0</c> on the object, as the interpreter calls it.
+/// <strong>MS-VBAL §5.6.13</strong>): compiled code calls the member the class marks <c>VB_UserMemId = 0</c> on the object, as the interpreter calls it.
 /// An object of another class, reached through the class as an interface, is the interpreter's to call.
 /// </summary>
 [TestClass]
