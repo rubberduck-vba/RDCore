@@ -172,7 +172,7 @@ public sealed class ExtractMethodDuplicatesServiceTests
             [Answer(ExtractMethodService.NameChoice, "Added"), Answer(ExtractMethodService.AccessibilityChoice, "Public")], [], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        var text = Applied(Worker, answer.Edit!.Documents.Single().Edits);
+        var text = DeclarationEdits.ApplyTo(Worker, answer.Edit!.Documents.Single().Edits);
         StringAssert.Contains(text, "Public Sub Run(ByVal n As Long)\r\n    Added n\r\nEnd Sub", text);
         StringAssert.Contains(text, "Public Sub Twin(ByVal m As Long)\r\n    Added m\r\nEnd Sub", text);
         StringAssert.Contains(answer.Replacements.Single().Label, InWorker);
@@ -196,7 +196,7 @@ public sealed class ExtractMethodDuplicatesServiceTests
 
         Assert.IsNull(untouched.Refusal, untouched.Refusal);
         Assert.IsEmpty(untouched.Replacements);
-        StringAssert.Contains(Applied(Worker, untouched.Edit!.Documents.Single().Edits), "    y = m + 7\r\n");
+        StringAssert.Contains(DeclarationEdits.ApplyTo(Worker, untouched.Edit!.Documents.Single().Edits), "    y = m + 7\r\n");
         Assert.IsNull(ticked.Edit);
         StringAssert.Contains(ticked.Refusal, InWorker);
     }
@@ -209,7 +209,7 @@ public sealed class ExtractMethodDuplicatesServiceTests
         Assert.IsNull(answer.Refusal, answer.Refusal);
         var document = answer.Edit!.Documents.Single();
         Assert.AreEqual(DocumentOf("Main").AbsoluteUri, document.Uri!.AbsoluteUri);
-        var text = Applied(Main, document.Edits);
+        var text = DeclarationEdits.ApplyTo(Main, document.Edits);
         StringAssert.Contains(text, "Public Sub Run(ByVal n As Long)\r\n    Doubled n\r\nEnd Sub");
         StringAssert.Contains(text, "Public Sub Twin(ByVal m As Long)\r\n    Doubled m\r\nEnd Sub");
         var replacement = answer.Replacements.Single();
@@ -226,7 +226,7 @@ public sealed class ExtractMethodDuplicatesServiceTests
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
         Assert.IsEmpty(answer.Replacements);
-        StringAssert.Contains(Applied(Main, answer.Edit!.Documents.Single().Edits), "    Dim y As Long\r\n    y = m * 2\r\n    Debug.Print y\r\n");
+        StringAssert.Contains(DeclarationEdits.ApplyTo(Main, answer.Edit!.Documents.Single().Edits), "    Dim y As Long\r\n    y = m * 2\r\n    Debug.Print y\r\n");
     }
 
     [TestMethod]
@@ -243,8 +243,8 @@ public sealed class ExtractMethodDuplicatesServiceTests
         var main = answer.Edit!.Documents.Single(document => document.Uri!.AbsoluteUri == DocumentOf("Main").AbsoluteUri);
         var other = answer.Edit.Documents.Single(document => document.Uri!.AbsoluteUri == DocumentOf("Other").AbsoluteUri);
         Assert.AreEqual(5, other.Version);
-        StringAssert.Contains(Applied(Main, main.Edits), "    y = m * 2\r\n");
-        StringAssert.Contains(Applied(Other, other.Edits), "Public Sub Elsewhere(ByVal k As Long)\r\n    Doubled k\r\nEnd Sub");
+        StringAssert.Contains(DeclarationEdits.ApplyTo(Main, main.Edits), "    y = m * 2\r\n");
+        StringAssert.Contains(DeclarationEdits.ApplyTo(Other, other.Edits), "Public Sub Elsewhere(ByVal k As Long)\r\n    Doubled k\r\nEnd Sub");
         Assert.AreEqual(DocumentOf("Other").AbsoluteUri, answer.Replacements.Single().Document.AbsoluteUri);
     }
 
@@ -324,26 +324,5 @@ public sealed class ExtractMethodDuplicatesServiceTests
             Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>() },
         }, CancellationToken.None);
         return actions!.Select(action => action.CodeAction!).SingleOrDefault(action => action.Kind == CodeActionHandler.RefactorExtractMethod);
-    }
-
-    // the text with the edits made, each of the text as it was before any of them.
-    private static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
-    {
-        var starts = new List<int> { 0 };
-        for (var index = 0; index < text.Length; index++)
-        {
-            if (text[index] == '\n')
-            {
-                starts.Add(index + 1);
-            }
-        }
-
-        int Offset(SourcePosition position) => starts[position.Line] + position.Character;
-        foreach (var edit in edits.OrderByDescending(edit => Offset(edit.Range.Start)))
-        {
-            text = string.Concat(text.AsSpan(0, Offset(edit.Range.Start)), edit.NewText, text.AsSpan(Offset(edit.Range.End)));
-        }
-
-        return text;
     }
 }

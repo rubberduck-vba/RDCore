@@ -139,7 +139,7 @@ public sealed class ConvertGoSubServiceTests
         var answer = await Sut().ApplyAsync(RefactoringKinds.ConvertGoSub, Document, At(8, 0), [], [], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        var text = DeclarationEdits.ApplyTo(Module,answer.Edit!.Documents.Single().Edits);
         StringAssert.Contains(text, "    total = n\r\n    TwiceProc total\r\n    TwiceProc total\r\n    Debug.Print total\r\n    Exit Sub\r\nEnd Sub", text);
         StringAssert.Contains(text, "Private Sub TwiceProc(ByRef total As Long)\r\n    total = total * 2\r\nEnd Sub", text);
     }
@@ -157,7 +157,7 @@ public sealed class ConvertGoSubServiceTests
             new RefactorApplyRequest { Kind = RefactoringKinds.ConvertGoSub, Uri = Document, Range = At(8, 0) }, CancellationToken.None);
 
         Assert.AreEqual("TwiceProc", prepared.Choices[0].Default);
-        StringAssert.Contains(Applied(Module, applied.Documents.Single().Edits), "Private Sub TwiceProc(");
+        StringAssert.Contains(DeclarationEdits.ApplyTo(Module,applied.Documents.Single().Edits), "Private Sub TwiceProc(");
     }
 
     [TestMethod]
@@ -223,7 +223,7 @@ public sealed class ConvertGoSubServiceTests
         var answer = await Sut().ApplyAsync(RefactoringKinds.ConvertGoSub, Document, At(25, 0), [], [], CancellationToken.None);
 
         Assert.AreEqual(null, answer.Refusal);
-        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        var text = DeclarationEdits.ApplyTo(Module,answer.Edit!.Documents.Single().Edits);
         StringAssert.Contains(text, "    total = n\r\n    OuterProc total\r\n    Debug.Print total\r\n    Exit Sub\r\nEnd Sub", text);
         StringAssert.Contains(text, "Private Sub OuterProc(ByRef total As Long)\r\n    total = total + 1\r\n    InnerProc total\r\nEnd Sub", text);
         StringAssert.Contains(text, "Private Sub InnerProc(ByRef total As Long)\r\n    total = total * 2\r\nEnd Sub", text);
@@ -238,7 +238,7 @@ public sealed class ConvertGoSubServiceTests
             [], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        var text = DeclarationEdits.ApplyTo(Module,answer.Edit!.Documents.Single().Edits);
         StringAssert.Contains(text, "Private Sub OuterProc(ByRef total As Long)\r\n    total = total + 1\r\n    Doubled total\r\nEnd Sub", text);
         StringAssert.Contains(text, "Private Sub Doubled(ByRef total As Long)", text);
     }
@@ -329,26 +329,5 @@ public sealed class ConvertGoSubServiceTests
             },
         }, CancellationToken.None);
         return actions!.Select(action => action.CodeAction!).SingleOrDefault(action => action.Kind == CodeActionHandler.RefactorConvertGoSub);
-    }
-
-    // the text with the edits made, each of the text as it was before any of them.
-    private static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
-    {
-        var starts = new List<int> { 0 };
-        for (var index = 0; index < text.Length; index++)
-        {
-            if (text[index] == '\n')
-            {
-                starts.Add(index + 1);
-            }
-        }
-
-        int Offset(SourcePosition position) => starts[position.Line] + position.Character;
-        foreach (var edit in edits.OrderByDescending(edit => Offset(edit.Range.Start)))
-        {
-            text = string.Concat(text.AsSpan(0, Offset(edit.Range.Start)), edit.NewText, text.AsSpan(Offset(edit.Range.End)));
-        }
-
-        return text;
     }
 }

@@ -26,7 +26,7 @@ public static class SyntaxSelection
         while (InnermostAt(node, position) is { } inner)
         {
             var range = inner.SourceLocation.Range;
-            if (!range.IsEmpty && range != outward[^1] && Contains(outward[^1], range))
+            if (!range.IsEmpty && range != outward[^1] && outward[^1].Contains(range))
             {
                 outward.Add(range);
             }
@@ -45,7 +45,7 @@ public static class SyntaxSelection
         foreach (var child in node.ChildNodes())
         {
             var range = child.SourceLocation.Range;
-            if (Contains(range, position) && (inner is null || range != inner.SourceLocation.Range && Contains(inner.SourceLocation.Range, range)))
+            if (Contains(range, position) && (inner is null || range != inner.SourceLocation.Range && inner.SourceLocation.Range.Contains(range)))
             {
                 inner = child;
             }
@@ -54,7 +54,6 @@ public static class SyntaxSelection
         return inner;
     }
 
+    // the end is in it: a position at the end of a node, where the cursor is after its last character, selects it.
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
-
-    private static bool Contains(SourceRange outer, SourceRange inner) => outer.Start <= inner.Start && inner.End <= outer.End;
 }
