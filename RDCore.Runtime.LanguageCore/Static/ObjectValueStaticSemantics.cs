@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -277,11 +278,14 @@ public static class ObjectValueStaticSemantics
     }
 
     // the member of a class a call or a read of the name invokes, as the class is declared now: a Sub, a Function or a Property Get - not a Property Let or
-    // Set of the same name, which an assignment invokes.
+    // Set of the same name, which an assignment invokes. Code of another project calls no Friend member of the class.
     private static VBTypeMemberSymbol? CalledMemberOf(StaticEvaluationContext context, VBClassType classType, MemberAccessExpressionNode access)
-        => (VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) ?? classType.Symbol).DefaultInterfaceMembers.FirstOrDefault(member
+    {
+        var declared = VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) ?? classType.Symbol;
+        return ProjectVisibility.MembersSeenFrom(declared.DefaultInterfaceMembers, declared, context.Scope).FirstOrDefault(member
             => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
                 && member is VBReturningMemberSymbol or VBProcedureMemberSymbol && member is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol));
+    }
 
     // the parameters of a procedure, whichever kind of member declares it.
     private static ImmutableArray<VBParameterSymbol> ParametersOf(VBTypeMemberSymbol member) => member switch

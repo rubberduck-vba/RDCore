@@ -117,12 +117,15 @@ public sealed class CompletionServiceTests
         libraries.DescribedSymbolsOf(Arg.Any<Uri>(), Arg.Any<string>()).Returns(call => LibrarySymbolProvider.ReadDescribed(source, call.Arg<Uri>(), call.Arg<string>()));
         var options = Options.Create(
             new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = language }, Formatting = _formatting });
-        return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, OneProject.Registry());
+        return new CompletionService(
+            _documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, _projects);
     }
 
     private readonly ClientVerbRegistry _verbs = new();
 
     private SdkFormattingOptions _formatting = new();
+
+    private readonly IWorkspaceProjects _projects = OneProject.Registry();
 
     // the module with the cursor where the `|` is, which is taken out of the source.
     private static (string Source, Position Position) At(string source)
@@ -173,6 +176,38 @@ public sealed class CompletionServiceTests
 
         CollectionAssert.Contains(labels, "Long");
     }
+
+    // ---- a directive's condition: the conditional-compilation constants (MS-VBAL 5.6.10) ----
+
+    private const string Directives = """
+        Attribute VB_Name = "Main"
+        #Const Trace = 1
+        #If |
+        #End If
+        """;
+
+    // the module's own first, then the project's, then the predefined ones, and no other name: a variable or a procedure is not a directive's.
+    [TestMethod]
+    public async Task ADirectivesCondition_IsOfferedTheConditionalConstants_TheModulesFirst()
+    {
+        _projects.Projects.Returns([new WorkspaceProject(Root, new ProjectFile(Root, new RDCoreProject
+        {
+            PrecompilerConstants = new(StringComparer.OrdinalIgnoreCase) { ["Build"] = "1" },
+        }))]);
+        var (source, position) = At(Directives);
+        var document = new WorkspaceDocument("Main.bas", Root, source);
+        WorkspaceHas(document);
+
+        var list = await Sut().CompleteDocumentAsync(document.Id.Uri.ToUri(), position, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[] { "Trace", "Build", "DEBUG", "Is64BitEnv", "Linux", "Mac", "VBA6", "VBA7", "Win16", "Win32", "Win64" },
+            list.Items.Select(item => item.Label).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AConditionalConstantBeingTyped_IsNarrowedLikeAnyName()
+        => CollectionAssert.AreEqual(new[] { "Win16", "Win32", "Win64" }, await LabelsAsync("#If Not Wi|\r\n#End If"));
 
     // ---- an argument whose parameter is an Enum: its constants first ----
 
