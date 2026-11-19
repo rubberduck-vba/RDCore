@@ -371,11 +371,13 @@ internal static class EncapsulateField
 
         // MS-VBAL §5.3.1.1: a Private property is reached from its own module only. The references are the project's: a Friend one reaches them all.
         var writeAccess = WriteAccessOf(field, options);
-        if (outside.Select(occurrence => (Occurrence: (NameOccurrence?)occurrence, Writes: ReferenceOf(occurrence)?.Use is ReferenceUse.Let or ReferenceUse.Set))
+        if (outside
+                .Select(occurrence => (Occurrence: (NameOccurrence?)occurrence, Writes: ReferenceOf(occurrence)?.Use is ReferenceUse.Let or ReferenceUse.Set))
                 .FirstOrDefault(each => each.Writes ? assignable && writeAccess is AccessModifier.Private : options.ReadAccess is AccessModifier.Private)
             is { Occurrence: { } unreached, Writes: var writes })
         {
-            return (null, new(writes ? EncapsulationRefusalKind.AssignedOutside : EncapsulationRefusalKind.ReadOutside, Module: unreached.Module, Range: unreached.Range));
+            var kind = writes ? EncapsulationRefusalKind.AssignedOutside : EncapsulationRefusalKind.ReadOutside;
+            return (null, new(kind, Module: unreached.Module, Range: unreached.Range));
         }
 
         // a Mid statement replaces characters of a variable: on a property, it does not compile.

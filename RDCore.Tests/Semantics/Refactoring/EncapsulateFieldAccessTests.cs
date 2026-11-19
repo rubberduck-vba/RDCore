@@ -48,7 +48,8 @@ public sealed class EncapsulateFieldAccessTests
 
     private const string ClassHeader = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\n";
 
-    private static (Encapsulation? Encapsulation, EncapsulationRefusal? Refusal) Encapsulate(Workspace workspace, string name, EncapsulationOptions? options = null)
+    private static (Encapsulation? Encapsulation, EncapsulationRefusal? Refusal) Encapsulate(
+        Workspace workspace, string name, EncapsulationOptions? options = null)
     {
         var at = workspace.Text.IndexOf($" {name} As", StringComparison.Ordinal) + 1;
         var before = workspace.Text[..at];
@@ -72,7 +73,8 @@ public sealed class EncapsulateFieldAccessTests
         DisplayName = "an object: a Public Get, a Friend Set")]
     [DataRow("Public anything As Variant", new[]
         {
-            "Public Property Get anything() As Variant", "Friend Property Let anything(ByVal value As Variant)", "Friend Property Set anything(ByVal value As Variant)",
+            "Public Property Get anything() As Variant", "Friend Property Let anything(ByVal value As Variant)",
+            "Friend Property Set anything(ByVal value As Variant)",
         }, DisplayName = "a Variant: a Public Get, a Friend Let and Set")]
     public void AFieldOfAClassModule_IsEncapsulated_ByDefault_WithAPublicGet_AndFriendWriters(string field, string[] headers)
     {
@@ -151,7 +153,8 @@ public sealed class EncapsulateFieldAccessTests
     [TestMethod]
     public void APrivateLet_ThatOnlyAReadOutsideTheModuleGoesAround_IsWritten()
     {
-        var user = ModuleWorkspace.StandardModule("User", "Option Explicit", "Public Sub Use()", "    Dim w As New Widget", "    Debug.Print w.count", "End Sub");
+        var user = ModuleWorkspace.StandardModule(
+            "User", "Option Explicit", "Public Sub Use()", "    Dim w As New Widget", "    Debug.Print w.count", "End Sub");
 
         var text = Encapsulated(Compose(ClassWith("Public count As Long"), ModuleType.ClassModule, user), "count",
             new EncapsulationOptions(WriteAccess: AccessModifier.Private));
@@ -159,15 +162,16 @@ public sealed class EncapsulateFieldAccessTests
         StringAssert.Contains(text, "Private Property Let count(ByVal value As Long)\r\n");
     }
 
-    // the class encapsulated with its defaults, then run: another module of its project assigns the field through the Friend Let and reads it through the Get.
+    // the class encapsulated with its defaults, then run: another module of its project assigns the field through the Friend Let and reads it through the
+    // Get.
     [TestMethod]
     public async Task TheFriendLetOfAClassModulesField_IsAssigned_ByAnotherModuleOfItsProject_AfterTheEdit()
     {
         var text = Encapsulated(Compose(ClassWith("Public count As Long"), ModuleType.ClassModule), "count");
         StringAssert.Contains(text, "Friend Property Let count(");
 
-        var printed = await ModuleWorkspace.RunAsync([("Widget", ClassHeader + text)],
-            "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n    Dim w As New Widget\r\n    w.count = 5\r\n    Debug.Print w.count\r\nEnd Sub\r\n");
+        var printed = await ModuleWorkspace.RunAsync([("Widget", ClassHeader + text)], ModuleWorkspace.StandardModule(
+            "Program", "Option Explicit", "Public Sub Main()", "    Dim w As New Widget", "    w.count = 5", "    Debug.Print w.count", "End Sub"));
 
         CollectionAssert.AreEqual(new[] { "5" }, printed);
     }

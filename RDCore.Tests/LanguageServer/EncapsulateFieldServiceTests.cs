@@ -339,7 +339,8 @@ public sealed class EncapsulateFieldServiceTests
     public async Task TheAccessChoices_OfAClassModulesField_OfferFriend_AndTheWritersAreFriendByDefault()
     {
         var prepared = await _service.PrepareAsync(Document("Widget.cls"), new SourcePosition(6, 8), CancellationToken.None);
-        var answer = await _service.ApplyAsync(Document("Widget.cls"), new SourcePosition(6, 8), [], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+        var answer = await _service.ApplyAsync(
+            Document("Widget.cls"), new SourcePosition(6, 8), [], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
 
         var (read, readOptions) = AccessOf(prepared.Choices, EncapsulateFieldService.ReadAccessChoice);
         var (write, writeOptions) = AccessOf(prepared.Choices, EncapsulateFieldService.WriteAccessChoice);
@@ -378,7 +379,8 @@ public sealed class EncapsulateFieldServiceTests
     public async Task AFriendAccessAnswered_ForAStandardModulesField_IsRefused(string id)
     {
         var answer = await _service.ApplyAsync(Document("Fields.bas"), new SourcePosition(5, 8),
-            [new RefactorAnswer { Id = id, Value = EncapsulateFieldService.FriendAccess }], [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+            [new RefactorAnswer { Id = id, Value = EncapsulateFieldService.FriendAccess }], [EncapsulateFieldService.PassedByRefCode],
+            CancellationToken.None);
 
         Assert.IsNull(answer.Edit);
         StringAssert.Contains(answer.Refusal, "'count'");
@@ -394,7 +396,8 @@ public sealed class EncapsulateFieldServiceTests
             new() { Id = EncapsulateFieldService.ReadAccessChoice, Value = EncapsulateFieldService.FriendAccess },
             Picked(("Owner", [new RefactorAnswer { Id = EncapsulateFieldService.WriteAccessChoice, Value = EncapsulateFieldService.PrivateAccess }])),
         ];
-        var answer = await _service.ApplyAsync(Document("Widget.cls"), new SourcePosition(6, 8), answers, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
+        var answer = await _service.ApplyAsync(
+            Document("Widget.cls"), new SourcePosition(6, 8), answers, [EncapsulateFieldService.PassedByRefCode], CancellationToken.None);
 
         var owner = prepared.Choices.Single(choice => choice.Id == EncapsulateFieldService.FieldsChoice).Items.Single();
         Assert.AreEqual(EncapsulateFieldService.FriendAccess, AccessOf(owner.Choices, EncapsulateFieldService.WriteAccessChoice).Default);

@@ -404,7 +404,8 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             Default = defaultAccess,
             Options =
             [
-                .. AccessesOf(objectModule).Select(access => new RefactorOption { Value = access, Label = Format($"EncapsulateFieldChoice_Access_{access}") }),
+                .. AccessesOf(objectModule).Select(access
+                    => new RefactorOption { Value = access, Label = Format($"EncapsulateFieldChoice_Access_{access}") }),
             ],
         };
     }
@@ -454,8 +455,8 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     }
 
     // the choices answered for a field, as the plan takes them: the defaults for those that are not. What holds the value and what the references inside the
-    // module go through are the encapsulation's answers; whether it is read-only, the access modifiers of its properties and the name of its backing field are
-    // its own. A write access left unanswered is the module's default.
+    // module go through are the encapsulation's answers; whether it is read-only, the access modifiers of its properties and the name of its backing field
+    // are its own. A write access left unanswered is the module's default.
     private static EncapsulationOptions OptionsOf(IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<RefactorAnswer> own, string field) => new(
         BackingField: string.Equals(Answer(answers, ModeChoice), BackingFieldMode, StringComparison.OrdinalIgnoreCase)
             ? Answer(own, BackingFieldChoice) is { Length: > 0 } typed && typed.Trim() is { Length: > 0 } trimmed ? trimmed : DefaultBackingField(field)
