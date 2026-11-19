@@ -35,8 +35,8 @@ public static class SymbolLenses
             .Where(member => member.MemberKind is not (MemberKind.ModuleField or MemberKind.UserDefinedTypeField) && member.NameRange is not null)
             .Select(member => new SymbolLens(member.Name, member.NameRange!.Value))];
 
-    // the lenses of each member, and besides its references (MS-VBAL §5.2.4.2): of a member of a class other classes implement, how many procedures
-    // implement it; of a procedure that implements a member of an interface, which member, one lens for each.
+    // the lenses of each member: its references, and (MS-VBAL §5.2.4.2) for a member of a class other classes implement, how many procedures implement
+    // it; for a procedure that implements members of interfaces, one lens for each member it implements.
     public static IReadOnlyList<SymbolLens> In(RenameContext context, RenameModule module)
     {
         var lenses = new List<SymbolLens>();
