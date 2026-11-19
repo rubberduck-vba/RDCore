@@ -99,21 +99,35 @@ internal sealed class SymbolTable
     /// module - is no concern of it. VBA names are not case sensitive, and neither is the lookup.
     /// </remarks>
     public bool TryGetModule(string name, [NotNullWhen(true)] out VBModuleSymbol? module)
-        => (_modules ??= IndexModules()).TryGetValue(name, out module);
+        => (_modules ??= IndexModules()).ByName.TryGetValue(name, out module);
 
-    // the modules by name, built when one is asked for after the table changed: a project's module before a library's of the same name.
-    private Dictionary<string, VBModuleSymbol> IndexModules()
+    /// <summary>
+    /// Finds the module at this address, of whichever project it is in: a referenced project's module of a name the project also has is found by its own.
+    /// </summary>
+    /// <remarks>
+    /// The address is compared whole, its fragment included, which holds the module's name: <see cref="Uri"/> equality ignores it.
+    /// </remarks>
+    public bool TryGetModule(Uri uri, [NotNullWhen(true)] out VBModuleSymbol? module)
+        => (_modules ??= IndexModules()).ByUri.TryGetValue(uri.AbsoluteUri, out module);
+
+    // the modules by name and by address, built when one is asked for after the table changed: by name, a project's module before a library's of the same
+    // name.
+    private ModuleIndex IndexModules()
     {
-        var modules = new Dictionary<string, VBModuleSymbol>(StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, VBModuleSymbol>(StringComparer.OrdinalIgnoreCase);
+        var byUri = new Dictionary<string, VBModuleSymbol>(StringComparer.Ordinal);
         foreach (var module in All().OfType<VBModuleSymbol>().OrderBy(module => module.GetProperty(SymbolProperties.Library) is null ? 0 : 1))
         {
-            modules.TryAdd(module.Name, module);
+            byName.TryAdd(module.Name, module);
+            byUri.TryAdd(module.Uri.AbsoluteUri, module);
         }
 
-        return modules;
+        return new ModuleIndex(byName, byUri);
     }
 
-    private Dictionary<string, VBModuleSymbol>? _modules;
+    private sealed record class ModuleIndex(Dictionary<string, VBModuleSymbol> ByName, Dictionary<string, VBModuleSymbol> ByUri);
+
+    private ModuleIndex? _modules;
 
     /// <summary>
     /// A copy of the table as it is now, which nothing that is done to this one reaches, and so is safe to read from another thread.
