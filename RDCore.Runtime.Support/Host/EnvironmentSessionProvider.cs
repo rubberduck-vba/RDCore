@@ -359,6 +359,12 @@ public sealed class EnvironmentSessionProvider(
         var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], output, libraries: source);
         // a predefined constant the project defines has the project's value on every platform a #If is evaluated for, and not that platform's.
         RDCore.Runtime.Semantics.Precompiler.ProjectConditionalConstants.Set(session, project.PrecompilerConstants.Select(constant => constant.Key));
+        // the procedure a run of the project starts with is the one its build section names, if it names one.
+        if (project.Build is { } build)
+        {
+            RDCore.Runtime.Execution.SessionProjectBuild.Set(session, build);
+        }
+
         // an error raised with no source is the project's (Err.Source).
         if (project.Name is { Length: > 0 } name)
         {

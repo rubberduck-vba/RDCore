@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
@@ -18,6 +19,15 @@ public static class MemberRoles
     public static IReadOnlyDictionary<SemanticId, DeclarationRole> Of(
         VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer, DocumentModuleFact? document = null)
         => BindingsOf(module, resolver, designer, document).ToDictionary(binding => binding.Key, binding => binding.Value.Role);
+
+    // the procedure a run of the project starts with (DeclarationRole.EntryPoint, ProgramEntryPoint.Of): the one its build section names, or the Sub Main of
+    // the one standard module that declares one, each module with the members the session defined for it. None for a library, or when no standard module
+    // declares it, or more than one does.
+    public static SemanticId? EntryPointOf(
+        ProjectBuild? build, IEnumerable<VBModuleSymbol> project, Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf)
+        => ProgramEntryPoint.Of(build, project.Select(module => (module, membersOf(module)))) is { IsFound: true } found
+            ? found.Procedure!.SemanticId
+            : null;
 
     // what each handler and implementation of a class is bound to: its source and the event or interface member, by the symbols that declare them. A member
     // that is named like one and is bound to nothing has no entry.
