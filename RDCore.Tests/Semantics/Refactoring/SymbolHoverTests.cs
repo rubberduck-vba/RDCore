@@ -36,7 +36,7 @@ public sealed class SymbolHoverTests
         "    mValue = v",
         "End Property");
 
-    // a class with a default instance: its name is a variable no statement declares (MS-VBAL 5.2.4.1.2).
+    // a class with a default instance: its name is a variable no statement declares (MS-VBAL §5.2.4.1.2).
     private static readonly string Factory = Lines(
         "VERSION 1.0 CLASS",
         "BEGIN",
