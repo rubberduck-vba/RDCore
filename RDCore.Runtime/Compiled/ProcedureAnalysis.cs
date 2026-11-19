@@ -471,7 +471,7 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a String is held in the cell its frame holds it in, whose text compiled code reads and writes.
+            // a String is held in a cell whose text compiled code reads and writes: its frame's, or its activation's (HoldText).
             if (parameter is not ParamArrayParameterSymbol && IsText(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
             {
                 HoldText(_layout.ParameterSlots[i], parameter);
@@ -1019,6 +1019,7 @@ internal sealed partial class ProcedureAnalysis
         ObjectParameter?[]? objects = null;
         bool[]? omitted = null;
         bool[]? variants = null;
+        int[]? texts = null;
         for (var i = 0; i < parameters.Length; i++)
         {
             // a Variant passed by reference, given a Variant or a String variable or parameter of the activation: its address, which the parameter is a
@@ -1076,7 +1077,8 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
+            // a String of a procedure of a standard module, given its text or the cell of a String of the activation, in the slot of the callee's layout
+            // that holds the parameter (CompiledCallee.TextSlots).
             if (parameters[i] is not ParamArrayParameterSymbol && site is null && defaultOf is null && receiver is null && IsText(parameters[i].ResolvedType))
             {
                 if (TextArgumentOf(arguments[i]) is not { } text)
@@ -1084,6 +1086,13 @@ internal sealed partial class ProcedureAnalysis
                     return null;
                 }
 
+                if (texts is null)
+                {
+                    texts = new int[parameters.Length];
+                    Array.Fill(texts, -1);
+                }
+
+                texts[i] = FrameLayout.For(procedure).ParameterSlots[i];
                 kinds.Add(null);
                 byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
                 values.Add(text);
@@ -1120,6 +1129,7 @@ internal sealed partial class ProcedureAnalysis
             ObjectParameters = objects ?? [],
             Omitted = omitted ?? [],
             VariantReferences = variants ?? [],
+            TextSlots = texts ?? [],
         });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }

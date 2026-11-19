@@ -287,7 +287,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         foreach (var callee in analysis.Callees)
         {
             Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}|{callee.CallsOwnMember}"
-                + $"|{callee.DefaultOf is not null}");
+                + $"|{callee.DefaultOf is not null}|{string.Join(',', callee.TextSlots)}");
         }
 
         foreach (var library in analysis.Libraries)
@@ -321,7 +321,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         {
             Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
             Classes = analysis.Classes, News = analysis.News, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
-            Libraries = analysis.Libraries, ArithmeticSites = analysis.ArithmeticSites,
+            Libraries = analysis.Libraries, ArithmeticSites = analysis.ArithmeticSites, TextSlots = [.. analysis.TextSlots],
         };
 
         // a call the body makes of itself is of the body just made.
@@ -340,14 +340,14 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
     // itself; through the invoker when it is not compiled, is not run by the invoker the body's own calls are, or is being compiled already (a procedure that
     // calls the one that calls it).
     // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame; so is
-    // one given a String, which its frame holds.
+    // one given anything but scalars and Strings of variable length, whose cells its activation is given (CompiledCallee.GivesScalarsAndTexts).
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodInfo entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
         // a member of an object, Me's own and a default member included, is called through its binding, the object given as Me
         // (CompiledActivation.CallMember).
         if (callee.Site is not null || callee.CallsOwnMember || callee.DefaultOf is not null
-            || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+            || !callee.GivesScalarsAndTexts || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }

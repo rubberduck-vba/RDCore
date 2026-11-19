@@ -395,7 +395,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // xmldoc), but only the FIRST call should actually happen: every later call must see whatever the
     // previous call's own body last wrote, not get reset back to the default.
     // what a variable's storage starts as: its type's default, except for an array, which is as big as it was declared.
-    private static VBTypedValue DefaultValueOf(IRuntimeSession session, VBLocalVariableSymbol variable)
+    internal static VBTypedValue DefaultValueOf(IRuntimeSession session, VBLocalVariableSymbol variable)
         => session.Symbols.Defaults?.DefaultValueOf(variable) ?? variable.ResolvedType.DefaultValue;
 
     /// <summary>
@@ -738,6 +738,21 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         => Session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(procedure.ParentUri), out var module)
             ? module.Directives
             : ModuleDirectives.None;
+
+    /// <summary>
+    /// The <c>Option</c> directives an activation of <paramref name="procedure"/> runs under (MS-VBAL §5.2.1): its frame's, which an activation compiled
+    /// code holds without a frame reads here.
+    /// </summary>
+    /// <param name="procedure">The procedure.</param>
+    internal ModuleDirectives DirectivesOf(VBTypeMemberSymbol procedure)
+    {
+        if (!_activations.TryGetValue(procedure, out var activation))
+        {
+            activation = _activations.GetOrAdd(procedure, ActivationOf);
+        }
+
+        return activation.Directives;
+    }
 
     internal static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
 
