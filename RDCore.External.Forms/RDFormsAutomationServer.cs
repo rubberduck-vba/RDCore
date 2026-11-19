@@ -43,10 +43,13 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         .GroupBy(type => type.RDFormsName, StringComparer.OrdinalIgnoreCase)
         .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
+    // a control's font is also an RDForms.Font: one font object serves as both, as a UserForm control's is a StdFont and an MSForms Font in Excel.
     private static bool? IsFontClass(string library, string className)
         => string.Equals(library, "stdole", StringComparison.OrdinalIgnoreCase)
             ? FontClasses.Contains(className, StringComparer.OrdinalIgnoreCase)
-            : null;
+            : string.Equals(library, RDFormsLibrary, StringComparison.OrdinalIgnoreCase)
+                ? string.Equals(className, FontProperty, StringComparison.OrdinalIgnoreCase)
+                : null;
 
     private const string DefaultMemberName = "_Default";
     private const string DefaultMemberDispatchName = "[DISPID=0]";
