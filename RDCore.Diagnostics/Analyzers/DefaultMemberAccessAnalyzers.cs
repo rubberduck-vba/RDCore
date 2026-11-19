@@ -60,7 +60,7 @@ internal static class DefaultMemberAccesses
             .Select(conversion => conversion.Location.Range)
             .ToHashSet();
         // the static facts also state that the value of a Let is let-coerced where the runtime pass states no conversion of it: a target that is Nothing
-        // raises 91 before its default member is found.
+        // raises 91 before its default member is found, and the runtime pass assumes the value of a parameter.
         objectOperands.UnionWith(expressions
             .Where(fact => fact is { IsLetCoerced: true, Error: null, IsArray: false, TypeKind: DeclaredTypeKind.Object or DeclaredTypeKind.Class })
             .Select(fact => fact.Location.Range));
@@ -82,7 +82,7 @@ internal static class DefaultMemberAccesses
             // access of a member that is the default one as a default member's access, named or not.
             var unbound = IsUnbound(target.DeclaredType);
             // the default member of an object given the target's argument list (b(1) = 5) is RDC00121's. Where the runtime pass states no access at the
-            // target, as of a target that is Nothing, the static facts give the default member of the target's class.
+            // target, as of a target that is Nothing or a parameter, the static facts give the default member of the target's class.
             var found = unbound ? null : accesses.FirstOrDefault(access => access.Location.Range == targetRange
                 && access.MemberAccessOpSemanticFlags!.Value is var flags
                 && flags.HasFlag(MemberAccessOperationSemanticFlags.DefaultMember) && !flags.HasFlag(MemberAccessOperationSemanticFlags.ArgumentList)

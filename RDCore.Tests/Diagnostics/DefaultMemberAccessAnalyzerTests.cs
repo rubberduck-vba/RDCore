@@ -56,6 +56,15 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "AssignNothingOfAClassWithNoDefaultMember|Dim p As Plain|p = 5",
         "LetAnObjectToAnUnboundNothing|Dim o As Object|Dim h As New Holder|o = h",
         "LetAnUnboundObjectToAnUnboundNothing|Dim o As Object|Dim v As Object|o = v",
+        // the runtime pass assumes the value of a parameter: the static facts state what a Let to an object parameter assigns.
+        "AssignAByValParameter(ByVal h As Holder)|h = 5",
+        "AssignAByRefParameter(ByRef h As Holder)|h = 5",
+        "AssignAByValParameterOfAClassWithNoDefaultMember(ByVal p As Plain)|p = 5",
+        "AssignAByRefParameterOfAClassWithNoDefaultMember(ByRef p As Plain)|p = 5",
+        "LetAnObjectToAByValParameter(ByVal h As Holder)|Dim h2 As New Holder|h = h2",
+        "LetAnObjectToAByRefParameter(ByRef h As Holder)|Dim h2 As New Holder|h = h2",
+        "LetAnObjectToAByValParameterOfAClassWithNoDefaultMember(ByVal p As Plain)|Dim h2 As New Holder|p = h2",
+        "LetAnObjectToAByRefParameterOfAClassWithNoDefaultMember(ByRef p As Plain)|Dim h2 As New Holder|p = h2",
     ];
 
     private static string _source = string.Empty;
@@ -78,7 +87,8 @@ public sealed class DefaultMemberAccessAnalyzerTests
         foreach (var procedure in Procedures)
         {
             var parts = procedure.Split('|');
-            lines.Add($"Public Sub {parts[0]}()");
+            // a procedure that takes parameters is written with them.
+            lines.Add(parts[0].Contains('(', StringComparison.Ordinal) ? $"Public Sub {parts[0]}" : $"Public Sub {parts[0]}()");
             lines.Add("    Dim x As Long");
             lines.AddRange(parts.Skip(1).Select(line => "    " + line));
             lines.Add("End Sub");
@@ -116,11 +126,12 @@ public sealed class DefaultMemberAccessAnalyzerTests
         => Assert.AreEqual(
             string.Join(Environment.NewLine,
                 "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)",
-                "LetAnObjectToTheDefaultMemberByName: h2", "AssignAnObjectAfterAnError: h", "AssignNothing: h"),
+                "LetAnObjectToTheDefaultMemberByName: h2", "AssignAnObjectAfterAnError: h", "AssignNothing: h", "AssignAByValParameter: h",
+                "AssignAByRefParameter: h"),
             string.Join(Environment.NewLine,
                 Findings(new ImplicitDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitDefaultMemberAccess, DiagnosticSeverity.Information)),
             "not an Object, a Variant, a member named (the default member included), an object assigned to an object, nor a class with no default member to "
-            + "assign or a function; Nothing too");
+            + "assign or a function; Nothing and a parameter too");
 
     [TestMethod]
     public void AnObjectUsedAsAValue_HasADefaultMemberKnownOnlyAtRunTime()
@@ -160,8 +171,9 @@ public sealed class DefaultMemberAccessAnalyzerTests
             string.Join(Environment.NewLine,
                 "LetAnObjectToAnObject: Let h = h2", "LetAnUnboundObjectToAnObject: h = v", "LetAnObjectToAnElement: a(1) = h",
                 "LetAnObjectToAnUnboundObject: o = h", "LetAnObjectToAnObjectAfterAnError: h = h2", "LetAnObjectToNothing: h = h2",
-                "LetAnObjectToAnUnboundNothing: o = h", "LetAnUnboundObjectToAnUnboundNothing: o = v"),
+                "LetAnObjectToAnUnboundNothing: o = h", "LetAnUnboundObjectToAnUnboundNothing: o = v", "LetAnObjectToAByValParameter: h = h2",
+                "LetAnObjectToAByRefParameter: h = h2"),
             string.Join(Environment.NewLine,
                 Findings(new SuspiciousLetAssignmentAnalyzer(), RDCoreDiagnosticId.SuspiciousLetAssignment, DiagnosticSeverity.Warning)),
-            "not a Set; to an Object too, and to Nothing");
+            "not a Set; to an Object too, to Nothing, and to a parameter");
 }
