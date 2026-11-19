@@ -260,18 +260,56 @@ public sealed class UnusedDeclarationAnalyzerTests
     }
 
     [TestMethod]
-    public async Task ADynamicArray_AnObject_AndAReDim_AreGivenWhatTheyHoldOtherwise()
+    public async Task ADynamicArray_AnObjectAsNew_AUserDefinedType_AndAReDim_AreGivenWhatTheyHoldOtherwise()
         => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
             "Option Explicit",
+            "Private Type Point",
+            "    X As Long",
+            "End Type",
             "Public Sub Main()",
             "    Dim values() As Long",
             "    Debug.Print UBound(values)",
-            "    Dim items As Collection",
-            "    Debug.Print items Is Nothing",
+            "    Dim items As New Collection",
+            "    Debug.Print items.Count",
+            "    Dim corner As Point",
+            "    Debug.Print corner.X",
             "    Dim resized As Variant",
             "    ReDim resized(2)",
             "    Debug.Print resized(0)",
             "End Sub"));
+
+    // a class cannot be told from a user-defined type by the name of the type: the declaration's fact states which it is.
+    [TestMethod]
+    [DataRow("    Dim items As Collection", "    Debug.Print items Is Nothing", DisplayName = "a class, which only a Set assigns")]
+    [DataRow("    Dim shelves(1 To 3) As Collection", "    Debug.Print shelves(1) Is Nothing", DisplayName = "a fixed-size array of a class")]
+    public async Task AVariableOfAClassThatNoSetAssigns_IsNotAssigned(string declaration, string read)
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit", "Public Sub Main()", declaration, read, "End Sub"));
+
+        Assert.AreEqual(RDCoreDiagnosticId.VariableNotAssigned, finding.Id);
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault(), "no Let of a literal assigns an object");
+    }
+
+    // a variable declared as an Enum is a Long (MS-VBAL §5.2.3.4), 0 until it is assigned (MS-VBAL §2.3).
+    [TestMethod]
+    [DataRow("    Dim shade As Colour", DisplayName = "an Enum of the module")]
+    [DataRow("    Dim answer As VbMsgBoxResult", DisplayName = "an Enum of the VBA library")]
+    public async Task AVariableOfAnEnumThatIsNeverAssigned_IsNotAssigned(string declaration)
+    {
+        var name = declaration.Contains("shade") ? "shade" : "answer";
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Private Enum Colour",
+            "    Red = 1",
+            "End Enum",
+            "Public Sub Main()",
+            declaration,
+            $"    Debug.Print {name}",
+            "End Sub"));
+
+        StringAssert.Contains(finding.Message, $"'{name}'");
+    }
 
     [TestMethod]
     [DataRow("    o.MoveNext", DisplayName = "a member call")]
