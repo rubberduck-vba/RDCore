@@ -22,6 +22,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// The snapshot is <c>GoldenMasters/arithmetic-operators.txt.gz</c>, next to this file: some 11,000 lines, recorded and compared as <see cref="GoldenMaster"/>
 /// says.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators")]
 public sealed class ArithmeticOperatorsGoldenMasterTests : LetCoercionRuntimeSemanticsTests

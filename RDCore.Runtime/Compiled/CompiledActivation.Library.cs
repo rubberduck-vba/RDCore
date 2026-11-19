@@ -23,7 +23,19 @@ public sealed partial class CompiledActivation
     public bool TryChr(long code, out string? text)
     {
         text = null;
-        if (FailsAccessAtRandom() || code is < int.MinValue or > int.MaxValue
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        // an ASCII code is the same character in every code page: one of the Strings made once.
+        if (code is >= 0 and < 128)
+        {
+            text = StdStrings.AsciiCharacters[code];
+            return true;
+        }
+
+        if (code is < int.MinValue or > int.MaxValue
             || (_strings ??= new StdStrings(_session)).ChrString(new VBLongValue((int)code)) is not { IsSuccess: true, Result: { TrailingByte: null } character })
         {
             return false;

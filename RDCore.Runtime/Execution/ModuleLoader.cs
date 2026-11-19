@@ -86,6 +86,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var deadRanges = precompiled.DeadRanges;
+        // and what they are on every platform, whichever this session runs on: where a Declare and a call of it are compiled.
+        var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(
+            session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var written = syntaxTree;
         syntaxTree = WithLiveHeaders(syntaxTree, deadRanges);
 
@@ -189,8 +192,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
                 declared, procedureModels,
-                module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames),
+                module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames,
+                symbol => StatementsCompiledOn(written, symbol.Name, platforms)),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
             Document = document,
@@ -202,7 +206,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails);
-        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames);
+        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
@@ -304,6 +308,25 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         }
 
         return default;
+    }
+
+    // MS-VBAL §5.2.3.5: the platforms each statement of a Declare is compiled on, in the order they are written: a procedure declared once in each #If
+    // branch is one procedure. Not known when a condition one of them depends on is not.
+    private static ImmutableArray<CompiledPlatforms>? StatementsCompiledOn(ModuleNode written, string name, ModulePlatforms platforms)
+    {
+        var statements = ImmutableArray.CreateBuilder<CompiledPlatforms>();
+        foreach (var statement in written.Children.OfType<ExternalMemberDeclarationNode>()
+            .Where(statement => string.Equals(statement.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (platforms.At(statement.SourceLocation.Range.Start) is not { } compiled)
+            {
+                return null;
+            }
+
+            statements.Add(compiled);
+        }
+
+        return statements.ToImmutable();
     }
 
     // the module as the constants compile it: each procedure with the header of its live branch, and a procedure whose every header is dead as it is written.

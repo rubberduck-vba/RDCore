@@ -6,6 +6,7 @@ namespace RDCore.Tests.Cli;
 /// A late-bound object is called through what it answers to, <c>IDispatch</c>, as MS-VBA calls it: an error value it holds or returns is an error value,
 /// a named argument reaches the parameter of its name, and a failure is the error the server describes. The servers are a Windows machine's.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.6.13.2 Simple Name Expressions")]
 [TestCategory("MS-VBAL 5.6.16.8 Named Arguments")]

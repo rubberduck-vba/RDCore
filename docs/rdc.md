@@ -81,7 +81,9 @@ program, then says `BREAK IN`, the module and its line. A stop at an error in a 
 ---
 ## Commands
 
-Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder.
+Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder. A folder
+without a `.rdproj` is read as an editor reads it: every module file under it, at any depth, is a module, and a single `.vbp` in it makes it a VB6 project (see
+[**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Command|Alias|What it does|
 |---|---|---|
@@ -93,6 +95,7 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 |`rdc export-library <library>`|`xl`|Describes a type library of this machine (a file such as `scrrun.dll`, its identifier, or its name) as a file a project can reference by name. `--dependencies` describes the libraries it depends on too.|
 |`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, what keeps it in the interpreter, and what the interpreter runs for it when it is compiled.|
 |`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine, with what each case allocates.|
+|`rdc bench-msvba`|`bm`|Writes the MS-VBA reference figures of the benchmark (`msvba.json`, or the file `--out` names). It runs the built-in corpus and the Excel automation cases in MS-VBA, in a hidden Excel, and in RD-VBA, in alternated rounds on this machine (`--rounds`, 5; the first `--excel-rounds`, 3, with the Excel automation cases), runs each case `--runs` times a round (7; `--excel-runs`, 5, for an Excel automation case), and keeps the fastest run of each case on each side. It needs Windows, Excel, and Excel's "Trust access to the VBA project object model" setting.|
 |`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
 |`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
 |`rdc splash`|`s`|Writes the platform's splash as plain text, whether its output is a console or not. It takes no workspace.|
@@ -107,7 +110,7 @@ On a console, a command starts with the platform's splash. Output redirected to 
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
 A project with no entry point ([RDC30001](diagnostics/rdc30001.md)), or with a `Sub Main` in more than one standard module ([RDC30002](diagnostics/rdc30002.md)), does not run. Neither does a library (`"build": { "outputType": "Library" }`),
-nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is drawn in the console and answered there, as in the shell, on every operating system. The `CLI.NativeDialogs` setting shows them as Windows dialog boxes instead, on Windows. The setting does not change how a form is shown: it opens a window of its own.
+nor a project with a module that does not load. `Debug.Print` writes to the standard output. In a console application (`"build": { "outputType": "ConsoleApplication" }`), a `MsgBox` or an `InputBox` is drawn in the console and answered there, as in the shell, on every operating system; the `CLI.NativeDialogs` setting shows them as Windows dialog boxes instead, on Windows. In any other program, they are Windows dialog boxes on Windows, and drawn in the console elsewhere. A form opens a window of its own in either.
 
 |Option|What it does|
 |---|---|

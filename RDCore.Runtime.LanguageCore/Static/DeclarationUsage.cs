@@ -16,9 +16,9 @@ namespace RDCore.Runtime.LanguageCore.Static;
 public static class DeclarationUsage
 {
     public static ImmutableArray<DeclarationFact> Of(
-        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
+        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationBinding>? bindings = null,
         Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null,
-        IReadOnlySet<string>? excludedBranchNames = null)
+        IReadOnlySet<string>? excludedBranchNames = null, Func<Symbol, ImmutableArray<CompiledPlatforms>?>? statementsCompiledOn = null)
     {
         var models = procedures.ToList();
         var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
@@ -51,7 +51,8 @@ public static class DeclarationUsage
                 continue;
             }
 
-            var role = roles is not null && roles.TryGetValue(symbol.SemanticId, out var found) ? found : DeclarationRole.None;
+            var binding = bindings?.GetValueOrDefault(symbol.SemanticId);
+            var role = binding?.Role ?? DeclarationRole.None;
             References? counted = null;
             // a name that a branch of a #If that is excluded writes can be a reference in another configuration (ExcludedBranchNames).
             if ((IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) || IsCalledOnlyByItsOwnCode(symbol, role))
@@ -61,15 +62,20 @@ public static class DeclarationUsage
                 counted = references.GetValueOrDefault(Key(symbol.SemanticId)) ?? new References();
             }
 
+            // a procedure that several Declare statements declare is declared on every platform one of them is compiled on.
+            var statements = symbol is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol ? statementsCompiledOn?.Invoke(symbol) : null;
             facts.Add(new DeclarationFact(
                 symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted?.Count)
             {
                 ReferencedFrom = counted?.Sites.ToImmutable(),
                 Role = role,
+                Binding = binding,
                 // a parameter is a local of its procedure that no statement declares.
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
                 Hides = hides?.Invoke(symbol),
                 AutoInstantiates = ClassFacts.AutoInstantiatedClassOf(symbol)?.SemanticId,
+                CompiledOn = statements?.Aggregate(CompiledPlatforms.None, (all, statement) => all | statement),
+                StatementsCompiledOn = statements ?? default,
             });
         }
 

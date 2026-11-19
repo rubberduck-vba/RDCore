@@ -25,6 +25,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// Against a fake file system, which is the point of the shim: real VBA file semantics, nothing on disk.
 /// Paths are rooted because the platform's CI runs on Linux.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class FileStatementTests
 {

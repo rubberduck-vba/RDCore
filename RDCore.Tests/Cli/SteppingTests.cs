@@ -33,6 +33,7 @@ public sealed class SteppingTests
     [DataRow("Do|    i = i + 1|Loop While i < 3", "3,4,5,4,5,4,5,6,7", DisplayName = "Do ... Loop While: Do on entry only")]
     [DataRow("Do|    i = i + 1|Loop Until i >= 3", "3,4,5,4,5,4,5,6,7", DisplayName = "Do ... Loop Until: Do on entry only")]
     [DataRow("Do While i < 3|    i = i + 1|Loop", "3,4,5,3,4,5,3,4,5,3,6,7", DisplayName = "Do While ... Loop: Do While on each test")]
+    [DataRow("With New Collection|    i = .Count|End With", "3,4,5,6,7", DisplayName = "With ... End With: the With, then each line of the block")]
     public async Task AStepInto_StopsAsMSVBAStops(string block, string steps)
     {
         foreach (var engine in new[] { VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled })

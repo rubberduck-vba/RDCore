@@ -20,9 +20,16 @@ public static partial class ValueConversions
     /// <param name="date">The <c>Date</c>.</param>
     /// <param name="moment">The day and time, when <paramref name="date"/> is one.</param>
     /// <returns>Whether <paramref name="date"/> is a day.</returns>
-    internal static bool TryMomentOf(VBDateValue date, out DateTime moment)
+    internal static bool TryMomentOf(VBDateValue date, out DateTime moment) => TryMomentOf(date.SerialValue, out moment);
+
+    /// <summary>
+    /// The day and time a <c>Date</c>'s serial is, when it is one (<see cref="TryMomentOf(VBDateValue, out DateTime)"/>).
+    /// </summary>
+    /// <param name="serial">The serial of the <c>Date</c>.</param>
+    /// <param name="moment">The day and time, when <paramref name="serial"/> is one.</param>
+    /// <returns>Whether <paramref name="serial"/> is a day.</returns>
+    internal static bool TryMomentOf(double serial, out DateTime moment)
     {
-        var serial = date.SerialValue;
         moment = VBDateType.IsValidSerial(serial) ? DateTime.FromOADate(serial) : default;
         return VBDateType.IsValidSerial(serial);
     }
