@@ -321,6 +321,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
+|[RDC11010](rdc11010.md)|Unresolved late-bound member access|A member of an `Object` that no class it can be of has: error 438 when it runs|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String|The number is less, whatever the values|
 |[RDC11012](rdc11012.md)|Set of a call that always fails|A function whose default member has no Property Set, as the target of a Set|
 |[RDC11013](rdc11013.md)|Variant compared with a String as text|MS-VBA compares their text, where MS-VBAL specifies a type mismatch|
