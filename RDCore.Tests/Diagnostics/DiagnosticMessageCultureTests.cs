@@ -66,7 +66,7 @@ public sealed class DiagnosticMessageCultureTests
         }
         else
         {
-            Assert.AreEqual("'x' est trop court pour dire ce qu'il est: un nom devrait avoir au moins 3 caractères.", tooShort, "RDC01001");
+            Assert.AreEqual("'x' est trop court pour dire ce qu'il est : un nom devrait avoir au moins 3 caractères.", tooShort, "RDC01001");
             Assert.AreEqual("'DoWork' est implicitement Public. Indiquez son accessibilité.", implicitPublic, "RDC00105");
             StringAssert.StartsWith(reDim, "'{0}' a été déclaré implicitement", "RDC11022");
         }
