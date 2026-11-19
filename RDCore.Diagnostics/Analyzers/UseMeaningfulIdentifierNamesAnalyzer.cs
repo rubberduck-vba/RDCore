@@ -44,8 +44,8 @@ internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsO
                 DiagnosticSeverity.Information,
                 Say(entry.message!, entry.declared.Name))
             {
-                // only the user can say what the name means.
-                Fixes = new DiagnosticFixes { Rename = new RenameFix() },
+                // only the user can say what the name means; a module is renamed where the project names it, and not by a rename of its name.
+                Fixes = entry.declared.IsModule ? null : new DiagnosticFixes { Rename = new RenameFix() },
             });
 
     private static string? MessageFor(string name)

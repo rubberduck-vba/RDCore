@@ -17,7 +17,7 @@ namespace RDCore.Tests.Diagnostics;
 [TestClass]
 public sealed class DiagnosticMessageCultureTests
 {
-    private const string Source = "Attribute VB_Name = \"Module1\"\r\nSub DoWork()\r\n    Dim x As Long\r\nEnd Sub\r\n";
+    private const string Source = "Attribute VB_Name = \"Payroll\"\r\nSub DoWork()\r\n    Dim x As Long\r\nEnd Sub\r\n";
 
     private const string English = "en";
     private const string French = "fr";

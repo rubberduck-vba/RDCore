@@ -1,5 +1,7 @@
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -9,7 +11,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <param name="Name">The name, without its type-declaration character.</param>
 /// <param name="Range">Where the name is written.</param>
-internal readonly record struct DeclaredName(string Name, SourceRange Range);
+/// <param name="IsModule">Whether it is the name of the module itself, which a rename does not change.</param>
+internal readonly record struct DeclaredName(string Name, SourceRange Range, bool IsModule = false);
 
 /// <summary>
 /// The names a module chooses: the ones a rule about names applies to.
@@ -18,7 +21,7 @@ internal readonly record struct DeclaredName(string Name, SourceRange Range);
 /// Not every name is chosen by the module. A procedure of an external library is named by the library; a procedure whose name has an underscore is the implementation of
 /// an interface member, the handler of an event or a lifecycle handler (<c>Class_Initialize</c>), and is named by the interface, the event or the language. They are
 /// left out. The accessors of a property are one declaration, and its name is reported once. A line label is a name the procedure chooses; a line number is a number,
-/// and is left out.
+/// and is left out. The module's own name, where its <c>Attribute VB_Name</c> says it, is a name the module chooses.
 /// </remarks>
 internal static class DeclaredNames
 {
@@ -33,6 +36,14 @@ internal static class DeclaredNames
         {
             switch (node)
             {
+                case AttributeDirectiveNode { Binding: null } attribute when string.Equals(attribute.Name, Tokens.VB_Name, StringComparison.OrdinalIgnoreCase):
+                    if (module.GetDeclaredName() is { Length: > 0 } name)
+                    {
+                        yield return new(name, attribute.Location.Range, IsModule: true);
+                    }
+
+                    break;
+
                 case VariableDeclarationNode variable:
                     yield return new(variable.Name, variable.NameRange ?? variable.SourceLocation.Range);
                     break;

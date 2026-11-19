@@ -152,6 +152,23 @@ public sealed class NameAnalyzerTests
     }
 
     [TestMethod]
+    [DataRow("Module1")]
+    [DataRow("Class1")]
+    [DataRow("UserForm1")]
+    public void TheNameOfTheModule_IsOneItChooses_AndHasNoRename(string name)
+    {
+        var finding = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), $"Attribute VB_Name = \"{name}\"\nPrivate customer As Long").Single();
+
+        Assert.AreEqual(name, Names([finding]).Single());
+        Assert.AreEqual(0, finding.Range.Start.Line);
+        Assert.IsNull(finding.Fixes, "a module is renamed where the project names it");
+    }
+
+    [TestMethod]
+    public void AModuleNamedForWhatItDoes_IsMeaningful()
+        => Assert.IsEmpty(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), "Attribute VB_Name = \"Invoices\"\nPrivate customer As Long"));
+
+    [TestMethod]
     public void TheNameOfAnImplementationOrAHandler_IsTheInterfaceOrTheEventToChoose()
         => Assert.IsFalse(Names(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Declarations)).Contains("Handler_Click"));
 
@@ -238,6 +255,18 @@ public sealed class NameAnalyzerTests
         => CollectionAssert.AreEquivalent(
             new[] { "mCount", "sName", "iRow", "oSheet", "str1" },
             Names(Run(new HungarianNotationAnalyzer(Options()), "Private mCount As Long\nPublic Sub Work(ByVal sName As String)\n    Dim iRow As Long, oSheet As Object, str1 As String, isDone As Boolean\nEnd Sub")));
+
+    [TestMethod]
+    [DataRow("clsCustomer")]
+    [DataRow("basUtils")]
+    [DataRow("frmMain")]
+    public void TheNameOfAModule_CanBeHungarian(string name)
+    {
+        var finding = Run(new HungarianNotationAnalyzer(Options()), $"Attribute VB_Name = \"{name}\"\nPrivate customer As Long").Single();
+
+        Assert.AreEqual(name, Names([finding]).Single());
+        Assert.IsNull(finding.Fixes, "a module is renamed where the project names it");
+    }
 
     [TestMethod]
     public void AHungarianName_IsFixedByARename_ToTheWordAfterItsPrefix()

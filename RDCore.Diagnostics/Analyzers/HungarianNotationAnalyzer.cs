@@ -54,7 +54,7 @@ internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> opt
                 DiagnosticSeverity.Information,
                 Say(RDCoreDiagnosticsResources.HungarianNotation_Message, declared.Name))
             {
-                Fixes = new DiagnosticFixes { Rename = new RenameFix { Suggestions = WithoutPrefix(declared.Name) is { } suggested ? [suggested] : [] } },
+                Fixes = declared.IsModule ? null : new DiagnosticFixes { Rename = new RenameFix { Suggestions = WithoutPrefix(declared.Name) is { } suggested ? [suggested] : [] } },
             });
 
     /// <summary>
