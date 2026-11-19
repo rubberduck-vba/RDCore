@@ -720,16 +720,17 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         => Twin("Format$", Format(expression, format, firstDayOfWeek, firstWeekOfYear));
 
     /// <summary>
-    /// <c>Format</c> of a <c>Double</c> (<strong>MS-VBAL §6.1.2.11.1.8</strong>): the String <see cref="Format"/> and <see cref="FormatString"/> return for it
-    /// and a format, FirstDayOfWeek and FirstWeekOfYear left out. Compiled code calls it in place of both (<see cref="StdLibIntrinsicAttribute"/>).
+    /// <c>Format</c> of a <c>Double</c> (<strong>MS-VBAL §6.1.2.11.1.8</strong>): the String <see cref="Format"/> and <see cref="FormatString"/>
+    /// return for it and a format, FirstDayOfWeek and FirstWeekOfYear left out. Compiled code calls it in place of both
+    /// (<see cref="StdLibIntrinsicAttribute"/>).
     /// </summary>
     /// <param name="session">The session, whose regional settings and calendar the value is written in.</param>
     /// <param name="expression">The value.</param>
     /// <param name="format">The format.</param>
     /// <param name="text">The value written.</param>
     /// <returns>
-    /// <see langword="false"/> where the call is left to the interpreter: a zero-length format, which writes the value as a Let-coercion to <c>String</c> does,
-    /// and a format the value cannot be written by, which <see cref="Format"/> raises an error for.
+    /// <see langword="false"/> where the call is left to the interpreter: a zero-length format, which writes the value as a Let-coercion to
+    /// <c>String</c> does, and a format the value cannot be written by, which <see cref="Format"/> raises an error for.
     /// </returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Format))]
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(FormatString))]
@@ -737,16 +738,17 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         => TryFormatted(session, new VBDoubleValue(expression), format, out text);
 
     /// <summary>
-    /// <c>Format</c> of a <c>Long</c> (<strong>MS-VBAL §6.1.2.11.1.8</strong>): the String <see cref="Format"/> and <see cref="FormatString"/> return for it
-    /// and a format, FirstDayOfWeek and FirstWeekOfYear left out. Compiled code calls it in place of both (<see cref="StdLibIntrinsicAttribute"/>).
+    /// <c>Format</c> of a <c>Long</c> (<strong>MS-VBAL §6.1.2.11.1.8</strong>): the String <see cref="Format"/> and <see cref="FormatString"/>
+    /// return for it and a format, FirstDayOfWeek and FirstWeekOfYear left out. Compiled code calls it in place of both
+    /// (<see cref="StdLibIntrinsicAttribute"/>).
     /// </summary>
     /// <param name="session">The session, whose regional settings and calendar the value is written in.</param>
     /// <param name="expression">The value.</param>
     /// <param name="format">The format.</param>
     /// <param name="text">The value written.</param>
     /// <returns>
-    /// <see langword="false"/> where the call is left to the interpreter: a zero-length format, which writes the value as a Let-coercion to <c>String</c> does,
-    /// and a format the value cannot be written by, which <see cref="Format"/> raises an error for.
+    /// <see langword="false"/> where the call is left to the interpreter: a zero-length format, which writes the value as a Let-coercion to
+    /// <c>String</c> does, and a format the value cannot be written by, which <see cref="Format"/> raises an error for.
     /// </returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Format))]
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(FormatString))]
@@ -754,17 +756,18 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         => TryFormatted(session, new VBLongValue(expression), format, out text);
 
     /// <summary>
-    /// <c>Format</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.11.1.8</strong>): the String <see cref="Format"/> and <see cref="FormatString"/> return for it
-    /// and a format, FirstDayOfWeek and FirstWeekOfYear left out. Compiled code calls it in place of both (<see cref="StdLibIntrinsicAttribute"/>).
+    /// <c>Format</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.11.1.8</strong>): the String <see cref="Format"/> and <see cref="FormatString"/>
+    /// return for it and a format, FirstDayOfWeek and FirstWeekOfYear left out. Compiled code calls it in place of both
+    /// (<see cref="StdLibIntrinsicAttribute"/>).
     /// </summary>
     /// <param name="session">The session, whose regional settings and calendar the value is written in.</param>
     /// <param name="expression">The serial of the <c>Date</c>.</param>
     /// <param name="format">The format.</param>
     /// <param name="text">The value written.</param>
     /// <returns>
-    /// <see langword="false"/> where the call is left to the interpreter: a zero-length format, which writes the value as a Let-coercion to <c>String</c> does,
-    /// and a format the value cannot be written by (a <c>Date</c> that is no day, one before the calendar's first), which <see cref="Format"/> raises an error
-    /// for.
+    /// <see langword="false"/> where the call is left to the interpreter: a zero-length format, which writes the value as a Let-coercion to
+    /// <c>String</c> does, and a format the value cannot be written by (a <c>Date</c> that is not a day, one before the calendar's first), which
+    /// <see cref="Format"/> raises an error for.
     /// </returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Format))]
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(FormatString))]
@@ -1037,8 +1040,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     private bool TryFormatSettings(string member, VBDayOfWeek firstDayOfWeek, VBFirstWeekOfYear firstWeekOfYear, out FormatSettings settings, [NotNullWhen(false)] out IVBRaisableError? error)
         => TryFormatSettings(session, member, firstDayOfWeek, firstWeekOfYear, out settings, out error);
 
-    private static bool TryFormatSettings(IRuntimeSession session, string member, VBDayOfWeek firstDayOfWeek, VBFirstWeekOfYear firstWeekOfYear, out FormatSettings settings,
-        [NotNullWhen(false)] out IVBRaisableError? error)
+    private static bool TryFormatSettings(IRuntimeSession session, string member, VBDayOfWeek firstDayOfWeek, VBFirstWeekOfYear firstWeekOfYear,
+        out FormatSettings settings, [NotNullWhen(false)] out IVBRaisableError? error)
     {
         var culture = session.Environment.Culture;
         DayOfWeek? weekStart = firstDayOfWeek switch

@@ -344,7 +344,8 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
 
     /// <summary>
     /// <c>DateAdd</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.1</strong>): the serial of the <c>Date</c> <see cref="DateAdd"/> returns for it, a year,
-    /// a quarter or a month being of the session's calendar. Compiled code calls it in place of <see cref="DateAdd"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// a quarter or a month being of the session's calendar. Compiled code calls it in place of <see cref="DateAdd"/>
+    /// (<see cref="StdLibIntrinsicAttribute"/>).
     /// </summary>
     /// <param name="session">The session, whose calendar a year, a quarter and a month are of.</param>
     /// <param name="interval">The interval added.</param>
