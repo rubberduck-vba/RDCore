@@ -160,7 +160,7 @@ public static class DebugValueFormatter
             : $"#{date.ToString("M/d/yyyy h:mm:ss tt", CultureInfo.InvariantCulture)}#";
 
     // a number is shown as the language writes it as text (MS-VBAL §5.5.1.2.4), with a '.' for the decimal point: inf, -inf and -nan(ind) where .NET
-    // writes Infinity, -Infinity and NaN, and a Double to 15 significant digits.
+    // writes Infinity, -Infinity and NaN (nan for a NaN with no sign), and a Double to 15 significant digits.
     private static string Scalar(VBTypedValue value)
         => value is VBNumericTypedValue
             && ValueConversions.ToText(value, CultureInfo.InvariantCulture) is { IsSuccess: true, Value: VBStringValue text }
