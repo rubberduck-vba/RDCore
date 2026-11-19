@@ -504,6 +504,12 @@
   <data name="ObjectLetToVariantProperty_Message" xml:space="preserve">
     <value>La propriété &apos;{0}&apos; reçoit l&apos;objet lui-même, comme dans MS-VBA, là où MS-VBAL §5.4.3.8 passe la valeur de son membre par défaut. Nommez le membre par défaut pour passer sa valeur.</value>
   </data>
+  <data name="ObjectLetToVariantProperty_DefaultMember_Fix" xml:space="preserve">
+    <value>Passer la valeur du membre par défaut &apos;{0}&apos;</value>
+  </data>
+  <data name="ObjectLetToVariantProperty_Set_Fix" xml:space="preserve">
+    <value>Passer l&apos;objet lui-même, avec Set</value>
+  </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
   </data>
