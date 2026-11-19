@@ -564,6 +564,28 @@ public sealed class CompiledRecordTests
             "    Debug.Print C.Inn.S; C.Inn.N; D.Inn.S; D.Inn.N",
             "End Sub"]), null, 0, 0, "a 1 b 2", "c 3 d 5");
 
+    // a String field of a record is a String target of LSet and RSet as a String variable is (MS-VBAL §5.4.3.6-7): the String it is given is fitted to the
+    // length the field holds, a fixed-length field's or a variable-length field's current one, and a field of a record's record is one too.
+    [TestMethod]
+    [DataRow("LSet", "[x  ]", "[y   ]", "[z ]")]
+    [DataRow("RSet", "[  x]", "[   y]", "[ z]")]
+    public async Task AStringFieldOfARecord_IsFittedByLSetAndRSet(string statement, string variable, string fixedLength, string inner)
+        => await AssertPrintsAsync(Module([.. Texts,
+            "Private Type TFit",
+            "    F As String * 4",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As TText, B As TFit, C As TWrap",
+            "    A.S = \"abc\"",
+            $"    {statement} A.S = \"x\"",
+            "    Debug.Print \"[\" & A.S & \"]\"",
+            $"    {statement} B.F = \"y\"",
+            "    Debug.Print \"[\" & B.F & \"]\"",
+            "    C.Inn.S = \"ab\"",
+            $"    {statement} C.Inn.S = \"z\"",
+            "    Debug.Print \"[\" & C.Inn.S & \"]\"",
+            "End Sub"]), null, 0, 0, variable, fixedLength, inner);
+
     private static (string Name, string Source)[] Box()
         => [("Box", ModuleWorkspace.ClassModule("Box", ["Option Explicit", "Public Name As String"]))];
 
