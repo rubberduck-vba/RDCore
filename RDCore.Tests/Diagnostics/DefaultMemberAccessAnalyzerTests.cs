@@ -44,6 +44,10 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "AssignTheDefaultMemberByName|Dim h As New Holder|h.Value = 5",
         "AssignTheDefaultMemberByNameInAWith|Dim h As New Holder|With h|.Value = 5|End With",
         "LetAnObjectToTheDefaultMemberByName|Dim h As New Holder|Dim h2 As New Holder|h.Value = h2",
+        "LetAnObjectToAnUnboundObject|Dim o As Object|Set o = New Holder|Dim h As New Holder|o = h",
+        // the runtime pass does not reach these: an error ends the procedure first.
+        "LetAnObjectToAnUnboundObjectAfterAnError|Dim o As Object|Dim h As New Holder|Error 5|o = h",
+        "LetAnUnboundObjectToAnUnboundObjectAfterAnError|Dim o As Object|Dim v As Object|Error 5|o = v",
     ];
 
     private static string _source = string.Empty;
@@ -139,8 +143,12 @@ public sealed class DefaultMemberAccessAnalyzerTests
 
     [TestMethod]
     public void AnObjectAssignedToAnObjectWithoutSet_IsSuspicious()
-        => CollectionAssert.AreEqual(
-            new[] { "LetAnObjectToAnObject: Let h = h2", "LetAnUnboundObjectToAnObject: h = v", "LetAnObjectToAnElement: a(1) = h" },
-            Findings(new SuspiciousLetAssignmentAnalyzer(), RDCoreDiagnosticId.SuspiciousLetAssignment, DiagnosticSeverity.Warning),
-            "not a Set");
+        => Assert.AreEqual(
+            string.Join(Environment.NewLine,
+                "LetAnObjectToAnObject: Let h = h2", "LetAnUnboundObjectToAnObject: h = v", "LetAnObjectToAnElement: a(1) = h",
+                "LetAnObjectToAnUnboundObject: o = h", "LetAnObjectToAnUnboundObjectAfterAnError: o = h",
+                "LetAnUnboundObjectToAnUnboundObjectAfterAnError: o = v"),
+            string.Join(Environment.NewLine,
+                Findings(new SuspiciousLetAssignmentAnalyzer(), RDCoreDiagnosticId.SuspiciousLetAssignment, DiagnosticSeverity.Warning)),
+            "not a Set; to an Object too, where the code runs or not");
 }
