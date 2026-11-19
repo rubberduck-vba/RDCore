@@ -10,6 +10,7 @@ namespace RDCore.Tests.Platform;
 /// An extension says which settings it is configured with, and its manifest carries them, described in each language of the platform: a client knows them without
 /// the extension running.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ExtensionSettingsTests
 {

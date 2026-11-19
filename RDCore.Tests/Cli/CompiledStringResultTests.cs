@@ -235,4 +235,43 @@ public sealed class CompiledStringResultTests
             "    C = 2.25",
             "    Mixed = D & \"/\" & C & \"/\" & (D > 1)",
             "End Function"), expected: "1.5/2.25/True");
+
+    // a String function reads its own result in its body: the zero-length string before it is first assigned, then the text it was last assigned,
+    // vbNullString included, joined on either side.
+    [TestMethod]
+    public async Task AStringResultReadInItsOwnBody_IsTheTextItLastHeld()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Cut(\"abc\", 3); \"|\"; Mirrored(\"xy\"); \"|\"; Len(Emptied())",
+            "End Sub",
+            "Private Function Cut(ByVal X As String, ByVal Times As Integer) As String",
+            "    Dim I As Integer",
+            "    Cut = Cut & \"[\"",
+            "    For I = 1 To Times",
+            "        Cut = Cut & X",
+            "    Next",
+            "    Cut = Cut & \"]\"",
+            "End Function",
+            "Private Function Mirrored(ByVal X As String) As String",
+            "    Mirrored = X",
+            "    Mirrored = \"<\" & Mirrored & Mirrored & \">\"",
+            "End Function",
+            "Private Function Emptied() As String",
+            "    Emptied = vbNullString",
+            "    Emptied = Emptied & Emptied",
+            "End Function"), expected: "[abcabcabc]|<xyxy>| 0"), "Cut", "Mirrored", "Emptied");
+
+    // each call of a recursive String function has a result of its own (MS-VBAL §5.3.1): a call right of the result reads the callee's, and the caller's
+    // read left of it is the interpreter's, after the call returned.
+    [TestMethod]
+    public async Task AStringResultReadBesideARecursiveCall_IsItsOwnCallsResult()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Nested(3)",
+            "End Sub",
+            "Private Function Nested(ByVal N As Integer) As String",
+            "    Nested = \"(\" & N",
+            "    If N > 0 Then Nested = Nested & Nested(N - 1)",
+            "    Nested = Nested & \")\"",
+            "End Function"), expected: "(3(2(1(0))))");
 }

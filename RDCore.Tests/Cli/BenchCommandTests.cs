@@ -102,8 +102,53 @@ public sealed class BenchCommandTests
 
         CollectionAssert.AreEqual(new[] { "Cases", "Tally" }, workspace.Modules.Select(module => module.Name).ToArray());
         CollectionAssert.AreEqual(new[] { ModuleType.StdModule, ModuleType.ClassModule }, workspace.Modules.Select(module => module.Type).ToArray());
-        CollectionAssert.AreEqual(new[] { "Cases.bas", Path.Combine("Model", "Tally.cls") }, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(new[] { "Cases.bas", "Model/Tally.cls" }, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());
         Assert.IsEmpty(workspace.Project.References, "the standard library is every project's own, and no reference of it");
+    }
+
+    [TestMethod]
+    [DataRow("vba", new[] { "Cases.bas", "ThisWorkbook.doccls", "Model/Tally.cls" }, DisplayName = "RD-VBA: a document module is one, a UserControl is not")]
+    [DataRow("vb6", new[] { "Cases.bas", "Gauge.ctl", "Model/Tally.cls" }, DisplayName = "VB6: a UserControl is one, a document module is not")]
+    public async Task AFolderWithNoProject_IsTheProjectTheLanguageServerMakesOfIt_OfTheFilesOfItsLanguage(string language, string[] modules)
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Model/Tally.cls", Tally), ("ThisWorkbook.doccls", ClassModule("ThisWorkbook")),
+            ("Gauge.ctl", ClassModule("Gauge")), ("notes.txt", "not a module"));
+        var supported = SupportedLanguages.Get(language);
+
+        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None, supported);
+        var synthesized = (await new ProjectFileLoader(fileSystem).LoadOrSynthesizeAsync(Root, supported)).ProjectInfo;
+
+        CollectionAssert.AreEquivalent(modules, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());
+        CollectionAssert.AreEqual(synthesized.Modules.Select(module => module.RelativeUri).ToArray(),
+            workspace.Project.Modules.Select(module => module.RelativeUri).ToArray(), "in the language server's order");
+    }
+
+    // a folder's .doccls is what legacy Rubberduck exported of a document's code: the text of its code pane, which no project gives a host (Super), so it is
+    // the standard module its text makes it, as the language server reads it (DocumentModuleTests); nothing of it is hosted.
+    [TestMethod]
+    public async Task AFoldersDocumentModule_WithNothingInIt_LoadsAsAStandardModule_AndTheCasesRun()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally), ("ThisWorkbook.doccls", "Option Explicit\r\n"));
+
+        var workspace = await Load(fileSystem);
+        var report = await Runner(fileSystem).RunAsync(workspace, new BenchOptions(Runs: 1, Filter: "count"));
+
+        Assert.AreEqual(ModuleType.StdModule, workspace.Modules.Single(module => module.Name == "ThisWorkbook").Type);
+        Assert.IsEmpty(report.Problems, string.Join("; ", report.Problems));
+        Assert.IsNull(report.Cases.Single().Error, report.Cases.Single().Error);
+    }
+
+    [TestMethod]
+    public async Task AFoldersDocumentModule_WhoseCodeNamesItsDocument_IsAProblem_AsInTheLanguageServer_AndTheCasesAreRefused()
+    {
+        var sheet = "Option Explicit\r\nPublic Sub Reset()\r\n    Me.Range(\"A1\").Value = 1\r\nEnd Sub\r\n";
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally), ("GameSheet.doccls", sheet));
+
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count"));
+
+        Assert.IsTrue(report.Problems.Any(problem => problem.StartsWith("GameSheet:", StringComparison.Ordinal) && problem.Contains("Invalid use of Me keyword")),
+            string.Join("; ", report.Problems));
+        Assert.IsEmpty(report.Cases.Single().Runs);
     }
 
     [TestMethod]
@@ -201,6 +246,19 @@ public sealed class BenchCommandTests
     }
 
     [TestMethod]
+    public async Task EachRun_HasWhatItAllocated_AndTheCollectionsMadeWhileItRan()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 2, Filter: "callsanobject"), _ => { });
+
+        var benchCase = report.Cases.Single();
+        Assert.IsNull(benchCase.Error);
+        Assert.IsNotNull(benchCase.Costs);
+        Assert.HasCount(2, benchCase.Costs, "a cost for each timed run");
+        Assert.IsTrue(benchCase.FastestCost!.Value.Bytes > 0, "a run that makes an object allocates");
+    }
+
+    [TestMethod]
     public async Task ACaseThatCallsAnObjectOfAClass_Runs()
     {
         var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
@@ -280,7 +338,8 @@ public sealed class BenchCommandTests
         }
 
         var line = text.Split(Environment.NewLine).Single(candidate => candidate.StartsWith("Cases.BenchCount", StringComparison.Ordinal));
-        StringAssert.Matches(line, new System.Text.RegularExpressions.Regex(@"^Cases\.BenchCount\s+2\s+[\d.]+ ms\s+[\d.]+ ms$"));
+        // the shape the bench job reads (.github/scripts/bench-figures.ps1): runs, fastest, median, then what the fastest run allocated and its collections
+        StringAssert.Matches(line, new System.Text.RegularExpressions.Regex(@"^Cases\.BenchCount\s+2\s+[\d.]+ ms\s+[\d.]+ ms\s+\d+ KB\s+\d+/\d+/\d+$"));
     }
 
     [TestMethod]
@@ -389,14 +448,11 @@ public sealed class BenchCommandTests
         StringAssert.Contains(interpreted, ": I (line ");
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal)), "compiled");
 
-        // a member of an object is called by compiled code, and the Set that gives the variable an object made with New is a support call the interpreter
-        // runs: nothing of the procedure is stepped, and the report says the Set is a support call, and where.
+        // a member of an object is called by compiled code, and so is the Set that gives the variable an object made with New: the interpreter runs nothing
+        // of the procedure, and the report says nothing is run by it.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "compiled");
-        Assert.IsFalse(objectCall.Contains("run by the interpreter: ", StringComparison.Ordinal), objectCall);
-        var made = Array.IndexOf(Cases.Split("\r\n"), "    Set T = New Tally") + 1;
-        StringAssert.Contains(objectCall, "run by the interpreter as a support call: ");
-        StringAssert.Contains(objectCall, $"(line {made})");
+        Assert.IsFalse(objectCall.Contains("run by the interpreter", StringComparison.Ordinal), objectCall);
 
         // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
@@ -418,8 +474,8 @@ public sealed class BenchCommandTests
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
     }
 
-    // a Set of an object made with New, and a call of a member of an Object, bound late, are statements the interpreter runs for compiled code: the
-    // report says so of each, and where, and steps nothing.
+    // a call of a member of an Object, bound late, is a statement the interpreter runs for compiled code: the report says so of each, and where, and steps
+    // nothing. The Set of an object made with New is compiled code's, and the report says nothing of it.
     [TestMethod]
     public async Task TheCompilationReport_SaysWhichStatementsAreSupportCalls_AndWhere()
     {
@@ -432,6 +488,7 @@ public sealed class BenchCommandTests
             "        Set G = New Gadget",
             "        Set O = G",
             "        O.Grow I",
+            "        O.Grow",
             "    Next",
             "End Sub",
         ];
@@ -450,10 +507,12 @@ public sealed class BenchCommandTests
         Assert.IsFalse(calls.Contains("run by the interpreter: ", StringComparison.Ordinal), calls);
         StringAssert.Contains(calls, "run by the interpreter as a support call: ");
         var source = Module("Calling", calling).Split("\r\n");
-        foreach (var statement in new[] { "        Set G = New Gadget", "        O.Grow I" })
+        foreach (var statement in new[] { "        O.Grow I", "        O.Grow" })
         {
             StringAssert.Contains(calls, $"(line {Array.IndexOf(source, statement) + 1})", statement);
         }
+
+        Assert.IsFalse(calls.Contains($"(line {Array.IndexOf(source, "        Set G = New Gadget") + 1})", StringComparison.Ordinal), calls);
     }
 
     // an Enum, a Type, a Const and a field are members of a module that are no procedure: the report says nothing of them - of an Enum a Property Get is

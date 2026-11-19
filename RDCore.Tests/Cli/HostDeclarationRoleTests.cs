@@ -79,6 +79,98 @@ public sealed class HostDeclarationRoleTests
         Assert.AreEqual(DeclarationRole.None, RoleOf(model!, "Other_Draw"));
     }
 
+    // MS-VBAL §5.3.1.8, §5.3.1.9: what a member is bound to is the symbols that name it, by their identity.
+    [TestMethod]
+    [DataRow("IShape_Draw", "IShape", "IShape.Draw", DisplayName = "an implementation: the interface, and its member")]
+    [DataRow("Source_Click", "Implementer.Source", "Button.Click]Event", DisplayName = "a handler: the WithEvents variable, and the event")]
+    public async Task ABoundMember_IsBoundToItsSource_AndToWhatItHandlesOrImplements(string member, string source, string bound)
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer(
+            "Public Sub IShape_Draw()", "End Sub", "Public Function IShape_Area() As Long", "End Function", "Public Sub Source_Click()", "End Sub")));
+
+        var binding = model!.Declarations.First(declaration => declaration.Name == member).Binding;
+
+        Assert.IsNotNull(binding);
+        Assert.AreEqual(source, Uri.UnescapeDataString(binding.Source.Fragment.TrimStart('#')));
+        Assert.AreEqual(bound, Uri.UnescapeDataString(binding.Bound!.Fragment.TrimStart('#')));
+    }
+
+    [TestMethod]
+    public async Task ALifecycleHandler_IsBoundToItsClass_AndToTheEventOfTheLifecycle()
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer("Private Sub Class_Initialize()", "End Sub")));
+
+        var binding = model!.Declarations.First(declaration => declaration.Name == "Class_Initialize").Binding;
+
+        Assert.AreEqual("Implementer", Uri.UnescapeDataString(binding!.Source.Fragment.TrimStart('#')));
+        Assert.AreEqual(RDCore.SDK.Model.Symbols.ClassLifecycleInterface.Initialize.SemanticId.Uri.AbsoluteUri, binding.Bound?.AbsoluteUri);
+    }
+
+    [TestMethod]
+    public async Task AMemberThatOnlyBeginsLikeOne_IsBoundToNothing()
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer("Public Sub IShape_Helper()", "End Sub", "Public Sub Source_Other()", "End Sub")));
+
+        Assert.IsNull(model!.Declarations.First(declaration => declaration.Name == "IShape_Helper").Binding);
+        Assert.IsNull(model.Declarations.First(declaration => declaration.Name == "Source_Other").Binding);
+    }
+
+    [TestMethod]
+    [DataRow("Get", DisplayName = "the Get first")]
+    [DataRow("Let", DisplayName = "the Let first")]
+    public async Task APropertyNamedAfterAnInterfaceProperty_ImplementsIt_WhicheverAccessorComesFirst(string first)
+    {
+        var sized = ("ISized", ModuleWorkspace.ClassModule("ISized",
+            "Public Property Get Size() As Long", "End Property", "Public Property Let Size(ByVal value As Long)", "End Property"));
+        string[] get = ["Public Property Get ISized_Size() As Long", "End Property"];
+        string[] let = ["Public Property Let ISized_Size(ByVal value As Long)", "End Property"];
+        var source = ModuleWorkspace.ClassModule("Sized", ["Implements ISized", .. first == "Get" ? get.Concat(let) : let.Concat(get)]);
+
+        var model = await ModelOfAsync("Sized", sized, ("Sized", source));
+
+        Assert.AreEqual(DeclarationRole.InterfaceImplementation, RoleOf(model!, "ISized_Size"));
+    }
+
+    // MS-VBAL §5.3.1.10: a subroutine with no parameters, named Class_Initialize or Class_Terminate, of a class module.
+    [TestMethod]
+    [DataRow("Public Sub Class_Initialize()", "Class_Initialize", DeclarationRole.EventHandler, DisplayName = "Initialize, Public")]
+    [DataRow("Private Sub Class_Terminate()", "Class_Terminate", DeclarationRole.EventHandler, DisplayName = "Terminate, Private")]
+    [DataRow("Public Sub class_initialize()", "class_initialize", DeclarationRole.EventHandler, DisplayName = "in any case")]
+    [DataRow("Public Sub Class_Initialize(ByVal n As Long)", "Class_Initialize", DeclarationRole.None, DisplayName = "with a parameter")]
+    [DataRow("Public Function Class_Initialize() As Long", "Class_Initialize", DeclarationRole.None, DisplayName = "a function")]
+    [DataRow("Public Sub Class_Activate()", "Class_Activate", DeclarationRole.None, DisplayName = "no event of the lifecycle")]
+    public async Task ALifecycleHandlerOfAClass_HandlesItsEvent(string declaration, string name, DeclarationRole expected)
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer(declaration, declaration.Contains("Function") ? "End Function" : "End Sub")));
+
+        Assert.AreEqual(expected, RoleOf(model!, name));
+    }
+
+    [TestMethod]
+    public async Task ALifecycleHandlerOfAStandardModule_IsAProcedureLikeAnyOther()
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync([], Program("Public Sub Class_Initialize()", "End Sub"));
+
+        Assert.AreEqual(DeclarationRole.None, RoleOf(payload.Modules.Single(), "Class_Initialize"));
+    }
+
+    // what MS-VBA's host calls when its document raises an event, which RD-VBA analyzes and does not host.
+    [TestMethod]
+    [DataRow("GameSheet", DocClassType.ExcelWorksheet, "Public Sub Worksheet_Change(ByVal Target As Range)", "Worksheet_Change", DeclarationRole.EventHandler,
+        DisplayName = "a worksheet's")]
+    [DataRow("ThisWorkbook", DocClassType.ExcelWorkbook, "Public Sub Workbook_Open()", "Workbook_Open", DeclarationRole.EventHandler, DisplayName = "a workbook's")]
+    [DataRow("GameSheet", DocClassType.ExcelWorksheet, "Public Sub Worksheet_Foo()", "Worksheet_Foo", DeclarationRole.None,
+        DisplayName = "no event of the host's class")]
+    [DataRow("GameSheet", DocClassType.ExcelWorksheet, "Public Sub Workbook_Open()", "Workbook_Open", DeclarationRole.None,
+        DisplayName = "an event of another class")]
+    public async Task AHandlerOfAnEventOfADocumentsHost_HandlesIt(string module, DocClassType super, string declaration, string name, DeclarationRole expected)
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], Program("Public Sub Main()", "End Sub"), libraries: DocumentModuleTests.Excel, documents: [(module, $"Option Explicit\r\n{declaration}\r\nEnd Sub\r\n", super)]);
+
+        Assert.AreEqual(expected, RoleOf(payload.Modules.Single(candidate => SDK.Model.Symbols.SymbolUri.ModuleNameOf(candidate.Module) == module), name));
+    }
+
     [TestMethod]
     public async Task AModuleThatImplementsNothing_HasNoMemberWithARole()
     {

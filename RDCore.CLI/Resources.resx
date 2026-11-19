@@ -449,6 +449,9 @@
   <data name="Repl_Suspended" xml:space="preserve">
     <value>PROGRAM STOPPED: CONT, STEP, RUN OR NEW</value>
   </data>
+  <data name="Repl_Splash_Summary" xml:space="preserve">
+    <value>Shows the splash screen again.</value>
+  </data>
   <data name="Repl_Stack_Summary" xml:space="preserve">
     <value>Shows the procedures the stopped program is in, innermost first.</value>
   </data>
@@ -464,6 +467,14 @@
   <data name="Repl_Frame_InModuleLine" xml:space="preserve">
     <value>({0} line {1})</value>
     <comment>Where an activation of a module of the workspace is, in STACK and in a run-time error's stack trace. {0} is the name of the module, {1} the line of the module.</comment>
+  </data>
+  <data name="Repl_Frame_FromGoSub" xml:space="preserve">
+    <value>from {0}</value>
+    <comment>How an activation got to its line by a GoSub, in STACK and in a run-time error's stack trace: one per GoSub it has not returned from. {0} is the line of the GoSub.</comment>
+  </data>
+  <data name="Repl_Frame_InHandler" xml:space="preserve">
+    <value>in {0}</value>
+    <comment>The error handler an activation is in, in STACK. {0} is the label of the handler.</comment>
   </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>there is no runtime session</value>
@@ -505,7 +516,7 @@
     <value>A program cannot be named {0}: the runtime it runs on has an assembly of that name. Name it with --name.</value>
   </data>
   <data name="Build_NoAppHost" xml:space="preserve">
-    <value>No .NET application host for {0} is installed, so no executable was written: run the program with dotnet {1}.</value>
+    <value>Neither rdc nor an installed .NET SDK has the .NET application host for {0}, so no executable was written: run the program with dotnet {1}.</value>
   </data>
   <data name="Build_NoticesLacking" xml:space="preserve">
     <value>The program's folder lacks {0}: this copy of RDCore has none to put there. A released RDCore has them all.</value>
@@ -631,7 +642,7 @@
     <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Whether rdc run, and the programs rdc build builds, show MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console.</value>
+    <value>Whether a console application, run by rdc run or built by rdc build, shows MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console. Any other program shows the machine's own dialogs where it has them.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>
@@ -864,5 +875,68 @@
   </data>
   <data name="Install_ProfileHasBlock" xml:space="preserve">
     <value>{0} is not on this terminal&apos;s PATH yet: {1} adds it in a new terminal.</value>
+  </data>
+  <data name="BenchMsVba_Summary" xml:space="preserve">
+    <value>Runs the benchmark corpus and the Excel automation cases in MS-VBA and in RD-VBA, in alternated rounds on this machine, and writes the reference figures (msvba.json). Needs Windows and Excel.</value>
+  </data>
+  <data name="BenchMsVba_OutHelp" xml:space="preserve">
+    <value>The file the reference figures are written to.</value>
+  </data>
+  <data name="BenchMsVba_RoundsHelp" xml:space="preserve">
+    <value>How many rounds: each runs the corpus once on each side, MS-VBA first in odd rounds and RD-VBA first in even rounds.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRoundsHelp" xml:space="preserve">
+    <value>How many of the first rounds also run the Excel automation cases, on both sides; 0 runs none.</value>
+  </data>
+  <data name="BenchMsVba_RunsHelp" xml:space="preserve">
+    <value>How many times each case of the corpus runs in a round; the fastest run of all the rounds is kept.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRunsHelp" xml:space="preserve">
+    <value>How many times each Excel automation case runs in a round.</value>
+  </data>
+  <data name="BenchMsVba_BadCounts" xml:space="preserve">
+    <value>--rounds, --runs and --excel-runs must be at least 1, and --excel-rounds between 0 and --rounds.</value>
+  </data>
+  <data name="BenchMsVba_NeedsWindows" xml:space="preserve">
+    <value>rdc bench-msvba runs MS-VBA in Excel, and automating Excel needs Windows: nothing was run.</value>
+  </data>
+  <data name="BenchMsVba_NoExcel" xml:space="preserve">
+    <value>Excel is not installed: there is no Excel.Application to start.</value>
+  </data>
+  <data name="BenchMsVba_ProjectNotTrusted" xml:space="preserve">
+    <value>Excel does not let programs import modules into a workbook. Turn on &quot;Trust access to the VBA project object model&quot; (Excel Options, Trust Center, Trust Center Settings, Macro Settings), then run this again.</value>
+  </data>
+  <data name="BenchMsVba_Dialog" xml:space="preserve">
+    <value>Excel showed a dialog, so the round was stopped: {0}</value>
+  </data>
+  <data name="BenchMsVba_NoAnswer" xml:space="preserve">
+    <value>Excel did not answer within {0} minutes, so the round was stopped.</value>
+  </data>
+  <data name="BenchMsVba_OneProcess" xml:space="preserve">
+    <value>The Excel automation cases did not run across two processes (harness {0}, target {1}): no figures were kept.</value>
+  </data>
+  <data name="BenchMsVba_NoCaseList" xml:space="preserve">
+    <value>rdc bench --list listed no cases: {0}</value>
+  </data>
+  <data name="BenchMsVba_Round" xml:space="preserve">
+    <value>Round {0} of {1}</value>
+  </data>
+  <data name="BenchMsVba_RoundWithExcel" xml:space="preserve">
+    <value>Round {0} of {1}, with the Excel automation cases</value>
+  </data>
+  <data name="BenchMsVba_ProcessFailed" xml:space="preserve">
+    <value>rdc {0} ended with exit code {1}.</value>
+  </data>
+  <data name="BenchMsVba_ProcessTimedOut" xml:space="preserve">
+    <value>rdc {0} did not end within {1} minutes, and was stopped.</value>
+  </data>
+  <data name="BenchMsVba_Missing" xml:space="preserve">
+    <value>No figure for {0} on the {1} side: nothing was written.</value>
+  </data>
+  <data name="BenchMsVba_ExcelLeftRunning" xml:space="preserve">
+    <value>An Excel started during RD-VBA&apos;s round is still running (process {0}); it was left alone.</value>
+  </data>
+  <data name="BenchMsVba_Written" xml:space="preserve">
+    <value>{0} corpus cases and {1} Excel automation figures written to {2}.</value>
   </data>
 </root>

@@ -1,11 +1,14 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -64,9 +67,10 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
 /// its declared type (<strong>MS-VBAL §5.2.3.1.4</strong>).
 /// </summary>
 /// <remarks>
-/// An array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a type that is no intrinsic value type (an object, a user-defined
-/// type) are left out: such a variable is given what it holds otherwise than by an assignment. The host counts the references of a local and of a
-/// <c>Private</c> variable of the module.
+/// A dynamic array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a class or a user-defined type are left out: such a variable is
+/// given what it holds otherwise than by an assignment (<c>As New</c>, its members). A variable declared <c>As Object</c> is judged: it is <c>Nothing</c> until
+/// a <c>Set</c> assigns it. A fixed-size array is judged: an assignment of one of its elements is a write of the array. The host counts the references of a
+/// local and of a <c>Private</c> variable of the module.
 /// </remarks>
 internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
 {
@@ -79,17 +83,30 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
             yield break;
         }
 
-        var redimensioned = module.Descendants().OfType<RedimDeclarationNode>()
-            .Select(redim => redim.Target is SimpleNameExpressionNode name ? name.IdentifierName : null)
-            .OfType<string>()
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // the variables a ReDim names, by the symbol its target is bound to: a variable of another procedure with the same name is another variable. A target
+        // that is bound to nothing leaves out every variable of its name.
+        var facts = semantics.Procedures.SelectMany(procedure => procedure.Expressions).DistinctBy(fact => fact.Node).ToDictionary(fact => fact.Node);
+        var givenOtherwise = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var redimensionedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var redim in module.Descendants().OfType<RedimDeclarationNode>())
+        {
+            if (facts.TryGetValue(redim.Target.Identity, out var target) && target.Binding is { } binding)
+            {
+                givenOtherwise.Add(binding.ToString());
+            }
+            else if (redim.Target is SimpleNameExpressionNode name)
+            {
+                redimensionedNames.Add(name.IdentifierName);
+            }
+        }
 
         foreach (var (fact, _) in UnusedDeclarations.Counted(semantics, DeclarationKind.Variable)
-            .Where(counted => counted.References is { Writes: 0, PassedAsArguments: 0, Reads: > 0 } && !redimensioned.Contains(counted.Fact.Name)))
+            .Where(counted => counted.References is { Writes: 0, PassedAsArguments: 0, Reads: > 0 }
+                && !givenOtherwise.Contains(counted.Fact.Symbol.ToString()) && !redimensionedNames.Contains(counted.Fact.Name)))
         {
             if (UnusedDeclarations.DeclarationOf<VariableDeclarationNode>(module, fact, node => node.NameRange ?? node.SourceLocation.Range) is not { IsWithEvents: false } declaration
-                || declaration.Children.OfType<ArrayBoundsNode>().Any()
-                || !IsOfAnIntrinsicValueType(declaration))
+                || declaration.Children.OfType<ArrayBoundsNode>().Any(bounds => bounds.IsResizable)
+                || !IsOfAnIntrinsicType(declaration))
             {
                 continue;
             }
@@ -98,15 +115,70 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
                 RDCoreDiagnosticId.VariableNotAssigned.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name))
+            {
+                Fixes = FixOf(context.ParseResult, module, fact, declaration) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
+            };
         }
     }
 
-    // no As clause, or one that names an intrinsic type other than Object, unqualified or of the VBA library.
-    private static bool IsOfAnIntrinsicValueType(VariableDeclarationNode declaration)
+    // the local assigned the default value of its type on a line of its own after its declaration: nothing else assigns it, so it holds that value wherever
+    // it is read, and the code does what it did. Not offered for a field of the module, which no one procedure starts with; for a fixed-length string, whose
+    // default is made of null characters; for an array or an object, which no Let of a literal assigns; nor for a declaration with no As clause or type
+    // character in a module whose DefType statements may type it.
+    private static EditFix? FixOf(ModuleParseResult parse, ModuleNode module, DeclarationFactDto fact, VariableDeclarationNode declaration)
+    {
+        if (UnusedDeclarations.ProcedureAt(module, fact.Location.Range.Start) is not { } procedure
+            || DefaultOf(declaration, module.Descendants().OfType<TypeDefDirectiveNode>().Any()) is not { } value
+            || procedure.Descendants().Prepend(procedure).FirstOrDefault(node => !node.Children.IsDefaultOrEmpty && node.Children.Contains(declaration)) is not { } parent
+            || DeclarationStatements.In(parent.Children).FirstOrDefault(declarations => declarations.Contains(declaration)) is not { } declarations)
+        {
+            return null;
+        }
+
+        var statement = DeclarationStatements.RangeOf(declarations);
+        if (statement.End.Line >= procedure.SourceLocation.Range.End.Line)
+        {
+            return null;
+        }
+
+        // the assignment is written at the indentation of the declaration.
+        var indent = new string(' ', statement.Start.Character);
+        return SyntaxEdits.Fix(
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Fix, fact.Name, value),
+            LineEdits.InsertLinesAfter(parse, statement, $"{indent}{fact.Name} = {value}"));
+    }
+
+    // the literal of the default value of the type the declaration states, with its As clause or its type character.
+    private static string? DefaultOf(VariableDeclarationNode declaration, bool hasDefType)
+    {
+        if (declaration.Children.OfType<ArrayBoundsNode>().Any())
+        {
+            return null;
+        }
+
+        if (declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is { } asType)
+        {
+            return asType.FixedLength is null
+                && !string.Equals(asType.TypeName, VBTypeNames.VBObject, StringComparison.OrdinalIgnoreCase)
+                && IntrinsicVBTypes.TryResolve(asType.TypeName, out var declared)
+                    ? IntrinsicVBTypes.DefaultLiteralOf(declared)
+                    : null;
+        }
+
+        return declaration.TypeHint switch
+        {
+            { } hint => IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? IntrinsicVBTypes.DefaultLiteralOf(hinted) : null,
+            null when !hasDefType => IntrinsicVBTypes.DefaultLiteralOf(VBVariantType.TypeInfo),
+            _ => null,
+        };
+    }
+
+    // no As clause, or one that names an intrinsic type, Object included, unqualified or of the VBA library: no user-defined type has such a name. A class
+    // cannot be told from a user-defined type by its name alone, so neither is judged.
+    private static bool IsOfAnIntrinsicType(VariableDeclarationNode declaration)
         => declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is not { } asType
             || !asType.IsArrayDef
                 && (asType.QualifierName is null || string.Equals(asType.QualifierName, "VBA", StringComparison.OrdinalIgnoreCase))
-                && IntrinsicVBTypes.IsIntrinsic(asType.TypeName)
-                && !string.Equals(asType.TypeName, VBTypeNames.VBObject, StringComparison.OrdinalIgnoreCase);
+                && IntrinsicVBTypes.IsIntrinsic(asType.TypeName);
 }

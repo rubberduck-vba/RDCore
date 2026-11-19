@@ -278,7 +278,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         Append(string.Join(',', analysis.CellSlots));
         Append(string.Join(',', analysis.SlotSymbols.OrderBy(slot => slot.Key).Select(slot => $"{slot.Key}:{slot.Value.SemanticId}")));
         Append(string.Join(',', analysis.Loops.Select(loop => $"{loop.Opener}:{loop.Kind}")));
-        Append(string.Join(',', analysis.Selects.Select(select => $"{select.Opener}:{select.End}:{select.Kind}")));
+        Append(string.Join(',', analysis.Selects.Select(select => $"{select.Opener}:{select.End}:{select.Kind}:{select.IsText}")));
         foreach (var step in analysis.Steps)
         {
             Append(step);
@@ -319,8 +319,8 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         var compiled = new CompiledBody(run, analysis.ResultKind, analysis.Loops, procedure.Name, analysis.Callees, directs, analysis.SlotSymbols)
         {
             Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
-            Classes = analysis.Classes, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
-            Libraries = analysis.Libraries,
+            Classes = analysis.Classes, News = analysis.News, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
+            Libraries = analysis.Libraries, ArithmeticSites = analysis.ArithmeticSites,
         };
 
         // a call the body makes of itself is of the body just made.
@@ -374,9 +374,30 @@ internal static class CompiledExecution
     /// The engine every session runs its procedures with; <see langword="null"/> for the one its environment says. The test assembly sets it from the
     /// <c>RDCORE_ENGINE</c> environment variable; nothing else does.
     /// </summary>
-    public static VBExecutionEngine? Engine { get; set; }
+    public static VBExecutionEngine? Engine
+    {
+        get => _engine;
+        set
+        {
+            _engine = value;
+            EngineChanged();
+        }
+    }
+
+    private static VBExecutionEngine? _engine;
 
     private static readonly AsyncLocal<VBExecutionEngine?> _scoped = new();
+
+    // how many times the engine was changed, for every session or in a scope (Running), in any asynchronous flow.
+    private static int _engineChanges;
+
+    private static void EngineChanged() => Interlocked.Increment(ref _engineChanges);
+
+    /// <summary>
+    /// A number that is the same for as long as no engine was changed (<see cref="Engine"/>, <see cref="Running"/>), whichever flow changed it. Compiled code
+    /// that found its engine to be the compiled one compares this number at each call instead of asking again.
+    /// </summary>
+    public static int EngineEpoch => Volatile.Read(ref _engineChanges);
 
     /// <summary>
     /// The engine a session whose environment says <paramref name="configured"/> runs its procedures with: the one a scope says (<see cref="Running"/>), then
@@ -389,7 +410,12 @@ internal static class CompiledExecution
     {
         var previous = _scoped.Value;
         _scoped.Value = engine;
-        return new Scope(() => _scoped.Value = previous);
+        EngineChanged();
+        return new Scope(() =>
+        {
+            _scoped.Value = previous;
+            EngineChanged();
+        });
     }
 
     /// <summary>

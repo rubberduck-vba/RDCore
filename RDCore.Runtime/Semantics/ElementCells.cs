@@ -38,7 +38,10 @@ internal static class ElementCells
             return () => ScalarCell.Of(initial);
         }
 
-        return itemType is VBVariantType && itemType.DefaultValue.RuntimeValue is VBRuntimeVariantValue empty ? () => VariantCell.Of(empty) : null;
+        // an element of a Variant array starts as Empty: a cell that holds Empty is made as it is, with no look at what it holds.
+        return itemType is not VBVariantType || itemType.DefaultValue.RuntimeValue is not VBRuntimeVariantValue initialValue ? null
+            : initialValue is { WrappedValue: { IsIndeterminate: false, TypeInfo: VBEmptyType } } ? () => VariantCell.OfEmpty(initialValue)
+            : () => VariantCell.Of(initialValue);
     }
 
     /// <summary>

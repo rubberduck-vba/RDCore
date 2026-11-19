@@ -20,7 +20,7 @@ public static class InstructionListLowering
     public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default, MemberKind? procedure = null,
         SourceLocation? declaration = null)
     {
-        var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.IsReleaseBuild, options.Language, procedure);
+        var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.IsReleaseBuild, options.Language, procedure, options.DrawsOnMe);
         LowerBlock(body, state, default);
 
         // MS-VBA stops on End Sub before the procedure returns, whether it runs to the end or exits: a jump to the end of the body, on that line, that every
@@ -52,7 +52,7 @@ public static class InstructionListLowering
 
         // what is wrong with the body is the static pass's to say, once, whoever lowers it: lowering only needs to know where a jump lands, and a jump
         // that lands nowhere has no target.
-        var errors = StatementStaticSemanticsEvaluator.CheckStructure(body, new StaticSemanticsOptions(options.Dead, options.Language), procedure);
+        var errors = StatementStaticSemanticsEvaluator.CheckStructure(body, new StaticSemanticsOptions(options.Dead, options.Language, DrawsOnMe: options.DrawsOnMe), procedure);
         return new InstructionListLoweringResult(new InstructionList([.. state.Items], state.Labels, state.ByNode), errors);
     }
 
@@ -103,15 +103,15 @@ public static class InstructionListLowering
             case DebugStatementNode when !state.IncludeDebugStatements:
                 break;
 
-            // a bare Print is the Print member of a form or a report in VB6, which the platform has none of. In VBA it is a reserved identifier with no
-            // semantics and no statement inside a procedure (only the Immediate window, which is not procedure scope, accepts it as Debug.Print), so
-            // in a language without one (HasBarePrint) it is as undefined as any other name the language does not declare.
-            case PrintStatementNode barePrint when BarePrintStaticSemantics.Evaluate(barePrint, state.Language) is not null:
+            // in VB6 a bare Print is the Print member of the form or report whose code it is, and it prints on the form in a Visual Basic 6.0 form's code. In VBA it is a reserved
+            // identifier with no semantics and no statement inside a procedure (only the Immediate window, which is not procedure scope, accepts it as
+            // Debug.Print), so anywhere else in a language without one (HasBarePrint) it is as undefined as any other name the language does not declare.
+            case PrintStatementNode barePrint when BarePrintStaticSemantics.Evaluate(barePrint, state.Language, state.DrawsOnMe) is not null:
                 break;
 
-            // a graphics statement with no object to draw on is the method of a form or a report, which the platform has none of: undefined, and so there is
-            // nothing to run.
-            case GraphicsMethodStatementNode graphics when GraphicsStatementStaticSemantics.Evaluate(graphics) is not null:
+            // a graphics statement with no object to draw on is the method of the form it is written in: undefined outside a Visual Basic 6.0 form's code, and
+            // so there is nothing to run.
+            case GraphicsMethodStatementNode graphics when GraphicsStatementStaticSemantics.Evaluate(graphics, state.DrawsOnMe) is not null:
                 break;
 
             case GoToStatementNode goTo:
@@ -511,9 +511,11 @@ public static class InstructionListLowering
         => LabelOperands.TryGetLabelName(operand, out var name) && labels.TryGetValue(name, out var target) ? target : null;
 
     // Shared, mutable across the whole recursive lowering of one procedure body.
-    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, bool isReleaseBuild, SupportedLanguage? language, MemberKind? procedure)
+    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, bool isReleaseBuild, SupportedLanguage? language, MemberKind? procedure,
+        bool drawsOnMe)
     {
         public bool IsReleaseBuild { get; } = isReleaseBuild;
+        public bool DrawsOnMe { get; } = drawsOnMe;
         public SupportedLanguage? Language { get; } = language;
         public MemberKind? Procedure { get; } = procedure;
         public List<Instruction> Items { get; } = [];

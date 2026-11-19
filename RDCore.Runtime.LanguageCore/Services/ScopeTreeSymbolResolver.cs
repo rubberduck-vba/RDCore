@@ -44,16 +44,28 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     // each resolution is the tree's: a variable read a million times is resolved once.
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
         => _valueResolutions.GetOrAdd(new ValueResolutionKey(name, scope, handle.AbsoluteUri),
-            static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle), (Resolver: this, Name: name, Handle: handle));
+            static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle, null), (Resolver: this, Name: name, Handle: handle));
 
-    private SymbolResolutionResult ResolveValueOnce(string name, Uri handle)
+    // MS-VBAL §5.6.10: what the name of a declaration means from where it is looked up, had that declaration not been made (the other accessors of a property
+    // are the same declaration). It is not kept: it is asked once for each declaration, of a tree that holds the declaration.
+    public SymbolResolutionResult ResolveValueWithout(Symbol declared, Uri handle)
+        => ResolveValueOnce(declared.Name, handle, candidate => candidate.SemanticId == declared.SemanticId || IsAccessorOfTheSameProperty(candidate, declared));
+
+    private static bool IsAccessorOfTheSameProperty(Symbol candidate, Symbol declared)
+        => candidate is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol
+            && declared is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol
+            && string.Equals(candidate.Name, declared.Name, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(candidate.ParentUri.AbsoluteUri, declared.ParentUri.AbsoluteUri, StringComparison.Ordinal);
+
+    private SymbolResolutionResult ResolveValueOnce(string name, Uri handle, Func<Symbol, bool>? isLeftOut)
     {
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
+        IEnumerable<Symbol> DeclaredAs(LexicalScope lexicalScope) => isLeftOut is null ? lexicalScope.DeclaredAs(name) : lexicalScope.DeclaredAs(name).Where(symbol => !isLeftOut(symbol));
 
         // the procedure and the enclosing module: the tree's own order, innermost first.
         foreach (var lexicalScope in origin.TakeWhile(lexicalScope => lexicalScope.Kind is not (LexicalScopeKind.Project or LexicalScopeKind.Global)))
         {
-            if (SelectTier(lexicalScope, ValuesOverEnums(lexicalScope.DeclaredAs(name).Where(IsValueDeclaration))) is { } result)
+            if (SelectTier(lexicalScope, ValuesOverEnums(DeclaredAs(lexicalScope).Where(IsValueDeclaration))) is { } result)
             {
                 return result;
             }
@@ -66,10 +78,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
 
-        // a document module's code names the members of its host's class as its own (MS-VBAL §4.2.1), after them: an unqualified Range in a worksheet's.
-        if (HostMembersOf(origin, global, name) is { } hostMember)
+        // a document module's code names the members of its host's class as its own (MS-VBAL §4.2.1), after them: an unqualified Range in a worksheet's. A
+        // UserControl's, a PropertyPage's and a UserDocument's name those of their base class: an unqualified BackColor in a UserControl's.
+        if (InheritedMembersOf(origin, global, name) is { } inheritedMember)
         {
-            return hostMember;
+            return inheritedMember;
         }
 
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
@@ -84,7 +97,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         foreach (var (tier, isCandidate) in tiers)
         {
-            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(tier.DeclaredAs(name).Where(isCandidate))) is { } result)
+            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(DeclaredAs(tier).Where(isCandidate))) is { } result)
             {
                 return result;
             }
@@ -228,9 +241,10 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SymbolResolutionResult.Unbound;
     }
 
-    // the members of the host's class named so, when the lookup is from a document module (VBClassModuleSymbol.HostClass): its library's class is found by
-    // its names, and its members are not the module's - no scope maps them.
-    private SymbolResolutionResult? HostMembersOf(LexicalScope[] origin, LexicalScope? global, string name)
+    // the members named so of the library's class whose members the module's code names as its own: its host's class, when the lookup is from a document
+    // module (VBClassModuleSymbol.HostClass), or its base class, from a UserControl, a PropertyPage or a UserDocument (VBClassModuleSymbol.BaseClass).
+    // The class is found by its names, and its members are not the module's: no scope maps them, and Me does not reach a base class's.
+    private SymbolResolutionResult? InheritedMembersOf(LexicalScope[] origin, LexicalScope? global, string name)
     {
         if (global is null || origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Module) is not { } moduleScope)
         {
@@ -238,13 +252,14 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         var module = global.DeclaredAs(SymbolUri.ModuleNameOf(moduleScope.Uri)).OfType<VBClassModuleSymbol>()
-            .FirstOrDefault(candidate => candidate.HostClass is not null && candidate.Uri.AbsoluteUri == moduleScope.Uri.AbsoluteUri);
-        if (module is null || VBProjectSymbol.ResolveHostClass(this, module) is not { } host)
+            .FirstOrDefault(candidate => (candidate.HostClass is not null || candidate.BaseClass is not null)
+                && candidate.Uri.AbsoluteUri == moduleScope.Uri.AbsoluteUri);
+        if (module is null || (VBProjectSymbol.ResolveHostClass(this, module) ?? VBProjectSymbol.ResolveBaseClass(this, module)) is not { } inherited)
         {
             return null;
         }
 
-        return SelectTier(moduleScope, host.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol
+        return SelectTier(moduleScope, inherited.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol
             && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)));
     }
 

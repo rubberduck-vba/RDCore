@@ -11,6 +11,7 @@ namespace RDCore.Tests.Cli;
 /// Each row writes a record to a file of its own, reads every byte of the file back one <c>Byte</c> at a time, then <c>Get</c>s the record into another
 /// variable. In a <c>Random</c> file the bytes after a record and before the next are the file's own, zeros.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.11 Put")]
 [TestCategory("MS-VBAL 5.4.5.12 Get")]

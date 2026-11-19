@@ -19,6 +19,11 @@ internal interface IPlatformSettings
 
     /// <summary>The settings the user set (<see cref="UserSettingsStore"/>).</summary>
     UserSettingsStore Store { get; }
+
+    /// <summary>
+    /// The settings a workspace keeps for itself (<see cref="WorkspaceSettingsStore"/>).
+    /// </summary>
+    WorkspaceSettingsStore Workspace { get; }
 }
 
 /// <inheritdoc cref="IPlatformSettings"/>
@@ -36,6 +41,8 @@ internal sealed class PlatformSettings(IFileSystem fileSystem, IPlatformEnvironm
     public SettingsSchema Schema => _schema ??= Read();
 
     public UserSettingsStore Store => new(fileSystem, UserSettingsStore.PathIn(environment), Schema);
+
+    public WorkspaceSettingsStore Workspace => new(fileSystem, Schema);
 
     private SettingsSchema Read()
     {
