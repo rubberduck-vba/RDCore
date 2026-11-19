@@ -376,10 +376,17 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
-// the argument of a Variant parameter passed by reference that is a Variant variable or parameter of the activation (MS-VBAL §5.3.1.11): the variable's
-// address, which the parameter is a second name for, as the interpreter gives it (CompiledActivation.SetVariantReference). Only an argument of a call; its
-// Kind is not read.
-internal sealed record class VariantReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+// the argument of a Variant parameter passed by reference that is a Variant variable or parameter of the activation, or a String variable or parameter of
+// it (MS-VBAL §5.3.1.11): the variable's address, which the parameter is a second name for, as the interpreter gives it
+// (CompiledActivation.SetVariantReference). A String's appender is written into its cell first (OfText), so the callee reads the String as compiled code
+// left it, and compiled code reads what the callee assigned from the cell. Only an argument of a call; its Kind is not read.
+internal sealed record class VariantReferenceNode(int Slot) : PayloadNode(default(ScalarKind))
+{
+    /// <summary>
+    /// Whether the variable is a <c>String</c> of the activation, whose appender is written into its cell before the call.
+    /// </summary>
+    public bool OfText { get; init; }
+}
 
 // the argument of an optional Variant parameter the call leaves out (CompiledCallee.Parameters, null): what the interpreter gives it
 // (RuntimeExpressionEvaluator.OmittedArgument), the default the parameter declares or Missing, of the parameter of the procedure the call invokes, given as
@@ -564,10 +571,11 @@ internal sealed record class LibraryMemberNode(int Library, int? Receiver, IRead
     public FieldPath? ReceiverField { get; init; }
 }
 
-// a call of a function of the workspace that returns a String or a Variant (CompiledCallee.ReturnsValue), inside an expression, the argument of a Variant
-// parameter of a function or a member of the standard library, which takes it by value: made as a CallNode is, what it returns held by the statement's
-// temporaries and given to the parameter as the interpreter gives it what an argument evaluated to (CompiledActivation.TakeReturnedValue), and known by
-// where it is in its statement (Syntax) once it is made, as a call that returns an object is.
+// a call of a function of the workspace that returns a String or a Variant (CompiledCallee.ReturnsValue), inside an expression: the argument of a Variant
+// parameter of a function or a member of the standard library, which takes it by value, or a Variant read as a payload. Made as a CallNode is, what it
+// returns held by the statement's temporaries and given to the parameter as the interpreter gives it what an argument evaluated to
+// (CompiledActivation.TakeReturnedValue), or read as the payload of its own subtype (CompiledActivation.TakeReturnedPayload), and known by where it is in
+// its statement (Syntax) once it is made, as a call that returns an object is.
 internal sealed record class CallValueNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, int Syntax) : VariantNode
 {
     public int? WithAt { get; init; }
@@ -683,6 +691,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
     /// </summary>
     public LanguageCore.Binding.BoundMember? Site { get; init; }
+
+    /// <summary>
+    /// The class an object is declared as, of a call of its default member that an index expression makes (MS-VBAL §5.6.13): <see cref="Procedure"/> is
+    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class only; an object of another class is the interpreter's.
+    /// <see cref="Site"/> is then <see langword="null"/>.
+    /// </summary>
+    public SDK.Model.Symbols.VBClassModuleSymbol? DefaultOf { get; init; }
 
     /// <summary>
     /// Whether the call is of a member of the class whose code runs, named bare (MS-VBAL §5.6.10). The call is of <see cref="Procedure"/> itself, made on

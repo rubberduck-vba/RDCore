@@ -583,6 +583,12 @@ public sealed partial class CompiledActivation : ILightActivation
     // the last class's (Invoked).
     private VBTypeMemberSymbol? MemberOf(CompiledCallee called, IObjectInstance target)
     {
+        // the default member of an object of the class it is declared as: one of another class is the interpreter's to resolve.
+        if (called.DefaultOf is { } declared)
+        {
+            return ReferenceEquals(target.ClassModule, declared) ? called.Procedure : null;
+        }
+
         if (called.Site is null)
         {
             return called.Procedure;

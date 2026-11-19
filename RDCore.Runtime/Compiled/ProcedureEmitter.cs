@@ -1866,6 +1866,11 @@ internal sealed partial class ProcedureEmitter
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
 
+            // a String given by reference to a Variant: what its appender holds, written into its cell, which the callee is given the address of.
+            case VariantReferenceNode { OfText: true } text:
+                EmitWriteAppended(text.Slot);
+                return default;
+
             // an optional Variant left out, and a Variant variable given by reference, are given as the call is made (CompiledActivation.SetOmitted,
             // SetVariantReference).
             case OmittedArgumentNode or VariantReferenceNode:
@@ -2259,6 +2264,7 @@ internal sealed partial class ProcedureEmitter
         LibraryMemberNode member => member.Arguments.Any(MakesACall),
         VariantElementNode element => element.Subscripts.Any(MakesACall),
         VariantElementValueNode value => MakesACall(value.Element),
+        CallValueNode => true,
         _ => false,
     };
 
@@ -2424,6 +2430,10 @@ internal sealed partial class ProcedureEmitter
 
             case LibraryMemberNode member:
                 EmitLibraryMemberCall(member, result, failure);
+                break;
+
+            case CallValueNode called:
+                EmitVariantCall(called, result, failure);
                 break;
 
             default:
