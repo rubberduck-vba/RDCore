@@ -286,7 +286,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             | (members.Any(member => member is VBModuleFieldVariableMemberSymbol
                 || RuntimeProcedureInvoker.GetLocals(member).Any(local => local is VBLocalVariableSymbol { IsStatic: true }))
                 ? ClassModuleSemanticFlags.Stateful
-                : ClassModuleSemanticFlags.None);
+                : ClassModuleSemanticFlags.None)
+            // MS-VBAL §5.2.4.1.1: VB_Exposed = True makes the class accessible to the projects that reference this one.
+            | (classModule.Directives.Exposed ? ClassModuleSemanticFlags.Exposed : ClassModuleSemanticFlags.None);
 
     // directly, or in a record that is a field of it. A type that holds itself is not one MS-VBA compiles, and is looked into once. The fields are the type's
     // as the session has it now (CurrentTypes).

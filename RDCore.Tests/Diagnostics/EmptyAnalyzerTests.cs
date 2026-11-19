@@ -323,22 +323,41 @@ public sealed class EmptyAnalyzerTests
         var shape = ModuleWorkspace.ClassModule("IShape", "Public Sub Draw()", "End Sub", "Public Function Area() As Long", "End Function");
         var button = ModuleWorkspace.ClassModule("Button", "Public Event Click()", "Public Sub Press()", "    RaiseEvent Click", "End Sub");
         var source = ModuleWorkspace.ClassModule(name, lines);
-        var classes = name == "IShape" ? new[] { ("IShape", shape), ("Button", button) } : [("IShape", shape), ("Button", button), (name, source)];
-        var payload = await ModuleWorkspace.SemanticsAsync(classes, "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+        var payload = await ModuleWorkspace.SemanticsAsync([("IShape", shape), ("Button", button), (name, source)], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == name);
 
-        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, $"{name}.cls"));
-        return Run(new EmptyProcedureAnalyzer(), name == "IShape" ? shape : source, model, uri);
+        return Run(new EmptyProcedureAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, $"{name}.cls")));
     }
 
     [TestMethod]
-    public async Task APublicMemberOfAClass_MayBeAMemberOfAnInterface()
-        => Assert.IsEmpty(await ClassAsync("IShape"));
+    public async Task APublicMemberOfAClassThatAModuleImplements_MayBeAMemberOfAnInterface()
+    {
+        var shape = ModuleWorkspace.ClassModule("IShape", "Public Sub Draw()", "End Sub", "Public Function Area() As Long", "End Function");
+        var square = ModuleWorkspace.ClassModule("Square", "Implements IShape",
+            "Private Sub IShape_Draw()", "    Debug.Print 4", "End Sub", "Private Function IShape_Area() As Long", "    IShape_Area = 4", "End Function");
+        var payload = await ModuleWorkspace.SemanticsAsync([("IShape", shape), ("Square", square)], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "IShape");
+
+        Assert.IsEmpty(Run(new EmptyProcedureAnalyzer(), shape, model, new Uri(Path.Combine(ModuleWorkspace.Root, "IShape.cls"))));
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfAnExposedClass_MayBeAMemberOfAnInterface()
+        => Assert.IsEmpty(await ClassAsync("Widget", "Attribute VB_Exposed = True", "Public Sub Draw()", "End Sub"));
+
+    [TestMethod]
+    public async Task APublicMemberOfAClassThatNoModuleImplements_AndThatIsNotExposed_IsJudged()
+    {
+        var finding = Assert.ContainsSingle(await ClassAsync("Widget", "Attribute VB_Exposed = False", "Public Sub Draw()", "End Sub", "Public Sub Show()", "    Debug.Print 1", "End Sub"));
+
+        StringAssert.Contains(finding.Message, "'Draw'");
+    }
 
     [TestMethod]
     public async Task APrivateOrFriendMemberOfAClass_IsInNoInterface()
     {
-        var findings = await ClassAsync("Shape", "Private Sub Class_Initialize()", "End Sub", "Friend Sub Reset()", "End Sub", "Public Sub Draw()", "End Sub");
+        var findings = await ClassAsync("Shape", "Attribute VB_Exposed = True",
+            "Private Sub Class_Initialize()", "End Sub", "Friend Sub Reset()", "End Sub", "Public Sub Draw()", "End Sub");
 
         CollectionAssert.AreEqual(new[] { "Class_Initialize", "Reset" }, findings.Select(finding => finding.Message.Split('\'')[1]).ToArray());
     }
