@@ -4,8 +4,8 @@ using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does to a String variable of the activation besides assigning it a value: the Mid statement; and the text of a Single or a Double,
-// which the session's regional settings write.
+// what compiled code has the activation do with strings: the Mid statement on a String variable of the activation, and the text of a Single or a
+// Double, written in the session's regional settings.
 public sealed partial class CompiledActivation
 {
     /// <summary>
