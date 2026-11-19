@@ -88,7 +88,7 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
         {
             var name = $"{module}.{compilation.Procedure.Name}".PadRight(width);
             var lines = sources.GetValueOrDefault(module);
-            // a loop and its Next are at the same line, and a reason of each says the same: the report says it once.
+            // two reasons can read the same, as those of a loop and of its Next do: the report says each once.
             string Said(IEnumerable<Ineligibility> reasons) => string.Join("; ", reasons.Select(reason => Describe(reason, lines)).Distinct());
             // a compiled procedure has the interpreter run, one at a time, the instructions compiled code does not do, and the statements it does not make
             // itself as support calls.
@@ -117,8 +117,8 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
     }
 
     // what keeps a procedure in the interpreter, worded in the user's language, and the line it is on. A statement, an instruction, or an assignment of
-    // what is not a variable of the procedure is the code of that line of the module, as it is written; what the analysis calls it only when the line is
-    // not known.
+    // what is not a variable of the procedure is quoted as the code of its line, as the module writes it; it is named as the analysis names it only when that
+    // line is not known or is blank.
     internal static string Describe(Ineligibility reason, IReadOnlyList<string>? lines = null)
     {
         var wording = Resources.ResourceManager.GetString($"Compilation_Reason_{reason.Kind}", Resources.Culture) ?? reason.Kind.ToString();
