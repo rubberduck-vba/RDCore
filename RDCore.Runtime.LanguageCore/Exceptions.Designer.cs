@@ -1165,6 +1165,24 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Only valid in object module.
+        /// </summary>
+        internal static string VBCompileError_OnlyValidInObjectModule {
+            get {
+                return ResourceManager.GetString("VBCompileError_OnlyValidInObjectModule", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared Friend, which only a procedure of a class module can be: declare it Public or Private..
+        /// </summary>
+        internal static string VBCompileError_OnlyValidInObjectModule_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_OnlyValidInObjectModule_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Not a legal object name.
         /// </summary>
         internal static string VBCompileError_NotALegalObjectName {

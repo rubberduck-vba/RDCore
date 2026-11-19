@@ -19,7 +19,7 @@ public sealed class NativeCallReachableOnEveryPlatformTests
     private const string Kernel32 = "Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long";
 
     // live on every 64-bit platform and on no 32-bit one: a procedure declared in it is declared in the session that runs the test, and not everywhere.
-    private const string On64Bit = "#If Win64 Or Mac Or Linux64 Then";
+    private const string On64Bit = "#If Is64BitEnv Then";
 
     private static RDCoreDiagnosticCode Code => RDCoreDiagnosticId.NativeCallReachableOnEveryPlatform.ToCode();
 
@@ -37,7 +37,7 @@ public sealed class NativeCallReachableOnEveryPlatformTests
 
     [TestMethod]
     [DataRow("#If Win32 Then", DisplayName = "Windows")]
-    [DataRow("#If Win64 Then", DisplayName = "64-bit Windows")]
+    [DataRow("#If Win64 Then", DisplayName = "64-bit Windows and a 64-bit Mac")]
     [DataRow("#If Mac Then", DisplayName = "macOS")]
     [DataRow("#If Mac = 0 Then", DisplayName = "not on macOS")]
     public async Task ADeclareInAnIfOnThePlatformConstants_IsNotOne(string guard)

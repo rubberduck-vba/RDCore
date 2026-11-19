@@ -603,6 +603,12 @@
   <data name="VBCompileError_NoHostApplicationToEvaluateExpression_Verbose" xml:space="preserve">
     <value>'[{0}]' ne nomme rien qui soit déclaré, ce qui en fait une expression qu&apos;une application hôte doit évaluer.</value>
   </data>
+  <data name="VBCompileError_OnlyValidInObjectModule" xml:space="preserve">
+    <value>Valide uniquement dans un module objet</value>
+  </data>
+  <data name="VBCompileError_OnlyValidInObjectModule_Verbose" xml:space="preserve">
+    <value>'{0}' est déclaré Friend, ce que seule une procédure d&apos;un module de classe peut être : déclarez-le Public ou Private.</value>
+  </data>
   <data name="VBCompileError_NotALegalObjectName" xml:space="preserve">
     <value>Nom d&apos;objet non valide</value>
   </data>

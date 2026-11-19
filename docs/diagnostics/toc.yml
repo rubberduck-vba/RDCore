@@ -206,6 +206,8 @@
   href: vbc09382.md
 - name: "VBC09383: There is no host application to evaluate the expression"
   href: vbc09383.md
+- name: "VBC09384: Only valid in object module"
+  href: vbc09384.md
 - name: "VBC09385: Not a legal object name"
   href: vbc09385.md
 - name: "VBR-0001: Application-defined or object-defined error"
@@ -438,6 +440,10 @@
   href: rdc00124.md
 - name: "RDC00125: Suspicious Let assignment"
   href: rdc00125.md
+- name: "RDC00126: Indexed recursive default member access"
+  href: rdc00126.md
+- name: "RDC00127: Recursive bang notation"
+  href: rdc00127.md
 - name: "RDC00201: Integer data type declaration"
   href: rdc00201.md
 - name: "RDC00202: Module-scope Dim declaration"
@@ -548,6 +554,10 @@
   href: rdc01017.md
 - name: "RDC01018: Keyword used as a member name"
   href: rdc01018.md
+- name: "RDC01019: Win64 is a bitness test"
+  href: rdc01019.md
+- name: "RDC01020: Undefined conditional constant"
+  href: rdc01020.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"

@@ -1,11 +1,4 @@
 # RDCore Diagnostics
-|[RDC01011](rdc01011.md)|Variable not used|A variable nothing reads|
-|[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
-|[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
-|[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
-|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
-|[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
-|[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
 
 Every problem the RDCore platform reports carries a stable **code** and, through the LSP
 `codeDescription` field, a link to its page here. See
@@ -273,6 +266,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00123](rdc00123.md)|Bang notation|`b!key`: a name given as a `String` to the default member|
 |[RDC00124](rdc00124.md)|Unbound bang notation|`v!key` of an `Object`: its default member is known only at run time|
 |[RDC00125](rdc00125.md)|Suspicious Let assignment|An object assigned to an object without `Set`|
+|[RDC00126](rdc00126.md)|Indexed recursive default member access|An argument list given through a default member that takes none, to the default member of what it returns|
+|[RDC00127](rdc00127.md)|Recursive bang notation|`b!key` through a default member that takes none, to the default member of what it returns|
 |[RDC00201](rdc00201.md)|Integer data type declaration|An As Integer clause or a % type character|
 |[RDC00202](rdc00202.md)|Module-scope Dim declaration|A module-level variable declared with Dim|
 |[RDC00203](rdc00203.md)|Multiline parameter declaration|One parameter declared over several lines|
@@ -320,6 +315,16 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01008](rdc01008.md)|Native call reachable on every platform|A `Declare` that no `#If` on the platform constants guards, and a call of one compiled where it is not declared|
 |[RDC01009](rdc01009.md)|Empty procedure|A procedure with no statement|
 |[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
+|[RDC01011](rdc01011.md)|Variable not used|A variable nothing reads|
+|[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
+|[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
+|[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
+|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
+|[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
+|[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
+|[RDC01018](rdc01018.md)|Keyword used as a member name|An Enum member or a member of a user-defined type named with a keyword|
+|[RDC01019](rdc01019.md)|Win64 is a bitness test|A directive that reads `Win64`, which is `1` on a 64-bit Mac too|
+|[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String|The number is less, whatever the values|
