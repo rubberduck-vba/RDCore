@@ -543,6 +543,9 @@
   <data name="EncapsulatePublicField_Message" xml:space="preserve">
     <value>Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value.</value>
   </data>
+  <data name="EncapsulatePublicField_ModuleVariable_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is Public: any code of the project can assign it. A property can check the value.</value>
+  </data>
   <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
     <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
   </data>

@@ -637,6 +637,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("EncapsulatePublicField_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is Public: any code of the project can assign it. A property can check the value..
+        /// </summary>
+        public static string EncapsulatePublicField_ModuleVariable_Message {
+            get {
+                return ResourceManager.GetString("EncapsulatePublicField_ModuleVariable_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance..

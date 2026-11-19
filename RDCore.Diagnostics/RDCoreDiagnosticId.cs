@@ -89,7 +89,7 @@ public enum RDCoreDiagnosticId
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
     UnmatchedEventHandler = 407, // a handler of a form's control that does not match the event: MS-VBA compiles it, and nothing calls it
     UnderscoreInPublicClassMember = 408, // a public member of a class named with an underscore: no class can implement the class
-    EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public variable of a class module, which any code can assign
+    EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public or Global variable of a module, which any code can assign
     SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
     ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
 
