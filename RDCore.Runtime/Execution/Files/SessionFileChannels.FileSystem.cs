@@ -7,8 +7,8 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Runtime.Execution.Files;
 
 // what the FileSystem module does to the machine (MS-VBAL 6.1.2.5): the channels are the ones that know which files are open, which most of it has to ask,
-// and the one seam file I/O goes through. What the specification leaves to the implementation, and the errors it does not name, are MS-VBA's (recorded in
-// Excel, oracle\s25).
+// and the one seam file I/O goes through. What the specification leaves to the implementation, and the errors it does not name, are MS-VBA's (observed in
+// Excel).
 internal sealed partial class SessionFileChannels
 {
     // the attributes a file can be given and read back as: what SetAttr refuses any other of (G02).

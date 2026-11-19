@@ -7,8 +7,7 @@ using System.Reflection;
 namespace RDCore.Tests.Runtime.StdLib;
 
 /// <summary>
-/// Every member of the standard library's declarations that returns a result, and takes no argument by reference, is invoked by the call generated for it
-/// (IR lowering S1.9): none is left to reflection by an oversight of the generator.
+/// Every member of the standard library's declarations that returns a result, and takes no argument by reference, is invoked by the call generated for it: none is left to reflection by an oversight of the generator.
 /// </summary>
 [TestClass]
 public sealed class StdLibInvokersTests

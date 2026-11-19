@@ -13,6 +13,7 @@ namespace RDCore.Tests.Diagnostics;
 /// The messages of the diagnostics are in the language of the user interface: English is the neutral set, every English culture and the invariant
 /// culture included, and French is the <c>fr</c> set, which every French culture reads.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class DiagnosticMessageCultureTests
 {

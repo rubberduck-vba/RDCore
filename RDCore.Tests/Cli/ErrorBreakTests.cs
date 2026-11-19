@@ -71,8 +71,7 @@ public sealed class ErrorBreakTests
             await Task.CompletedTask;
         });
 
-    // an error nothing catches is not given to the program: it runs the statement that raised it again, which raises it again (MS-VBA, measured in Excel,
-    // oracle\error-break B1).
+    // an error nothing catches is not given to the program: it runs the statement that raised it again, which raises it again (MS-VBA, observed in Excel).
     [TestMethod]
     public async Task AProgramThatWaitedAtAnErrorNothingCatches_RunsTheStatementThatRaisedItAgain_AndWaitsThereAgain()
         => await RunAsync(Unhandled, ErrorBreakMode.Unhandled, debug: true, async (provider, stopped) =>

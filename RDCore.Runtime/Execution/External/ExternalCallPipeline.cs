@@ -45,22 +45,19 @@ public sealed record class ExternalCallPipeline(
     /// Anything that wants to see calls before they happen, beyond the platform's own policy — which is
     /// always first, so that nothing an extension does can let through what an administrator refused.
     /// </param>
+    /// <param name="implementations">
+    /// The providers among <paramref name="providers"/> that are the platform's own implementation of a library, whose calls the policy over automation lets through.
+    /// </param>
     public static ExternalCallPipeline For(
         IRuntimeSession session,
         IEnumerable<IExternalCallProvider> providers,
-        IEnumerable<IExternalCallInterceptor>? interceptors = null)
-        => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(), .. interceptors ?? []], [.. providers]);
+        IEnumerable<IExternalCallInterceptor>? interceptors = null,
+        IEnumerable<IExternalCallProvider>? implementations = null)
+        => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(implementations), .. interceptors ?? []], [.. providers]);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
-        // a call of a form's, or of what a form handed out, is the program's own user interface: the platform answers it, which every interceptor is told.
-        var platform = Forms.PlatformObjects.Of(Session);
-        if (!request.IsAnsweredByPlatform && platform.Answers(Session, request))
-        {
-            request = request with { IsAnsweredByPlatform = true };
-        }
-
         foreach (var interceptor in Interceptors)
         {
             if (interceptor.Intercept(request, Session) is { IsBlocked: true } decision)
@@ -80,11 +77,7 @@ public sealed record class ExternalCallPipeline(
             {
                 // what the call returned is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily):
                 // an object a library made for it - CreateObject's, an enumerator - lives until whatever it is assigned to holds it.
-                RuntimeSemanticsEvaluationResult result;
-                using (platform.Answering(request))
-                {
-                    result = provider.Dispatch(request, resolver);
-                }
+                var result = provider.Dispatch(request, resolver);
 
                 // a handler of an event the call raised ended the program - an End, a debugger that ended it there - and the statement that made the call has
                 // no answer to go on with: the call ends with the program, as the session says (MS-VBAL 5.4.2.20's End runs nothing more of it).
@@ -127,17 +120,49 @@ public sealed record class ExternalCallPipeline(
         return true;
     }
 
+    // a call of a member of a class of the standard library on the object the arguments begin with, made without the pipeline as TryCallLibraryDirectly
+    // makes one of a module's function: when the member's calls would go to the library, and the object is not an external object. A provider that
+    // answers for a member by its object (an automation server's enumerator, a hosted form's controls, a picture) answers only for an external object
+    // it holds, so the library is the provider the pipeline gives any other object's call to. None made: the call is the pipeline's.
+    internal bool TryCallLibraryMemberDirectly(
+        VBTypeMemberSymbol member, IRuntimeValue[] arguments, IRuntimeSymbolResolver resolver, out RuntimeSemanticsEvaluationResult result)
+    {
+        result = default;
+        if (MemberLibraryOf(member) is not { } library || arguments is not [VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var receiver }, ..]
+            || Session.ExternalObjects.TryGet(receiver, out _, out _))
+        {
+            return false;
+        }
+
+        result = library.Dispatch(new ExternalCallRequest(member, arguments, default), resolver);
+        if (result.IsSuccess)
+        {
+            ObjectReferences.HoldTemporarily(Session, result.Result);
+        }
+
+        return true;
+    }
+
     private readonly ConcurrentDictionary<VBTypeMemberSymbol, StdLibDispatcher?> _libraryCalls = new(ReferenceEqualityComparer.Instance);
+    private readonly ConcurrentDictionary<VBTypeMemberSymbol, StdLibDispatcher?> _memberCalls = new(ReferenceEqualityComparer.Instance);
 
     // the library a member's calls go to directly, or none: decided once a member, from the member alone (a request without its arguments).
     private StdLibDispatcher? LibraryOf(VBTypeMemberSymbol member)
         => _libraryCalls.TryGetValue(member, out var library) ? library : _libraryCalls.GetOrAdd(member, DirectLibraryOf);
 
-    private StdLibDispatcher? DirectLibraryOf(VBTypeMemberSymbol member)
+    // the same, of a member of a class: the object it is called on is the call's to decide (TryCallLibraryMemberDirectly).
+    private StdLibDispatcher? MemberLibraryOf(VBTypeMemberSymbol member)
+        => _memberCalls.TryGetValue(member, out var library) ? library
+            : _memberCalls.GetOrAdd(member, called => StdLibDispatcher.HasReceiver(called) ? DirectLibraryOf(called, onAnObject: true) : null);
+
+    private StdLibDispatcher? DirectLibraryOf(VBTypeMemberSymbol member) => DirectLibraryOf(member, onAnObject: false);
+
+    private StdLibDispatcher? DirectLibraryOf(VBTypeMemberSymbol member, bool onAnObject)
     {
-        // a member of a class is called on an object, which a provider may answer for by the object: only a module's function is decided by itself.
+        // a member of a class is called on an object, which a provider may answer for by the object: a module's function is decided by itself, and a
+        // member of a class by its object too (TryCallLibraryMemberDirectly).
         var request = new ExternalCallRequest(member, [], default);
-        if (StdLibDispatcher.HasReceiver(member) || request.IsAutomation || request.IsLibraryImport
+        if (StdLibDispatcher.HasReceiver(member) != onAnObject || request.IsAutomation || request.IsLibraryImport
             || Interceptors.Any(interceptor => interceptor is not (DllImportPolicyInterceptor or AutomationPolicyInterceptor)))
         {
             return null;
@@ -146,8 +171,9 @@ public sealed record class ExternalCallPipeline(
         return Providers.FirstOrDefault(provider => provider.CanDispatch(request)) as StdLibDispatcher;
     }
 
-    // nothing here can run it. For a library import that is "the library call could not be made", which is
-    // what error 48 says; for anything else the platform simply has not got it.
+    // nothing here can run it. For a library import that is "the library call could not be made", which is what error 48 says, and for a member of a
+    // library's class it is 429. Any other member is the standard library's, whose provider every session has: a call of one that reaches none is a fault
+    // of the platform's, an internal error.
     private static RuntimeSemanticsEvaluationResult Unreachable(ExternalCallRequest request)
         => RuntimeSemanticsEvaluationResult.Error(request switch
         {
@@ -156,7 +182,7 @@ public sealed record class ExternalCallPipeline(
             // 429 is what VBA reports for a class it cannot get an object of, and the same for a member of one it cannot reach.
             { IsAutomation: true } => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ActiveXComponentCantCreateObject, request.CallSite,
                 $"{request.Describe()} could not be made: this platform has no automation servers."),
-            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
+            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, request.CallSite,
                 $"{request.Describe()} could not be called: nothing here can reach it."),
         });
 }

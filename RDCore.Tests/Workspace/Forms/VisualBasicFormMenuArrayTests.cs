@@ -150,6 +150,8 @@ public sealed class VisualBasicFormMenuArrayTests
     {
         public bool IsAvailable => forms.IsAvailable;
 
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
         public object Create(RDCore.External.Forms.FormDefinition form) => forms.Create(form);
 
         public void Show(object form, bool modal, object? owner = null)
@@ -164,7 +166,7 @@ public sealed class VisualBasicFormMenuArrayTests
                 if (form.Form.Window.PoppedUpMenu is { IsOpen: true } popup)
                 {
                     Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(popup).OfType<Avalonia.Controls.MenuItem>()
-                        .Single(item => RDCore.Forms.Avalonia.Controls.VBControl.GetInstance(item) is { Name: "mnuRecent" } element && element.Index == index)
+                        .Single(item => RDCore.Forms.Avalonia.Controls.RDFormsControl.GetInstance(item) is { Name: "mnuRecent" } element && element.Index == index)
                         .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.MenuItem.ClickEvent));
                     popup.Close();
                 }
@@ -215,9 +217,4 @@ public sealed class VisualBasicFormMenuArrayTests
         CollectionAssert.AreEqual(new[] { $"mnuRecent Click {index}", "back" }, printed.Where(line => line.StartsWith("mnu", StringComparison.Ordinal) || line == "back").ToArray(),
             string.Join(" | ", printed));
     }
-
-    [TestMethod]
-    [Ignore("an array of controls other than menus has no object in RDForms: its name raises 438")]
-    public Task Load_AddsAControlToAControlArray()
-        => AssertPrintsAsync(["2"], "Load Form3.cmd(1)", "Debug.Print Form3.cmd.Count");
 }

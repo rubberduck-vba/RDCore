@@ -284,16 +284,29 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
-    public void AMemberNothingImplementsYet_IsARunTimeError_NotAnInternalOne()
+    public void AMemberTheDispatcherHasNoCodeFor_IsAnInternalError()
     {
-        // most of the library, today. The symbol resolves and the call is well-formed; the platform has not
-        // got the code, which is a thing a program can trap rather than a gap in the interpreter.
-        var output = Run(
-            "10 On Error Resume Next",
-            "20 Debug.Print IsNumeric(42)",
-            "30 Debug.Print \"trapped\"");
+        // the platform composes the dispatcher with the code of every member the library declares: one composed without it is a fault of the platform's,
+        // which no program can trap and go on from.
+        var isNumeric = new StdLibSymbolReader(Root).Read()
+            .OfType<VBFunctionMemberSymbol>().Single(member => member.Name == "IsNumeric");
+        var dispatcher = new StdLibDispatcher(new Dictionary<Type, object>());
 
-        Assert.Contains("trapped", output[^1]);
+        var result = dispatcher.Dispatch(
+            new ExternalCallRequest(isNumeric, [new VBVariantValue(new VBLongValue(42)).RuntimeValue]), Substitute.For<IRuntimeSymbolResolver>());
+
+        Assert.AreEqual((int)VBRuntimeErrorId.InternalError, result.ErrorInfo?.ErrorId, result.ErrorInfo?.Verbose);
+    }
+
+    [TestMethod]
+    public void TheErrorObject_OfASessionWithoutTheStandardLibrary_IsAnInternalError()
+    {
+        // every session the platform composes defines the standard library, whose ErrObject class the error object is an instance of.
+        var session = RuntimeSessionComposer.Compose(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false));
+
+        var result = new StdInformation(session).Err();
+
+        Assert.AreEqual((int)VBRuntimeErrorId.InternalError, result.ErrorInfo?.ErrorId, result.ErrorInfo?.Verbose);
     }
 
     [TestMethod]

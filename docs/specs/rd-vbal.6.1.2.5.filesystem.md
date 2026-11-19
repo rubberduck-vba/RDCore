@@ -22,6 +22,8 @@ platform's storage (**MS-VBAL §2.7.3**). In RD-VBA:
 
 - A session composed for a workspace starts in the workspace root, the folder of its `.rdproj`, when the workspace loads and each time the project is
   reloaded. A relative path in `Open`, `Dir` or `Kill` is a file of the workspace.
+- A project that a `.rdworkspace` lists ([**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md)) starts in the folder of that
+  `.rdworkspace`, and goes back to it when it is reloaded. `App.Path` is still the folder of the project's own `.rdproj`.
 - `ChDir` and `ChDrive` move it. `End` leaves it where the program put it.
 - The interactive shell started without a workspace runs in a temporary one, and its session stays in the folder the environment host was started in.
 

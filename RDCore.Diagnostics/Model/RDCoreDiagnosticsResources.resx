@@ -249,6 +249,9 @@
   <data name="NotAllPathsReturnValue_NeverAssigned_Message" xml:space="preserve">
     <value>'{0}' never assigns its return value: the caller always gets the default value of the type (0, an empty string, Empty or Nothing).</value>
   </data>
+  <data name="NotAllPathsReturnValue_Fix" xml:space="preserve">
+    <value>Assign '{0}' its default value ({1}) at the start</value>
+  </data>
   <data name="IsMissingAlwaysFalse_Message" xml:space="preserve">
     <value>IsMissing({0}) is always False: '{0}' is {1}, which an omitted argument never leaves missing. Only a Variant parameter with no default value can be missing.</value>
   </data>
@@ -284,6 +287,15 @@
   </data>
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' hides '{1}': in this procedure, the name means '{0}', and '{1}' everywhere else. Give '{0}' a name of its own.</value>
+  </data>
+  <data name="ShadowedDeclaration_ModuleMessage" xml:space="preserve">
+    <value>'{0}' hides '{1}': wherever '{0}' is in scope, the name means '{0}'. Give '{0}' a name of its own.</value>
+  </data>
+  <data name="ImplementedInterfaceMember_Fix" xml:space="preserve">
+    <value>Remove the code from the members of &apos;{0}&apos;: an object created from &apos;{0}&apos; itself no longer runs it</value>
+  </data>
+  <data name="FunctionReturnValueDiscarded_Message" xml:space="preserve">
+    <value>Function &apos;{0}&apos; is called as a statement: the value it returns is discarded.</value>
   </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
@@ -356,6 +368,9 @@
   </data>
   <data name="UseMeaningfulIdentifierNames_NoVowel_Message" xml:space="preserve">
     <value>'{0}' has no vowel, and is unlikely to be a word. Give it a name that says what it is.</value>
+  </data>
+  <data name="UseMeaningfulIdentifierNames_NoConsonant_Message" xml:space="preserve">
+    <value>'{0}' has no consonant, and is unlikely to say what it is. Give it a name that does.</value>
   </data>
   <data name="HungarianNotation_Message" xml:space="preserve">
     <value>'{0}' begins with a prefix that states its type. The type is declared: the name should say what the thing is, not what it is made of.</value>
@@ -435,6 +450,18 @@
   <data name="HostLibraryNotReferenced_Fix" xml:space="preserve">
     <value>Reference the {0} library</value>
   </data>
+  <data name="NativeCallReachableOnEveryPlatform_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is declared on every platform, and no library is on every platform: a call of it where its library is not raises run-time error 53. Write it in a #If on the platform constants.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_CallEverywhere_Message" xml:space="preserve">
+    <value>This call of &apos;{0}&apos; is compiled on every platform, and no library is on every platform. Write it in a #If on the platform constants.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_CallNotDeclared_Message" xml:space="preserve">
+    <value>This call of &apos;{0}&apos; is compiled on a platform &apos;{0}&apos; is not declared on, where it refers to nothing. Write it in a #If on the platform constants that declare it.</value>
+  </data>
+  <data name="NativeCallReachableOnEveryPlatform_Fix" xml:space="preserve">
+    <value>Write the Declare statement in #If {0} Then</value>
+  </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA.</value>
   </data>
@@ -495,6 +522,9 @@
   <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
     <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
   </data>
+  <data name="ImplementedInterfaceMember_Message" xml:space="preserve">
+    <value>Class &apos;{0}&apos; is implemented as an interface, and its member &apos;{1}&apos; has code: a class that implements it does not run that code.</value>
+  </data>
   <data name="IIfSideEffect_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one.</value>
   </data>
@@ -510,11 +540,17 @@
   <data name="VariableNotAssigned_Message" xml:space="preserve">
     <value>Variable &apos;{0}&apos; is read and never assigned: it always has the default value of its type.</value>
   </data>
+  <data name="VariableNotAssigned_Fix" xml:space="preserve">
+    <value>Assign &apos;{0}&apos; its default value ({1}) explicitly</value>
+  </data>
   <data name="ParameterNotUsed_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is never used.</value>
   </data>
   <data name="AssignedByValParameter_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change.</value>
+  </data>
+  <data name="AssignedByValParameter_Fix" xml:space="preserve">
+    <value>Copy &apos;{0}&apos; into a local variable &apos;{1}&apos;, and use it in place of the parameter</value>
   </data>
   <data name="ConstantNotUsed_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; is never used.</value>
@@ -527,6 +563,9 @@
   </data>
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Nothing jumps to line label &apos;{0}&apos;.</value>
+  </data>
+  <data name="KeywordUsedAsMemberName_Message" xml:space="preserve">
+    <value>Member &apos;{0}&apos; is named with a keyword of the language: code that uses it reads like the keyword. Give it a name that is not one.</value>
   </data>
   <data name="WriteOnlyProperty_Message" xml:space="preserve">
     <value>Property &apos;{0}&apos; has no Property Get: it can be assigned and never read.</value>
@@ -638,5 +677,17 @@
   </data>
   <data name="RedundantModuleOption_Fix" xml:space="preserve">
     <value>Remove {0}</value>
+  </data>
+  <data name="StrOfAFraction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; of a number between -1 and 1 writes no zero before the decimal point in MS-VBA (&quot; .5&quot;), where MS-VBAL §6.1.2.3.1.20 writes &quot; 0.5&quot;.</value>
+  </data>
+  <data name="StrOfAnErrorValue_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; of an Error value raises run-time error 13 (Type mismatch) in MS-VBA, where MS-VBAL §6.1.2.3.1.20 returns &quot;Error &quot; followed by its code.</value>
+  </data>
+  <data name="WriteOfAFraction_Message" xml:space="preserve">
+    <value>&apos;{0} #&apos; writes a number between -1 and 1 with no zero before the decimal point in MS-VBA (.5), where MS-VBAL §5.4.5.9 writes 0.5.</value>
+  </data>
+  <data name="WriteOnlyProperty_Fix" xml:space="preserve">
+    <value>Add a Property Get &apos;{0}&apos; that returns the value the Let keeps in &apos;{1}&apos;</value>
   </data>
 </root>

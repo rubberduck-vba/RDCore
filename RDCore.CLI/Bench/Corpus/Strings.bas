@@ -2,6 +2,7 @@ Attribute VB_Name = "Strings"
 Option Explicit
 ' String assignment and concatenation.
 
+' <BenchStringAssignment>
 Public Sub BenchStringAssignment()
     Dim I As Long
     Dim S As String
@@ -9,7 +10,9 @@ Public Sub BenchStringAssignment()
         S = "RD-VBA"
     Next
 End Sub
+' </BenchStringAssignment>
 
+' <BenchStringConcatenation>
 ' each concatenation copies the string so far: the cost grows with its length, as it does in MS-VBA.
 Public Sub BenchStringConcatenation()
     Dim I As Long
@@ -18,7 +21,9 @@ Public Sub BenchStringConcatenation()
         S = S & "x"
     Next
 End Sub
+' </BenchStringConcatenation>
 
+' <BenchStringComparison>
 ' short Strings joined and compared: what parsing and formatting code does.
 Public Sub BenchStringComparison()
     Dim I As Long
@@ -29,7 +34,9 @@ Public Sub BenchStringComparison()
         If S = "RD-VBA" Then N = N + 1
     Next
 End Sub
+' </BenchStringComparison>
 
+' <BenchStringBuilding>
 ' a line built of numbers written as text, a separator between each: what a report or an export does, a conversion and two concatenations a value.
 Public Sub BenchStringBuilding()
     Dim I As Long
@@ -38,7 +45,9 @@ Public Sub BenchStringBuilding()
         S = S & CStr(I) & ";"
     Next
 End Sub
+' </BenchStringBuilding>
 
+' <BenchStringArguments>
 ' Strings given to a procedure, by value and by reference: what a helper that checks or edits text is given, a call a pass.
 Public Sub BenchStringArguments()
     Dim I As Long
@@ -62,4 +71,5 @@ End Function
 Private Sub Suffixed(ByRef T As String)
     T = T & "-VBA"
 End Sub
+' </BenchStringArguments>
 

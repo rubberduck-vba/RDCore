@@ -102,7 +102,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09336](vbc09336.md)|Private Enum and user defined types cannot be used in public members|A public member is declared with a private Enum, or in a class with a private type|
 |[VBC09337](vbc09337.md)|Not allowed as a Public member of an object module|A class exposes a constant, fixed-length string, array, user-defined type or Declare|
 |[VBC09338](vbc09338.md)|Cannot define a Public user-defined type within an object module|A class module declares a public Type|
-|[VBC09339](vbc09339.md)|Argument not optional|An object whose default member takes an argument is where a value is expected|
+|[VBC09339](vbc09339.md)|Argument not optional|A procedure that takes an argument is called without it|
 |[VBC09340](vbc09340.md)|Expected Function or variable|A subroutine is used where a value is expected|
 |[VBC09341](vbc09341.md)|Can't assign to read-only property|A property that can only be read is assigned with `Let`|
 |[VBC09342](vbc09342.md)|Wrong number of arguments or invalid property assignment|A procedure is called with arguments it does not declare|
@@ -287,6 +287,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00213](rdc00213.md)|Line continuation between keywords|A keyword of two words, such as `End If`, split over several lines|
 |[RDC00214](rdc00214.md)|Procedure can be written as a function|A `Sub` that gives its result back through its only `ByRef` parameter|
 |[RDC00215](rdc00215.md)|Self-assigned declaration|A variable declared `As New`|
+|[RDC00216](rdc00216.md)|Function result discarded|A `Function` of the project called as a statement|
 |[RDC00218](rdc00218.md)|IsMissing of a Variant that is not Optional|IsMissing of a required Variant parameter, or of a Variant variable|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
 |[RDC00303](rdc00303.md)|Obsolete comment syntax|A comment written with the Rem keyword|
@@ -307,6 +308,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00408](rdc00408.md)|Underscore in a public class member|A public member of a class module with an underscore in its name|
 |[RDC00409](rdc00409.md)|Public field|A `Public` variable of a class module|
 |[RDC00410](rdc00410.md)|Default instance in its own class|The code of a predeclared class naming its own default instance|
+|[RDC00411](rdc00411.md)|Code in a class implemented as an interface|A class that another class implements, with a statement in a member|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation|A name that begins with a prefix that states its type|
 |[RDC01003](rdc01003.md)|Empty If block|An `If` or `ElseIf` branch with no statement|
@@ -314,6 +316,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01005](rdc01005.md)|Hosted document code|The code of an Excel, Word or Access document, which RD-VBA does not host: move it into a class that automates the application|
 |[RDC01006](rdc01006.md)|Unsupported document module|A document of a host RD-VBA does not know, or a `.doccls` the project says nothing of|
 |[RDC01007](rdc01007.md)|Host library not referenced|A document module whose host's library the project does not reference|
+|[RDC01008](rdc01008.md)|Native call reachable on every platform|A `Declare` that no `#If` on the platform constants guards, and a call of one compiled where it is not declared|
 |[RDC01009](rdc01009.md)|Empty procedure|A procedure with no statement|
 |[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
@@ -345,12 +348,17 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11036](rdc11036.md)|Negative line number|A line number below 0, or a jump to one: MS-VBA compiles it, MS-VBAL has no such line number|
 |[RDC11037](rdc11037.md)|Non-breaking space in a name|A declared name with a U+00A0 in it: MS-VBA compiles it, no MS-VBAL identifier has one|
 |[RDC11039](rdc11039.md)|Function called whatever the IIf condition|A `Function` or `Property Get` in the `TruePart` or `FalsePart` of `IIf`, which runs whatever the condition|
+|[RDC11040](rdc11040.md)|Str of a number between -1 and 1|MS-VBA writes no zero before the decimal point, where MS-VBAL writes one|
+|[RDC11041](rdc11041.md)|Str of an Error value|MS-VBA raises a type mismatch, where MS-VBAL returns the text of the error|
+|[RDC11042](rdc11042.md)|Write # of a number between -1 and 1|MS-VBA writes no zero before the decimal point, where MS-VBAL writes one|
 |[RDC11043](rdc11043.md)|Object assigned with Let to a Variant property|An object given to a property whose value parameter is a `Variant`: MS-VBA passes the object, MS-VBAL its default member's value|
 |[RDC11044](rdc11044.md)|LSet of a record that holds a variable-length String|MS-VBAL allows it, and MS-VBA refuses it with a type mismatch|
 |[RDC11045](rdc11045.md)|Let through a default member with no Property Let|`total = 5` compiles in RD-VBA, where MS-VBA refuses it|
 |[RDC11046](rdc11046.md)|Let through a Variant property or function|RD-VBA assigns the returned object's default member, as MS-VBA does, where MS-VBAL raises 451 or 450|
 |[RDC11047](rdc11047.md)|Object assigned with Let to an object property|An object given with `Let` to a property whose value parameter is a class or `Object`: MS-VBA passes the object, MS-VBAL makes it a type mismatch|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
+|[RDC30001](rdc30001.md)|No entry point|`rdc run` or `rdc build` of a workspace with no `Sub Main`, an entry point the `.rdproj` names that nothing declares, or a library|
+|[RDC30002](rdc30002.md)|More than one entry point|`rdc run` or `rdc build` of a workspace where more than one standard module declares a `Sub Main`, and the `.rdproj` names none|
 
 ---
 [ACCUEIL](../index.fr.md) • [HOME](../index.md) | ℹ️ [BIENVENUE](../introduction.fr.md) • [WELCOME](../introduction.md) | 🧩 [BÂTISSONS](../getting-started.fr.md) • [BUILD](../getting-started.md) | [**RD-VBAL**](../specs/rd-vbal.md) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

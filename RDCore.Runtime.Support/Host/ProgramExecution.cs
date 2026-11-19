@@ -940,6 +940,25 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     }
 
     /// <summary>
+    /// Ends the program that waits, as the session it waits in is replaced or let go of: its thread runs out of the entry point, and the session keeps what
+    /// the program made of it.
+    /// </summary>
+    /// <remarks>
+    /// Does nothing for a program that is over, or that is running: one that is running ends when it ends. What runs alongside a program that waits is let
+    /// finish, as <see cref="TerminateAsync"/> lets it, and the program is not ended.
+    /// </remarks>
+    public void EndWaiting()
+    {
+        lock (_sync)
+        {
+            if (_state is ProgramState.Suspended && !_alongside)
+            {
+                EndSuspended(provider.Session, wipe: false);
+            }
+        }
+    }
+
+    /// <summary>
     /// Ends the program that is running or waits.
     /// </summary>
     /// <param name="wipe">Whether the session is wiped, as an <c>End</c> wipes it, or keeps what the program made of it.</param>
@@ -1065,7 +1084,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             var arguments = started is null
                 ? RuntimeProcedureInvoker.ProgramArguments(entryPoint)
                 : RuntimeProcedureInvoker.ProgramArguments(entryPoint, started.Arguments);
-            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, arguments), session, output, token);
+            return ReportEnd(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, arguments), session, output, token);
         }
         finally
         {
@@ -1120,7 +1139,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         {
             try
             {
-                return Report(stop.Result!.Value, session, output, CancellationToken.None);
+                return ReportEnd(stop.Result!.Value, session, output, CancellationToken.None);
             }
             finally
             {
@@ -1241,6 +1260,20 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         var settled = new TaskCompletionSource();
         settled.SetResult();
         return settled;
+    }
+
+    // what the invoker answered of a program that is over: one that ended on an error nothing handled, or on an internal error, ends as an End ends it - the
+    // session is wiped, once the error is reported with where it was raised and its stack trace.
+    private ExecuteResult ReportEnd(
+        RuntimeSemanticsEvaluationResult invocation, IRuntimeSession session, RuntimeOutputBuffer output, CancellationToken token)
+    {
+        var result = Report(invocation, session, output, token);
+        if (result.Outcome is ExecutionOutcome.RuntimeError or ExecutionOutcome.NotImplemented)
+        {
+            SessionWipe.End(session);
+        }
+
+        return result;
     }
 
     // What the invoker answered, as the caller sees it. An internal error means the interpreter met

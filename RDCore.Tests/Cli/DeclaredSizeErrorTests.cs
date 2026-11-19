@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// string - are constant expressions Let-coerced to <c>Long</c>, which MS-VBA reduces when it compiles, and refuses when they are no size at all.
 /// </summary>
 /// <remarks>
-/// Each expected outcome is what MS-VBA did with the same code, in Excel (64-bit, en-US, oracle\s29): the compile error it reported, or what the probe printed.
+/// Each expected outcome is what MS-VBA did with the same code, in Excel (64-bit, en-US): the compile error it reported, or what the probe printed.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.2.3.1 Module Variable Declaration Lists")]
@@ -126,7 +126,7 @@ public sealed class DeclaredSizeErrorTests
         => AssertError("Constant expression required", [], statement.Split(": "));
 
     // a call written in a bound is checked as one written anywhere else is, and the bound is no constant expression either (MS-VBA's errors on these are not
-    // measured yet: oracle-pending-rows, fix/walk-array-bounds).
+    // measured).
     [TestMethod]
     public async Task AReservedNameWithoutItsArguments_InABound_IsWrittenWithThem_AndNoConstantExpression()
         => AssertErrors(await LoadErrorsAsync([], Modules, Program([], "Dim b(LenB) As Long")),
@@ -159,12 +159,12 @@ public sealed class DeclaredSizeErrorTests
     public Task ABoundInTheRangeOfALong_IsTheBound(string statement, string expected)
         => AssertPrinted(expected, [], statement, "Debug.Print UBound(a)");
 
-    // a module's array is bounded the same way (oracle\s44 C06).
+    // a module's array is bounded the same way (observed in Excel).
     [TestMethod]
     public Task ABoundOfAModulesArray_CanBeTheLenOfAConstant()
         => AssertPrinted("4", ["Const K = \"abcd\"", "Private d(Len(K)) As Long"], "Debug.Print UBound(d)");
 
-    // MS-VBA compiles a Const of a procedure valued Len of a constant (oracle\s44 C03, C04 - whose run crashes Excel), which the author lets slip with RDC11021:
+    // MS-VBA compiles a Const of a procedure valued Len of a constant (observed in Excel; its run crashes Excel), which RDC11021 reports:
     // it is the length MS-VBAL gives it.
     [TestMethod]
     [DataRow("Const K2 = Len(\"abc\")", "Debug.Print K2", "3")]

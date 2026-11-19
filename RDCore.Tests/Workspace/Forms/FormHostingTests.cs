@@ -31,7 +31,7 @@ public sealed class FormHostingTests
     private const uint WM_CLOSE = 0x0010;
 
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL): every control a real form has is one of its classes.
-    internal static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    internal static ILibrarySource Shipped => ShippedLibrariesTests.Platform;
 
     internal static void RequireMicrosoftForms()
     {
@@ -146,7 +146,7 @@ public sealed class FormHostingTests
         var (world, apartment) = InProcess();
         using var _ = apartment;
 
-        // AmountBox's text is "", as MVVM's designer saved it and MS-VBA reads it (oracle\s41 T01) - Microsoft Forms returns it as a null String.
+        // AmountBox's text is "", as MVVM's designer saved it and MS-VBA reads it (observed in Excel) - Microsoft Forms returns it as a null String.
         var printed = await RunAsync(world,
             "Debug.Print ExampleView.InsideWidth > 0",
             "Debug.Print TypeName(ExampleView.AmountBox), \"[\" & ExampleView.AmountBox.Text & \"]\"",
@@ -164,17 +164,16 @@ public sealed class FormHostingTests
         using var _ = apartment;
         var caption = $"ExampleView {Guid.NewGuid():N}";
 
-        var running = RunAsync(world,
+        // the form says when it is closed: the line after Show comes after it, as Show waits for a modal form, as the designer's ShowModal says it is.
+        string[] code = ["Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)", "    Debug.Print \"closing\"", "End Sub"];
+        var running = RunWithCodeAsync(world, code,
             $"ExampleView.Caption = \"{caption}\"",
             "ExampleView.Show",
             "Debug.Print \"shown, and closed\"");
 
         var window = await WindowOfAsync(caption);
-        await Task.Delay(200);
-        Assert.IsFalse(running.IsCompleted, "Show waits for a modal form, as the designer's ShowModal says it is");
-
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        CollectionAssert.AreEqual(new[] { "shown, and closed" }, await running.WaitAsync(SafetyCap));
+        CollectionAssert.AreEqual(new[] { "closing", "shown, and closed" }, await running.WaitAsync(SafetyCap));
     }
 
     [TestMethod]
@@ -196,7 +195,7 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "Remote", "True", "7", "False" }, printed);
     }
 
-    // oracle\s41 L12, L51: an unloaded form's window is gone; the default instance is made again, with its designer's caption, and a form an Unload leaves is one
+    // Observed in Excel: an unloaded form's window is gone; the default instance is made again, with its designer's caption, and a form an Unload leaves is one
     // whose designer's members fail, as MS-VBA's do (-2147418105).
     [TestMethod]
     public async Task AnUnloadedForm_IsGoneWithItsWindow()
@@ -248,7 +247,7 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "changed to 7", "after" }, printed, string.Join(" | ", printed));
     }
 
-    // what an object answers to is asked of it where it lives: in the external host (oracle\s41 M04, M05).
+    // what an object answers to is asked of it where it lives: in the external host (observed in Excel).
     [TestMethod]
     public async Task AControl_ThroughAnExternalHost_IsTheExtenderItIsWrappedIn()
     {
@@ -288,7 +287,7 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "form clicked", "after" }, await running.WaitAsync(SafetyCap));
     }
 
-    // oracle\s41 V01-V03: Show activates the form; showing another deactivates the first, then activates the other.
+    // Observed in Excel: Show activates the form; showing another deactivates the first, then activates the other.
     [TestMethod]
     public async Task ShowingAForm_ActivatesIt_AndDeactivatesTheOneBefore()
     {
@@ -329,12 +328,10 @@ public sealed class FormHostingTests
 
         var running = RunWithCodeAsync(external ? ExternalHosts.WorldOf(host) : world, code, $"ExampleView.Caption = \"{caption}\"", "ExampleView.Show", "Debug.Print \"after\"");
 
+        // the close button clicked twice: the window takes the clicks in the order they came. The first QueryClose cancels, so the form stays and Show still
+        // waits, and the second is asked of it; had the first unloaded the form, the second would have gone with its window, and the program said so sooner.
         var window = await WindowOfAsync(caption);
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        await Task.Delay(500);
-        Assert.IsFalse(running.IsCompleted, "the first QueryClose cancels: the form stays, and Show still waits");
-        Assert.AreNotEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption));
-
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
         CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(SafetyCap));
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
@@ -374,7 +371,7 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "QueryClose 0", "Closed", "shown" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
     }
 
-    // a control added at run time, held by a WithEvents variable, and a handler named after it - which MS-VBA does not run (oracle\s41 C02)
+    // a control added at run time, held by a WithEvents variable, and a handler named after it - which MS-VBA does not run (observed in Excel)
     private static readonly string[] Dynamic =
     [
         "Public WithEvents Chk As MSForms.CheckBox",
@@ -384,7 +381,7 @@ public sealed class FormHostingTests
         "Public Sub AddCheck()", "    Set Chk = Me.Controls.Add(\"Forms.CheckBox.1\", \"Dyn1\", True)", "End Sub",
     ];
 
-    // oracle\s41 C01-C12: what Controls.Add and Controls.Remove do, as MS-VBA has it. ExampleView has 13 controls of its designer's.
+    // Observed in Excel: what Controls.Add and Controls.Remove do, as MS-VBA has it. ExampleView has 13 controls of its designer's.
     [TestMethod]
     [DataRow(new[] { "Debug.Print ExampleView.Controls.Count", "ExampleView.AddCheck", "Debug.Print ExampleView.Controls.Count", "Debug.Print TypeName(ExampleView.Chk)", "Debug.Print ExampleView.Chk.Name" },
         new[] { "13", "14", "CheckBox", "Dyn1" }, DisplayName = "C01 Add, and what it returns")]
@@ -458,7 +455,7 @@ public sealed class FormHostingTests
         "Public Sub Go(ByVal name As String)", "    Me.Controls(name).SetFocus", "    DoEvents", "End Sub",
     ];
 
-    // oracle\s41 E01-E17: the extender's events as the focus moves, in the order Excel raises them - by Microsoft Forms itself, and by the host when the form is unloaded.
+    // Observed in Excel: the extender's events as the focus moves, in the order Excel raises them - by Microsoft Forms itself, and by the host when the form is unloaded.
     [TestMethod]
     [DataRow(new[] { "ExampleView.Show vbModeless", "Debug.Print ExampleView.ActiveControl.Name", "Unload ExampleView" },
         new[] { "Initialize", "AmountEnter", "Activate", "AmountBox", "QueryClose 1", "AmountExit", "Terminate" },
@@ -522,7 +519,7 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
     }
 
-    // oracle\s41 E09, E12: the same changes as E14, E15, with nothing pumped between the program's statements - which MS-VBA does not do until DoEvents, a modal Show
+    // Observed in Excel: the same changes as in the test above, with nothing pumped between the program's statements - which MS-VBA does not do until DoEvents, a modal Show
     // or the program's end, and Microsoft Forms then counts the change as the focused control's.
     // MS-VBA dispatches no message while a program runs: a change Microsoft Forms posts, nothing pumped, is the next focused control's update (E09, E12, against E14, E15).
     [TestMethod]
@@ -546,7 +543,7 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
     }
 
-    // oracle\s41 E01: the Cancel argument is an object of Microsoft Forms' that says it is an IReturnBoolean, and has no class to say otherwise.
+    // Observed in Excel: the Cancel argument is an object of Microsoft Forms' that says it is an IReturnBoolean, and has no class to say otherwise.
     [TestMethod]
     [Ignore("TypeName of a server's object names the class the runtime binds it as (the parameter's ReturnBoolean), or the class whose default interface the object answers to; MS-VBA names the interface an object without class information says it is (IReturnBoolean). Follow-up.")]
     public async Task TheCancelArgument_IsNamedAsTheObjectSaysItIs()
@@ -560,7 +557,7 @@ public sealed class FormHostingTests
     }
 
     // the Cancel argument is Microsoft Forms' object, in the external host, which the handler's assignment reaches across the process; the SetFocus whose move is
-    // cancelled fails, as Excel's does (oracle\s41 E16, E17).
+    // cancelled fails, as Excel's does.
     [TestMethod]
     public async Task AChangeNothingPumped_ThroughAnExternalHost_IsTheNextUpdate()
     {
@@ -582,6 +579,8 @@ public sealed class FormHostingTests
     private sealed class StartedByTheFirstForm(RDCore.External.Forms.IFormHost forms, Action starting) : RDCore.External.Forms.IFormHost
     {
         public bool IsAvailable => forms.IsAvailable;
+
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
 
         public object Create(RDCore.External.Forms.FormDefinition form)
         {
@@ -684,7 +683,7 @@ public sealed class FormHostingTests
         "Public Sub OnEnter82()", "Attribute OnEnter82.VB_UserMemId = -2147384318", "    Debug.Print Tag & \"Enter82\"", "End Sub",
         "Public Sub OnChange()", "Attribute OnChange.VB_UserMemId = 2", "    Debug.Print Tag & \"Change\"", "End Sub"));
 
-    // oracle\s41 P01-P06, Q01-Q04: what a connected sink is called for, and when, and what ConnectToConnectionPoint returns.
+    // Observed in Excel: what a connected sink is called for, and when, and what ConnectToConnectionPoint returns.
     [TestMethod]
     [DataRow(new[] { "Dim p As New Punk", "p.Tag = \"P:\"", "Debug.Print p.Connect(ExampleView.AmountBox, 0)", "Debug.Print p.CookieValue <> 0", "ExampleView.Show vbModeless",
         "ExampleView.Go \"ComboBox1\"", "ExampleView.Go \"AmountBox\"", "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Go \"ComboBox1\"", "Debug.Print p.Disconnect",
@@ -798,21 +797,8 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "438" }, printed);
     }
 
-    private static async Task<IntPtr> WindowOfAsync(string caption)
-    {
-        var started = DateTime.UtcNow;
-        while (FindWindow("RDCore.UserForm", caption) is var window && window == IntPtr.Zero)
-        {
-            if (DateTime.UtcNow - started > SafetyCap)
-            {
-                Assert.Fail("The form was not shown in time.");
-            }
-
-            await Task.Delay(50);
-        }
-
-        return FindWindow("RDCore.UserForm", caption);
-    }
+    // the host's window of the form, once Windows says it is shown: the cap only keeps a form that is never shown from hanging the run.
+    private static Task<IntPtr> WindowOfAsync(string caption) => WindowShown.WaitAsync("RDCore.UserForm", caption).WaitAsync(SafetyCap);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr FindWindow(string className, string title);

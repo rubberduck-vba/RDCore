@@ -22,7 +22,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.Semantics.Binding;
 
 /// <summary>
-/// The binder (IR lowering §3.3): each expression bound to its declared type, as the static semantics evaluate it, and each operation to the plan of its
+/// The binder: each expression bound to its declared type, as the static semantics evaluate it, and each operation to the plan of its
 /// operation, made for the declared types of its operands.
 /// </summary>
 [TestClass]
@@ -68,7 +68,7 @@ public sealed class ExpressionBinderTests
         Assert.AreEqual(VBDoubleType.TypeInfo, bindings[d.Identity]!.DeclaredType);
     }
 
-    // the bound tree (IR lowering §3.1): each name bound to the variable it resolves to, each operation to its plan and its operands' nodes. A field is no
+    // the bound tree: each name bound to the variable it resolves to, each operation to its plan and its operands' nodes. A field is no
     // variable of an activation, and has no slot.
     [TestMethod]
     public void AnOperation_OfNames_IsBoundToATreeOfItsOperands()
@@ -88,7 +88,7 @@ public sealed class ExpressionBinderTests
         Assert.AreEqual("d", Assert.IsInstanceOfType<BoundVariable>(binary.Right).Variable.Name);
     }
 
-    // IR lowering D2: an activation has a slot for each parameter and each variable of its procedure, in the order they are declared - but none for a Static
+    // an activation has a slot for each parameter and each variable of its procedure, in the order they are declared - but none for a Static
     // variable, which outlives it.
     [TestMethod]
     public void TheLayoutOfAProcedure_HasASlotForEachParameterAndVariable_ButNotAStaticOne()
@@ -272,7 +272,7 @@ public sealed class ExpressionBinderTests
 
     private MemberAccessExpressionNode MemberOf(string owner, string member) => new(NextId(), TestLocations.TestLocation, NameOf(owner), NameOf(member));
 
-    // IR lowering S0.10: a member of an object declared as a class is bound to the member of the class's declaration as it is now - not of the snapshot the
+    // a member of an object declared as a class is bound to the member of the class's declaration as it is now - not of the snapshot the
     // declared type was built with.
     [TestMethod]
     [DataRow("Increment")]
@@ -391,7 +391,7 @@ public sealed class ExpressionBinderTests
 
     private LiteralExpressionNode LongLiteral(int value) => new(NextId(), TestLocations.TestLocation, new RDCore.SDK.Model.Values.Intrinsic.VBLongValue(value));
 
-    // MS-VBAL §5.3.1.11, IR lowering S1.7: each parameter is given its argument as the call is bound - a variable to a ByRef parameter by reference, a value
+    // MS-VBAL §5.3.1.11: each parameter is given its argument as the call is bound - a variable to a ByRef parameter by reference, a value
     // by value with the plan of its let-coercion, and an Optional one the call gives nothing omitted.
     [TestMethod]
     public void ACall_IsBoundToHowEachArgumentIsPassed()

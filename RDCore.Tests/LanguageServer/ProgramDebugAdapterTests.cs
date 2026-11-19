@@ -89,7 +89,7 @@ public sealed class ProgramDebugAdapterTests
             var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), new WireTap.Stream(toClient.Writer.AsStream(), _wire)), Adapter);
             Client = await DebugAdapterClient.From(options =>
             {
-                options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
+                options.WithInput(toClient.Reader.AsStream()).WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(toServer.Writer.AsStream())));
                 options.LinesStartAt1 = linesStartAt1;
                 options.ColumnsStartAt1 = linesStartAt1;
                 options.OnInvalidated(Arrived);
@@ -415,6 +415,33 @@ public sealed class ProgramDebugAdapterTests
         StringAssert.Contains(refusal.Message, "no project");
     }
 
+    // a platform with no manifest fails as its components are brought up, with an error that is not the workspace's: the launch is refused with what was
+    // missing and where, and the requests a client sends beside it, which wait for the launch, are answered.
+    [TestMethod]
+    public async Task ALaunch_OfAPlatformThatCannotBeBroughtUp_IsRefusedInOneLine_AndTheRequestsBesideItAreAnswered()
+    {
+        const string missing = "Could not find file 'C:\\Platform\\rdcore.json'.";
+        await using var session = new Session();
+        var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Workspace.OpenAsync(Arg.Any<CancellationToken>()).Returns(opening.Task);
+        await session.StartAsync();
+
+        var launch = session.LaunchAsync();
+        var breakpoints = session.SendAsync(new SetBreakpointsArguments
+        {
+            Source = new Source { Path = Path },
+            Breakpoints = new Container<SourceBreakpoint>(new SourceBreakpoint { Line = 12 }),
+        });
+        var configured = session.SendAsync(new ConfigurationDoneArguments());
+        opening.SetException(new FileNotFoundException(missing));
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => launch);
+        Assert.AreEqual(missing, refusal.Message, "the refusal is the one line that says what is missing, with no stack trace");
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => breakpoints);
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => configured);
+        await session.Workspace.DidNotReceive().StartAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     // ---- breakpoints ----
 
     [TestMethod]
@@ -571,6 +598,38 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new ConfigurationDoneArguments());
 
         await started.Task.WaitAsync(Patience);
+        running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
+
+    // a client sets a breakpoint while the program runs, and is answered then: the breakpoint is the module's from then on, and not from the program's next stop.
+    [TestMethod]
+    public async Task ABreakpoint_SetWhileTheProgramRuns_IsAnsweredAtOnce_AndIsTheModulesFromThen()
+    {
+        await using var session = new Session();
+        var running = new TaskCompletionSource<ExecuteResult>();
+        var started = new TaskCompletionSource();
+        session.Workspace.StartAsync("Prog", "Main", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            started.TrySetResult();
+            return running.Task;
+        });
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+        await started.Task.WaitAsync(Patience);
+
+        var response = await session.SendAsync(new SetBreakpointsArguments
+        {
+            Source = new Source { Path = Path },
+            Breakpoints = new Container<SourceBreakpoint>(new SourceBreakpoint { Line = 3 }),
+        });
+
+        Assert.IsFalse(running.Task.IsCompleted, "the program still runs");
+        Assert.IsTrue(response.Breakpoints.Single().Verified);
+        _ = await session.Debugging.Received(1).SetBreakpointsAsync("Prog",
+            Arg.Is<IReadOnlyList<SessionBreakpointLine>>(lines => lines.Single().Line == 2), Arg.Any<CancellationToken>());
+
         running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
         _ = await session.NextAsync<TerminatedEvent>();
     }
@@ -826,16 +885,33 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
+    // the title and the description are the environment host's, in its language; the form they are said in is the debug adapter's.
     [TestMethod]
-    public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas()
+    [DataRow("en-US", "Run-time error", "Division by zero", "Run-time error '11': Division by zero", DisplayName = "en-US")]
+    [DataRow("fr-CA", "Erreur d'exécution", "Division par zéro", "Erreur d'exécution '11' : Division par zéro", DisplayName = "fr-CA")]
+    public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas(string culture, string title, string description, string said)
+    {
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(culture);
+        try
+        {
+            await AProgramThatRaisesAnError_IsSaid(title, description, said);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+    }
+
+    private async Task AProgramThatRaisesAnError_IsSaid(string title, string description, string said)
     {
         await using var session = new Session();
         session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             ErrorNumber = 11,
-            ErrorMessage = "Division by zero",
-            ErrorTitle = "Run-time error",
+            ErrorMessage = description,
+            ErrorTitle = title,
             ErrorLine = 4,
         }));
         await session.StartAsync();
@@ -845,7 +921,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new ConfigurationDoneArguments());
 
         var output = await session.NextAsync<OutputEvent>();
-        StringAssert.Contains(output.Output, "Run-time error '11': Division by zero");
+        StringAssert.Contains(output.Output, said);
         Assert.AreEqual(OutputEventCategory.StandardError, output.Category);
         Assert.AreEqual(5, output.Line, "the line of the error, as the client numbers them");
         Assert.AreEqual(Path, output.Source!.Path);

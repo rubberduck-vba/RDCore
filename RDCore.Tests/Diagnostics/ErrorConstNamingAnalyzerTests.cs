@@ -3,9 +3,11 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Runtime.Libraries;
@@ -192,6 +194,79 @@ public sealed class ErrorConstNamingAnalyzerTests
 
         Assert.HasCount(1, findings, string.Join("; ", findings.Select(finding => finding.Message)));
         StringAssert.Contains(findings[0].Message, "'Do_Something'");
+    }
+
+    // a Visual Basic 6.0 form, as VB6 saves it: its designer's block, the attributes of the module, and its code.
+    private static string VisualBasicForm(params string[] code) => string.Join("\r\n", [
+        "VERSION 5.00",
+        "Begin VB.Form Form1 ",
+        "   Caption         =   \"Form1\"",
+        "   ClientHeight    =   3195",
+        "   Begin VB.CommandButton Command1 ",
+        "      Caption         =   \"Command1\"",
+        "      TabIndex        =   0",
+        "   End",
+        "End",
+        "Attribute VB_Name = \"Form1\"",
+        "Attribute VB_GlobalNameSpace = False",
+        "Attribute VB_Creatable = False",
+        "Attribute VB_PredeclaredId = True",
+        "Attribute VB_Exposed = False",
+        "Option Explicit",
+        .. code,
+        string.Empty]);
+
+    // the form diagnosed as the language server has the Diagnostics extension diagnose it: its parse has what its designer declares, and it reaches the
+    // extension through the wire, with the host's model of its module; and the analyzer run on it directly. Both report the same findings, with the same
+    // messages. The code diagnosed is the form's own, or code given in its place; either way, the host's model of the form is the model of that code.
+    private static async Task<string[]> VisualBasicFormAsync(string form, string? code = null)
+    {
+        var designer = FormDesigner.Read(form)!;
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n", language: SupportedLanguages.VB6,
+            libraries: new ModuleWorkspace.WorkspaceLibraries([], ShippedLibrariesTests.Platform),
+            forms: [("Form1", form, designer)]);
+        var model = payload.Modules.Single(module => SymbolUri.ModuleNameOf(module.Module) == "Form1");
+        Assert.IsTrue(model.Declarations.Any(declaration => declaration.Name == "_Default"), "the designer declares the VB Form's members on the form's class");
+
+        var uri = Platform.Wire.FileUri(Path.Combine(ModuleWorkspace.Root, "Form1.frm"));
+        code ??= form;
+        var found = Run(new UnderscoreInPublicClassMemberAnalyzer(), code, model, uri).Select(finding => finding.Message).ToArray();
+        var parse = new ModuleParser().Parse(uri, code) with { Designer = designer };
+        var response = await new RDCore.Diagnostics.Handlers.DiagnoseDocumentHandler(
+                new DiagnosticFactory(), [new UnderscoreInPublicClassMemberAnalyzer()], Microsoft.Extensions.Logging.Abstractions.NullLogger<RDCore.Diagnostics.Handlers.DiagnoseDocumentHandler>.Instance)
+            .Handle(new DiagnoseDocumentParams { Json = PlatformJson.Serialize(new DiagnoseDocumentPayload(uri, 1, parse, model)) }, CancellationToken.None);
+        var reported = response.Diagnostics.Where(diagnostic => diagnostic.Code?.String == "RDC00408").Select(diagnostic => diagnostic.Message).ToArray();
+
+        CollectionAssert.AreEqual(found, reported, $"found: {string.Join("; ", found)}; reported: {string.Join("; ", reported)}");
+        return found;
+    }
+
+    [TestMethod]
+    public async Task AVisualBasicFormsDesigner_DeclaresNothingReported()
+    {
+        var reported = await VisualBasicFormAsync(VisualBasicForm());
+
+        Assert.IsEmpty(reported, string.Join("; ", reported));
+    }
+
+    // the form's code as its code window holds it, with no designer block and no attributes: its first procedure starts at the start, where the host places
+    // the members the designer declares, which no code holds; it declares none of them.
+    [TestMethod]
+    public async Task AVisualBasicFormsCode_FromItsFirstLine_IsNoDeclarationOfItsDesigner()
+    {
+        var reported = await VisualBasicFormAsync(VisualBasicForm("Private Sub Form_Load()", "End Sub"), "Private Sub Form_Load()\r\nEnd Sub\r\n");
+
+        Assert.IsEmpty(reported, string.Join("; ", reported));
+    }
+
+    [TestMethod]
+    public async Task AVisualBasicFormsCode_IsInItsInterface()
+    {
+        var reported = await VisualBasicFormAsync(VisualBasicForm("Public Sub Do_Something()", "End Sub"));
+
+        Assert.HasCount(1, reported, string.Join("; ", reported));
+        StringAssert.Contains(reported[0], "'Do_Something'");
     }
 
     [TestMethod]

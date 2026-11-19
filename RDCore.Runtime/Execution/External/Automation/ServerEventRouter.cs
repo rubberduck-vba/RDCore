@@ -196,7 +196,7 @@ internal sealed class ServerEventRouter(
                     parameter.ResolvedType,
                     (handle, declared) =>
                     {
-                        var wrapped = (VBObjectValue)_objects.Wrap(handle, declared, resolver, handedOutBy: source);
+                        var wrapped = (VBObjectValue)_objects.Wrap(handle, declared, resolver);
                         if (!handed.ContainsKey(wrapped.Value))
                         {
                             var holder = new ValueBindingHandle(wrapped.RuntimeValue);

@@ -24,6 +24,7 @@ namespace RDCore.Tests.Cli;
 /// workspace's modules are defined with their code, and a module is then run that calls into them. Without the
 /// code the host keeps of the modules it is not asked to run, the class members an object is made of have nothing to run.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class ClassModuleHostExecutionTests
 {
@@ -88,7 +89,7 @@ public sealed class ClassModuleHostExecutionTests
         var resolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, parsed.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver());
 
-        var define = new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var module in parsed)
         {
             var symbols = new SyntaxTreeSymbolProvider(

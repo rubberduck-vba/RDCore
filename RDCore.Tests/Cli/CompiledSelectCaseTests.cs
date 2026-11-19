@@ -5,7 +5,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>Select Case</c> of a scalar selector, compiled (IR lowering S2.5b): the selector evaluated once into a local, and each <c>Case</c> compared on
+/// A <c>Select Case</c> of a scalar selector, compiled: the selector evaluated once into a local, and each <c>Case</c> compared on
 /// payloads as the interpreter compares it (MS-VBAL §5.4.2.10, RD-VBAL §5.4.2.10). A program runs the same either way.
 /// </summary>
 [TestClass]
@@ -34,6 +34,23 @@ public sealed class CompiledSelectCaseTests
             "        End Select",
             "    Next",
             "End Function"), "Sorted", recoveries: 0);
+
+    // the end of a To range is a variable that compiled code may not convert exactly to the selector's type (a Long, for an Integer selector): the
+    // range is compiled, and the comparison of the start is held while the end's is made.
+    [TestMethod]
+    public async Task ARangeWhoseEndMayNotConvert_IsCompiled()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Ranged(3, 5); Ranged(7, 5); Ranged(0, 5)",
+            "End Sub",
+            "Private Function Ranged(ByVal K As Integer, ByVal N As Long) As Long",
+            "    Select Case K",
+            "        Case 1 To N",
+            "            Ranged = 1",
+            "        Case Else",
+            "            Ranged = 2",
+            "    End Select",
+            "End Function"), "Ranged", recoveries: 0, expected: " 1  2  2 ");
 
     // the selector is evaluated once, at its Select: what the Case blocks do to what it was read from changes nothing it is compared with.
     [TestMethod]
@@ -215,19 +232,19 @@ public sealed class CompiledSelectCaseTests
             "    Next",
             "End Function"), "Tolerant", recoveries: 3);
 
-    // a selector compiled code does not evaluate - a Double rounded to a Long, which only the boxed coercion does - the interpreter evaluates; it is compared
-    // where it is, the interpreter's from there on when it evaluated it boxed.
+    // a selector compiled code does not evaluate (a Currency product that is not a whole number of ten-thousandths, which only the boxed evaluation
+    // rounds) the interpreter evaluates; it is compared where it is, the interpreter's from there on when it evaluated it boxed.
     [TestMethod]
     public async Task ASelectorTheInterpreterEvaluates_IsComparedWhereItIs()
     {
         var compiled = await AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Rounded(2.6); Rounded(1)",
+            "    Debug.Print Rounded(1.0001); Rounded(1)",
             "End Sub",
-            "Private Function Rounded(ByVal D As Double) As Long",
+            "Private Function Rounded(ByVal C As Currency) As Long",
             "    On Error Resume Next",
-            "    Select Case D \\ 1",
-            "        Case 3",
+            "    Select Case C * C",
+            "        Case 1.0002@",
             "            Rounded = 3",
             "        Case Else",
             "            Rounded = 1",

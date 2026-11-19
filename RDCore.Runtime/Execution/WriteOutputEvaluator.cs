@@ -61,7 +61,7 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                         : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
                 }
 
-                // an object is written as what it stands for, as Print # prints it: let-coerced to a String, and quoted as one (MS-VBA, oracle\s28 D02, D04).
+                // an object is written as what it stands for, as Print # prints it: let-coerced to a String, and quoted as one (observed in MS-VBA).
                 var written = evaluated.Result!;
                 if (Unwrapped(written) is VBObjectValue)
                 {

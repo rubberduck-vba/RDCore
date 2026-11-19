@@ -72,7 +72,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         return Activator.CreateInstance(type) ?? throw new AutomationException(ClassNotRegistered, $"'{progId}' could not be created.");
     })!;
 
-    // what GetObject asks for that COM says the file, or the moniker, cannot be opened as: MS-VBA's 432 (recorded in Excel, oracle\s25 G02).
+    // what GetObject asks for that COM says the file, or the moniker, cannot be opened as: MS-VBA's 432 (observed in Excel).
     private const int CannotOpenFile = unchecked((int)0x800401EA);
 
     /// <inheritdoc/>
@@ -168,7 +168,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         try
         {
             // the class the object says it is, or the class its library makes the interface it answers to the default one of: the class MS-VBA's TypeName
-            // names (`Dictionary`, of an object that answers to `IDictionary`; recorded in Excel, oracle\s25).
+            // names (`Dictionary`, of an object that answers to `IDictionary`; observed in Excel).
             if (TypeInfoOf(target) is not { } typeInfo)
             {
                 return null;

@@ -42,6 +42,24 @@ public sealed class DisabledDiagnosticsTests
         CollectionAssert.AreEqual(new[] { "RDC01001", "RDC01002" }, Of(disabled.Codes));
     }
 
+    // the workspace's list is the one in the file at its root, which the language server reads again when the client says the settings changed.
+    [TestMethod]
+    public void TheCodesTheWorkspacesFileDisables_AreDisabled_AndACodeAddedToItIsDisabledOnTheNextChange()
+    {
+        var fileSystem = new System.IO.Abstractions.TestingHelpers.MockFileSystem();
+        fileSystem.AddFile(WorkspaceSettingsStore.PathIn(Root), new System.IO.Abstractions.TestingHelpers.MockFileData(
+            """{ "Configuration": { "Analysis": { "DisabledDiagnostics": [ "rdc01002" ] } } }"""));
+        var workspace = new WorkspaceSettingsStore(fileSystem, SettingsSchema.Platform);
+        _options.Analysis.DisabledDiagnostics = ["RDC01001"];
+
+        using var disabled = Sut(workspace);
+        CollectionAssert.AreEqual(new[] { "RDC01001", "RDC01002" }, Of(disabled.Codes));
+
+        Assert.IsTrue(workspace.Add(new Uri(Root), "Analysis.DisabledDiagnostics", "RDC01003").IsSet);
+        _live.Changed += Raise.Event();
+        CollectionAssert.AreEqual(new[] { "RDC01001", "RDC01002", "RDC01003" }, Of(disabled.Codes));
+    }
+
     [TestMethod]
     public void ACodeOfTheLanguagesOwnErrors_IsNeverDisabled_EvenWhenAFileSaysSo()
     {

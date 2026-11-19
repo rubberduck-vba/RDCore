@@ -9,7 +9,7 @@ using RDCore.SDK.Extensibility.Diagnostics;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC01001</c>: a name that does not say what it is: shorter than 3 characters, ending with a digit, or without a vowel.
+/// <c>RDC01001</c>: a name that does not say what it is: shorter than 3 characters, ending with a digit, without a vowel, or without a consonant.
 /// </summary>
 /// <remarks>
 /// The rules are those of Rubberduck's <em>meaningful names</em> inspection. A name that breaks one and that is approved is listed in
@@ -60,7 +60,12 @@ internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsO
             return RDCoreDiagnosticsResources.UseMeaningfulIdentifierNames_EndsWithDigit_Message;
         }
 
-        return name.Any(IsVowel) ? null : RDCoreDiagnosticsResources.UseMeaningfulIdentifierNames_NoVowel_Message;
+        if (!name.Any(IsVowel))
+        {
+            return RDCoreDiagnosticsResources.UseMeaningfulIdentifierNames_NoVowel_Message;
+        }
+
+        return name.Any(character => char.IsLetter(character) && !IsVowel(character)) ? null : RDCoreDiagnosticsResources.UseMeaningfulIdentifierNames_NoConsonant_Message;
     }
 
     // a vowel of either language of the platform: é is an e, whatever the accent.

@@ -2,11 +2,14 @@ Attribute VB_Name = "Statements"
 Option Explicit
 ' The statements that are not Let assignments of a variable: what each evaluates its target, its selector or its items with.
 
+' <Declarations>
 Private Type Pair
     X As Long
     Y As Long
 End Type
+' </Declarations>
 
+' <BenchSetAssignment>
 Public Sub BenchSetAssignment()
     Dim C As Counter
     Set C = New Counter
@@ -16,7 +19,9 @@ Public Sub BenchSetAssignment()
         Set D = C
     Next
 End Sub
+' </BenchSetAssignment>
 
+' <BenchMemberAssignment>
 Public Sub BenchMemberAssignment()
     Dim P As Point
     Set P = New Point
@@ -25,7 +30,9 @@ Public Sub BenchMemberAssignment()
         P.X = I
     Next
 End Sub
+' </BenchMemberAssignment>
 
+' <BenchRecordFieldAssignment>
 Public Sub BenchRecordFieldAssignment()
     Dim R As Pair
     Dim I As Long
@@ -33,7 +40,9 @@ Public Sub BenchRecordFieldAssignment()
         R.X = I
     Next
 End Sub
+' </BenchRecordFieldAssignment>
 
+' <BenchSelectCase>
 Public Sub BenchSelectCase()
     Dim I As Long
     Dim S As Long
@@ -48,7 +57,9 @@ Public Sub BenchSelectCase()
         End Select
     Next
 End Sub
+' </BenchSelectCase>
 
+' <BenchConditions>
 ' the conditions of If and of a loop: comparisons, And-ed.
 Public Sub BenchConditions()
     Dim I As Long
@@ -62,7 +73,9 @@ Public Sub BenchConditions()
         End If
     Loop
 End Sub
+' </BenchConditions>
 
+' <BenchMidStatement>
 Public Sub BenchMidStatement()
     Dim S As String
     S = "RD-VBA"
@@ -71,7 +84,9 @@ Public Sub BenchMidStatement()
         Mid$(S, 1, 1) = "r"
     Next
 End Sub
+' </BenchMidStatement>
 
+' <BenchOnErrorResumeNext>
 ' a loop under On Error Resume Next, a division by zero one time in ten: what the error handler costs where it is in effect, and where it is used.
 Public Sub BenchOnErrorResumeNext()
     On Error Resume Next
@@ -81,3 +96,4 @@ Public Sub BenchOnErrorResumeNext()
         D = 10 / (I Mod 10)
     Next
 End Sub
+' </BenchOnErrorResumeNext>

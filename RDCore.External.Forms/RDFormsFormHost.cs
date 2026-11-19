@@ -1,7 +1,6 @@
 using RDCore.External.Automation;
 using RDCore.Forms.Import.VB6;
 using RDCore.Forms.Model;
-using RDCore.Forms.Model.VB;
 using RDCore.SDK.Workspace.Forms;
 using Model = RDCore.Forms.Model;
 
@@ -26,6 +25,9 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     private readonly object _holdGate = new();
     private bool _holding;
 
+    // the program's App.KeepSystemTheme, which each window is given as it is made. Written on the UI thread once it is started.
+    private volatile bool _keepSystemTheme;
+
     /// <summary>
     /// The server the forms are objects of.
     /// </summary>
@@ -41,6 +43,34 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
+    public bool HostsVisualBasic6Forms => true;
+
+    // before the UI thread is started there is no window to give it to, and it is not started for this: the first form's window is given it as it is made.
+    // Once it is, the value and every window's change together on that thread, so that a form made meanwhile is never given the one before.
+    /// <inheritdoc/>
+    public bool KeepSystemTheme
+    {
+        get => _keepSystemTheme;
+        set
+        {
+            if (!RDFormsUI.IsStarted)
+            {
+                _keepSystemTheme = value;
+                return;
+            }
+
+            RDFormsUI.Run(() =>
+            {
+                _keepSystemTheme = value;
+                foreach (var hosted in Server.Forms)
+                {
+                    hosted.Window.KeepSystemTheme = value;
+                }
+            });
+        }
+    }
+
+    /// <inheritdoc/>
     public object Create(FormDefinition form)
     {
         if (form.Kind != FormDesignerKind.VisualBasic6)
@@ -49,11 +79,21 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         }
 
         var root = RootOf(form);
-        RDFormsUI.Start(Server.Platform);
+        if (form.Unattended)
+        {
+            RDFormsUI.StartUnattended();
+        }
+        else
+        {
+            RDFormsUI.Start(Server.Platform);
+        }
+
         return RDFormsUI.Run(() =>
         {
             // a VB6 form's code reads a control's position and size in its container's scale (twips in a Frame), and the form's own in twips.
-            var hosted = new RDFormsForm(new Model.FormDefinition(root), CodeUnit.VB6);
+            var hosted = new RDFormsForm(new Model.FormDefinition(root), CodeUnit.VB6, Server.Program);
+            // in the program's theme before anything shows it.
+            hosted.Window.KeepSystemTheme = _keepSystemTheme;
             Server.Forms.Add(hosted);
             return hosted.Handle;
         });
@@ -64,7 +104,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     {
         if (form.DesignerText is not { } text)
         {
-            return new ComponentInstance(VBClasses.Form, form.Name).Set(VBProperties.Caption, form.Caption ?? form.Name);
+            return new ComponentInstance(ComponentClasses.Form, form.Name).Set(Properties.Caption, form.Caption ?? form.Name);
         }
 
         var import = VB6FormReader.Read(text, form.State.IsEmpty ? null : form.State.ToArray());
@@ -74,7 +114,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
             throw new AutomationException(Failed, $"{form.Name}: its designer cannot be read. {string.Join(" ", errors)}");
         }
 
-        if (!ReferenceEquals(model.Root.Class, VBClasses.Form))
+        if (!ReferenceEquals(model.Root.Class, ComponentClasses.Form))
         {
             throw new AutomationException(ClassNotRegistered, $"{form.Name}: RDForms cannot host a {model.Root.Class.TypeName} yet.");
         }
@@ -130,7 +170,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         return RDFormsUI.Run(() =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
-            return hosted.Model.Root.Get(VBProperties.Caption);
+            return hosted.Model.Root.Get(Properties.Caption);
         });
     }
 
@@ -141,7 +181,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         RDFormsUI.Run(() =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
-            hosted.Model.Root.Set(VBProperties.Caption, caption);
+            hosted.Model.Root.Set(Properties.Caption, caption);
         });
     }
 

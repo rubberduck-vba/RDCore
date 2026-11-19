@@ -477,7 +477,7 @@ public sealed class CompiledEditAndContinueTests
             var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream()), _adapter);
             _client = await DebugAdapterClient.From(options =>
             {
-                options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
+                options.WithInput(toClient.Reader.AsStream()).WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(toServer.Writer.AsStream())));
                 options.OnInvalidated(Arrived);
                 options.OnStopped(Arrived);
                 options.OnOutput(Arrived);

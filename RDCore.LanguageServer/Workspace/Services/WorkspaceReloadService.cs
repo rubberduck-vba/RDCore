@@ -121,6 +121,18 @@ internal interface IWorkspaceReloadService
     /// <param name="token">A token that cancels the reload before the documents are read.</param>
     /// <returns>The reload, and when it is done; <see langword="null"/> when the server is not running a workspace.</returns>
     Task<WorkspaceReloadStep?> BeginReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token);
+
+    /// <summary>
+    /// Makes the workspace what its folders are once a client added some or removed some (<strong>LSP 3.17</strong> <c>workspace/didChangeWorkspaceFolders</c>),
+    /// and returns once the documents are what the projects list: the documents the projects gained are parsed, the modules the primary project no longer has are
+    /// taken out of the environment host, and the symbols follow, as for <see cref="BeginChangeAsync"/>. The host does not compose its session again: the project
+    /// file it composes it from is what it was.
+    /// </summary>
+    /// <param name="change">Makes the projects and their documents what the folders are (<see cref="IWorkspaceService.ChangeFoldersAsync"/>), one change at a time
+    /// with the others.</param>
+    /// <param name="token">A token that cancels the change before the documents are made.</param>
+    /// <returns>The change, and when it is done; <see langword="null"/> when the server is not running a workspace.</returns>
+    Task<WorkspaceReloadStep?> BeginChangeFoldersAsync(Func<CancellationToken, Task<WorkspaceFoldersChange>> change, CancellationToken token);
 }
 
 /// <summary>
@@ -157,6 +169,7 @@ internal sealed class WorkspaceReloadService(
     IServerStateProvider serverStateProvider,
     IProjectFileService projectFiles,
     IWorkspaceDocumentService documents,
+    IWorkspaceService workspace,
     IDocumentStateProvider documentStates,
     IParsingClientService parsing,
     ISymbolSyncService symbols,
@@ -164,7 +177,8 @@ internal sealed class WorkspaceReloadService(
     System.IO.Abstractions.IPath ioPath,
     IWorkspaceRefresh refresh,
     ILogger<WorkspaceReloadService> logger,
-    RDCore.LanguageServer.Debugging.IEditStatusMonitor? editStatus = null) : IWorkspaceReloadService
+    RDCore.LanguageServer.Debugging.IEditStatusMonitor? editStatus = null,
+    IProjectFileDiagnostics? projectFileDiagnostics = null) : IWorkspaceReloadService
 {
     // one reload at a time: a client that writes the project file twice in a row is told about it twice, and the second reload reads what the second write
     // left.
@@ -319,6 +333,46 @@ internal sealed class WorkspaceReloadService(
         }
     }
 
+    public async Task<WorkspaceReloadStep?> BeginChangeFoldersAsync(Func<CancellationToken, Task<WorkspaceFoldersChange>> change, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        if (!IsRunningAWorkspace())
+        {
+            logger.LogInformation("The workspace folders changed before a workspace was loaded; they are read when it is.");
+            return null;
+        }
+
+        await _reloading.WaitAsync(token);
+        try
+        {
+            var changed = await change(token);
+            if (changed.IsUnchanged)
+            {
+                return new WorkspaceReloadStep(WorkspaceReloadResult.Unchanged, Task.FromResult(WorkspaceReloadResult.Unchanged));
+            }
+
+            // the name each module the primary project no longer has was defined under, which is read from what was parsed of it.
+            var removedModules = changed.LeftThePrimaryProject
+                .Select(module => parsing.TryGetCached(module.Id.Uri.ToUri(), out var parse) && parse.SyntaxTree?.GetDeclaredName() is { } name ? name : module.Name)
+                .ToList();
+
+            var started = new WorkspaceReloadResult(changed.Added, changed.Removed, false, false);
+            return Queued(new Applied(started, new FinishWork(changed.Loaded, [], removedModules, ComposeHost: false, (_, _) =>
+            {
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation("🔄 The workspace folders changed: {added} file(s) of its projects added, {removed} removed.", changed.Added, changed.Removed);
+                }
+
+                return started;
+            })));
+        }
+        finally
+        {
+            _reloading.Release();
+        }
+    }
+
     // What is left to do is queued by whoever made the change, before the lock of the changes is released: the order of the queue is the order of the changes.
     private WorkspaceReloadStep Queued(Applied applied)
     {
@@ -444,7 +498,9 @@ internal sealed class WorkspaceReloadService(
             }
         }
 
-        var (composed, programRunning) = work.Any(each => each.ComposeHost) ? await ComposeHostAsync(stopping) : (false, false);
+        // the language the last of the changes made the workspace's, which a change after it that kept its language keeps.
+        var language = work.Select(each => each.Language).LastOrDefault(id => id is not null);
+        var (composed, programRunning) = work.Any(each => each.ComposeHost) ? await ComposeHostAsync(language, stopping) : (false, false);
         if (composed)
         {
             symbols.SessionComposedAnew();
@@ -466,6 +522,9 @@ internal sealed class WorkspaceReloadService(
 
         // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
         await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
+
+        // the projects may reference one another differently now (RDC31001).
+        projectFileDiagnostics?.Publish();
 
         // a program that waits may not have what the batch changed: it is said, before the batch is done.
         if (editStatus is not null)
@@ -595,8 +654,12 @@ internal sealed class WorkspaceReloadService(
         var before = FilesOf(project);
         var after = FilesOf(projectFiles.Project);
 
-        // what the project now lists as other files is no code, whatever it was before.
-        documents.SetOtherFiles(after.Where(file => !file.Value).Select(file => IdOf(projectFiles.Project.Uri, file.Key)));
+        // a project file that says another language makes the workspace that language's before what it gained is loaded, and the host's session too.
+        var language = workspace.RetakeLanguage()?.Id;
+
+        // what the projects now list as other files is no code, whatever it was before: the other files of every project, since they are set as one, and a
+        // project that is not the one reloaded keeps its own.
+        documents.SetOtherFiles(workspace.OtherFilesOfTheProjects());
 
         // and what it says its document modules are: a module whose Super changed is the kind it says now, when every module is defined again.
         documents.SetDocumentModules(projectFiles.Project.Uri, projectFiles.Project.ProjectInfo.Modules.Where(module => module.Super is not null)
@@ -647,17 +710,21 @@ internal sealed class WorkspaceReloadService(
             }
 
             return new WorkspaceReloadResult(added.Count, removed.Count, composed, programRunning);
-        }));
+        }) { Language = language });
     }
 
     // What is left to do once the documents are what the project lists: the documents to parse, the modules the host forgets, whether the host composes its session
-    // again, and what the change made of the workspace once that is done.
+    // again, and what the change made of the workspace once that is done. Language is the identifier of the language the project's file made the
+    // workspace's, which the host composes its session in from then on; null when the workspace kept its language.
     private sealed record class FinishWork(
         IReadOnlyList<TextDocumentIdentifier> ToParse,
         IReadOnlyList<string> ToDiscard,
         IReadOnlyList<string> RemovedModules,
         bool ComposeHost,
-        Func<bool, bool, WorkspaceReloadResult> Result);
+        Func<bool, bool, WorkspaceReloadResult> Result)
+    {
+        public string? Language { get; init; }
+    }
 
     private sealed record class Applied(WorkspaceReloadResult Started, FinishWork? Work);
 
@@ -670,7 +737,7 @@ internal sealed class WorkspaceReloadService(
 
     // the environment host composes its session from the project file, and a class module's symbol is the project's: it composes it again, unless a program
     // runs in it.
-    private async Task<(bool Composed, bool ProgramRunning)> ComposeHostAsync(CancellationToken token)
+    private async Task<(bool Composed, bool ProgramRunning)> ComposeHostAsync(string? language, CancellationToken token)
     {
         var host = orchestration.RuntimeEnvironment;
         if (host is null)
@@ -686,7 +753,7 @@ internal sealed class WorkspaceReloadService(
         }
 
         var result = await host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(
-            new HostProjectReloadParams { WorkspaceRoot = SymbolUri.Root(documents.WorkspaceRoot) }, token);
+            new HostProjectReloadParams { WorkspaceRoot = SymbolUri.Root(documents.WorkspaceRoot), Language = language }, token);
         return (result.Composed, result.IsProgramRunning);
     }
 

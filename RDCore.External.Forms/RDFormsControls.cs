@@ -1,5 +1,6 @@
 using RDCore.External.Automation;
 using RDCore.Forms.Model;
+using RDCore.Forms.Porting;
 using System.Globalization;
 
 namespace RDCore.External.Forms.RDForms;
@@ -45,6 +46,13 @@ internal static class RDFormsControlsMembers
     private const string DefaultMember = "[DISPID=0]";
     private const string EnumerationMember = "[DISPID=-4]";
 
+    // the RDForms class of each class of the VB library, by its VB6 ProgID (VB.Menu). A Controls.Add literal names a control's ProgID only: VB6 refuses a
+    // menu or a form as no control type (720), and the model raises that error once it is given the menu's or the form's RDForms class.
+    private static readonly Dictionary<string, string> VisualBasicClasses = FormsPortMap.VB6.Types
+        .Where(type => type.Kind == TypePortKind.Class)
+        .GroupBy(type => $"{type.LegacyLibrary}.{type.LegacyName}", StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(group => group.Key, group => group.First().RDFormsName, StringComparer.OrdinalIgnoreCase);
+
     public static object? Invoke(RDFormsControls collection, string member, AutomationInvocation invocation, object?[] arguments, CultureInfo culture)
     {
         if (invocation is AutomationInvocation.Let or AutomationInvocation.Set)
@@ -70,7 +78,10 @@ internal static class RDFormsControlsMembers
                     var progId = (string)RDFormsValues.FromNeutral(arguments[0], typeof(string), culture)!;
                     var name = (string)RDFormsValues.FromNeutral(arguments[1], typeof(string), culture)!;
                     var container = arguments.Length == 3 && arguments[2] is not System.Reflection.Missing ? ContainerOf(form, arguments[2]) : null;
-                    return form.HandleOf(form.Model.AddControl(progId, name, container));
+                    // the form is a Visual Basic 6.0 form, whose code names the control's class by its VB6 ProgID (VB.Label): the RDForms class it ports to
+                    // (RDForms.Label). A ProgID the map has no class for is the model's to refuse (711).
+                    var type = FormsPortMap.VB6.ProgIdOf(progId) ?? VisualBasicClasses.GetValueOrDefault(progId) ?? progId;
+                    return form.HandleOf(form.Model.AddControl(type, name, container));
 
                 case "REMOVE":
                     Takes(collection, member, arguments, 1, 1);

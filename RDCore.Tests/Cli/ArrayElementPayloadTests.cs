@@ -3,10 +3,9 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// An element of an array of a scalar type is kept in a cell that holds it as a payload, read and written on payloads (IR lowering S1.6): the same values,
+/// An element of an array of a scalar type is kept in a cell that holds it as a payload, read and written on payloads: the same values,
 /// and the same errors, as the boxed evaluation - which the suite is also run with (<c>RDCORE_UNBOXED=0</c>), for these to hold both ways. The subscripts
-/// are let-coerced to a <c>Long</c> either way (<see cref="ArraySubscriptCoercionTests"/>). Every expected line was recorded in Excel (grid
-/// <c>oracle\s16</c>).
+/// are let-coerced to a <c>Long</c> either way (<see cref="ArraySubscriptCoercionTests"/>). Every expected line was observed in Excel.
 /// </summary>
 [TestClass]
 public sealed class ArrayElementPayloadTests

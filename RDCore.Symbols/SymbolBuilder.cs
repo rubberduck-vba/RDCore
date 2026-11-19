@@ -227,11 +227,18 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// <remarks>
     /// Each is declared as the member it is of its own class, with the form for its parent, and dispatched outside the workspace's code
     /// (<see cref="FormObject.TargetOf"/>). A name the form's code or one of its controls declares is not declared again: that one is the member of that name.
+    /// A UserControl's, a PropertyPage's and a UserDocument's class is given none of these members: the members of its base class are names of its code,
+    /// and not members of its class (<see cref="FormDescriptor.BaseClass"/>), so <c>Me.BackColor</c> is a member the UserControl declares or none.
     /// </remarks>
     /// <param name="designer">What the form's designer declares.</param>
     /// <param name="taken">The names the form's code and its controls declare.</param>
     public IEnumerable<Symbol> BuildFormMembers(FormDescriptor designer, IReadOnlySet<string> taken)
     {
+        if (designer.BaseClass is not null)
+        {
+            yield break;
+        }
+
         var inherited = FormClasses.Of(designer, resolver, moduleUri, workspaceRoot).SelectMany(form => form.Members)
             .Where(member => member is not VBEventMemberSymbol && !taken.Contains(member.Name));
         foreach (var member in inherited)
@@ -469,7 +476,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var value = ValueOfConstant(resolver.ResolveValue(length, ScopeKind.Local, handle).Symbol, handle, depth: 0);
 
         // Let-coerced to Long: a fraction rounds half to even (Const K = 2.5 is 2), and a String that reads as a number is that number (Const K = "3" is 3),
-        // as MS-VBA has it (Excel-verified, oracle\s29 F05, F06).
+        // as MS-VBA has it (observed in Excel).
         return value switch
         {
             _ when value is not null && IsNumber(value) => RoundToLong(Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)),
@@ -566,16 +573,33 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     // this module has an implicit declaration mode at all.
     // <paramref name="conditionalOuter"/> are those of the outer names the module declares only in the branches of #If blocks, with where: a ReDim or a
     // reference that one of them keeps from declaring a local declares it still, for when each is dead (SymbolProperties.UnlessLive).
+    // <paramref name="isConditional"/> says whether a position is in a branch of a #If block: a name the procedure declares only there is declared by the
+    // statement of the live branch, which the host knows and this does not, and a ReDim or a reference of it declares it for when each is dead, as one of an
+    // outer name does (MS-VBAL §3.4).
     public IEnumerable<Symbol> BuildLocals(
         MemberDeclarationNode member, Uri procedureUri, IReadOnlySet<string> outerScopeNames,
         ModuleDirectives directives = default, bool withImplicitDeclarations = true,
         ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure,
-        IReadOnlyDictionary<string, ImmutableArray<SourcePosition>>? conditionalOuter = null)
+        IReadOnlyDictionary<string, ImmutableArray<SourcePosition>>? conditionalOuter = null,
+        Func<SourcePosition, bool>? isConditional = null)
     {
         var results = new List<Symbol>();
         var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sites = new Dictionary<string, List<SourcePosition>>(StringComparer.OrdinalIgnoreCase);
+        var declaredUnlessLive = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, ImmutableArray<SourcePosition>> conditionalLocals = [];
         ImmutableArray<SourcePosition>? UnlessLiveOf(string name)
-            => conditionalOuter is not null && !declared.Contains(name) && conditionalOuter.TryGetValue(name, out var positions) ? positions : null;
+        {
+            if (declaredUnlessLive.Contains(name))
+            {
+                return null;
+            }
+
+            var outer = conditionalOuter is not null && conditionalOuter.TryGetValue(name, out var positions) ? positions : (ImmutableArray<SourcePosition>?)null;
+            return conditionalLocals.TryGetValue(name, out var local)
+                ? outer is { } both ? local.AddRange(both) : local
+                : !declared.Contains(name) ? outer : null;
+        }
 
         // a declaration nested in an If/ElseIf/Else branch still parents to the procedure symbol —
         // VBA has no block scope (MS-VBAL 5.4.3.1-3) — so locals are hunted for through the whole
@@ -591,13 +615,21 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
                 case VariableDeclarationNode local:
                     results.Add(BuildLocalVariable(local, procedureUri));
                     declared.Add(local.Name);
+                    (sites.TryGetValue(local.Name, out var variableSites) ? variableSites : sites[local.Name] = []).Add(local.SourceLocation.Range.Start);
                     break;
 
                 case ConstantDeclarationNode { ConstKind: ConstKind.Local } local:
                     results.Add(BuildLocalConstant(local, procedureUri));
                     declared.Add(local.Name);
+                    (sites.TryGetValue(local.Name, out var constantSites) ? constantSites : sites[local.Name] = []).Add(local.SourceLocation.Range.Start);
                     break;
             }
+        }
+
+        if (isConditional is not null)
+        {
+            conditionalLocals = sites.Where(site => site.Value.TrueForAll(position => isConditional(position)))
+                .ToDictionary(site => site.Key, site => site.Value.ToImmutableArray(), StringComparer.OrdinalIgnoreCase);
         }
 
         // pass 2 — ReDim. an unqualified target that matches nothing implicitly declares a
@@ -605,12 +637,12 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         // Explicit). What it matches is a variable or a constant, of another module or of a library
         // too, and the result of the function the ReDim is in: a ReDim of another module's
         // `Public Items() As Long` re-dimensions that array. A procedure, a module or a project is no
-        // match - `ReDim Left(1)` declares an array that hides the function (MS-VBA, Excel-verified,
-        // oracle\s29 R01-R11, E01-E16).
+        // match - `ReDim Left(1)` declares an array that hides the function (MS-VBA, observed in
+        // Excel).
         //
         // where declarations are implicit, a name the procedure uses before its first ReDim was declared there, by that use (MS-VBAL §5.6.10, pass 3), and
         // the ReDim matches that variable: it re-dimensions it as it would any Variant, as vb6.exe runs it. MS-VBA refuses it at compile time ("Invalid
-        // ReDim", Excel-verified, oracle\findings-labels R01-R10), which the author lets slip with RDC11022 (HexIDE's findings desk #9).
+        // ReDim", observed in Excel), which RDC11022 reports.
         var implicitDeclarations = !directives.Explicit && withImplicitDeclarations;
         var valueNames = implicitDeclarations ? body.SelectMany(ValueContextSimpleNames).ToArray() : [];
         foreach (var redim in body.OfType<RedimDeclarationNode>())
@@ -621,6 +653,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
                 && !(redim.Target is SimpleNameExpressionNode redimmed && IsBoundBeyondTheModule(redimmed, asRedimTarget: true)))
             {
                 declared.Add(redim.Name);
+                declaredUnlessLive.Add(redim.Name);
                 results.Add(BuildRedimLocal(redim, procedureUri).With(SymbolProperties.UnlessLive, unlessLive));
                 continue;
             }
@@ -652,6 +685,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
                 if (UnlessLiveOf(reference.IdentifierName) is { } unlessLive && !IsBoundBeyondTheModule(reference, asRedimTarget: false))
                 {
                     declared.Add(reference.IdentifierName);
+                    declaredUnlessLive.Add(reference.IdentifierName);
                     results.Add((implicitScope == ImplicitDeclarationScope.Module ? BuildImplicitModuleVariable(reference, null) : BuildImplicitLocal(reference, procedureUri, null))
                         .With(SymbolProperties.UnlessLive, unlessLive));
                     continue;
