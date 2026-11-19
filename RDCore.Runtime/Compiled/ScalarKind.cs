@@ -54,7 +54,8 @@ internal static class ScalarKinds
     /// </summary>
     /// <remarks>
     /// Every payload is given its kind when it is made (<see cref="ScalarPayload.Kind"/>), so this runs for each one: the sealed types are tested first,
-    /// each by its exact type, and the two <c>LongPtr</c> types last: neither is sealed, and a test of one looks through the whole chain of base types of a type that is not it.
+    /// each by its exact type, and the two <c>LongPtr</c> types last: neither is sealed, and a test of one looks through the whole chain of base types of
+    /// a type that is not it.
     /// </remarks>
     public static ScalarKind? Of(VBType? type) => type switch
     {
