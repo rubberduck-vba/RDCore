@@ -3,6 +3,8 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Semantics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -18,10 +20,12 @@ internal readonly record struct DeclaredName(string Name, SourceRange Range, boo
 /// The names a module chooses: the ones a rule about names applies to.
 /// </summary>
 /// <remarks>
-/// Not every name is chosen by the module. A procedure of an external library is named by the library; a procedure whose name has an underscore is the implementation of
-/// an interface member, the handler of an event or a lifecycle handler (<c>Class_Initialize</c>), and is named by the interface, the event or the language. They are
-/// left out. The accessors of a property are one declaration, and its name is reported once. A line label is a name the procedure chooses; a line number is a number,
-/// and is left out. The module's own name, where its <c>Attribute VB_Name</c> says it, is a name the module chooses.
+/// Not every name is chosen by the module. A procedure of an external library is named by the library; the implementation of an interface member, the handler of
+/// an event and a lifecycle handler (<c>Class_Initialize</c>) are named by the interface, the event or the language. They are left out. That a member is one of
+/// them is a fact the host vouches for (<see cref="SDK.Semantics.DeclarationFact.Role"/>), and not the underscore in its name: <c>Test_1</c> is the module's
+/// choice. The parameters of a handler are named by the event, as Rubberduck's inspections take them; those of an implementation are the module's. Without the
+/// facts, no member is taken for one. The accessors of a property are one declaration, and its name is reported once. A line label is a name the procedure
+/// chooses; a line number is a number, and is left out. The module's own name, where its <c>Attribute VB_Name</c> says it, is a name the module chooses.
 /// </remarks>
 internal static class DeclaredNames
 {
@@ -29,8 +33,21 @@ internal static class DeclaredNames
     /// Every name <paramref name="module"/> chooses, in the order they are written.
     /// </summary>
     /// <param name="module">The syntax tree of the module.</param>
-    public static IEnumerable<DeclaredName> In(ModuleNode module)
+    /// <param name="declarations">What the host states of the module's declarations, if anything.</param>
+    public static IEnumerable<DeclaredName> In(ModuleNode module, IEnumerable<DeclarationFactDto>? declarations = null)
     {
+        // the members named by an interface, an event or the language; and of them, the handlers, whose parameters the event names too.
+        var facts = (declarations ?? [])
+            .Where(declaration => declaration is
+                { Role: DeclarationRole.InterfaceImplementation or DeclarationRole.EventHandler, Kind: DeclarationKind.Procedure or DeclarationKind.Property })
+            .ToArray();
+        var members = module.Children.OfType<MemberDeclarationNode>().ToArray();
+        var namedElsewhere = members.Where(member => facts.Any(fact => Within(member.SourceLocation.Range, fact.Location.Range.Start))).ToHashSet();
+        var handlers = members.Where(member => facts.Any(fact => fact.Role is DeclarationRole.EventHandler && Within(member.SourceLocation.Range, fact.Location.Range.Start)))
+            .Select(member => member.SourceLocation.Range)
+            .ToArray();
+        bool IsNamedElsewhere(MemberDeclarationNode member) => namedElsewhere.Contains(member);
+
         var properties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var node in module.Descendants())
         {
@@ -52,7 +69,7 @@ internal static class DeclaredNames
                     yield return new(constant.Name, constant.NameRange ?? constant.Location.Range);
                     break;
 
-                case ParameterDeclarationNode parameter:
+                case ParameterDeclarationNode parameter when !handlers.Any(handler => Within(handler, parameter.Location.Range.Start)):
                     yield return new(parameter.Name, parameter.NameRange ?? parameter.Location.Range);
                     break;
 
@@ -64,7 +81,7 @@ internal static class DeclaredNames
                     break;
 
                 case MemberDeclarationNode { MemberKind: MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet } property:
-                    if (!property.Name.Contains('_') && properties.Add(property.Name))
+                    if (!IsNamedElsewhere(property) && properties.Add(property.Name))
                     {
                         yield return new(property.Name, property.NameRange ?? property.SourceLocation.Range);
                     }
@@ -72,7 +89,7 @@ internal static class DeclaredNames
                     break;
 
                 case MemberDeclarationNode { MemberKind: MemberKind.Procedure or MemberKind.Function } procedure:
-                    if (!procedure.Name.Contains('_'))
+                    if (!IsNamedElsewhere(procedure))
                     {
                         yield return new(procedure.Name, procedure.NameRange ?? procedure.SourceLocation.Range);
                     }
@@ -85,4 +102,7 @@ internal static class DeclaredNames
             }
         }
     }
+
+    private static bool Within(SourceRange range, SourcePosition position)
+        => range.Start.CompareTo(position) <= 0 && position.CompareTo(range.End) <= 0;
 }

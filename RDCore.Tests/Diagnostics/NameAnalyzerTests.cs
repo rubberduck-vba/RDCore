@@ -151,6 +151,47 @@ public sealed class NameAnalyzerTests
         Assert.IsEmpty(Run(hungarian, Declarations));
     }
 
+    private static readonly (string, string) Mover = ("Mover", ModuleWorkspace.ClassModule("Mover", "Public Event Moved(ByVal X As Single, ByVal Y As Single)"));
+
+    // the analyzer, given a class that implements an interface and handles events, as the host models it.
+    private static async Task<AnalyzerFinding[]> ChosenAsync(IModuleAnalyzer analyzer, params string[] lines)
+    {
+        var source = ModuleWorkspace.ClassModule("Implementer", ["Implements IShape", "Private WithEvents Source As Button", "Private WithEvents Pad As Mover", .. lines]);
+        var payload = await ModuleWorkspace.SemanticsAsync([Shape, Button, Mover, ("Implementer", source)], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Implementer");
+
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Implementer.cls"));
+        return [.. analyzer.Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), model)).OrderBy(finding => finding.Range.Start)];
+    }
+
+    private static readonly string[] Chosen =
+    [
+        "Private Sub IShape_Draw()", "End Sub",
+        "Private Function IShape_Area() As Long", "End Function",
+        "Private Sub Source_Click()", "End Sub",
+        "Private Sub Pad_Moved(ByVal X As Single, ByVal Y As Single)", "End Sub",
+        "Private Sub Class_Initialize()", "End Sub",
+        "Public Sub Test_1()", "End Sub",
+        "Public Function Run_2() As Long", "End Function",
+    ];
+
+    // Rubberduck's meaningful name inspection skips what an event names (the parameters of a handler), and not a name for its underscore.
+    [TestMethod]
+    public async Task TheNamesOfAnImplementationOrAHandler_AreTheInterfaceOrTheEventToChoose_AndAnUnderscoreSaysNothing()
+        => CollectionAssert.AreEqual(new[] { "Test_1", "Run_2" }, Names(await ChosenAsync(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Chosen)));
+
+    [TestMethod]
+    public async Task TheNamesOfAnImplementationOrAHandler_AreNotHungarianEither()
+        => CollectionAssert.AreEqual(
+            new[] { "strTest_1" },
+            Names(await ChosenAsync(new HungarianNotationAnalyzer(Options()), [.. Chosen, "Private Sub strTest_1()", "End Sub"])));
+
+    [TestMethod]
+    public void WithNoFactsFromTheHost_AnUnderscoreDoesNotMakeAHandler()
+        => CollectionAssert.AreEqual(
+            new[] { "Test_1", "Run_2" },
+            Names(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), "Public Sub Test_1()\nEnd Sub\nPublic Function Run_2() As Long\nEnd Function\nPublic Sub Handler_Click()\nEnd Sub")));
+
     [TestMethod]
     [DataRow("Module1")]
     [DataRow("Class1")]
@@ -167,10 +208,6 @@ public sealed class NameAnalyzerTests
     [TestMethod]
     public void AModuleNamedForWhatItDoes_IsMeaningful()
         => Assert.IsEmpty(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), "Attribute VB_Name = \"Invoices\"\nPrivate customer As Long"));
-
-    [TestMethod]
-    public void TheNameOfAnImplementationOrAHandler_IsTheInterfaceOrTheEventToChoose()
-        => Assert.IsFalse(Names(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Declarations)).Contains("Handler_Click"));
 
     [TestMethod]
     public void TheAccessorsOfAProperty_AreOneName()

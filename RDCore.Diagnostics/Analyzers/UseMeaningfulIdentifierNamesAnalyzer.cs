@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Platform.Protocol;
 using System.Globalization;
 using System.Text;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -17,9 +18,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// those the module chooses (<see cref="DeclaredNames"/>). The first rule a name breaks is the one reported.
 /// </remarks>
 /// <param name="options">The settings of the extension.</param>
-internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsOptions> options) : SyntaxTreeAnalyzer
+internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsOptions> options) : IModuleAnalyzer
 {
-    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.UseMeaningfulIdentifierNames.ToCode()];
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.UseMeaningfulIdentifierNames.ToCode()];
 
     /// <summary>
     /// The least number of characters a name has.
@@ -27,14 +28,14 @@ internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsO
     public const int MinimumLength = 3;
 
     // the names are read when a module is analyzed: they are a live setting, which the client can change while the extension runs.
-    protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
+    public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         var allowed = new HashSet<string>(options.Value.MeaningfulNames.AllowedNames ?? [], StringComparer.OrdinalIgnoreCase);
-        return Analyze(module, allowed);
+        return context.ParseResult.SyntaxTree is { } module ? Analyze(module, allowed, context.Semantics?.Declarations) : [];
     }
 
-    private IEnumerable<AnalyzerFinding> Analyze(ModuleNode module, HashSet<string> allowed)
-        => DeclaredNames.In(module)
+    private IEnumerable<AnalyzerFinding> Analyze(ModuleNode module, HashSet<string> allowed, IEnumerable<DeclarationFactDto>? declarations)
+        => DeclaredNames.In(module, declarations)
             .Where(declared => !allowed.Contains(declared.Name))
             .Select(declared => (declared, message: MessageFor(declared.Name)))
             .Where(entry => entry.message is not null)
@@ -42,7 +43,7 @@ internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsO
                 RDCoreDiagnosticId.UseMeaningfulIdentifierNames.ToCode(),
                 entry.declared.Range,
                 DiagnosticSeverity.Information,
-                Say(entry.message!, entry.declared.Name))
+                AnalyzerMessages.Format(entry.message!, entry.declared.Name))
             {
                 // only the user can say what the name means; a module is renamed where the project names it, and not by a rename of its name.
                 Fixes = entry.declared.IsModule ? null : new DiagnosticFixes { Rename = new RenameFix() },
