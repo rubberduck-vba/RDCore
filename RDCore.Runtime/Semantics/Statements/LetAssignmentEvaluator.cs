@@ -1235,8 +1235,8 @@ public sealed class LetAssignmentEvaluator(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode reachedThrough, VBObjectValue owner,
         ExpressionNode source, VBTypedValue value, bool isSet = false)
     {
-        // an object the analysis assumed - what a call it does not make returns - is no object the session has: what the code accesses of it is the default
-        // member of the class it is declared as, and nothing is assigned.
+        // an object the analysis assumed (what a call it does not make returns) is not an object the session has: what the code accesses of it is the
+        // default member of the class it is declared as, and nothing is assigned.
         if (owner.IsIndeterminate && !session.Symbols.TryGetInstance(owner.Value, out _))
         {
             return expressions.DeclaredTypeOf(session, reachedThrough, context) is VBClassType { Symbol: { } declared }
