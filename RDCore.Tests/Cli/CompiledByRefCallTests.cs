@@ -642,4 +642,77 @@ public sealed class CompiledByRefCallTests
         StringAssert.Contains(compiled, "x=2, n=2 | n=50");
         StringAssert.Contains(compiled, "| 60 |");
     }
+
+    // the program waits below a compiled callee given a String by reference and one by value, and holding one of its own: the debugger sees each of them,
+    // the one by reference as the caller's variable, which what the debugger assigns the parameter writes.
+    private static async Task<string> WaitedBelowProbedAsync(VBExecutionEngine engine)
+    {
+        var observed = string.Empty;
+        using var running = CompiledExecution.Running(engine);
+        await ModuleWorkspace.InspectAsync([], Program(
+            "Public Sub Main()",
+            "    Debug.Print Go()",
+            "End Sub",
+            "Private Function Go() As String",
+            "    Dim s As String",
+            "    s = \"x-\"",
+            "    Probed s, \"y\"",
+            "    Go = s",
+            "End Function",
+            "Private Sub Probed(ByRef t As String, ByVal a As String)",
+            "    Dim l As String",
+            "    l = a & \"z\"",
+            "    Pause 0",
+            "    t = t & l",
+            "End Sub",
+            "Private Sub Pause(ByVal z As Long)",
+            "    Stop",
+            "End Sub"), async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var stack = provider.Execution.Stack().Frames;
+                string ValueIn(string procedure, string name)
+                    => provider.Execution.Variables(stack.Single(frame => frame.Procedure == procedure).Id, DebugVariableScope.Locals, 0).Variables
+                        .Single(variable => variable.Name == name).Value;
+
+                observed = $"t={ValueIn("Probed", "t")}, a={ValueIn("Probed", "a")}, l={ValueIn("Probed", "l")}, s={ValueIn("Go", "s")}";
+                var probed = stack.Single(frame => frame.Procedure == "Probed").Id;
+                var assigned = await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
+                    .Handle(new HostDebugExecuteParams { FrameId = probed, Json = PlatformJson.Serialize(Statement("t = \"w-\"")) }, CancellationToken.None)
+                    .WaitAsync(Patience);
+                Assert.IsTrue(assigned.Success, assigned.Error);
+                observed += $" | s={ValueIn("Go", "s")}";
+                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.HandsOverAtRandom)
+                {
+                    var go = BodyOf(provider, "Go");
+                    Assert.AreEqual((1L, 0L), (go.DirectCalls, go.IndirectCalls), "Go calls Probed through its typed entry");
+                }
+
+                observed += " | " + Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                    .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
+            }
+            finally
+            {
+                if (provider.Execution.State is not ProgramState.Idle)
+                {
+                    _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+                }
+            }
+        }, debug: true, engine: engine);
+        return observed;
+    }
+
+    [TestMethod]
+    public async Task AStringPassedByReference_IsTheCallersVariable_ToADebugger()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await WaitedBelowProbedAsync(VBExecutionEngine.Interpreter);
+        var compiled = await WaitedBelowProbedAsync(VBExecutionEngine.Compiled);
+
+        Assert.AreEqual(interpreted, compiled);
+        StringAssert.Contains(compiled, "t=\"x-\", a=\"y\", l=\"yz\", s=\"x-\" | s=\"w-\"");
+        StringAssert.Contains(compiled, "w-yz");
+    }
 }
