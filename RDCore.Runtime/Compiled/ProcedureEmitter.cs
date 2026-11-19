@@ -1031,7 +1031,7 @@ internal sealed partial class ProcedureEmitter
             // goes by (CompiledActivation.AbandonDirectCall): what is on the stack after is what was before the call.
             _il.BeginExceptionBlock();
 
-            // a String is no argument of the typed entry: its activation is given the text, or the cell of the variable given by reference, in the slot of
+            // the typed entry takes no String argument: its activation is given the text, or the cell of the variable given by reference, in the slot of
             // the parameter (CompiledCallee.TextSlots), before the entry is called.
             for (var i = 0; i < given.Length; i++)
             {
