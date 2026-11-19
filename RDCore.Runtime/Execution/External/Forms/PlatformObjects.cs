@@ -14,9 +14,10 @@ using RDCore.SDK.Workspace.Forms;
 namespace RDCore.Runtime.Execution.External.Forms;
 
 /// <summary>
-/// The objects of a session that are the platform's own although a server holds them: a program's forms, Visual Basic 6.0 forms and UserForms alike, and what
-/// they hand out of their own library. A call on one is answered by the platform (<see cref="ExternalCallRequest.IsAnsweredByPlatform"/>), which the policy over
-/// automation lets through (<see cref="AutomationPolicyInterceptor"/>): a form is the program's own user interface, even when it is a COM object of the machine's.
+/// The objects of a session that are the platform's own although a server holds them: a program's forms, Visual Basic 6.0 forms and UserForms alike, and
+/// what they hand out of their own library. A call on one is answered by the platform (<see cref="ExternalCallRequest.IsAnsweredByPlatform"/>), which the
+/// policy over automation lets through (<see cref="AutomationPolicyInterceptor"/>): a form is the program's own user interface, even when it is a COM object
+/// of the machine's.
 /// </summary>
 /// <remarks>
 /// An object is one by where the program got it, never by a library description, which a workspace can bring its own of:
@@ -30,7 +31,8 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// class comes only from the live object's server (<see cref="IAutomationServer.ClassNameOf"/>), never from a workspace's description. An object of no
 /// library's class is one only when it is the form host's own (<see cref="IAutomationServer.IsFormHostObject"/>): the RDForms <c>Controls</c> collection and
 /// menu arrays. A COM object whose server describes no class is an ordinary one;</item>
-/// <item>an object the session already held keeps what it was: a COM object stored in <c>Form1.Tag</c>, or given to a form's property, stays an ordinary one.</item>
+/// <item>an object the session already held keeps what it was: a COM object stored in <c>Form1.Tag</c>, or given to a form's property, stays an ordinary
+/// one.</item>
 /// </list>
 /// Creating an object (<c>New</c>, <c>CreateObject</c>, <c>GetObject</c>) is never one of them, of a control's class or not: only a form makes a control.
 /// <para>
@@ -74,7 +76,8 @@ internal sealed class PlatformObjects
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         lock (_gate)
         {
-            _objects[form] = new Kept(handle, designer.Kind == FormDesignerKind.VisualBasic6 ? VisualBasicLibrary : FormDesigner.MSFormsLibrary, null, controls);
+            var library = designer.Kind == FormDesignerKind.VisualBasic6 ? VisualBasicLibrary : FormDesigner.MSFormsLibrary;
+            _objects[form] = new Kept(handle, library, null, controls);
         }
     }
 
@@ -96,7 +99,8 @@ internal sealed class PlatformObjects
             return true;
         }
 
-        // a Controls.Add makes a control on the form, of whichever library its ProgID names: the form makes it, as it makes the controls its designer declares.
+        // a Controls.Add makes a control on the form, of whichever library its ProgID names: the form makes it, as it makes the controls its designer
+        // declares.
         return ReceiverOf(request) is { } receiver && TryGet(session, receiver, out _);
     }
 
@@ -140,8 +144,8 @@ internal sealed class PlatformObjects
         // the class is the live object's, as its server says: "MSForms.Label", "VB.Label", "SHDocVw.WebBrowser".
         var className = server.ClassNameOf(handle);
 
-        // a control on the form, which its designer declares or a Controls.Add of the form's makes, is the platform's whatever its library: of its own library,
-        // for what it hands out in its turn (rule 2).
+        // a control on the form, which its designer declares or a Controls.Add of the form's makes, is the platform's whatever its library: of its own
+        // library, for what it hands out in its turn (rule 2).
         if (from.Member is { } member && (kept.Controls?.Contains(member) == true || IsControlsAdd(member, kept.ClassName)))
         {
             Adopt(identity, handle, LibraryOf(className) ?? kept.Library, className);

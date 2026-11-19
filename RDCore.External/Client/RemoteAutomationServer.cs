@@ -400,7 +400,9 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         try
         {
             return Send<AutomationClassNameParams, AutomationClassNameResult>(
-                remote.Incarnation, ExternalProtocol.AutomationClassName, new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
+                remote.Incarnation,
+                ExternalProtocol.AutomationClassName,
+                new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
         }
         catch (AutomationException)
         {

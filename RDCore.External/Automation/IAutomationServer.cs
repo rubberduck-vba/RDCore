@@ -157,8 +157,8 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     string? ClassNameOf(object target);
 
     /// <summary>
-    /// Gets whether an object is one of a form host's own, which the host made for a form it hosts: the RDForms <c>Controls</c> collection of a Visual Basic 6.0
-    /// form, and its menu arrays, which no library declares the class of.
+    /// Gets whether an object is one of a form host's own, which the host made for a form it hosts: the RDForms <c>Controls</c> collection of a Visual
+    /// Basic 6.0 form, and its menu arrays, which no library declares the class of.
     /// </summary>
     /// <remarks>
     /// A COM object is never one, whether its server describes its class or not: a form host of Microsoft Forms is a COM server, and its objects are its

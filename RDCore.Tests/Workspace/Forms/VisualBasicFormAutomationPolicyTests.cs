@@ -42,7 +42,10 @@ public sealed class VisualBasicFormAutomationPolicyTests
         string.Empty]);
 
     private static ModuleWorkspace.WorkspaceLibraries Libraries
-        => new ModuleWorkspace.WorkspaceLibraries([], VisualBasicFormLifecycleTests.Shipped, AllowAutomation: false) { Outside = VisualBasicFormLifecycleTests.RDFormsWorld() };
+        => new ModuleWorkspace.WorkspaceLibraries([], VisualBasicFormLifecycleTests.Shipped, AllowAutomation: false)
+        {
+            Outside = VisualBasicFormLifecycleTests.RDFormsWorld(),
+        };
 
     private static string Program(string[] body) => string.Join("\r\n", [
         "Attribute VB_Name = \"Program\"",
