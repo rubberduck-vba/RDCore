@@ -365,22 +365,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             : SymbolResolutionResult.Duplicate(matches);
     }
 
-    // what shadows, the lowest rank first: a symbol of no library is the workspace's own and outranks any library's; then the standard library's, which comes
-    // before every reference (MS-VBAL §4.1: the earlier reference has the higher precedence); then each library by the precedence of its reference; and a symbol
-    // of a library that carries no precedence comes after every one that does, so that it never ties with the standard library or the workspace. The code of
-    // a referenced project ranks its own project's symbols as the workspace's.
+    // what shadows: the candidates of the highest reference precedence (ReferencePrecedence), as the code of ownLibrary's project ranks them.
     private static Symbol[] Shadowing(Symbol[] candidates, string? ownLibrary)
     {
-        long Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) switch
-        {
-            null => -1,
-            var library when string.Equals(library, ownLibrary, StringComparison.Ordinal) => -1,
-            StandardLibrary.LibraryName => 0,
-            _ => symbol.TryGetProperty(SymbolProperties.LibraryPriority, out var priority) ? priority : long.MaxValue,
-        };
-
-        var highest = candidates.Min(Rank);
-        return [.. candidates.Where(candidate => Rank(candidate) == highest)];
+        var highest = candidates.Min(candidate => ReferencePrecedence.RankOf(candidate, ownLibrary));
+        return [.. candidates.Where(candidate => ReferencePrecedence.RankOf(candidate, ownLibrary) == highest)];
     }
 
     // the project tier holds the names every module declares: the namesakes of one module are decided among themselves as they are inside it, and two

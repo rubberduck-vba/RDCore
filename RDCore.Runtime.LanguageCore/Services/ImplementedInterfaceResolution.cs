@@ -9,8 +9,9 @@ namespace RDCore.Runtime.LanguageCore.Services;
 // resolved over the whole set, and again on any change: an interface defined later, or edited since, is otherwise a stale snapshot.
 // recursive and memoized by Uri: a flat pass leaves Widget Implements IMiddle Implements IBase looking empty from Widget.
 // a name that is no class, the class itself, or a repeat is dropped here: ImplementsSemantics reports it.
-// MS-VBAL §4.1, §5.6.10: a name is the class of the implementing class's own project first, then of the libraries by their precedence; a referenced
-// source project's class only where the project exposes it (§5.2.4.1.1). The code of a referenced project does not see the session's own classes.
+// MS-VBAL §4.1, §5.6.10: a name is the class of the implementing class's own project first, then of the libraries by their precedence
+// (ReferencePrecedence); a referenced source project's class only where the project exposes it (§5.2.4.1.1). The code of a referenced project does not
+// see the session's own classes.
 public static class ImplementedInterfaceResolution
 {
     public static IReadOnlyDictionary<string, VBClassModuleSymbol> Resolve(IEnumerable<VBClassModuleSymbol> classModules)
@@ -19,6 +20,8 @@ public static class ImplementedInterfaceResolution
         var byName = all.GroupBy(classModule => classModule.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
 
+        // the name is a type expression of the implementing class (§5.6.16.7), bound in the type binding context: a library's hidden interface (Excel's
+        // IShape) never takes the place of the workspace's class of the same name.
         VBClassModuleSymbol? Named(string name, VBClassModuleSymbol implementing)
         {
             if (!byName.TryGetValue(name, out var candidates))
@@ -31,7 +34,7 @@ public static class ImplementedInterfaceResolution
                 ?? candidates
                     .Where(candidate => candidate.GetProperty(SymbolProperties.Library) is not null
                         && (!candidate.GetProperty(SymbolProperties.OfSourceProject) || ReferencedProjectSymbols.IsAccessible(candidate)))
-                    .OrderBy(candidate => candidate.GetProperty(SymbolProperties.LibraryPriority))
+                    .OrderBy(candidate => ReferencePrecedence.RankOf(candidate))
                     .FirstOrDefault();
         }
 

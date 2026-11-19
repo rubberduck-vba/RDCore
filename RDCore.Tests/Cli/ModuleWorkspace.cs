@@ -131,6 +131,14 @@ internal static class ModuleWorkspace
         => RunCoreAsync([], program, errorsOnly: false, libraries: libraries, documents: documents);
 
     /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, for a project that references libraries, with <paramref name="engine"/>, whatever
+    /// engine the suite runs with.
+    /// </summary>
+    public static Task<string[]> RunAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries, VBExecutionEngine engine)
+        => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries, engine: engine);
+
+    /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, for a project that references libraries.
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries)
