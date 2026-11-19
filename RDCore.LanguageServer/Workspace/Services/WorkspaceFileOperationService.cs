@@ -407,7 +407,8 @@ internal sealed class WorkspaceFileOperationService(
 
     private static bool IsUnderADotFolder(string relativePath) => relativePath.Split('/').Any(segment => segment.StartsWith('.'));
 
-    // a module of the workspace is a file of one of its language's module types: a BASIC workspace's are .bas, .cls, .frm and .doccls files, not the shell's programs.
+    // a module of the workspace is a file of one of its language's module types: a BASIC workspace's are .bas, .cls, .frm and .doccls files, not the
+    // shell's programs.
     private bool IsModuleFile(string path)
     {
         return language().IsModuleFile(path);
