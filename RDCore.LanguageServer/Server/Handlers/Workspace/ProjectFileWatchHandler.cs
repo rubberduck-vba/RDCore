@@ -20,7 +20,7 @@ namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 /// </para>
 /// <para>
 /// The notification is handled as it arrives, beside the requests that run, and the workspace is made what the files are as long as that takes. A request
-/// about a document waits until every change the client said of before it is read (<see cref="IncomingDocumentChanges.FileChangeRead"/>).
+/// about a document waits until every change the client reported before it is read (<see cref="IncomingDocumentChanges.FileChangeRead"/>).
 /// </para>
 /// </remarks>
 [HandledOnArrival]
@@ -35,7 +35,8 @@ internal sealed class ProjectFileWatchHandler(
         return Unit.Task;
     }
 
-    // every change the client named is read once the workspace is what the files are, or could not be made so: one it leaves alone too.
+    // every change the client named is said to be read once the workspace is what the files are, or could not be made so, a change to a file the
+    // workspace leaves alone included.
     private async Task ReadAsync(IReadOnlyList<FileEvent> files)
     {
         try

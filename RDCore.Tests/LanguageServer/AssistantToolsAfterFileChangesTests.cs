@@ -43,7 +43,8 @@ public sealed class AssistantToolsAfterFileChangesTests
         var incoming = new IncomingDocumentChanges();
         incoming.ServeFileChanges();
 
-        // the reading of the files goes on until the test lets it go; the second notification's reading begun says the call before it was read.
+        // the reading of the files goes on until the test lets it go; once the second notification's reading begins, the call sent before it has
+        // arrived too.
         var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondBegun = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var begun = 0;
