@@ -72,7 +72,7 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
         {
             // each field starts as a variable declared as it is: a fixed-size array field with the dimensions its declaration gives it. The fields are the
             // type's as the session has it now, not as it was when the variable was bound (CurrentTypes): a nested record's own fields come the same way.
-            return new VBUserDefinedTypeValue(CurrentTypes.Of(session.Symbols.Resolver, declaredRecord), this);
+            return new VBUserDefinedTypeValue(CurrentRecordOf(declaredRecord), this);
         }
 
         if (type is not VBArrayType array || array is VBResizableByteArrayType)
@@ -90,6 +90,30 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
                 Stopping(ElementCellOf(array.ItemType)))
             : new VBFixedSizeArrayValue([], array.ItemType);
     }
+
+    // the record type as the session has it now (CurrentTypes), looked up by its name once for each version of the session's table (SymbolTable.Version),
+    // which a type defined, removed or defined again changes: each object of a class with a record field is given the same one until then. A session whose
+    // table is not known looks it up each time.
+    internal VBUserDefinedType CurrentRecordOf(VBUserDefinedType declared)
+    {
+        var resolver = session.Symbols.Resolver;
+        if ((session.Symbols as Execution.SessionSymbols)?.Table is not { } table)
+        {
+            return CurrentTypes.Of(resolver, declared);
+        }
+
+        if (_currentRecords.TryGetValue(declared, out var known) && known.Version == table.Version && ReferenceEquals(known.Resolver, resolver))
+        {
+            return known.Current;
+        }
+
+        var current = CurrentTypes.Of(resolver, declared);
+        _currentRecords[declared] = (table.Version, resolver, current);
+        return current;
+    }
+
+    private readonly Dictionary<VBUserDefinedType, (int Version, ISymbolResolver? Resolver, VBUserDefinedType Current)> _currentRecords
+        = new(ReferenceEqualityComparer.Instance);
 
     /// <inheritdoc/>
     /// <remarks>

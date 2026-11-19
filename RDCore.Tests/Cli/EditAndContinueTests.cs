@@ -214,6 +214,47 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "x=16" }, Output(resumed));
     }
 
+    // a class given a variable, a Class_Initialize and a Class_Terminate while the program waits, after an object of it was made and let go of: the object
+    // the same New makes after the edit has the variable, and runs both handlers. What an object of the class is made with is found again after an edit.
+    [TestMethod]
+    public async Task AClassGivenAVariableAndHandlersWhileTheProgramWaits_TheNextObjectOfItHasThemAll()
+    {
+        var point = ModuleWorkspace.ClassModule("Point", "Option Explicit", "Public X As Long");
+        var edited = ModuleWorkspace.ClassModule("Point",
+            "Option Explicit",
+            "Public X As Long",
+            "Public Y As Long",
+            "Private Sub Class_Initialize()",
+            "    Y = 2",
+            "    Debug.Print \"initialize\"",
+            "End Sub",
+            "Private Sub Class_Terminate()",
+            "    Debug.Print \"terminate y=\" & Y",
+            "End Sub");
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim I As Long",
+            "    Dim P As Point",
+            "    For I = 1 To 2",
+            "        Set P = New Point",
+            "        Set P = Nothing",
+            "        Debug.Print \"made \" & I",
+            "        If I = 1 Then Stop",
+            "    Next",
+            "End Sub");
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([("Point", point)], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Point"], ("Point", ModuleType.ClassModule, edited), ("Program", ModuleType.StdModule, program));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "initialize", "terminate y=2", "made 2" }, Output(resumed));
+    }
+
     // what MS-VBA applies and goes on with, and RD-VBA does: the program runs the edited code where it next reaches it.
     [TestMethod]
     [DataRow(new[] { "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:EDITED obj=\" & Obj.Value" }, new[] { "other:EDITED obj=10" },

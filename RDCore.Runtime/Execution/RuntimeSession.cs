@@ -1157,12 +1157,25 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         return given;
     }
 
-    // the instance fields a class declares, as the session has them now.
-    private IEnumerable<Symbol> InstanceFieldsOf(VBClassModuleSymbol classModule)
-        => table.InstanceSymbols.Where(field =>
-            field.ParentUri.AbsoluteUri == classModule.Uri.AbsoluteUri
+    // the instance fields a class declares, as the session has them now: found among every instance field of the session, once for each version of the table
+    // (SymbolTable.Version), which a field defined or removed changes. Each object of the class is given the same ones until then.
+    private Symbol[] InstanceFieldsOf(VBClassModuleSymbol classModule)
+    {
+        var key = classModule.Uri.AbsoluteUri;
+        if (_instanceFields.TryGetValue(key, out var known) && known.Version == table.Version)
+        {
+            return known.Fields;
+        }
+
+        var fields = table.InstanceSymbols.Where(field =>
+            field.ParentUri.AbsoluteUri == key
             && field.Kind is SymbolKindExt.Field or SymbolKindExt.Variable
-            && field is ITypedSymbol { ResolvedType: var _ });
+            && field is ITypedSymbol { ResolvedType: var _ }).ToArray();
+        _instanceFields[key] = (table.Version, fields);
+        return fields;
+    }
+
+    private readonly Dictionary<string, (int Version, Symbol[] Fields)> _instanceFields = new(StringComparer.Ordinal);
 
     public bool TryGetInstance(VBRuntimeObjectId objectId, [NotNullWhen(true)][MaybeNullWhen(false)] out IObjectInstance? instance)
     {
