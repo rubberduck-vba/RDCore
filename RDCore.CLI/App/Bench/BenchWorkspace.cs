@@ -58,7 +58,8 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// <param name="token">A token that cancels the reading.</param>
     /// <param name="language">The language whose files are the modules of a folder that has no <c>.rdproj</c>; RD-VBA when it is not given.</param>
     /// <param name="ansiCodePage">
-    /// The code page a module file without a byte order mark that is not UTF-8 is in (<see cref="ModuleFileText.Decode(byte[], int)"/>): the environment's.
+    /// The code page of a module file that has no byte order mark and is not valid UTF-8 (<see cref="ModuleFileText.Decode(byte[], int)"/>): the
+    /// environment's.
     /// </param>
     /// <exception cref="FileNotFoundException">There is no such file or folder.</exception>
     public static async Task<BenchWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default,

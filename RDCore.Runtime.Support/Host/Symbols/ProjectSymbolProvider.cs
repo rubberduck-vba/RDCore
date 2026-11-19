@@ -33,7 +33,7 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 /// <param name="fileSystem">The file system the sources are read from.</param>
 /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
 /// <param name="ansiCodePage">
-/// The code page a source without a byte order mark that is not UTF-8 is in (<see cref="ModuleFileText.Decode(byte[], int)"/>): the environment's.
+/// The code page of a source that has no byte order mark and is not valid UTF-8 (<see cref="ModuleFileText.Decode(byte[], int)"/>): the environment's.
 /// </param>
 public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem,
     IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage) : ISymbolProvider
