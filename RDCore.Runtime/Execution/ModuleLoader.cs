@@ -184,6 +184,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // a module is valid when what it declares is, as well as every procedure of it. The types it declares are asked to be names that resolve: its code is
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
+            .AddRange(ModuleNameStaticSemantics.Check(syntaxTree, module.Name))
             .AddRange(headerErrors)
             .AddRange(constantErrors)
             .AddRange(sizeErrors)

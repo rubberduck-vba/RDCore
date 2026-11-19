@@ -603,6 +603,12 @@
   <data name="VBCompileError_NoHostApplicationToEvaluateExpression_Verbose" xml:space="preserve">
     <value>'[{0}]' names nothing that is declared, which makes it an expression for a host application to evaluate.</value>
   </data>
+  <data name="VBCompileError_NotALegalObjectName" xml:space="preserve">
+    <value>Not a legal object name</value>
+  </data>
+  <data name="VBCompileError_NotALegalObjectName_Verbose" xml:space="preserve">
+    <value>'{0}' is a keyword of the language, which no module can be named: give the module another name.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>
