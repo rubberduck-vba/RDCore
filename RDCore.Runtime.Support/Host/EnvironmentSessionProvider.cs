@@ -303,8 +303,9 @@ public sealed class EnvironmentSessionProvider(
         EnterWorkspaceRoot(workspaceRoot);
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
-        // makes no such call, and nothing is started for it.
-        if (_environment.AllowAutomation && !referenced.Libraries.IsEmpty)
+        // makes no such call, and nothing is started for it. A console application's user interface is its console: what makes the call, which hosts its forms
+        // too, is started when the program first makes one.
+        if (_environment.AllowAutomation && !referenced.Libraries.IsEmpty && !RDCore.Runtime.Support.Build.ProgramDialogs.IsConsole(project.Build))
         {
             Outside.Automation.Prepare();
         }
@@ -397,6 +398,7 @@ public sealed class EnvironmentSessionProvider(
 
     // a program starts in the folder of its workspace, as opening a project in VB6 makes its folder current: a relative path is a file of the workspace. The
     // directory is the session's, which ChDir moves too; End leaves it where the program put it. The shell's scratch workspace is no folder of the user's.
+    // A project that a .rdworkspace lists is in that workspace, whose root is the file's folder (RD-VBAL §2.2.2); App.Path stays the project's own folder.
     private void EnterWorkspaceRoot(Uri workspaceRoot)
     {
         if (!workspaceRoot.IsFile)
@@ -414,12 +416,32 @@ public sealed class EnvironmentSessionProvider(
                 return;
             }
 
+            root = WorkspaceRootOf(root);
             error = _session!.Files.TryChangeDirectory(root);
         }
 
         if (error is not null && logger.IsEnabled(LogLevel.Warning))
         {
             logger.LogWarning("📂 The workspace root {root} could not be made the current directory ({error}): it is left where it was.", root, error);
+        }
+    }
+
+    // the folder of the .rdworkspace that lists the project's folder, or is in it; the project's folder when none does, or when the file cannot be read.
+    private string WorkspaceRootOf(string projectFolder)
+    {
+        try
+        {
+            return WorkspaceFolderList.Read(fileSystem, projectFolder)?.Root ?? projectFolder;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+            {
+                logger.LogWarning("📂 The workspace file above {folder} could not be read ({error}): the program starts in the project's folder.",
+                    projectFolder, exception.Message);
+            }
+
+            return projectFolder;
         }
     }
 

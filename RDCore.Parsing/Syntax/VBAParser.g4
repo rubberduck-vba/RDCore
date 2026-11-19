@@ -521,10 +521,11 @@ modeSpecifier :	(MID | MIDB) DOLLAR? ;
 
 integerExpression : expression;
 
-// a name and a colon at the start of a line are a label, never a call: see IsLabelAhead.
+// a name and a colon at the start of a line are a label, never a call: see IsLabelAhead. Blanks begin the argument list only before an argument: see
+// IsArgumentListAhead.
 callStmt :
     CALL whiteSpace lExpression
-    | {!IsLabelAhead()}? lExpression (whiteSpace argumentList)?
+    | {!IsLabelAhead()}? lExpression ({IsArgumentListAhead()}? whiteSpace argumentList)?
 ;
 
 resumeStmt : RESUME (whiteSpace (NEXT | expression))?;
@@ -734,7 +735,7 @@ objectLiteralIdentifier : NOTHING;
 variantLiteralIdentifier : EMPTY | NULL;
 
 lExpression :
-    lExpression LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                                 # indexExpr
+    lExpression LPAREN whiteSpace? argumentList whiteSpace? RPAREN                                                  # indexExpr
     | lExpression mandatoryLineContinuation? DOT mandatoryLineContinuation? printMethod (whiteSpace outputList)?    # objectPrintExpr
     | lExpression mandatoryLineContinuation? DOT mandatoryLineContinuation? unrestrictedIdentifier                  # memberAccessExpr
     | lExpression mandatoryLineContinuation? dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier     # dictionaryAccessExpr
@@ -742,10 +743,10 @@ lExpression :
     | identifier                                                                                                    # simpleNameExpr
     | DOT mandatoryLineContinuation? unrestrictedIdentifier                                                         # withMemberAccessExpr
     | dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier                                            # withDictionaryAccessExpr
-    | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList? whiteSpace? RPAREN         # whitespaceIndexExpr
+    | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList whiteSpace? RPAREN          # whitespaceIndexExpr
     // blanks before the argument list (MS-VBAL 3.3: a token takes the white space before it), so `x = F (2)` calls F with 2. The last alternative, of
     // the lowest precedence: VBABaseParser enters lExpression above it as the callee of a call statement, where `F (2)` is F called with (2). Keep it last.
-    | lExpression whiteSpace LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                     # whitespaceIndexExpr
+    | lExpression whiteSpace LPAREN whiteSpace? argumentList whiteSpace? RPAREN                                      # whitespaceIndexExpr
 ;
 
 //This is a hack to allow attaching identifier references for default members to the exclaramtion mark.
@@ -760,7 +761,9 @@ builtInType :
 ;
 
 // 5.6.13.1 Argument Lists
-argumentList : whiteSpace? (argument (whiteSpace? COMMA whiteSpace? argument)*)? whiteSpace?
+// an argument can be missing, so a list always has at least one: empty parentheses are a list of one missing argument, and a list is never left out where
+// it is written.
+argumentList : whiteSpace? argument (whiteSpace? COMMA whiteSpace? argument)* whiteSpace?
 ;
 
 requiredArgument : argument;

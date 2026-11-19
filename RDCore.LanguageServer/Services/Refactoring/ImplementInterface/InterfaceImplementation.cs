@@ -284,16 +284,14 @@ internal static partial class InterfaceImplementation
 
         private string Procedure(MemberKind kind, string name, Signature signature, IReadOnlyList<string> body)
         {
-            var (keyword, end) = kind switch
+            var end = kind switch
             {
-                MemberKind.Procedure => ("Sub", "End Sub"),
-                MemberKind.Function => ("Function", "End Function"),
-                MemberKind.PropertyGet => ("Property Get", "End Property"),
-                MemberKind.PropertyLet => ("Property Let", "End Property"),
-                _ => ("Property Set", "End Property"),
+                MemberKind.Procedure => "End Sub",
+                MemberKind.Function => "End Function",
+                _ => "End Property",
             };
 
-            var header = $"Private {keyword} {name}{signature.TypeHint}({string.Join(", ", signature.Parameters.Select(parameter => parameter.Text))}){signature.AsClause}";
+            var header = $"Private {ProcedureKeywords.Of(kind)} {name}{signature.TypeHint}({string.Join(", ", signature.Parameters.Select(parameter => parameter.Text))}){signature.AsClause}";
             return string.Join(newLine, [header, .. body, end]);
         }
 

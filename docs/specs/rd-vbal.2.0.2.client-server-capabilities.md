@@ -419,17 +419,17 @@ A standard module, a class module, a form or another module with a designer (a u
 - in its `VB_Name` attribute (**MS-VBAL §4.2**), where a rename can start too. A module whose source has no `VB_Name` is named by its file: the rename writes `Attribute VB_Name = "<new name>"` first of its header, after the `VERSION` line, the `Object` lines and the `Begin` … `End` block of a class's or a designer's file;
 - in the first `Begin` line of a designer's text, which names the module (`Begin VB.Form Picker`, `Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog`). A caption is text, and stays as it is;
 - in the `Implements` directives of the classes that implement it (**MS-VBAL §5.2.4.2**);
-- in the procedures that implement its members, whose names start with its name (`IShape_Draw`, **MS-VBAL §5.3.1.9**). Only that part is renamed, where each is declared and called.
+- in the procedures bound to its members as their implementations (`IShape_Draw`, **MS-VBAL §5.3.1.9**). Only the part of their name before the underscore is renamed, where each is declared and called.
 
 The new name is at most 31 characters, and is not the name of another module of the project, of a `Public` `Type` or `Enum` of the project, of the project, or of a library the project references (**MS-VBAL §4.2**). A procedure that implements a member must not take the name of another member of its class.
 
-A procedure named after what it implements or handles (**MS-VBAL §5.3.1.8**, **§5.3.1.9**) is renamed with it. Only the part of its name that is the renamed symbol's changes, where the procedure is declared and called:
+A procedure bound to what it implements or handles (**MS-VBAL §5.3.1.8**, **§5.3.1.9**, **§5.3.1.10**) is renamed with it. The binding is to the symbols that declare them ([`DeclarationBinding`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.DeclarationBinding.html)): a procedure that is only named like a handler or an implementation is bound to nothing, and keeps its name. Only the part of its name that is the renamed symbol's changes, where the procedure is declared and called:
 
 |Renamed|With it|
 |---|---|
 |The member of a class that other classes implement (`Draw`)|The procedures that implement it (`IShape_Draw` to `IShape_Paint`).|
-|An event (`Spun`)|The `RaiseEvent` statements of its class, and the handlers of the `WithEvents` variables of its class (`source_Spun` to `source_Turned`).|
-|A `WithEvents` variable (`source`)|The handlers of its events, those of a library's class included (`source_Spun` to `watched_Spun`). A procedure named after it that handles none of its events keeps its name.|
+|An event (`Spun`)|The `RaiseEvent` statements of its class, and its handlers in every class, each bound to it by a `WithEvents` variable of its class (`source_Spun` to `source_Turned`).|
+|A `WithEvents` variable (`source`)|The handlers of its events, those of a library's class included (`source_Spun` to `watched_Spun`). A procedure named for an event its class does not have (`source_Turned`) keeps its name.|
 
 A rename can start at either part of such a procedure's name: before the underscore, it renames the interface or the variable; after it, the member or the event. A procedure renamed with it must not take the name of another member of its class.
 
@@ -468,7 +468,8 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The symbol is a document module|Its document names it, and would not be renamed with it.|
 |The symbol is the workspace's project, and the new name is that of one of its modules, of a project it references, or of a `Public` `Type` or `Enum` of the project or of one it references|A qualifier with the new name would mean the module or the other project. No `Public` `Type` or `Enum` is named as a project (**MS-VBAL §5.2.3.3**, **§5.2.3.4**).|
 |The symbol is a form's control|Its designer names it, and would not be renamed with it.|
-|The symbol is a procedure that handles an event of its own class or form (`Class_Initialize`, `UserForm_Click`) or of a control, or a procedure of a document module|It is named after the event it handles.|
+|The symbol is a procedure bound to an event it handles (of its own class or form, `Class_Initialize`, `UserForm_Click`, of its document's host, or of a control) or to an interface member it implements|Renamed whole, it would be bound to neither. Its source, or the event or member it is bound to, is renamed instead. A procedure that is only named like one (`Form_Foo` in a class that is not a form) is renamed like any other.|
+|The symbol is a procedure of a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for is not known, and the rename could make that call fail.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
@@ -561,6 +562,9 @@ The language server answers `textDocument/documentSymbol` (**LSP 3.17** §Docume
 module declares, and the members of its `Enum`s and `Type`s under them. Each symbol's range is its whole declaration, and its selection range the name it
 declares. A procedure's locals are not in the outline. For a `.rdc` program, ranges are in its lines.
 
+The accessors of a property share its name and its kind, so each one's `detail` is the keywords it is declared with (`Property Get`, `Property Let` or
+`Property Set`, `ProcedureKeywords`). Any other symbol has no `detail`.
+
 It answers `workspace/symbol` (**LSP 3.17** §Workspace Symbols Request) with the symbols of the outline of every document it holds whose name matches the
 query (`SymbolSearch`), regardless of case. Each is named with what it is declared in
 (`containerName`: the module, or the module and its `Enum` or `Type`) and located at the name it declares.
@@ -620,7 +624,8 @@ A parameter is removed from its declaration, and its argument from every call th
 |An argument passed for it does more than read a value: a call, a property, an operation|What its evaluation does (a call, an error) would not happen.|
 |A call to the procedure is late-bound, by its name in a string, or not known|The argument passed there would not be removed.|
 |The parameter is a `ParamArray`, or the value of a `Property Let` or `Set`|A `ParamArray` takes every argument after it; a `Let` or a `Set` always takes the value.|
-|The procedure is an event, a handler of an event, or a `Declare`|The event, or the library, decides the parameters.|
+|The procedure is an event, a handler bound to an event, or a `Declare`|The event, or the library, decides the parameters.|
+|The procedure is in a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for, and with which arguments, is not known.|
 
 > [!NOTE]
 > **Not implemented.** The parameter of an event is not removed, with its `RaiseEvent` arguments and its handlers.
@@ -639,7 +644,8 @@ Its choice is a `List` of the parameters (`parameters`), each item a parameter b
 |---|---|
 |A required parameter comes after an optional one, or a `ParamArray` is not last|A parameter list declares them in that order (**MS-VBAL §5.3.1.5**).|
 |A call to the procedure is late-bound, by its name in a string, or not known|The arguments passed there would not be reordered.|
-|The procedure is an event, a handler of an event, or a `Declare`|The event, or the library, decides the parameters.|
+|The procedure is an event, a handler bound to an event, or a `Declare`|The event, or the library, decides the parameters.|
+|The procedure is in a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for, and with which arguments, is not known.|
 |A procedure that changes with it has other parameters|They cannot be put in one order.|
 
 A call that passes two arguments that do more than read a value is a `Change` (`reorderParameters.evaluated`), which `rdcore/refactor/prepare` lists. The arguments are evaluated in the order they are written and assigned in the order of the parameters (**MS-VBAL §5.3.1.11**), so another order can change what the call does. `rdcore/refactor/apply` refuses an order that changes it, unless the user accepts the change.

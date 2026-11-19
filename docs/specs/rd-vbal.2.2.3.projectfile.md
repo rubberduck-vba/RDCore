@@ -8,6 +8,8 @@ RD-VBA discovers a _file system folder_ as a _workspace folder_ when the folder 
 A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes one in memory ([`IProjectFileLoader.LoadOrSynthesizeAsync`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.IProjectFileLoader.html)), and opening the folder writes nothing into it.
 
 - Every source file of the workspace's language (**RD-VBAL §2.0.2.1.1**) under the folder, at any depth, is a module. A folder whose name starts with a dot (`.git`, `.github`) is not searched, nor a link to another folder.
+- A folder that holds exactly one Visual Basic 6 project (a `.vbp`) directly under it, and no project group (a `.vbg`), is that project's: the synthesized project names the `.vbp` as its `SourceProject`, so its language is VB6.
+- No module has a `Super`: a `.doccls` is the class or standard module its text makes it, and the code of no host's document.
 - Each folder that holds a module, at any depth, is a folder of the project.
 - Paths are relative to the root, separated by `/`, in ordinal order. Of two files that declare the same `VB_Name`, the first in that order is the module (**RD-VBAL §2.2.3.3**).
 - The project is named after the folder when the folder's name is a valid _identifier name_ other than `VBA`, and `VBAProject` otherwise, as the VBE names a new project.
@@ -23,7 +25,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ```javascript
 {
-  "Version": "1.2",
+  "Version": "1.3",
   "Configuration": [],
   "ProjectInfo": RDCoreProject
 }
@@ -40,12 +42,20 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ## 2.2.3.0 The format's version
 
-A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.2`, which adds the project's `KeepSystemTheme`, its `Make` section and the `ConsoleApplication` output type ([§2.2.3.1](#2231-rdcoreproject)) to the format `1.1`, which adds its `build` section to the format `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.3`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
+A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.3`. Each version adds to the one before it:
+
+|Version|Adds|
+|---|---|
+|`1.1`|The project's `build` section ([§2.2.3.1](#2231-rdcoreproject)).|
+|`1.2`|The project's `KeepSystemTheme`, its `Make` section and the `ConsoleApplication` output type ([§2.2.3.1](#2231-rdcoreproject)).|
+|`1.3`|References to other projects of the workspace: a reference's `IsProject` ([§2.2.3.2](#2232-rdcorereference)).|
+
+A change that an older RDCore can still read, such as a new member, raises the second number: `1.4`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
 
 RDCore opens a project file whatever version it says:
 
 - **The same format, or an older one.** The project opens. An older file is written in the current format the next time RDCore saves it.
-- **A newer second number** (`1.3` when RDCore writes `1.2`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
+- **A newer second number** (`1.4` when RDCore writes `1.3`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
 - **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
 
 Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open. RDCore reads a `build` section in a file of the format `1.0` as the format `1.1` has it.
@@ -111,7 +121,8 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
   "AbsolutePath": "",
   "Major": 0,
   "Minor": 0,
-  "IsUnremovable": false
+  "IsUnremovable": false,
+  "IsProject": false
 }
 ```
 
@@ -123,6 +134,28 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |`Major`|number, optional|The _major_ version number of the referenced type library. With a `Guid`, the description must have this major version. With a `Guid` and no `Major`, the library is the description of the highest version of the identifier.|
 |`Minor`|number, optional|The _minor_ version number of the referenced type library. With a `Guid`, the description of exactly this minor version is the library, and otherwise the one of the highest minor version above it. With no `Minor`, the library is the description of the highest minor version of `Major`. A `Minor` with a `Guid` and no `Major` is not valid, and the reference is not resolved.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
+|`IsProject`|boolean (`false`)|Whether the reference is to another project of the workspace, by its `Name`, rather than to a library. Added in the format `1.3`.|
+
+### References to projects
+
+A reference to a project (`IsProject`) names the one project of the workspace whose `.rdproj` has that `Name`. A name that no project has, or that two projects share, names none. The referencing project's names are bound among the names that project gives it, at the precedence of the reference:
+
+|Module|Its names that the referencing project sees|
+|---|---|
+|Class module with `VB_Exposed = True` (**MS-VBAL §5.2.4.1.1**)|The class, its default instance when its `VB_PredeclaredId` is `True` (below), and its `Public` variables, procedures and `Enum`s.|
+|Procedural module without `Option Private Module` (**MS-VBAL §5.2.1.4**)|The module, and its `Public` or `Global` variables, constants, procedures, `Enum`s and user-defined types (**MS-VBAL §5.2.3**, and **MS-VBAL §5.3.1** for procedures).|
+|Any other module|None.|
+
+A `Friend` member is a name of its own project only. The names of what the referenced project references are not names of the project that references it. Projects that reference one another in a circle, directly or through other projects, are a circular reference of projects (`RDC31001`); the reference that closes the circle gives no names.
+
+The language server binds the names a referenced project gives, for completion and for the types that declarations name. The environment host defines them in the referencing project's session, beside the session's own modules: a `Module1` of the referenced project is another module than the session's own `Module1`, which keeps the name.
+
+The members of an exposed class bind in the referencing project's code as the members of its own classes do (**MS-VBAL §5.6.12**): through a variable declared as the class, through a variable declared as an interface the referenced project exposes, and through the class's default instance. The environment host composes each class from its members once they are defined, by its identity, so a class of the session's own project with the same name keeps its own members. A name the class does not declare is still none of its members.
+
+The default instance of an exposed class whose `VB_PredeclaredId` is `True` (**MS-VBAL §5.2.4.1.2**) is a name of the referencing project too, named as the class: `Board.Reset` names `Reset` on the default instance of the referenced project's `Board` (`ReferencedProjectSymbols.DefaultInstanceOf`, at the address [`SymbolUri.DefaultInstance`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.SymbolUri.html) gives it). This is an RD-VBA addition: among a referenced project's names, **MS-VBAL §5.6.10** lists the members of a global class module's default instance, and no default instance itself. The session's own default instance of the same name keeps the name. The environment host defines the referenced instance once and keeps the object it holds, until the class is sent again without `VB_PredeclaredId` or without `VB_Exposed`, which removes it.
+
+> [!NOTE]
+> **Not implemented.** The environment host does not load or run a referenced project's code: a session runs its own project's code only, so a call of a member of a referenced project's class does not run, whether it is made through a variable of the class, through a variable of an interface, or through the class's default instance. The members of a referenced project's global class module (`VB_GlobalNamespace = True`) are not names of the referencing project.
 
 A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 

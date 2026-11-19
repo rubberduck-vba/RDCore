@@ -65,9 +65,9 @@ public sealed class CompiledVariantArrayStatementTests
             "    If IsEmpty(V) Then Empties = Empties + 100",
             "End Function"), [], "| 11 |", ("Empties", 0));
 
-    // IsEmpty of an element that holds an array is the standard library's: the interpreter runs the If, and compiled code goes on after it.
+    // IsEmpty of an element that holds an array, read in its cell: an array is not Empty.
     [TestMethod]
-    public async Task IsEmptyOfAnElementHoldingAnArray_IsTheStandardLibrarys()
+    public async Task IsEmptyOfAnElementHoldingAnArray_IsReadInItsCell()
         => await AssertCompiledAsync(Program(
             "Public Sub Main()",
             "    Dim A(1 To 2) As Variant",
@@ -79,7 +79,7 @@ public sealed class CompiledVariantArrayStatementTests
             "    For I = 1 To 2",
             "        If IsEmpty(A(I)) Then Counted = Counted + 1 Else Counted = Counted + 10",
             "    Next",
-            "End Function"), [], "| 11 |", ("Counted", 1));
+            "End Function"), [], "| 11 |", ("Counted", 0));
 
     // a ReDim of an array of Variants and of objects, with Preserve and without, and an Erase: what each lets go of is terminated in the statement.
     [TestMethod]

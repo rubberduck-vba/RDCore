@@ -51,6 +51,9 @@ public enum ParameterReorderRefusalKind
 
     // MS-VBAL §5.3.1.11: a call whose arguments another order of the parameters would evaluate in another order.
     MayEvaluate,
+
+    // what the host of a document module that is not known calls its procedures for, and with which arguments, cannot be told.
+    UnknownDocumentHost,
 }
 
 public sealed record class ParameterReorderRefusal(ParameterReorderRefusalKind Kind, string Name, string? Other = null, Uri? Module = null, SourcePosition Position = default)
@@ -156,7 +159,7 @@ public static class ParameterReorder
 
         if (ParameterRemoval.FamilyOf(context, procedure, target.Parameters[0]) is not { } family)
         {
-            return Refused(new(ParameterReorderRefusalKind.Handler, procedure.Name));
+            return Refused(new(SymbolRename.HasUnknownHost(context, procedure) ? ParameterReorderRefusalKind.UnknownDocumentHost : ParameterReorderRefusalKind.Handler, procedure.Name));
         }
 
         var edits = new List<RenameEdit>();
