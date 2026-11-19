@@ -75,7 +75,8 @@ public static class BuiltProgram
     {
         ArgumentNullException.ThrowIfNull(program);
 
-        // the process's main thread is served while the program runs on another, as rdc's is: on macOS, the RDForms windows of its external host run their loop on it.
+        // the process's main thread is served while the program runs on another, as rdc's is: on macOS, the RDForms windows of its external host run their
+        // loop on it.
         return ProcessMainThread.Serve(() => EntryAsync(program, args));
     }
 
