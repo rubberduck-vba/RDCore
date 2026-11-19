@@ -247,7 +247,7 @@
     <value>corrige {0} à {1}</value>
   </data>
   <data name="PreviewFix_Title" xml:space="preserve">
-    <value>Aperçu d'un correctif</value>
+    <value>Prévisualiser un correctif</value>
   </data>
   <data name="PreviewFix_Description" xml:space="preserve">
     <value>Montre ce que changerait un correctif listé par list_fixes, en diff unifié de chaque document, et les questions que pose sa modification. Ne change rien.</value>
