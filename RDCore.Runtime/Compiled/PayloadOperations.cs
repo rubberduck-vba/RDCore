@@ -104,11 +104,11 @@ public static class PayloadOperations
     public static bool IsWholeKind(ScalarKind kind) => kind is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong;
 
     /// <summary>
-    /// A <c>Single</c> or a <c>Double</c> let-coerced to an integer type (<strong>MS-VBAL §5.5.1.2.1</strong>): the whole number Banker's rounding makes of it
-    /// (<strong>§5.5.1.2.1.1</strong>), when that number is in the range of the type, and otherwise an overflow, as an infinity and a NaN are. This is the
-    /// boxed coercion's (<c>VBNumericType.IsWithinRange</c>, then <c>BankersRounding</c>), the value rounded once.
+    /// A <c>Single</c> or a <c>Double</c> let-coerced to an integer type (<strong>MS-VBAL §5.5.1.2.1</strong>): the whole number Banker's rounding
+    /// makes of it (<strong>§5.5.1.2.1.1</strong>), when that number is in the range of the type, and otherwise an overflow, as an infinity and a NaN
+    /// are. It gives what the boxed coercion gives (<c>VBNumericType.IsWithinRange</c>, then <c>BankersRounding</c>), rounding the value once.
     /// </summary>
-    /// <param name="floating">The value, a <c>Single</c> held as a <see cref="double"/>.</param>
+    /// <param name="floating">The value; a <c>Single</c> is held as a <see cref="double"/>.</param>
     /// <param name="to">The integer type, one <see cref="IsWholeKind"/> is true of.</param>
     /// <param name="result">The whole number.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -116,7 +116,7 @@ public static class PayloadOperations
     {
         var rounded = Math.Round(floating, MidpointRounding.ToEven);
 
-        // the range of a LongLong, as doubles: its least value is one, and its greatest is not, the double past it being 2 to the 63rd.
+        // the range of a LongLong, as doubles: its least value, -2 ^ 63, is a double, and its greatest is not, so the bound is the double past it, 2 ^ 63.
         if (rounded >= long.MinValue && rounded < -(double)long.MinValue)
         {
             result = (long)rounded;
