@@ -626,3 +626,5 @@
   href: rdc30001.md
 - name: "RDC30002: More than one entry point"
   href: rdc30002.md
+- name: "RDC31001: Circular reference of projects"
+  href: rdc31001.md

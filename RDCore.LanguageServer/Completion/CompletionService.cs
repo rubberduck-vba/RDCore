@@ -129,7 +129,8 @@ internal sealed class CompletionService(
     IOptions<SdkAppOptions> options,
     ILogger<CompletionService> logger,
     IWorkspaceProjects workspaceProjects,
-    WorkspaceCompositionCache? compositions = null) : ICompletionService
+    WorkspaceCompositionCache? compositions = null,
+    IReferencedProjectService? referencedProjects = null) : ICompletionService
 {
     // the name the expression a member is accessed on is assigned to, in the line that stands for the one being typed: a name no module declares.
     private const string Probe = "RDCoreCompletionProbe";
@@ -482,12 +483,12 @@ internal sealed class CompletionService(
         var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : SymbolUri.Root(root);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
-        // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
+        // a project's names are bound among what it references, libraries and projects of the workspace, as the host's analysis of it binds them.
         var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver,
             projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
+            libraries: referencedProjects?.LibrariesOf(workspaceRoot, root, token) ?? (primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null),
             documentHosts: isOwnProject ? null : DocumentHostsOf(root));
 
         return (composition, syntaxTree, workspaceRoot, moduleUri);

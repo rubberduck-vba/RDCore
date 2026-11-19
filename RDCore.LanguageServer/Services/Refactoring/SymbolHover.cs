@@ -72,7 +72,7 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         {
             VBModuleSymbol module => $"{(module.Kind == SymbolKindExt.Class ? "Class" : "Module")} {module.Name}",
             VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol when SignatureDescription.Of(symbol) is { } property
-                => access + property.Label.Replace("Property ", $"Property {AccessorOf(symbol)} ", StringComparison.Ordinal),
+                => access + ProcedureKeywords.Of(symbol) + property.Label[Tokens.Property.Length..],
             _ when SignatureDescription.Of(symbol) is { } signature => access + signature.Label,
             VBEventMemberSymbol => $"{access}Event {symbol.Name}",
             VBEnumMemberSymbol => $"{access}Enum {symbol.Name}",
@@ -87,13 +87,6 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
             _ => $"{(access.Length > 0 ? access : "Dim ")}{symbol.Name}{AsTypeOf(symbol)}",
         };
     }
-
-    private static string AccessorOf(Symbol property) => property switch
-    {
-        VBPropertyLetMemberSymbol => "Let",
-        VBPropertySetMemberSymbol => "Set",
-        _ => "Get",
-    };
 
     private static string PassingOf(ParameterKind kind) => kind switch
     {
