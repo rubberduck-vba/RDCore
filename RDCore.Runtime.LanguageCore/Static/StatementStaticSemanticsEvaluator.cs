@@ -368,8 +368,8 @@ public static class StatementStaticSemanticsEvaluator
                 return;
             }
 
-            // MS-VBAL §5.4.3.8: a Let of an object is a Let of its default member, which is given the value Let-coerced to what it takes, as the run-time pass
-            // coerces it. Which member that is, an Object says only when it runs; a class that has none raises 438, and takes no value.
+            // MS-VBAL §5.4.3.8: a Let of an object is a Let of its default member, which is given the value Let-coerced to what it takes, as the
+            // run-time pass coerces it. An Object's default member is found only when it runs; a class that has none raises 438 and takes no value.
             if (letsADefaultMember && valueResult.IsSuccess && (targetResult.Result is VBObjectType
                 || targetResult.Result is VBClassType targetClass && CurrentTypes.Of(context.Resolver, targetClass).DefaultMember is not null))
             {

@@ -58,8 +58,8 @@ internal static class DefaultMemberAccesses
             .Where(conversion => conversion.Flags.HasFlag(ConversionSemanticFlags.ObjectOperand))
             .Select(conversion => conversion.Location.Range)
             .ToHashSet();
-        // the static facts state that the value of a Let is let-coerced in the code the runtime pass does not reach as well: after an error raised before it,
-        // or in a procedure it does not analyze fully.
+        // the static facts also state that the value of a Let is let-coerced in code the runtime pass does not reach: after an error raised before it, or
+        // in a procedure it does not analyze fully.
         objectOperands.UnionWith(expressions
             .Where(fact => fact is { IsLetCoerced: true, Error: null, IsArray: false, TypeKind: DeclaredTypeKind.Object or DeclaredTypeKind.Class })
             .Select(fact => fact.Location.Range));
