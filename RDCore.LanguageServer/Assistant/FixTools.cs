@@ -112,7 +112,7 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
         {
             TextDocument = new TextDocumentIdentifier(document.Id.Uri),
             Range = range,
-            Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(findings.Where(finding => Overlaps(finding.Range, range))) },
+            Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(findings.Where(finding => finding.Range.ToSourceRange().Touches(range.ToSourceRange()))) },
         };
         return await actions.ActionsAsync(request, Client, token);
     }
@@ -131,7 +131,7 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
             throw new AssistantToolRefusedException(AssistantToolTexts.FixStale);
         }
 
-        var range = LspRangeOf(fix.Range.ToSourceRange());
+        var range = fix.Range.ToSourceRange().ToLsp();
         var action = (await ActionsAsync(document, findings, range, token)).FirstOrDefault(action => KindOf(action) == fix.Kind && action.Title == fix.Title)
             ?? throw new AssistantToolRefusedException(AssistantToolTexts.FixStale);
         if (action.Edit is null && action.Data is not null)
@@ -144,7 +144,7 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
 
     public ToolFix Project(CodeAction action, WorkspaceDocument document, LspRange range) => new()
     {
-        FixId = FixIds.Of(new FixIdParts(documents.PathOf(document.Id.Uri), document.Version, TextRange.Of(SourceRangeOf(range)), KindOf(action), action.Title)),
+        FixId = FixIds.Of(new FixIdParts(documents.PathOf(document.Id.Uri), document.Version, TextRange.Of(range.ToSourceRange()), KindOf(action), action.Title)),
         Title = action.Title,
         Kind = KindOf(action),
         IsPreferred = action.IsPreferred,
@@ -168,13 +168,6 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
     }
 
     private static string KindOf(CodeAction action) => action.Kind.ToString() ?? string.Empty;
-
-    public static LspRange LspRangeOf(SourceRange range) => new(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
-
-    private static SourceRange SourceRangeOf(LspRange range) => new(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
-
-    // two ranges overlap when neither ends before the other starts; an empty range at a finding's edge touches it.
-    private static bool Overlaps(LspRange left, LspRange right) => !(left.End < right.Start || right.End < left.Start);
 }
 
 internal sealed class ListFixesTool(FixToolEdits fixes) : AssistantTool<ListFixesToolArguments, ListFixesToolResult>
@@ -207,7 +200,7 @@ internal sealed class ListFixesTool(FixToolEdits fixes) : AssistantTool<ListFixe
 
         // with no range, the fixes of each finding: what is asked at its range that fixes something.
         var ranges = arguments.Range is { } range
-            ? [FixToolEdits.LspRangeOf(range.ToSourceRange())]
+            ? [range.ToSourceRange().ToLsp()]
             : findings.Select(finding => finding.Range).Distinct().ToList();
         var found = new List<ToolFix>();
         foreach (var asked in ranges)
