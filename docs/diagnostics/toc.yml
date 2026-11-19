@@ -620,6 +620,8 @@
   href: rdc11046.md
 - name: "RDC11047: Object assigned with Let to an object property"
   href: rdc11047.md
+- name: "RDC11049: Single-line If with no statement"
+  href: rdc11049.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md
 - name: "RDC30001: No entry point"

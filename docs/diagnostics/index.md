@@ -356,6 +356,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11045](rdc11045.md)|Let through a default member with no Property Let|`total = 5` compiles in RD-VBA, where MS-VBA refuses it|
 |[RDC11046](rdc11046.md)|Let through a Variant property or function|RD-VBA assigns the returned object's default member, as MS-VBA does, where MS-VBAL raises 451 or 450|
 |[RDC11047](rdc11047.md)|Object assigned with Let to an object property|An object given with `Let` to a property whose value parameter is a class or `Object`: MS-VBA passes the object, MS-VBAL makes it a type mismatch|
+|[RDC11049](rdc11049.md)|Single-line If with no statement|`If x Then:` with nothing after the colon: VB6 runs it as an `If` that does nothing, MS-VBAL gives the line no reading|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 |[RDC30001](rdc30001.md)|No entry point|`rdc run` or `rdc build` of a workspace with no `Sub Main`, an entry point the `.rdproj` names that nothing declares, or a library|
 |[RDC30002](rdc30002.md)|More than one entry point|`rdc run` or `rdc build` of a workspace where more than one standard module declares a `Sub Main`, and the `.rdproj` names none|

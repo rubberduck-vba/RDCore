@@ -18,6 +18,16 @@ branch's statement, typically its only one
 See [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md) and
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md).
 
+## Static Semantics
+
+**RD-VBA differs from MS-VBAL:** a line that ends with `Then` and one or more colons, with no statement after them and no `Else`
+(`If x Then:`), is a single-line `If` with no statement, as VB6 reads it. Its `ThenBody` is empty and its `ElseBody` is `null`, and the lines
+after it run whatever the condition. MS-VBAL gives the line no reading: a `<list-or-label>` needs a statement after its colon, and an
+`<if-statement>` ([**RD-VBAL §5.4.2.8** If Statement](rd-vbal.5.4.2.8.if-statement.md)) ends its line right after `Then`.
+[`RDC11049`](../diagnostics/rdc11049.md) marks the line.
+
+When an `End If` closes a block that starts on the next line, the line is the header of that block `If`.
+
 ## Runtime Semantics
 
 The executor dispatches `ConditionalBranch` for a single-line `If`, with a Boolean condition, the same way as for a

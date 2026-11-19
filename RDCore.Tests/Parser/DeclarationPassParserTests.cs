@@ -1127,6 +1127,49 @@ End Sub
         Assert.HasCount(1, ifStmt.ElseBody!.Children);
     }
 
+    // RD-VBAL §5.4.2.9: `If x Then:` with nothing after the colons, and no End If to close a block, is a single-line If with no statement, as vb6.exe
+    // reads it; the next line is a statement of the procedure.
+    [TestMethod]
+    [DataRow("If x Then:", DisplayName = "a colon")]
+    [DataRow("If x Then :", DisplayName = "a space and a colon")]
+    [DataRow("If x Then::", DisplayName = "two colons")]
+    public void SingleLineIf_ThenAndAColonAtTheEndOfTheLine_IsAnIfWithNoStatement_WhereNoEndIfFollows(string header)
+    {
+        var result = ParseInProcedure($"{header}\r\n    Debug.Print \"A\"");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.IsEmpty(ifStmt.ThenBody.Children);
+        Assert.IsNull(ifStmt.ElseBody);
+        Assert.IsEmpty(member.Children.OfType<IfBlockStatementNode>());
+    }
+
+    // MS-VBAL §5.4.2.8 reads the same header as a block If, a ':' ending its statement as a line end does; with an End If to close it, it is one.
+    [TestMethod]
+    public void BlockIf_ThenAndAColon_IsABlockIf_WhereAnEndIfClosesIt()
+    {
+        var result = ParseInProcedure("If x Then:\r\n    Debug.Print \"A\"\r\n    End If");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifBlock = member.Children.OfType<IfBlockStatementNode>().Single();
+
+        Assert.HasCount(1, ifBlock.Body.Children);
+        Assert.IsEmpty(member.Children.OfType<InlineIfStatementNode>());
+    }
+
+    [TestMethod]
+    public void SingleLineIf_ThenAndAColon_InABlockIf_IsTheOneTheBlocksEndIfDoesNotClose()
+    {
+        var result = ParseInProcedure("If a Then\r\n    If b Then:\r\n    Debug.Print \"A\"\r\n    End If");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var outer = member.Children.OfType<IfBlockStatementNode>().Single();
+
+        Assert.IsInstanceOfType<InlineIfStatementNode>(outer.Body.Children[0]);
+        Assert.HasCount(2, outer.Body.Children);
+    }
+
     [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {

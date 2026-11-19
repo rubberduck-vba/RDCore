@@ -690,4 +690,7 @@
   <data name="WriteOnlyProperty_Fix" xml:space="preserve">
     <value>Ajouter un Property Get &apos;{0}&apos; qui renvoie la valeur que le Let garde dans &apos;{1}&apos;</value>
   </data>
+  <data name="SingleLineIfWithNoStatement_Message" xml:space="preserve">
+    <value>Rien ne suit le deux-points après Then : cette ligne s&apos;exécute comme un If sans instruction, comme dans VB6, et les lignes qui la suivent s&apos;exécutent quelle que soit la condition. MS-VBAL §5.4.2.9 ne donne aucune lecture de cette ligne.</value>
+  </data>
 </root>

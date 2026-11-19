@@ -438,7 +438,9 @@ elseBlock :
 // 5.4.2.9 Single-line If Statement
 singleLineIfStmt : ifWithNonEmptyThen | ifWithEmptyThen;
 ifWithNonEmptyThen : IF whiteSpace? booleanExpression whiteSpace? THEN whiteSpace? listOrLabel (whiteSpace singleLineElseClause)?;
-ifWithEmptyThen : IF whiteSpace? booleanExpression whiteSpace? THEN whiteSpace? emptyThenStatement? singleLineElseClause;
+// `If x Then:` with nothing after its colons and no Else is a single-line If with no statement, as VB6 reads it (RD-VBAL 5.4.2.9), where no End If
+// closes a block after it: ifStmt, listed first in mainBlockStmt, is predicted where one does.
+ifWithEmptyThen : IF whiteSpace? booleanExpression whiteSpace? THEN whiteSpace? (emptyThenStatement? singleLineElseClause | emptyThenStatement);
 singleLineElseClause : ELSE whiteSpace? listOrLabel?;
 
 // lineNumberLabel should actually be "statement-label" according to MS VBAL but they only allow lineNumberLabels:
