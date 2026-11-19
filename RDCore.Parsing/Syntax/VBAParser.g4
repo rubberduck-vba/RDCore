@@ -318,7 +318,7 @@ getStmt : GET whiteSpace fileNumber whiteSpace? COMMA whiteSpace? recordNumber? 
 variable : expression;
 
 
-constStmt : (visibility whiteSpace)? CONST whiteSpace constSubStmt (whiteSpace? COMMA whiteSpace? constSubStmt)*;
+constStmt : (variableVisibility whiteSpace)? CONST whiteSpace constSubStmt (whiteSpace? COMMA whiteSpace? constSubStmt)*;
 constSubStmt : identifier (whiteSpace asTypeClause)? whiteSpace? EQ whiteSpace? expression;
 
 declareStmt : (visibility whiteSpace)? DECLARE whiteSpace (PTRSAFE whiteSpace)? (FUNCTION | SUB) whiteSpace identifier whiteSpace (CDECL whiteSpace)? LIB whiteSpace STRINGLITERAL (whiteSpace ALIAS whiteSpace STRINGLITERAL)? (whiteSpace? argList)? (whiteSpace asTypeClause)? (endOfLine attributeStmt)*;
@@ -587,7 +587,7 @@ upperBound : constantExpression;
 
 constantExpression : expression;
 
-variableStmt : (DIM | STATIC | visibility) whiteSpace variableListStmt;
+variableStmt : (DIM | STATIC | variableVisibility) whiteSpace variableListStmt;
 variableListStmt : variableSubStmt (whiteSpace? COMMA whiteSpace? variableSubStmt)*;
 variableSubStmt : (WITHEVENTS whiteSpace)? identifier (whiteSpace? arrayDim)? (whiteSpace asTypeClause)?;
 
@@ -686,6 +686,9 @@ type : (baseType | complexType) (whiteSpace? LPAREN whiteSpace? RPAREN)?;
 typeHint : PERCENT | AMPERSAND | POW | EXCLAMATIONPOINT | HASH | AT | DOLLAR;
 
 visibility : PRIVATE | PUBLIC | FRIEND | GLOBAL;
+
+// MS-VBAL §5.2.3.1.1, §5.2.3.2: a variable or a constant is declared Public, Global or Private, never Friend.
+variableVisibility : PRIVATE | PUBLIC | GLOBAL;
 
 // 5.6 Expressions
 expression :
