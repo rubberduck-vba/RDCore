@@ -27,6 +27,7 @@ namespace RDCore.Tests.Diagnostics;
 /// parser's located syntax errors through <see cref="ICoreDiagnosticsFactory"/> and returns them as
 /// LSP <see cref="Diagnostic"/>s over <c>rdcore/diagnostics/document</c>.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class DiagnoseDocumentHandlerTests
 {

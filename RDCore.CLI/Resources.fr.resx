@@ -356,10 +356,10 @@
     <value>{0} DANS {1} À LA LIGNE {2}</value>
   </data>
   <data name="Repl_RuntimeError_Source" xml:space="preserve">
-    <value>SOURCE: {0}</value>
+    <value>SOURCE : {0}</value>
   </data>
   <data name="Repl_RuntimeError_StackTrace" xml:space="preserve">
-    <value>PILE D'APPELS:</value>
+    <value>PILE D'APPELS :</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
     <value>ERREUR: NON IMPLÉMENTÉ</value>
@@ -462,6 +462,12 @@
   </data>
   <data name="Repl_Frame_InModuleLine" xml:space="preserve">
     <value>({0} à la ligne {1})</value>
+  </data>
+  <data name="Repl_Frame_FromGoSub" xml:space="preserve">
+    <value>depuis {0}</value>
+  </data>
+  <data name="Repl_Frame_InHandler" xml:space="preserve">
+    <value>dans {0}</value>
   </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>il n'y a pas de session d'exécution</value>
@@ -629,7 +635,7 @@
     <value>Si la console exécute les programmes sans surveillance (--unattended) : personne n'est là pour répondre à une boîte de dialogue, et un programme qui en ouvre une - MsgBox, InputBox, un formulaire affiché - échoue avec VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Si rdc run, et les programmes que rdc build construit, affichent MsgBox et InputBox comme les boîtes de dialogue de la machine là où elle en a (Windows), plutôt que de les demander à la console.</value>
+    <value>Si une application console, exécutée par rdc run ou construite par rdc build, affiche MsgBox et InputBox comme les boîtes de dialogue de la machine là où elle en a (Windows), plutôt que de les demander à la console. Tout autre programme affiche les boîtes de dialogue de la machine là où elle en a.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>Combien de lignes du programme sont listées au-dessus et au-dessous de la ligne où un programme s'est arrêté, après INTERRUPTION À LA LIGNE. 0 n'en liste aucune.</value>

@@ -21,6 +21,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// <c>#TRUE#</c>, <c>#NULL#</c>, <c>#ERROR n#</c>, <c>#yyyy-mm-dd#</c> — are what most of these cover, plus
 /// the rules that depend on the declared type of the variable being read into rather than on the field.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.10 Input")]
 public sealed class InputStatementTests

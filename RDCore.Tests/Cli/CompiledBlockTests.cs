@@ -35,10 +35,10 @@ public sealed class CompiledBlockTests
 
     private static string WithHelpers(params string[] lines) => Program([.. lines, .. Helpers]);
 
-    // the With is the interpreter's; each call of .Add is a support call, made on the object the block holds; the For loop inside the block is compiled
+    // the With is compiled code's; each call of .Add is a support call, made on the object the block holds; the For loop inside the block is compiled
     // code's, and so are the call of .Count inside an expression and the End With, the variable still holding the object.
     [TestMethod]
-    public async Task AWith_IsSteppedByTheInterpreter_AroundACompiledLoop()
+    public async Task AWith_IsOpenedByCompiledCode_AroundACompiledLoop()
     {
         var compiled = await AssertAlikeAsync(Program(
             "Public Sub Main()",
@@ -54,9 +54,11 @@ public sealed class CompiledBlockTests
             "        Next",
             "        Filled = Filled + .Count",
             "    End With",
-            "End Function"), "Filled", recoveries: 1);
+            "End Function"), "Filled", recoveries: 0);
 
-        Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.With) }),
+        Assert.IsFalse(
+            compiled.Stepped.Any(reason
+                => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.With) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 
@@ -76,7 +78,7 @@ public sealed class CompiledBlockTests
             "        Next",
             "    End With",
             "    Report Held",
-            "End Function"), "Held", recoveries: 2, classes: Noisy);
+            "End Function"), "Held", recoveries: 1, classes: Noisy);
 
     // the element a For Each assigns V each pass is in V's cell, which compiled code reads: the statements of the body are its own. The Add of the
     // Collection is a support call, and so are the For Each and its Next.
@@ -232,7 +234,7 @@ public sealed class CompiledBlockTests
             "        Report Nested",
             "    End With",
             "    Report Nested + 1",
-            "End Function"), "Nested", recoveries: 5, classes: Noisy);
+            "End Function"), "Nested", recoveries: 4, classes: Noisy);
 
     // an Exit For out of a With inside the loop leaves the With without its End With: compiled code lets its object go where the interpreter does.
     [TestMethod]
@@ -251,7 +253,7 @@ public sealed class CompiledBlockTests
             "        End With",
             "    Next",
             "    Report Quit",
-            "End Function"), "Quit", recoveries: 3, classes: Noisy);
+            "End Function"), "Quit", recoveries: 1, classes: Noisy);
 
     // a Select Case of a fixed-length String selector, and its Cases, are the interpreter's, and so is the Let of the String (three Selects, five Cases and
     // three Lets); the loop around them is compiled code's.

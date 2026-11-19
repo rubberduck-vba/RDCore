@@ -468,6 +468,14 @@
     <value>({0} line {1})</value>
     <comment>Where an activation of a module of the workspace is, in STACK and in a run-time error's stack trace. {0} is the name of the module, {1} the line of the module.</comment>
   </data>
+  <data name="Repl_Frame_FromGoSub" xml:space="preserve">
+    <value>from {0}</value>
+    <comment>How an activation got to its line by a GoSub, in STACK and in a run-time error's stack trace: one per GoSub it has not returned from. {0} is the line of the GoSub.</comment>
+  </data>
+  <data name="Repl_Frame_InHandler" xml:space="preserve">
+    <value>in {0}</value>
+    <comment>The error handler an activation is in, in STACK. {0} is the label of the handler.</comment>
+  </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>there is no runtime session</value>
   </data>
@@ -634,7 +642,7 @@
     <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Whether rdc run, and the programs rdc build builds, show MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console.</value>
+    <value>Whether a console application, run by rdc run or built by rdc build, shows MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console. Any other program shows the machine's own dialogs where it has them.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>

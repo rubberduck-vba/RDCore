@@ -60,7 +60,7 @@ public sealed class ModuleSweep
     /// Evaluates the procedures.
     /// </summary>
     /// <param name="cancellation">
-    /// Stops the evaluation between instructions, and while it makes the elements of a fixed-size array a procedure declares.
+    /// Stops the evaluation between instructions, and when it makes an element of a fixed-size array a procedure declares.
     /// </param>
     /// <returns>
     /// The facts of each procedure, by the <see cref="Symbol.SemanticId"/> of the procedure. A procedure that could not be evaluated in full has the facts

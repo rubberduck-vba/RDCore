@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -68,37 +69,109 @@ public static class VariantOperations
 
     /// <summary>
     /// <c>IsEmpty</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.4): whether it holds <c>Empty</c>. A Variant that holds a value of
-    /// a scalar type, a <c>String</c>, <c>Null</c> or an error does not.
+    /// a scalar type, a <c>String</c>, <c>Null</c>, an error or an array does not.
     /// </summary>
     /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
     /// <param name="empty">Whether the Variant holds <c>Empty</c>.</param>
     /// <returns>
     /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
-    /// <c>IsEmpty</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// <c>IsEmpty</c> looks at), its value is not known, or its frame holds it in no Variant's cell.
     /// </returns>
     public static bool IsEmpty(object? cell, out bool empty)
     {
-        empty = false;
+        var known = TrySubtypeOf(cell, out var subtype);
+        empty = known && subtype == VBVarType.VBEmpty;
+        return known || HoldsAnArray(cell);
+    }
+
+    // whether the Variant held in cell holds an array, its value known, in it or in a Variant it holds (StdInformation.Unwrapped).
+    private static bool HoldsAnArray(object? cell)
+        => cell is not null && Unsafe.As<VariantCell>(cell) is { IsKnown: true, Value: VBRuntimeVariantValue { WrappedValue: var wrapped } }
+            && StdInformation.Unwrapped(wrapped) is VBArrayValue;
+
+    /// <summary>
+    /// <c>IsNull</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.7): whether it holds <c>Null</c>. A Variant that holds a value of a
+    /// scalar type, <c>Empty</c>, a <c>String</c> or an error does not.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="isNull">Whether the Variant holds <c>Null</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
+    /// <c>IsNull</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool IsNull(object? cell, out bool isNull)
+    {
+        var known = TrySubtypeOf(cell, out var subtype);
+        isNull = known && subtype == VBVarType.VBNull;
+        return known;
+    }
+
+    /// <summary>
+    /// <c>VarType</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.13): the subtype of the value of a scalar type, <c>Empty</c>,
+    /// <c>Null</c>, <c>String</c> or error it holds.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="varType">The subtype, as <c>VarType</c> returns it.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, whose default member's value
+    /// <c>VarType</c> looks at, or an array), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool VarType(object? cell, out long varType)
+    {
+        var known = TrySubtypeOf(cell, out var subtype);
+        varType = (long)subtype;
+        return known;
+    }
+
+    /// <summary>
+    /// <c>TypeName</c> of the Variant held in <paramref name="cell"/> (MS-VBAL §6.1.2.7.1.12): the name of the subtype of the value of a scalar type,
+    /// <c>Empty</c>, <c>Null</c>, <c>String</c> or error it holds, as the standard library names it (<see cref="StdInformation.NameOf"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="name">The name; <see langword="null"/> when the answer is the standard library's.</param>
+    /// <returns>
+    /// <see langword="false"/> when the answer is the standard library's: the Variant holds anything else (an object, which its class names, an array or a
+    /// record), its value is not known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool TypeName(object? cell, out string? name)
+    {
+        name = TrySubtypeOf(cell, out var subtype) ? StdInformation.NameOf(subtype) : null;
+        return name is not null;
+    }
+
+    // the subtype of a payload, by its kind: what the standard library's VarType says of a value of the kind's type (VBVarTypeExtensions.VarType).
+    private static readonly VBVarType[] PayloadSubtypes = [.. Enum.GetValues<ScalarKind>().Select(kind => ScalarKinds.TypeOf(kind).VarType())];
+
+    // the subtype of what the Variant held in cell holds, as the standard library's VarType says it: of a payload, by its kind; of Empty, Null, a String or
+    // an error (Missing among them), by its type, held in the Variant or in a Variant it holds (StdInformation.Unwrapped). None of anything else, of a value
+    // that is not known, or of a Variant its frame holds in no Variant's cell.
+    private static bool TrySubtypeOf(object? cell, out VBVarType subtype)
+    {
+        subtype = VBVarType.VBEmpty;
         if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant)
         {
             return false;
         }
 
-        if (variant.TryRead(out _))
+        if (variant.TryRead(out var payload))
         {
+            if (payload.Kind is not { } kind)
+            {
+                return false;
+            }
+
+            subtype = PayloadSubtypes[(int)kind];
             return true;
         }
 
-        switch (variant.Value)
+        if (variant.Value is VBRuntimeVariantValue { WrappedValue: var wrapped }
+            && StdInformation.Unwrapped(wrapped) is (VBEmptyValue or VBNullValue or VBStringValue or VBErrorValue) and var held)
         {
-            case VBRuntimeVariantValue { WrappedValue: VBEmptyValue }:
-                empty = true;
-                return true;
-            case VBRuntimeVariantValue { WrappedValue: VBStringValue or VBNullValue or VBErrorValue }:
-                return true;
-            default:
-                return false;
+            subtype = held.TypeInfo.VarType();
+            return true;
         }
+
+        return false;
     }
 
     /// <summary>
@@ -123,6 +196,68 @@ public static class VariantOperations
         return variant.IsKnown && (variant.HoldsNoObject || variant.Value is VBRuntimeVariantValue { WrappedValue.TypeInfo: not (VBArrayType or VBUserDefinedType) })
             ? variant.Value
             : null;
+    }
+
+    /// <summary>
+    /// The text the Variant held in <paramref name="cell"/> is let-coerced to as a <c>String</c>, as the interpreter's let-coercion writes it
+    /// (<see cref="TextOf"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the interpreter let-coerces it: the Variant holds anything <see cref="TextOf"/> writes no text of, its value is not
+    /// known, or its frame holds it in no Variant's cell.
+    /// </returns>
+    public static bool ReadText(object? cell, out string? text)
+    {
+        text = null;
+        if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant)
+        {
+            return false;
+        }
+
+        return variant.TryRead(out var payload) ? TryWriteWhole(payload, out text) : TextOf(variant.Value, out text);
+    }
+
+    /// <summary>
+    /// The text a Variant that holds <paramref name="value"/> is let-coerced to as a <c>String</c>, as the interpreter's let-coercion writes it: a copy of
+    /// the <c>String</c> it holds (<strong>MS-VBAL §5.5.1.2.4</strong>), the zero-length string of <c>Empty</c> (<strong>MS-VBAL §5.5.1.2.11</strong>),
+    /// and the digits of a <c>Byte</c>, an <c>Integer</c>, a <c>Long</c> or a <c>LongLong</c>, after a minus sign when it is negative, which no regional
+    /// setting changes (<see cref="StringOperations.OfWhole"/>).
+    /// </summary>
+    /// <param name="value">What the Variant holds (<see cref="CompiledActivation.VariantValueOf"/>); <see langword="null"/> when it is not known.</param>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when the interpreter let-coerces it: the Variant holds <c>Null</c>, which raises error 94
+    /// (<strong>MS-VBAL §5.5.1.2.10</strong>); a <c>Date</c>, a <c>Boolean</c> or any other number, which is written in the regional settings of the
+    /// session; an error or an object; or its value is not known.
+    /// </returns>
+    public static bool TextOf(IRuntimeValue? value, out string? text)
+    {
+        text = null;
+        switch (value)
+        {
+            case VBRuntimeVariantValue { WrappedValue: VBEmptyValue }:
+                text = string.Empty;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> held } }:
+                text = held.StoredValue;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: { IsIndeterminate: false } scalar }
+                when ScalarPayload.IsScalar(scalar.TypeInfo) && ScalarPayload.TryOf(scalar.TypeInfo, scalar.RuntimeValue, out var payload):
+                return TryWriteWhole(payload, out text);
+            default:
+                return false;
+        }
+    }
+
+    // a whole number's digits (StringOperations.OfWhole); none of any other payload.
+    private static bool TryWriteWhole(ScalarPayload payload, out string? text)
+    {
+        text = ScalarKinds.Of(payload.Type) is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong
+            ? StringOperations.OfWhole(payload.Integral)
+            : null;
+        return text is not null;
     }
 
     /// <summary>
@@ -153,6 +288,46 @@ public static class VariantOperations
     /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
     /// <returns>Whether <c>Null</c> was assigned: when not, the interpreter runs the assignment.</returns>
     public static bool WriteNull(object? cell) => Store(cell, new VBRuntimeVariantValue(VBNullType.TypeInfo.VarType(), new VBNullValue()));
+
+    /// <summary>
+    /// Let-assigns to the Variant held in <paramref name="target"/> what the Variant held in <paramref name="source"/> holds, when that is a <c>String</c>
+    /// or <c>Null</c>: the target then holds a copy of it (<strong>MS-VBAL §5.5.1.2.12</strong>), as the interpreter's assignment makes it. A value of a
+    /// scalar type is assigned as a payload instead (<see cref="Read"/>, <see cref="Write"/>).
+    /// </summary>
+    /// <param name="target">The cell of the Variant assigned; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <param name="source">The cell of the Variant read; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <returns>
+    /// Whether the value was assigned. When not, the interpreter runs the assignment: the source holds anything else (<c>Empty</c>, an error, an object,
+    /// an array), a String that ends with a lone byte, or a value that is not known; or the target holds an object, an array or a record, which the
+    /// assignment lets go of.
+    /// </returns>
+    public static bool CopyTextOrNull(object? target, object? source)
+        => TextOrNullOf(source, out var text, out var isNull) && (isNull ? WriteNull(target) : WriteText(target, text));
+
+    // what the Variant held in cell holds when it is a String, known and of whole characters (its text, null for vbNullString), or Null; never a payload.
+    internal static bool TextOrNullOf(object? cell, out string? text, out bool isNull)
+    {
+        (text, isNull) = (null, false);
+        if (cell is null || Unsafe.As<VariantCell>(cell) is not { IsKnown: true } variant || variant.TryRead(out _))
+        {
+            return false;
+        }
+
+        switch (variant.Value)
+        {
+            case VBRuntimeVariantValue
+            {
+                WrappedValue: VBStringValue { IsIndeterminate: false, TrailingByte: null, RuntimeValue: VBRuntimeValue<string> held } and not VBFixedStringValue
+            }:
+                text = held.StoredValue;
+                return true;
+            case VBRuntimeVariantValue { WrappedValue: VBNullValue }:
+                isNull = true;
+                return true;
+            default:
+                return false;
+        }
+    }
 
     // a String or Null, stored in the Variant's cell when it holds no object, array or record (VariantCell.HoldsNoObject), as the interpreter's
     // assignment stores it.

@@ -19,6 +19,7 @@ namespace RDCore.Tests.Diagnostics;
 /// What is said of the code of a host's document, which RD-VBA analyzes and does not host: <c>RDC01005</c> at the module, with each place that presumes the host,
 /// and at each name of it in another module; <c>RDC01006</c> and <c>RDC01007</c> when its host's class is not known; <c>RDC11024</c> at its <c>Implements</c>.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("RD-VBAL §2.6.4 Rubberduck Core Diagnostics")]
 public sealed class DocumentModuleDiagnosticsTests
@@ -38,7 +39,7 @@ public sealed class DocumentModuleDiagnosticsTests
     }
 
     private static readonly string GameSheet = string.Join("\r\n",
-        "'@Folder(\"Battleship.View\")",
+        "'@Folder(\"NavalBattle.View\")",
         "Option Explicit",
         "Private Sub Worksheet_Change(ByVal Target As Range)",
         "    If Target.Row = 1 Then Exit Sub",

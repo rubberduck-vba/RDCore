@@ -10,6 +10,7 @@ namespace RDCore.Tests.LanguageServer;
 /// The files a client created, renamed or deleted (<c>workspace/didCreateFiles</c>, <c>didRenameFiles</c>, <c>didDeleteFiles</c>), and what the project is made
 /// of them: a source file is a module, a folder that holds one is a folder of the project, and what is outside the workspace or in a dot folder is nothing of it.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceFileOperationServiceTests
 {

@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Platform.Protocol;
+﻿using RDCore.Runtime.Support.Host;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
@@ -92,10 +93,13 @@ public sealed class VisualBasicFormLifecycleTests
         return new RDCore.External.ExternalWorld(automation, RDCore.External.Native.UnavailableNativeLibraryHost.Instance) { Forms = seen?.Invoke(forms) ?? forms };
     }
 
-    // the forms of a world, which record each form shown and the form its Show gave as its owner, by their names.
+    // the forms of a world, which record each form made and whether the program that made it runs unattended, and each form shown and the form its Show gave
+    // as its owner, by their names.
     private sealed class OwnersRecorded(RDCore.External.Forms.IFormHost forms) : RDCore.External.Forms.IFormHost
     {
         private readonly Dictionary<object, string> _names = new(ReferenceEqualityComparer.Instance);
+
+        public List<(string Form, bool Unattended)> Created { get; } = [];
 
         public List<(string Form, string? Owner)> Shown { get; } = [];
 
@@ -105,6 +109,7 @@ public sealed class VisualBasicFormLifecycleTests
 
         public object Create(RDCore.External.Forms.FormDefinition form)
         {
+            Created.Add((form.Name, form.Unattended));
             var created = forms.Create(form);
             _names[created] = form.Name;
             return created;
@@ -284,6 +289,90 @@ public sealed class VisualBasicFormLifecycleTests
         CollectionAssert.AreEqual(new (string, string?)[] { ("Form3", null), ("Form2", owner) }, recorded!.Shown);
     }
 
+    // the form host is a server, called with the program's turn given up as any server is: the thread it makes its calls on can be handling an event of the
+    // session, which takes the turn, and a program that kept it would wait for that thread while the thread waits for it. The second run is the one recorded,
+    // in the session the first ran in.
+    [TestMethod]
+    public async Task TheFormHost_IsCalledWithTheProgramsTurnGivenUp()
+    {
+        EnvironmentSessionProvider? recording = null;
+        TurnRecorded? recorded = null;
+        var libraries = new ModuleWorkspace.WorkspaceLibraries([], Shipped) with
+        {
+            Outside = RDFormsWorld(forms => recorded = new TurnRecorded(forms, () => recording?.Session.Turn)),
+        };
+
+        await ModuleWorkspace.InspectAsync([], Program([
+            "Form2.Show", "Form2.Caption = \"Shown\"", "Debug.Print Form2.Caption", "Debug.Print Form2.Visible", "Form2.Hide", "Debug.Print Form2.Visible",
+            "Unload Form2"]), async (provider, first, again) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+            recording = provider;
+            var second = await again();
+            Assert.AreEqual(ExecutionOutcome.Completed, second.Outcome, second.ErrorMessage);
+        }, libraries: libraries, language: SupportedLanguages.VB6, forms: Forms());
+
+        var calls = recorded!.Calls.Select(call => call.Call).Distinct().ToArray();
+        CollectionAssert.IsSubsetOf(new[] { "Show", "SetCaption", "GetCaption", "IsShown", "Hide" }, calls, string.Join(", ", calls));
+        var kept = recorded.Calls.Where(call => !call.TurnGivenUp).Select(call => call.Call).ToArray();
+        Assert.IsEmpty(kept, string.Join(", ", kept));
+    }
+
+    // the forms of a world, which record each call the program makes of them, and whether the program's turn was given up for it then.
+    private sealed class TurnRecorded(RDCore.External.Forms.IFormHost forms, Func<ISessionTurn?> turn) : RDCore.External.Forms.IFormHost
+    {
+        public List<(string Call, bool TurnGivenUp)> Calls { get; } = [];
+
+        public bool IsAvailable => forms.IsAvailable;
+
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
+        public object Create(RDCore.External.Forms.FormDefinition form) => Record(nameof(Create), () => forms.Create(form));
+
+        public void Show(object form, bool modal, object? owner = null) => Record(nameof(Show), () => forms.Show(form, modal, owner));
+
+        public void Hide(object form) => Record(nameof(Hide), () => forms.Hide(form));
+
+        public bool IsShown(object form) => Record(nameof(IsShown), () => forms.IsShown(form));
+
+        public string GetCaption(object form) => Record(nameof(GetCaption), () => forms.GetCaption(form));
+
+        public void SetCaption(object form, string caption) => Record(nameof(SetCaption), () => forms.SetCaption(form, caption));
+
+        public RDCore.External.Forms.FormBounds GetBounds(object form) => Record(nameof(GetBounds), () => forms.GetBounds(form));
+
+        public void SetBounds(object form, RDCore.External.Forms.FormBounds bounds) => Record(nameof(SetBounds), () => forms.SetBounds(form, bounds));
+
+        public void Leave(object form) => Record(nameof(Leave), () => forms.Leave(form));
+
+        public void Destroy(object form) => Record(nameof(Destroy), () => forms.Destroy(form));
+
+        // told as the program takes the turn or gives it back, which waits for no window's thread.
+        public void Hold(bool running) => forms.Hold(running);
+
+        public void DoEvents() => Record(nameof(DoEvents), forms.DoEvents);
+
+        // a call the program makes: the turn is open to events then only when the program gave it up.
+        private T Record<T>(string call, Func<T> made)
+        {
+            if (turn() is { IsRunning: true } running)
+            {
+                lock (Calls)
+                {
+                    Calls.Add((call, running.IsOpenForEvents));
+                }
+            }
+
+            return made();
+        }
+
+        private void Record(string call, Action made) => Record(call, () =>
+        {
+            made();
+            return true;
+        });
+    }
+
     [TestMethod]
     public async Task End_RaisesNoUnloadAndNoTerminate()
     {
@@ -365,6 +454,50 @@ public sealed class VisualBasicFormLifecycleTests
         var printed = await RunAsync("On Error GoTo h", "FailInitialize = True", "Form2.pub = 1", "Exit Sub", "h:", "Debug.Print \"caught \" & Err.Number");
 
         CollectionAssert.AreEqual(new[] { "Initialize", "caught 11" }, printed);
+    }
+
+    // the form host is told whether the program that makes a form runs unattended: RDForms loads an unattended program's forms where no screen is needed, and
+    // the program loads and unloads them as any other.
+    [TestMethod]
+    [DataRow(false, DisplayName = "attended")]
+    [DataRow(true, DisplayName = "unattended")]
+    public async Task AFormLoadedAndUnloaded_IsMadeAsItsProgramRuns(bool unattended)
+    {
+        OwnersRecorded? recorded = null;
+        var libraries = Libraries with { Outside = RDFormsWorld(forms => recorded = new OwnersRecorded(forms)) };
+        var program = Program(["Load Form2", "Unload Form2", "Debug.Print \"after\""]);
+        string[] printed;
+        if (unattended)
+        {
+            var result = await ModuleWorkspace.RunUnattendedAsync([], program, libraries, Forms(), SupportedLanguages.VB6);
+            Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+            printed = result.Output.Select(line => line.Trim()).ToArray();
+        }
+        else
+        {
+            printed = await ModuleWorkspace.RunAsync([], program, libraries, Forms(), SupportedLanguages.VB6);
+        }
+
+        CollectionAssert.AreEqual(new[] { "Initialize", "Load", "QueryUnload 1", "Unload", "after" }, printed);
+        CollectionAssert.AreEqual(new[] { ("Form2", unattended) }, recorded!.Created);
+    }
+
+    // a form an unattended program loaded, then shows, is a dialog nobody answers: the run fails before the host is asked to show it, whatever handler the
+    // program has (VBR50001).
+    [TestMethod]
+    public async Task AFormLoaded_ThenShown_Unattended_FailsTheRun_BeforeTheHostShowsIt()
+    {
+        OwnersRecorded? recorded = null;
+        var libraries = Libraries with { Outside = RDFormsWorld(forms => recorded = new OwnersRecorded(forms)) };
+
+        var result = await ModuleWorkspace.RunUnattendedAsync([], Program(["On Error Resume Next", "Load Form2", "Form2.Show vbModeless", "Debug.Print \"after\""]),
+            libraries, Forms(), SupportedLanguages.VB6);
+
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, result.ErrorMessage);
+        Assert.AreEqual(("VBR50001", 50001), (result.ErrorCode, result.ErrorNumber), result.ErrorMessage);
+        Assert.DoesNotContain("after", result.Output.Select(line => line.Trim()));
+        CollectionAssert.AreEqual(new[] { ("Form2", true) }, recorded!.Created);
+        Assert.IsEmpty(recorded.Shown);
     }
 
     [TestMethod]

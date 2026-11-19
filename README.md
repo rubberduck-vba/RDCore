@@ -33,6 +33,7 @@ RDCore is in active **alpha** development. The **specification** and **documenta
 | Project | Role | Coverage |
 |---|---|---|
 | **RDCore.Runtime** | RD-VBA runtime semantics + standard library | [![RDCore.Runtime](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Runtime.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.Runtime.LanguageCore** | The language core: name binding, static semantics, the instruction set, and the standard library's declarations | [![RDCore.Runtime.LanguageCore](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Runtime.LanguageCore.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.Runtime.Support** | The session a program runs in, and the runner `rdc run` and a built program share | [![RDCore.Runtime.Support](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Runtime.Support.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.External** | Outside world abstractions: automation servers, native libraries | [![RDCore.External](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.External.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.External.Windows** | Outside world on Windows: COM automation, BSTR/VARIANT and ordinals for native calls | [![RDCore.External.Windows](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.External.Windows.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
@@ -45,7 +46,7 @@ RDCore is in active **alpha** development. The **specification** and **documenta
 
 ✅ Parser, symbol resolution and the **language server** are functional. The server answers diagnostics (pull and push), completion, signature help,
 hover, inlay hints, semantic tokens, document and workspace symbols, folding and selection ranges, go to definition, declaration, type definition and
-implementation, references and highlights, call and type hierarchy, rename and code actions.
+implementation, references and highlights, call and type hierarchy, inline values, rename, linked editing and code actions.
 
 ### Performance
 

@@ -17,6 +17,7 @@ using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.LanguageServer;
 
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceLoaderTests
 {
@@ -163,7 +164,7 @@ public sealed class WorkspaceLoaderTests
             }))),
             [Path.Combine(Root, "src", "Mod1.bas")] = new MockFileData("Public Sub Foo()\r\nEnd Sub"),
             [Path.Combine(Root, "res", "App.res")] = new MockFileData([0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0xFF, 0xFF]),
-            [Path.Combine(Root, "README.md")] = new MockFileData("# Battleship"),
+            [Path.Combine(Root, "README.md")] = new MockFileData("# NavalBattle"),
         });
         var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
         var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
@@ -180,7 +181,9 @@ public sealed class WorkspaceLoaderTests
     // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
     // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and only there.
     [TestMethod]
-    [DataRow("\"1.1\"", null, DisplayName = "1.1, this platform's format")]
+    [DataRow("\"1.3\"", null, DisplayName = "1.3, this platform's format")]
+    [DataRow("\"1.2\"", LogLevel.Information, DisplayName = "1.2, the format before references to projects: an older one")]
+    [DataRow("\"1.1\"", LogLevel.Information, DisplayName = "1.1, the format before KeepSystemTheme: an older one")]
     [DataRow("\"1.0.0\"", LogLevel.Information, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0, an older one")]
     [DataRow("\"1.0\"", LogLevel.Information, DisplayName = "1.0, the format before the build section")]
     [DataRow("\"0.1.3\"", LogLevel.Information, DisplayName = "0.1.3, as the next builds stamped it: an older format")]

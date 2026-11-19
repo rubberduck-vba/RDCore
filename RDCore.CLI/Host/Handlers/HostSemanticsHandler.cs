@@ -61,6 +61,7 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
             .Where(module => module.GetProperty(SymbolProperties.Library) is null) ?? [];
         var models = store.AcrossProject(project)
             .Where(model => named.Contains(model.Module.AbsoluteUri))
+            .Select(store.WithNativeCalls)
             .Select(ModuleSemanticsDto.From);
 
         return new HostSemanticsResult { Json = PlatformJson.Serialize(new SemanticsPayload([.. models])) };

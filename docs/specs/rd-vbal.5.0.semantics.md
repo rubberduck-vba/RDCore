@@ -244,8 +244,8 @@ expressions that read it, write to it, and pass it as an argument that may be ta
 and are `null` otherwise, which says the references are not known, and not that there are none:
 
 1. Nothing outside the code analyzed can refer to it: a local, a parameter, or a variable that is not `Public` or `Friend`. A
-   procedure, a property and an event are also called by convention (an event handler, a member that implements an
-   interface) or by name at run time, and a constant is referred to by the expressions of declarations (the bounds of an
+   procedure, a property and an event are also called through what they are bound to (an event handler, a member that
+   implements an interface) or by name at run time, and a constant is referred to by the expressions of declarations (the bounds of an
    array, the value of another constant), which are not evaluated as those of a procedure are: none of them has references yet.
 2. The code that could refer to it was analyzed completely (`ProcedureSemanticModel.IsFullyAnalyzed`): the procedure has no
    error, and the body was looked at again, apart from the pass, for each place a name is written that refers to something,
