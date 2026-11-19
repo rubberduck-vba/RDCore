@@ -1011,7 +1011,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         if (TryResolveInvocableMember(session, context, qualified.Owner, owner, qualified.Member.IdentifierName) is not { } found)
         {
-            return (EvaluateInstanceField(session, qualified, owner, qualified.Member.IdentifierName), false);
+            return (EvaluateInstanceField(session, context, qualified, owner, qualified.Member.IdentifierName), false);
         }
 
         var returnsToBeIndexed = ReturnsToBeIndexed(found.Member, indexExpression.Arguments);
@@ -1038,7 +1038,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return TryResolveInvocableMember(session, context, memberAccess.Owner, owner, memberName) is { } found
             ? PropertyCalledByAStatement(session, memberAccess, owner, found.Member, argumentsIndexWhatItReturns: false)
                 ?? InvokeProcedure(session, context, found.Member, [], found.Receiver, call: memberAccess)
-            : EvaluateInstanceField(session, memberAccess, owner, memberName);
+            : EvaluateInstanceField(session, context, memberAccess, owner, memberName);
     }
 
     // a member of an object variable that holds no object - never set, or set to Nothing - is error 91: there is no
@@ -1099,7 +1099,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (objectValue.RuntimeValue, implementation);
         }
 
-        if (InvocableMemberOf(instance.ClassModule, memberName) is { } member)
+        if (InvocableMemberOf(session, context, instance.ClassModule, memberName) is { } member)
         {
             return (objectValue.RuntimeValue, member);
         }
@@ -1125,13 +1125,27 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && classModule.DefaultInterfaceMembers.Any(candidate => candidate is VBPropertyGetMemberSymbol
                 && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
+    // MS-VBAL §5.3.1.1, §5.6.3: the members of an object's class that the code in the scope reaches by name, as it reaches them early-bound:
+    // a Friend member from the class's own project only; from another, its name is unknown, error 438.
+    internal static IEnumerable<VBTypeMemberSymbol> InterfaceSeenFrom(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBClassModuleSymbol classModule)
+        => ProjectVisibility.MembersSeenFrom(classModule.DefaultInterfaceMembers, classModule, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
+
     // a member of a class's own interface that a read or a call invokes by name. A Property Let or Set derives from the subroutine's symbol and is not one:
     // reading the property is its Get.
     // A late-bound object's class declares nothing, and every name reaches the member of that name, which the object answers to or not when it is called.
+    private static VBTypeMemberSymbol? InvocableMemberOf(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBClassModuleSymbol classModule, string memberName)
+        => InvocableMemberOf(classModule, InterfaceSeenFrom(session, context, classModule), memberName);
+
+    // the same, of the whole interface: for an access bound early, whose name the static semantics found accessible where it is written.
     private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, string memberName)
+        => InvocableMemberOf(classModule, classModule.DefaultInterfaceMembers, memberName);
+
+    private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, IEnumerable<VBTypeMemberSymbol> members, string memberName)
         => Execution.External.Automation.LateBinding.IsLateBound(classModule)
             ? Execution.External.Automation.LateBinding.MemberOf(classModule, memberName, RDCore.External.Automation.AutomationInvocation.Get)
-            : classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            : members.FirstOrDefault(candidate =>
                 candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
                 && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
@@ -1385,7 +1399,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
         }
 
-        var candidates = actual.DefaultInterfaceMembers
+        var candidates = InterfaceSeenFrom(session, context, actual)
             .Where(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase)).ToArray();
 
         if (candidates.FirstOrDefault(candidate => isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol) is { } accessor)
@@ -1519,7 +1533,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // A late-bound Variant/Object member, and a call through a Property/Function/Sub member, are both
     // invocations, not reads - only a Field/Variable-kind member is readable this way.
-    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(IRuntimeSession session, MemberAccessExpressionNode memberAccess, VBTypedValue owner, string memberName)
+    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBTypedValue owner, string memberName)
     {
         // a UDT field is not reached through an instance the session knows about: a UDT has location identity
         // but no instance record, and its fields live on the value itself (MS-VBAL §2.1 - a UDT data value is
@@ -1547,7 +1562,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var member = instance.ClassModule.DefaultInterfaceMembers
+        var member = InterfaceSeenFrom(session, context, instance.ClassModule)
             .FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
         // an object whose class has no member of the name - late-bound, or reached through a Variant - does not support it: error 438 (MS-VBA).

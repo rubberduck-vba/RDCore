@@ -361,7 +361,12 @@ public sealed class ReferencedClassMemberTests
         "Friend Function Badge() As String", "    Badge = \"r\" & mRank", "End Function",
         "Friend Property Get Rank() As Long", "    Rank = mRank", "End Property",
         "Friend Property Let Rank(ByVal Value As Long)", "    mRank = Value", "End Property",
+        "Public Function Serial() As String", "    Serial = \"s\" & mRank", "End Function",
         "Private Sub Hide()", "End Sub"));
+
+    // the referenced project's function that makes a Crew for the project, which cannot create one as New.
+    private static readonly Source Barracks = new("Barracks", ModuleType.StdModule, ModuleWorkspace.StandardModule("Barracks", "Option Explicit",
+        "Public Function Recruit() As Crew", "    Set Recruit = New Crew", "End Function"));
 
     // MS-VBAL §5.3.1.1: a Friend procedure is accessible within its own project. Another module of the referenced project calls each, early-bound, and it
     // runs.
@@ -400,6 +405,51 @@ public sealed class ReferencedClassMemberTests
         Assert.HasCount(1, refused, string.Join("; ", friend));
         Assert.HasCount(1, refusedPrivate, string.Join("; ", hidden));
         Assert.AreEqual(refusedPrivate[0].Replace("Hide", "…", StringComparison.Ordinal), refused[0].Replace(member, "…", StringComparison.Ordinal));
+    }
+
+    // MS-VBAL §5.3.1.1, §5.6.3: a late-bound access from code of the class's own project reaches a Friend member by its name, as an early-bound one
+    // does: the call runs and returns the member's value.
+    [TestMethod]
+    [DataRow("Object")]
+    [DataRow("Variant")]
+    public async Task TheFriendMembersOfAReferencedProjectsClass_AreCalledLateBound_ByAnotherModuleOfItsProject(string declaredType)
+    {
+        var roster = new Source("Roster", ModuleType.StdModule, ModuleWorkspace.StandardModule("Roster", "Option Explicit",
+            "Public Function Drill() As String", $"    Dim c As {declaredType}", "    Set c = New Crew", "    c.Rank = 2", "    c.Promote",
+            "    Drill = c.Badge() & \"/\" & c.Rank & \"/\" & CallByName(c, \"Badge\", VbMethod)", "End Function"));
+
+        var (errors, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, Crew, roster] }], run: true, "Debug.Print Drill()");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "r3/3/r3" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // MS-VBAL §5.3.1.1, §5.6.3: from a project that references the class's project, a Friend member is not accessible on the object: a late-bound
+    // access of its name raises error 438, and one of a Public member runs.
+    [TestMethod]
+    [DataRow("Object", "c.Promote", "438", DisplayName = "a Friend Sub, through an Object")]
+    [DataRow("Object", "Debug.Print c.Badge()", "438", DisplayName = "a Friend Function, through an Object")]
+    [DataRow("Object", "Debug.Print c.Rank", "438", DisplayName = "a Friend Property Get, through an Object")]
+    [DataRow("Object", "c.Rank = 1", "438", DisplayName = "a Friend Property Let, through an Object")]
+    [DataRow("Variant", "c.Promote", "438", DisplayName = "a Friend Sub, through a Variant")]
+    [DataRow("Variant", "Debug.Print c.Badge()", "438", DisplayName = "a Friend Function, through a Variant")]
+    [DataRow("Variant", "Debug.Print c.Rank", "438", DisplayName = "a Friend Property Get, through a Variant")]
+    [DataRow("Variant", "c.Rank = 1", "438", DisplayName = "a Friend Property Let, through a Variant")]
+    [DataRow("Object", "Debug.Print CallByName(c, \"Badge\", VbMethod)", "438", DisplayName = "a Friend Function, by CallByName")]
+    [DataRow("Object", "Debug.Print CallByName(c, \"Rank\", VbGet)", "438", DisplayName = "a Friend Property Get, by CallByName")]
+    [DataRow("Object", "Debug.Print c.Serial()", "s0;0", DisplayName = "a Public Function, through an Object")]
+    [DataRow("Variant", "Debug.Print c.Serial()", "s0;0", DisplayName = "a Public Function, through a Variant")]
+    [DataRow("Object", "Debug.Print CallByName(c, \"Serial\", VbMethod)", "s0;0", DisplayName = "a Public Function, by CallByName")]
+    public async Task AFriendMemberOfAReferencedProjectsClass_CalledLateBoundByTheProject_IsError438_AndAPublicOneRuns(
+        string declaredType, string call, string expected)
+    {
+        var (errors, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, Crew, Barracks] }], run: true,
+            $"Dim c As {declaredType}", "Set c = Recruit()", "On Error Resume Next", call, "Debug.Print Err.Number");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        Assert.AreEqual(expected, string.Join(";", run.Output.Select(line => line.Trim())));
     }
 
     // an error of the module that names the name.
