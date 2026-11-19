@@ -5,6 +5,8 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Shared;
+using System.Collections.Concurrent;
+using System.Globalization;
 
 namespace RDCore.Runtime.LanguageCore.Errors;
 
@@ -58,11 +60,18 @@ public static class CompileErrors
     private static SymbolResolutionResult Unresolved(VBCompileErrorId errorId, IEnumerable<Symbol> candidates)
         => new(null, errorId.ToCode(), [.. candidates]);
 
+    // in the language of the user interface (CultureInfo.CurrentUICulture) at the call: it is not the same for every thread, nor for the life of the process.
     internal static string MessageOf(VBCompileErrorId errorId)
-        => Messages.TryGetValue(errorId, out var message) ? message : Messages[VBCompileErrorId.UnspecifiedCompileError];
+    {
+        var messages = MessagesByCulture.GetOrAdd(Exceptions.Culture ?? CultureInfo.CurrentUICulture, _ => Messages());
+        return messages.TryGetValue(errorId, out var message) ? message : messages[VBCompileErrorId.UnspecifiedCompileError];
+    }
 
-    // Known MS-VBA compilation error messages; while this dictionary is intended to be exhaustive, it is probably still incomplete. Localized.
-    private static readonly Dictionary<VBCompileErrorId, string> Messages = new()
+    // the messages of each language asked for, read from Exceptions.resx and its translations once per language.
+    private static readonly ConcurrentDictionary<CultureInfo, IReadOnlyDictionary<VBCompileErrorId, string>> MessagesByCulture = new();
+
+    // the known MS-VBA compile error messages, in the language of the thread that reads them. The list aims to be exhaustive, but may still miss some.
+    private static Dictionary<VBCompileErrorId, string> Messages() => new()
     {
         // 💥 "this should never happen" - but in case it does... the dictionary key exists:
         [VBCompileErrorId.UnspecifiedCompileError] = Exceptions.VBCompileError_UnspecifiedError,
