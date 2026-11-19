@@ -354,13 +354,22 @@ public sealed class ReferencedClassMemberTests
         Assert.IsTrue(errors.Any(error => IsOf(error, "Program", "Plot")), string.Join("; ", errors));
     }
 
-    // a class of the referenced project with a Friend member of each kind, and a Private one.
+    // a class of the referenced project with a Friend member of each kind, Public properties whose writers are Friend, the same with Private writers, and a
+    // Private member.
     private static readonly Source Crew = new("Crew", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Crew",
-        "Attribute VB_Exposed = True", "Option Explicit", "Private mRank As Long",
+        "Attribute VB_Exposed = True", "Option Explicit", "Private mRank As Long", "Private mPost As Object",
         "Friend Sub Promote()", "    mRank = mRank + 1", "End Sub",
         "Friend Function Badge() As String", "    Badge = \"r\" & mRank", "End Function",
         "Friend Property Get Rank() As Long", "    Rank = mRank", "End Property",
         "Friend Property Let Rank(ByVal Value As Long)", "    mRank = Value", "End Property",
+        "Public Property Get Grade() As Long", "    Grade = mRank", "End Property",
+        "Friend Property Let Grade(ByVal Value As Long)", "    mRank = Value", "End Property",
+        "Public Property Get Post() As Object", "    Set Post = mPost", "End Property",
+        "Friend Property Set Post(ByVal Value As Object)", "    Set mPost = Value", "End Property",
+        "Public Property Get Mark() As Long", "    Mark = mRank", "End Property",
+        "Private Property Let Mark(ByVal Value As Long)", "    mRank = Value", "End Property",
+        "Public Property Get Desk() As Object", "    Set Desk = mPost", "End Property",
+        "Private Property Set Desk(ByVal Value As Object)", "    Set mPost = Value", "End Property",
         "Public Function Serial() As String", "    Serial = \"s\" & mRank", "End Function",
         "Private Sub Hide()", "End Sub"));
 
@@ -438,6 +447,7 @@ public sealed class ReferencedClassMemberTests
     [DataRow("Variant", "c.Rank = 1", "438", DisplayName = "a Friend Property Let, through a Variant")]
     [DataRow("Object", "Debug.Print CallByName(c, \"Badge\", VbMethod)", "438", DisplayName = "a Friend Function, by CallByName")]
     [DataRow("Object", "Debug.Print CallByName(c, \"Rank\", VbGet)", "438", DisplayName = "a Friend Property Get, by CallByName")]
+    [DataRow("Object", "Debug.Print c.Grade", "0;0", DisplayName = "a Public Property Get whose Let is Friend, through an Object")]
     [DataRow("Object", "Debug.Print c.Serial()", "s0;0", DisplayName = "a Public Function, through an Object")]
     [DataRow("Variant", "Debug.Print c.Serial()", "s0;0", DisplayName = "a Public Function, through a Variant")]
     [DataRow("Object", "Debug.Print CallByName(c, \"Serial\", VbMethod)", "s0;0", DisplayName = "a Public Function, by CallByName")]
@@ -450,6 +460,45 @@ public sealed class ReferencedClassMemberTests
         Assert.IsEmpty(errors, string.Join("; ", errors));
         Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
         Assert.AreEqual(expected, string.Join(";", run.Output.Select(line => line.Trim())));
+    }
+
+    // MS-VBAL §5.3.1.1: the Public Property Get of a property whose writers are Friend is read early-bound from the referencing project.
+    [TestMethod]
+    public async Task ThePublicGetOfAReferencedProjectsClassProperty_WhoseWritersAreFriend_IsReadByTheProject()
+    {
+        var (errors, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, Crew, Barracks] }], run: true,
+            "Dim c As Crew", "Set c = Recruit()", "Debug.Print c.Grade", "Debug.Print c.Post Is Nothing");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        Assert.AreEqual("0;True", string.Join(";", run.Output.Select(line => line.Trim())));
+    }
+
+    // MS-VBAL §5.3.1.1, §5.4.3.8, §5.4.3.9: from a project that references the class's project, the Friend Let or Set of a property whose Get is Public is
+    // inaccessible, as a Private one is: the assignment is refused the same way, when it loads or when it runs.
+    [TestMethod]
+    [DataRow("Crew", "c.Grade = 1", "c.Mark = 1", DisplayName = "a Friend Property Let, early-bound")]
+    [DataRow("Crew", "Set c.Post = Nothing", "Set c.Desk = Nothing", DisplayName = "a Friend Property Set, early-bound")]
+    [DataRow("Object", "c.Grade = 1", "c.Mark = 1", DisplayName = "a Friend Property Let, through an Object")]
+    [DataRow("Variant", "Set c.Post = Nothing", "Set c.Desk = Nothing", DisplayName = "a Friend Property Set, through a Variant")]
+    public async Task AFriendWriterOfAReferencedProjectsClassProperty_AssignedByTheProject_IsRefused_AsAPrivateOneIs(
+        string declaredType, string friend, string asPrivate)
+    {
+        Project[] references = [NavalLib with { Modules = [.. Library, Crew, Barracks] }];
+        async Task<string> Outcome(string assignment, string name)
+        {
+            var (errors, run) = await LoadAsync([], references, run: true,
+                $"Dim c As {declaredType}", "Set c = Recruit()", "On Error Resume Next", assignment, "Debug.Print Err.Number");
+            return errors.Count > 0
+                ? string.Join("; ", errors).Replace(name, "…", StringComparison.Ordinal)
+                : string.Join(";", run!.Output.Select(line => line.Trim()));
+        }
+
+        var refused = await Outcome(friend, friend.Contains("Grade", StringComparison.Ordinal) ? "Grade" : "Post");
+        var refusedPrivate = await Outcome(asPrivate, asPrivate.Contains("Mark", StringComparison.Ordinal) ? "Mark" : "Desk");
+
+        Assert.AreEqual(refusedPrivate, refused);
+        Assert.AreNotEqual("0", refused);
     }
 
     // an error of the module that names the name.
