@@ -495,6 +495,9 @@
   <data name="LetToADefaultMemberWithNoPropertyLet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est assigné par son membre par défaut, qui n&apos;a pas de Property Let. MS-VBA ne compile pas cette assignation. Nommez le membre auquel la valeur est assignée.</value>
   </data>
+  <data name="LetToAnObjectWithNoDefaultMember_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est un objet de la classe &apos;{1}&apos;, qui n&apos;a pas de membre par défaut auquel assigner la valeur : erreur d&apos;exécution 438 (91 quand il vaut Nothing) chaque fois que ce code s&apos;exécute. Nommez le membre auquel la valeur est assignée.</value>
+  </data>
   <data name="LetThroughAVariantGet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est une Property Get déclarée Variant, sans Property Let. MS-VBAL prévoit ici l&apos;erreur 451. RD-VBA, comme MS-VBA, assigne la valeur au membre par défaut de l&apos;objet que &apos;{0}&apos; retourne, et lève l&apos;erreur 424 si elle ne retourne aucun objet. Assignez ce membre de l&apos;objet par son nom.</value>
   </data>
