@@ -1520,6 +1520,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Remove line label &apos;{0}&apos;.
+        /// </summary>
+        public static string LineLabelNotUsed_Fix {
+            get {
+                return ResourceManager.GetString("LineLabelNotUsed_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Member &apos;{0}&apos; is named with a keyword of the language: code that uses it reads like the keyword. Give it a name that is not one..
         /// </summary>
         public static string KeywordUsedAsMemberName_Message {
