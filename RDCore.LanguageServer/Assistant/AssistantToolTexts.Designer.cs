@@ -241,5 +241,113 @@ namespace RDCore.LanguageServer.Assistant {
                 return ResourceManager.GetString("DeclaresNothing", resourceCulture);
             }
         }
+
+        internal static string ListFixes_Title {
+            get {
+                return ResourceManager.GetString("ListFixes_Title", resourceCulture);
+            }
+        }
+
+        internal static string ListFixes_Description {
+            get {
+                return ResourceManager.GetString("ListFixes_Description", resourceCulture);
+            }
+        }
+
+        internal static string ListFixes_Line {
+            get {
+                return ResourceManager.GetString("ListFixes_Line", resourceCulture);
+            }
+        }
+
+        internal static string ListFixes_Column {
+            get {
+                return ResourceManager.GetString("ListFixes_Column", resourceCulture);
+            }
+        }
+
+        internal static string ListFixes_EndLine {
+            get {
+                return ResourceManager.GetString("ListFixes_EndLine", resourceCulture);
+            }
+        }
+
+        internal static string ListFixes_EndColumn {
+            get {
+                return ResourceManager.GetString("ListFixes_EndColumn", resourceCulture);
+            }
+        }
+
+        internal static string NoFixes {
+            get {
+                return ResourceManager.GetString("NoFixes", resourceCulture);
+            }
+        }
+
+        internal static string FixPreferred {
+            get {
+                return ResourceManager.GetString("FixPreferred", resourceCulture);
+            }
+        }
+
+        internal static string FixRunByCommand {
+            get {
+                return ResourceManager.GetString("FixRunByCommand", resourceCulture);
+            }
+        }
+
+        internal static string FixFixes {
+            get {
+                return ResourceManager.GetString("FixFixes", resourceCulture);
+            }
+        }
+
+        internal static string PreviewFix_Title {
+            get {
+                return ResourceManager.GetString("PreviewFix_Title", resourceCulture);
+            }
+        }
+
+        internal static string PreviewFix_Description {
+            get {
+                return ResourceManager.GetString("PreviewFix_Description", resourceCulture);
+            }
+        }
+
+        internal static string Fix_FixId {
+            get {
+                return ResourceManager.GetString("Fix_FixId", resourceCulture);
+            }
+        }
+
+        internal static string FixNotFound {
+            get {
+                return ResourceManager.GetString("FixNotFound", resourceCulture);
+            }
+        }
+
+        internal static string FixStale {
+            get {
+                return ResourceManager.GetString("FixStale", resourceCulture);
+            }
+        }
+
+        internal static string FixHasNoEdit {
+            get {
+                return ResourceManager.GetString("FixHasNoEdit", resourceCulture);
+            }
+        }
+
+        internal static string FileRenamed {
+            get {
+                return ResourceManager.GetString("FileRenamed", resourceCulture);
+            }
+        }
+
+        internal static string EditAsks {
+            get {
+                return ResourceManager.GetString("EditAsks", resourceCulture);
+            }
+        }
     }
 }
