@@ -277,11 +277,43 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         var compiled = image.Compiler.Compile(Session, Executor.Expressions, procedure, body);
         if (compiled.Body is { } code)
         {
-            return code.Run(new CompiledActivation(Session, frame, body, Executor, context, code, this));
+            // the spare is taken while the activation runs, so a recursion makes its own.
+            var spare = _spares.GetValue(code, static _ => new Spare());
+            if (Interlocked.Exchange(ref spare.Activation, null) is not { } activation || !activation.Runs(code, body, this))
+            {
+                activation = new CompiledActivation(Session, frame, body, Executor, context, code, this);
+                code.CountInvokerActivationMade();
+            }
+            else
+            {
+                activation.BeginAgain(frame, context);
+            }
+
+            var outcome = code.Run(activation);
+
+            // an activation that returned from its compiled code, the interpreter never given its frame, holds nothing of the call: the next call of the body
+            // is made in it again, as a call compiled code makes directly is made in the activation that last left its place of the stack.
+            if (outcome.Kind is RuntimeExecutionOutcomeKind.ExitProcedure && activation.ReturnedInCompiledCode)
+            {
+                activation.LetGoAfterCall();
+                Volatile.Write(ref spare.Activation, activation);
+            }
+
+            return outcome;
         }
 
         // a test that expects every procedure it runs to be compiled fails the call of one that is not, rather than run it interpreted unnoticed.
         return CompiledExecution.IsStrict ? RuntimeExecutionOutcome.InternalError : Executor.Run(Session, frame, body, context);
+    }
+
+    // the activation of each compiled body that last returned from a call the invoker made of it, which the next call is made in (Run): each call of a
+    // procedure the invoker runs (one with a String parameter or local, among others) would otherwise make one and let go of it. A body an edit replaced
+    // goes with its spare.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<CompiledBody, Spare> _spares = [];
+
+    private sealed class Spare
+    {
+        public CompiledActivation? Activation;
     }
 
     // MS-VBAL §5.3.1.10: the procedure extent variables cease to exist with the activation, and an object that was

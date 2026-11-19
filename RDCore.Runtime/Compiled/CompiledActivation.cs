@@ -39,7 +39,7 @@ public sealed partial class CompiledActivation : ILightActivation
     private readonly IRuntimeSession _session;
     private readonly InstructionList _list;
     private readonly ProcedureExecutor _executor;
-    private readonly RuntimeEvaluationContext _context;
+    private RuntimeEvaluationContext _context;
     private readonly CompiledBody _body;
     private readonly ISessionHalt _halt;
 
@@ -107,6 +107,7 @@ public sealed partial class CompiledActivation : ILightActivation
         _errorHandler = ErrorHandlerState.Disabled;
         _knowns?.Clear();
         _untilPoll = PollInterval;
+        _handedOver = false;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
         if (CompiledExecution.WalksBackAtRandom)
@@ -115,6 +116,50 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         _untilFailedAccess = CompiledExecution.FailsReloadsAtRandom ? _body.NextRandomFailedAccess() : 0;
+    }
+
+    // whether the interpreter was given the activation's frame since it began (Interpret, AfterFailedCall, Recover). One it was not given ran its compiled
+    // code to the end, and holds what an activation that returned from a call made directly holds: the invoker may begin it again for its next call of the
+    // body (BeginAgain).
+    private bool _handedOver;
+
+    /// <summary>
+    /// Whether the activation, made by the invoker for a call through it, ran its compiled code to the end without handing its frame to the interpreter: the
+    /// invoker may then begin it again for its next call of the same body (<see cref="BeginAgain"/>).
+    /// </summary>
+    internal bool ReturnedInCompiledCode => !_handedOver;
+
+    /// <summary>
+    /// Whether the activation runs <paramref name="list"/>, the instructions <paramref name="body"/> was compiled from, for <paramref name="invoker"/>: an
+    /// activation the invoker keeps is begun again only for a call of the same code.
+    /// </summary>
+    /// <param name="body">The compiled body of the call.</param>
+    /// <param name="list">The instructions the body was compiled from.</param>
+    /// <param name="invoker">The invoker that makes the call.</param>
+    internal bool Runs(CompiledBody body, InstructionList list, RuntimeProcedureInvoker invoker)
+        => ReferenceEquals(_body, body) && ReferenceEquals(_list, list) && ReferenceEquals(_invoker, invoker);
+
+    /// <summary>
+    /// Begins the activation again for another call the invoker makes of the body, in <paramref name="frame"/>, the call's frame, as an activation made for
+    /// the call begins.
+    /// </summary>
+    /// <param name="frame">The call's frame.</param>
+    /// <param name="context">The context the body's code is evaluated in.</param>
+    internal void BeginAgain(CallStackFrame frame, RuntimeEvaluationContext context)
+    {
+        (_frame, _context) = (frame, context);
+        frame.RunsCompiled = true;
+        Begin();
+    }
+
+    /// <summary>
+    /// Lets go of the frame of the call the activation returned from, and of what it held, while the invoker keeps it for its next call of the body.
+    /// </summary>
+    internal void LetGoAfterCall()
+    {
+        _frame = null;
+        Array.Clear(_cells);
+        LetGoOfMe();
     }
 
     // how many accesses of the frame the activation makes before the one it fails, under the random failed accesses (CompiledExecution.FailsReloadsAtRandom):
@@ -1189,6 +1234,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     public RuntimeExecutionOutcome AfterFailedCall(int pc)
     {
+        _handedOver = true;
         var frame = Frame;
         frame.RunsCompiled = false;
 
@@ -1571,6 +1617,7 @@ public sealed partial class CompiledActivation : ILightActivation
     {
         // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body - or, handed over in the
         // middle of an instruction after a call inside it, in that instruction, where it now is (HandKnowns).
+        _handedOver = true;
         var frame = Frame;
         (frame.Pc, frame.RunsCompiled) = (pc, false);
         var inside = HasKnowns;
@@ -1602,6 +1649,8 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </remarks>
     public int Recover(int pc)
     {
+        _handedOver = true;
+
         // a variable not written into the frame: the interpreter runs the activation from the instruction, as the frame has it.
         if (_unspilled)
         {
@@ -1882,6 +1931,16 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long ActivationsMade => Interlocked.Read(ref _activationsMade);
 
     internal void CountActivationMade() => Interlocked.Increment(ref _activationsMade);
+
+    private long _invokerActivationsMade;
+
+    /// <summary>
+    /// How many activations of the body the invoker made for the calls made through it: each call is made in the activation that last returned from one,
+    /// when that one ran its compiled code to the end, so a loop of calls makes one.
+    /// </summary>
+    public long InvokerActivationsMade => Interlocked.Read(ref _invokerActivationsMade);
+
+    internal void CountInvokerActivationMade() => Interlocked.Increment(ref _invokerActivationsMade);
 
     internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
 
