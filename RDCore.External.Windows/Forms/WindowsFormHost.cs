@@ -75,7 +75,7 @@ public sealed class WindowsFormHost : IFormHost
     })!;
 
     /// <inheritdoc/>
-    public void Show(object form, bool modal) => OnApartment<object?>(() =>
+    public void Show(object form, bool modal, object? owner = null) => OnApartment<object?>(() =>
     {
         HostedOf(form).Show(modal);
         return null;

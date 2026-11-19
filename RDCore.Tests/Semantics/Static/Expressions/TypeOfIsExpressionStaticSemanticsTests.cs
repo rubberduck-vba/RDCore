@@ -126,7 +126,7 @@ public sealed class TypeOfIsExpressionStaticSemanticsTests
     [TestMethod]
     [DataRow("Date")]
     [DataRow("Decimal")]
-    // MS-VBA, Excel-verified (oracle\s29 T34, T40): an intrinsic type no object is, read as a name, is a syntax error.
+    // MS-VBA, observed in Excel: an intrinsic type no object is, read as a name, is a syntax error.
     public void AnIntrinsicTypeReadAsAName_IsASyntaxError(string name)
         => Assert.AreEqual(VBCompileErrorId.SyntaxError,
             TypeOfIsExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, TypeOfIsOf("o", name), VBObjectType.TypeInfo).ErrorInfo?.VBCompileErrorId);
@@ -144,7 +144,7 @@ public sealed class TypeOfIsExpressionStaticSemanticsTests
     [TestMethod]
     public void ATypeThatIsNoName_IsASyntaxError()
     {
-        // `TypeOf o Is Nothing` (MS-VBA, Excel-verified, oracle\s29 T43).
+        // `TypeOf o Is Nothing` (MS-VBA, observed in Excel).
         var nothing = new LiteralExpressionNode(new(TestUri.TestModuleUri().AbsolutePath, [72]), TestLocations.TestLocation, VBObjectValue.Nothing);
 
         var result = TypeOfIsExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, TypeOfIs(nothing), VBObjectType.TypeInfo);

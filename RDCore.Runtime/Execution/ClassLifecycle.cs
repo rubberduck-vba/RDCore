@@ -19,8 +19,12 @@ namespace RDCore.Runtime.Execution;
 /// The handler is never looked up by the caller and never called by name.
 /// <para>
 /// A form's class is the exception: its lifecycle is the UserForm's, whose event procedures are named after it (<c>UserForm_Initialize</c>,
-/// <c>UserForm_Terminate</c>), and its <c>Class_Initialize</c> and <c>Class_Terminate</c> do not run (Excel-measured, <c>oracle\s41</c> L50). Creating one loads it,
+/// <c>UserForm_Terminate</c>), and its <c>Class_Initialize</c> and <c>Class_Terminate</c> do not run (observed in Excel). Creating one loads it,
 /// and its <c>Terminate</c> runs once: when it is let go of, unless <c>Unload</c> unloaded it before, which ran it then (<see cref="External.Forms.SessionForms"/>).
+/// </para>
+/// <para>
+/// A Visual Basic 6.0 form's handlers are <c>Form_Initialize</c> and <c>Form_Terminate</c>. Creating one does not load it, and its <c>Terminate</c> runs when its
+/// last reference goes, whether it was ever loaded (measured in VB6).
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose objects' events are raised.</param>
@@ -32,7 +36,12 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
     {
         if (IsForm(instance))
         {
-            External.Forms.SessionForms.Of(session).Load(instance);
+            // a Visual Basic 6.0 form's instance is not loaded yet: a built-in member, a control, Load or Show loads it.
+            if (!External.Forms.SessionForms.Of(session).IsVisualBasic6(session, instance))
+            {
+                External.Forms.SessionForms.Of(session).Load(instance);
+            }
+
             return External.Forms.FormHandlers.Raise(session, bindings, instance, "Initialize");
         }
 
@@ -46,6 +55,13 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
         {
             // what the form listened to goes with it; one that was unloaded stopped listening then.
             External.Forms.SessionForms.Of(session).StopListening(instance);
+
+            // a Visual Basic 6.0 form's Terminate runs when its instance goes, whether it was ever loaded: the loaded forms hold a loaded one until its unload.
+            if (External.Forms.SessionForms.Of(session).IsVisualBasic6(session, instance))
+            {
+                return External.Forms.FormHandlers.Raise(session, bindings, instance, "Terminate");
+            }
+
             return External.Forms.SessionForms.Of(session).Release(instance)
                 ? External.Forms.FormHandlers.Raise(session, bindings, instance, "Terminate")
                 : RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);

@@ -10,8 +10,8 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Tests.Runtime.Memory;
 
 /// <summary>
-/// The interfaces of objects (<see cref="ObjectHeader"/>) and the <c>VARIANT</c>s of the session's memory, as MS-VBA lays them out (recorded in Excel, oracle\s17
-/// O03-O08, V16, V22): an object variable's bytes are the address of an interface of its object, whose first pointer is its class's; a <c>Variant</c>'s are
+/// The interfaces of objects (<see cref="ObjectHeader"/>) and the <c>VARIANT</c>s of the session's memory, as MS-VBA lays them out (observed in
+/// Excel): an object variable's bytes are the address of an interface of its object, whose first pointer is its class's; a <c>Variant</c>'s are
 /// its type and its data.
 /// </summary>
 [TestClass]

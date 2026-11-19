@@ -290,6 +290,15 @@ namespace RDCore.Parsing {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Expected: Sub or Function or Property.
+        /// </summary>
+        internal static string VBCompileError_ExpectedSubOrFunctionOrProperty_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedSubOrFunctionOrProperty_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Expected: Text or Binary.
         /// </summary>
         internal static string VBCompileError_ExpectedTextOrBinary_Verbose {

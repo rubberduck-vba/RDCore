@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -18,10 +19,10 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A form is loaded when its instance is created: on <c>New</c>, and on the first reference to its default instance, whatever the reference is (Excel-measured,
-/// <c>oracle\s41</c> L01-L08). It is unloaded by <c>Unload</c>, and then it is an object whose own variables are still there but whose form is gone: a member its
-/// designer declares fails, and nothing loads it again (L15, L51, L52). It is let go of either way, and its <c>Terminate</c> runs once - at <c>Unload</c>, or when
-/// the last reference to a form that was never unloaded goes (L14, L53).
+/// A form is loaded when its instance is created: on <c>New</c>, and on the first reference to its default instance, whatever the reference is (observed in Excel).
+/// It is unloaded by <c>Unload</c>, and then it is an object whose own variables are still there but whose form is gone: a member its
+/// designer declares fails, and nothing loads it again. It is let go of either way, and its <c>Terminate</c> runs once - at <c>Unload</c>, or when
+/// the last reference to a form that was never unloaded goes.
 /// </para>
 /// <para>
 /// The session outlives the pipelines that run its programs, so what it knows of its forms is kept by the session, not by a pipeline.
@@ -37,7 +38,229 @@ internal sealed class SessionForms
     private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _held = [];
     private readonly Dictionary<VBRuntimeObjectId, (VBRuntimeObjectId[] Controls, Action Leave, Action Stop)> _listening = [];
     private readonly Dictionary<object, (VBRuntimeObjectId Form, HashSet<string> Names)> _designed = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<string> _visualBasic6 = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _loadedHolds = [];
+    private readonly HashSet<VBRuntimeObjectId> _unloading = [];
+    private readonly List<VBRuntimeObjectId> _modal = [];
     private bool _holding;
+
+    // the form host's side of the pipeline that runs the session's program: what says whether a host can create a form, when a New makes one.
+    private FormCallProvider? _creator;
+
+    /// <summary>
+    /// Sets <paramref name="provider"/> as what says, from then on, whether a <c>New</c> of a form's class can make its form (<see cref="CreationFailure"/>):
+    /// the provider of the pipeline that runs the session's program.
+    /// </summary>
+    /// <param name="provider">The pipeline's provider of the forms' members.</param>
+    public void CreatesWith(FormCallProvider provider)
+    {
+        lock (_gate)
+        {
+            _creator = provider;
+        }
+    }
+
+    /// <summary>
+    /// The error of a <c>New</c> of <paramref name="classModule"/> at <paramref name="site"/>, when it is a form's class whose form no host can create
+    /// (<see cref="FormCallProvider.CreationFailure"/>); <see langword="null"/> otherwise, and for a session no program runs in.
+    /// </summary>
+    /// <param name="classModule">The class of the object to create.</param>
+    /// <param name="site">Where the <c>New</c> is written.</param>
+    public RuntimeSemanticsEvaluationResult? CreationFailure(VBClassModuleSymbol classModule, SourceLocation site)
+    {
+        FormCallProvider? creator;
+        lock (_gate)
+        {
+            creator = _creator;
+        }
+
+        return creator?.CreationFailure(classModule, site);
+    }
+
+    /// <summary>
+    /// Records which of a program's forms a Visual Basic 6.0 designer wrote: their lifecycle is VB6's, and their handlers are <c>Form_</c>'s.
+    /// </summary>
+    /// <param name="forms">What the designers of the program's forms declare, by the name of the form's module.</param>
+    public void Declare(IReadOnlyDictionary<string, SDK.Workspace.Forms.FormDescriptor> forms)
+    {
+        lock (_gate)
+        {
+            foreach (var (name, designer) in forms)
+            {
+                if (designer.Kind == SDK.Workspace.Forms.FormDesignerKind.VisualBasic6)
+                {
+                    _ = _visualBasic6.Add(name);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether a form's class is a Visual Basic 6.0 form's.
+    /// </summary>
+    /// <param name="form">The form's class.</param>
+    public bool IsVisualBasic6(VBClassModuleSymbol form)
+    {
+        lock (_gate)
+        {
+            return _visualBasic6.Contains(form.Name);
+        }
+    }
+
+    /// <summary>
+    /// Loads a Visual Basic 6.0 form: it is added at the end of the loaded forms, which hold a reference to it until it is unloaded. A form that is loaded
+    /// already is left as it is.
+    /// </summary>
+    /// <param name="session">The session the form is of.</param>
+    /// <param name="form">The instance of the form's class.</param>
+    public void LoadVisualBasic6(IRuntimeSession session, VBRuntimeObjectId form)
+    {
+        var holder = new ValueBindingHandle(new VBObjectValue(form).RuntimeValue);
+        lock (_gate)
+        {
+            if (_loaded.Contains(form))
+            {
+                return;
+            }
+
+            _loaded.Add(form);
+            _loadedHolds[form] = holder;
+        }
+
+        session.Objects.AddRef(form, holder);
+    }
+
+    /// <summary>
+    /// Whether a form is loaded.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    public bool IsLoaded(VBRuntimeObjectId form)
+    {
+        lock (_gate)
+        {
+            return _loaded.Contains(form);
+        }
+    }
+
+    /// <summary>
+    /// A Visual Basic 6.0 form begins to unload: one that is not loaded, or is being unloaded already, cannot.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    /// <returns>Whether it begins to unload.</returns>
+    public bool BeginUnload(VBRuntimeObjectId form)
+    {
+        lock (_gate)
+        {
+            return _loaded.Contains(form) && _unloading.Add(form);
+        }
+    }
+
+    /// <summary>
+    /// A Visual Basic 6.0 form's unload is over: unloaded, it leaves the loaded forms; cancelled, it stays among them.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    /// <param name="unloaded">Whether it was unloaded.</param>
+    public void EndUnload(VBRuntimeObjectId form, bool unloaded)
+    {
+        lock (_gate)
+        {
+            _ = _unloading.Remove(form);
+            if (unloaded)
+            {
+                _ = _loaded.Remove(form);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The loaded forms let go of a Visual Basic 6.0 form that was unloaded: the last reference to it runs its <c>Terminate</c>.
+    /// </summary>
+    /// <param name="session">The session the form is of.</param>
+    /// <param name="form">The instance of the form's class.</param>
+    public RuntimeSemanticsEvaluationResult LetGoOfLoaded(IRuntimeSession session, VBRuntimeObjectId form)
+    {
+        IBindingHandle? holder;
+        lock (_gate)
+        {
+            if (_loaded.Contains(form) || !_loadedHolds.Remove(form, out holder))
+            {
+                return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+            }
+        }
+
+        _ = session.ReleaseReference(form, holder);
+        return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+    }
+
+    /// <summary>
+    /// The modal forms being waited for, the topmost last.
+    /// </summary>
+    public IReadOnlyList<VBRuntimeObjectId> Modal
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _modal];
+            }
+        }
+    }
+
+    /// <summary>
+    /// A form is shown modal, over those that are already.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    public void BeginModal(VBRuntimeObjectId form)
+    {
+        lock (_gate)
+        {
+            _modal.Add(form);
+        }
+    }
+
+    /// <summary>
+    /// A form's modal show is over.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    public void EndModal(VBRuntimeObjectId form)
+    {
+        lock (_gate)
+        {
+            var index = _modal.LastIndexOf(form);
+            if (index >= 0)
+            {
+                _modal.RemoveAt(index);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Forgets every form, as an <c>End</c> forgets every object: none of them raises anything as it goes.
+    /// </summary>
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            _loaded.Clear();
+            _unloaded.Clear();
+            _held.Clear();
+            _listening.Clear();
+            _designed.Clear();
+            _loadedHolds.Clear();
+            _unloading.Clear();
+            _modal.Clear();
+            Collection = null;
+            FormsCollection = null;
+        }
+    }
+
+    /// <summary>
+    /// Whether an instance is of a Visual Basic 6.0 form's class.
+    /// </summary>
+    /// <param name="session">The session the instance is of.</param>
+    /// <param name="form">The instance.</param>
+    public bool IsVisualBasic6(IRuntimeSession session, VBRuntimeObjectId form)
+        => session.Symbols.TryGetInstance(form, out var live) && IsVisualBasic6(live.ClassModule);
 
     /// <summary>
     /// Holds the messages of the windows of <paramref name="host"/>'s forms while a program of the session runs, from now on (<see cref="RDCore.External.Forms.IFormHost.Hold"/>):
@@ -112,8 +335,7 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// The <c>Controls</c> collection of a hosted form, and the names of the controls its designer declares: those <c>Controls.Remove</c> cannot remove (444,
-    /// <c>oracle\s41</c> C06).
+    /// The <c>Controls</c> collection of a hosted form, and the names of the controls its designer declares: those <c>Controls.Remove</c> cannot remove (444).
     /// </summary>
     /// <param name="form">The instance of the form's class.</param>
     /// <param name="controls">The handle of its <c>Controls</c> collection.</param>
@@ -156,7 +378,7 @@ internal sealed class SessionForms
 
     /// <summary>
     /// The focus leaves a form that is being unloaded, while it is still listened to: the extender's events of the control that had it - its pending update, its
-    /// <c>Exit</c> - after the form's <c>QueryClose</c> and before its <c>Terminate</c> (<c>oracle\s41</c> E01, E05, E10, E11). A form that is not listened to is left
+    /// <c>Exit</c> - after the form's <c>QueryClose</c> and before its <c>Terminate</c>. A form that is not listened to is left
     /// as it is.
     /// </summary>
     /// <param name="form">The instance of the form's class.</param>
@@ -204,10 +426,16 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// The identity of the session's <c>UserForms</c> collection: one object, the same every time it is asked for (<c>oracle\s41</c> U02). Its instance is made
+    /// The identity of the session's <c>UserForms</c> collection: one object, the same every time it is asked for. Its instance is made
     /// by whatever first asks for it.
     /// </summary>
     public VBRuntimeObjectId? Collection { get; set; }
+
+    /// <summary>
+    /// The identity of the session's <c>Forms</c> collection, a Visual Basic 6.0 program's: one object, the same every time it is asked for. Its instance is made
+    /// by whatever first asks for it.
+    /// </summary>
+    public VBRuntimeObjectId? FormsCollection { get; set; }
 
     /// <summary>
     /// Holds a form the collection loaded (<c>UserForms.Add</c>), which stays loaded with nothing else referring to it (U05), until it is unloaded.
@@ -313,7 +541,7 @@ internal static class FormHandlers
     public const short FormControlMenu = 0;
 
     /// <summary>
-    /// Unloads a form, as <c>Unload</c> does and as its user closing it does (Excel-measured, <c>oracle\s41</c>): its <c>QueryClose</c> first, which can cancel it;
+    /// Unloads a form, as <c>Unload</c> does and as its user closing it does (observed in Excel): its <c>QueryClose</c> first, which can cancel it;
     /// then the focus leaves it (<see cref="SessionForms.Leave"/>); then its <c>Terminate</c>, its window, its default instance - which the next reference makes
     /// again - and the collection's hold on it, if <c>UserForms.Add</c> loaded it. The object stays, for whatever holds it, and its designer's members fail. A form that was unloaded already is left as it is.
     /// </summary>
@@ -324,6 +552,11 @@ internal static class FormHandlers
     public static RuntimeSemanticsEvaluationResult Unload(IRuntimeSession session, ICallableBindingFactory bindings, VBRuntimeObjectId form, short closeMode)
     {
         var forms = SessionForms.Of(session);
+        if (forms.IsVisualBasic6(session, form))
+        {
+            return UnloadVisualBasic6(session, bindings, form, closeMode);
+        }
+
         if (forms.IsUnloaded(form))
         {
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
@@ -357,6 +590,54 @@ internal static class FormHandlers
         }
 
         return terminated.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : terminated;
+    }
+
+    // a Visual Basic 6.0 form: one that is not loaded, or is being unloaded, is left as it is. QueryUnload, then Unload, each of which can cancel it; then the focus
+    // leaves it, its window goes, and it is no longer loaded once its Unload has returned. Its instance stays, with its variables and under its name: the next built-in
+    // member loads it again, and its Terminate waits for its last reference.
+    private static RuntimeSemanticsEvaluationResult UnloadVisualBasic6(IRuntimeSession session, ICallableBindingFactory bindings, VBRuntimeObjectId form, short unloadMode)
+    {
+        var forms = SessionForms.Of(session);
+        if (!forms.BeginUnload(form))
+        {
+            return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        }
+
+        var kept = true;
+        try
+        {
+            var asked = Ask(session, bindings, form, "QueryUnload", [0, unloadMode], out var cancelled);
+            if (!asked.IsSuccess || cancelled)
+            {
+                return asked.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : asked;
+            }
+
+            var unloading = Ask(session, bindings, form, "Unload", [0], out cancelled);
+            if (!unloading.IsSuccess || cancelled)
+            {
+                return unloading.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : unloading;
+            }
+
+            try
+            {
+                forms.Leave(form);
+            }
+            catch (RDCore.External.Automation.AutomationException)
+            {
+                // a form whose window is gone already (its host went with it) has no control to leave.
+            }
+
+            forms.StopListening(form);
+            session.ExternalObjects.Release(form);
+            kept = false;
+        }
+        finally
+        {
+            forms.EndUnload(form, unloaded: !kept);
+        }
+
+        // the loaded forms let go of it: what else holds it (its name, a variable, a running procedure's Me) keeps it, and the last of them runs its Terminate.
+        return forms.LetGoOfLoaded(session, form);
     }
 
     // a form's default instance that is unloaded is let go of, as Set UserForm1 = Nothing lets it go: the next reference to it makes another (L12, L55).
@@ -403,16 +684,22 @@ internal static class FormHandlers
     /// <param name="cancelled">Whether the handler cancelled it.</param>
     public static RuntimeSemanticsEvaluationResult QueryClose(
         IRuntimeSession session, ICallableBindingFactory bindings, VBRuntimeObjectId form, short closeMode, out bool cancelled)
+        => Ask(session, bindings, form, "QueryClose", [0, closeMode], out cancelled);
+
+    // runs a form's handler of an event whose first argument is Cancel, by reference, with the rest given: whatever the handler leaves in Cancel but 0 cancels what
+    // the event asks about. A form whose code has no handler cancels nothing.
+    private static RuntimeSemanticsEvaluationResult Ask(
+        IRuntimeSession session, ICallableBindingFactory bindings, VBRuntimeObjectId form, string name, short[] given, out bool cancelled)
     {
         cancelled = false;
-        if (HandlerOf(session, form, "QueryClose") is not { } handler)
+        if (HandlerOf(session, form, name) is not { } handler)
         {
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
 
         // MS-VBAL §5.4.2.20: an argument passed by reference is a location the handler can write to, which is where the cancellation is read from.
         var parameters = RuntimeProcedureInvoker.GetParameters(handler).Where(parameter => parameter.Name != "Me").ToArray();
-        var values = new[] { new VBIntegerValue(0), new VBIntegerValue(closeMode) };
+        var values = given.Select(value => new VBIntegerValue(value)).ToArray();
         var temporaries = new List<MemoryAddress>();
         var arguments = new List<IRuntimeValue> { new VBObjectValue(form).RuntimeValue };
         MemoryAddress? cancel = null;
@@ -453,10 +740,18 @@ internal static class FormHandlers
         }
     }
 
-    // UserForm_<event>: VBA names a form's event procedures after the UserForm, not after the form.
+    // UserForm_<event>: VBA names a form's event procedures after the UserForm, not after the form; VB6 names them after the Form, Form_<event>.
     private static VBTypeMemberSymbol? HandlerOf(IRuntimeSession session, VBRuntimeObjectId form, string name)
         => session.Symbols.TryGetInstance(form, out var live)
             ? live.ClassModule.Members.OfType<VBTypeMemberSymbol>().FirstOrDefault(member =>
-                member is VBProcedureMemberSymbol && string.Equals(member.Name, $"UserForm_{name}", StringComparison.OrdinalIgnoreCase))
+                member is VBProcedureMemberSymbol && string.Equals(member.Name, $"{PrefixOf(session, live.ClassModule)}_{name}", StringComparison.OrdinalIgnoreCase))
             : null;
+
+    /// <summary>
+    /// What a form's event procedures are named after: <c>Form</c> for a Visual Basic 6.0 form, <c>UserForm</c> for any other.
+    /// </summary>
+    /// <param name="session">The session the form is of.</param>
+    /// <param name="form">The form's class.</param>
+    public static string PrefixOf(IRuntimeSession session, VBClassModuleSymbol form)
+        => SessionForms.Of(session).IsVisualBasic6(form) ? "Form" : SDK.Workspace.Forms.FormObject.ClassName;
 }

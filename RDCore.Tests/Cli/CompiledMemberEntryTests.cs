@@ -607,4 +607,118 @@ public sealed class CompiledMemberEntryTests
         var compiled = await WaitedInMemberAsync(VBExecutionEngine.Compiled, statement, edited, direct);
         Assert.AreEqual(interpreted, compiled);
     }
+
+    // a member whose On Error statements set its error handling policy: Tolerant goes past an error, Caught goes to its handler. Count reads what Tolerant
+    // added up.
+    private static readonly (string Name, string Source)[] Guarded =
+    [
+        ("Guarded", ModuleWorkspace.ClassModule("Guarded", "Option Explicit",
+            "Private mCount As Long",
+            "Public Sub Tolerant(ByVal D As Long)",
+            "    On Error Resume Next",
+            "    mCount = mCount + 100 \\ D",
+            "    mCount = mCount + 1",
+            "End Sub",
+            "Public Function Caught(ByVal D As Long) As Long",
+            "    On Error GoTo Failed",
+            "    Caught = 100 \\ D",
+            "    Exit Function",
+            "Failed:",
+            "    Caught = -1",
+            "End Function",
+            "Public Function Count() As Long",
+            "    Count = mCount",
+            "End Function")),
+    ];
+
+    private static string Tolerated(int from) => Program(
+        "Public Sub Main()",
+        "    Debug.Print Run()",
+        "End Sub",
+        "Private Function Run() As Long",
+        "    Dim G As Guarded",
+        "    Dim I As Long",
+        "    Set G = New Guarded",
+        $"    For I = {from} To 3",
+        "        G.Tolerant I",
+        "    Next",
+        "    Run = G.Count()",
+        "End Function");
+
+    // an On Error statement sets the policy of an activation entered without a frame, which keeps it without one: 3 calls of Tolerant and 1 of Count, made
+    // directly, and no frame made.
+    [TestMethod]
+    public async Task AnOnErrorStatement_LeavesAMemberEnteredWithoutAFrame_WithoutOne()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Tolerated(from: 1), Guarded);
+
+        StringAssert.Contains(observed, "| 186 |");
+        AssertEntered(compiled, "Run", direct: 4, "Tolerant", framesMade: 0);
+    }
+
+    // the error of the first call is gone past as its On Error Resume Next said, although the policy was set before the activation had a frame: the frame it
+    // is given for the interpreter has it. That call is the one given a frame.
+    [TestMethod]
+    public async Task AnErrorInAMemberEnteredWithoutAFrame_IsHandledAsItsOnErrorSaid()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Tolerated(from: 0), Guarded);
+
+        StringAssert.Contains(observed, "| 187 |");
+        AssertEntered(compiled, "Run", direct: 5, "Tolerant", framesMade: 1);
+    }
+
+    // On Error GoTo, set without a frame: the error of the call given 0 goes to the handler, -1, and every other call returns 100 \ D.
+    [TestMethod]
+    public async Task AnErrorInAMemberEnteredWithoutAFrame_GoesToTheHandlerItsOnErrorGoToNamed()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Run()",
+            "End Sub",
+            "Private Function Run() As Long",
+            "    Dim G As Guarded",
+            "    Dim I As Long",
+            "    Set G = New Guarded",
+            "    For I = 0 To 2",
+            "        Run = Run * 1000 + G.Caught(I)",
+            "    Next",
+            "End Function"), Guarded);
+
+        StringAssert.Contains(observed, "| -899950 |");
+        AssertEntered(compiled, "Run", direct: 3, "Caught", framesMade: 1);
+    }
+
+    // one call made on objects of two classes in turn, through the interface both implement: each call invokes the member of its own object's class, the
+    // member found for the last class being the one of the other.
+    [TestMethod]
+    public async Task OneCallOnObjectsOfTwoClassesInTurn_InvokesEachObjectsOwnMember()
+    {
+        var (observed, _) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Alternated()",
+            "End Sub",
+            "Private Function Alternated() As Long",
+            "    Dim S As IShape",
+            "    Dim I As Long",
+            "    For I = 1 To 4",
+            "        If I Mod 2 = 1 Then Set S = New Square Else Set S = New Disc",
+            "        Alternated = Alternated * 10 + S.Area(I)",
+            "    Next",
+            "End Function"), [
+                ("IShape", ModuleWorkspace.ClassModule("IShape", "Option Explicit",
+                    "Public Function Area(ByVal N As Long) As Long",
+                    "End Function")),
+                ("Square", ModuleWorkspace.ClassModule("Square", "Option Explicit",
+                    "Implements IShape",
+                    "Private Function IShape_Area(ByVal N As Long) As Long",
+                    "    IShape_Area = 1",
+                    "End Function")),
+                ("Disc", ModuleWorkspace.ClassModule("Disc", "Option Explicit",
+                    "Implements IShape",
+                    "Private Function IShape_Area(ByVal N As Long) As Long",
+                    "    IShape_Area = 2",
+                    "End Function"))]);
+
+        StringAssert.Contains(observed, "| 1212 |");
+    }
 }

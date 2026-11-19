@@ -790,6 +790,12 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             || refusal.Code == Code(nameof(GoSubRoutineRefusal.NoLabel))
             || refusal.Code == Code(nameof(GoSubRoutineRefusal.NoGoSub));
 
+    /// <summary>
+    /// Why a refactoring that would change what the code does is offered disabled to a client that cannot ask its user to accept the change: the change.
+    /// </summary>
+    /// <param name="change">A notice of a change the refactoring would make (<see cref="RefactorNoticeKind.Change"/>).</param>
+    public static string NeedsAccepting(RefactorNotice change) => Format("ExtractMethodAction_NeedsAccepting", change.Message);
+
     // the accessibility answered, Private when none is; null for an answer that is no accessibility.
     private static ExtractionAccessibility? AccessibilityOf(IReadOnlyList<RefactorAnswer> answers)
         => answers.FirstOrDefault(answer => answer.Id == AccessibilityChoice)?.Value switch

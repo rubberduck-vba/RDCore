@@ -8,7 +8,7 @@ using RDCore.Diagnostics;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// <c>RDC11016</c>: the <c>Empty</c> literal Let-assigned to an array, which compiles and raises 13 whenever it runs (Excel, <c>oracle\s46</c> F17a-b).
+/// <c>RDC11016</c>: the <c>Empty</c> literal Let-assigned to an array, which compiles and raises 13 whenever it runs (observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class EmptyLetToArrayAnalyzerTests

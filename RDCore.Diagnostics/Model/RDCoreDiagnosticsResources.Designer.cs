@@ -360,6 +360,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change the type from Integer to Long.
+        /// </summary>
+        public static string IntegerDataTypeDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("IntegerDataTypeDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Integer is a 16-bit type that overflows at 32,767. Use a Long, unless an Integer is what a procedure or a file format expects..
         /// </summary>
         public static string IntegerDataTypeDeclaration_Message {
@@ -464,6 +473,15 @@ namespace RDCore.Diagnostics.Model {
         public static string NotAllPathsReturnValue_NeverAssigned_Message {
             get {
                 return ResourceManager.GetString("NotAllPathsReturnValue_NeverAssigned_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Assign &apos;{0}&apos; its default value ({1}) at the start.
+        /// </summary>
+        public static string NotAllPathsReturnValue_Fix {
+            get {
+                return ResourceManager.GetString("NotAllPathsReturnValue_Fix", resourceCulture);
             }
         }
 
@@ -576,6 +594,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; hides &apos;{1}&apos;: wherever &apos;{0}&apos; is in scope, the name means &apos;{0}&apos;. Give &apos;{0}&apos; a name of its own..
+        /// </summary>
+        public static string ShadowedDeclaration_ModuleMessage {
+            get {
+                return ResourceManager.GetString("ShadowedDeclaration_ModuleMessage", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it..
         /// </summary>
         public static string ProcedureCanBeWrittenAsFunction_Message {
@@ -590,6 +617,15 @@ namespace RDCore.Diagnostics.Model {
         public static string SelfAssignedDeclaration_Message {
             get {
                 return ResourceManager.GetString("SelfAssignedDeclaration_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Function &apos;{0}&apos; is called as a statement: the value it returns is discarded..
+        /// </summary>
+        public static string FunctionReturnValueDiscarded_Message {
+            get {
+                return ResourceManager.GetString("FunctionReturnValueDiscarded_Message", resourceCulture);
             }
         }
 
@@ -611,6 +647,24 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Class &apos;{0}&apos; is implemented as an interface, and its member &apos;{1}&apos; has code: a class that implements it does not run that code..
+        /// </summary>
+        public static string ImplementedInterfaceMember_Message {
+            get {
+                return ResourceManager.GetString("ImplementedInterfaceMember_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the code from the members of &apos;{0}&apos;: an object created from &apos;{0}&apos; itself no longer runs it.
+        /// </summary>
+        public static string ImplementedInterfaceMember_Fix {
+            get {
+                return ResourceManager.GetString("ImplementedInterfaceMember_Fix", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
         /// </summary>
@@ -873,6 +927,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has no consonant, and is unlikely to say what it is. Give it a name that does..
+        /// </summary>
+        public static string UseMeaningfulIdentifierNames_NoConsonant_Message {
+            get {
+                return ResourceManager.GetString("UseMeaningfulIdentifierNames_NoConsonant_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; has no vowel, and is unlikely to be a word. Give it a name that says what it is..
         /// </summary>
         public static string UseMeaningfulIdentifierNames_NoVowel_Message {
@@ -1104,6 +1167,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("HostLibraryNotReferenced_Fix", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared on every platform, and no library is on every platform: a call of it where its library is not raises run-time error 53. Write it in a #If on the platform constants..
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_Message {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This call of &apos;{0}&apos; is compiled on every platform, and no library is on every platform. Write it in a #If on the platform constants..
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_CallEverywhere_Message {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_CallEverywhere_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This call of &apos;{0}&apos; is compiled on a platform &apos;{0}&apos; is not declared on, where it refers to nothing. Write it in a #If on the platform constants that declare it..
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_CallNotDeclared_Message {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_CallNotDeclared_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write the Declare statement in #If {0} Then.
+        /// </summary>
+        public static string NativeCallReachableOnEveryPlatform_Fix {
+            get {
+                return ResourceManager.GetString("NativeCallReachableOnEveryPlatform_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA..
@@ -1277,6 +1376,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Assign &apos;{0}&apos; its default value ({1}) explicitly.
+        /// </summary>
+        public static string VariableNotAssigned_Fix {
+            get {
+                return ResourceManager.GetString("VariableNotAssigned_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is never used..
         /// </summary>
         public static string ParameterNotUsed_Message {
@@ -1291,6 +1399,15 @@ namespace RDCore.Diagnostics.Model {
         public static string AssignedByValParameter_Message {
             get {
                 return ResourceManager.GetString("AssignedByValParameter_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Copy &apos;{0}&apos; into a local variable &apos;{1}&apos;, and use it in place of the parameter.
+        /// </summary>
+        public static string AssignedByValParameter_Fix {
+            get {
+                return ResourceManager.GetString("AssignedByValParameter_Fix", resourceCulture);
             }
         }
 
@@ -1327,6 +1444,15 @@ namespace RDCore.Diagnostics.Model {
         public static string LineLabelNotUsed_Message {
             get {
                 return ResourceManager.GetString("LineLabelNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Member &apos;{0}&apos; is named with a keyword of the language: code that uses it reads like the keyword. Give it a name that is not one..
+        /// </summary>
+        public static string KeywordUsedAsMemberName_Message {
+            get {
+                return ResourceManager.GetString("KeywordUsedAsMemberName_Message", resourceCulture);
             }
         }
 
@@ -1615,5 +1741,49 @@ namespace RDCore.Diagnostics.Model {
             }
         }
 
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; of a number between -1 and 1 writes no zero before the decimal point in MS-VBA (&quot; .5&quot;), where MS-VBAL §6.1.2.3.1.20 writes &quot; 0.5&quot;..
+        /// </summary>
+        public static string StrOfAFraction_Message {
+            get {
+                return ResourceManager.GetString("StrOfAFraction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; of an Error value raises run-time error 13 (Type mismatch) in MS-VBA, where MS-VBAL §6.1.2.3.1.20 returns &quot;Error &quot; followed by its code..
+        /// </summary>
+        public static string StrOfAnErrorValue_Message {
+            get {
+                return ResourceManager.GetString("StrOfAnErrorValue_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0} #&apos; writes a number between -1 and 1 with no zero before the decimal point in MS-VBA (.5), where MS-VBAL §5.4.5.9 writes 0.5..
+        /// </summary>
+        public static string WriteOfAFraction_Message {
+            get {
+                return ResourceManager.GetString("WriteOfAFraction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Add a Property Get &apos;{0}&apos; that returns the value the Let keeps in &apos;{1}&apos;.
+        /// </summary>
+        public static string WriteOnlyProperty_Fix {
+            get {
+                return ResourceManager.GetString("WriteOnlyProperty_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing follows the colon after Then: this line runs as an If with no statement, as in VB6, and the lines after it run whatever the condition. MS-VBAL §5.4.2.9 gives the line no reading..
+        /// </summary>
+        public static string SingleLineIfWithNoStatement_Message {
+            get {
+                return ResourceManager.GetString("SingleLineIfWithNoStatement_Message", resourceCulture);
+            }
+        }
     }
 }

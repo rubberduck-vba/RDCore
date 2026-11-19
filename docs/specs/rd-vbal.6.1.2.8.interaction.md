@@ -29,7 +29,7 @@ What the module reaches outside the platform is the environment host's to provid
 > This section describes the implementation of [**MS-VBAL §6.1.2.8.1** Public Functions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/5253bced-81cd-4a45-a4da-0270224bf0e5).
 
 `GetAllJsonSettings` and `GetJsonSetting` are RD-VBA variants of `GetAllSettings` and `GetSetting`, and take a child
-number of the member they vary. `MacScript`, a hidden member of the module, resolves and raises a run-time error: RD-VBA has no AppleScript to run.
+number of the member they vary. `MacScript`, a hidden member of the module, resolves and raises error `5` for every script, as MS-VBA does on Windows (recorded in Excel): RD-VBA has no AppleScript to run.
 
 |§|Member|Notes|
 |---|---|---|

@@ -7,8 +7,7 @@ namespace RDCore.Tests.Runtime.Memory;
 
 /// <summary>
 /// What is bound at an address changes only by an allocation, a deallocation or a rebinding (a <c>POKE</c>), and each of them is counted: a binding read
-/// through an address is the one there for as long as the count has not changed, which is what a variable of the session is resolved once for (IR lowering
-/// S1.5).
+/// through an address is the one there for as long as the count has not changed, which is what a variable of the session is resolved once for.
 /// </summary>
 [TestClass]
 public sealed class SessionStorageGenerationTests

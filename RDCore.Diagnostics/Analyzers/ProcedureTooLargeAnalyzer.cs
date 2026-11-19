@@ -14,7 +14,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// MS-VBA refuses a procedure whose compiled code is larger than 64K (MS Learn). What that is in statements depends on the statements: 5,000 of <c>x = x + 1</c>
 /// compile and 5,250 do not, 7,000 of <c>x = 1</c> compile and 8,000 do not, and 60,000 comment lines compile (recorded in Excel). RD-VBA compiles no p-code to
-/// measure, and runs a procedure of any size; it warns past 5,000 statements, by the author's ruling, which is where MS-VBA starts to refuse procedures of the most
+/// measure, and runs a procedure of any size; it warns past 5,000 statements, which is where MS-VBA starts to refuse procedures of the most
 /// common statements. MS-VBAL sets no limit. Every statement of the procedure counts, in the blocks of others too; a comment is none.
 /// </remarks>
 internal sealed class ProcedureTooLargeAnalyzer : SyntaxTreeAnalyzer

@@ -27,7 +27,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics;
 
-// The evaluation of bound trees (IR lowering §3.3, S0.8a): what an expression binds to is decided once, the first time it is evaluated, and the bound tree
+// The evaluation of bound trees: what an expression binds to is decided once, the first time it is evaluated, and the bound tree
 // is what is evaluated from then on. A node is evaluated by the run-time semantics of what it is - only what the binding decided is not decided again. What
 // resolves only when it is evaluated (BoundLate), and the run-time counterpart of a compile error (BoundError), are evaluated late-bound (EvaluateLate).
 public sealed partial class RuntimeExpressionEvaluator
@@ -130,7 +130,7 @@ public sealed partial class RuntimeExpressionEvaluator
             : Evaluate(session, callee, context);
 
     /// <summary>
-    /// The variable a statement's target names, bound (IR lowering S0.11): what a <c>Set</c>, an <c>LSet</c> or an <c>RSet</c> writes to, found once.
+    /// The variable a statement's target names, bound: what a <c>Set</c>, an <c>LSet</c> or an <c>RSet</c> writes to, found once.
     /// </summary>
     /// <param name="session">The session the statement runs in.</param>
     /// <param name="target">The target.</param>
@@ -155,7 +155,7 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         // a variable of the session - of a module, global, or a Static local - is the same cell from wherever it is read, for as long as nothing is
-        // allocated, freed or rebound in storage: resolved once for each place it is named, rather than looked up by its symbol each time (S1.5).
+        // allocated, freed or rebound in storage: resolved once for each place it is named, rather than looked up by its symbol each time.
         if (IsSessionVariable(variable.Variable, session.CallStack.Current) && session.Storage is SessionStorage storage)
         {
             if (_sessionCells.TryGetValue(variable, out var known) && ReferenceEquals(known.Storage, storage) && known.Generation == storage.Generation)
@@ -184,7 +184,7 @@ public sealed partial class RuntimeExpressionEvaluator
     /// <summary>
     /// Let-coerces a value by the plan of its coercion (<see cref="Plans.PlanExecutor.TryConvert"/>), when nothing observes the evaluation and the value and
     /// the destination are ones the plan can be executed for: what an argument passed to a <c>ByVal</c> parameter, and the value assigned to a function's
-    /// result, are let-coerced by (IR lowering S0.9).
+    /// result, are let-coerced by.
     /// </summary>
     /// <param name="value">The value.</param>
     /// <param name="destination">The declared type it is let-coerced to.</param>
@@ -199,7 +199,7 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     /// <summary>
-    /// Let-assigns a value to the variable a name is bound to (IR lowering S0.8c): through its slot, by the plan of its let-coercion
+    /// Let-assigns a value to the variable a name is bound to: through its slot, by the plan of its let-coercion
     /// (<see cref="Plans.PlanExecutor.TryConvert"/>), if the target and the value are ones the plan can be executed for.
     /// </summary>
     /// <param name="session">The session the assignment is evaluated in.</param>
@@ -356,7 +356,7 @@ public sealed partial class RuntimeExpressionEvaluator
                 ? handle
                 : session.Symbols.Resolver.GetValue(instance.Me)));
 
-    // what EvaluateMemberAccess and EvaluateIndex do with a member of an object declared as a class, the member resolved once (S0.10): the owner is evaluated
+    // what EvaluateMemberAccess and EvaluateIndex do with a member of an object declared as a class, the member resolved once: the owner is evaluated
     // once, and the member the object's class invokes for it is found once for each class the expression meets. Anything else - no object, an object the
     // session has no instance of, a member the class does not have - is what the late-bound evaluation does with the owner it was given.
     private RuntimeSemanticsEvaluationResult EvaluateBoundMember(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context)
@@ -441,12 +441,12 @@ public sealed partial class RuntimeExpressionEvaluator
     // late-bound. A late-bound object held by a variable of a library's class is reached through that class, as MS-VBA binds it early: the Set that put it
     // there found it is one.
     private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
-    {
-        if (_memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual))
-        {
-            return site.Member;
-        }
+        => _memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual) ? site.Member : ImplementationFound(bound, actual);
 
+    // the member found for the access, and kept for it. It is a method of its own so that ImplementationOf, where the member is kept already, captures
+    // nothing and allocates nothing.
+    private VBTypeMemberSymbol? ImplementationFound(BoundMember bound, VBClassModuleSymbol actual)
+    {
         // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
         var name = bound.Access.Member.IdentifierName;
         var declared = bound.DeclaredClass!.Uri.AbsoluteUri;
@@ -490,7 +490,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return left.IsSuccess ? OperatorProvider.EvaluateBinaryOperator(session, binary.Operation, left.Result!, right.Result!) : Unvalued(left);
         }
 
-        // an operand that raised an error raises it with no value: a Variant operation of it assigns nothing (MS-VBA: e = s * 10 + v leaves e - s42 E06).
+        // an operand that raised an error raises it with no value: a Variant operation of it assigns nothing (MS-VBA: e = s * 10 + v leaves e - observed in Excel).
         var leftResult = EvaluateBoundNode(session, binary.Left, context);
         if (!leftResult.IsSuccess)
         {
@@ -571,14 +571,14 @@ public sealed partial class RuntimeExpressionEvaluator
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
         => IsWide(call) ? EvaluateStored(session, call, context)
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
-            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
+            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, call.Call.Arguments)
                 ? OfResultType(call, AbsOfTheLeast(session, call, context,
                     InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments, call: call.Call)))
                 : EvaluateLate(session, call.Expression, context);
 
     // the absolute value of the least value of a type is no value of it, which the standard library's Abs raises as an overflow: as MS-VBA does for a
-    // variable of a numeric type (recorded in Excel: oracle\s60 A01, A03). Of the least Long, the call decides two others. MS-VBA evaluates a constant
-    // expression when it compiles the code, and Abs of the least Long in one is that Long (A01, A02), as its negation is (BoundUnary.NegatesAConstantExpression).
+    // variable of a numeric type (observed in Excel). Of the least Long, the call decides two others. MS-VBA evaluates a constant
+    // expression when it compiles the code, and Abs of the least Long in one is that Long, as its negation is (BoundUnary.NegatesAConstantExpression).
     // A Variant's absolute value that its type does not hold is of the next wider one, as the Variant's arithmetic is (MS-VBAL §5.6.9.3): Abs of a Variant
     // holding the least Long is the Double 2147483648 (A03), and of one holding the least Integer the Long 32768 (s61). Each is evaluated again, on the overflow.
     private RuntimeSemanticsEvaluationResult AbsOfTheLeast(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context,
@@ -612,7 +612,7 @@ public sealed partial class RuntimeExpressionEvaluator
             : evaluated;
 
     // a call of a declared type its procedure does not declare - Abs, Int, Fix of a number (ArgumentTypedFunctions) - returns a value of it: the Variant the
-    // procedure returns holds one, which is what an operation of the call operates on, as MS-VBA has it (oracle\s46 F10: `Fix(n) * 7000` overflows).
+    // procedure returns holds one, which is what an operation of the call operates on, as MS-VBA has it (observed in Excel: `Fix(n) * 7000` overflows).
     private static RuntimeSemanticsEvaluationResult OfResultType(BoundCall call, RuntimeSemanticsEvaluationResult returned)
         => call.ResultType is { } typed && returned is { IsSuccess: true, Result: VBVariantValue { TypedValue: var held } } && held.TypeInfo.Name == typed.Name
             ? RuntimeSemanticsEvaluationResult.Success(held)

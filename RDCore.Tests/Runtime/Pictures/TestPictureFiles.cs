@@ -82,6 +82,24 @@ internal static class TestPictureFiles
         return bytes;
     }
 
+    // an icon (type 1) or a cursor (type 2) of one image that is stored as a PNG of the given side, as an icon of Windows Vista stores its largest image; a side
+    // of 256 is 0 in the directory.
+    public static byte[] PngIcon(short type, int side)
+    {
+        var image = Png(side, side);
+        var bytes = new byte[22 + image.Length];
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(2), type);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(4), 1);
+        var entry = bytes.AsSpan(6);
+        entry[0] = entry[1] = (byte)(side == 256 ? 0 : side);
+        BinaryPrimitives.WriteInt16LittleEndian(entry[4..], 1);
+        BinaryPrimitives.WriteInt16LittleEndian(entry[6..], 32);
+        BinaryPrimitives.WriteInt32LittleEndian(entry[8..], image.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(entry[12..], 22);
+        image.CopyTo(bytes, 22);
+        return bytes;
+    }
+
     private static byte[] IconImage(int side)
     {
         var mask = (side + 31) / 32 * 4;
@@ -169,7 +187,7 @@ internal static class TestPictureFiles
         return bytes;
     }
 
-    // the smallest GIF, of the size given in its screen descriptor.
+    // the smallest GIF, of the size given in its screen descriptor and in the image descriptor of its one frame: LoadPicture sizes a GIF by its first frame.
     public static byte[] Gif(short width, short height)
     {
         var bytes = Convert.FromHexString(string.Concat(
@@ -177,17 +195,24 @@ internal static class TestPictureFiles
             "0244", "0100", "3B"));
         BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(6), width);
         BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(8), height);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(32), width);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(34), height);
         return bytes;
     }
 
-    // a JPEG's start of image, an APP0 segment, and a baseline start of frame of the given size.
+    // a JPEG's start of image, an APP0 segment, a baseline start of frame of the given size, then a start of scan with no data and the end of image. Its first
+    // JpegScanAt bytes end before the scan.
     public static byte[] Jpeg(int width, int height)
     {
-        var bytes = Convert.FromHexString("FFD8FFE000104A46494600010100000100010000" + "FFC0001108000000000301220002110103110100");
+        var bytes = Convert.FromHexString(
+            "FFD8FFE000104A46494600010100000100010000" + "FFC0001108000000000301220002110103110100" + "FFDA000C03010002110311003F00" + "FFD9");
         BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(25), (ushort)height);
         BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(27), (ushort)width);
         return bytes;
     }
+
+    // where the scan of a Jpeg starts: the bytes before it are a JPEG that ends before its scan.
+    public const int JpegScanAt = 40;
 
     // a PNG's signature and IHDR chunk.
     public static byte[] Png(int width, int height)

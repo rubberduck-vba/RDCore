@@ -200,7 +200,7 @@ public sealed class SymbolIdentityTests
         }
     }
 
-    // IPlayer.cls of OOPBattleship, as it is written: an Enum, then a Property Get of the Enum's name and type.
+    // a real project's class, as it is written: an Enum, then a Property Get of the Enum's name and type.
     private static string Player(string getBody) => ModuleWorkspace.ClassModule("Player",
         "Public Enum PlayerType", "    HumanControlled", "    ComputerControlled", "End Enum", "",
         "Option Explicit", "",
@@ -219,7 +219,7 @@ public sealed class SymbolIdentityTests
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, [(moduleUri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.ClassModule, parse, resolver).ProvideSymbols();
 
-        var result = await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        var result = await new DefineSymbolsHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

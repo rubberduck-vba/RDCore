@@ -49,7 +49,7 @@ public sealed class ObjectInstanceTests
 
         sut.Push(field, value);
 
-        // the field's cell holds the value: a cell of its own, which a field of a scalar type holds as a payload (IR lowering S1.4c).
+        // the field's cell holds the value: a cell of its own, which a field of a scalar type holds as a payload.
         Assert.AreEqual(value.Handle.Value, sut.GetValue(field).Value);
     }
 
@@ -145,5 +145,27 @@ public sealed class ObjectInstanceTests
 
         Assert.AreEqual(42, first.GetValue(field).Value.BoxedValue);
         Assert.AreEqual(2, second.GetValue(field).Value.BoxedValue, "unaffected by the write to the other instance");
+    }
+
+    [TestMethod]
+    public void ClassModule_IsTheClassAsTheTableDeclaresIt_EachTimeTheTableChanges()
+    {
+        var table = new SymbolTable();
+        var created = ClassModule();
+        table.TryAdd(created, created.ScopeKind);
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var sut = new ObjectInstance(new VBRuntimeObjectId(), created, storage, table);
+        Assert.AreSame(created, sut.ClassModule, "the class is read, and kept, before the table changes");
+
+        var edited = created with { };
+        table.Replace(edited, edited.ScopeKind);
+        Assert.AreSame(edited, sut.ClassModule);
+
+        table.Remove(edited, edited.ScopeKind);
+        Assert.AreSame(created, sut.ClassModule, "a class the table no longer declares is the one the object was created as");
+
+        var again = created with { };
+        table.TryAdd(again, again.ScopeKind);
+        Assert.AreSame(again, sut.ClassModule);
     }
 }

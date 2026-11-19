@@ -13,7 +13,7 @@ namespace RDCore.Runtime.Execution;
 /// <remarks>
 /// A field that is a record has no cell of its own, as a field of an intrinsic type does: the record it holds is the field. Nor is a <c>Variant</c>'s cell what reading the
 /// field reads: the record holds the value. This is the cell either is given for as long as a call it is passed to runs (MVVM's
-/// <c>ConnectToConnectionPoint Me, This.RefIID, ...</c>; <c>BumpV r.V</c>, recorded in Excel: oracle\s59 M03).
+/// <c>ConnectToConnectionPoint Me, This.RefIID, ...</c>; <c>BumpV r.V</c>, observed in Excel).
 /// </remarks>
 /// <param name="session">The session whose objects what the field holds are.</param>
 /// <param name="record">The record whose field it is.</param>

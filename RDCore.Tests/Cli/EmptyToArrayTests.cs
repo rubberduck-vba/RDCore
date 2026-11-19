@@ -4,7 +4,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// MS-VBAL §3.3.5.2: the <c>Empty</c> literal has a declared type of <c>Variant</c>, and MS-VBAL §5.5.1.1 makes a <c>Variant</c> valid to Let-coerce to an
-/// array: <c>a = Empty</c> compiles, and raises 13 when it runs (MS-VBAL §5.5.1.2.7; Excel, <c>oracle\s46</c> F17a-b).
+/// array: <c>a = Empty</c> compiles, and raises 13 when it runs (MS-VBAL §5.5.1.2.7; observed in Excel).
 /// </summary>
 [TestClass]
 public sealed class EmptyToArrayTests

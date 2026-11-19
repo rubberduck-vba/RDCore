@@ -39,8 +39,9 @@ public sealed partial class CompiledActivation
     }
 
     /// <summary>
-    /// Runs the <c>ReDim</c> or the <c>Erase</c> at <paramref name="pc"/> as the interpreter runs the statement (MS-VBAL §5.4.3.3-4): a support call, with
-    /// every variable written into the frame, where its bounds are read. The frame says the instruction is the one being run, as it does of a call.
+    /// Runs the <c>ReDim</c> or the <c>Erase</c> at <paramref name="pc"/> (MS-VBAL §5.4.3.3-4), or the Let of an array to a <c>Variant</c> (MS-VBAL §5.4.3.8),
+    /// as the interpreter runs the statement: a support call, with every variable written into the frame, where its bounds are read. The frame says the
+    /// instruction is the one being run, as it does of a call. An object the statement lets go of is terminated in it, as it is by the interpreter's.
     /// </summary>
     /// <returns>
     /// Whether the statement completed. When not, the error it raised is the interpreter's to give the activation's handler, as a call's is

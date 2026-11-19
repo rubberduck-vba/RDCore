@@ -117,17 +117,26 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
     /// Writes the corpus built into <c>rdc</c> to a folder of its own for a session to read, as any workspace is.
     /// </summary>
     /// <returns>The folder, which the caller deletes.</returns>
-    internal static string ExtractCorpus(IFileSystem fileSystem)
+    internal static string ExtractCorpus(IFileSystem fileSystem) => ExtractResources(fileSystem, CorpusResourcePrefix, "bench");
+
+    /// <summary>
+    /// Writes the files embedded in <c>rdc</c> under <paramref name="prefix"/> to a folder of their own, named for <paramref name="name"/> and this process.
+    /// </summary>
+    /// <param name="fileSystem">The file system the folder is made on.</param>
+    /// <param name="prefix">The prefix of the names of the embedded files; each file is written under its name without it.</param>
+    /// <param name="name">The folder's parent, under the <c>RDCore</c> folder of the temporary folder.</param>
+    /// <returns>The folder, which the caller deletes.</returns>
+    internal static string ExtractResources(IFileSystem fileSystem, string prefix, string name)
     {
-        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", name, Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
         fileSystem.Directory.CreateDirectory(folder);
 
         var assembly = typeof(BenchCommand).Assembly;
-        foreach (var resource in assembly.GetManifestResourceNames().Where(name => name.StartsWith(CorpusResourcePrefix, StringComparison.Ordinal)))
+        foreach (var resource in assembly.GetManifestResourceNames().Where(each => each.StartsWith(prefix, StringComparison.Ordinal)))
         {
             using var stream = assembly.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);
-            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[CorpusResourcePrefix.Length..]), reader.ReadToEnd());
+            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[prefix.Length..]), reader.ReadToEnd());
         }
 
         return folder;
@@ -185,14 +194,19 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
             return;
         }
 
-        Output.WriteLine($"{"case".PadRight(width)}{"runs",6}{"min",14}{"median",14}");
+        // allocated and gc 0/1/2: what the fastest run allocated, and the collections of each generation made while it ran.
+        Output.WriteLine($"{"case".PadRight(width)}{"runs",6}{"min",14}{"median",14}{"allocated",14}{"gc 0/1/2",12}");
         foreach (var benchCase in report.Cases)
         {
             Output.WriteLine(benchCase.Error is { } error
                 ? $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}  {error}"
-                : $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}{Milliseconds(benchCase.Min!.Value),14}{Milliseconds(benchCase.Median!.Value),14}");
+                : $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}{Milliseconds(benchCase.Min!.Value),14}{Milliseconds(benchCase.Median!.Value),14}{Cost(benchCase.FastestCost)}");
         }
     }
+
+    private static string Cost(BenchRunCost? cost) => cost is { } each
+        ? $"{(each.Bytes / 1024.0).ToString("0", CultureInfo.InvariantCulture) + " KB",14}{$"{each.Gen0}/{each.Gen1}/{each.Gen2}",12}"
+        : string.Empty;
 
     // each module's parse, indentation and edits applied with the default settings, the slowest first; then the totals, and those with every alignment on. The
     // first time every module is formatted, before the code is compiled to its fastest, is the cold total; what is measured after it is a server's that is warm.

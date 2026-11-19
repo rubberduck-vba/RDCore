@@ -17,7 +17,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// A function of the project and one of a library are both found. The functions of the VBA library that change nothing and raise no error for an argument of the
-/// type they declare are left out (<see cref="Pure"/>), by the module and the name the call is bound to. A call bound late is not found.
+/// type they declare are left out (<see cref="Pure"/>), by the module and the name the call is bound to. A member of an object declared <c>As Object</c> or
+/// <c>As Variant</c> is found too: it is bound when the call runs, and may run any code.
 /// </remarks>
 internal sealed class IIfSideEffectAnalyzer : IModuleAnalyzer
 {
@@ -53,19 +54,31 @@ internal sealed class IIfSideEffectAnalyzer : IModuleAnalyzer
             .SelectMany(call => new[] { Part(call, 1, "TruePart"), Part(call, 2, "FalsePart") })
             .OfType<ExpressionNode>()
             .SelectMany(part => new SyntaxNode[] { part }.Concat(part.Descendants()))
-            .Select(node => facts.GetValueOrDefault(node.Identity))
-            .OfType<ExpressionFactDto>()
-            .Where(fact => fact is { Classification: FactClassification.Function or FactClassification.Property, Binding: { } binding }
-                && fact.Flags.HasFlag(ValueExpressionSemanticFlags.ProcedureCall)
-                && !Pure.Contains(SymbolUri.QualifiedNameOf(binding)))
-            .DistinctBy(fact => fact.Node)
-            .OrderBy(fact => fact.Location.Range.Start)
-            .Select(fact => new AnalyzerFinding(
+            .Select(node => facts.TryGetValue(node.Identity, out var fact) ? (Fact: fact, Name: CalledName(node, fact)) : default)
+            .Where(found => found.Name is not null)
+            .DistinctBy(found => found.Fact.Node)
+            .OrderBy(found => found.Fact.Location.Range.Start)
+            .Select(found => new AnalyzerFinding(
                 RDCoreDiagnosticId.IIfSideEffect.ToCode(),
-                fact.Location.Range,
+                found.Fact.Location.Range,
                 DiagnosticSeverity.Warning,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.IIfSideEffect_Message, SymbolUri.NameOf(fact.Binding!))));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.IIfSideEffect_Message, found.Name!)));
     }
+
+    // the name of what a part calls: a Function or a Property Get bound to anything but a pure function, or a member of an object whose type does not say what
+    // it has, which is bound when the call runs and may run any code.
+    private static string? CalledName(SyntaxNode node, ExpressionFactDto fact) => fact switch
+    {
+        { Classification: FactClassification.Function or FactClassification.Property, Binding: { } binding }
+            when fact.Flags.HasFlag(ValueExpressionSemanticFlags.ProcedureCall) && !Pure.Contains(SymbolUri.QualifiedNameOf(binding)) => SymbolUri.NameOf(binding),
+        { Classification: FactClassification.UnboundMember } => node switch
+        {
+            MemberAccessExpressionNode access => access.Member.IdentifierName,
+            DictionaryAccessExpressionNode access => access.Member.IdentifierName,
+            _ => null,
+        },
+        _ => null,
+    };
 
     private static bool IsBoundTo(ExpressionFactDto fact, string qualifiedName)
         => fact.Binding is { } binding && string.Equals(SymbolUri.QualifiedNameOf(binding), qualifiedName, StringComparison.OrdinalIgnoreCase);

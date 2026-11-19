@@ -1,4 +1,8 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -8,34 +12,34 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
+using System.Text.RegularExpressions;
 using RDCore.SDK.Semantics;
+using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // a count is stated only when it is the whole truth: nothing outside the analyzed code can refer to the declaration, and that code was fully analyzed.
 public static class DeclarationUsage
 {
+    // namesInUnanalyzedCode: the names written in the procedures of the module that were not fully analyzed (NamesIn), or null when they are not known.
     public static ImmutableArray<DeclarationFact> Of(
-        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
-        Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null)
+        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationBinding>? bindings = null,
+        Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null,
+        IReadOnlySet<string>? excludedBranchNames = null, Func<Symbol, ImmutableArray<CompiledPlatforms>?>? statementsCompiledOn = null,
+        IEnumerable<string>? namesInUnanalyzedCode = null)
     {
         var models = procedures.ToList();
         var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
-        // a constant of the module is also referred to by the expressions of the module's declarations: the facts of those are needed for its count.
-        var moduleConstantsAreFullyAnalyzed = moduleIsFullyAnalyzed && declarations is { IsFullyAnalyzed: true };
+        var unanalyzedNames = namesInUnanalyzedCode?.Select(Normalized).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // a reference is a place in the code: the tree can hold an expression twice (the bound of an array of the module is also a child of its declaration),
-        // and both are evaluated, as what the tree holds is.
-        var bound = models.SelectMany(procedure => procedure.Expressions.Values)
-            .Concat(declarations?.Expressions.Values ?? [])
-            .Where(fact => fact.Binding is not null)
-            .DistinctBy(fact => (fact.Location, fact.Binding))
-            .ToList();
+        var code = CodeOf(models, declarations).ToList();
         var declaredList = declared.ToList();
         declared = declaredList;
         var parameters = declaredList.OfType<VBParameterSymbol>().Select(parameter => parameter.SemanticId).ToHashSet();
-        var assigned = moduleIsFullyAnalyzed && arguments is not null ? AssignedParameters(bound, arguments, parameters) : null;
-        var references = Count(bound, arguments, parameters, assigned);
+        var assigned = moduleIsFullyAnalyzed && arguments is not null
+            ? AssignedParameters([.. code.SelectMany(each => Bound(each.Expressions))], arguments, parameters)
+            : null;
+        var references = Tally(code, fact => IsNeverAssigned(fact, arguments, parameters, assigned));
 
         // the accessors of a property are one declaration, though each has the identity of its own that an expression can be bound to: it is the first one
         // that stands for it.
@@ -54,22 +58,33 @@ public static class DeclarationUsage
                 continue;
             }
 
-            var role = roles is not null && roles.TryGetValue(symbol.SemanticId, out var found) ? found : DeclarationRole.None;
-            DeclarationReferences? counted = null;
+            var binding = bindings?.GetValueOrDefault(symbol.SemanticId);
+            var role = binding?.Role ?? DeclarationRole.None;
+            References? counted = null;
+            // a name that a branch of a #If that is excluded writes can be a reference in another configuration (ExcludedBranchNames). A constant of the
+            // module is also referred to by the expressions of the module's declarations: the facts of those are needed for its count.
             if ((IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) || IsCalledOnlyByItsOwnCode(symbol, role))
-                && CodeThatCanReferToIt(symbol, models, symbol is VBConstantMemberSymbol ? moduleConstantsAreFullyAnalyzed : moduleIsFullyAnalyzed))
+                && (symbol is not VBConstantMemberSymbol || declarations is { IsFullyAnalyzed: true })
+                && CodeThatCanReferToIt(symbol, models, moduleIsFullyAnalyzed, unanalyzedNames)
+                && excludedBranchNames?.Contains(symbol.Name) != true)
             {
-                counted = references.GetValueOrDefault(symbol.SemanticId);
+                counted = references.GetValueOrDefault(Key(symbol.SemanticId)) ?? new References();
             }
 
+            // a procedure that several Declare statements declare is declared on every platform one of them is compiled on.
+            var statements = symbol is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol ? statementsCompiledOn?.Invoke(symbol) : null;
             facts.Add(new DeclarationFact(
-                symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted)
+                symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted?.Count)
             {
+                ReferencedFrom = counted?.Sites.ToImmutable(),
                 Role = role,
+                Binding = binding,
                 // a parameter is a local of its procedure that no statement declares.
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
                 Hides = hides?.Invoke(symbol),
                 AutoInstantiates = ClassFacts.AutoInstantiatedClassOf(symbol)?.SemanticId,
+                CompiledOn = statements?.Aggregate(CompiledPlatforms.None, (all, statement) => all | statement),
+                StatementsCompiledOn = statements ?? default,
             });
         }
 
@@ -120,24 +135,151 @@ public static class DeclarationUsage
         => assigned is not null && arguments is not null && arguments.TryGet(fact.Node, out var parameter)
             && parameters.Contains(parameter) && !assigned.Contains(parameter);
 
-    // what refers to each declaration, by the expressions bound to it.
-    private static Dictionary<SemanticId, DeclarationReferences> Count(
-        List<ExpressionFact> bound, ArgumentParameters? arguments, HashSet<SemanticId> parameters, HashSet<SemanticId>? assigned)
+    // MS-VBAL §5.3.1.1, §5.2.1.4: a Friend procedure, and a Public variable or constant of a procedural module that is Option Private Module, are accessible
+    // within the project and from nowhere else - the projects that reference it included. Every reference to one is in the code of a module of the project, and
+    // it is counted over all of them once each module has a model and every procedure of each was fully analyzed. A constant is counted once the expressions in
+    // the declarations of each module were analyzed too (the value of another constant, the bounds of an array). A Public procedure of a private module is not counted
+    // here: its name can be passed as a string to a library member that calls a procedure by its name, which a count of the expressions does not see. Nor is a
+    // declaration of a name that an excluded #If branch of a module of the project writes (ExcludedBranchNames): excludedBranchNames holds those names for
+    // each module, by the module's address.
+    public static IReadOnlyCollection<ModuleSemanticModel> AcrossProject(
+        IReadOnlyCollection<ModuleSemanticModel> models, IReadOnlyDictionary<string, ModuleDeclarationFacts> declarations, IEnumerable<VBModuleSymbol> project,
+        IReadOnlyDictionary<string, IReadOnlySet<string>>? excludedBranchNames = null)
     {
-        var references = new Dictionary<SemanticId, DeclarationReferences>();
-        foreach (var fact in bound)
+        var projectModules = project.DistinctBy(module => module.Uri.AbsoluteUri).ToList();
+        var modules = projectModules.Select(module => module.Uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+        var privateModules = projectModules.Where(module => module is not VBClassModuleSymbol && module.Directives.PrivateModule)
+            .Select(module => module.Uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+        // MS-VBAL §5.2.4.2: a class that the Implements directive of a module of the project names is implemented, whether or not the code is analyzed.
+        var implemented = projectModules.OfType<VBClassModuleSymbol>().SelectMany(module => module.ImplementedInterfaces)
+            .Select(implementedClass => implementedClass.Uri.AbsoluteUri).Where(modules.Contains).ToHashSet(StringComparer.Ordinal);
+        models = [.. models.Select(model => model.Class is { } flags && implemented.Contains(model.Module.AbsoluteUri)
+            ? model with { Class = flags | ClassModuleSemanticFlags.Implemented }
+            : model)];
+
+        var inProject = models.Where(model => modules.Contains(model.Module.AbsoluteUri)).ToList();
+        if (modules.Count == 0
+            || inProject.Select(model => model.Module.AbsoluteUri).Distinct(StringComparer.Ordinal).Count() < modules.Count
+            || !inProject.All(model => model.Procedures.All(procedure => procedure.IsFullyAnalyzed)))
         {
-            var current = references.GetValueOrDefault(fact.Binding!.Value);
-            references[fact.Binding.Value] = fact.Flags switch
+            return models;
+        }
+
+        var constantsAreFullyAnalyzed = modules.All(module => declarations.TryGetValue(module, out var facts) && facts.IsFullyAnalyzed);
+        var references = Tally(inProject.SelectMany(model => CodeOf(model.Procedures, declarations.GetValueOrDefault(model.Module.AbsoluteUri))));
+        var excluded = modules.SelectMany(module => excludedBranchNames?.GetValueOrDefault(module) ?? Enumerable.Empty<string>())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return [.. models.Select(model => !modules.Contains(model.Module.AbsoluteUri) ? model : model with
+        {
+            Declarations = [.. model.Declarations.Select(fact => fact.References is null
+                && IsAccessibleOnlyWithinTheProject(fact, privateModules.Contains(model.Module.AbsoluteUri), constantsAreFullyAnalyzed)
+                && !excluded.Contains(fact.Name)
+                    ? Counted(fact, references.GetValueOrDefault(Key(fact.Symbol)) ?? new References())
+                    : fact)],
+        })];
+    }
+
+    private static bool IsAccessibleOnlyWithinTheProject(DeclarationFact fact, bool inPrivateModule, bool constantsAreFullyAnalyzed) => fact switch
+    {
+        { Role: not DeclarationRole.None } => false,
+        { Kind: DeclarationKind.Procedure or DeclarationKind.Property, Access: AccessModifier.Friend } => true,
+        { Kind: DeclarationKind.Variable, Access: AccessModifier.Public or AccessModifier.Global } => inPrivateModule,
+        { Kind: DeclarationKind.Constant, Access: AccessModifier.Public or AccessModifier.Global } => inPrivateModule && constantsAreFullyAnalyzed,
+        _ => false,
+    };
+
+    private static DeclarationFact Counted(DeclarationFact fact, References references)
+        => fact with { References = references.Count, ReferencedFrom = references.Sites.ToImmutable() };
+
+    // what refers to each declaration, by its key: the expressions of the procedures that are bound to it, counted by what they do.
+    private sealed class References
+    {
+        public DeclarationReferences Count { get; set; }
+
+        public ImmutableArray<DeclarationReference>.Builder Sites { get; } = ImmutableArray.CreateBuilder<DeclarationReference>();
+    }
+
+    // code that refers to declarations: the body of a procedure, or the declarations of a module, which no procedure holds.
+    private readonly record struct Code(SemanticId? Procedure, IEnumerable<ExpressionFact> Expressions);
+
+    private static IEnumerable<Code> CodeOf(IEnumerable<ProcedureSemanticModel> procedures, ModuleDeclarationFacts? declarations)
+        => procedures.Select(procedure => new Code(procedure.Procedure, procedure.Expressions.Values))
+            .Concat(declarations is null ? Enumerable.Empty<Code>() : [new Code(null, declarations.Expressions.Values)]);
+
+    // a reference is a place in the code: the tree can hold an expression twice (the bound of an array of the module is also a child of its declaration),
+    // and both are evaluated, as what the tree holds is.
+    private static IEnumerable<ExpressionFact> Bound(IEnumerable<ExpressionFact> expressions)
+        => expressions.Where(fact => fact.Binding is not null).DistinctBy(fact => (fact.Location, fact.Binding));
+
+    // isReadByTheCall: an argument that the call reads and does not write, though it is passed by reference (IsNeverAssigned).
+    private static Dictionary<string, References> Tally(IEnumerable<Code> code, Func<ExpressionFact, bool>? isReadByTheCall = null)
+    {
+        var references = new Dictionary<string, References>(StringComparer.Ordinal);
+        foreach (var (procedure, expressions) in code)
+        {
+            var bound = Bound(expressions)
+                .GroupBy(fact => (Key: Key(fact.Binding!.Value), fact.Location.Range.Start))
+                .SelectMany(group => group.Any(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.ProcedureCall))
+                    ? Call(procedure, [.. group])
+                    : group.Select(fact => (Fact: fact, Kind: KindOf(fact, isReadByTheCall), fact.Flags)))
+                .OrderBy(reference => reference.Fact.Location.Range.Start);
+            foreach (var (fact, kind, flags) in bound)
             {
-                var flags when flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) => current with { Writes = current.Writes + 1 },
-                var flags when flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument) && !IsNeverAssigned(fact, arguments, parameters, assigned)
-                    => current with { PassedAsArguments = current.PassedAsArguments + 1 },
-                _ => current with { Reads = current.Reads + 1 },
-            };
+                var key = Key(fact.Binding!.Value);
+                if (!references.TryGetValue(key, out var found))
+                {
+                    references[key] = found = new References();
+                }
+
+                var current = found.Count;
+                found.Count = kind switch
+                {
+                    DeclarationReferenceKind.Write => current with { Writes = current.Writes + 1 },
+                    DeclarationReferenceKind.PassedAsArgument => current with { PassedAsArguments = current.PassedAsArguments + 1 },
+                    _ => current with { Reads = current.Reads + 1 },
+                };
+                found.Sites.Add(new DeclarationReference(fact.Location, procedure?.Uri, kind)
+                {
+                    DiscardsResult = flags.HasFlag(ValueExpressionSemanticFlags.ResultDiscarded),
+                });
+            }
         }
 
         return references;
+    }
+
+    private static DeclarationReferenceKind KindOf(ExpressionFact fact, Func<ExpressionFact, bool>? isReadByTheCall) => fact.Flags switch
+    {
+        var flags when flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) => DeclarationReferenceKind.Write,
+        var flags when flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument) && isReadByTheCall?.Invoke(fact) != true
+            => DeclarationReferenceKind.PassedAsArgument,
+        _ => DeclarationReferenceKind.Read,
+    };
+
+    // a call written with an argument list is two expressions bound to what it calls, the name and the call (`Compute(1)`): one reference, at the name, that
+    // reads it or, for a Property Let or Set, writes it. MS-VBAL §5.3.1, §5.6.2.1: in a Function or a Property Get, its own name with no argument list is its
+    // function result variable, which no other code can refer to - and not a reference to the procedure.
+    private static IEnumerable<(ExpressionFact Fact, DeclarationReferenceKind Kind, ValueExpressionSemanticFlags Flags)> Call(
+        SemanticId? procedure, ExpressionFact[] call)
+    {
+        var name = call.MinBy(fact => fact.Location.Range.End)!;
+        if (call.Length == 1 && procedure is not null && name.Binding == procedure
+            && name.Classification is ExpressionClassification.Function or ExpressionClassification.Property)
+        {
+            yield break;
+        }
+
+        var flags = call.Aggregate(default(ValueExpressionSemanticFlags), (all, fact) => all | fact.Flags);
+        yield return (name, flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) ? DeclarationReferenceKind.Write : DeclarationReferenceKind.Read, flags);
+    }
+
+    // the accessors of a property are one declaration: a Property Let or Property Set is addressed with a suffix after the name it shares with the others
+    // (`Item]Let`). VBA names are not case sensitive. A Let and a Set are both Writes of the one count, so the count cannot tell which accessor is never used,
+    // and the Get, the Let and the Set each state the property's whole count.
+    private static string Key(SemanticId symbol)
+    {
+        var address = Uri.UnescapeDataString(symbol.Uri.AbsoluteUri).ToUpperInvariant();
+        return address.EndsWith("]LET", StringComparison.Ordinal) || address.EndsWith("]SET", StringComparison.Ordinal) ? address[..^4] : address;
     }
 
     // a member that a form's designer declares on its class is declared by no text of the module. Its parameters are those of the form object's member, or of
@@ -172,10 +314,89 @@ public static class DeclarationUsage
         => role is DeclarationRole.UnmatchedEventHandler && symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private };
 
     // the code that could refer to a local or a parameter is the code of its procedure; to anything else that is confined to the module, any procedure of it.
-    private static bool CodeThatCanReferToIt(Symbol symbol, List<ProcedureSemanticModel> models, bool moduleIsFullyAnalyzed)
+    // A procedure refers to a declaration of the module by writing its name (MS-VBAL §5.6.10): one that was not fully analyzed, and that writes no name the
+    // declaration has, does not refer to it, and the rest of the module is the code that can.
+    private static bool CodeThatCanReferToIt(
+        Symbol symbol, List<ProcedureSemanticModel> models, bool moduleIsFullyAnalyzed, IReadOnlySet<string>? unanalyzedNames)
         => symbol is VBLocalVariableSymbol or VBLocalConstantSymbol
             ? models.Any(procedure => procedure.IsFullyAnalyzed && procedure.Procedure.Uri.AbsoluteUri == symbol.ParentUri.AbsoluteUri)
-            : moduleIsFullyAnalyzed;
+            : moduleIsFullyAnalyzed || unanalyzedNames is not null && !unanalyzedNames.Contains(Normalized(symbol.Name));
+
+    /// <summary>
+    /// Every name that <paramref name="procedure"/> writes: the names of its expressions and of the members they access, and each word of what the parser
+    /// could not read. What it holds is taken as written wherever it is, so the names are as many as can refer to something, and more.
+    /// </summary>
+    public static IReadOnlySet<string> NamesIn(SyntaxNode procedure)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<SyntaxNode>();
+        pending.Push(procedure);
+        while (pending.TryPop(out var node))
+        {
+            if (!seen.Add(node))
+            {
+                continue;
+            }
+
+            switch (node)
+            {
+                case SimpleNameExpressionNode name:
+                    names.Add(Normalized(name.IdentifierName));
+                    break;
+                case VBTypedDeclarationExpressionNode typed:
+                    names.Add(Normalized(typed.IdentifierName));
+                    break;
+                case RedimDeclarationNode redim:
+                    names.Add(Normalized(redim.Name));
+                    break;
+                case UnbuiltStatementTriviaNode statement:
+                    names.UnionWith(WordsOf(statement.Source));
+                    break;
+                case UnbuiltExpressionTriviaNode expression:
+                    names.UnionWith(WordsOf(expression.Source));
+                    break;
+            }
+
+            foreach (var child in ReachedFrom(node))
+            {
+                pending.Push(child);
+            }
+        }
+
+        return names;
+    }
+
+    // what a node holds that its children may not include: what a statement assigns or redimensions, the member an access names, the procedure AddressOf
+    // gives, the bounds of an array, and the bodies of a block statement.
+    private static IEnumerable<SyntaxNode> ReachedFrom(SyntaxNode node)
+    {
+        IEnumerable<SyntaxNode?> held = node switch
+        {
+            RedimDeclarationNode redim => [redim.Target],
+            AssignmentStatementNode assignment => [assignment.Target, assignment.Value],
+            MidStatementNode mid => [mid.Target],
+            MemberAccessExpressionNode access => [access.Owner, access.Member],
+            DictionaryAccessExpressionNode access => [access.Owner, access.Member],
+            AddressOfExpressionNode addressOf => [addressOf.Target],
+            ArrayBoundsNode bounds => bounds.Bounds.IsDefault ? [] : bounds.Bounds.SelectMany(bound => new SyntaxNode?[] { bound.LowerExpression, bound.UpperExpression }),
+            StatementNode statement => ExpressionCoverage.NestedBlocksOf(statement).SelectMany(block => block.Children),
+            _ => [],
+        };
+
+        return node.ChildNodes().Concat(held.OfType<SyntaxNode>());
+    }
+
+    // an identifier is a letter and the letters, digits and underscores after it; one in square brackets is anything but a bracket.
+    private static IEnumerable<string> WordsOf(string? source)
+        => string.IsNullOrEmpty(source)
+            ? []
+            : IdentifierPattern.Matches(source).Select(match => Normalized(match.Value));
+
+    private static readonly Regex IdentifierPattern = new(@"\[[^\]\r\n]*\]|\p{L}[\p{L}\p{Nd}_]*", RegexOptions.CultureInvariant);
+
+    // a name without the brackets it can be written in, nor the type-declaration character it can be written with (MS-VBAL §3.3.5.3).
+    private static string Normalized(string name) => name.Trim('[', ']').TrimEnd('%', '&', '^', '!', '#', '@', '$');
 
     private static DeclarationKind? KindOf(Symbol symbol) => symbol switch
     {

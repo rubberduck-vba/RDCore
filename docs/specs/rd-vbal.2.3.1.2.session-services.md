@@ -104,10 +104,13 @@ workspace that both declare the name, are reported as **VBC09301** _Ambiguous na
 
 ### The library a reference is
 
-The libraries a project loads are the library descriptions in the `Symbols` folder of the platform
-(`ReferencedLibraries.Load`). Each states the identifier and version of the type library it was made from (`origin`),
-and the libraries it depends on (`dependsOn`), each by its name and the identifier and version of the type library it
-was built against.
+The libraries a project loads are the library descriptions the platform's packages give, then those in the `Symbols` folder
+of the platform (`PlatformLibraries`, `ReferencedLibraries.Load`). The RDForms package describes `VB`: VB6.OLB's export, with
+each member RDForms adds to it marked as an addition
+([`MemberDescription.IsAddition`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Libraries.MemberDescription.html)),
+which completion and hover say. The folder describes every other library. Each description states the identifier and
+version of the type library it was made from (`origin`), and the libraries it depends on (`dependsOn`), each by its name
+and the identifier and version of the type library it was built against.
 
 |A reference or a dependency that gives|Is the library|
 |---|---|
@@ -317,6 +320,3 @@ The **RDCore** implementations (⚖️ GPLv3) of the session services are intend
 RD-VBA normally executes on a single thread, but the RD-VBA runtime implementation is not _inherently_
 single-threaded. Whether an RD-VBA _environment host_ supports the concurrent execution of RD-VBA execution
 threads is _host-dependent_.
-
----
-> ⏮️ [**RD-VBAL §2.3.1.1** Execution Session](rd-vbal.2.3.1.1.execution-session.md) | ⏭️ [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)

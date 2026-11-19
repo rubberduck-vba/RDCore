@@ -3,7 +3,8 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 namespace RDCore.Runtime.Execution;
 
 /// <summary>
-/// What an <c>End</c> statement does to a session: the program is over, and nothing of it is left.
+/// What an <c>End</c> statement does to a session: the program is over, and nothing of it is left. A program that ends on a run-time error nothing handles,
+/// or on an internal error, ends the same way.
 /// </summary>
 /// <remarks>
 /// <c>End</c> is not <c>Exit Sub</c> repeated for every activation on the stack. It resets the session to the state it was loaded in without unwinding
@@ -31,7 +32,10 @@ public static class SessionWipe
         _ = session.Files.CloseAll();
         session.Errors.Clear();
         session.Objects.Clear();
+
+        // every form's window closes with the external objects, raising nothing, and the session's forms are forgotten with their objects.
         session.ExternalObjects.ReleaseAll();
+        External.Forms.SessionForms.Of(session).Clear();
         session.Symbols.ResetStorage();
         session.Clock.Reset();
         session.RandomNumbers.Reset();

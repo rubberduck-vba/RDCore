@@ -105,7 +105,7 @@ public sealed class TemporaryReferenceTests
             "v = Empty",
             "Debug.Print \"after\""));
 
-    // a Variant parameter passed a number by value (IR lowering S1.7) and Set to an object in the call lets go of it when the call is over.
+    // a Variant parameter passed a number by value and Set to an object in the call lets go of it when the call is over.
     [TestMethod]
     public async Task AnObjectAVariantParameterPassedANumberIsSetTo_LivesUntilTheCallIsOver()
         => CollectionAssert.AreEqual(new[] { "hello v", "terminated v", "after" }, await RunWith(
@@ -127,7 +127,7 @@ public sealed class TemporaryReferenceTests
             "Debug.Print \"after\""));
 
     // MS-VBAL §5.4.2.21 says "If <expression> is classified as a variable, that variable is the With block variable"; MS-VBA holds the object the
-    // variable held when the block began, until End With, whatever the block assigns to the variable (recorded in Excel, grid oracle\s16 T01-T05).
+    // variable held when the block began, until End With, whatever the block assigns to the variable (observed in Excel).
     [TestMethod]
     public async Task AWithBlockOnAVariable_HoldsItsObject_UntilEndWith()
         => CollectionAssert.AreEqual(new[] { "hello k", "0", "terminated k", "after" }, await RunWith(string.Empty,

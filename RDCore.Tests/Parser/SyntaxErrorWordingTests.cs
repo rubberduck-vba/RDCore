@@ -61,6 +61,10 @@ public sealed class SyntaxErrorWordingTests
     [DataRow("Private Declare PtrSafe Function F Lib \"k\" () As", "Expected: type name", 48, 48, DisplayName = "a Declare Function with As and no type")]
     [DataRow("Option Compare", "Expected: Text or Binary", 14, 14, DisplayName = "an Option Compare with no comparison")]
     [DataRow("Private x As", "Expected: New or type name", 12, 12, DisplayName = "a variable with As and no type")]
+    [DataRow("Friend Something As Long", "Expected: Sub or Function or Property", 7, 16, DisplayName = "a Friend variable")]
+    [DataRow("Friend Something", "Expected: Sub or Function or Property", 7, 16, DisplayName = "a Friend variable with no type")]
+    [DataRow("Friend WithEvents x As Workbook", "Expected: Sub or Function or Property", 7, 17, DisplayName = "a Friend WithEvents variable")]
+    [DataRow("Friend Const K As Long = 1", "Expected: Sub or Function or Property", 7, 12, DisplayName = "a Friend constant")]
     public void OutsideAProcedureBody_ASyntaxError_SaysWhatWasExpected(string declaration, string message, int start, int end)
     {
         var error = FirstErrorOf($"{declaration}\r\n");

@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Compiled;
@@ -68,13 +69,13 @@ public enum LogicalOperator
 
 /// <summary>
 /// The operations of payloads of an integer type, a <c>Boolean</c> or a <c>Currency</c>, their comparisons, and the exact conversions of a payload from one
-/// scalar type to another: one static method per operation, told the type it operates in, that says what it did
-/// (<see cref="PayloadStatus"/>). The interpreter's evaluation on payloads and compiled code both call them, so the two are one implementation.
+/// scalar type to another, with a floating-point number's to an integer type: one static method per operation, told the type it operates in, that says what
+/// it did (<see cref="PayloadStatus"/>). The interpreter's evaluation on payloads and compiled code both call them, so the two are one implementation.
 /// </summary>
 /// <remarks>
 /// The operations are those of <strong>MS-VBAL §5.6.9.3</strong> in the type's own width, checked: a result that does not fit is an overflow, and an integer
-/// division or a modulo by zero a division by zero. An operation the boxed evaluation does by rounding - a <c>Currency</c> product that is no whole number of
-/// ten-thousandths, a conversion that is not exact - declines.
+/// division or a modulo by zero a division by zero. An operation the boxed evaluation does by rounding declines: a <c>Currency</c> product that is not a
+/// whole number of ten-thousandths, or a conversion that is not exact, other than a floating-point number's to an integer type.
 /// </remarks>
 public static class PayloadOperations
 {
@@ -95,6 +96,36 @@ public static class PayloadOperations
         ScalarKind.Boolean => value is 0 or -1,
         _ => false,
     };
+
+    /// <summary>
+    /// Whether <paramref name="kind"/> is an integer type: <c>Byte</c>, <c>Integer</c>, <c>Long</c> or <c>LongLong</c>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsWholeKind(ScalarKind kind) => kind is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong;
+
+    /// <summary>
+    /// A <c>Single</c> or a <c>Double</c> let-coerced to an integer type (<strong>MS-VBAL §5.5.1.2.1</strong>): the whole number Banker's rounding
+    /// makes of it (<strong>§5.5.1.2.1.1</strong>), when that number is in the range of the type, and otherwise an overflow, as an infinity and a NaN
+    /// are. It gives what the boxed coercion gives (<c>VBNumericType.IsWithinRange</c>, then <c>BankersRounding</c>), rounding the value once.
+    /// </summary>
+    /// <param name="floating">The value; a <c>Single</c> is held as a <see cref="double"/>.</param>
+    /// <param name="to">The integer type, one <see cref="IsWholeKind"/> is true of.</param>
+    /// <param name="result">The whole number.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PayloadStatus RoundedToWhole(double floating, ScalarKind to, out long result)
+    {
+        var rounded = Math.Round(floating, MidpointRounding.ToEven);
+
+        // the range of a LongLong, as doubles: its least value, -2 ^ 63, is a double, and its greatest is not, so the bound is the double past it, 2 ^ 63.
+        if (rounded >= long.MinValue && rounded < -(double)long.MinValue)
+        {
+            result = (long)rounded;
+            return IsInRange(to, result) ? PayloadStatus.Ok : PayloadStatus.Overflow;
+        }
+
+        result = 0;
+        return PayloadStatus.Overflow;
+    }
 
     /// <summary><c>left + right</c>, of an integer type or a <c>Currency</c>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -246,7 +277,7 @@ public static class PayloadOperations
 
     /// <summary>
     /// <c>-operand</c> of a constant expression, of an integer type or a <c>Currency</c>: MS-VBA negates the least <c>Long</c> as the <c>Long</c> it is
-    /// (recorded in Excel: oracle\s58 N07, N10, N12), and any other value as <see cref="Negate(ScalarKind, long, out long)"/> does.
+    /// (observed in Excel), and any other value as <see cref="Negate(ScalarKind, long, out long)"/> does.
     /// </summary>
     public static PayloadStatus NegateConstant(ScalarKind kind, long operand, out long result)
     {
@@ -289,9 +320,16 @@ public static class PayloadOperations
     };
 
     /// <summary>
-    /// A payload of <paramref name="from"/> converted to <paramref name="to"/>, when the conversion is exact - what a value of one scalar type is in another,
-    /// with no rounding to decide: an integer in the range of an integer type, an integer as a floating-point value, a <c>Date</c> as its serial, any number
-    /// as a <c>Boolean</c>. Anything else is the boxed coercion's (<strong>MS-VBAL §5.5.1.2.1</strong>), which rounds, and declines.
+    /// A payload of <paramref name="from"/> converted to <paramref name="to"/> (<strong>MS-VBAL §5.5.1.2.1</strong>), in three cases:
+    /// <list type="bullet">
+    /// <item><description>the conversion is exact, with no rounding to decide: an integer in the range of an integer type, an integer as a floating-point
+    /// value, a <c>Date</c> as its serial, any number as a <c>Boolean</c>;</description></item>
+    /// <item><description>a <c>Single</c> or a <c>Double</c> made an integer by Banker's rounding (<strong>§5.5.1.2.1.1</strong>), which overflows past
+    /// the range of the type;</description></item>
+    /// <item><description>a <c>Double</c>, or a <c>Date</c>'s serial (<strong>§5.5.1.2.3</strong>), made the nearest <c>Single</c>, which overflows past
+    /// the magnitude range of a <c>Single</c>.</description></item>
+    /// </list>
+    /// Anything else is the boxed coercion's, which rounds, and declines.
     /// </summary>
     /// <param name="from">The kind of the payload.</param>
     /// <param name="integral">The payload of an integral kind.</param>
@@ -306,6 +344,19 @@ public static class PayloadOperations
         if (from == to)
         {
             return PayloadStatus.Ok;
+        }
+
+        // MS-VBAL §5.5.1.2.1: a Single or a Double is an integer by Banker's rounding (§5.5.1.2.1.1) when the whole number it rounds to is in the range of
+        // the type, and otherwise an overflow (RoundedToWhole).
+        if (from is ScalarKind.Single or ScalarKind.Double && IsWholeKind(to))
+        {
+            var status = RoundedToWhole(floating, to, out var whole);
+            if (status is PayloadStatus.Ok)
+            {
+                resultIntegral = whole;
+            }
+
+            return status;
         }
 
         var isIntegral = ScalarKinds.IsIntegral(from);
@@ -335,6 +386,20 @@ public static class PayloadOperations
         if (to is ScalarKind.Currency)
         {
             return ToCurrency(from, integral, floating, out resultIntegral);
+        }
+
+        // MS-VBAL §5.5.1.2.1: a Double, or a Date's serial (§5.5.1.2.3), is the Single nearest it when it is within the magnitude range of a Single, and
+        // otherwise an overflow, as the boxed coercion converts it (VBNumericType.IsWithinRange, then the Single the type makes of it). An infinity or a NaN
+        // is made a Single as it is, as the boxed coercion makes it, where MS-VBAL §5.5.1.2.1 raises error 6 (ANonFiniteDouble_RaisesError6, ignored).
+        if (from is ScalarKind.Double or ScalarKind.Date && to is ScalarKind.Single)
+        {
+            if (double.IsFinite(floating) && !VBNumericType.IsWithinRange(floating, (VBNumericType)ScalarKinds.TypeOf(to)))
+            {
+                return PayloadStatus.Overflow;
+            }
+
+            resultFloating = (float)floating;
+            return PayloadStatus.Ok;
         }
 
         if (isIntegral)

@@ -3,6 +3,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -93,6 +94,51 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     public void RequireVariable(ExpressionNode expression, string role, string? section = null)
         => Report(expression, NotAVariable(expression, LibraryFunctions.None), $"{role} must be a variable", section);
 
+    // MS-VBAL §5.6.16.6: a bound variable expression must be classified as a variable, even where an assignment to the same expression would call a Property Let, and an unbound
+    // member is not one, even when it would resolve to a variable as it runs. A member of an object's class, and a member of an object whose class is not known (Object,
+    // Variant), are reported at the member as it is written after the dot (`.Name`, observed in Excel). A public variable of a class is one of them, as MS-VBA has it: §5.6.12
+    // classifies it as a variable, and MS-VBA refuses it, as it makes a class's public variable a property.
+    public void RequireBoundVariable(ExpressionNode expression, string role, string section)
+    {
+        if (expression is MemberAccessExpressionNode access && NotAVariableMember(access) is { } what)
+        {
+            var at = access.Owner is { } owner ? expression.Location with { Range = new SourceRange(owner.Location.Range.End, expression.Location.Range.End) } : expression.Location;
+            _errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, at, $"{role} must be a variable, and this is {what} (MS-VBAL §{section})."));
+            return;
+        }
+
+        RequireVariable(expression, role, section);
+    }
+
+    // what a member access names when it is not a variable to MS-VBA: a member of a class, on an object of the class or in a With block on one, or a member of an
+    // object whose class is not known (Object, Variant), which is an unbound member; null for a member of anything else (a module, a user-defined type).
+    private string? NotAVariableMember(MemberAccessExpressionNode access)
+    {
+        var ownerType = access.Owner is { } owner
+            ? ExpressionStaticSemanticsEvaluator.Evaluate(context, owner) is { IsError: false, Result: { } type } ? type : null
+            : context.EnclosingWithTargetType;
+        if (ownerType is VBObjectType or VBVariantType)
+        {
+            return $"the member {access.Member.IdentifierName} of an object bound late";
+        }
+
+        return MemberOfAClass(ownerType, access) switch
+        {
+            (VBInstanceFieldVariableMemberSymbol or VBModuleFieldVariableMemberSymbol) and var field
+                => $"the public variable {field.Name} of a class, which MS-VBAL §5.6.12 classifies as a variable and MS-VBA refuses, as it makes a class's public variable a property",
+            (VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol) and var property => $"the property {property.Name}",
+            { } procedure => $"the procedure {procedure.Name}",
+            null => null,
+        };
+    }
+
+    private VBTypeMemberSymbol? MemberOfAClass(VBType? ownerType, MemberAccessExpressionNode access)
+        => ownerType is VBClassType classType
+            ? Expressions.MemberAccessExpressionStaticSemantics.CurrentMembersOf(context, classType)
+                .FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                    && member is VBReturningMemberSymbol or VBProcedureMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+            : null;
+
     // MS-VBAL §5.4.3.8
     public void RequireLetTarget(ExpressionNode expression, string role, string section)
         => Report(expression, NotAVariable(expression, LibraryFunctions.OfAClassObjectOrVariant), $"{role} must be a variable", section);
@@ -136,7 +182,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     // A function named - by its name, or qualified by its module - as the target of an assignment or an element of an Erase statement, outside its own body,
     // is a call of it with no argument: what it returns is what is assigned, through its default member, or erased (MS-VBAL §5.4.3.8, §5.4.3.9, §5.4.3.4).
     // So is a property of a module that has no accessor for the assignment, the library's (Now, Timer) as the workspace's.
-    // What cannot be one is a compile error, as MS-VBA has it (Excel-verified, oracle\s28): a Let of one whose declared type is neither a Variant nor an
+    // What cannot be one is a compile error, as MS-VBA has it (observed in Excel): a Let of one whose declared type is neither a Variant nor an
     // object is "Function call on left-hand side of assignment must return Variant or Object" - "Can't assign to read-only property" for a property -
     // before what its parameters are (`Left$ = "x"`); one that takes an argument is "Argument not optional" (`Left = "x"`, and first for a Set and an
     // Erase: `Set Left$ = Nothing`); a Set of one that returns no object is "Invalid use of property", and so is a Set of the library's Err, which MS-VBA's

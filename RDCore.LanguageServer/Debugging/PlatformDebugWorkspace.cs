@@ -55,7 +55,9 @@ internal sealed class PlatformDebugWorkspace(
         {
             // the workspace may only be loaded while the server initializes.
             serverState.OnInitialize();
-            await workspace.LoadAsync(root);
+
+            // a debug adapter's client names no language: the project file's is taken, as a language server takes it, before the components are started with it.
+            await workspace.LoadAsync(root, [root], ask: null, token, CoreLanguageServerApp.ProjectLanguageTaker(options.Value.Workspace));
             serverState.OnInitialized();
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -229,6 +231,44 @@ internal sealed class PlatformDebugWorkspace(
             StreamOutput = true,
             Unattended = services.GetService(typeof(RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService))
                 is RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService expected && expected.Expects(capabilities => capabilities.Unattended),
+        }, token);
+    }
+
+    // the module a statement of the debug console runs in, and the procedure that is the statement.
+    private const string ConsoleModule = "DebugConsole";
+    private const string ConsoleProcedure = "DebugConsole_Statement";
+
+    public async Task<ExecuteResult> RunStatementAsync(string text, CancellationToken token)
+    {
+        if (text.Contains('\n') || text.Contains('\r') || string.IsNullOrWhiteSpace(text))
+        {
+            return new ExecuteResult { Outcome = ExecutionOutcome.SyntaxError, Diagnostics = [DebuggerMessages.StatementIsOneLine] };
+        }
+
+        var trimmed = text.Trim();
+        var source = trimmed.StartsWith('?') ? $"Debug.Print {trimmed[1..].TrimStart()}" : trimmed;
+        var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, ConsoleModule);
+        var parse = await parsing.ParseFragmentAsync(moduleUri, $"Public Sub {ConsoleProcedure}()\r\n{source}\r\nEnd Sub\r\n", token);
+        if (parse.SyntaxTree is null || !parse.IsSuccess)
+        {
+            return new ExecuteResult
+            {
+                Outcome = ExecutionOutcome.SyntaxError,
+                Diagnostics = parse.SyntaxErrors.Any() ? [.. parse.SyntaxErrors.Select(error => error.Description)] : [DebuggerMessages.NotAStatement],
+            };
+        }
+
+        // the host resolves the procedure out of its own symbol table: the module is defined there first, as a module of the session's.
+        moduleUri = await symbols.SyncModuleAsync(ConsoleModule, parse, token, sessionModule: true);
+        var environment = orchestration.RuntimeEnvironment;
+        await environment.WaitForReadyAsync(token);
+        return await environment.SendRequestAsync<HostExecuteParams, ExecuteResult>(new HostExecuteParams
+        {
+            Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
+            ModuleName = ConsoleModule,
+            EntryPoint = ConsoleProcedure,
+            Debug = true,
+            StreamOutput = true,
         }, token);
     }
 

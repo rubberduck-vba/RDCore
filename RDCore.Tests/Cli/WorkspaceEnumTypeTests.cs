@@ -80,8 +80,8 @@ public sealed class WorkspaceEnumTypeTests
     [TestMethod]
     public async Task AMemberOfAVariableOfIt_IsAnInvalidQualifier()
     {
-        // MS-VBAL §5.2.3.4 makes the variable a Long, which has no members: only the Enum's name qualifies them (Excel-verified on a Get's result variable of
-        // an Enum, oracle\s64 E02).
+        // MS-VBAL §5.2.3.4 makes the variable a Long, which has no members: only the Enum's name qualifies them (observed in Excel on a Get's result variable of
+        // an Enum).
         var errors = await LoadErrorsAsync([], Program(Colour, "Dim c As Colour", "Debug.Print c.cRed"));
 
         StringAssert.Contains(errors.Single(), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);

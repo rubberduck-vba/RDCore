@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <strong>MS-VBAL §5.6.12</strong> a member access is of an object or a record: an array has no member. A variable declared as an array is refused at compile
 /// time, <em>Invalid qualifier</em>; a <c>Variant</c> that holds one is error 424 when the member is assigned. Each expectation is what MS-VBA reported for the
-/// same code, recorded in Excel (oracle\s56 I01, I02, C01-C04, C13, D09, D10).
+/// same code, observed in Excel.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.6.12 Member Access Expressions")]
