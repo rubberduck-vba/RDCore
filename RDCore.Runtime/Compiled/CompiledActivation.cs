@@ -73,6 +73,11 @@ public sealed partial class CompiledActivation : ILightActivation
     // whether each numbered cell is the activation's own although its slot is a parameter passed by reference: the cell of a value (TakeReference).
     private readonly bool[] _ownsCell;
 
+    // the cell of each String of an activation without a frame (CompiledBody.TextSlots), by its number, which its frame is given once it has one
+    // (MakeFrame); and whether each is the caller's variable, which a parameter passed by reference is a second name for (TakeTextReference).
+    private readonly TextCell?[] _texts;
+    private readonly bool[] _textAliases;
+
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
         CompiledBody body, RuntimeProcedureInvoker invoker)
         : this(session, list, executor, context, body, invoker, procedure: null)
@@ -91,6 +96,8 @@ public sealed partial class CompiledActivation : ILightActivation
         _stack = session.CallStack as RuntimeCallStack;
         _cells = body.CellSlots.Count == 0 ? [] : new object?[body.CellSlots.Count];
         _ownsCell = body.CellSlots.Count == 0 ? [] : new bool[body.CellSlots.Count];
+        _texts = body.TextSlots.Length == 0 ? [] : new TextCell?[body.TextSlots.Length];
+        _textAliases = body.TextSlots.Length == 0 ? [] : new bool[body.TextSlots.Length];
         Begin();
     }
 
@@ -100,6 +107,8 @@ public sealed partial class CompiledActivation : ILightActivation
     {
         Array.Clear(_cells);
         Array.Clear(_ownsCell);
+        Array.Clear(_texts);
+        Array.Clear(_textAliases);
         (_entered, _instance, _me) = (null, null, null);
         _scopes = scopes ?? _session.Symbols.Scopes;
         _directAt = -1;
@@ -149,7 +158,70 @@ public sealed partial class CompiledActivation : ILightActivation
             Hold(frame, number);
         }
 
+        for (var number = 0; number < _texts.Length; number++)
+        {
+            HoldText(frame, number);
+        }
+
         return frame;
+    }
+
+    // the frame given the String numbered number, when it has none in its slot: a parameter passed by reference given its caller's variable is a second name
+    // for it (PushAlias), as a scalar's is; any other is the activation's own (PushText).
+    private void HoldText(CallStackFrame frame, int number)
+    {
+        var slot = _body.TextSlots[number];
+        if (_texts[number] is not { } cell || frame.IsSlotFilled(slot))
+        {
+            return;
+        }
+
+        var symbol = _body.SlotSymbols[slot];
+        if (_textAliases[number])
+        {
+            frame.PushAlias(symbol, cell, slot);
+        }
+        else
+        {
+            frame.PushText(symbol, cell, slot);
+        }
+    }
+
+    /// <summary>
+    /// Gives the <c>String</c> parameter in <paramref name="slot"/> of a call compiled code makes directly (<see cref="EnterDirectly"/>) the text of its
+    /// argument (MS-VBAL §5.3.1.11): a cell of the activation's own holding it, as the interpreter's callee makes one of a <c>String</c> given by value, or
+    /// of a value given to a parameter passed by reference.
+    /// </summary>
+    /// <param name="slot">The parameter's slot (<see cref="CompiledCallee.TextSlots"/>).</param>
+    /// <param name="text">The text given; <see langword="null"/> for <c>vbNullString</c>.</param>
+    public void TakeText(int slot, string? text) => HoldGivenText(slot, new TextCell(new VBRuntimeValue<string>(text!)), alias: false);
+
+    /// <summary>
+    /// Gives the <c>String</c> parameter passed by reference in <paramref name="slot"/> of a call compiled code makes directly (<see cref="EnterDirectly"/>)
+    /// the cell of the caller's variable, a <see cref="TextCell"/>, which the parameter is a second name for (MS-VBAL §5.3.1.11): what it is assigned is
+    /// what the variable holds, and the variable has one address, whichever of its names is asked for it first.
+    /// </summary>
+    /// <param name="slot">The parameter's slot (<see cref="CompiledCallee.TextSlots"/>).</param>
+    /// <param name="cell">The cell of the caller's variable.</param>
+    public void TakeTextReference(int slot, object cell) => HoldGivenText(slot, (TextCell)cell, alias: true);
+
+    /// <summary>
+    /// Whether the cell of a <c>String</c> variable is one a call made directly gives a parameter passed by reference (<see cref="TakeTextReference"/>): a
+    /// <see cref="TextCell"/>, which knows the address the variable has. A parameter bound to another cell (an element of an array) is given the address,
+    /// through the invoker (<see cref="SetTextReference"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the variable given.</param>
+    public static bool IsTextCell(object? cell) => cell is TextCell;
+
+    // the cell held for the parameter, and given to the frame when the activation has one: under a debugger, which made it as the call was made.
+    private void HoldGivenText(int slot, TextCell cell, bool alias)
+    {
+        var number = Array.IndexOf(_body.TextSlots, slot);
+        (_texts[number], _textAliases[number]) = (cell, alias);
+        if (_frame is { } frame)
+        {
+            HoldText(frame, number);
+        }
     }
 
     // the frame given the cell numbered number, when it has none for its slot: a parameter passed by reference's is its caller's variable, which the frame
@@ -1380,9 +1452,11 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell the frame holds the <c>String</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads the text
-    /// it holds from and writes the text it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation:
-    /// the cell the interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>).
+    /// The cell of the <c>String</c> parameter or variable in <paramref name="slot"/>: what compiled code reads the text it holds from and writes the text
+    /// it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation. The frame's, which the
+    /// interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>); without a frame, the activation's, which
+    /// its frame is given once it has one: the cell its caller gave a parameter (<see cref="TakeText"/>, <see cref="TakeTextReference"/>), or one made
+    /// for a variable, holding what the interpreter declares it with. A frame made as the call was made, under a debugger, is given the variable's cell so.
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
@@ -1391,13 +1465,39 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </returns>
     public object? StringCellOf(int slot)
     {
-        var frame = Frame;
-        return frame.Procedure is { } procedure
-            && frame.TryReadSlot(new LanguageCore.Binding.FrameSlot(LanguageCore.Binding.FrameLayout.For(procedure), slot), _body.SlotSymbols[slot], out var cell, out var referenced)
-            && referenced is null && cell is ValueBindingHandle handle
-                ? handle
-                : null;
+        var number = Array.IndexOf(_body.TextSlots, slot);
+        if (_frame is not { } frame)
+        {
+            return _texts[number] ??= NewText(slot);
+        }
+
+        var symbol = _body.SlotSymbols[slot];
+        if (frame.Procedure is not { } procedure)
+        {
+            return null;
+        }
+
+        var held = new LanguageCore.Binding.FrameSlot(LanguageCore.Binding.FrameLayout.For(procedure), slot);
+        if (frame.TryReadSlot(held, symbol, out var cell, out var referenced))
+        {
+            return referenced is null && cell is ValueBindingHandle handle ? handle : null;
+        }
+
+        if (number < 0 || frame.TryResolve(symbol, out _))
+        {
+            return null;
+        }
+
+        var made = _texts[number] ??= NewText(slot);
+        HoldText(frame, number);
+        return made;
     }
+
+    // the cell of a String variable of the activation, holding what the interpreter declares it with (RuntimeProcedureInvoker.DefaultValueOf).
+    private TextCell NewText(int slot)
+        => new(_body.SlotSymbols[slot] is VBLocalVariableSymbol variable
+            ? RuntimeProcedureInvoker.DefaultValueOf(_session, variable).Handle.Value
+            : new VBRuntimeValue<string>(null!));
 
     /// <summary>
     /// The cell of the <c>String</c> in <paramref name="slot"/> (<see cref="StringCellOf"/>), found again after the interpreter ran an instruction or the
@@ -1420,7 +1520,8 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Two texts compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as the interpreter compares them
-    /// (<c>RuntimeExpressionEvaluator.TryCompareText</c>): the mode of the frame the activation is, which is the current one.
+    /// (<c>RuntimeExpressionEvaluator.TryCompareText</c>): the mode of the frame the activation is, which is the current one; without a frame, the one
+    /// its frame would have, of the module the procedure is declared in (<c>RuntimeProcedureInvoker.DirectivesOf</c>).
     /// </summary>
     /// <param name="comparison">The comparison operator.</param>
     /// <param name="left">The left text; <see langword="null"/> for <c>vbNullString</c>.</param>
@@ -1428,7 +1529,10 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>The comparison's result.</returns>
     public bool CompareText(ComparisonOperator comparison, string? left, string? right)
     {
-        var order = SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session).Compare(left.AsSpan(), right.AsSpan());
+        var rules = _frame is null && _procedure is { } procedure
+            ? SDK.Runtime.RuntimeSessionExtensions.StringComparisonIn(_session, _invoker.DirectivesOf(procedure).Compare)
+            : SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session);
+        var order = rules.Compare(left.AsSpan(), right.AsSpan());
         return comparison switch
         {
             ComparisonOperator.Equal => order == 0,
@@ -1915,6 +2019,12 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// passed by reference, and each parameter or variable the body passes by reference.
     /// </summary>
     public IReadOnlyList<int> CellSlots { get; init; } = [];
+
+    /// <summary>
+    /// The slots of its <c>String</c> parameters and variables of variable length (<see cref="ProcedureAnalysis.TextSlots"/>), in order: an activation
+    /// without a frame holds the cell of each, by its number here (<see cref="CompiledActivation.StringCellOf"/>).
+    /// </summary>
+    public int[] TextSlots { get; init; } = [];
 
     /// <summary>
     /// Whether an activation of the body holds in its frame what compiled code does not (<see cref="ProcedureAnalysis.NeedsFrame"/>): it is called through

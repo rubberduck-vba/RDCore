@@ -6,22 +6,24 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A <c>String</c> given to a procedure of the workspace by compiled code, as the interpreter gives it (MS-VBAL §5.3.1.11): the text of Strings given by
-/// value, of which the callee makes a <c>String</c> of its own; the address of a <c>String</c> variable given by reference, which the parameter is a second
-/// name for. The call is made through the invoker, which makes the callee its frame. What compiled code gives nothing of (a <c>Variant</c>, a number, a
-/// field, an element) the interpreter gives, making the call. A program runs the same either way.
+/// value, of which the callee makes a <c>String</c> of its own; a <c>String</c> variable given by reference, which the parameter is a second name for, with
+/// the variable's one address. A compiled callee is called directly, through its typed entry: its activation holds the cells of its Strings, and its frame
+/// is given them once something is to see it. What compiled code gives nothing of (a <c>Variant</c>, a number, a field, an element) the interpreter gives,
+/// making the call. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledStringArgumentTests
 {
-    // the calls the caller made through the invoker, and none directly: a callee given a String has a frame, which the invoker makes it.
-    private static void AssertCalledThroughInvoker(CompilationResult result, long indirect)
+    // the calls the caller made directly, and none through the invoker: a callee given Strings is given their text, or the cell of the variable given by
+    // reference.
+    private static void AssertCalledDirectly(CompilationResult result, long direct)
     {
         if (CompiledExecution.HandsOverAtRandom)
         {
             return;
         }
 
-        Assert.AreEqual((0L, indirect), (result.Body!.DirectCalls, result.Body.IndirectCalls), "the caller's calls made directly, and through the invoker");
+        Assert.AreEqual((direct, 0L), (result.Body!.DirectCalls, result.Body.IndirectCalls), "the caller's calls made directly, and through the invoker");
     }
 
     // the lines of the program that make the call written as `call` are each the interpreter's to run, with the call.
@@ -78,7 +80,7 @@ public sealed class CompiledStringArgumentTests
             "    If S = \"xyxy\" Then Scored = 1 Else Scored = 2",
             "End Function"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 4);
+        AssertCalledDirectly(result, 4);
     }
 
     // a String variable given by reference: the callee writes the caller's variable, which the caller reads after the call. Built = S, a Let of the
@@ -103,7 +105,7 @@ public sealed class CompiledStringArgumentTests
             "    T = T & \"!\"",
             "End Sub"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 4);
+        AssertCalledDirectly(result, 4);
     }
 
     // one String variable given to two parameters by reference: both are second names for it, and each write is seen through the other, as the interpreter
@@ -127,7 +129,7 @@ public sealed class CompiledStringArgumentTests
             "    A = A & B",
             "End Sub"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 1);
+        AssertCalledDirectly(result, 1);
     }
 
     // a String given by reference to a callee that gives it on by reference: the second callee writes the first caller's variable. Built = S, a Let of
@@ -153,7 +155,7 @@ public sealed class CompiledStringArgumentTests
             "    U = U & \"!\"",
             "End Sub"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 1);
+        AssertCalledDirectly(result, 1);
     }
 
     // a String given by reference to a callee that assigns it, then raises an error, which the caller's handler handles: the caller's variable was assigned
@@ -230,7 +232,7 @@ public sealed class CompiledStringArgumentTests
             "    If S = \"ab\" Then Size = 2 Else If S = \"cd\" Then Size = 4",
             "End Function"), "Given", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 2);
+        AssertCalledDirectly(result, 2);
     }
 
     // vbNullString given by value is given as itself, the null pointer it is, which the callee sees; S = vbNullString, a constant, is compiled code's.
@@ -250,7 +252,7 @@ public sealed class CompiledStringArgumentTests
             "    If StrPtr(S) = 0 Then Pointed = 1 Else Pointed = 2",
             "End Function"), "Given", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 1);
+        AssertCalledDirectly(result, 1);
     }
 
     // a String that ends with a lone byte, and a fixed-length String, given to a String parameter: compiled code reads no text of either, and the
@@ -351,7 +353,7 @@ public sealed class CompiledStringArgumentTests
             "    If VarPtr(A) = VarPtr(B) And VarPtr(A) = First Then Twice = 1 Else Twice = 2",
             "End Function"), "Probed", recoveries: 2, expected: " 1111111 ");
 
-        AssertCalledThroughInvoker(result, 5);
+        AssertCalledDirectly(result, 5);
     }
 
     // a String and a Long given by reference to one call: each the caller's variable, which the callee writes. N goes 1, 2, 3, 6, 7, 14, and S is "xxx":
@@ -376,7 +378,7 @@ public sealed class CompiledStringArgumentTests
             "    N = N + 1",
             "End Sub"), "Counted", recoveries: 0, expected: " 143 ");
 
-        AssertCalledThroughInvoker(result, 3);
+        AssertCalledDirectly(result, 3);
     }
 
     // a String variable in parentheses, and a String joined to "", given to a parameter passed by reference: values, of which the callee makes a String of
@@ -401,7 +403,7 @@ public sealed class CompiledStringArgumentTests
             "    T = T & \"x\"",
             "End Sub"), "Kept", recoveries: 0, expected: " 1 ");
 
-        AssertCalledThroughInvoker(result, 4);
+        AssertCalledDirectly(result, 4);
     }
 
     // Strings given by name, in another order than their parameters, and an Optional String omitted: the callee is given each where its parameter is, and
@@ -428,6 +430,6 @@ public sealed class CompiledStringArgumentTests
         var result = await AssertAlikeAsync(program, "Tagged", recoveries: 0, expected: " 1 ");
 
         AssertCallsAreSupportCalls(program, result, "Call Tag(S)");
-        AssertCalledThroughInvoker(result, 2);
+        AssertCalledDirectly(result, 2);
     }
 }

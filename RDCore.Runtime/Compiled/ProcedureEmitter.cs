@@ -1005,6 +1005,19 @@ internal sealed partial class ProcedureEmitter
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
             var outcome = _il.DeclareLocal(typeof(RuntimeExecutionOutcome));
+
+            // a String variable given by reference is given its cell, which knows the address the variable has, so that the parameter finds it: one held in
+            // another cell (a parameter bound to an element of an array) is given its address, through the invoker (CompiledActivation.SetTextReference).
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                if (direct is not null && call.Arguments[i] is TextReferenceNode)
+                {
+                    _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.IsTextCell))!);
+                    _il.Emit(OpCodes.Brfalse, indirect);
+                }
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, call.Offset);
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
@@ -1017,10 +1030,29 @@ internal sealed partial class ProcedureEmitter
             // a CLR exception the callee lets out - a defect of the platform, which no handler of the program catches - takes its activation off the stack as it
             // goes by (CompiledActivation.AbandonDirectCall): what is on the stack after is what was before the call.
             _il.BeginExceptionBlock();
+
+            // a String is no argument of the typed entry: its activation is given the text, or the cell of the variable given by reference, in the slot of
+            // the parameter (CompiledCallee.TextSlots), before the entry is called.
+            for (var i = 0; i < given.Length; i++)
+            {
+                if (call.Arguments[i] is TextArgumentNode or TextReferenceNode)
+                {
+                    _il.Emit(OpCodes.Ldloc, callee);
+                    _il.Emit(OpCodes.Ldc_I4, _analysis.Callees[call.Callee].TextSlots[i]);
+                    _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(call.Arguments[i] is TextReferenceNode
+                        ? nameof(CompiledActivation.TakeTextReference)
+                        : nameof(CompiledActivation.TakeText))!);
+                }
+            }
+
             _il.Emit(OpCodes.Ldloc, callee);
             for (var i = 0; i < given.Length; i++)
             {
-                Load(given[i], call.Arguments[i].Kind);
+                if (call.Arguments[i] is not (TextArgumentNode or TextReferenceNode))
+                {
+                    Load(given[i], call.Arguments[i].Kind);
+                }
             }
 
             if (direct is not null)

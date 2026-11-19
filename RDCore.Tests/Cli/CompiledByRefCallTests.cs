@@ -386,7 +386,8 @@ public sealed class CompiledByRefCallTests
         return made;
     }
 
-    // compiled code passes its variable by reference to a callee it does not compile as the interpreter does: the cell, which the callee's parameter is.
+    // compiled code passes its variable by reference to a callee it calls through the invoker (a Variant, which its frame holds) as the interpreter does:
+    // the cell, which the callee's parameter is.
     [TestMethod]
     public async Task ACompiledCaller_PassesItsVariable_ToAnInterpretedCallee()
     {
@@ -402,7 +403,7 @@ public sealed class CompiledByRefCallTests
             "    Count = s",
             "End Function",
             "Private Sub Bump(ByRef x As Long)",
-            "    Dim t As String",
+            "    Dim t As Variant",
             "    t = \"x\"",
             "    x = x + Len(t)",
             "End Sub"), provider => BodyOf(provider, "Count").IndirectCalls);
