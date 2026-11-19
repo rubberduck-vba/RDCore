@@ -21,7 +21,7 @@ internal readonly record struct DeclaredName(string Name, SourceRange Range, boo
 /// Not every name is chosen by the module. A procedure of an external library is named by the library; a procedure whose name has an underscore is the implementation of
 /// an interface member, the handler of an event or a lifecycle handler (<c>Class_Initialize</c>), and is named by the interface, the event or the language. They are
 /// left out. The accessors of a property are one declaration, and its name is reported once. A line label is a name the procedure chooses; a line number is a number,
-/// and is left out. The module's own name is one of them, where its <c>Attribute VB_Name</c> says it.
+/// and is left out. The module's own name, where its <c>Attribute VB_Name</c> says it, is a name the module chooses.
 /// </remarks>
 internal static class DeclaredNames
 {
