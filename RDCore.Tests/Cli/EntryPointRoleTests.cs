@@ -30,7 +30,7 @@ public sealed class EntryPointRoleTests
     [DataRow("Public Sub Main()", "Program.Main", DisplayName = "a Public Sub Main")]
     [DataRow("Sub Main()", "Program.Main", DisplayName = "a Sub Main with no access modifier, which is Public")]
     [DataRow("Public Sub Main(ParamArray Args() As Variant)", "Program.Main", DisplayName = "a Sub Main given its arguments as one ParamArray")]
-    [DataRow("Private Sub Main()", "", DisplayName = "a Private Sub Main: the project cannot call it")]
+    [DataRow("Private Sub Main()", "", DisplayName = "a Private Sub Main, which a run cannot start with")]
     [DataRow("Public Sub Main(ByVal Count As Long)", "", DisplayName = "a Sub Main that takes an argument")]
     [DataRow("Public Function Main() As Long", "", DisplayName = "a Function Main")]
     public async Task TheSubMainOfTheOneStandardModuleThatDeclaresOne_IsTheEntryPoint(string header, string expected)
