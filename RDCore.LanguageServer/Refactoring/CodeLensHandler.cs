@@ -5,6 +5,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.LanguageServer.Refactoring;
@@ -87,27 +88,13 @@ internal sealed class CodeLensHandler(IRenameService workspace) : CodeLensHandle
     }
 
     // the command that shows a list of places: the arguments of VS Code's editor.action.showReferences.
-    private static Command Show(DocumentUri document, Position position, string title, IEnumerable<Location> locations) => new()
-    {
-        Name = RefactoringCommands.ShowReferences,
-        Title = title,
-        Arguments = new JArray(document.ToString(), JToken.FromObject(new { line = position.Line, character = position.Character }),
-            new JArray(locations.Select(location => JToken.FromObject(new { uri = location.Uri.ToString(), range = RangeOf(location) })))),
-    };
+    private static Command Show(DocumentUri document, Position position, string title, IEnumerable<Location> locations)
+        => new ShowReferencesCommandArguments(document.ToString(), position.ToSourcePosition(), [.. locations.Select(place => place.ToCommandLocation())])
+            .ToCommand(title);
 
     // the command that takes the user to one place: the URI of its document and its range.
-    private static Command GoTo(string title, Location location) => new()
-    {
-        Name = RefactoringCommands.GoToLocation,
-        Title = title,
-        Arguments = new JArray(location.Uri.ToString(), JToken.FromObject(RangeOf(location))),
-    };
-
-    private static object RangeOf(Location location) => new
-    {
-        start = new { line = location.Range.Start.Line, character = location.Range.Start.Character },
-        end = new { line = location.Range.End.Line, character = location.Range.End.Character },
-    };
+    private static Command GoTo(string title, Location location)
+        => new GoToLocationCommandArguments(location.Uri.ToString(), location.Range.ToSourceRange()).ToCommand(title);
 
     protected override CodeLensRegistrationOptions CreateRegistrationOptions(CodeLensCapability capability, ClientCapabilities clientCapabilities)
         => new() { ResolveProvider = true };
