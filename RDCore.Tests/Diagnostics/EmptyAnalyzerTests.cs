@@ -4,6 +4,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -124,7 +125,7 @@ public sealed class EmptyAnalyzerTests
         var finding = Assert.ContainsSingle(Run(new EmptyIfBlockAnalyzer(), program));
         Assert.AreEqual("Remove the empty If", finding.Fixes?.Edits.SingleOrDefault()?.Title);
 
-        var fixedProgram = Fixed(program, finding.Fixes!.Edits.Single());
+        var fixedProgram = finding.Fixes!.Edits.Single().Edits.ApplyTo(program);
         Assert.AreEqual(Module("Public Sub Main()\n    Dim n As Long, d As Double, h&\n    Dim o As Collection\n    Dim flag As Boolean\n    Debug.Print 1\n    Debug.Print 2\nEnd Sub"), fixedProgram);
         CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
     }
@@ -184,14 +185,6 @@ public sealed class EmptyAnalyzerTests
     public void AnIfWithNoElse_HasNoEmptyElse()
         => Assert.IsEmpty(Run(new EmptyCodeBlockAnalyzer(), Module("Public Sub DoSomething(ByVal foo As Boolean)\n    If foo Then\n        Debug.Print 1\n    End If\nEnd Sub")));
 
-    private static string Fixed(string program, EditFix fix)
-    {
-        var edit = Assert.ContainsSingle(fix.Edits);
-        var lines = program.Split("\r\n");
-        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
-        return program[..OffsetOf(edit.Range.Start)] + edit.NewText + program[OffsetOf(edit.Range.End)..];
-    }
-
     [TestMethod]
     [DataRow("    Else\n", DisplayName = "an Else line")]
     [DataRow("    Else\n\n", DisplayName = "an Else line and a blank line")]
@@ -202,7 +195,7 @@ public sealed class EmptyAnalyzerTests
         Assert.IsNotNull(finding.Fixes?.Edits.SingleOrDefault());
         Assert.AreEqual("Remove the empty Else", finding.Fixes.Edits.Single().Title);
 
-        var fixedProgram = Fixed(program, finding.Fixes.Edits.Single());
+        var fixedProgram = finding.Fixes.Edits.Single().Edits.ApplyTo(program);
         Assert.AreEqual(Module("Public Sub Main()\n    Dim n As Long\n    For n = 1 To 2\n        If n = 1 Then\n            Debug.Print \"one\"\n        End If\n        Debug.Print n\n    Next\nEnd Sub"), fixedProgram);
         Assert.IsEmpty(Run(new EmptyCodeBlockAnalyzer(), fixedProgram));
         CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
@@ -212,7 +205,7 @@ public sealed class EmptyAnalyzerTests
     public async Task TheFix_KeepsAnElseIfBeforeTheEmptyElse()
     {
         var program = Module("Public Sub Main()\n    Dim n As Long\n    For n = 1 To 3\n        If n = 1 Then\n            Debug.Print \"one\"\n        ElseIf n = 2 Then\n            Debug.Print \"two\"\n        Else\n        End If\n    Next\nEnd Sub");
-        var fixedProgram = Fixed(program, Assert.ContainsSingle(Run(new EmptyCodeBlockAnalyzer(), program)).Fixes!.Edits.Single());
+        var fixedProgram = Assert.ContainsSingle(Run(new EmptyCodeBlockAnalyzer(), program)).Fixes!.Edits.Single().Edits.ApplyTo(program);
 
         Assert.AreEqual(Module("Public Sub Main()\n    Dim n As Long\n    For n = 1 To 3\n        If n = 1 Then\n            Debug.Print \"one\"\n        ElseIf n = 2 Then\n            Debug.Print \"two\"\n        End If\n    Next\nEnd Sub"), fixedProgram);
         CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
@@ -456,7 +449,7 @@ public sealed class EmptyAnalyzerTests
         foreach (var finding in findings.OrderByDescending(finding => finding.Range.Start))
         {
             Assert.AreEqual("Replace \"\" with vbNullString", finding.Fixes?.Edits.SingleOrDefault()?.Title);
-            fixedProgram = Fixed(fixedProgram, finding.Fixes!.Edits.Single());
+            fixedProgram = finding.Fixes!.Edits.Single().Edits.ApplyTo(fixedProgram);
         }
 
         Assert.AreEqual(Program(after), fixedProgram);

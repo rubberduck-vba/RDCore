@@ -121,10 +121,10 @@ internal static class DefaultMemberAccesses
     {
         var candidates = procedure.Expressions
             .Where(fact => !fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget)
-                && Contains(conversion.Location.Range, fact.Location.Range)
+                && conversion.Location.Range.Contains(fact.Location.Range)
                 && HoldsAnObject(fact.DeclaredType))
             .ToArray();
-        return candidates.FirstOrDefault(fact => !candidates.Any(other => other != fact && Contains(other.Location.Range, fact.Location.Range)));
+        return candidates.FirstOrDefault(fact => !candidates.Any(other => other != fact && other.Location.Range.Contains(fact.Location.Range)));
     }
 
     // whether the target of an assignment is the access of the member, by its name.
@@ -133,8 +133,6 @@ internal static class DefaultMemberAccesses
 
     private static bool HoldsAnObject(string? declaredType)
         => declaredType is { Length: > 0 } type && (IsUnbound(type) || !IntrinsicVBTypes.IsIntrinsic(type) && !string.Equals(type, "Unknown", StringComparison.OrdinalIgnoreCase));
-
-    private static bool Contains(SourceRange outer, SourceRange inner) => outer.Start.CompareTo(inner.Start) <= 0 && inner.End.CompareTo(outer.End) <= 0;
 }
 
 /// <summary>

@@ -5,6 +5,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -48,18 +49,6 @@ public sealed class UnusedDeclarationAnalyzerTests
 
     private static void AssertAre(AnalyzerFinding[] findings, RDCoreDiagnosticId id, DiagnosticSeverity severity)
         => Assert.IsTrue(findings.All(finding => finding.Severity == severity && finding.Id == id), string.Join("; ", findings.Select(finding => finding.Message)));
-
-    private static string Fixed(string program, EditFix fix)
-    {
-        var lines = program.Split("\r\n");
-        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
-        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
-        {
-            program = program[..OffsetOf(edit.Range.Start)] + edit.NewText + program[OffsetOf(edit.Range.End)..];
-        }
-
-        return program;
-    }
 
     private static AnalyzerFinding[] WithoutSemantics(IModuleAnalyzer analyzer, params string[] lines)
         => Run(analyzer, ModuleWorkspace.StandardModule("Program", lines), null, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
@@ -116,7 +105,7 @@ public sealed class UnusedDeclarationAnalyzerTests
             "the field and the local nothing refers to; not one assigned, one declared with another name, one with a comment on its line, nor one a ReDim names");
         var fix = findings.Single(finding => finding.Range.Start.Line == 4).Fixes!.Edits.Single();
         Assert.AreEqual("Remove the declaration of 'unused'", fix.Title);
-        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 3)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 3)]), fix.Edits.ApplyTo(ModuleWorkspace.StandardModule("Program", lines)));
     }
 
     [TestMethod]
@@ -615,7 +604,7 @@ public sealed class UnusedDeclarationAnalyzerTests
             "not a constant declared with another, nor one with a comment on its line");
         var fix = findings[0].Fixes!.Edits.Single();
         Assert.AreEqual("Remove the declaration of 'Unused'", fix.Title);
-        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 2)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 2)]), fix.Edits.ApplyTo(ModuleWorkspace.StandardModule("Program", lines)));
     }
 
     [TestMethod]
