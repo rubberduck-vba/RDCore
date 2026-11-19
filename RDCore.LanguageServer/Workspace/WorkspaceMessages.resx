@@ -37,7 +37,7 @@
     <value>The project file is in the format {0}, older than this platform's {1}: it is written in the format {1} when it is next saved.</value>
   </data>
   <data name="ProjectFileFormatNewerMinor" xml:space="preserve">
-    <value>The project file is in the format {0}, newer than this platform's {1}: what this platform doesn't know of it is kept as it is.</value>
+    <value>The project file is in the format {0}, newer than this platform's {1}: what this platform does not know of it is kept as it is.</value>
   </data>
   <data name="ProjectFileFormatNewerMajor" xml:space="preserve">
     <value>The project file is in the format {0}, a major version newer than this platform's {1}: it was read as the format {1}, and what it holds may not all have been read.</value>
