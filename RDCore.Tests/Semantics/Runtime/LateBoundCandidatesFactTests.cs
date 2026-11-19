@@ -54,6 +54,7 @@ public sealed class LateBoundCandidatesFactTests
     [DataRow("Set o = New Square|x = o.Side", "Square.Side Public", DisplayName = "a member of the class that implements an interface")]
     [DataRow("Set o = New Bag|x = o(1)", "Bag.Item Public", DisplayName = "the default member an argument list goes to")]
     [DataRow("Set o = New Holder|Set o = New Square|x = o.Side", "Square.Side Public", DisplayName = "each class the module's Set statements give it")]
+    [DataRow("Set o = New Collection|x = o.Count", "Collection.Count Public", DisplayName = "a class of a library")]
     public async Task ALateBoundAccessOfAnObjectOfAKnownClass_MayReachTheMembersOfItsName(string body, string expected)
     {
         var (flags, candidates) = await CandidatesOfAsync("", "Dim o As Object|Dim x As Variant|" + body);
