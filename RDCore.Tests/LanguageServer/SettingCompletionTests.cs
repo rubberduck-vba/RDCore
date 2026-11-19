@@ -27,7 +27,7 @@ public sealed class SettingCompletionTests
 
     [TestMethod]
     public void NothingTyped_IsOfferedTheSections()
-        => CollectionAssert.AreEqual(new[] { "Server.", "Workspace.", "Platform.", "Environment.", "Formatting.", "Analysis." }, Parts(""));
+        => CollectionAssert.AreEqual(new[] { "Server.", "Workspace.", "Platform.", "Environment.", "Formatting.", "Analysis.", "InlayHints." }, Parts(""));
 
     [TestMethod]
     public void ASectionTyped_IsOfferedWhatIsInIt_WithoutRegardToCase()

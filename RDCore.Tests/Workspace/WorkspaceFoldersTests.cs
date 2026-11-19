@@ -7,6 +7,7 @@ namespace RDCore.Tests.Workspace;
 /// The folders of a workspace are its projects and its bounds: a file is the project's whose folder holds it most closely, and a file no
 /// folder holds - a <c>..\</c> path that climbs out of every one - is outside the workspace.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class WorkspaceFoldersTests
 {

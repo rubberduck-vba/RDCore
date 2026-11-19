@@ -84,6 +84,9 @@ internal sealed partial class SessionStorage
         return true;
     }
 
+    // whether any String is in a BSTR (StrPtr): compiled code's Mid statement leaves the statement to the interpreter then, which writes one in place.
+    internal bool HasStringBlocks => _stringBlocks.Count > 0;
+
     /// <summary>
     /// The <c>BSTR</c> <paramref name="text"/>, the very <c>String</c>, is in, if it is in one: what the <c>Mid</c> statement writes the characters of in place.
     /// </summary>
@@ -364,6 +367,13 @@ internal sealed partial class SessionStorage
     // the Strings held in what is freed, a variable, a record or an array's block, let go of their BSTRs, which are freed when they are no one's.
     private void FreeStringBlocksIn(MemoryAddress start, int size)
     {
+        // a String has a BSTR only once its address was given out (StrPtr, a pointer poked into it): most sessions have none, and are not looked through
+        // for any.
+        if (_pendingPointers.Count == 0 && _stringOfHolder.Count == 0)
+        {
+            return;
+        }
+
         foreach (var holder in _pendingPointers.Keys.Where(holder => holder.Value >= start.Value && holder.Value < start.Value + size).ToList())
         {
             _pendingPointers.Remove(holder);

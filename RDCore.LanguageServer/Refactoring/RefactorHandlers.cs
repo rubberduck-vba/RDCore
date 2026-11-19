@@ -11,16 +11,28 @@ namespace RDCore.LanguageServer.Refactoring;
 /// of its own asks it: the capability is <see cref="SDK.Client.Refactoring"/>'s.
 /// </summary>
 /// <remarks>
-/// The refactorings it prepares are Extract Method's (<see cref="RefactoringKinds.ExtractMethod"/>) and Convert GoSub's (<see cref="RefactoringKinds.ConvertGoSub"/>);
-/// a kind it does not serve is answered an error.
+/// The refactorings it prepares are Extract Method's (<see cref="RefactoringKinds.ExtractMethod"/>), Convert GoSub's
+/// (<see cref="RefactoringKinds.ConvertGoSub"/>), Encapsulate Field's (<see cref="RefactoringKinds.EncapsulateField"/>), of the field named at the
+/// start of the range, Move Closer To Usage's (<see cref="RefactoringKinds.MoveCloserToUsage"/>), of the variable named at the start of the range,
+/// and Reorder Parameters'
+/// (<see cref="RefactoringKinds.ReorderParameters"/>), of the procedure named at the start of the range or whose parameter is declared there; a kind it does
+/// not serve is answered an error.
 /// </remarks>
-internal sealed class RefactorPrepareHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
+internal sealed class RefactorPrepareHandler(
+    IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities, IEncapsulateFieldService? encapsulateField = null,
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null)
     : RDCoreRequestHandler<RefactorPrepareRequest, RefactorPrepareResult>
 {
     protected override async Task<RefactorPrepareResult> HandleAsync(RefactorPrepareRequest request, CancellationToken token)
     {
-        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
-        return await extractMethod.PrepareAsync(request.Kind, request.Uri!, request.Range, token);
+        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri, encapsulateField, closerToUsage, parameterReorder);
+        return request.Kind switch
+        {
+            RefactoringKinds.EncapsulateField => await encapsulateField!.PrepareAsync(request.Uri!, request.Range.Start, token),
+            RefactoringKinds.MoveCloserToUsage => await closerToUsage!.PrepareAsync(request.Uri!, request.Range.Start, token),
+            RefactoringKinds.ReorderParameters => await parameterReorder!.PrepareAsync(request.Uri!, request.Range.Start, token),
+            _ => await extractMethod.PrepareAsync(request.Kind, request.Uri!, request.Range, token),
+        };
     }
 }
 
@@ -28,12 +40,32 @@ internal sealed class RefactorPrepareHandler(IExtractMethodService extractMethod
 /// Serves <c>rdcore/refactor/apply</c>: the edit a refactoring of a range makes with the user's answers, or an error that says why it is refused. The edit is
 /// the client's to apply.
 /// </summary>
-internal sealed class RefactorApplyHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
+internal sealed class RefactorApplyHandler(
+    IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities, IEncapsulateFieldService? encapsulateField = null,
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null)
     : RDCoreRequestHandler<RefactorApplyRequest, RefactorWorkspaceEdit>
 {
     protected override async Task<RefactorWorkspaceEdit> HandleAsync(RefactorApplyRequest request, CancellationToken token)
     {
-        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
+        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri, encapsulateField, closerToUsage, parameterReorder);
+        if (request.Kind == RefactoringKinds.EncapsulateField)
+        {
+            var encapsulated = await encapsulateField!.ApplyAsync(request.Uri!, request.Range.Start, request.Answers, request.Accepted, token);
+            return encapsulated.Edit ?? throw new RpcErrorException(RefactorRequests.RequestFailedCode, error: null!, encapsulated.Refusal ?? string.Empty);
+        }
+
+        if (request.Kind == RefactoringKinds.MoveCloserToUsage)
+        {
+            var moved = await closerToUsage!.ApplyAsync(request.Uri!, request.Range.Start, request.Answers, request.Accepted, token);
+            return moved.Edit ?? throw new RpcErrorException(RefactorRequests.RequestFailedCode, error: null!, moved.Refusal ?? string.Empty);
+        }
+
+        if (request.Kind == RefactoringKinds.ReorderParameters)
+        {
+            var reordered = await parameterReorder!.ApplyAsync(request.Uri!, request.Range.Start, request.Answers, request.Accepted, token);
+            return reordered.Edit ?? throw new RpcErrorException(RefactorRequests.RequestFailedCode, error: null!, reordered.Refusal ?? string.Empty);
+        }
+
         var answer = await extractMethod.ApplyAsync(request.Kind, request.Uri!, request.Range, request.Answers, request.Accepted, token);
         return answer.Edit ?? throw new RpcErrorException(RefactorRequests.RequestFailedCode, error: null!, answer.Refusal ?? string.Empty);
     }
@@ -43,13 +75,16 @@ internal sealed class RefactorApplyHandler(IExtractMethodService extractMethod, 
 /// Serves <c>rdcore/refactor/checkIdentifier</c>: whether an identifier the user is typing for a refactoring of a range can be declared where the refactoring
 /// declares it, and what it would hide, before the refactoring is applied. A client's dialog asks it as its user types.
 /// </summary>
-internal sealed class RefactorIdentifierCheckHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
+internal sealed class RefactorIdentifierCheckHandler(
+    IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities, IEncapsulateFieldService? encapsulateField = null)
     : RDCoreRequestHandler<RefactorCheckIdentifierRequest, RefactorIdentifierCheckResult>
 {
     protected override async Task<RefactorIdentifierCheckResult> HandleAsync(RefactorCheckIdentifierRequest request, CancellationToken token)
     {
-        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
-        return await extractMethod.CheckIdentifierAsync(request.Kind, request.Uri!, request.Range, request.Answers, token);
+        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri, encapsulateField);
+        return request.Kind == RefactoringKinds.EncapsulateField
+            ? await encapsulateField!.CheckIdentifierAsync(request.Uri!, request.Range.Start, request.Answers, token)
+            : await extractMethod.CheckIdentifierAsync(request.Kind, request.Uri!, request.Range, request.Answers, token);
     }
 }
 
@@ -65,14 +100,22 @@ file static class RefactorRequests
     // JSON-RPC 2.0 "Invalid Request".
     private const int InvalidRequestCode = -32600;
 
-    public static void Check(IPlatformClientCapabilitiesService clientCapabilities, string kind, Uri? document)
+    // Encapsulate Field is served when its service is, by prepare, checkIdentifier and apply; Move Closer To Usage and Reorder Parameters, by prepare and
+    // apply: they ask no name to check.
+    public static void Check(
+        IPlatformClientCapabilitiesService clientCapabilities, string kind, Uri? document, IEncapsulateFieldService? encapsulateField = null,
+        IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null)
     {
         if (!clientCapabilities.Expects(capabilities => capabilities.Refactoring))
         {
             throw new RpcErrorException(InvalidRequestCode, error: null!, $"The client did not advertise the '{nameof(SDK.Client.Refactoring)}' platform capability.");
         }
 
-        if (kind is not (RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub) || document is null)
+        var served = kind is RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub
+            || (kind == RefactoringKinds.EncapsulateField && encapsulateField is not null)
+            || (kind == RefactoringKinds.MoveCloserToUsage && closerToUsage is not null)
+            || (kind == RefactoringKinds.ReorderParameters && parameterReorder is not null);
+        if (!served || document is null)
         {
             throw new RpcErrorException(InvalidParamsCode, error: null!, document is null ? "The request names no document." : $"No refactoring is of the kind '{kind}'.");
         }

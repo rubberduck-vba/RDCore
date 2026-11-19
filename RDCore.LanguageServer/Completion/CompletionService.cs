@@ -22,6 +22,7 @@ using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Server.Configuration;
@@ -128,7 +129,8 @@ internal sealed class CompletionService(
     IOptions<SdkAppOptions> options,
     ILogger<CompletionService> logger,
     IWorkspaceProjects workspaceProjects,
-    WorkspaceCompositionCache? compositions = null) : ICompletionService
+    WorkspaceCompositionCache? compositions = null,
+    IReferencedProjectService? referencedProjects = null) : ICompletionService
 {
     // the name the expression a member is accessed on is assigned to, in the line that stands for the one being typed: a name no module declares.
     private const string Probe = "RDCoreCompletionProbe";
@@ -338,9 +340,9 @@ internal sealed class CompletionService(
 
         // after a named argument, every argument is named (MS-VBAL 5.6.13.1): nothing but the names of the parameters left is written where one starts.
         var namesOnly = argument is { NamesBefore.Count: > 0 } && argument.ArgumentName is null && argument.IsWhereAnArgumentStarts(context.Prefix);
-        IReadOnlyList<CompletionCandidate> names = signature is not null && argument is not null
-            ? CompletionCandidates.NamedArguments(signature, argument, context.Prefix, logical.After)
-            : [];
+        var names = signature is not null && argument is not null
+            ? CompletionCandidates.NamedArgumentGroup(signature, argument, context.Prefix, logical.After)
+            : new CompletionGroup([], IsSelectedWhenNothingIsTyped: false);
 
         // an argument an array is given to (of LBound, of UBound, of a parameter declared as an array) is offered the names it can be given, and no other.
         var written = context.Kind == CompletionSiteKind.Member
@@ -357,7 +359,9 @@ internal sealed class CompletionService(
             && signature.Parameters[active].Type is VBEnumType constantsOf
                 ? CompletionCandidates.ConstantsOf(tree, constantsOf)
                 : [];
-        if (argumentTrigger && constants.Count == 0 && names.Count == 0)
+        // a ( , or space asks for a list where what is most likely written there is in a tier of its own: not a whole list at each comma, where the names rank
+        // after the rest.
+        if (argumentTrigger && constants.Count == 0 && (names.Candidates.Count == 0 || names.RanksAfterTheOthers))
         {
             return Empty;
         }
@@ -369,12 +373,13 @@ internal sealed class CompletionService(
 
         // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
         IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
-        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
+        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), names, .. arrayTiers],
             arrays is null ? others : [], requested, insertReplace ? logical.After : null);
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",
-                moduleName, line, character, context.Kind, context.Prefix, constants.Count, names.Count, list.Items.Count(), candidates.Count);
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) {where}, {count} item(s) of {all} candidate(s).",
+                moduleName, line, character, context.Kind, context.Prefix, constants.Count, names.Candidates.Count, names.RanksAfterTheOthers ? "last" : "first",
+                list.Items.Count(), candidates.Count);
         }
 
         return list;
@@ -478,12 +483,12 @@ internal sealed class CompletionService(
         var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : SymbolUri.Root(root);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
-        // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
+        // a project's names are bound among what it references, libraries and projects of the workspace, as the host's analysis of it binds them.
         var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver,
             projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
+            libraries: referencedProjects?.LibrariesOf(workspaceRoot, root, token) ?? (primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null),
             documentHosts: isOwnProject ? null : DocumentHostsOf(root));
 
         return (composition, syntaxTree, workspaceRoot, moduleUri);
@@ -582,6 +587,13 @@ internal sealed class CompletionService(
         if (CompletionCandidates.NamespaceOf(composition.Resolver, origin, context.Qualifier, typeContext: false) is { } owner)
         {
             return CompletionCandidates.MembersOf(composition.ScopeTree, owner, origin);
+        }
+
+        // Debug is written only as the Debug.Print and Debug.Assert statements, never as a value the probe could be assigned: its members are its class's.
+        if (composition.Resolver.ResolveValue(context.Qualifier, SDK.Model.Symbols.Abstract.ScopeKind.Global, origin).Symbol is VBPredeclaredInstanceSymbol debug
+            && StandardLibrary.IsDebugObject(debug))
+        {
+            return CompletionCandidates.MembersOf(VBClassType.Of(debug.ClassModule));
         }
 
         var probe = module.Descendants().OfType<AssignmentStatementNode>().FirstOrDefault(node => node.SourceLocation.Range.Start.Line == line);

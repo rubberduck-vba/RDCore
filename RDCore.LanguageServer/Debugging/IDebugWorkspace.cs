@@ -51,6 +51,15 @@ internal interface IDebugWorkspace
     Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token);
 
     /// <summary>
+    /// Runs a statement typed in the debug console while nothing waits, under a debugger, as a statement typed at a prompt runs: in a module of its own, which
+    /// sees the workspace's public names. <c>?</c> at the start of it is <c>Debug.Print</c>.
+    /// </summary>
+    /// <param name="text">What was typed: one statement.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>Where the statement waits, or how it ended; a syntax error when it is not one statement.</returns>
+    Task<ExecuteResult> RunStatementAsync(string text, CancellationToken token);
+
+    /// <summary>
     /// Reads the files of the workspace's modules again, and has the environment host load each one whose text is not what it loaded: the edits saved while the
     /// program waits, which it is checked against before it goes on.
     /// </summary>

@@ -21,8 +21,10 @@ internal sealed partial class ProcedureAnalysis
     /// </summary>
     public List<CompiledLibraryCall> Libraries { get; } = [];
 
-    // the functions compiled code calls, each of parameters of the Variant type or of a scalar type passed by value, and whether each keeps anything from
-    // call to call: none does but Rnd, whose seed moves at each call, so a call of it is made once in an instruction, and never again by the interpreter.
+    // the functions compiled code calls, each of parameters of the Variant type, of a scalar type or of the String type passed by value, and whether each
+    // keeps anything from call to call: none does but Rnd, whose seed moves at each call, so a call of it is made once in an instruction, and never again by
+    // the interpreter. Val (MS-VBAL §6.1.2.3.1.21), Asc (MS-VBAL §6.1.2.11.1.1) and AscW (MS-VBAL §6.1.2.11.1.3) take a String; Timer (MS-VBAL
+    // §6.1.2.4.2.5) reads the session's clock.
     private static readonly ImmutableDictionary<string, bool> CompiledLibraryFunctions = new Dictionary<string, bool>
     {
         ["IStdConversionModule.CBool/1"] = false,
@@ -36,6 +38,10 @@ internal sealed partial class ProcedureAnalysis
         ["IStdConversionModule.CSng/1"] = false,
         ["IStdConversionModule.Fix/1"] = false,
         ["IStdConversionModule.Int/1"] = false,
+        ["IStdConversionModule.Val/1"] = false,
+        ["IStdDateTimeModule.Timer/0"] = false,
+        ["IStdStringsModule.Asc/1"] = false,
+        ["IStdStringsModule.AscW/1"] = false,
         ["IStdInformationModule.IsEmpty/1"] = false,
         ["IStdInformationModule.IsNull/1"] = false,
         ["IStdInformationModule.IsNumeric/1"] = false,
@@ -54,11 +60,20 @@ internal sealed partial class ProcedureAnalysis
 
     // the functions compiled code calls for a Variant they return, each of parameters of the Variant type or of a scalar type passed by value, and keeping
     // nothing: IIf, which is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11); Round and Sgn; the dates made of their
-    // parts, and the parts of a date; and Len and LenB (MS-VBAL §6.1.2.11.1.22), of a String or of a value of another type.
+    // parts, the parts of a date, and DateAdd (MS-VBAL §6.1.2.4.1.1); Len and LenB (MS-VBAL §6.1.2.11.1.22), of a String or of a value of another type;
+    // InStr (MS-VBAL §6.1.2.11.1.14) and StrComp (MS-VBAL §6.1.2.11.1.36), given no Compare argument or one; and Date, Now and Time (MS-VBAL
+    // §6.1.2.4.2.2 to §6.1.2.4.2.4), which read the session's clock. One that returns Null, which no payload is, is the interpreter's call
+    // (CompiledActivation.CallLibraryVariant).
     private static readonly ImmutableHashSet<string> VariantLibraryFunctions = ImmutableHashSet.Create(StringComparer.Ordinal,
         "IStdInteractionModule.IIf/3",
         "IStdStringsModule.Len/1",
         "IStdStringsModule.LenB/1",
+        "IStdStringsModule.InStr/4",
+        "IStdStringsModule.StrComp/3",
+        "IStdDateTimeModule.DateAdd/3",
+        "IStdDateTimeModule.Date/0",
+        "IStdDateTimeModule.Now/0",
+        "IStdDateTimeModule.Time/0",
         "IStdMathModule.Round/2",
         "IStdMathModule.Sgn/1",
         "IStdDateTimeModule.DateSerial/3",
@@ -70,16 +85,18 @@ internal sealed partial class ProcedureAnalysis
         "IStdDateTimeModule.Minute/1",
         "IStdDateTimeModule.Second/1");
 
-    // whether symbol is a function of the standard library compiled code calls for the Variant it returns.
+    // whether symbol is a function of the standard library compiled code calls for the Variant it returns, or a property it reads (Now, a Property Get of
+    // the library).
     private static bool IsVariantLibrary(Symbol symbol)
-        => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && VariantLibraryFunctions.Contains(target)
+        => symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && VariantLibraryFunctions.Contains(target)
             && StandardLibrary.IsLibraryMember(symbol);
 
-    // a call of such a function, with its arguments as LibraryCallOf takes them (LibraryArgumentsOf).
-    private VariantNode? LibraryVariantOf(BoundCall call, VBTypeMemberSymbol function)
+    // a call of such a function, written with its arguments, or by its name when it is given none (Now), with its arguments as LibraryCallOf takes them
+    // (LibraryArgumentsOf).
+    private VariantNode? LibraryVariantOf(BoundNode call, VBTypeMemberSymbol function, ImmutableArray<BoundArgument>? bound)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(function);
-        if (call.BoundArguments is not { } arguments || LibraryArgumentsOf(parameters, arguments) is not { } values)
+        if (bound is not { } arguments || LibraryArgumentsOf(parameters, arguments) is not { } values)
         {
             Unsupported(call);
             return null;
@@ -110,21 +127,39 @@ internal sealed partial class ProcedureAnalysis
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
-            var typed = parameter.ResolvedType is VBEnumType ? null : ScalarKinds.Of(parameter.ResolvedType);
-            if (parameter is ParamArrayParameterSymbol || parameter.ResolvedType is not VBVariantType && typed is null
-                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter.GetProperty(SymbolProperties.PassedByAddress)
+            if (parameter is ParamArrayParameterSymbol || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter.GetProperty(SymbolProperties.PassedByAddress)
                 || i >= given && !parameter.IsOptional)
             {
                 return null;
             }
 
+            // a parameter given none is given what an omitted argument is when the call is made, whatever its type: the calling module's Option Compare
+            // for a Compare parameter (CompiledActivation.TryCallLibraryValue).
             if (i >= given)
             {
                 continue;
             }
 
-            // an expression of Strings given to a Variant parameter, which takes it by value, is given a Variant holding its text (VariantTextNode). That is done
-            // only outside an instruction that calls inside an expression, whose known operands are payloads.
+            // a parameter of an enumeration takes its argument let-coerced to a Long, the type of an enumeration's values (MS-VBAL §5.2.3.4).
+            var typed = parameter.ResolvedType is VBEnumType ? ScalarKind.Long : ScalarKinds.Of(parameter.ResolvedType);
+            var isText = parameter.ResolvedType is VBStringType and not VBFixedStringType;
+            if (parameter.ResolvedType is not VBVariantType && typed is null && !isText)
+            {
+                return null;
+            }
+
+            // a call of the workspace that returns a String or a Variant, inside an instruction that calls inside an expression, given to a Variant parameter:
+            // what it returns, given as the interpreter gives it (CallValueNode).
+            if (parameter.ResolvedType is VBVariantType && arguments[i] is { Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } called }
+                && ValueCallOf(called) is { } valued)
+            {
+                values.Add(valued);
+                continue;
+            }
+
+            // an expression of Strings given to a Variant parameter, which takes it by value, is given a Variant holding its text (VariantTextNode); given to a
+            // String parameter, its text (StringArgumentNode). That is done only outside an instruction that calls inside an expression, whose known operands
+            // are payloads. A String parameter takes nothing else.
             if (typed is null && arguments[i] is { Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } text } && IsStringItem(text))
             {
                 if (_nesting is not null || Text(text) is not { } texts)
@@ -132,14 +167,23 @@ internal sealed partial class ProcedureAnalysis
                     return null;
                 }
 
-                values.Add(new VariantTextNode(texts));
+                values.Add(isText ? new StringArgumentNode(texts) : new VariantTextNode(texts));
                 continue;
             }
 
-            // a Variant variable given to a Variant parameter is given what it holds, whatever it holds (VariantValueNode).
+            if (isText)
+            {
+                return null;
+            }
+
+            // a Variant variable given to a Variant parameter is given what it holds, whatever it holds (VariantValueNode), and so is an element of an array
+            // of Variants (VariantElementValueNode).
             if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value }
                 || (typed is { } destination ? PayloadAs(value, destination) is { } coerced ? new VariantOfNode(coerced) : null
-                    : value is BoundVariable variable && VariantSlotOf(variable) is { } slot ? new VariantValueNode(slot) : Dynamic(value)) is not { } argument)
+                    : value is BoundVariable variable && VariantSlotOf(variable) is { } slot ? new VariantValueNode(slot)
+                    : value is BoundIndex or BoundMember && IsVariantElement(value)
+                        ? VariantElement(ElementOf(value)!) is VariantElementNode element ? new VariantElementValueNode(element) : null
+                    : Dynamic(value)) is not { } argument)
             {
                 return null;
             }
@@ -150,10 +194,17 @@ internal sealed partial class ProcedureAnalysis
         return values;
     }
 
-    // whether symbol is a function of the standard library compiled code calls.
+    // whether symbol is a function of the standard library compiled code calls, or a property it reads (Timer, a Property Get of the library).
     private static bool IsCompiledLibrary(Symbol symbol)
-        => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && CompiledLibraryFunctions.ContainsKey(target)
+        => symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && CompiledLibraryFunctions.ContainsKey(target)
             && StandardLibrary.IsLibraryMember(symbol);
+
+    // whether symbol is a function of the standard library compiled code calls that keeps nothing from call to call (all of them but Rnd): a call of it
+    // calls nothing of the workspace, and the interpreter makes it again when the instruction is handed to it.
+    private static bool KeepsNothing(Symbol symbol)
+        => IsVariantLibrary(symbol) || IsVariantTextLibrary(symbol)
+            || IsCompiledLibrary(symbol) && !CompiledLibraryFunctions[symbol.GetProperty(SymbolProperties.ExternalTarget)!];
+
     // a call of a function of the standard library (IsCompiledLibrary), written with its arguments, or by its name when it is given none, as the
     // interpreter makes it (LibraryArgumentsOf). What it returns is a scalar of its type, or of the type of its argument for a function typed by it
     // (ArgumentTypedFunctions, the call's ResultType). Inside an instruction that calls inside an expression, the call is known once it is made, as any is;

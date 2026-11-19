@@ -88,7 +88,7 @@ public sealed class ArrayStatementTargetTests
         foreach (var module in parsed)
         {
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            var defined = await new DefineSymbolsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,

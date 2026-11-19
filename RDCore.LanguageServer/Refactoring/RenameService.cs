@@ -17,6 +17,7 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.SDK.Model.Symbols;
 using RDCore.Symbols;
 using RDCore.Runtime.LanguageCore.Refactoring;
@@ -132,13 +133,47 @@ internal sealed class RenameService(
         }
 
         // the project the server runs, then the others: each is composed of its own modules, so that a name resolves in the project of the module that writes it.
-        List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, name: null, token)];
+        List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, workspaceProjects.Projects.FirstOrDefault()?.Project.ProjectInfo.Name, token)];
         foreach (var other in workspaceProjects.Projects.Skip(1))
         {
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }
 
-        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen };
+        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf };
+    }
+
+    // the edit that renames the workspace's project of a name in its project file, where the text writes the name; none when the file cannot be read, or
+    // writes no name.
+    private TextDocumentEdit? ProjectFileEditOf(string project, string newName)
+    {
+        if (workspaceProjects.Projects.FirstOrDefault(candidate => string.Equals(candidate.Project.ProjectInfo.Name, project, StringComparison.OrdinalIgnoreCase)) is not { } owner)
+        {
+            return null;
+        }
+
+        var path = Path.Combine(owner.Root, ProjectFile.FileName);
+        string text;
+        try
+        {
+            text = File.ReadAllText(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "📁 The project file {Path} could not be read: the project is renamed in its code only.", path);
+            return null;
+        }
+
+        return ProjectFile.NameRangeIn(text) is { } range
+            ? new TextDocumentEdit
+            {
+                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.FromFileSystemPath(path) },
+                Edits = new TextEditContainer(new TextEdit
+                {
+                    Range = new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character),
+                    NewText = newName,
+                }),
+            }
+            : null;
     }
 
     private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
@@ -159,7 +194,7 @@ internal sealed class RenameService(
         }
 
         // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
-        var projectName = primary || string.IsNullOrEmpty(name) ? null : name;
+        var projectName = string.IsNullOrEmpty(name) ? null : name;
         var implicitScope = options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope;
         var libraries = primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null;
         var documentHosts = modules.Where(module => module.Document.Super is not null)
@@ -176,7 +211,7 @@ internal sealed class RenameService(
             projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
-            [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source))],
+            [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source, module.Parse.Designer))],
             new StaticEnvironment(options.Value.Environment.Is64Bit));
         return new RenameWorkspace.ProjectPart(context, modules, Recompose);
     }
@@ -216,6 +251,9 @@ internal sealed class RenameWorkspace
 
     // whether the client has the document open, and so knows its version: an edit of a document it has not opened names no version.
     internal Func<TextDocumentIdentifier, bool> IsOpen { get; init; } = static _ => true;
+
+    // the edit that renames the workspace's project of a name in its project file, given the project and its new name; none by default.
+    internal Func<string, string, TextDocumentEdit?> ProjectFileEdit { get; init; } = static (_, _) => null;
 
     // the project a module of a document is in, which its names resolve in.
     private ProjectPart PartOf(DocumentModule module) => _parts.First(part => part.Modules.Any(candidate => ReferenceEquals(candidate, module)));
@@ -261,25 +299,7 @@ internal sealed class RenameWorkspace
             return new(null, Say(part, plan.Refusal!));
         }
 
-        // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
-        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
-        // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
-        var changes = plan.Edits
-            .GroupBy(edit => edit.Module.AbsoluteUri)
-            .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
-            .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
-            {
-                TextDocument = new OptionalVersionedTextDocumentIdentifier
-                {
-                    Uri = edited.Document.Id.Uri,
-                    Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
-                },
-                Edits = new TextEditContainer(plan.Edits
-                    .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
-                    .Select(edit => AnnotationOf(edit) is { } annotation
-                        ? new AnnotatedTextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText, AnnotationId = annotation }
-                        : new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
-            }));
+        var changes = DocumentChangesOf(part, plan.Edits);
 
         // the user confirms what a string says, and which member a late-bound access calls: a client that takes change annotations asks them; one that does
         // not is asked for, before it is sent the edit.
@@ -317,12 +337,158 @@ internal sealed class RenameWorkspace
             }
         }
 
+        // a module's file named after it is renamed with it, after its text is edited (LSP 3.17 RenameFile); the module is named by its VB_Name, so a client
+        // that does not rename files is sent the rest of the edit (RenameHandler).
+        if (plan.Module is { } renamedModule && part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == renamedModule.AbsoluteUri) is { } file
+            && FileRenameOf(file, target.Name, newName) is { } renameFile)
+        {
+            // a designer's binary file (Dialog.frx), which its text names, is renamed with it, then its text names the new one. Neither file is renamed over
+            // one that exists: the client refuses the edit, and the text does not name a file it was not renamed to.
+            if (CompanionOf(file, newName) is { } companion)
+            {
+                renameFile = renameFile with { Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false } };
+                changes = changes
+                    .Append(new WorkspaceEditDocumentChange(renameFile))
+                    .Append(new WorkspaceEditDocumentChange(companion.Rename))
+                    .Append(new WorkspaceEditDocumentChange(new TextDocumentEdit
+                    {
+                        TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = renameFile.NewUri },
+                        Edits = new TextEditContainer(companion.Names.Select(range => new TextEdit { Range = file.ToTextRange(range), NewText = companion.NewName })),
+                    }));
+            }
+            else
+            {
+                changes = changes.Append(new WorkspaceEditDocumentChange(renameFile));
+            }
+        }
+
+        // a project is renamed in its project file too, where the file writes its name (ProjectFile.NameRangeIn).
+        if (plan.Project is { } project && ProjectFileEdit(project, newName) is { } projectFile)
+        {
+            changes = changes.Append(new WorkspaceEditDocumentChange(projectFile));
+        }
+
         var workspaceEdit = new WorkspaceEdit
         {
             DocumentChanges = new Container<WorkspaceEditDocumentChange>(changes),
             ChangeAnnotations = annotations.Count == 0 ? null : annotations,
         };
         return new(workspaceEdit, null, questions.Count == 0 ? null : questions);
+    }
+
+    // the file of that name in the folder of a document, as the client spells the document's URI (its drive letter, its escapes).
+    private static DocumentUri Sibling(DocumentUri document, string fileName)
+        => DocumentUri.From(new Uri(document.ToUri(), Uri.EscapeDataString(fileName)));
+
+    // the file of a module, when its name is the module's, renamed to the new name; a file of that name that is there already is left as it is, and so is the
+    // module's file.
+    private static RenameFile? FileRenameOf(DocumentModule module, string oldName, string newName)
+    {
+        var path = module.Document.Id.Uri.GetFileSystemPath();
+        if (!string.Equals(Path.GetFileNameWithoutExtension(path), oldName, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return new RenameFile
+        {
+            OldUri = module.Document.Id.Uri,
+            NewUri = Sibling(module.Document.Id.Uri, newName + Path.GetExtension(path)),
+            Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
+        };
+    }
+
+    // the binary file of a designer's file (a form's .frx, a user control's .ctx), when the designer's text names it as the file of the same name
+    // (OleObjectBlob = "Dialog.frx":0000): its rename, and where the text names it, in the text of the module.
+    private static (RenameFile Rename, IReadOnlyList<SDK.Model.Source.SourceRange> Names, string NewName)? CompanionOf(DocumentModule module, string newName)
+    {
+        var path = module.Document.Id.Uri.GetFileSystemPath();
+        if (!FormDesigner.CompanionExtensions.TryGetValue(Path.GetExtension(path), out var extension)
+            || CompanionNamedBy(module.Source) is not { } named
+            || !string.Equals(named.FileName, Path.GetFileNameWithoutExtension(path) + extension, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var companion = named.FileName;
+        var names = new List<SDK.Model.Source.SourceRange>();
+        var lines = module.Source.Split('\n');
+        for (var line = 0; line < lines.Length && !lines[line].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase); line++)
+        {
+            for (var at = lines[line].IndexOf($"\"{companion}\"", StringComparison.OrdinalIgnoreCase); at >= 0;
+                at = lines[line].IndexOf($"\"{companion}\"", at + companion.Length + 2, StringComparison.OrdinalIgnoreCase))
+            {
+                names.Add(new SDK.Model.Source.SourceRange(line, at + 1, line, at + 1 + companion.Length));
+            }
+        }
+
+        if (names.Count == 0)
+        {
+            return null;
+        }
+
+        return (new RenameFile
+        {
+            OldUri = Sibling(module.Document.Id.Uri, companion),
+            NewUri = Sibling(module.Document.Id.Uri, newName + extension),
+            Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false },
+        }, names, newName + extension);
+    }
+
+    // a designer block that is not terminated names no companion a rename can change.
+    private static FormDesignerReference? CompanionNamedBy(string source)
+    {
+        try
+        {
+            return FormDesigner.CompanionOf(source);
+        }
+        catch (FormDesignerFormatException)
+        {
+            return null;
+        }
+    }
+
+    // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
+    // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For). A document the client has not opened has no version the
+    // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
+    private IEnumerable<WorkspaceEditDocumentChange> DocumentChangesOf(ProjectPart part, IReadOnlyList<RenameEdit> edits) => edits
+        .GroupBy(edit => edit.Module.AbsoluteUri)
+        .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
+        .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier
+            {
+                Uri = edited.Document.Id.Uri,
+                Version = IsOpen(edited.Document.Id) ? edited.Document.Version : null,
+            },
+            Edits = new TextEditContainer(edits
+                .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
+                .Select(edit => AnnotationOf(edit) is { } annotation
+                    ? new AnnotatedTextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText, AnnotationId = annotation }
+                    : new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
+        }));
+
+    /// <summary>
+    /// The parameter declared at a position of a document, and the edits that remove it with its argument from every call (<see cref="ParameterRemoval"/>), or
+    /// why they are not made; <see langword="null"/> where no parameter is declared.
+    /// </summary>
+    public (string Name, RenameAnswer<WorkspaceEdit> Answer)? RemoveParameter(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return null;
+        }
+
+        var part = PartOf(module);
+        if (ParameterRemoval.Prepare(part.Context, module.Module, module.ToModulePosition(position)).Target is not { } target)
+        {
+            return null;
+        }
+
+        var plan = ParameterRemoval.Plan(part.Context, target);
+        return (target.Name, plan.IsValid
+            ? new(new WorkspaceEdit { DocumentChanges = new Container<WorkspaceEditDocumentChange>(DocumentChangesOf(part, plan.Edits)) }, null)
+            : new(null, plan.Refusal!.ToMessage(Locator(part))));
     }
 
     private static ChangeAnnotationIdentifier? AnnotationOf(RenameEdit edit)
@@ -364,10 +530,10 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="global::RDCore.Runtime.LanguageCore.Refactoring.ParameterHints"/>),
-    /// each where its argument begins in the text of the document.
+    /// The inlay hints of a range of a document that the settings show (<see cref="SourceInlayHints"/>), each at its place in the text of the document; a
+    /// hint of what the module of a program adds to its text, which the document does not have, is not one of them.
     /// </summary>
-    public IReadOnlyList<(string Name, Position Position)> ParameterHints(Uri documentUri, LspRange range)
+    public IReadOnlyList<InlayHint> InlayHints(Uri documentUri, LspRange range, SdkInlayHintOptions sites)
     {
         if (ModuleOf(documentUri) is not { } module)
         {
@@ -376,26 +542,9 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. global::RDCore.LanguageServer.Services.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
-            .Select(hint => (hint.Name, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
-    }
-
-    /// <summary>
-    /// The type the declarations in a range of a document have because they state none (<see cref="SDK.Semantics.Refactoring.ImplicitTypeHints"/>), each where the
-    /// declaration ends in the text of the document.
-    /// </summary>
-    public IReadOnlyList<(string TypeName, Position Position)> ImplicitTypeHints(Uri documentUri, LspRange range)
-    {
-        if (ModuleOf(documentUri) is not { } module
-            || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
-        {
-            return [];
-        }
-
-        var start = module.ToModulePosition(range.Start);
-        var end = module.ToModulePosition(range.End);
-        return [.. global::RDCore.LanguageServer.Services.Refactoring.ImplicitTypeHints.In(source.Syntax, new SourceRange(start, end))
-            .Select(hint => (hint.TypeName, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
+        return [.. global::RDCore.LanguageServer.Services.Refactoring.InlayHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end), sites)
+            .Where(hint => module.IsInText(hint.Position))
+            .Select(hint => hint.ToInlayHint(module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
     }
 
     /// <summary>
@@ -461,9 +610,18 @@ internal sealed class RenameWorkspace
     /// </summary>
     /// <returns><see langword="null"/> for an item of no document the server holds.</returns>
     public (DocumentUri Uri, LspRange Range, LspRange SelectionRange)? Locate(HierarchyItem item)
-        => PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
-            ? (document.Document.Id.Uri, document.ToTextRange(item.Range), document.ToTextRange(item.SelectionRange))
-            : null;
+    {
+        if (PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is not { } document)
+        {
+            return null;
+        }
+
+        // a module declares itself nowhere in its text: it is the whole of it, named by its VB_Name, as the document's outline has it.
+        var (range, selection) = item.Symbol is VBModuleSymbol && document.Parse.SyntaxTree is { } tree
+            ? DocumentOutline.ModuleRangesOf(tree)
+            : (item.Range, item.SelectionRange);
+        return (document.Document.Id.Uri, document.ToTextRange(range), document.ToTextRange(selection));
+    }
 
     /// <summary>A range of the module of an item, in the text of its document.</summary>
     public LspRange InTextOf(HierarchyItem item, SourceRange range)
@@ -546,12 +704,63 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
+    /// The variables of a range of a document whose values a client shows while the program is stopped (<strong>LSP 3.17</strong> §Inline Value Request): the
+    /// names of variables written in the procedure the program is stopped in (<see cref="InlineValueLookups.In"/>), each at its place in the text of the
+    /// document, and none of what the module of a program adds to its text.
+    /// </summary>
+    public IReadOnlyList<InlineValueVariableLookup> InlineValues(Uri documentUri, LspRange range, LspRange stoppedLocation)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return [];
+        }
+
+        // the line a client shows the values at is the one the range of the stop ends on.
+        var within = new SourceRange(module.ToModulePosition(range.Start), module.ToModulePosition(range.End));
+        return [.. InlineValueLookups.In(PartOf(module).Context, module.Module, within, module.ToModulePosition(stoppedLocation.End))
+            .Where(lookup => module.IsInText(lookup.Range.Start))
+            .Select(lookup => new InlineValueVariableLookup { Range = module.ToTextRange(lookup.Range), VariableName = lookup.Name, CaseSensitiveLookup = false })];
+    }
+
+    /// <summary>
+    /// The names a client edits as one while the user types the name at a position of a document (<strong>LSP 3.17</strong> §Linked Editing Range): each
+    /// place its procedure writes the local variable, the parameter or the line label named there (<see cref="LinkedEditingLookups.At"/>).
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">The position, in the document's text.</param>
+    /// <returns>The ranges; none where no such name is written, or where one of them is not in the text of the document.</returns>
+    public LinkedEditingRanges LinkedEditing(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return new LinkedEditingRanges { Ranges = new Container<LspRange>() };
+        }
+
+        var ranges = LinkedEditingLookups.At(PartOf(module).Context, module.Module, module.ToModulePosition(position));
+        return new LinkedEditingRanges
+        {
+            Ranges = ranges.All(range => module.IsInText(range.Start))
+                ? new Container<LspRange>(ranges.Select(range => module.ToTextRange(range)))
+                : new Container<LspRange>(),
+        };
+    }
+
+    /// <summary>
     /// What a hover over the name at a position of a document says of its symbol (<see cref="SymbolHover"/>), and where the name is written.
     /// </summary>
     /// <returns>The hover; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
     public (SymbolHover Hover, LspRange Range)? Hover(Uri documentUri, Position position)
+        => SymbolAt(documentUri, position) is { } named ? (SymbolHover.Of(named.Symbol), named.Range) : null;
+
+    /// <summary>
+    /// The symbol the name at a position of a document refers to, and where the name is written.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">The position, in the document's text.</param>
+    /// <returns>The symbol; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
+    public (Symbol Symbol, LspRange Range)? SymbolAt(Uri documentUri, Position position)
         => ModuleOf(documentUri) is { } module && RenameBinding.SymbolAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is { } named
-            ? (SymbolHover.Of(named.Symbol), module.ToTextRange(named.Origin))
+            ? (named.Symbol, module.ToTextRange(named.Origin))
             : null;
 
     private IReadOnlyList<LocationLink> Navigate(
@@ -604,6 +813,10 @@ internal sealed class RenameWorkspace
 
         public SourcePosition ToModulePosition(Position position)
             => new(IsProgram ? position.Line + BasicProgramText.HeaderLines : position.Line, position.Character);
+
+        // whether a position of the module is in the text of the document: a program has no header and no footer of its own, which its module adds.
+        public bool IsInText(SourcePosition position)
+            => !IsProgram || position.Line >= BasicProgramText.HeaderLines && position.Line < Source.Count(character => character == '\n') - 1;
 
         public LspRange ToTextRange(SourceRange range)
         {

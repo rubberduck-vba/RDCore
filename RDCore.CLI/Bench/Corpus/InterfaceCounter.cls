@@ -3,6 +3,7 @@ BEGIN
   MultiUse = -1  'True
 END
 Attribute VB_Name = "InterfaceCounter"
+' <InterfaceCounter>
 Option Explicit
 Implements ICounter
 
@@ -15,3 +16,4 @@ End Sub
 Private Property Get ICounter_Value() As Long
     ICounter_Value = mValue
 End Property
+' </InterfaceCounter>

@@ -73,7 +73,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             return [];
         }
 
-        // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code.
+        // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code. A
+        // UserForm and a Visual Basic 6.0 form each have a form host; another ActiveX designer's form has none.
         image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms or FormDesignerKind.VisualBasic6 } designer ? designer : null);
 
         // composed before anything is lowered, because lowering needs its expression evaluator to decide
@@ -85,6 +86,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var deadRanges = precompiled.DeadRanges;
+        // and what they are on every platform, whichever this session runs on: where a Declare and a call of it are compiled.
+        var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(
+            session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var written = syntaxTree;
         syntaxTree = WithLiveHeaders(syntaxTree, deadRanges);
 
@@ -101,8 +105,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
         // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
+        var drawsOnMe = parseResult.Designer is { Kind: FormDesignerKind.VisualBasic6 };
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
-            DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements);
+            DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements, DrawsOnMe: drawsOnMe);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
         // the parameter each argument of a call of the module's own procedures is given, which the count of what the argument names follows.
@@ -133,7 +138,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             // structure of the body.
             var scope = session.Symbols.ScopeOf(procedure.Uri);
             var model = StatementStaticSemanticsEvaluator.Analyze(
-                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks), declaration.MemberKind,
+                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks, drawsOnMe), declaration.MemberKind,
                 scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope,
                     Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }) { Arguments = arguments });
 
@@ -179,16 +184,20 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             .AddRange(ReservedNameStaticSemantics.CheckSyntax(syntaxTree))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver, DeclarationRules.DeclaredTypes));
         var declared = DeclarationUsage.DeclaredBy(members).ToList();
+        var document = module is VBClassModuleSymbol documentClass ? DocumentModuleFact.Of(documentClass, session.Symbols.Resolver) : null;
+        var excludedBranchNames = ExcludedBranchNames.Of(written, deadRanges);
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {
             // a language that has no such directive has no fact to state about it.
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
-                declared, procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri), arguments, declarationFacts),
+                declared, procedureModels,
+                module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames,
+                symbol => StatementsCompiledOn(written, symbol.Name, platforms)),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
-            Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
+            Document = document,
             Classes = ClassFacts.Of(syntaxTree, procedureModels, declared),
             DocumentModules = DocumentModuleNames.Of(session.Symbols.Resolver, session.Symbols.Scopes.Global, module.Uri),
         };
@@ -197,7 +206,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails);
-        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
+        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
@@ -299,6 +308,25 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         }
 
         return default;
+    }
+
+    // MS-VBAL §5.2.3.5: the platforms each statement of a Declare is compiled on, in the order they are written: a procedure declared once in each #If
+    // branch is one procedure. Not known when a condition one of them depends on is not.
+    private static ImmutableArray<CompiledPlatforms>? StatementsCompiledOn(ModuleNode written, string name, ModulePlatforms platforms)
+    {
+        var statements = ImmutableArray.CreateBuilder<CompiledPlatforms>();
+        foreach (var statement in written.Children.OfType<ExternalMemberDeclarationNode>()
+            .Where(statement => string.Equals(statement.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (platforms.At(statement.SourceLocation.Range.Start) is not { } compiled)
+            {
+                return null;
+            }
+
+            statements.Add(compiled);
+        }
+
+        return statements.ToImmutable();
     }
 
     // the module as the constants compile it: each procedure with the header of its live branch, and a procedure whose every header is dead as it is written.

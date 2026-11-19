@@ -370,15 +370,34 @@ public sealed class CompletionServiceTests
     [DataRow("Gather |", "Title:=", DisplayName = "a ParamArray is never named")]
     [DataRow("Ring 1, |", "Length:=", DisplayName = "a Declare'd procedure")]
     [DataRow("Send \"a\", Co|", "Copies:=", DisplayName = "narrowed by the word typed")]
-    [DataRow("Send |", "", DisplayName = "a required parameter")]
+    [DataRow("Send |", "Text:=;Heading:=;Copies:=;Source:=", DisplayName = "the first argument, of a required parameter")]
+    [DataRow("s.Queue |", "Text:=;Copies:=", DisplayName = "the first argument of a member call")]
     [DataRow("Send \"a\", Copies:=|", "", DisplayName = "the value of a named argument")]
     [DataRow("Send \"a\", 1 + |", "", DisplayName = "inside an argument")]
-    public async Task WhereAnOptionalArgumentStarts_TheParametersNotGivenYetAreOffered_ByName(string line, string names)
+    public async Task WhereAnArgumentStarts_TheParametersNotGivenYetAreOffered_ByName(string line, string names)
     {
         var items = await NamedAsync(line);
 
         CollectionAssert.AreEqual(names.Split(';', StringSplitOptions.RemoveEmptyEntries), NamesIn(items), Show(items));
     }
+
+    // a value is what is most likely written where the parameter is not Optional: the names rank after every other name, and none of them is selected.
+    [TestMethod]
+    [DataRow("Send |", "Text:=", DisplayName = "nothing typed")]
+    [DataRow("Send T|", "Text:=", DisplayName = "the word typed starts the name, and others")]
+    public async Task WhereTheParameterIsNotOptional_TheNamesRankAfterTheOthers(string line, string name)
+    {
+        var items = await NamedAsync(line);
+        var labels = items.Select(item => item.Label).ToList();
+
+        Assert.IsTrue(labels.IndexOf(name) > labels.FindLastIndex(label => !label.EndsWith(":=", StringComparison.Ordinal)), Show(items));
+        Assert.IsFalse(items.Single(item => item.Preselect).Label.EndsWith(":=", StringComparison.Ordinal), Show(items));
+    }
+
+    // a ( , or space a client asks on is not answered with a whole list where the names rank after the rest.
+    [TestMethod]
+    public async Task ASpaceBeforeTheArgumentOfARequiredParameter_DoesNotAskForTheNames()
+        => Assert.AreEqual(0, (await NamedAsync("Send |", " ")).Count);
 
     [TestMethod]
     public async Task ANamedArgument_IsItsParametersName_InsertedWithItsToken_AndSaysWhatTheParameterIs()
@@ -718,7 +737,9 @@ public sealed class CompletionServiceTests
     {
         var items = await NamedAsync("If True Then Send \"x\", 1 Else Send |");
 
-        Assert.AreEqual(0, NamesIn(items).Length, $"Text is required: {Show(items)}");
+        // the first argument: every name, after the other candidates, since Text is required. Counted from the first Send, only Copies and Source would be.
+        CollectionAssert.AreEqual(new[] { "Text:=", "Heading:=", "Copies:=", "Source:=" }, NamesIn(items), Show(items));
+        Assert.AreEqual("~", items.Single(item => item.Label == "Text:=").SortText![..1], Show(items));
     }
 
     // the Then clause of a single-line If ends at its Else (MS-VBAL §5.4.2.9): what the Else clause writes is no argument of the call in the Then clause.
@@ -1699,4 +1720,17 @@ public sealed class CompletionServiceTests
     [TestMethod]
     public async Task AnIdentifier_TypedWithAnOpeningBracket_IsOffered()
         => CollectionAssert.Contains(await LabelsAsync("Attribute VB_Name = \"Main\"\r\nPrivate Total As Long\r\nPublic Sub Run()\r\n    x = [To|\r\nEnd Sub\r\n"), "Total");
+
+    // Debug is written only as its two statements, which are its members after the dot, as VB6 and MS-VBA list them.
+    [TestMethod]
+    [DataRow("Debug.|", DisplayName = "Debug.")]
+    [DataRow("Debug.Pr|", DisplayName = "Debug.Pr, a member started")]
+    [DataRow("debug.|", DisplayName = "debug., in any case")]
+    public async Task Debug_AfterItsDot_OffersPrintAndAssert(string line)
+    {
+        var labels = await LabelsAsync($"Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    {line}\r\nEnd Sub\r\n");
+
+        CollectionAssert.Contains(labels, "Print", string.Join(", ", labels));
+        CollectionAssert.IsSubsetOf(labels, new[] { "Assert", "Print" }, string.Join(", ", labels));
+    }
 }

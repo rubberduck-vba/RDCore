@@ -441,12 +441,12 @@ public sealed partial class RuntimeExpressionEvaluator
     // late-bound. A late-bound object held by a variable of a library's class is reached through that class, as MS-VBA binds it early: the Set that put it
     // there found it is one.
     private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
-    {
-        if (_memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual))
-        {
-            return site.Member;
-        }
+        => _memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual) ? site.Member : ImplementationFound(bound, actual);
 
+    // the member found for the access, and kept for it. It is a method of its own so that ImplementationOf, where the member is kept already, captures
+    // nothing and allocates nothing.
+    private VBTypeMemberSymbol? ImplementationFound(BoundMember bound, VBClassModuleSymbol actual)
+    {
         // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
         var name = bound.Access.Member.IdentifierName;
         var declared = bound.DeclaredClass!.Uri.AbsoluteUri;
@@ -571,7 +571,7 @@ public sealed partial class RuntimeExpressionEvaluator
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
         => IsWide(call) ? EvaluateStored(session, call, context)
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
-            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
+            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, call.Call.Arguments)
                 ? OfResultType(call, AbsOfTheLeast(session, call, context,
                     InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments, call: call.Call)))
                 : EvaluateLate(session, call.Expression, context);

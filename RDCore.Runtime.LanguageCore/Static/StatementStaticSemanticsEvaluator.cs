@@ -65,7 +65,19 @@ public static class StatementStaticSemanticsEvaluator
 
         EvaluateBlock(context, block, walk);
         ReportUndefinedLabels(walk);
-        return walk.Errors.ToImmutable();
+        return walk.BareFunctionReferences.Count == 0 ? walk.Errors.ToImmutable() : OnceAtEachBareFunctionReference(walk);
+    }
+
+    // a function named without its arguments is reported first, before its statement is evaluated: an Argument not optional at the same place after it,
+    // of what an object it returns would need to give a value, is the same error.
+    private static ImmutableArray<VBCompileErrorInfo> OnceAtEachBareFunctionReference(Walk walk)
+    {
+        var reported = new HashSet<SourceLocation>();
+        return
+        [
+            .. walk.Errors.Where(error => error.ErrorId != (int)VBCompileErrorId.ArgumentNotOptional || !walk.BareFunctionReferences.Contains(error.Location)
+                || reported.Add(error.Location)),
+        ];
     }
 
     private static void EvaluateBlock(StaticEvaluationContext context, StatementBlock block, Walk walk)
@@ -205,6 +217,16 @@ public static class StatementStaticSemanticsEvaluator
 
     private static void EvaluateStatement(StaticEvaluationContext context, StatementNode statement, Walk walk)
     {
+        // a function named without its arguments, where the statement takes its value, is refused before what the statement does with the value.
+        if (!walk.Structural)
+        {
+            foreach (var bare in BareFunctionReferenceStaticSemantics.Errors(context, statement))
+            {
+                walk.Errors.Add(bare);
+                walk.BareFunctionReferences.Add(bare.Location);
+            }
+        }
+
         // WithStatementNode is the one case whose own Inputs result changes the context its Body (and
         // everything the body recursively contains) evaluates against - handled before the generic
         // Inputs pass below so the resolved target type can be threaded straight into bodyContext.
@@ -226,22 +248,22 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
-        // a bare Print is a statement of some languages only.
+        // a bare Print is a statement of some languages only, and the form's own Print method in a Visual Basic 6.0 form's code.
         if (statement is PrintStatementNode print)
         {
-            if (BarePrintStaticSemantics.Evaluate(print, walk.Options.Language) is { } printError)
+            if (BarePrintStaticSemantics.Evaluate(print, walk.Options.Language, walk.Options.DrawsOnMe) is { } printError)
             {
                 walk.Errors.Add(printError);
                 return;
             }
         }
 
-        // RD-VBAL: the graphics statements draw on an object, and a statement with none has no surface to draw on. What the points and the arguments hold
-        // is evaluated all the same, so that a name written in one is a reference the pass knows of.
+        // the graphics statements draw on an object, and a statement with none draws on the Visual Basic 6.0 form whose code it is, and is undefined anywhere
+        // else. What the points and the arguments hold is evaluated all the same, so that a name written in one is a reference the pass knows of.
         // TODO the coordinates and the colors are numbers: a coordinate that cannot be one is an error the pass does not report yet.
         if (statement is GraphicsMethodStatementNode graphics)
         {
-            if (GraphicsStatementStaticSemantics.Evaluate(graphics) is { } graphicsError)
+            if (GraphicsStatementStaticSemantics.Evaluate(graphics, walk.Options.DrawsOnMe) is { } graphicsError)
             {
                 walk.Errors.Add(graphicsError);
                 return;
@@ -548,6 +570,15 @@ public static class StatementStaticSemanticsEvaluator
                 {
                     explicitFacts.Record(explicitCallee with { Flags = explicitCallee.Flags | ValueExpressionSemanticFlags.ExplicitCallKeyword });
                 }
+
+                // MS-VBAL §5.4.2.1: a Function called as a statement returns a value that nothing uses. A Property Get is classified as a property, which
+                // no call statement can call. With the Call keyword, the arguments are part of the callee (`Call Work(1)`).
+                var called = callStatement.Callee is IndexExpressionNode withArguments ? withArguments.Callee : callStatement.Callee;
+                if (context.Facts is { } discardFacts && discardFacts.TryGet(callStatement.Callee.Identity, out var discarding)
+                    && ExpressionStaticSemanticsEvaluator.ProcedureNamedBy(context, called) is VBFunctionMemberSymbol)
+                {
+                    discardFacts.Record(discarding with { Flags = discarding.Flags | ValueExpressionSemanticFlags.ResultDiscarded });
+                }
             }
         }
 
@@ -743,7 +774,7 @@ public static class StatementStaticSemanticsEvaluator
 
     // the variables a file statement reads into (MS-VBAL §5.4.5): every variable of an Input #, the variable of a Line Input # and of a Get #, which is its last
     // operand, after the file number and the record number, written or not.
-    private static IEnumerable<ExpressionNode> ReadIntoBy(StatementNode statement) => statement switch
+    internal static IEnumerable<ExpressionNode> ReadIntoBy(StatementNode statement) => statement switch
     {
         KeywordStatementNode { Token: Tokens.Input, Inputs: [_, .. var variables] } => variables.OfType<ExpressionNode>(),
         KeywordStatementNode { Token: Tokens.LineInput or Tokens.Get, Inputs: [_, .., ExpressionNode variable] } => [variable],
@@ -1422,5 +1453,9 @@ public static class StatementStaticSemanticsEvaluator
 
         // the control variables of the For loops the statement being walked is inside, innermost last.
         public List<string> ControlVariables { get; } = [];
+
+        // where a function is named without its arguments (BareFunctionReferenceStaticSemantics): what the statement then reads of the value at the same place
+        // is the same error, reported once.
+        public HashSet<SourceLocation> BareFunctionReferences { get; } = [];
     }
 }

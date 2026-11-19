@@ -20,8 +20,8 @@ namespace RDCore.Runtime.Compiled;
 /// into it (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>), and a Let of one of its fields writes the field's cell.
 /// </para>
 /// <para>
-/// What it does not read or write (a holder that holds no record, a field that holds no payload of its type, a <c>Variant</c> field over an object) is the
-/// interpreter's: each operation returns <see langword="false"/>, and the interpreter runs the statement.
+/// What it does not read or write (a holder that holds no record, a field that holds no payload of its type or no known text, a <c>Variant</c> field
+/// over an object) is the interpreter's: each operation returns <see langword="false"/>, and the interpreter runs the statement.
 /// </para>
 /// </remarks>
 public static class RecordOperations
@@ -113,6 +113,44 @@ public static class RecordOperations
     public static object? ObjectField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index)?.Handle;
 
     /// <summary>
+    /// The text the <c>String</c> field of variable length at <paramref name="index"/> of <paramref name="record"/> holds, as the interpreter reads it
+    /// (<c>RuntimeExpressionEvaluator.EvaluateInstanceField</c>).
+    /// </summary>
+    /// <param name="record">The record, as its cell holds it.</param>
+    /// <param name="index">The field's place among the record's fields.</param>
+    /// <param name="text">The text read; <see langword="null"/> for <c>vbNullString</c>, which reads as the zero-length string.</param>
+    /// <returns>
+    /// <see langword="false"/> when there is no such record, or the field holds no known text: the interpreter runs the statement.
+    /// </returns>
+    public static bool ReadText(object? record, int index, out string? text)
+    {
+        if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> held } field
+            && field is not VBFixedStringValue)
+        {
+            text = held.StoredValue;
+            return true;
+        }
+
+        text = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Let-assigns <paramref name="text"/> to the <c>String</c> field of variable length at <paramref name="index"/> of <paramref name="record"/>
+    /// (MS-VBAL §5.4.3.8): the field holds the String it is assigned, as it is, written in the field's cell, which a <c>ByRef</c> parameter given the field
+    /// is bound to, as <c>AssignField</c> writes it (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>).
+    /// </summary>
+    /// <param name="record">The record, as its cell holds it.</param>
+    /// <param name="index">The field's place among the record's fields.</param>
+    /// <param name="text">The text assigned; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>
+    /// <see langword="false"/> when there is no such record, or the field holds no String of variable length: the interpreter runs the statement.
+    /// </returns>
+    public static bool WriteText(object? record, int index, string? text)
+        => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is VBStringValue and not VBFixedStringValue
+            && held.TryLetFieldAt(index, new VBStringValue(new ValueBindingHandle(new VBRuntimeValue<string>(text!))));
+
+    /// <summary>
     /// The array the array field at <paramref name="index"/> of <paramref name="record"/> is: the record stores the array itself, in no cell of its own,
     /// and <see cref="ArrayOperations"/> finds an element and the bounds in it, as it does in the array an array variable's cell holds. <see langword="null"/>
     /// when there is no such record.
@@ -123,14 +161,68 @@ public static class RecordOperations
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? ArrayField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBArrayValue;
 
+    // a field held as a payload (DeclaredVariableDefaults) is read where it is, with no value boxed; any other, of the value it holds.
     private static bool TryRead(object? record, int index, ScalarKind kind, out ScalarPayload payload)
     {
         payload = default;
-        return (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is { } field && ScalarPayload.TryOf(ScalarKinds.TypeOf(kind), field.RuntimeValue, out payload);
+        if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is not { } field)
+        {
+            return false;
+        }
+
+        return field.Handle is ScalarCell cell && ScalarKinds.Of(cell.Type) == kind
+            ? cell.TryRead(out payload)
+            : ScalarPayload.TryOf(ScalarKinds.TypeOf(kind), field.RuntimeValue, out payload);
     }
 
     // the field holds a value of its declared type, as the interpreter's Let makes it: a LongPtr field a LongPtr, of the payload of the type it is an alias of.
     private static bool TryWrite(object? record, int index, ScalarPayload payload)
-        => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is { } before && ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _)
-            && held.TryLetFieldAt(index, (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86 ? payload with { Type = before.TypeInfo } : payload).Typed());
+    {
+        if (record is not VBUserDefinedTypeValue held || held.StoredFieldAt(index) is not { } before)
+        {
+            return false;
+        }
+
+        // a field held as a payload of the payload's type is written where it is: the value is boxed only when something reads it as one.
+        if (before.Handle is ScalarCell scalar && scalar.Type.Equals(payload.Type))
+        {
+            scalar.Write(payload);
+            return true;
+        }
+
+        if (!ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _))
+        {
+            return false;
+        }
+
+        if (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86)
+        {
+            return held.TryLetFieldAt(index, (payload with { Type = before.TypeInfo }).Typed());
+        }
+
+        // a field of the payload's own type is written in its cell, as TryLetFieldAt writes a value of the field's type: the value stored there, with no value
+        // of the type made around it.
+        if (before.Handle is IKnowledgeBinding cell && before.GetType() == ValueClassOf(payload.Type) && Equals(before.TypeInfo, payload.Type))
+        {
+            cell.Store(payload.Box(), isKnown: true);
+            return true;
+        }
+
+        return held.TryLetFieldAt(index, payload.Typed());
+    }
+
+    // the class of the value of a scalar type, as the type makes one (ScalarPayload.Typed): what a field of the type holds.
+    private static Type? ValueClassOf(VBType type) => type switch
+    {
+        VBByteType => typeof(VBByteValue),
+        VBIntegerType => typeof(VBIntegerValue),
+        VBLongType => typeof(VBLongValue),
+        VBLongLongType => typeof(VBLongLongValue),
+        VBSingleType => typeof(VBSingleValue),
+        VBDoubleType => typeof(VBDoubleValue),
+        VBBooleanType => typeof(VBBooleanValue),
+        VBCurrencyType => typeof(VBCurrencyValue),
+        VBDateType => typeof(VBDateValue),
+        _ => null,
+    };
 }

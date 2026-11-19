@@ -186,10 +186,11 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
     }
 
     [TestMethod]
-    public void AClassWithADefaultMemberDeclaringARequiredParameter_ReportsObjectDoesntSupportThisPropertyOrMethod()
+    public void AClassWithADefaultMemberDeclaringARequiredParameter_ReportsWrongNumberOfArguments()
         // a required (non-Optional, non-ParamArray) parameter beyond Me is NOT "compatible with an
-        // argument list containing 0 parameters" - MS-VBAL 5.5.1.2.13's own simple-data-value definition
-        // excludes it, same as having no default member at all.
+        // argument list containing 0 parameters", and MS-VBAL 5.6.2.2's 438 is for an object with no default
+        // member at all: the default member is there, and the read gives it no argument, which is 450, as
+        // VB6's Forms and Excel's UserForms are measured.
     {
         var getStub = new VBPropertyGetMemberSymbol(Root, Root, ScopeKind.Instance, "Value", R, R, AccessModifier.Public);
         var me = new VBParameterSymbol(Root, getStub.Uri, "Me", R, R, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo);
@@ -208,7 +209,7 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
         var result = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, ThrowawayExpression, frame);
 
         Assert.IsNotNull(result.ErrorInfo);
-        Assert.AreEqual(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, (VBRuntimeErrorId)result.ErrorInfo!.ErrorId);
+        Assert.AreEqual(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, (VBRuntimeErrorId)result.ErrorInfo!.ErrorId);
     }
 
     [TestMethod]

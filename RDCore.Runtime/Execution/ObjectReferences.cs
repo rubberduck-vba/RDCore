@@ -1,3 +1,4 @@
+using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -206,7 +207,7 @@ internal static class ObjectReferences
     public static Held HeldIn(IRuntimeSession session, IBindingHandle holder)
     {
         var holds = default(Collector);
-        if (CellOf(session, holder) is { } cell)
+        if (CellOf(session, holder) is { } cell && !HoldsNoObject(cell))
         {
             Collect(cell, cell.Value, ref holds);
         }
@@ -242,6 +243,21 @@ internal static class ObjectReferences
         }
 
         Release(session, before);
+    }
+
+    /// <summary>
+    /// Records that <paramref name="cell"/>, a new cell that held nothing, holds <paramref name="instance"/>: what <see cref="Rebind"/> records of a cell
+    /// written with a reference to an object, which it holds directly.
+    /// </summary>
+    /// <param name="session">The session whose object it is.</param>
+    /// <param name="cell">The cell, which holds the reference itself (not a Variant or a box that holds it).</param>
+    /// <param name="instance">The object it refers to. For <c>Nothing</c>, no object is held and nothing is recorded.</param>
+    public static void HoldIn(IRuntimeSession session, IBindingHandle cell, VBRuntimeObjectId instance)
+    {
+        if (!instance.Equals(NothingId))
+        {
+            session.Objects.AddRef(instance, cell);
+        }
     }
 
     /// <summary>
@@ -335,15 +351,19 @@ internal static class ObjectReferences
         }
 
         // an element of a param array given a variable is the variable (MS-VBAL §5.3.1.5): what it holds is the variable's, which lets go of it, and not the
-        // array's - the activation that ends with the array does not.
-        for (var index = 0; index < array.Length; index++)
+        // array's - the activation that ends with the array does not. An element that has no cell yet holds its type's default value, which holds no object.
+        foreach (var (_, cell) in array.MadeCells)
         {
-            if (array.CellAt(index) is { } cell and not VariantReferenceBindingHandle && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
+            if (cell is not VariantReferenceBindingHandle && !HoldsNoObject(cell) && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
             {
                 Collect(cell, cell.Value, ref holds);
             }
         }
     }
+
+    // a Variant's cell that holds a payload, Empty, Null or a String holds no object, and says so: read as a value, it would box its payload only for the walk
+    // to find nothing in it. Each element of an array of Variants is such a cell, until an object or an array is stored in it.
+    private static bool HoldsNoObject(IBindingHandle cell) => cell is VariantCell { HoldsNoObject: true };
 
     /// <summary>
     /// Reads what a field of a record holds, before the field is replaced (<see cref="VBUserDefinedTypeValue.TrySetFieldAt"/>): a field that is
@@ -415,7 +435,7 @@ internal static class ObjectReferences
                 CollectRecord(nested, ref holds);
                 break;
             // anything else is in the field's cell, which a write to the field writes to: what it holds now is read there.
-            case { Handle: var cell } when cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue):
+            case { Handle: var cell } when !HoldsNoObject(cell) && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue):
                 Collect(cell, cell.Value, ref holds);
                 break;
         }

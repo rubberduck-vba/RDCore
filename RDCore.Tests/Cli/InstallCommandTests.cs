@@ -15,6 +15,7 @@ namespace RDCore.Tests.Cli;
 /// version's <c>rdc</c> on the user's PATH. Every row works in a folder of its own: the shared root, the home folder and the user's
 /// Windows <c>Path</c> are the test's, never the user's.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class InstallCommandTests
 {
