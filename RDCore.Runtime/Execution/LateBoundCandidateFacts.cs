@@ -18,11 +18,11 @@ using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Runtime.Execution;
 
-// MS-VBAL §5.6.12, §5.6.3: what a late-bound member access may reach when it runs is a member of its name of the class of the object, as code of the access's
-// project sees the class (§5.3.1.1: a Friend member is its own project's). The sweep evaluates each instruction once and follows no path, so the object it
-// accesses the member on says nothing of the classes the code may give it: those are the classes of the objects the module's Set statements give the
-// variable (AssignedClasses), when nothing else can assign it. An object of a class that another class implements may be of that other class, and is not
-// known.
+// MS-VBAL §5.6.12, §5.6.3: what a late-bound member access may reach when it runs is a member of its name of the class of the object, as code of the
+// access's project sees the class (§5.3.1.1: a Friend member is its own project's). The sweep evaluates each instruction once and follows no path, so the
+// object it accesses the member on says nothing of the classes the code may give it: those are the classes of the objects the module's Set statements give
+// the variable (AssignedClasses), when nothing else can assign it. An object of a class that another class implements may be of that other class, and is
+// not known.
 internal static class LateBoundCandidateFacts
 {
     // the facts of a procedure, each late-bound member access with the members it may reach, when the classes of its object are known.

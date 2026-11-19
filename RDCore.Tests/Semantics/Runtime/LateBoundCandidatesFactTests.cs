@@ -5,9 +5,9 @@ using RDCore.Tests.Cli;
 namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
-/// The members a late-bound member access may reach when it runs (<see cref="MemberAccessFact.LateBoundCandidates"/>, MS-VBAL §5.6.12, §5.6.3): the members of
-/// its name of the class of the object, as the code of the access sees them, none when no member of the class is reachable, and not known when the object is
-/// not.
+/// The members a late-bound member access may reach when it runs (<see cref="MemberAccessFact.LateBoundCandidates"/>, MS-VBAL §5.6.12, §5.6.3): the
+/// members of its name of the class of the object, as the code of the access sees them, none when no member of the class is reachable, and not known when
+/// the object is not.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §5.0.3 Semantic Analysis")]

@@ -178,7 +178,7 @@ A late-bound member access (`MemberAccessOperationSemanticFlags.LateBound`) stat
 be of, with its access modifier, as the code of the access sees it (a `Friend` member is its own project's). The classes are those of the objects the module's
 `Set` statements give the variable, when nothing else can assign it: a local, or a `Private` variable of the module, that no `For Each` or call by reference
 assigns. An empty list means the access raises error 438. The candidates are not known for a parameter, a public variable, a variable that is never given an
-object, an object of a class that another class implements, and an extensible class that does not declare the member.
+object, an object of a class that another class implements, or an extensible class that does not declare the member.
 
 `MemberAccessOperationSemanticFlags.CallByNameAccess` is not stated yet: a `CallByName` call is a call of the library, which the sweep does not look into.
 
