@@ -143,7 +143,7 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
         {
             Resolver = composition.Resolver,
             ScopeTree = composition.ScopeTree,
-            Modules = [.. part.Context.Modules.Select(each => each.Module.AbsoluteUri == module.Module.AbsoluteUri ? new RenameModule(each.Module, parse.SyntaxTree, text) : each)],
+            Modules = [.. part.Context.Modules.Select(each => each.Module.AbsoluteUri == module.Module.AbsoluteUri ? new RenameModule(each.Module, parse.SyntaxTree, text, parse.Designer) : each)],
         };
 
         var locate = RenameWorkspace.Locator(part);

@@ -32,8 +32,9 @@ internal sealed record class BenchReferencedProject(string Name, BenchWorkspace 
 /// The code <c>rdc bench</c> runs: the modules of a workspace, and the project they make.
 /// </summary>
 /// <remarks>
-/// A folder with a <c>.rdproj</c> is the project it describes - its modules, its references and its precompiler constants. A folder with none is a project of every
-/// <c>.bas</c> and <c>.cls</c> file under it, and a single file is a project of that one module.
+/// A folder with a <c>.rdproj</c> is the project it describes: its modules, its references and its precompiler constants. A folder with none is the project
+/// the language server makes of it (<see cref="IProjectFileLoader.LoadOrSynthesizeAsync"/>): every file under it that is written in the language, and a single
+/// file is a project of that one module.
 /// </remarks>
 /// <param name="Root">The absolute path of the root of the workspace.</param>
 /// <param name="Project">The project: what the session is composed from.</param>
@@ -45,9 +46,6 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// read as a workspace of its own. Its own references are not read.
     /// </summary>
     public IReadOnlyList<BenchReferencedProject> ReferencedProjects { get; init; } = [];
-
-    /// <summary>The extensions of the module files of a folder that has no <c>.rdproj</c>.</summary>
-    public static readonly IReadOnlyList<string> ModuleExtensions = [".bas", ".cls"];
 
     /// <summary>
     /// The root of the workspace as its <c>file</c> URI (<see cref="SymbolUri.Root"/>): what its modules are addressed under.
@@ -65,15 +63,17 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     public Uri DocumentOf(BenchModule module) => new(new Uri(Path.Combine(Root, module.RelativePath)).AbsoluteUri);
 
     /// <summary>
-    /// The workspace at <paramref name="path"/>: a <c>.bas</c> or <c>.cls</c> file, or a folder.
+    /// The workspace at <paramref name="path"/>: a module file, or a folder.
     /// </summary>
     /// <param name="fileSystem">The file system the workspace is on.</param>
-    /// <param name="projects">Reads a <c>.rdproj</c>.</param>
+    /// <param name="projects">Reads a <c>.rdproj</c>, and makes the project of a folder that has none.</param>
     /// <param name="path">The file or the folder.</param>
     /// <param name="token">A token that cancels the reading.</param>
+    /// <param name="language">The language whose files are the modules of a folder that has no <c>.rdproj</c>; RD-VBA when it is not given.</param>
     /// <exception cref="FileNotFoundException">There is no such file or folder.</exception>
     /// <exception cref="InvalidOperationException">A reference of the project to a project names no project of the workspace, or more than one.</exception>
-    public static async Task<BenchWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default)
+    public static async Task<BenchWorkspace> LoadAsync(
+        IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default, SupportedLanguage? language = null)
     {
         var full = fileSystem.Path.GetFullPath(path);
         if (fileSystem.File.Exists(full))
@@ -88,22 +88,12 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             throw new FileNotFoundException($"'{path}' is neither a module file nor a folder.", path);
         }
 
-        if (projects.TryLocate(full, out _))
+        // a folder with no .rdproj is a project of its own, with no references.
+        var project = (await projects.LoadOrSynthesizeAsync(full, language ?? SupportedLanguages.RDVBA, token)).ProjectInfo;
+        return Compose(fileSystem, full, project, project.Modules) with
         {
-            var project = (await projects.LoadAsync(full, token)).ProjectInfo;
-            return Compose(fileSystem, full, project, project.Modules) with
-            {
-                ReferencedProjects = await ReferencedAsync(fileSystem, projects, full, project, token),
-            };
-        }
-
-        var files = ModuleExtensions
-            .SelectMany(extension => fileSystem.Directory.EnumerateFiles(full, "*" + extension, SearchOption.AllDirectories))
-            .Select(file => fileSystem.Path.GetRelativePath(full, file))
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        return Compose(fileSystem, full, new RDCoreProject { Name = fileSystem.Path.GetFileName(full.TrimEnd(fileSystem.Path.DirectorySeparatorChar)) },
-            [.. files.Select(file => new RDCoreModule { RelativeUri = file })]);
+            ReferencedProjects = projects.TryLocate(full, out _) ? await ReferencedAsync(fileSystem, projects, full, project, token) : [],
+        };
     }
 
     // RD-VBAL §2.2.3.2: a reference to a project names the one project of the workspace with that name (ProjectReferences), among the folders the
