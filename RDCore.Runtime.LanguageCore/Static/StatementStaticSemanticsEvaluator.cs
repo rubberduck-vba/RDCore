@@ -1402,7 +1402,10 @@ public static class StatementStaticSemanticsEvaluator
                 return null;
             }
 
-            members = [.. (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
+            // MS-VBAL §5.3.1.1, §5.4.3.8: the accessors the code's project can reach; a Friend Let of another project's class is inaccessible, as a
+            // Private one is.
+            var declared = VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot;
+            members = [.. ProjectVisibility.MembersSeenFrom(declared.DefaultInterfaceMembers, declared, context.Scope)
                 .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))];
         }
         else

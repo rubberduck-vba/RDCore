@@ -125,6 +125,8 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.BangNotation, 123),
         (RDCoreDiagnosticId.UnboundBangNotation, 124),
         (RDCoreDiagnosticId.SuspiciousLetAssignment, 125),
+        (RDCoreDiagnosticId.IndexedRecursiveDefaultMemberAccess, 126),
+        (RDCoreDiagnosticId.RecursiveBangNotation, 127),
         (RDCoreDiagnosticId.IntegerDataTypeDeclaration, 201),
         (RDCoreDiagnosticId.ModuleScopeDimDeclaration, 202),
         (RDCoreDiagnosticId.MultilineParameterDeclaration, 203),
