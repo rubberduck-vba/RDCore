@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
@@ -52,8 +53,13 @@ internal interface ICompletionService
     /// Whether the client takes an item's edit as an insert range and a replace range (<strong>LSP 3.17</strong> <c>insertReplaceSupport</c>): each item is then
     /// given both, the replaced one to the end of the word the cursor is in (<see cref="CompletionCandidates.ListOf"/>).
     /// </param>
+    /// <param name="items">
+    /// What the client says of the completion items it takes (<strong>LSP 3.17</strong> <c>completionItem</c>): a client that takes snippets is offered the
+    /// keywords that start a block as the block (<see cref="CompletionSnippets"/>).
+    /// </param>
     /// <returns>The list; empty for a document the server does not hold, and where nothing is written - in a comment, in a string literal.</returns>
-    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null, bool insertReplace = false);
+    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null,
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null);
 
     /// <summary>
     /// The completion list at a position of a module a client supplies, which stands for the module of the workspace by its name.
@@ -144,7 +150,7 @@ internal sealed class CompletionService(
     private static readonly CompletionList Empty = new(isIncomplete: false);
 
     public async Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null,
-        bool insertReplace = false)
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null)
     {
         if (!documents.TryGetDocument(documentUri, out var document))
         {
@@ -158,7 +164,7 @@ internal sealed class CompletionService(
 
         var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
         return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position, token,
-            IsArgumentTrigger(triggerCharacter), insertReplace);
+            IsArgumentTrigger(triggerCharacter), insertReplace, items);
     }
 
     public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token, string? triggerCharacter = null)
@@ -281,7 +287,7 @@ internal sealed class CompletionService(
     // in (a program's lines are further down in its module).
     private async Task<CompletionList> CompleteAsync(
         Uri address, string moduleName, ModuleType kind, string source, int line, Position requested, CancellationToken token, bool argumentTrigger = false,
-        bool insertReplace = false)
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null)
     {
         var character = requested.Character;
         var lines = source.Split('\n');
@@ -314,6 +320,12 @@ internal sealed class CompletionService(
         // where the line is - in which procedure, in which blocks - is read off the lines as they are, which need not parse.
         var placement = CompletionPlacement.Read(lines, line);
 
+        // a snippet is written with the line's own line end, and with its indentation for a client that does not add it: read before the line is taken out.
+        var lineEnd = lines[line].EndsWith('\r') ? "\r\n" : line + 1 < lines.Length ? "\n" : string.Empty;
+        var snippets = context.Kind == CompletionSiteKind.Name
+            ? CompletionSnippets.For(items, options.Value.Formatting.ToOptions(), lines[line].TrimEnd('\r'), lineEnd)
+            : null;
+
         // the line is taken out, and only what the list needs of it goes back in: what a member is accessed on - the one being completed, or the one whose
         // member is called.
         var qualifier = context.Kind == CompletionSiteKind.Member ? context.Qualifier : argument is { IsMemberAccess: true } ? argument.Qualifier : string.Empty;
@@ -328,7 +340,7 @@ internal sealed class CompletionService(
         var candidates = context.Kind switch
         {
             CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
-                new CompletionLanguage(kind.IsClass(), options.Value.Workspace.SupportedLanguage.HasBarePrint)),
+                new CompletionLanguage(kind.IsClass(), options.Value.Workspace.SupportedLanguage.HasBarePrint), snippets),
             CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
