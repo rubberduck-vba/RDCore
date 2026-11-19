@@ -5,7 +5,8 @@ namespace RDCore.Tests.External;
 
 /// <summary>
 /// The thread the RDForms windows run their loop on: the process's main thread for a macOS desktop, whose windows run there only, and a thread of their own
-/// everywhere else. A test thread plays the part of the process's main thread, and the loop is a stand-in for Avalonia's, which a process sets up once.
+/// everywhere else. A test thread plays the part of the process's main thread, and the loop is a stand-in for Avalonia's, which a process sets up once. How
+/// a loop is started on either thread, a failed setup included, is <c>ProcessMainThread</c>'s, and pinned with it in the SDK.
 /// </summary>
 [TestClass]
 [TestCategory("External host")]
@@ -68,26 +69,6 @@ public sealed class RDFormsUIThreadTests
         Assert.AreSame(main, looped);
     }
 
-    // a desktop that cannot be set up (no window server) fails the start, runs no loop, and leaves the main thread to the program, which ends as any other
-    // does.
-    [TestMethod]
-    public void OnTheMainThread_ASetupThatFails_FailsTheStart_AndTheProgramEnds()
-    {
-        Exception? failure = null;
-        var looped = false;
-
-        var (result, _) = Serve(served =>
-        {
-            failure = Assert.ThrowsExactly<InvalidOperationException>(() => RDFormsUIThread.Start<SetUp>(RDFormsUIThreadPlacement.MainThread, served,
-                () => throw new InvalidOperationException("no window server"), (_, _) => looped = true));
-            return Task.FromResult(0);
-        });
-
-        Assert.AreEqual(0, result);
-        Assert.AreEqual("no window server", failure?.Message);
-        Assert.IsFalse(looped);
-    }
-
     // a process whose entry point serves no main thread cannot have windows that run there only: the start fails before anything is set up.
     [TestMethod]
     public void OnTheMainThread_WithNoMainThreadServed_FailsBeforeTheSetup()
@@ -126,17 +107,5 @@ public sealed class RDFormsUIThreadTests
         Assert.AreNotSame(Thread.CurrentThread, started.Thread);
         Assert.AreSame(started.Thread, looped);
         Assert.AreEqual(("RDForms UI", true), thread);
-    }
-
-    [TestMethod]
-    public void OnAThreadOfItsOwn_ASetupThatFails_FailsTheStart()
-    {
-        var looped = false;
-
-        var failure = Assert.ThrowsExactly<InvalidOperationException>(() => RDFormsUIThread.Start<SetUp>(RDFormsUIThreadPlacement.OwnThread, main: null,
-            () => throw new InvalidOperationException("no display"), (_, _) => looped = true));
-
-        Assert.AreEqual("no display", failure.Message);
-        Assert.IsFalse(looped);
     }
 }
