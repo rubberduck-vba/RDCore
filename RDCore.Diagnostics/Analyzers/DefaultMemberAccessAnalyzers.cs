@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
+using DeclaredTypeKind = RDCore.SDK.Semantics.DeclaredTypeKind;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -21,7 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 internal static class DefaultMemberAccesses
 {
     /// <summary>
-    /// An object let-coerced to a value: the outermost expression of an object type in the conversion, and its declared type.
+    /// An object let-coerced to a value: the outermost expression of an object type in a conversion the runtime pass states, or an expression the static facts
+    /// say is let-coerced, and its declared type.
     /// </summary>
     /// <param name="semantics">The host's model of the module.</param>
     /// <param name="module">The syntax tree of the module.</param>
@@ -32,14 +34,24 @@ internal static class DefaultMemberAccesses
             .Where(assignment => assignment.ValueIsAnObject)
             .Select(assignment => assignment.Statement.Value.SourceLocation.Range)
             .ToHashSet();
-        return semantics.Procedures
+        var converted = semantics.Procedures
             .SelectMany(procedure => (procedure.Runtime?.Conversions ?? [])
                 .Where(conversion => conversion.Flags.HasFlag(ConversionSemanticFlags.ObjectOperand))
                 .Select(conversion => OperandOf(procedure, conversion)))
-            .OfType<ExpressionFactDto>()
+            .OfType<ExpressionFactDto>();
+        // the static facts state it of the code the runtime pass does not reach as well: an operand after an error raised before it (x = CLng("abc") + h),
+        // or a procedure it does not analyze fully.
+        // an object of a class with no default member has no value to give: RDC11015 reports it.
+        return converted.Concat(StaticObjectsReadAsValues(semantics))
             .Where(operand => !objectsAssignedToObjects.Contains(operand.Location.Range))
+            .Where(operand => operand is not { TypeKind: DeclaredTypeKind.Class, DefaultMember: null })
             .DistinctBy(operand => operand.Location.Range);
     }
+
+    // the expressions the static facts say are let-coerced, of a class or of Object.
+    private static IEnumerable<ExpressionFactDto> StaticObjectsReadAsValues(ModuleSemanticsDto semantics)
+        => semantics.Procedures.SelectMany(procedure => procedure.Expressions)
+            .Where(fact => fact is { IsLetCoerced: true, Error: null, IsArray: false, TypeKind: DeclaredTypeKind.Object or DeclaredTypeKind.Class });
 
     /// <summary>
     /// The <c>Let</c> assignments (with or without the keyword) whose target is an object: a class whose default member the value is assigned to, or an

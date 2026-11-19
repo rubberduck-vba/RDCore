@@ -44,6 +44,11 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "AssignTheDefaultMemberByName|Dim h As New Holder|h.Value = 5",
         "AssignTheDefaultMemberByNameInAWith|Dim h As New Holder|With h|.Value = 5|End With",
         "LetAnObjectToTheDefaultMemberByName|Dim h As New Holder|Dim h2 As New Holder|h.Value = h2",
+        // the runtime pass reaches none of these: the statement raises 13 before the object is read, or an error ends the procedure first.
+        "ReadAnObjectAfterAnError|Dim h As New Holder|x = CLng(\"abc\") + h",
+        "ReadAnUnboundObjectAfterAnError|Dim v As Object|Set v = New Holder|x = CLng(\"abc\") + v",
+        "ReadAnObjectAfterAnErrorStatement|Dim h As New Holder|Error 5|x = h",
+        "ReadAnObjectOfAClassWithNoDefaultMember|Dim p As New Plain|x = p",
     ];
 
     private static string _source = string.Empty;
@@ -60,6 +65,7 @@ public sealed class DefaultMemberAccessAnalyzerTests
         var box = ModuleWorkspace.ClassModule("Box", "Public Property Get Item(ByVal key As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Property",
             "Public Property Let Item(ByVal key As Variant, ByVal v As Long)", "End Property");
         var opt = ModuleWorkspace.ClassModule("Opt", "Public Function Item(Optional ByVal key As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Function");
+        var plain = ModuleWorkspace.ClassModule("Plain", "Public Tag As Long");
 
         var lines = new List<string> { "Option Explicit" };
         foreach (var procedure in Procedures)
@@ -73,7 +79,7 @@ public sealed class DefaultMemberAccessAnalyzerTests
         lines.AddRange(["Public Sub Take(ByVal n As Long)", "End Sub"]);
 
         var program = ModuleWorkspace.StandardModule("Program", [.. lines]);
-        var payload = await ModuleWorkspace.SemanticsAsync([("Holder", holder), ("Bag", bag), ("Outer", outer), ("Box", box), ("Opt", opt)], program);
+        var payload = await ModuleWorkspace.SemanticsAsync([("Holder", holder), ("Bag", bag), ("Outer", outer), ("Box", box), ("Opt", opt), ("Plain", plain)], program);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
         Assert.IsEmpty(model.Procedures.SelectMany(procedure => procedure.CompileErrors), string.Join("; ", model.Procedures.SelectMany(p => p.CompileErrors).Select(e => e.Description)));
         (_source, _model) = (program, model);
@@ -101,14 +107,18 @@ public sealed class DefaultMemberAccessAnalyzerTests
     [TestMethod]
     public void AnObjectUsedAsAValue_OrAssignedOne_CallsItsDefaultMember()
         => CollectionAssert.AreEqual(
-            new[] { "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)", "LetAnObjectToTheDefaultMemberByName: h2" },
+            new[]
+            {
+                "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)",
+                "LetAnObjectToTheDefaultMemberByName: h2", "ReadAnObjectAfterAnError: h", "ReadAnObjectAfterAnErrorStatement: h",
+            },
             Findings(new ImplicitDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitDefaultMemberAccess, DiagnosticSeverity.Information),
-            "not an Object, a Variant, a member named (the default member included), nor an object assigned to an object");
+            "not an Object, a Variant, a member named (the default member included), an object assigned to an object, nor a class with no default member");
 
     [TestMethod]
     public void AnObjectUsedAsAValue_HasADefaultMemberKnownOnlyAtRunTime()
         => CollectionAssert.AreEqual(
-            new[] { "ReadAnUnboundObject: v", "AssignAnUnboundObject: v", "AssignAnElementThatHoldsAnUnboundObject: a(1)" },
+            new[] { "ReadAnUnboundObject: v", "AssignAnUnboundObject: v", "AssignAnElementThatHoldsAnUnboundObject: a(1)", "ReadAnUnboundObjectAfterAnError: v" },
             Findings(new ImplicitUnboundDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitUnboundDefaultMemberAccess, DiagnosticSeverity.Warning),
             "not a Variant, which nothing says holds an object, nor the Object assigned to an object");
 
