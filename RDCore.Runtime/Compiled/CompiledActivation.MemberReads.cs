@@ -64,9 +64,9 @@ public sealed partial class CompiledActivation
             && _session.Symbols.TryGetInstance(id, out var instance) ? instance : null;
 
     // the public variable the member access numbered number finds of the object the object variable whose cell is cell refers to (MemberFieldOf); none
-    // where InstanceIn finds no object. The variable the access found last is found again with no look for the object's instance, while the cell refers to
-    // that object and no module was defined again: an object's identity is never another's, and an object is destroyed only once no variable refers to it,
-    // so the object a cell refers to is one the session has.
+    // where InstanceIn finds no object. While the cell refers to the object the access last found its variable of, and no module was defined again, that
+    // variable is found again without looking up the object's instance: no two objects have the same identity, and an object is destroyed only once no
+    // variable refers to it, so the object a cell refers to is one the session has.
     private MemberFieldCell? MemberFieldIn(int number, object? cell)
     {
         if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var id) || id.Equals(default(VBRuntimeObjectId)))
