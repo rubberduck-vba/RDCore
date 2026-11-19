@@ -167,7 +167,7 @@ internal sealed class FixToolEdits(AssistantDocuments documents, IDocumentDiagno
         return fileSystem.File.Exists(path) ? fileSystem.File.ReadAllText(path) : null;
     }
 
-    private static string KindOf(CodeAction action) => action.Kind.Name ?? string.Empty;
+    private static string KindOf(CodeAction action) => action.Kind.ToString() ?? string.Empty;
 
     public static LspRange LspRangeOf(SourceRange range) => new(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
 

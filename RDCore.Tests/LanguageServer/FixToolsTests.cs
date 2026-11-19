@@ -217,7 +217,7 @@ public sealed class FixToolsTests
         // the declaration of strName, on line 1: no finding there, and the rename of the name it declares.
         var fixes = await FixesAsync(new JsonObject { ["path"] = "Main.rdc", ["line"] = 1, ["column"] = 8, ["endColumn"] = 15 });
 
-        var rename = fixes.Single(fix => (string?)fix!["kind"] == CodeActionHandler.RefactorRename.Name)!;
+        var rename = fixes.Single(fix => (string?)fix!["kind"] == CodeActionHandler.RefactorRename.ToString())!;
         Assert.IsFalse((bool)rename["hasEdit"]!);
         Assert.IsNull(rename["diagnostic"]);
         Assert.IsFalse(fixes.Any(fix => (string?)fix!["kind"] == "quickfix"));
