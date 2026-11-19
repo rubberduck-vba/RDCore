@@ -88,6 +88,24 @@ public sealed class EmptyAnalyzerTests
         Assert.AreEqual("If foo", Text(source, findings[0]));
     }
 
+    // RDC11049: `If foo Then:` with nothing after the colon and no Else, which MS-VBAL gives no reading and VB6 runs as an If with no statement, is a
+    // warning of its own; with an Else, the empty Then is RDC01003's.
+    [TestMethod]
+    [DataRow("If foo Then:", DisplayName = "a colon")]
+    [DataRow("If foo Then ::", DisplayName = "a space and two colons")]
+    [DataRow("If foo Then: ' a comment", DisplayName = "a colon and a comment")]
+    public void ASingleLineIfWithNothingAfterTheColon_IsAWarningOfItsOwn(string header)
+    {
+        var source = Module($"Public Sub DoSomething(ByVal foo As Boolean)\n    {header}\n    Debug.Print 1\n    If foo Then: Else Debug.Print 2\nEnd Sub");
+        var findings = Run(new EmptyIfBlockAnalyzer(), source);
+
+        CollectionAssert.AreEqual(new[] { 2, 4 }, Lines(findings));
+        Assert.AreEqual(RDCoreDiagnosticId.SingleLineIfWithNoStatement, findings[0].Id);
+        Assert.AreEqual(DiagnosticSeverity.Warning, findings[0].Severity);
+        Assert.AreEqual("If foo", Text(source, findings[0]));
+        Assert.AreEqual(RDCoreDiagnosticId.EmptyIfBlock, findings[1].Id);
+    }
+
     [TestMethod]
     public void ABranchWithAStatementUnderADirective_IsNotEmpty()
         => Assert.IsEmpty(Run(new EmptyIfBlockAnalyzer(), Module(

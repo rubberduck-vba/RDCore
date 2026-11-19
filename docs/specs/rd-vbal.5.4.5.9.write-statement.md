@@ -36,6 +36,12 @@ The spellings are fixed, whatever the regional settings of the session's environ
 `.`, and a date's separators and year are those above, in the Gregorian calendar. They are the spellings `Input #`
 reads back.
 
+### Separators
+
+A comma follows every value but the last, whatever separates the two in the source: a `,`, a `;`, or only a space
+(`Write #1, 1 2` writes `1,2`), which is an implicit `;`. After the last value, a `,` or a `;` writes a comma and
+leaves the line open; with neither, the line ends.
+
 ## Implementation
 
 `Write #` writes through the channel's character output surface,

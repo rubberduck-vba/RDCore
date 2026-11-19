@@ -70,6 +70,15 @@
   <data name="EncapsulateFieldRefusal_WrittenOutside" xml:space="preserve">
     <value>{1} assigne '{0}', ce qu'une propriété en lecture seule ne peut pas recevoir.</value>
   </data>
+  <data name="EncapsulateFieldRefusal_FriendInStandardModule" xml:space="preserve">
+    <value>'{0}' est un champ d'un module standard, dont les propriétés ne peuvent pas être déclarées Friend : seule une procédure d'un module de classe peut l'être.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_ReadOutside" xml:space="preserve">
+    <value>{1} lit '{0}', ce qu'un Property Get Private ne peut pas donner hors de son module.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_AssignedOutside" xml:space="preserve">
+    <value>{1} assigne '{0}', ce qu'un Property Let ou Set Private ne peut pas recevoir hors de son module.</value>
+  </data>
   <data name="EncapsulateFieldRefusal_ReplacedByMid" xml:space="preserve">
     <value>{1} remplace des caractères de '{0}' par une instruction Mid, qui exige une variable : sur une propriété, le code ne compilerait pas.</value>
   </data>
@@ -96,6 +105,27 @@
   </data>
   <data name="EncapsulateFieldChoice_ReadOnlyDescription" xml:space="preserve">
     <value>N'écrire qu'un Property Get. Le code hors du module ne peut pas assigner le champ.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ReadAccess" xml:space="preserve">
+    <value>Property Get</value>
+  </data>
+  <data name="EncapsulateFieldChoice_ReadAccessDescription" xml:space="preserve">
+    <value>Qui peut lire le champ : Public par défaut.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_WriteAccess" xml:space="preserve">
+    <value>Property Let et Set</value>
+  </data>
+  <data name="EncapsulateFieldChoice_WriteAccessDescription" xml:space="preserve">
+    <value>Qui peut assigner le champ : Friend par défaut dans un module de classe, pour que seul son projet l'assigne; Public dans un module standard.</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Access_public" xml:space="preserve">
+    <value>Public : tout module, et les projets qui référencent celui-ci</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Access_friend" xml:space="preserve">
+    <value>Friend : les modules de ce projet</value>
+  </data>
+  <data name="EncapsulateFieldChoice_Access_private" xml:space="preserve">
+    <value>Private : ce module</value>
   </data>
   <data name="EncapsulateFieldChoice_Inside" xml:space="preserve">
     <value>Dans le module</value>

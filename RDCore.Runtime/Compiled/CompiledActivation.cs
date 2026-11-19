@@ -583,6 +583,12 @@ public sealed partial class CompiledActivation : ILightActivation
     // the last class's (Invoked).
     private VBTypeMemberSymbol? MemberOf(CompiledCallee called, IObjectInstance target)
     {
+        // the default member of an object of the class it is declared as: one of another class is the interpreter's to resolve.
+        if (called.DefaultOf is { } declared)
+        {
+            return ReferenceEquals(target.ClassModule, declared) ? called.Procedure : null;
+        }
+
         if (called.Site is null)
         {
             return called.Procedure;
@@ -1855,6 +1861,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long FramesMade => Interlocked.Read(ref _framesMade);
 
     internal void CountFrameMade() => Interlocked.Increment(ref _framesMade);
+
+    private long _textsCopied;
+
+    /// <summary>
+    /// How many times a <c>Mid</c> statement of an activation of the body copied the <c>String</c> it changes: of a variable, into the builder it changes the
+    /// characters in, once for each <c>String</c> the variable is given (<see cref="CompiledActivation.TryMid"/>); of a parameter by reference, once for
+    /// each statement, into the new String its cell is given (<see cref="CompiledActivation.TryMidInCell"/>).
+    /// </summary>
+    public long TextsCopied => Interlocked.Read(ref _textsCopied);
+
+    internal void CountTextCopied() => Interlocked.Increment(ref _textsCopied);
 
     private long _activationsMade;
 

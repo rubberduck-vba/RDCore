@@ -174,6 +174,26 @@ public sealed class UnusedDeclarationAnalyzerTests
         Assert.IsEmpty(Run(new VariableNotUsedAnalyzer(), program, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"))));
     }
 
+    // Rubberduck's unused-variable inspection reports a variable of the module that the procedure with the error never names.
+    [TestMethod]
+    public async Task AVariableOfTheModule_IsNotUsed_WhenTheOnlyProcedureWithAnErrorDoesNotNameIt()
+    {
+        var findings = await ProgramAsync(new VariableNotUsedAnalyzer(),
+            "Option Explicit",
+            "Private unused As Long",
+            "Private named As Long",
+            "Public Sub Proc1()",
+            "    Debug.Print \"ok\"",
+            "End Sub",
+            "Public Sub Proc2()",
+            "    Dim x As Long",
+            "    x = Undeclared + named",
+            "    Debug.Print x",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 2 }, Lines(findings), "the variable nothing names; not the one Proc2 names after its error, nor a local of Proc2");
+    }
+
     #endregion
 
     #region RDC01012 a variable never assigned

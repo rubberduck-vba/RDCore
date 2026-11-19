@@ -1,4 +1,8 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -8,22 +12,25 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
+using System.Text.RegularExpressions;
 using RDCore.SDK.Semantics;
+using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // a count is stated only when it is the whole truth: nothing outside the analyzed code can refer to the declaration, and that code was fully analyzed.
 public static class DeclarationUsage
 {
+    // namesInUnanalyzedCode: the names written in the procedures of the module that were not fully analyzed (NamesIn), or null when they are not known.
     public static ImmutableArray<DeclarationFact> Of(
         IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationBinding>? bindings = null,
         Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null, ModuleDeclarationFacts? declarations = null,
-        IReadOnlySet<string>? excludedBranchNames = null, Func<Symbol, ImmutableArray<CompiledPlatforms>?>? statementsCompiledOn = null)
+        IReadOnlySet<string>? excludedBranchNames = null, Func<Symbol, ImmutableArray<CompiledPlatforms>?>? statementsCompiledOn = null,
+        IEnumerable<string>? namesInUnanalyzedCode = null)
     {
         var models = procedures.ToList();
         var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
-        // a constant of the module is also referred to by the expressions of the module's declarations: the facts of those are needed for its count.
-        var moduleConstantsAreFullyAnalyzed = moduleIsFullyAnalyzed && declarations is { IsFullyAnalyzed: true };
+        var unanalyzedNames = namesInUnanalyzedCode?.Select(Normalized).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var code = CodeOf(models, declarations).ToList();
         var declaredList = declared.ToList();
@@ -54,9 +61,11 @@ public static class DeclarationUsage
             var binding = bindings?.GetValueOrDefault(symbol.SemanticId);
             var role = binding?.Role ?? DeclarationRole.None;
             References? counted = null;
-            // a name that a branch of a #If that is excluded writes can be a reference in another configuration (ExcludedBranchNames).
+            // a name that a branch of a #If that is excluded writes can be a reference in another configuration (ExcludedBranchNames). A constant of the
+            // module is also referred to by the expressions of the module's declarations: the facts of those are needed for its count.
             if ((IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) || IsCalledOnlyByItsOwnCode(symbol, role))
-                && CodeThatCanReferToIt(symbol, models, symbol is VBConstantMemberSymbol ? moduleConstantsAreFullyAnalyzed : moduleIsFullyAnalyzed)
+                && (symbol is not VBConstantMemberSymbol || declarations is { IsFullyAnalyzed: true })
+                && CodeThatCanReferToIt(symbol, models, moduleIsFullyAnalyzed, unanalyzedNames)
                 && excludedBranchNames?.Contains(symbol.Name) != true)
             {
                 counted = references.GetValueOrDefault(Key(symbol.SemanticId)) ?? new References();
@@ -305,10 +314,89 @@ public static class DeclarationUsage
         => role is DeclarationRole.UnmatchedEventHandler && symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private };
 
     // the code that could refer to a local or a parameter is the code of its procedure; to anything else that is confined to the module, any procedure of it.
-    private static bool CodeThatCanReferToIt(Symbol symbol, List<ProcedureSemanticModel> models, bool moduleIsFullyAnalyzed)
+    // A procedure refers to a declaration of the module by writing its name (MS-VBAL §5.6.10): one that was not fully analyzed, and that writes no name the
+    // declaration has, does not refer to it, and the rest of the module is the code that can.
+    private static bool CodeThatCanReferToIt(
+        Symbol symbol, List<ProcedureSemanticModel> models, bool moduleIsFullyAnalyzed, IReadOnlySet<string>? unanalyzedNames)
         => symbol is VBLocalVariableSymbol or VBLocalConstantSymbol
             ? models.Any(procedure => procedure.IsFullyAnalyzed && procedure.Procedure.Uri.AbsoluteUri == symbol.ParentUri.AbsoluteUri)
-            : moduleIsFullyAnalyzed;
+            : moduleIsFullyAnalyzed || unanalyzedNames is not null && !unanalyzedNames.Contains(Normalized(symbol.Name));
+
+    /// <summary>
+    /// Every name that <paramref name="procedure"/> writes: the names of its expressions and of the members they access, and each word of what the parser
+    /// could not read. What it holds is taken as written wherever it is, so the names are as many as can refer to something, and more.
+    /// </summary>
+    public static IReadOnlySet<string> NamesIn(SyntaxNode procedure)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<SyntaxNode>();
+        pending.Push(procedure);
+        while (pending.TryPop(out var node))
+        {
+            if (!seen.Add(node))
+            {
+                continue;
+            }
+
+            switch (node)
+            {
+                case SimpleNameExpressionNode name:
+                    names.Add(Normalized(name.IdentifierName));
+                    break;
+                case VBTypedDeclarationExpressionNode typed:
+                    names.Add(Normalized(typed.IdentifierName));
+                    break;
+                case RedimDeclarationNode redim:
+                    names.Add(Normalized(redim.Name));
+                    break;
+                case UnbuiltStatementTriviaNode statement:
+                    names.UnionWith(WordsOf(statement.Source));
+                    break;
+                case UnbuiltExpressionTriviaNode expression:
+                    names.UnionWith(WordsOf(expression.Source));
+                    break;
+            }
+
+            foreach (var child in ReachedFrom(node))
+            {
+                pending.Push(child);
+            }
+        }
+
+        return names;
+    }
+
+    // what a node holds that its children may not include: what a statement assigns or redimensions, the member an access names, the procedure AddressOf
+    // gives, the bounds of an array, and the bodies of a block statement.
+    private static IEnumerable<SyntaxNode> ReachedFrom(SyntaxNode node)
+    {
+        IEnumerable<SyntaxNode?> held = node switch
+        {
+            RedimDeclarationNode redim => [redim.Target],
+            AssignmentStatementNode assignment => [assignment.Target, assignment.Value],
+            MidStatementNode mid => [mid.Target],
+            MemberAccessExpressionNode access => [access.Owner, access.Member],
+            DictionaryAccessExpressionNode access => [access.Owner, access.Member],
+            AddressOfExpressionNode addressOf => [addressOf.Target],
+            ArrayBoundsNode bounds => bounds.Bounds.IsDefault ? [] : bounds.Bounds.SelectMany(bound => new SyntaxNode?[] { bound.LowerExpression, bound.UpperExpression }),
+            StatementNode statement => ExpressionCoverage.NestedBlocksOf(statement).SelectMany(block => block.Children),
+            _ => [],
+        };
+
+        return node.ChildNodes().Concat(held.OfType<SyntaxNode>());
+    }
+
+    // an identifier is a letter and the letters, digits and underscores after it; one in square brackets is anything but a bracket.
+    private static IEnumerable<string> WordsOf(string? source)
+        => string.IsNullOrEmpty(source)
+            ? []
+            : IdentifierPattern.Matches(source).Select(match => Normalized(match.Value));
+
+    private static readonly Regex IdentifierPattern = new(@"\[[^\]\r\n]*\]|\p{L}[\p{L}\p{Nd}_]*", RegexOptions.CultureInvariant);
+
+    // a name without the brackets it can be written in, nor the type-declaration character it can be written with (MS-VBAL §3.3.5.3).
+    private static string Normalized(string name) => name.Trim('[', ']').TrimEnd('%', '&', '^', '!', '#', '@', '$');
 
     private static DeclarationKind? KindOf(Symbol symbol) => symbol switch
     {
