@@ -3,6 +3,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using System.Runtime.CompilerServices;
@@ -164,15 +165,27 @@ public static class VariantOperations
             return true;
         }
 
-        if (variant.Value is VBRuntimeVariantValue { WrappedValue: var wrapped }
-            && StdInformation.Unwrapped(wrapped) is (VBEmptyValue or VBNullValue or VBStringValue or VBErrorValue) and var held)
+        if (variant.Value is VBRuntimeVariantValue { WrappedValue: var wrapped } && SubtypeOfHeld(wrapped) is { } held)
         {
-            subtype = held.TypeInfo.VarType();
+            subtype = held;
             return true;
         }
 
         return false;
     }
+
+    // the subtype of Empty, Null, a String or an error (Missing among them) a Variant holds, or that a Variant it holds holds (StdInformation.Unwrapped),
+    // by the class of the value, as VarType says it of the value's type: Empty and Null first, whose classes are sealed and tested by their exact type,
+    // and a held Variant last. None of anything else.
+    private static VBVarType? SubtypeOfHeld(VBTypedValue value) => value switch
+    {
+        VBEmptyValue => VBVarType.VBEmpty,
+        VBNullValue => VBVarType.VBNull,
+        VBStringValue => VBVarType.VBString,
+        VBErrorValue => VBVarType.VBError,
+        VBVariantValue => SubtypeOfHeld(StdInformation.Unwrapped(value)),
+        _ => null,
+    };
 
     /// <summary>
     /// What the Variant held in <paramref name="cell"/> holds, given by value to a <c>Variant</c> parameter of a function of the standard library as the

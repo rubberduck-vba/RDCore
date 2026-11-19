@@ -29,6 +29,9 @@ public sealed class BlockStructureTests
     [DataRow("Case 1", VBCompileErrorId.CaseWithoutSelectCase)]
     [DataRow("Else", VBCompileErrorId.ElseWithoutIf)]
     [DataRow("Dim i As Long ;; For i = 1 To 2 ;; If i = 1 Then ;; Next", VBCompileErrorId.NextWithoutFor)]
+    // MS-VBAL §5.4.2.8 takes the end of the line after Then, which a ':' is not: the line is a single-line If, whose End If closes no block.
+    [DataRow("Dim x As Long ;; If x = 1 Then: ;; x = 2 ;; End If", VBCompileErrorId.EndIfWithoutBlockIf)]
+    [DataRow("Dim x As Long ;; If x = 1 Then :: ;; x = 2 ;; End If", VBCompileErrorId.EndIfWithoutBlockIf)]
     public void ABlockThatDoesNotMatch_IsMsVbasError(string body, VBCompileErrorId expected)
     {
         var errors = ErrorsOf(body);
@@ -43,6 +46,8 @@ public sealed class BlockStructureTests
     [DataRow("Dim x As Long ;; If x = 1 Then x = 2: x = 3 ;; Do ;; Loop While x = 0", DisplayName = "a single-line If with statements after a colon")]
     [DataRow("Dim x As Long ;; Select Case x ;; Case 1 ;; Case Else ;; End Select ;; With New Collection ;; End With", DisplayName = "Select Case and With")]
     [DataRow("Dim x As Long ;; If x = 1 Then ' a comment ;; ElseIf x = 2 Then ;; Else ;; End If", DisplayName = "a block If with a comment after its Then")]
+    [DataRow("Dim x As Long ;; If x = 1 Then: ;; x = 2", DisplayName = "a single-line If of Then and a colon")]
+    [DataRow("Dim x As Long ;; If x = 1 Then ;; If x = 2 Then: ;; End If", DisplayName = "a single-line If of Then and a colon, in a block If")]
     public void BlocksThatMatch_AreNoError(string body)
         => Assert.IsEmpty(ErrorsOf(body), string.Join(" | ", ErrorsOf(body).Select(error => $"{error.VBCompileErrorId}: {error.Verbose}")));
 

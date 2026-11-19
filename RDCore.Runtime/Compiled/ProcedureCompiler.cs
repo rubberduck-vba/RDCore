@@ -286,7 +286,8 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         foreach (var callee in analysis.Callees)
         {
-            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}|{callee.CallsOwnMember}");
+            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}|{callee.CallsOwnMember}"
+                + $"|{callee.DefaultOf is not null}");
         }
 
         foreach (var library in analysis.Libraries)
@@ -343,8 +344,10 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodInfo entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
-        // a member of an object, Me's own included, is called through its binding, the object given as Me (CompiledActivation.CallMember).
-        if (callee.Site is not null || callee.CallsOwnMember || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        // a member of an object, Me's own and a default member included, is called through its binding, the object given as Me
+        // (CompiledActivation.CallMember).
+        if (callee.Site is not null || callee.CallsOwnMember || callee.DefaultOf is not null
+            || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }

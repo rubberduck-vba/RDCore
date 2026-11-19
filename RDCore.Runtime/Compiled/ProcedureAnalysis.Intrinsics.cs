@@ -228,8 +228,6 @@ internal sealed partial class ProcedureAnalysis
 
     private static bool IsWhole(VBType declared) => declared is VBByteType or VBIntegerType or VBLongType or VBLongLongType;
 
-    private static bool IsWholeKind(ScalarKind kind) => kind is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong;
-
     // the library's CStr (IStdConversionModule.CStr), by the member the library declares it as.
     private static readonly string CStrFunction
         = StdLibSymbolReader.ExternalTargetOf(typeof(IStdConversionModule), typeof(IStdConversionModule).GetMethod(nameof(IStdConversionModule.CStr))!);
@@ -263,7 +261,7 @@ internal sealed partial class ProcedureAnalysis
             || !IsCompiledLibrary(function) || !NumericConversions.Contains(function.Name) || ScalarKinds.Of(ReturnedType(function)) is not { } to
             || IsVariant(argument) || IsExtended(argument) || DeclaredTypeOf(argument) is not { } declared
             || ScalarKinds.Of(declared) is not { } from
-            || from != to && !IsWholeKind(from) && !(from is ScalarKind.Single or ScalarKind.Double && IsWholeKind(to))
+            || from != to && !PayloadOperations.IsWholeKind(from) && !(from is ScalarKind.Single or ScalarKind.Double && PayloadOperations.IsWholeKind(to))
             || Payload(argument) is not { } payload)
         {
             return null;

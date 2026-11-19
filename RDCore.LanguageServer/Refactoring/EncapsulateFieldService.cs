@@ -108,6 +108,35 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     public const string ReadOnlyChoice = "readOnly";
 
     /// <summary>
+    /// The access modifier of the <c>Property Get</c> (<strong>MS-VBAL §5.3.1.1</strong>): <see cref="PublicAccess"/> by default,
+    /// <see cref="FriendAccess"/> in an object module only, or <see cref="PrivateAccess"/>.
+    /// </summary>
+    public const string ReadAccessChoice = "readAccess";
+
+    /// <summary>
+    /// The access modifier of the <c>Property Let</c> and <c>Property Set</c> (<strong>MS-VBAL §5.3.1.1</strong>): <see cref="FriendAccess"/> by default
+    /// in an object module, where a <c>Private</c> field with <c>Friend</c> writers is the field only its project assigns; <see cref="PublicAccess"/> by
+    /// default in a standard module, which has no <c>Friend</c> procedure; or <see cref="PrivateAccess"/>. Not read when <see cref="ReadOnlyChoice"/> is
+    /// <c>true</c>.
+    /// </summary>
+    public const string WriteAccessChoice = "writeAccess";
+
+    /// <summary>
+    /// A property declared <c>Public</c>: reached from any module, and from the projects that reference its own.
+    /// </summary>
+    public const string PublicAccess = "public";
+
+    /// <summary>
+    /// A property declared <c>Friend</c> (<strong>MS-VBAL §5.3.1.1</strong>): reached from the modules of its own project only.
+    /// </summary>
+    public const string FriendAccess = "friend";
+
+    /// <summary>
+    /// A property declared <c>Private</c>: reached from its own module only.
+    /// </summary>
+    public const string PrivateAccess = "private";
+
+    /// <summary>
     /// What the references inside the module go through: <see cref="StateInside"/> or <see cref="PropertiesInside"/>.
     /// </summary>
     public const string InsideChoice = "inside";
@@ -125,7 +154,8 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
 
     /// <summary>
     /// The other <c>Public</c> fields of the module, a list whose items are encapsulated in the same edit when the user picks them
-    /// (<see cref="EncapsulateChoice"/>): each with its own <see cref="ReadOnlyChoice"/> and <see cref="BackingFieldChoice"/>, held as the field named is
+    /// (<see cref="EncapsulateChoice"/>): each with its own <see cref="ReadOnlyChoice"/>, <see cref="ReadAccessChoice"/>, <see cref="WriteAccessChoice"/>
+    /// and <see cref="BackingFieldChoice"/>, held as the field named is
     /// (<see cref="ModeChoice"/>). An item is named by its field's name.
     /// </summary>
     public const string FieldsChoice = "fields";
@@ -192,7 +222,10 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             notices.AddRange(ofOther.Select(notice => notice with { Choice = EncapsulateChoice, Item = other.Name }));
         }
 
-        return new RefactorPrepareResult { Choices = Choices(planned.Field.Name, planned.Others), Notices = notices };
+        return new RefactorPrepareResult
+        {
+            Choices = Choices(planned.Field.Name, planned.Others, EncapsulateField.IsOfAnObjectModule(planned.Field)), Notices = notices,
+        };
     }
 
     public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(
@@ -266,8 +299,9 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     private sealed record class Planned(
         Symbol Field, RenameWorkspace.DocumentModule Module, IReadOnlyList<(Symbol Field, string Declaration)> Others, Encapsulation? Encapsulation);
 
-    // the choices of the encapsulation of a field, each with its default: the other fields of the module are a list when it has any.
-    private static IReadOnlyList<RefactorChoice> Choices(string field, IReadOnlyList<(Symbol Field, string Declaration)> others)
+    // the choices of the encapsulation of a field, each with its default: the other fields of the module are a list when it has any. Friend is offered in an
+    // object module only.
+    private static IReadOnlyList<RefactorChoice> Choices(string field, IReadOnlyList<(Symbol Field, string Declaration)> others, bool objectModule)
     {
         List<RefactorChoice> choices =
         [
@@ -286,6 +320,8 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             },
             BackingField(field),
             ReadOnly(),
+            ReadAccess(objectModule),
+            WriteAccess(objectModule),
             new()
             {
                 Id = InsideChoice,
@@ -325,6 +361,8 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
                                 Default = "false",
                             },
                             ReadOnly(),
+                            ReadAccess(objectModule),
+                            WriteAccess(objectModule),
                             BackingField(other.Field.Name),
                         ],
                     }),
@@ -351,7 +389,31 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             Description = Format("EncapsulateFieldChoice_ReadOnlyDescription"),
             Default = "false",
         };
+
+        static RefactorChoice ReadAccess(bool objectModule) => Access(ReadAccessChoice, "EncapsulateFieldChoice_ReadAccess", PublicAccess, objectModule);
+
+        static RefactorChoice WriteAccess(bool objectModule)
+            => Access(WriteAccessChoice, "EncapsulateFieldChoice_WriteAccess", DefaultWriteAccess(objectModule), objectModule);
+
+        static RefactorChoice Access(string id, string label, string defaultAccess, bool objectModule) => new()
+        {
+            Id = id,
+            Kind = RefactorChoiceKind.Option,
+            Label = Format(label),
+            Description = Format($"{label}Description"),
+            Default = defaultAccess,
+            Options =
+            [
+                .. AccessesOf(objectModule).Select(access
+                    => new RefactorOption { Value = access, Label = Format($"EncapsulateFieldChoice_Access_{access}") }),
+            ],
+        };
     }
+
+    // the access modifiers a property of the module may be declared with: no Friend in a standard module (MS-VBAL §5.3.1.1).
+    private static string[] AccessesOf(bool objectModule) => objectModule ? [PublicAccess, FriendAccess, PrivateAccess] : [PublicAccess, PrivateAccess];
+
+    private static string DefaultWriteAccess(bool objectModule) => objectModule ? FriendAccess : PublicAccess;
 
     // `m` and the field's name, its first letter capitalized: `count` is held by `mCount`.
     private static string DefaultBackingField(string field) => $"m{char.ToUpperInvariant(field[0])}{field[1..]}";
@@ -369,9 +431,14 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     // is one.
     private static string? UnknownAnswer(IReadOnlyList<RefactorAnswer> answers)
     {
+        string[] accesses = [PublicAccess, FriendAccess, PrivateAccess];
         (string Choice, string[] Values)[] known =
-            [(ModeChoice, [ThisMode, BackingFieldMode]), (InsideChoice, [StateInside, PropertiesInside]), (ReadOnlyChoice, ["true", "false"])];
-        (string Choice, string[] Values)[] itemKnown = [(EncapsulateChoice, ["true", "false"]), (ReadOnlyChoice, ["true", "false"])];
+        [
+            (ModeChoice, [ThisMode, BackingFieldMode]), (InsideChoice, [StateInside, PropertiesInside]), (ReadOnlyChoice, ["true", "false"]),
+            (ReadAccessChoice, accesses), (WriteAccessChoice, accesses),
+        ];
+        (string Choice, string[] Values)[] itemKnown =
+            [(EncapsulateChoice, ["true", "false"]), (ReadOnlyChoice, ["true", "false"]), (ReadAccessChoice, accesses), (WriteAccessChoice, accesses)];
         var items = answers.FirstOrDefault(answer => answer.Id == FieldsChoice)?.Items ?? [];
         foreach (var (choices, given) in items.Select(item => (itemKnown, item.Answers)).Prepend((known, answers)))
         {
@@ -388,13 +455,24 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     }
 
     // the choices answered for a field, as the plan takes them: the defaults for those that are not. What holds the value and what the references inside the
-    // module go through are the encapsulation's answers; whether it is read-only and the name of its backing field are its own.
+    // module go through are the encapsulation's answers; whether it is read-only, the access modifiers of its properties and the name of its backing field
+    // are its own. A write access left unanswered is the module's default.
     private static EncapsulationOptions OptionsOf(IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<RefactorAnswer> own, string field) => new(
         BackingField: string.Equals(Answer(answers, ModeChoice), BackingFieldMode, StringComparison.OrdinalIgnoreCase)
             ? Answer(own, BackingFieldChoice) is { Length: > 0 } typed && typed.Trim() is { Length: > 0 } trimmed ? trimmed : DefaultBackingField(field)
             : null,
         ReadOnly: bool.TryParse(Answer(own, ReadOnlyChoice), out var readOnly) && readOnly,
-        InsideThroughProperties: string.Equals(Answer(answers, InsideChoice), PropertiesInside, StringComparison.OrdinalIgnoreCase));
+        InsideThroughProperties: string.Equals(Answer(answers, InsideChoice), PropertiesInside, StringComparison.OrdinalIgnoreCase),
+        ReadAccess: AccessOf(Answer(own, ReadAccessChoice)) ?? AccessModifier.Public,
+        WriteAccess: AccessOf(Answer(own, WriteAccessChoice)));
+
+    private static AccessModifier? AccessOf(string? answer) => answer?.ToLowerInvariant() switch
+    {
+        PublicAccess => AccessModifier.Public,
+        FriendAccess => AccessModifier.Friend,
+        PrivateAccess => AccessModifier.Private,
+        _ => null,
+    };
 
     // the field named at a position of a document, the other Public fields of its module, and how the field and those the answers pick are encapsulated in
     // their module, or why they are not.

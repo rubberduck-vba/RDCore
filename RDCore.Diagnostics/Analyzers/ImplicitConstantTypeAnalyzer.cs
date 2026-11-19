@@ -10,6 +10,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>RDC00117</c>: a constant declared with no <c>As</c> clause and no type-declaration character (<strong>MS-VBAL §5.2.3.2</strong>): it has a declared type
 /// all the same, which the reader works out from its value.
 /// </summary>
+/// <remarks>
+/// A member of an <c>Enum</c> is no such constant: it is a <c>Long</c>, which no clause can state (<strong>MS-VBAL §5.2.3.4</strong>), and is not reported.
+/// </remarks>
 internal sealed class ImplicitConstantTypeAnalyzer : SyntaxTreeAnalyzer
 {
     public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitConstantType.ToCode()];
@@ -17,7 +20,7 @@ internal sealed class ImplicitConstantTypeAnalyzer : SyntaxTreeAnalyzer
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Descendants()
             .OfType<ConstantDeclarationNode>()
-            .Where(constant => !ImplicitTypes.IsTypeStated(constant, constant.TypeHint))
+            .Where(constant => constant.ConstKind is not ConstKind.EnumMember && !ImplicitTypes.IsTypeStated(constant, constant.TypeHint))
             .Select(constant => new AnalyzerFinding(
                 RDCoreDiagnosticId.ImplicitConstantType.ToCode(),
                 constant.NameRange ?? constant.Location.Range,

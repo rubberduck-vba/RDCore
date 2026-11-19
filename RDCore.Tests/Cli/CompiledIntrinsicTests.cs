@@ -13,8 +13,9 @@ namespace RDCore.Tests.Cli;
 public sealed class CompiledIntrinsicTests
 {
     // the program run both ways, in the session's locale lcid: what it printed, the error it raised and where, alike; and each procedure named compiled,
-    // with as many statements recovered as said, and no call of the library's binding.
-    internal static async Task AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, int lcid = 0)
+    // with as many statements recovered as said, and no call of the library's binding. Answers what was compiled, by name.
+    internal static async Task<IReadOnlyDictionary<string, CompilationResult>> AssertAlikeAsync(
+        string program, (string Name, long Recoveries)[] compiled, int lcid = 0)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, lcid);
@@ -33,6 +34,8 @@ public sealed class CompiledIntrinsicTests
                     $"{name}'s recoveries; stepped: {string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail} {reason.Location}"))}");
             }
         }
+
+        return run.Compiled;
     }
 
     private static async Task<(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled)> RunAsync(
@@ -439,6 +442,37 @@ public sealed class CompiledIntrinsicTests
             "    Next",
             "    Cased = R & S & W & L",
             "End Function"), [("Cased", 0)], lcid);
+
+    // the shape of the bench's StdLib.BenchUCase (RDCore.CLI/Bench/Corpus/StdLib.bas): UCase$ of a String variable assigned to a String variable, in a
+    // loop bounded by a constant, in a Sub of locals only. Cased runs the same body and returns what it cased.
+    [TestMethod]
+    public async Task UCaseOfAStringVariable_InTheBenchsLoop_IsItsTypedForm()
+        => await AssertAlikeAsync(Program(
+            "Option Explicit",
+            "Private Const Iterations As Long = 1000",
+            "Public Sub Main()",
+            "    BenchUCase",
+            "    Debug.Print Cased()",
+            "End Sub",
+            "Public Sub BenchUCase()",
+            "    Dim I As Long",
+            "    Dim S As String",
+            "    Dim T As String",
+            "    S = \"rd-vba\"",
+            "    For I = 1 To Iterations",
+            "        T = UCase$(S)",
+            "    Next",
+            "End Sub",
+            "Private Function Cased() As String",
+            "    Dim I As Long",
+            "    Dim S As String",
+            "    Dim T As String",
+            "    S = \"rd-vba\"",
+            "    For I = 1 To Iterations",
+            "        T = UCase$(S)",
+            "    Next",
+            "    Cased = T",
+            "End Function"), [("BenchUCase", 0), ("Cased", 0)]);
 
     // MS-VBAL §6.1.2.11.1.14: InStr of two Strings, from a start given as a Long or as an Integer the call let-coerces, in a module that compares Binary: a
     // zero-length pattern is found at the start, past the end too (InStr(9, "abc", "") is 9), and nothing is found in a zero-length String. A start below 1

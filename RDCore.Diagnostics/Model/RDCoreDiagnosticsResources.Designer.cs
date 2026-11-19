@@ -360,6 +360,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change the type from Integer to Long.
+        /// </summary>
+        public static string IntegerDataTypeDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("IntegerDataTypeDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Integer is a 16-bit type that overflows at 32,767. Use a Long, unless an Integer is what a procedure or a file format expects..
         /// </summary>
         public static string IntegerDataTypeDeclaration_Message {
@@ -1765,6 +1774,15 @@ namespace RDCore.Diagnostics.Model {
         public static string WriteOnlyProperty_Fix {
             get {
                 return ResourceManager.GetString("WriteOnlyProperty_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing follows the colon after Then: this line runs as an If with no statement, as in VB6, and the lines after it run whatever the condition. MS-VBAL §5.4.2.9 gives the line no reading..
+        /// </summary>
+        public static string SingleLineIfWithNoStatement_Message {
+            get {
+                return ResourceManager.GetString("SingleLineIfWithNoStatement_Message", resourceCulture);
             }
         }
     }

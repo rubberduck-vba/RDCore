@@ -125,6 +125,26 @@ internal sealed partial class ProcedureEmitter
         EmitAfterNestedCall(offset);
     }
 
+    // the call, then the payload of what it returned of the Variant type into result (CompiledActivation.TakeReturnedPayload). The value is known as an
+    // object a call returned is, and so is given to the interpreter as it is: one of no scalar type is the interpreter's to go on with.
+    private void EmitVariantCall(CallValueNode node, LocalBuilder result, Label failure)
+    {
+        var offset = _knowingAt;
+        _ = EmitCallOf(new CallStep(offset, node.Callee, node.Arguments, CallStep.NoResult, node.Receiver)
+        {
+            WithAt = node.WithAt, ReceiverField = node.ReceiverField, ReceiverCall = node.ReceiverCall,
+        }, failure);
+        var returned = _il.DeclareLocal(typeof(object));
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldloca, returned);
+        _il.Emit(OpCodes.Ldloca, result);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TakeReturnedPayload))!);
+        _called = true;
+        _known.Add(new KnownLocal(node.Syntax, default, returned, IsObject: true));
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
+        EmitAfterNestedCall(offset);
+    }
+
     // after a call inside an expression: the activation handed to the interpreter in the middle of the instruction, what was evaluated of it known, when
     // compiled code cannot go on with it.
     private void EmitAfterNestedCall(int offset)
