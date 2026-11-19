@@ -187,6 +187,36 @@ public sealed class CallStackFrameTests
         Assert.AreEqual(address, resolved);
     }
 
+    // MS-VBAL §5.4.3.3: an array is locked while an element of it is passed by reference. An element is given its cell when it is passed, so whether the
+    // array is locked is asked of the cells it has: the asking makes none.
+    [TestMethod]
+    [DataRow(false, DisplayName = "a parameter given another variable: not locked")]
+    [DataRow(true, DisplayName = "a parameter given an element: locked")]
+    public void LocksArray_AsksTheElementsThatHaveACell_AndMakesNone(bool givenAnElement)
+    {
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var caller = new CallStackFrame(NodeId, Procedure, [], storage);
+        var callee = new CallStackFrame(NodeId, Procedure, [], storage);
+        var array = new VBFixedSizeArrayValue([(1, 1000)], VBLongType.TypeInfo);
+        var argument = Local("x");
+        caller.Push(argument, new VBLongValue(1));
+        MemoryAddress address;
+        if (givenAnElement)
+        {
+            Assert.IsTrue(storage.TryAllocate(sizeof(int), array.CellAt(4)!, out address));
+        }
+        else
+        {
+            Assert.IsTrue(caller.TryGetAddress(argument, out address));
+        }
+
+        callee.PushByRef(Local("n"), address);
+
+        Assert.AreEqual(givenAnElement, callee.LocksArray(array));
+        CollectionAssert.AreEqual(givenAnElement ? new[] { 4 } : Array.Empty<int>(), array.MadeCells.Select(made => made.FlatIndex).ToArray(),
+            "the cell of the element that was passed, and no other");
+    }
+
     [TestMethod]
     public void ReleaseAll_NeverFreesAByRefAlias_TheAliasedAddressSurvives()
         // A callee's frame is torn down on every return; it must never take the caller's own storage

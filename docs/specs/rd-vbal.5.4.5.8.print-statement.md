@@ -30,7 +30,7 @@ Whether there is a bare `Print` at all is the language's to say
 |Language|A `Print` with no file number|
 |---|---|
 |RD-VBA|Not a statement. `Print` is a reserved identifier of VBA, illegal as a name and with no semantics, and it is no recognized statement inside a procedure. (Only the Immediate window accepts it, as `Debug.Print`; that is not procedure scope.) It is [`VBC09331`](../diagnostics/vbc09331.md), the same as any other name the language does not declare.|
-|VB6|Undefined: it is the `Print` member of the form or report it is written in, and the platform hosts no forms.|
+|VB6|The `Print` method of the form it is written in: in a Visual Basic 6.0 form's code it prints on the form, as `Me.Print` does ([`Owner.Print`](#ownerprint)). In any other module it is undefined.|
 |BASIC|A statement. It writes to the session's own output - the one `Debug.Print` writes to - by the same output rules ([5.4.5.8.1](#54581-output-lists)).|
 
 In BASIC it differs from `Debug.Print` in one way: it is not a debug statement, and is lowered in every release build, including one that drops
@@ -41,8 +41,7 @@ Instruction-list lowering is told the language the body is written in (`Instruct
 `IRuntimeEnvironmentProfile.Language`) and reports the undefined form; a body lowered for no language is lowered as written.
 
 > [!NOTE]
-> **Not implemented.** `StatementStaticSemanticsEvaluator` does not report it, having no language to ask: the language server has no live caller of it yet. A document
-> module (a form, a report) with a `Print` member of its own is not yet the target of a bare `Print` written in it.
+> **Not implemented.** `StatementStaticSemanticsEvaluator` does not report it, having no language to ask: the language server has no live caller of it yet.
 >
 > The `?` shorthand has no lexer or grammar token: the shell expands it before the line is parsed.
 
@@ -69,12 +68,13 @@ whose default member takes an argument (a `Collection`) error 450.
 ### `Owner.Print`
 
 `Owner.Print` calls the `Print` method of the object, once its output list is evaluated in source order: an item that raises an error raises it
-before the object is called. The objects that have one are a Visual Basic 6.0 form or PictureBox and an Access form or report. The platform hosts
-none of them:
+before the object is called. The objects that have one are a Visual Basic 6.0 form or PictureBox and an Access form or report.
 
-|`Owner`|Error|
+|`Owner`|Effect|
 |---|---|
-|An object|[`VBR00438`](../diagnostics/vbr00438.md): the object has no `Print` method.|
+|A Visual Basic 6.0 form or PictureBox (RDForms)|The object lays the output out on its surface, in its font, from its `CurrentX` and `CurrentY`: a column is the font's average character width, and a print zone is 14 columns. A form that is not shown prints nothing.|
+|`Me`, in a Visual Basic 6.0 form's code|The same, on the form.|
+|Any other object, an Access form or report included|[`VBR00438`](../diagnostics/vbr00438.md): the object has no `Print` method.|
 |`Nothing`|[`VBR00091`](../diagnostics/vbr00091.md).|
 |A value that is not an object|[`VBR00424`](../diagnostics/vbr00424.md).|
 
@@ -87,6 +87,9 @@ none of them:
 [IFileChannelOutput](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html), which it shares with
 `Write #`. `Width #` sets that surface's maximum line length
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
+
+`Owner.Print` evaluates its output list into parts (`PrintOutputEvaluator.Collect`, `PrintedOutput`) and gives them to the object's server through
+the platform's member `[Print]` (`FormPrintMembers.Print`), which no program can name. RDForms lays them out.
 
 ## 5.4.5.8.1 Output Lists
 

@@ -26,7 +26,7 @@ internal sealed partial class ProcedureAnalysis
     private readonly SortedSet<int> _textSlots = [];
 
     // a String that holds the text it is assigned as it is.
-    private static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
+    internal static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
 
     // a String parameter or variable, held in the cell its frame holds it in.
     private void HoldText(int slot, Symbol symbol)
@@ -101,8 +101,9 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
     // TryEvaluateText, case for case: a String literal, a String variable of the activation or a String field of one of its records, parentheses, and two
-    // of them joined by & (or by +, of two Strings); and a whole number, the library's Chr$ of one and the typed form of a function of the library, which
-    // TryEvaluateText leaves to the let-coercion and the call. Strings joined that are all literals are the text they make, joined once.
+    // of them joined by & (or by +, of two Strings); and a whole number, a Variant variable, the library's Chr$ of a whole number, the typed form of a
+    // function of the library and & of a Variant, which TryEvaluateText leaves to the let-coercion, the call and the Variant operation. Strings joined that
+    // are all literals are the text they make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -119,6 +120,15 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when TextSlotOf(variable) is { } slot:
                 return new TextSlotNode(slot);
 
+            case BoundName { Symbol: var function } when ResultIsText && IsOwnFunction(function):
+                NeedsFrame = true;
+                return new TextResultNode();
+
+            // a Variant variable, outside an instruction that calls inside an expression: one that holds what compiled code writes no text of is given to
+            // the interpreter, which would repeat a call made before it.
+            case BoundVariable variable when _nesting is null && VariantSlotOf(variable) is { } variantSlot:
+                return new VariantSlotTextNode(variantSlot);
+
             case BoundMember member when RecordFieldOf(member) is var (path, type) && IsText(type):
                 return new FieldTextNode(path);
 
@@ -131,7 +141,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Text(enclosed);
 
-            case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } plan } joined when plan.Operator is Tokens.ConcatOp or Tokens.AdditionOp:
+            // & of a Variant, whose value type is known when it is evaluated (MS-VBAL §5.6.9.4), is a String unless both operands are Null. Each operand
+            // Text gives is a String (a Variant call that returns Null is the interpreter's), so the two are joined as Strings are.
+            case BoundBinary { Plan: { } plan } joined
+                when plan is { IsDeferred: false, EffectiveType: VBStringType, Operator: Tokens.ConcatOp or Tokens.AdditionOp } or { IsDeferred: true, Operator: Tokens.ConcatOp }:
                 if (Text(joined.Left) is not { } left || Text(joined.Right) is not { } right)
                 {
                     return null;
@@ -143,7 +156,18 @@ internal sealed partial class ProcedureAnalysis
             case BoundCall { Procedure: var chr, BoundArguments: [{ Value: { } code }] } when IsChrString(chr) && WholeOf(code) is { } whole:
                 return new ChrTextNode(whole);
 
-            // a function of the library whose typed form returns a String, of its arguments (ProcedureAnalysis.Intrinsics.cs): Mid$, Left$, Trim$.
+            // TypeName of a Variant compiled code reads in its cell, as the cell says (VariantTypeNameTextNode), and of one the cell says nothing of, the call
+            // of the standard library's function; never in an instruction that calls inside an expression, whose operands are known as they were read.
+            case BoundCall
+                {
+                    BoundArguments: [{ Passing: ArgumentPassing.Value or ArgumentPassing.Reference, Value: { } named, Elements.IsDefaultOrEmpty: true }],
+                } variantTypeName
+                when _nesting is null && IsTypeName(variantTypeName.Procedure) && IsVariantInItsCell(named):
+                return VariantInItsCell(named) is { } variant && LibraryVariantTextOf(variantTypeName) is LibraryVariantTextNode called
+                    ? new VariantTypeNameTextNode(variant, called)
+                    : null;
+
+            // a function of the library whose typed form returns a String, of its arguments (ProcedureAnalysis.Intrinsics.cs): Mid$, Left$, Trim$, UCase$.
             case BoundCall typed when IntrinsicTextOf(typed) is { } formed:
                 return formed;
 
@@ -160,13 +184,25 @@ internal sealed partial class ProcedureAnalysis
             case BoundCall converting when IsVariantTextLibrary(converting.Procedure):
                 return LibraryVariantTextOf(converting);
 
-            // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
-            // and a Date are the interpreter's, which writes them in the regional settings of the session.
-            case var number when WholeOf(number) is { } whole:
-                return whole is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(whole);
+            // a function or a Property Get of the workspace that returns a String, called inside an instruction that calls (TextCallOf).
+            case var textCall when TextCalledBy(textCall) is { } function:
+                return TextCallOf(textCall, function);
 
+            // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
+            // and a Date are the interpreter's, which writes them in the regional settings of the session. A node whose payload cannot be read is refused
+            // once: by the reason the read gave, or else by its own.
             default:
-                _ = Unsupported(node);
+                var refused = _reasons.Count;
+                if (WholeOf(node) is { } number)
+                {
+                    return number is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(number);
+                }
+
+                if (_reasons.Count == refused)
+                {
+                    _ = Unsupported(node);
+                }
+
                 return null;
         }
     }

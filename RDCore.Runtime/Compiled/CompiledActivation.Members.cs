@@ -80,7 +80,7 @@ public sealed partial class CompiledActivation
     }
 
     // the context the interpreter evaluates the statement at pc in (ProcedureExecutor.ResolveContext): inside a With block, the object the block holds, or
-    // Nothing when it holds none, which its frame says - a With statement is the interpreter's, which an activation is given its frame for.
+    // Nothing when it holds none, which its frame says: a With statement holds its object in the frame, which an activation is given its frame for.
     private RuntimeEvaluationContext ContextAt(int pc)
         => Body.Items[pc] is { EnclosingWith: not null } instruction ? ProcedureExecutor.ResolveContext(_context, Frame, Body, instruction) : _context;
 }

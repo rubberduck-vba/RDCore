@@ -150,14 +150,20 @@ public sealed class WindowsFormHostTests
         using var host = Host();
         var form = host.Forms.Create(ExampleView());
 
-        var showing = Task.Run(() => host.Forms.Show(form, modal: true));
-        await WaitUntilAsync(() => host.Forms.IsShown(form));
-        await Task.Delay(200);
-        Assert.IsFalse(showing.IsCompleted, "a modal Show waits");
+        var activated = ActivatedAsync(host, form);
+        var hidden = 0;
+        var showing = Task.Run(() =>
+        {
+            host.Forms.Show(form, modal: true);
+            return Volatile.Read(ref hidden) == 1;
+        });
+        await activated.WaitAsync(Patience);
 
-        // what is asked of the apartment while the form waits is done: a Hide, as a handler of the form's would ask it.
+        // what is asked of the apartment while the form waits is done: a Hide, as a handler of the form's would ask it. The Show returns after it, never
+        // before.
+        Volatile.Write(ref hidden, 1);
         host.Forms.Hide(form);
-        await showing.WaitAsync(Patience);
+        Assert.IsTrue(await showing.WaitAsync(Patience), "a modal Show waits until its form is hidden");
         Assert.IsFalse(host.Forms.IsShown(form));
         host.Forms.Destroy(form);
     }
@@ -169,9 +175,12 @@ public sealed class WindowsFormHostTests
         var caption = Unique();
         var form = host.Forms.Create(ExampleView(caption));
 
+        var activated = ActivatedAsync(host, form);
         var showing = Task.Run(() => host.Forms.Show(form, modal: true));
-        await WaitUntilAsync(() => host.Forms.IsShown(form));
+        await activated.WaitAsync(Patience);
 
+        // a form nothing listens to is hidden by its close button: the test stops listening once it has heard the form shown.
+        host.Automation.Unadvise(form);
         Assert.IsTrue(PostMessage(WindowOf(caption), WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
         await showing.WaitAsync(Patience);
         Assert.IsFalse(host.Forms.IsShown(form));
@@ -241,17 +250,26 @@ public sealed class WindowsFormHostTests
         Assert.AreEqual(unchecked((int)0x80040154), failure.HResult);
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
+    // completed when the form is shown: the host raises the form's Activate once its window is shown, to whatever listens to the form's events.
+    private static Task ActivatedAsync(Hosting host, object form)
     {
-        var started = DateTime.UtcNow;
-        while (!condition())
-        {
-            if (DateTime.UtcNow - started > Patience)
-            {
-                Assert.Fail("The form was not shown in time.");
-            }
+        var sink = new Activation();
+        host.Automation.Advise(form, sink);
+        return sink.Activated;
+    }
 
-            await Task.Delay(20);
+    private sealed class Activation : IAutomationEventSink
+    {
+        private readonly TaskCompletionSource _activated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Activated => _activated.Task;
+
+        public void OnEvent(AutomationEvent raised)
+        {
+            if (raised.Name == FormWindowEvents.Activate)
+            {
+                _activated.TrySetResult();
+            }
         }
     }
 

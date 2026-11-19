@@ -13,6 +13,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.SDK.Platform.Components;
@@ -150,8 +151,13 @@ internal sealed class SymbolSyncService(
     IOptions<SdkAppOptions> options,
     ILogger<SymbolSyncService> logger,
     IReferencedLibraryService referencedLibraries,
-    IWorkspaceProjects projects) : ISymbolSyncService
+    IWorkspaceProjects projects,
+    IReferencedProjectService? referencedProjects = null) : ISymbolSyncService
 {
+    // what the primary project's names are bound among: the libraries it references, and the projects of the workspace it references.
+    private IReadOnlyList<Symbol> PrimaryLibraries(Uri workspaceRoot, CancellationToken token)
+        => referencedProjects?.LibrariesOf(workspaceRoot, documents.WorkspaceRoot, token) ?? referencedLibraries.SymbolsUnder(workspaceRoot);
+
     // the other projects the host analyzes, by their root, as each was when its analysis session was composed: one that changed is composed again. Of the host
     // they were sent to: a host started again has none.
     private readonly Dictionary<Uri, ProjectFile> _analyzed = new(SymbolUri.RootComparer);
@@ -242,7 +248,7 @@ internal sealed class SymbolSyncService(
                     .Select(other => (SymbolUri.Module(workspaceRoot, other.Name), other.Kind, other.Parse)),
                 (moduleUri, ModuleType.StdModule, parseResult),
             ],
-            resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot),
+            resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token),
             documentHosts: hosts);
 
         // a module the client keeps editing is defined again every time it is run, so the newest
@@ -298,7 +304,7 @@ internal sealed class SymbolSyncService(
 
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
-                implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot), documentHosts: hosts);
+                implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token), documentHosts: hosts);
 
             // three phases, each for every module before the next (DefineSymbolsParams.DeclareTypesOnly): its types are declared, its declarations are bound,
             // and its code is loaded - a third of the work each.
@@ -307,7 +313,10 @@ internal sealed class SymbolSyncService(
             void Step(string message, string module) => progress?.Report(new WorkProgressStep(
                 string.Format(ProgressMessages.ItemOf, string.Format(message, module), step % modules.Count + 1, modules.Count), 100 * step++ / (3 * modules.Count)));
 
-            // every type exists before any declaration is bound to it, whichever module declares it and in whichever order the project lists them.
+            // every type exists before any declaration is bound to it, whichever module declares it and in whichever order the project lists them: those of
+            // the projects the project references, then its own.
+            var referenced = ReferencedProjectModules(token);
+            totalDefined += await DefineReferencedProjectsAsync(referenced, workspaceRoot, replace, declareTypesOnly: true, token);
             foreach (var module in modules)
             {
                 token.ThrowIfCancellationRequested();
@@ -324,6 +333,7 @@ internal sealed class SymbolSyncService(
                 }
             }
 
+            totalDefined += await DefineReferencedProjectsAsync(referenced, workspaceRoot, replace, declareTypesOnly: false, token);
             foreach (var module in modules)
             {
                 token.ThrowIfCancellationRequested();
@@ -465,7 +475,58 @@ internal sealed class SymbolSyncService(
         => WorkspaceSymbolResolver.Compose(
             root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver,
             projectName: other.Project.ProjectInfo.Name is { Length: > 0 } name ? name : null, implicitScope: ImplicitScope,
-            libraries: referencedLibraries.SymbolsOf(root, other.Project.ProjectInfo), documentHosts: hosts);
+            libraries: referencedProjects?.LibrariesOf(root, other.Root) ?? referencedLibraries.SymbolsOf(root, other.Project.ProjectInfo),
+            documentHosts: hosts);
+
+    // a project of the workspace the primary project references, as its modules are defined in the primary project's session.
+    private sealed record class ReferencedModules(
+        ReferencedProject Referenced, Uri Root, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules, ISymbolResolver Resolver);
+
+    // the projects the primary project references, each with its modules and what their names are bound against, as its own analysis binds them.
+    private List<ReferencedModules> ReferencedProjectModules(CancellationToken token)
+    {
+        var referenced = new List<ReferencedModules>();
+        foreach (var project in referencedProjects?.ProjectsReferencedBy(documents.WorkspaceRoot) ?? [])
+        {
+            var root = SymbolUri.Root(project.Project.Root);
+            var (_, modules, hosts) = CollectModules(project.Project.Root, root, token);
+            referenced.Add(new ReferencedModules(project, root, modules, ResolverOf(root, project.Project, modules, hosts)));
+        }
+
+        return referenced;
+    }
+
+    // the modules of the projects the primary project references are defined in its session as names of those projects (DefineSymbolsParams.Library),
+    // beside its own modules: a Module1 of a project referenced is another module than the project's own Module1. Their code is not sent, and what fails
+    // is said, and is not of Unsynced: no module of them is one the program runs.
+    private async Task<int> DefineReferencedProjectsAsync(
+        List<ReferencedModules> referenced, Uri sessionRoot, bool replace, bool declareTypesOnly, CancellationToken token)
+    {
+        var defined = 0;
+        foreach (var (project, root, modules, projectResolver) in referenced)
+        {
+            foreach (var module in modules)
+            {
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    defined += await DefineModuleSymbolsAsync(
+                        root, module.Uri, module.Name, module.Kind, module.Parse, projectResolver, replace, withCode: false, token, declareTypesOnly,
+                        library: new LibraryModule(sessionRoot, project.Name, project.Priority));
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogError(exception, "❌ Module {module} of the referenced project {project} could not be defined; continuing.",
+                        module.Name, project.Name);
+                }
+            }
+        }
+
+        return defined;
+    }
+
+    // what the session a module of a referenced project is defined in calls it: the session's root, and the project's name and precedence.
+    private sealed record class LibraryModule(Uri SessionRoot, string Name, int Priority);
 
     // a sync that did not finish loaded only some of what it collected, and may not have reached the collecting at all: what the last sync did not load is not
     // loaded either, unless this one loaded it.
@@ -484,7 +545,8 @@ internal sealed class SymbolSyncService(
 
     private async Task<int> DefineModuleSymbolsAsync(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false, bool sessionModule = false)
+        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false, bool sessionModule = false,
+        LibraryModule? library = null)
     {
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
@@ -500,7 +562,7 @@ internal sealed class SymbolSyncService(
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             new DefineSymbolsParams
             {
-                WorkspaceRoot = workspaceRoot,
+                WorkspaceRoot = library?.SessionRoot ?? workspaceRoot,
                 ModuleUri = moduleUri,
                 ModuleName = moduleName,
                 Symbols = descriptors,
@@ -508,10 +570,13 @@ internal sealed class SymbolSyncService(
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = withCode ? ParserJson.Of(parseResult) : string.Empty,
-                PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult),
+                PrecompilerTriviaJson = library is null ? DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult) : string.Empty,
                 Replace = replace,
                 DeclareTypesOnly = declareTypesOnly,
                 SessionModule = sessionModule,
+                Library = library?.Name,
+                LibraryPriority = library?.Priority ?? 0,
+                ModuleType = moduleType,
             }, token);
 
         if (logger.IsEnabled(LogLevel.Information))
@@ -530,37 +595,9 @@ internal sealed class SymbolSyncService(
         CollectModules(CancellationToken token)
         => CollectModules(documents.WorkspaceRoot, null, token);
 
-    // every module of a project that has a parse, addressed under the project's root; the primary project's are addressed under the root of the project that
-    // loaded them first, which is the primary project.
     private (Uri? WorkspaceRoot, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules, Dictionary<string, DocClassType> Hosts)
         CollectModules(string projectRoot, Uri? workspaceRoot, CancellationToken token)
-    {
-        var modules = new List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)>();
-        var hosts = new Dictionary<string, DocClassType>(StringComparer.OrdinalIgnoreCase);
-        foreach (var document in documents.GetProjectDocuments(projectRoot))
-        {
-            token.ThrowIfCancellationRequested();
-
-            // a document of a server with no workspace is a project of its own, of which the host has no session.
-            if (document.WorkspaceRoot.Length == 0 || !parsing.TryGetCached(document.Id.Uri.ToUri(), out var parseResult) || parseResult.SyntaxTree is null)
-            {
-                continue;
-            }
-
-            workspaceRoot ??= SymbolUri.Root(document.WorkspaceRoot);
-            // the module's programmatic name is its Attribute VB_Name; the file name is the fallback.
-            var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
-            // module kind is never a parser input — read it off the raw source, same as the parsing pass.
-            var moduleKind = ParsingClientService.ModuleTypeOf(document);
-            modules.Add((SymbolUri.Module(workspaceRoot, moduleName), moduleName, moduleKind, parseResult));
-            if (document.Super is { } super)
-            {
-                hosts.TryAdd(moduleName, super);
-            }
-        }
-
-        return (workspaceRoot, modules, hosts);
-    }
+        => ProjectModules.Collect(documents, parsing, projectRoot, workspaceRoot, token);
 
     public async Task SyncDocumentAsync(Uri documentUri, CancellationToken token)
     {
@@ -584,7 +621,7 @@ internal sealed class SymbolSyncService(
             // are bound against), and then its code is loaded, which is checked against the same.
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
-                implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot), documentHosts: hosts);
+                implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token), documentHosts: hosts);
             await DefineModuleSymbolsAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, workspaceResolver, replace: true, withCode: false, token);
             await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, token);
         }

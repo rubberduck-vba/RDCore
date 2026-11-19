@@ -186,7 +186,8 @@ public sealed class CompiledForEachTests
             "    Report Ended",
             "End Function"), "Ended", recoveries: 0, classes: Boxes);
 
-    // a For Each in a With block is evaluated against the block's object, which the interpreter steps; its Next is run for compiled code, as the Next of any For Each is.
+    // a For Each in a With block is evaluated against the block's object: the For Each is the interpreter's, and its Next is run for compiled code, as the
+    // Next of any For Each is.
     [TestMethod]
     public async Task AForEachInAWithBlock_IsSteppedByTheInterpreter_AndItsNextIsNot()
     {
@@ -201,7 +202,7 @@ public sealed class CompiledForEachTests
             "            If B.Hit(B) Then Walked = Walked + 1",
             "        Next",
             "    End With",
-            "End Function"), "Walked", recoveries: 3, classes: Boxes);
+            "End Function"), "Walked", recoveries: 2, classes: Boxes);
 
         Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(InstructionKind.ForEachOpener) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));

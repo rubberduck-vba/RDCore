@@ -8,6 +8,7 @@ namespace RDCore.Tests.Cli;
 /// The files a program leaves open belong to its session (<strong>MS-VBAL §5.4.5.1</strong>, <strong>§5.4.5.2</strong>): they close with it, whichever way
 /// the program ended.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.1 Open")]
 public sealed class SessionFilesTests

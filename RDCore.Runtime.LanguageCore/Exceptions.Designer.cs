@@ -1345,6 +1345,15 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is named without an argument list, which calls it with no arguments; its parameter &apos;{1}&apos; is not optional..
+        /// </summary>
+        internal static string VBCompileError_NamedWithoutItsArguments_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NamedWithoutItsArguments_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to A value of {0} is what its default member &apos;{1}&apos; returns, which is an object and not a value of a declared type..
         /// </summary>
         internal static string VBCompileError_DefaultMemberReturnsAnObject_Verbose {
