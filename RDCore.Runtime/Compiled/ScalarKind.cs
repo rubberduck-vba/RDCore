@@ -53,8 +53,8 @@ internal static class ScalarKinds
     /// declaration was resolved for the session's environment; a variable declared as one holds it in a cell of its declared type.
     /// </summary>
     /// <remarks>
-    /// Every payload is given its kind when it is made (<see cref="ScalarPayload.Kind"/>), so the sealed types are tested first, each by its exact type,
-    /// and the two <c>LongPtr</c> types last: neither is sealed, and a test of one looks through the whole chain of base types of a type that is not it.
+    /// Every payload is given its kind when it is made (<see cref="ScalarPayload.Kind"/>), so this runs for each one: the sealed types are tested first,
+    /// each by its exact type, and the two <c>LongPtr</c> types last: neither is sealed, and a test of one looks through the whole chain of base types of a type that is not it.
     /// </remarks>
     public static ScalarKind? Of(VBType? type) => type switch
     {

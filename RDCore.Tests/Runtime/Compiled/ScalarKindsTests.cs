@@ -13,7 +13,7 @@ namespace RDCore.Tests.Runtime.Compiled;
 [TestClass]
 public sealed class ScalarKindsTests
 {
-    // the types that are no alias of another.
+    // the types that are not an alias of another.
     private static IEnumerable<object[]> OwnTypes =>
     [
         [VBByteType.TypeInfo, ScalarKind.Byte],

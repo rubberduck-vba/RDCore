@@ -69,7 +69,7 @@ public sealed class CompiledBenchShapeTests
         "    KeptInModule = Total",
         "End Function");
 
-    // the program run both ways, and procedure compiled, run by compiled code alone.
+    // the program runs the same both ways, and the procedure is compiled and run by compiled code alone.
     private static async Task AssertRunByCompiledCodeAsync(string procedure)
     {
         CompiledExecutionTests.RequirePayloads();

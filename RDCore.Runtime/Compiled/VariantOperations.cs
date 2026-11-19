@@ -175,7 +175,8 @@ public static class VariantOperations
     }
 
     // the subtype of Empty, Null, a String or an error (Missing among them) a Variant holds, or that a Variant it holds holds (StdInformation.Unwrapped),
-    // by the class of the value, as VarType says it of the value's type: the sealed classes first, each tested by its exact type. None of anything else.
+    // by the class of the value, as VarType says it of the value's type: Empty and Null first, whose classes are sealed and tested by their exact type, and a held
+    // Variant last. None of anything else.
     private static VBVarType? SubtypeOfHeld(VBTypedValue value) => value switch
     {
         VBEmptyValue => VBVarType.VBEmpty,
