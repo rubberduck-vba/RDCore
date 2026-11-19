@@ -45,7 +45,21 @@ public sealed class ReferencedClassMemberTests
         new("IShape", ModuleType.ClassModule, ModuleWorkspace.ClassModule("IShape",
             "Attribute VB_Exposed = True", "Option Explicit",
             "Public Property Get Name() As String", "End Property")),
+        new("Switches", ModuleType.StdModule, ModuleWorkspace.StandardModule("Switches",
+            "Option Explicit", "Public Enum ShipType", "    Cruiser = 3", "End Enum",
+            "Public Function HasSwitch(ByVal Line As String) As Boolean", "    HasSwitch = Len(Line) > 0", "End Function")),
     ];
+
+    // MS-VBAL §5.6.10: each project is a namespace of its own, and the referenced project's names are read from its own, after the project's.
+    [TestMethod]
+    public async Task AReferencedProjectsProcedureAndEnum_AreBound_UnqualifiedAndQualified()
+    {
+        var errors = await LoadErrorsAsync([],
+            "Dim t As ShipType", "Dim u As NavalLib.ShipType", "t = Cruiser", "u = ShipType.Cruiser",
+            "Debug.Print HasSwitch(\"a\"), Switches.HasSwitch(\"b\"), NavalLib.HasSwitch(\"c\"), NavalLib.Switches.HasSwitch(\"d\")");
+
+        Assert.AreEqual(0, errors.Count, string.Join("; ", errors));
+    }
 
     [TestMethod]
     public async Task AMemberOfAReferencedProjectsClass_IsBound_ThroughAVariable_AnInterface_AndTheDefaultInstance()

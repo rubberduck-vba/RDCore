@@ -16,6 +16,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -201,7 +202,8 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
         // a name that resolves to no type is a compile error the static semantics report; the array is then what it would be without the clause.
         var typeName = asType.QualifierName is { } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-        var type = DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, context.Scope, session.Environment.Is64Bit);
+        var type = DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, context.Scope, session.Environment.Is64Bit,
+            ProjectVisibility.Instance, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
 
         // MS-VBAL 5.2.3.1.4: `String * n` is the type String*n.
         // TODO: a length written as the name of a constant is not read yet; such an array holds variable-length strings.

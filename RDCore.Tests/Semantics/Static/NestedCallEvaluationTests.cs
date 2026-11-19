@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -76,7 +77,7 @@ public sealed class NestedCallEvaluationTests
         var function = new VBFunctionMemberSymbol(Root, module.Uri, "F", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public);
         function = function with { Parameters = [new VBParameterSymbol(Root, function.Uri, "n", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo)] };
         var x = new VBModuleFieldVariableMemberSymbol(Root, module.Uri, "x", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
-        var tree = ScopeTreeBuilder.Build([module with { Members = [function, x] }, function, x]);
+        var tree = ProjectVisibility.ScopeTreeOf([module with { Members = [function, x] }, function, x]);
         var resolver = new CountingResolver(new ScopeTreeSymbolResolver(tree));
 
         var result = ExpressionStaticSemanticsEvaluator.Evaluate(new StaticEvaluationContext(resolver, tree.ScopeFor(module.Uri)), Nested(depth));
