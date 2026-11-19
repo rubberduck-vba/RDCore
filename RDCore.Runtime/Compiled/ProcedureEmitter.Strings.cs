@@ -259,6 +259,15 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Stloc, text);
                 break;
 
+            case FloatingTextNode floating:
+                var number = EmitPayload(floating.Value, failure);
+                _il.Emit(OpCodes.Ldarg_0);
+                Load(number, floating.Value.Kind);
+                _il.Emit(floating.Value.Kind is ScalarKind.Single ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.FloatingText))!);
+                _il.Emit(OpCodes.Stloc, text);
+                break;
+
             case TypeNameTextNode typeName:
                 EmitTypeName(typeName.Library, typeName.Slot is { } held ? _objects[held] : null, text);
                 break;

@@ -188,14 +188,19 @@ internal sealed partial class ProcedureAnalysis
             case var textCall when TextCalledBy(textCall) is { } function:
                 return TextCallOf(textCall, function);
 
-            // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
-            // and a Date are the interpreter's, which writes them in the regional settings of the session. A node whose payload cannot be read is refused
-            // once: by the reason the read gave, or else by its own.
+            // a number of a whole type, a Single or a Double let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it, a
+            // Single or a Double in the regional settings of the session as it runs: a Currency, a Boolean and a Date are the interpreter's. A node whose
+            // payload cannot be read is refused once: by the reason the read gave, or else by its own.
             default:
                 var refused = _reasons.Count;
-                if (WholeOf(node) is { } number)
+                switch (NumberOf(node))
                 {
-                    return number is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(number);
+                    case { Kind: ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong } number:
+                        return number is ConstantNode { Integral: var digits }
+                            ? new TextConstantNode(StringOperations.OfWhole(digits))
+                            : new WholeTextNode(number);
+                    case { Kind: ScalarKind.Single or ScalarKind.Double } floating:
+                        return new FloatingTextNode(floating);
                 }
 
                 if (_reasons.Count == refused)
@@ -225,10 +230,10 @@ internal sealed partial class ProcedureAnalysis
 
     // the payload of a Byte, an Integer, a Long or a LongLong: not a Variant's, nor an extended intermediate's.
     private PayloadNode? WholeOf(BoundNode node)
-        => !IsVariant(node) && !IsExtended(node)
-            && Payload(node) is { Kind: ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong } whole
-                ? whole
-                : null;
+        => NumberOf(node) is { Kind: ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong } whole ? whole : null;
+
+    // the payload of a number: not a Variant's, nor an extended intermediate's.
+    private PayloadNode? NumberOf(BoundNode node) => !IsVariant(node) && !IsExtended(node) ? Payload(node) : null;
 
     // the library's Chr$ (IStdStringsModule.ChrString), by the member the library declares it as, which no procedure of the workspace is.
     private static readonly string ChrString

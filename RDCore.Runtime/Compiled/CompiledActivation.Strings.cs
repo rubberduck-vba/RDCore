@@ -1,9 +1,11 @@
 using RDCore.Runtime.Execution.Memory;
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does to a String variable of the activation besides assigning it a value: the Mid statement.
+// what compiled code has the activation do with strings: the Mid statement on a String variable of the activation, and the text of a Single or a
+// Double, written in the session's regional settings.
 public sealed partial class CompiledActivation
 {
     /// <summary>
@@ -82,4 +84,13 @@ public sealed partial class CompiledActivation
         _body.CountTextCopied();
         return StringOperations.Write(cell, made);
     }
+
+    /// <summary>
+    /// A <c>Single</c> or a <c>Double</c> let-coerced to <c>String</c> (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: with the decimal
+    /// symbol of the regional settings of the session's environment (<see cref="ValueConversions.FloatingToText"/>).
+    /// </summary>
+    /// <param name="value">The value; a <c>Single</c> is held as a <see cref="double"/>.</param>
+    /// <param name="isSingle">Whether the value is a <c>Single</c>.</param>
+    public string FloatingText(double value, bool isSingle)
+        => ValueConversions.FloatingToText(value, isSingle, ValueConversions.DecimalSymbolOf(_session.Environment.Culture, _session.Environment.Regional));
 }
