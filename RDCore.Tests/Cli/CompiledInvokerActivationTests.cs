@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A compiled procedure called through the invoker, as every one given a <c>String</c> is, is run in the activation that last returned from a call of it
-/// when that one ran its compiled code to the end: each call begins with its own locals, result and error handling (MS-VBAL §5.3.1.10), and one that
+/// when that one ran its compiled code to the end: each call begins with its own locals, result and error handling (MS-VBAL §5.3.1), and one that
 /// is handed to the interpreter, or that is still running, is not run again.
 /// </summary>
 [TestClass]
