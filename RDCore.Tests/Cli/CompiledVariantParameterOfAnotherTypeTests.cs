@@ -97,7 +97,7 @@ public sealed class CompiledVariantParameterOfAnotherTypeTests
     }
 
     // MS-VBAL §5.3.1.11: what the callee assigns an Integer variable through the parameter is let-coerced to Integer, and a sum the Integer does not hold
-    // raises error 6 (MS-VBAL §5.5.1.2.2), which the caller goes past: the variable keeps what it held.
+    // raises error 6 (MS-VBAL §5.5.1.2.1; the sum of a Variant is a Long, §5.6.9.3), which the caller goes past: the variable keeps what it held.
     [TestMethod]
     public async Task AnIntegerVariable_AssignedTooLargeAValueThroughAVariant_RaisesOverflow()
     {
