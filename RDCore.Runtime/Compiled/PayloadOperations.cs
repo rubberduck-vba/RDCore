@@ -97,6 +97,36 @@ public static class PayloadOperations
         _ => false,
     };
 
+    /// <summary>
+    /// Whether <paramref name="kind"/> is an integer type: <c>Byte</c>, <c>Integer</c>, <c>Long</c> or <c>LongLong</c>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsWholeKind(ScalarKind kind) => kind is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong;
+
+    /// <summary>
+    /// A <c>Single</c> or a <c>Double</c> let-coerced to an integer type (<strong>MS-VBAL §5.5.1.2.1</strong>): the whole number Banker's rounding makes of it
+    /// (<strong>§5.5.1.2.1.1</strong>), when that number is in the range of the type, and otherwise an overflow, as an infinity and a NaN are. This is the
+    /// boxed coercion's (<c>VBNumericType.IsWithinRange</c>, then <c>BankersRounding</c>), the value rounded once.
+    /// </summary>
+    /// <param name="floating">The value, a <c>Single</c> held as a <see cref="double"/>.</param>
+    /// <param name="to">The integer type, one <see cref="IsWholeKind"/> is true of.</param>
+    /// <param name="result">The whole number.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PayloadStatus RoundedToWhole(double floating, ScalarKind to, out long result)
+    {
+        var rounded = Math.Round(floating, MidpointRounding.ToEven);
+
+        // the range of a LongLong, as doubles: its least value is one, and its greatest is not, the double past it being 2 to the 63rd.
+        if (rounded >= long.MinValue && rounded < -(double)long.MinValue)
+        {
+            result = (long)rounded;
+            return IsInRange(to, result) ? PayloadStatus.Ok : PayloadStatus.Overflow;
+        }
+
+        result = 0;
+        return PayloadStatus.Overflow;
+    }
+
     /// <summary><c>left + right</c>, of an integer type or a <c>Currency</c>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PayloadStatus Add(ScalarKind kind, long left, long right, out long result)
@@ -316,6 +346,19 @@ public static class PayloadOperations
             return PayloadStatus.Ok;
         }
 
+        // MS-VBAL §5.5.1.2.1: a Single or a Double is an integer by Banker's rounding (§5.5.1.2.1.1) when the whole number it rounds to is in the range of
+        // the type, and otherwise an overflow (RoundedToWhole).
+        if (from is ScalarKind.Single or ScalarKind.Double && IsWholeKind(to))
+        {
+            var status = RoundedToWhole(floating, to, out var whole);
+            if (status is PayloadStatus.Ok)
+            {
+                resultIntegral = whole;
+            }
+
+            return status;
+        }
+
         var isIntegral = ScalarKinds.IsIntegral(from);
 
         // MS-VBAL §5.5.1.2.2: any number is True when it is not zero, and a Boolean is the -1 or 0 it holds - which a Byte does not hold, its True being 255:
@@ -343,19 +386,6 @@ public static class PayloadOperations
         if (to is ScalarKind.Currency)
         {
             return ToCurrency(from, integral, floating, out resultIntegral);
-        }
-
-        // MS-VBAL §5.5.1.2.1: a Single or a Double is an integer by Banker's rounding (§5.5.1.2.1.1) when it is finite and the whole number it rounds to is in
-        // the range of the type, and otherwise an overflow, as the boxed coercion converts it (VBNumericType.IsWithinRange, then BankersRounding).
-        if (from is ScalarKind.Single or ScalarKind.Double && to is ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong)
-        {
-            if (!VBNumericType.IsWithinRange(floating, (VBNumericType)ScalarKinds.TypeOf(to)))
-            {
-                return PayloadStatus.Overflow;
-            }
-
-            resultIntegral = (long)VBNumericType.BankersRounding(floating);
-            return PayloadStatus.Ok;
         }
 
         // MS-VBAL §5.5.1.2.1: a Double, or a Date's serial (§5.5.1.2.3), is the Single nearest it when it is within the magnitude range of a Single, and
