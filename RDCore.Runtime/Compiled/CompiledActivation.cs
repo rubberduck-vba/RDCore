@@ -751,7 +751,9 @@ public sealed partial class CompiledActivation : ILightActivation
 
     // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
     // of which the callee makes a cell of its own when the parameter is passed by reference. They come after the first ones, which are the caller's to give:
-    // the object a member is called on. A String is given the text (SetText), or the address of the String variable given (SetTextReference).
+    // the object a member is called on. A String is given the text (SetText), or the address of the String variable given (SetTextReference). A Variant
+    // passed by reference given a variable of a scalar type is given its cell and the type the variable is declared as, which the parameter reads it as a
+    // Variant holding, and assigns it as (MS-VBAL §5.3.1.11).
     private IRuntimeValue[] ArgumentsOf(CompiledCallee called, int first)
     {
         var arguments = new IRuntimeValue[first + called.Parameters.Count];
@@ -759,7 +761,7 @@ public sealed partial class CompiledActivation : ILightActivation
         {
             if (called.Parameters[i] is not { } kind)
             {
-                arguments[first + i] = (IRuntimeValue)_references[i]!;
+                arguments[first + i] = _references[i] is ScalarCell scalar ? new CellReference(scalar, scalar.Type) : (IRuntimeValue)_references[i]!;
                 continue;
             }
 

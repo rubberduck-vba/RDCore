@@ -1034,6 +1034,31 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
+            // a Variant passed by reference, given a variable of a scalar type or a String of the activation: the parameter is bound to the variable, and
+            // knows the type it is declared as (MS-VBAL §5.3.1.11). It reads as a Variant holding what the variable holds, and what it is assigned is
+            // let-coerced to the variable's type. A scalar is given its cell, held in a cell from the start of the activation as any variable passed by
+            // reference is; a String, its address.
+            if (parameters[i] is not ParamArrayParameterSymbol && parameters[i].ResolvedType is VBVariantType
+                && RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind)
+                && arguments[i] is { Passing: ArgumentPassing.Reference, Value: BoundVariable bound }
+                && (SlotOf(bound) is not null || TextSlotOf(bound) is not null))
+            {
+                (variants ??= new bool[parameters.Length])[i] = true;
+                kinds.Add(null);
+                byReference.Add(true);
+                if (SlotOf(bound) is { } scalarSlot)
+                {
+                    values.Add(new ReferenceNode(scalarSlot, _slots[scalarSlot]));
+                    escaping.Add(scalarSlot);
+                }
+                else
+                {
+                    values.Add(new VariantReferenceNode(TextSlotOf(bound)!.Value, IsText: true));
+                }
+
+                continue;
+            }
+
             if (arguments[i] is { Passing: ArgumentPassing.Omitted })
             {
                 (omitted ??= new bool[parameters.Length])[i] = true;

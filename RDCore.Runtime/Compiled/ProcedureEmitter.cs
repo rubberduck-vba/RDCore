@@ -927,7 +927,8 @@ internal sealed partial class ProcedureEmitter
         var arguments = new Operand[call.Arguments.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = EmitArgument(call.Arguments[i], call.Arguments[i] is TextArgumentNode or TextReferenceNode ? RecoverAt(call.Offset) : failure);
+            arguments[i] = EmitArgument(call.Arguments[i],
+                call.Arguments[i] is TextArgumentNode or TextReferenceNode or VariantReferenceNode { IsText: true } ? RecoverAt(call.Offset) : failure);
         }
 
         // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
@@ -1857,6 +1858,14 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, _texts[reference.Slot]);
                 _il.Emit(OpCodes.Brfalse, failure);
                 return new Operand(_texts[reference.Slot], 0, 0);
+
+            // a String given to a Variant by reference is given its address as the call is made (CompiledActivation.SetVariantReference), what its appender
+            // holds written into its cell before, as for a String parameter.
+            case VariantReferenceNode { IsText: true } reference:
+                EmitWriteAppended(reference.Slot);
+                _il.Emit(OpCodes.Ldloc, _texts[reference.Slot]);
+                _il.Emit(OpCodes.Brfalse, failure);
+                return default;
 
             // what a call returns, made where the argument is evaluated, in a cell of its own (EmitObjectCall).
             case ObjectArgumentNode { Call: { } returned }:
