@@ -254,7 +254,8 @@ public sealed class EnvironmentSessionProvider(
     public ProgramExecution Execution { get; private set; } = default!;
 
     public IReadOnlyList<VBModuleSymbol> ModulesOf(RDCoreProject project, Uri workspaceRoot)
-        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem).ProvideSymbols().OfType<VBModuleSymbol>()];
+        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem, ansiCodePage: _environment.AnsiCodePage)
+            .ProvideSymbols().OfType<VBModuleSymbol>()];
 
     /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot) => Compose(project, workspaceRoot, known: null);
@@ -338,7 +339,7 @@ public sealed class EnvironmentSessionProvider(
         RuntimeOutputRouter output, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
-        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known);
+        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known, environment.AnsiCodePage);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);
