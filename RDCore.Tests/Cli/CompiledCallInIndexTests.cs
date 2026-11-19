@@ -105,4 +105,18 @@ public sealed class CompiledCallInIndexTests
             "    Next",
             "    Debug.Print Total; Counted(C, 2); IsArray(Counted(C, 3)); IsEmpty(Counted(C, 4)); Held(C, 1); Held(C, 3); Held(C, 4)",
             "End Sub"), expected: " 15 xTrueTrueTrueTrueFalse", "Counted", "Held");
+
+    // an object a function's Variant result holds, given to TypeName in an item of a Debug.Print and in a String Let: the statement's temporaries hold it
+    // until the statement is over, so TypeName names its class.
+    [TestMethod]
+    public async Task AnObjectAVariantResultHolds_GivenToTypeNameInAText_IsHeldUntilTheStatementIsOver()
+        => await AssertNoneSteppedAsync(Program(
+            "Private Function Made(ByVal K As Long) As Variant",
+            "    If K = 1 Then Set Made = New Collection Else Made = K",
+            "End Function",
+            "Public Sub Main()",
+            "    Dim S As String",
+            "    S = TypeName(Made(1)) & \"/\" & TypeName(Made(2))",
+            "    Debug.Print TypeName(Made(1)); \"/\"; TypeName(Made(2)); \"/\"; S",
+            "End Sub"), expected: "Collection/Long/Collection/Long", "Main");
 }
