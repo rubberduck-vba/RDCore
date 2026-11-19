@@ -92,7 +92,8 @@ public sealed class AssistantToolsAfterFileChangesTests
         using var client = await connecting;
 
         client.SendNotification(Changed("Module1.bas"));
-        var call = client.SendRequest(new ToolCallRequest(new ToolCallParams { Name = "probe" }), timeout.Token);
+        MediatR.IRequest<ToolCallReply> request = new ToolCallRequest(new ToolCallParams { Name = "probe" });
+        var call = client.SendRequest(request, timeout.Token);
         client.SendNotification(Changed("Module2.bas"));
         await secondBegun.Task.WaitAsync(timeout.Token);
         reading.SetResult();
