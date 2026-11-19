@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 
 namespace RDCore.Runtime.LanguageCore.Services;
 
@@ -12,10 +13,23 @@ public static class ImplementedInterfaceResolution
     public static IReadOnlyDictionary<string, VBClassModuleSymbol> Resolve(IEnumerable<VBClassModuleSymbol> classModules)
     {
         var all = classModules.ToList();
-        var byName = new Dictionary<string, VBClassModuleSymbol>(StringComparer.OrdinalIgnoreCase);
-        foreach (var classModule in all)
+        var byName = all.GroupBy(classModule => classModule.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(namesakes => namesakes.Key, namesakes => namesakes.ToArray(), StringComparer.OrdinalIgnoreCase);
+
+        // the name is a type expression of the implementing class (MS-VBAL §5.6.16.7), bound in the type binding context (§5.6.10): a class of its own
+        // project comes first, and then the one of the project with the highest reference precedence. A library's hidden interface (Excel's IShape) never
+        // takes the place of the workspace's class of the same name.
+        VBClassModuleSymbol? Named(VBClassModuleSymbol classModule, string name)
         {
-            byName.TryAdd(classModule.Name, classModule);
+            if (!byName.TryGetValue(name, out var namesakes))
+            {
+                return null;
+            }
+
+            var project = classModule.GetProperty(SymbolProperties.Library);
+            return namesakes.MinBy(namesake => string.Equals(namesake.GetProperty(SymbolProperties.Library), project, StringComparison.Ordinal)
+                ? long.MinValue
+                : ReferencePrecedence.RankOf(namesake));
         }
 
         var resolved = new Dictionary<string, VBClassModuleSymbol>(StringComparer.Ordinal);
@@ -40,7 +54,7 @@ public static class ImplementedInterfaceResolution
             var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (var name in classModule.ImplementedInterfaceNames)
             {
-                if (byName.TryGetValue(name, out var found)
+                if (Named(classModule, name) is { } found
                     && !string.Equals(found.Uri.AbsoluteUri, key, StringComparison.Ordinal)
                     && seen.Add(found.Uri.AbsoluteUri))
                 {
