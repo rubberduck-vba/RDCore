@@ -13,12 +13,13 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledInvokerActivationTests
 {
-    // the program run to its end with engine: what it did, and what measure reads of the bodies compiled for it.
-    private static async Task<(string Observed, long Measured)> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, long>? measure)
+    // the program run to its end with engine, beside the class modules classes: what it did, and what measure reads of the bodies compiled for it.
+    private static async Task<(string Observed, long Measured)> RunAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, long>? measure)
     {
         (string Observed, long Measured) made = default;
         using var running = CompiledExecution.Running(engine);
-        await ModuleWorkspace.InspectAsync([], program, (provider, run, _) =>
+        await ModuleWorkspace.InspectAsync(classes, program, (provider, run, _) =>
         {
             made = (Observed(run), engine is VBExecutionEngine.Compiled && measure is not null ? measure(provider) : 0);
             return Task.CompletedTask;
@@ -27,11 +28,15 @@ public sealed class CompiledInvokerActivationTests
     }
 
     // the program run both ways: the compiled run is the interpreted one.
-    private static async Task<(string Observed, long Measured)> AssertAlikeAsync(string program, Func<EnvironmentSessionProvider, long> measure)
+    private static Task<(string Observed, long Measured)> AssertAlikeAsync(string program, Func<EnvironmentSessionProvider, long> measure)
+        => AssertAlikeAsync([], program, measure);
+
+    private static async Task<(string Observed, long Measured)> AssertAlikeAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, Func<EnvironmentSessionProvider, long> measure)
     {
         CompiledExecutionTests.RequirePayloads();
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, null);
-        var compiled = await RunAsync(program, VBExecutionEngine.Compiled, measure);
+        var interpreted = await RunAsync(classes, program, VBExecutionEngine.Interpreter, null);
+        var compiled = await RunAsync(classes, program, VBExecutionEngine.Compiled, measure);
         Assert.AreEqual(interpreted.Observed, compiled.Observed);
         return compiled;
     }
@@ -94,6 +99,69 @@ public sealed class CompiledInvokerActivationTests
         {
             Assert.IsGreaterThanOrEqualTo(4L, made, "as many as the recursion goes deep");
             Assert.IsLessThan(8L, made, "fewer than the eight calls");
+        }
+    }
+
+    // Tag is given a String, so it is called through the invoker. A call of it raises an event, and the event's handler calls Tag while that call runs: the
+    // handler's call is made in an activation of its own, and the call that raised the event goes on with its own locals once the handler returns.
+    [TestMethod]
+    public async Task ACallMadeByAnEventHandlerWhileTheCallThatRaisedTheEventRuns_RunsInAnActivationOfItsOwn()
+    {
+        var source = ModuleWorkspace.ClassModule("Source", "Option Explicit", "Public Event Noted(ByVal s As String)",
+            "Public Sub Note(ByVal s As String)", "    RaiseEvent Noted(s)", "End Sub");
+        var listener = ModuleWorkspace.ClassModule("Listener", "Option Explicit", "Private WithEvents Src As Source",
+            "Public Sub Attach()", "    Set Src = New Source", "    Set Hub = Src", "End Sub",
+            "Private Sub Src_Noted(ByVal s As String)", "    Heard = Heard & Tag(s & \"e\", 0) & \";\"", "End Sub");
+        var (observed, made) = await AssertAlikeAsync([("Source", source), ("Listener", listener)], Program(
+            "Public Hub As Source",
+            "Public Heard As String",
+            "Public Sub Main()",
+            "    Dim L As New Listener",
+            "    L.Attach",
+            "    Debug.Print Tag(\"a\", 2) & \"|\" & Tag(\"b\", 1) & \"|\" & Heard",
+            "End Sub",
+            "Public Function Tag(ByVal t As String, ByVal n As Long) As String",
+            "    Dim mine As String",
+            "    mine = t & n",
+            "    If n > 0 Then Hub.Note mine",
+            "    Tag = mine & \"<\" & n",
+            "End Function"), provider => BodyOf(provider, "Tag").InvokerActivationsMade);
+
+        StringAssert.Contains(observed, "| a2<2|b1<1|a2e0<0;b1e0<0; |");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(3L, made, "the first call's, run again for the third; and one for each handler's call, made while another runs");
+        }
+    }
+
+    // Tag is given a String, so it is called through the invoker. Each call but the last raises an error, and its handler calls Tag: that call runs while
+    // the one that made it waits in its handler, in an activation of its own, and the one that waits then resumes at its label with its own locals.
+    [TestMethod]
+    public async Task ACallMadeByAnErrorHandler_RunsInAnActivationOfItsOwn_AndTheHandlerResumesAfterIt()
+    {
+        var (observed, made) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Tag(\"a\", 2) & \"|\" & Tag(\"b\", 1)",
+            "End Sub",
+            "Private Function Tag(ByVal t As String, ByVal n As Long) As String",
+            "    Dim mine As String, code As Long, inner As String",
+            "    On Error GoTo Failed",
+            "    mine = t & n",
+            "    If n > 0 Then Err.Raise 5",
+            "    Tag = mine",
+            "    Exit Function",
+            "Failed:",
+            "    code = Err.Number",
+            "    inner = Tag(t & \"h\", n - 1)",
+            "    Resume Done",
+            "Done:",
+            "    Tag = mine & \"(\" & inner & \")\" & code",
+            "End Function"), provider => BodyOf(provider, "Tag").InvokerActivationsMade);
+
+        StringAssert.Contains(observed, "| a2(ah1(ahh0)5)5|b1(bh0)5 |");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.IsGreaterThanOrEqualTo(3L, made, "one for each call made while the call before it waits in its handler");
         }
     }
 }
