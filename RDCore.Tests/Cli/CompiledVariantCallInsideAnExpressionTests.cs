@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledVariantParameterOfAnotherTypeTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A function or a <c>Property Get</c> of the workspace that returns a <c>Variant</c>, called inside an expression (<strong>MS-VBAL §5.6.13.1</strong>):
+/// A function or a <c>Property Get</c> of the workspace that returns a <c>Variant</c>, called inside an expression (<strong>MS-VBAL §5.6.13</strong>):
 /// compiled code makes the call once and reads what the <c>Variant</c> holds of a scalar type as the interpreter reads it, a condition as its truth
 /// (<strong>MS-VBAL §5.4.2.8</strong>). What it holds of no scalar type is given to the interpreter, which goes on with the statement and does not make the
 /// call again.
