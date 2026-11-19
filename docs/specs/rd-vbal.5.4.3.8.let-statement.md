@@ -98,8 +98,8 @@ property after the target would. This holds for a variable, `Me`, a public varia
 | An object whose class has no default property | Error 438. |
 | An object whose default member is a function that can be called with no argument | Error 438 when the target is declared as a class; error 450 when it is reached late-bound. |
 
-A target declared as a class that has no default property, or a `Property Get` or a function that returns one, raises error 438 (or 91) whenever the
-statement runs. MS-VBA compiles it, and [RDC11050](../diagnostics/rdc11050.md) reports the statement.
+A target declared as a class that has no default property, or a `Property Get` or a function declared as one, raises error 438 whenever the statement
+runs (MS-VBA: 91 when it holds `Nothing`). MS-VBA compiles it, and [RDC11050](../diagnostics/rdc11050.md) reports the statement.
 
 A default `Property Get` with no `Property Let` is assigned as [Members of an object](#members-of-an-object) describes: when it returns an object, that
 object's default member is assigned.

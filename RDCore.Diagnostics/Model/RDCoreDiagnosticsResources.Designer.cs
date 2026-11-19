@@ -1268,7 +1268,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; is an object of class &apos;{1}&apos;, which has no default member to assign the value to: run-time error 438 (91 when it is Nothing) every time this runs. Name the member the value is assigned to..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is of class &apos;{1}&apos;, which has no default member to assign the value to: run-time error 438 (91 when it is Nothing) every time this runs. Name the member the value is assigned to..
         /// </summary>
         public static string LetToAnObjectWithNoDefaultMember_Message {
             get {
