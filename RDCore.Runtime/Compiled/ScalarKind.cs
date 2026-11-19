@@ -52,20 +52,24 @@ internal static class ScalarKinds
     /// of the type it is an alias of (<strong>MS-VBAL §2.2</strong>): a <c>LongLong</c> in a 64-bit environment and a <c>Long</c> in a 32-bit one, as the
     /// declaration was resolved for the session's environment; a variable declared as one holds it in a cell of its declared type.
     /// </summary>
+    /// <remarks>
+    /// Every payload is given its kind when it is made (<see cref="ScalarPayload.Kind"/>), so the sealed types are tested first, each by its exact type,
+    /// and the two <c>LongPtr</c> types last: neither is sealed, and a test of one looks through the whole chain of base types of a type that is not it.
+    /// </remarks>
     public static ScalarKind? Of(VBType? type) => type switch
     {
+        VBLongType => ScalarKind.Long,
+        VBDoubleType => ScalarKind.Double,
+        VBIntegerType => ScalarKind.Integer,
+        VBBooleanType => ScalarKind.Boolean,
+        VBLongLongType => ScalarKind.LongLong,
+        VBByteType => ScalarKind.Byte,
+        VBCurrencyType => ScalarKind.Currency,
+        VBSingleType => ScalarKind.Single,
+        VBDateType => ScalarKind.Date,
         VBEnumType => ScalarKind.Long,
         VBLongPtrType_x64 => ScalarKind.LongLong,
         VBLongPtrType_x86 => ScalarKind.Long,
-        VBByteType => ScalarKind.Byte,
-        VBIntegerType => ScalarKind.Integer,
-        VBLongType => ScalarKind.Long,
-        VBLongLongType => ScalarKind.LongLong,
-        VBBooleanType => ScalarKind.Boolean,
-        VBCurrencyType => ScalarKind.Currency,
-        VBSingleType => ScalarKind.Single,
-        VBDoubleType => ScalarKind.Double,
-        VBDateType => ScalarKind.Date,
         _ => null,
     };
 
