@@ -40,9 +40,11 @@ decides which `#If` branch is live from the same session, so every part of the p
 - Each operating system's constant is defined `0` on every other one. `#If Linux` on Windows is `False`, as an undefined constant would be.
 - A `.rdproj` `#Const`, a `--define` argument, or a module's own `#Const` overrides any of them.
 - A constant nothing defines is `0`, as in MS-VBA, so a condition that tests it is `False` and is not an error. The analyzers report it as
-  [**RDC01020** Undefined conditional constant](../diagnostics/rdc01020.md). **RD-VBA differs from MS-VBAL:** in **MS-VBAL §5.6.10**, a name that
-  matches no constant is invalid.
-- A completion list in the condition of a `#If` or a `#ElseIf`, or in the value of a `#Const`, offers these constants and the module's own.
+  [**RDC01020** Undefined conditional constant](../diagnostics/rdc01020.md). **RD-VBA differs from MS-VBAL:** in
+  [**MS-VBAL §5.6.10** Simple Name Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e3af3398-f090-40db-ade6-de3a93589c76),
+  a name that matches no constant is invalid.
+- A completion list in the condition of a `#If` or a `#ElseIf`, or in the value of a `#Const`, offers the module's own constants, the project's, and
+  these.
 
 ### Bitness
 
@@ -58,7 +60,7 @@ a directive reads as [**RDC01019** Win64 is a bitness test](../diagnostics/rdc01
 |A 64-bit environment|`Is64BitEnv`|
 |64-bit Windows|`Win32 And Is64BitEnv`|
 
-On 64-bit Linux, `Is64BitEnv` is `1` and `Win64` is `0`, so the first fix makes the branch live there. That is what a bitness test means.
+On 64-bit Linux, `Is64BitEnv` is `1` and `Win64` is `0`, so the first fix makes the branch live there, as a bitness test should.
 
 With `Environment.Win64OnlySetOnWindows`, `Win64` is `1` on 64-bit Windows only and is not reported. Code written for Excel for Mac that tests `Win64`
 then takes the other branch on a Mac.

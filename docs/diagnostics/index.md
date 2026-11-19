@@ -1,11 +1,4 @@
 # RDCore Diagnostics
-|[RDC01011](rdc01011.md)|Variable not used|A variable nothing reads|
-|[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
-|[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
-|[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
-|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
-|[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
-|[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
 
 Every problem the RDCore platform reports carries a stable **code** and, through the LSP
 `codeDescription` field, a link to its page here. See
@@ -319,6 +312,14 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01008](rdc01008.md)|Native call reachable on every platform|A `Declare` that no `#If` on the platform constants guards, and a call of one compiled where it is not declared|
 |[RDC01009](rdc01009.md)|Empty procedure|A procedure with no statement|
 |[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
+|[RDC01011](rdc01011.md)|Variable not used|A variable nothing reads|
+|[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
+|[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
+|[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
+|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
+|[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
+|[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
+|[RDC01018](rdc01018.md)|Keyword used as a member name|An Enum member or a member of a user-defined type named with a keyword|
 |[RDC01019](rdc01019.md)|Win64 is a bitness test|A directive that reads `Win64`, which is `1` on a 64-bit Mac too|
 |[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
