@@ -65,6 +65,7 @@ public enum RDCoreDiagnosticId
     ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
     SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
     FunctionReturnValueDiscarded = 216, // [RD2:FunctionReturnValueDiscardedInspection] a Function of the project called as a statement: the value it returns is discarded
+    FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Function that every call of the project calls as a statement: it can be a Sub
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
 
     ObsoleteCallingConvention = 301,
@@ -93,6 +94,7 @@ public enum RDCoreDiagnosticId
     EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public or Global variable of a module, which any code can assign
     SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
     ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
+    MoveFieldCloserToUsage = 413, // [RD2:MoveFieldCloserToUsageInspection] a variable of the module that only one procedure refers to: it can be a local
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,

@@ -4,8 +4,8 @@ using RDCore.Tests.Cli;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// The fixes of <c>RDC00119</c>, <c>RDC00121</c>, <c>RDC00123</c> and <c>RDC00125</c>: each names the default member the code calls without naming it
-/// (MS-VBAL §5.6.2.2, §5.4.3.8, §5.6.13, §5.6.14), and the code does what it did.
+/// The fixes of <c>RDC00119</c>, <c>RDC00121</c>, <c>RDC00123</c> and <c>RDC00125</c> to <c>RDC00127</c>: each names the default members the code calls
+/// without naming them (MS-VBAL §5.6.2.2, §5.4.3.8, §5.6.13, §5.6.14), and the code does what it did.
 /// </summary>
 [TestClass]
 public sealed class DefaultMemberFixTests
@@ -22,7 +22,17 @@ public sealed class DefaultMemberFixTests
     private static readonly (string Name, string Source) Sheet = ("Sheet", ModuleWorkspace.ClassModule("Sheet", "Option Explicit", "Private mCell As New Cell",
         "Public Property Get Current() As Cell", "    Set Current = mCell", "End Property"));
 
-    private static readonly IReadOnlyList<(string Name, string Source)> Classes = [Cell, Items, Sheet];
+    // Root's default member returns a Branch, whose default member returns a Leaf, whose default member takes the key.
+    private static readonly (string Name, string Source) Leaf = ("Leaf", ModuleWorkspace.ClassModule("Leaf", "Option Explicit",
+        "Public Property Get Item(ByVal key As Variant) As String", "Attribute Item.VB_UserMemId = 0", "    Item = \"leaf \" & key", "End Property"));
+
+    private static readonly (string Name, string Source) Branch = ("Branch", ModuleWorkspace.ClassModule("Branch", "Option Explicit",
+        "Public Function Child() As Leaf", "Attribute Child.VB_UserMemId = 0", "    Set Child = New Leaf", "End Function"));
+
+    private static readonly (string Name, string Source) Root = ("Root", ModuleWorkspace.ClassModule("Root", "Option Explicit",
+        "Public Property Get Inner() As Branch", "Attribute Inner.VB_UserMemId = 0", "    Set Inner = New Branch", "End Property"));
+
+    private static readonly IReadOnlyList<(string Name, string Source)> Classes = [Cell, Items, Sheet, Leaf, Branch, Root];
 
     // the lines of a module whose Sub Main has the given body
     private static string[] Body(params string[] body) => ["Option Explicit", "Public Sub Main()", .. body, "End Sub"];
@@ -120,6 +130,35 @@ public sealed class DefaultMemberFixTests
             RDCoreDiagnosticId.BangNotation,
             Body("Dim c As New Collection", "c.Add 1, \"k\"", "With c", "Debug.Print !k", "End With"),
             Body("Dim c As New Collection", "c.Add 1, \"k\"", "With c", "Debug.Print .Item(\"k\")", "End With"),
+            runs: true, classes: Classes);
+
+    [TestMethod]
+    [DataRow("Dim t As New Branch", "t(1)", "t.Child.Item(1)", DisplayName = "through two default members")]
+    [DataRow("Dim d As New Root", "d(\"k\")", "d.Inner.Child.Item(\"k\")", DisplayName = "through three default members")]
+    public Task AnArgumentListThroughSeveralDefaultMembers_IsGivenToTheLastOfThemNamed(string declaration, string indexed, string named)
+        => CodeActionFixture.AssertFixedAsync(
+            RDCoreDiagnosticId.IndexedRecursiveDefaultMemberAccess,
+            Body(declaration, $"Debug.Print {indexed}"),
+            Body(declaration, $"Debug.Print {named}"),
+            runs: true, classes: Classes);
+
+    [TestMethod]
+    [DataRow("Dim t As New Branch", "t!Name", "t.Child.Item(\"Name\")", DisplayName = "through two default members")]
+    [DataRow("Dim d As New Root", "d!Name", "d.Inner.Child.Item(\"Name\")", DisplayName = "through three default members")]
+    [DataRow("Dim d As New Root", "d![a key]", "d.Inner.Child.Item(\"a key\")", DisplayName = "a name in brackets")]
+    public Task ABangNameThroughSeveralDefaultMembers_IsGivenToTheLastOfThemNamedAsAString(string declaration, string bang, string named)
+        => CodeActionFixture.AssertFixedAsync(
+            RDCoreDiagnosticId.RecursiveBangNotation,
+            Body(declaration, $"Debug.Print {bang}"),
+            Body(declaration, $"Debug.Print {named}"),
+            runs: true, classes: Classes);
+
+    [TestMethod]
+    public Task ABangNameThroughSeveralDefaultMembersInAWithBlock_IsGivenToTheLastOfThemNamed()
+        => CodeActionFixture.AssertFixedAsync(
+            RDCoreDiagnosticId.RecursiveBangNotation,
+            Body("Dim d As New Root", "With d", "Debug.Print !Name", "End With"),
+            Body("Dim d As New Root", "With d", "Debug.Print .Inner.Child.Item(\"Name\")", "End With"),
             runs: true, classes: Classes);
 
     [TestMethod]

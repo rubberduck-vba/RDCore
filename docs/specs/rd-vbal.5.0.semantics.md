@@ -241,6 +241,12 @@ being because something referred to it), and `OptionExplicit` says whether the m
 (**MS-VBAL §5.2.1.3**); it is not issued (`null`) for a language that has no such directive, such as the platform's BASIC. The
 accessors of a property are one declaration.
 
+A procedure that something other than the project's code calls has a `Role`. The project's entry point
+(`DeclarationRole.EntryPoint`) is the procedure a run of the project starts with: the one the project's build section names, or
+else the `Sub Main` of the one standard module that declares one. A library has none, and neither does a project where no
+standard module, or more than one, declares it. The entry point depends on every module of the project, so the host states it
+when it answers for the project's modules.
+
 **A fact is stated only when it is true.** A fact that says a declaration is _not used_ is a claim about every place that
 could use it, and the language core makes it only when it can vouch for all of them. A declaration's `References` (the
 expressions that read it, write to it, and pass it as an argument that may be taken by reference) are stated when both hold,
@@ -250,7 +256,7 @@ and are `null` otherwise, which says the references are not known, and not that 
    `Global` or `Friend`. A procedure, a property and an event are also called through what they are bound to (an event handler,
    a member that implements an interface) or by name at run time: they have no references, except a `Private` procedure named
    as the handler of an event of a control that it does not match (`DeclarationRole.UnmatchedEventHandler`), which only the
-   form's own code can call.
+   form's own code can call. The others are counted over the project, below.
 2. The code that could refer to it was analyzed completely (`ProcedureSemanticModel.IsFullyAnalyzed`): the procedure has no
    error, and the body was looked at again, apart from the pass, for each place a name is written that refers to something,
    and every one has a fact. For a local or a parameter that is its procedure; for a variable or a constant of the module,
@@ -258,6 +264,28 @@ and are `null` otherwise, which says the references are not known, and not that 
    one that was not analyzed completely, and that writes the name nowhere, not even in what the parser could not read, does
    not refer to it. A constant of the module is also referred to by the expressions of the module's declarations (the bounds
    of an array, the value of another constant, the default of a parameter), and every one of them was analyzed with no error.
+
+Once every procedure of the project was analyzed completely, the host also counts, over all of its modules, what only the
+project's code can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is
+`Option Private Module` (**MS-VBAL §5.3.1.1**, **§5.2.1.4**).
+
+A `Private` procedure or property is counted in every kind of project: only the code of its module can call it, and no
+access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:
+
+- one bound as a handler or an implementation (`DeclarationRole.EventHandler`, `InterfaceImplementation`);
+- every one of a module that calls `CallByName` with a name that is not a string literal;
+- every one of a document module whose host's class is not known: the events of that class are not known either, so neither
+  are the handlers among its procedures;
+- one whose name a string literal of the project writes (`"Module1.Helper"` writes `Module1` and `Helper`): a host can call
+  back a procedure by the name a string gives it (Excel's `Application.Run`, `OnAction`, `OnTime`).
+
+For a `Public` member, the project's kind decides:
+
+|Project|A `Public` member|
+|---|---|
+|A program: not a library, and its entry point is found|Counted, since no other project or host calls into it. A member with a `Role` is not counted, nor a member of a class that code can reach where it runs: its default member or enumerator (`VB_UserMemId` `0` or `-4`), a member that an access bound late names (**MS-VBAL §5.6.12**), the member a `CallByName` names with a string literal, and every member of a class when the program calls `CallByName` with any other name.|
+|A library|`IsUsedByReferencingProjects` when a referencing project can name it, or reach it through an object of its class; not counted.|
+|Any other project|Not counted: the host that runs it can call it.|
 
 An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its
 to say.

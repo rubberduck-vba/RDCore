@@ -690,22 +690,26 @@ When the module has other `Public` fields, Encapsulate Field also asks which of 
 The range is on the declaration of a variable or on a use of it. The declaration moves to a line of its own before the statement that first uses the variable, indented as that statement is, in the innermost block that holds every use of it. A use in the condition of an `If` or the bounds of a loop keeps it before that statement. A declaration is not executed ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)), so a variable of a procedure is the same wherever it is declared before its first use.
 
 - A variable of a procedure keeps its keyword, `Dim` or `Static`.
-- A `Private` variable of a module that a single procedure uses moves into that procedure. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
+- A variable of a module that a single procedure uses moves into that procedure: a `Private` one of its module, and a `Public` or `Global` one of
+  a standard module, which a procedure of another module of the project can use. The uses are the names bound to the variable in every module of
+  the project; a use qualified with the name of its module (`Globals.gCount`) loses the qualifier. Its choice (`keyword`, an `Option`) is
+  `static`, the default, or `dim`.
 
 |A variable of a module, declared|Changes|Code|
 |---|---|---|
-|`Static`, in a standard module|Nothing: it keeps its value between calls.|None.|
-|`Static`, in a class module|Its extent: a variable of the class has object extent, a `Static` variable module extent (**MS-VBAL §2.3**, **§5.4.3.1**).|`moveCloserToUsage.moduleExtent`|
+|`Static`|Nothing: it keeps its value between calls. In a class module, each object keeps its own, as it does of the variable of the class ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|None.|
+|`Static`, a variable of a standard module, in a member of a class module|Its extent: the variable had one value for the program, and the local has one for each object of the class.|`moveCloserToUsage.oneForEachObject`|
 |`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
 
 `rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
 
 |Refused|Code|
 |---|---|
-|A variable of a module that is `Public`, `Global` or `Friend`|`moveCloserToUsage.notPrivate`|
+|A variable of a class module that is `Public`, `Global` or `Friend`: a member of each object of the class|`moveCloserToUsage.notPrivate`|
 |A variable declared `WithEvents`|`moveCloserToUsage.withEvents`|
 |A variable that nothing uses|`moveCloserToUsage.notUsed`|
-|A variable of a module used by more than one procedure|`moveCloserToUsage.severalProcedures`|
+|A variable of a module used by more than one procedure, of its module or of others|`moveCloserToUsage.severalProcedures`|
+|A variable of a module whose procedure names, unqualified, something else of its name, which the local would hide|`moveCloserToUsage.hidesAName`|
 |A declaration, or a first use, in a branch of an `#If` block|`moveCloserToUsage.conditional`|
 |A variable of a procedure declared before its first use with nothing but declarations between them|`moveCloserToUsage.alreadyClose`|
 |A declaration that is the only one of a statement sharing its line with another statement|`moveCloserToUsage.sharesItsLine`|
@@ -735,8 +739,15 @@ A lens is answered without its command (`resolveProvider = true`), since its ref
 |Resolved lens|Is|
 |---|---|
 |`command.title`|The count, in the language of the user interface: `0 references`, `1 reference`, `3 references` (`0 référence`, `1 référence`, `3 références`).|
-|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
+|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references, even when there is one or none.|
 |`command.arguments`|The URI of the document, the position of the name, and the references (`Location[]`): the arguments of VS Code's `editor.action.showReferences`.|
+
+A member of a class that other classes implement (**MS-VBAL §5.2.4.2**) has a second lens at its name, which counts the procedures that implement it, as `textDocument/implementation` finds them. Each procedure that implements a member of an interface has a lens that names that member (`implements IShape.Area`), answered with its command. A lens that leads to a single place takes the user there instead of listing it: the `implements` lens of a procedure, and the count lens of a member that one procedure implements (`1 implementation`).
+
+|Lens|`command.command`|`command.arguments`|
+|---|---|---|
+|Two or more implementations, or none|`rdcore.showReferences`|The URI of the document, the position of the name, and the implementations (`Location[]`).|
+|One implementation, or the member a procedure implements|`rdcore.goToLocation` ([`RefactoringCommands.GoToLocation`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)): the client opens the document and selects the range.|The URI of the document and the range (`Range`).|
 
 ### `textDocument/typeDefinition` and `textDocument/implementation`
 
