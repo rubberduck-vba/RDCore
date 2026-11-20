@@ -167,4 +167,17 @@ public sealed class ProjectFileDiagnosticsTests
         Assert.IsEmpty(await sut.CurrentAsync(CancellationToken.None));
         await providers.Received(2).DiagnoseAsync(Arg.Is<DiagnoseProjectPayload>(payload => payload.NameRange == null), Arg.Any<CancellationToken>());
     }
+
+    // a folder opened with no .rdproj is a project the workspace makes up, named after the folder or VBAProject: it has no file to report against.
+    [TestMethod]
+    public async Task AProjectWithNoProjectFileYet_IsNotAskedOf()
+    {
+        var root = Path.Combine(Workspace, "My Macros");
+        var synthesized = new WorkspaceProject(root, new ProjectFile(root, new RDCoreProject { Name = RDCoreProject.DefaultName }) { IsSynthesized = true });
+        var providers = Substitute.For<IProjectDiagnosticsProviders>();
+        var sut = new ProjectFileDiagnostics(ProjectsOf(synthesized), Publisher(), providers: providers);
+
+        Assert.IsEmpty(await sut.CurrentAsync(CancellationToken.None));
+        await providers.DidNotReceiveWithAnyArgs().DiagnoseAsync(default!, default);
+    }
 }

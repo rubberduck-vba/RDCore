@@ -61,7 +61,8 @@ internal sealed class ProjectFileDiagnostics(
                     string.Format(WorkspaceMessages.CircularProjectReference, name, string.Join(" → ", cycle.Path)))))
                 .ToList();
 
-            if (providers is not null)
+            // a project the workspace has no .rdproj of yet (IsSynthesized) has no file to report what the extensions find against, nor a name its user gave.
+            if (providers is not null && !project.Project.IsSynthesized)
             {
                 var payload = new DiagnoseProjectPayload(new Uri(file), project.Project.ProjectInfo, NameRangeOf(file)) { DisabledCodes = [.. disabledCodes] };
                 diagnostics.AddRange(await providers.DiagnoseAsync(payload, token));
