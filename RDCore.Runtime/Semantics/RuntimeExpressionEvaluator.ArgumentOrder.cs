@@ -66,7 +66,7 @@ public sealed partial class RuntimeExpressionEvaluator
         ImmutableArray<BoundArgument> given, ImmutableArray<ExpressionNode> written, bool statement, out RuntimeSemanticsEvaluationResult? error)
     {
         error = null;
-        if (session.CallStack.Current is not CallStackFrame || given.IsDefault && written.IsDefaultOrEmpty)
+        if (session.CallStack.Current is not CallStackFrame || given.IsDefault && written.IsDefaultOrEmpty || IsAnEvaluatedIndexList(written))
         {
             return null;
         }

@@ -2004,6 +2004,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
     }
 
+    // an index list of a path through records, which the assignment evaluated before it navigates the path (WithEvaluatedSubscripts): what a call in it
+    // returned is what it evaluated to, and the call is not made again ahead of the rest of the list (EvaluateArgumentsFirst).
+    private bool IsAnEvaluatedIndexList(ImmutableArray<ExpressionNode> written)
+        => !written.IsDefaultOrEmpty && _evaluatedSubscripts is { } evaluated && evaluated.Exists(list => list.Arguments == written);
+
     private static VBTypeMemberSymbol? TryResolveCallableSub(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee)
     {
         if (callee is not SimpleNameExpressionNode simpleName)
