@@ -566,6 +566,12 @@
   href: rdc01019.md
 - name: "RDC01020: Undefined conditional constant"
   href: rdc01020.md
+- name: "RDC01021: Unassigned variable usage"
+  href: rdc01021.md
+- name: "RDC01022: Assignment not used"
+  href: rdc01022.md
+- name: "RDC01023: Parameter can be passed by value"
+  href: rdc01023.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"

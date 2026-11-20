@@ -330,6 +330,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01018](rdc01018.md)|Keyword used as a member name|An Enum member or a member of a user-defined type named with a keyword|
 |[RDC01019](rdc01019.md)|Win64 is a bitness test|A directive that reads `Win64`, which is `1` on a 64-bit Mac too|
 |[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
+|[RDC01021](rdc01021.md)|Unassigned variable usage|A local variable read where nothing has assigned it|
+|[RDC01022](rdc01022.md)|Assignment not used|A value assigned to a variable that nothing reads|
+|[RDC01023](rdc01023.md)|Parameter can be passed by value|A parameter passed by reference that its procedure never changes|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
 |[RDC11010](rdc11010.md)|Unresolved late-bound member access|A member of an `Object` that no class it can be of has: error 438 when it runs|

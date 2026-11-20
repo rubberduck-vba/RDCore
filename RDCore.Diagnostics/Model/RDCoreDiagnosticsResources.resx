@@ -597,6 +597,18 @@
   <data name="AssignedByValParameter_Fix" xml:space="preserve">
     <value>Copy &apos;{0}&apos; into a local variable &apos;{1}&apos;, and use it in place of the parameter</value>
   </data>
+  <data name="UnassignedVariableUsage_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is read before anything assigns it: it always has the default value of its type here.</value>
+  </data>
+  <data name="AssignmentNotUsed_Message" xml:space="preserve">
+    <value>The value assigned to &apos;{0}&apos; here is never read.</value>
+  </data>
+  <data name="ParameterCanBeByVal_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is passed by reference, and its procedure neither assigns it nor passes it on by reference: it can be passed by value.</value>
+  </data>
+  <data name="ParameterCanBeByVal_Fix" xml:space="preserve">
+    <value>Pass &apos;{0}&apos; by value</value>
+  </data>
   <data name="ConstantNotUsed_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; is never used.</value>
   </data>
