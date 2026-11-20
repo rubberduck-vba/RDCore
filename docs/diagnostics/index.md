@@ -140,6 +140,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09381](vbc09381.md)|User-defined type may not be passed ByVal|A parameter of a record is declared `ByVal`|
 |[VBC09382](vbc09382.md)|Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions|A record is given to a `Variant`|
 |[VBC09383](vbc09383.md)|There is no host application to evaluate the expression|A name in brackets, such as `[A1]`, names nothing that is declared|
+|[VBC09384](vbc09384.md)|Only valid in object module|A procedure of a standard module is declared `Friend`|
 |[VBC09385](vbc09385.md)|Not a legal object name|A module is named with a keyword of the language, such as `Circle`|
 
 ### Runtime errors
@@ -369,6 +370,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 |[RDC30001](rdc30001.md)|No entry point|`rdc run` or `rdc build` of a workspace with no `Sub Main`, an entry point the `.rdproj` names that nothing declares, or a library|
 |[RDC30002](rdc30002.md)|More than one entry point|`rdc run` or `rdc build` of a workspace where more than one standard module declares a `Sub Main`, and the `.rdproj` names none|
+|[RDC31001](rdc31001.md)|Circular reference of projects|A project that references itself, directly or through the projects it references|
 
 ---
 [ACCUEIL](../index.fr.md) • [HOME](../index.md) | ℹ️ [BIENVENUE](../introduction.fr.md) • [WELCOME](../introduction.md) | 🧩 [BÂTISSONS](../getting-started.fr.md) • [BUILD](../getting-started.md) | [**RD-VBAL**](../specs/rd-vbal.md) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
