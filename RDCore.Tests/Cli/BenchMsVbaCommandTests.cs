@@ -158,6 +158,23 @@ public sealed class BenchMsVbaCommandTests
             + "of process, so both cross a process boundary",
             ReferenceData.Method(5, 3, 7, 5));
         Assert.AreEqual("alternated rounds on one machine: 1 for the corpus (MS-VBA first); 3 runs a case, fastest run", ReferenceData.Method(1, 0, 3, 5));
+        Assert.AreEqual(
+            "alternated rounds on one machine: 1 for the corpus (MS-VBA first); 3 runs a case, fastest run; corpus cases warmed up first: RD-VBA by untimed runs "
+            + "of each case first, at least 2, until the JIT compiles nothing for 500 ms (at most 10 s), MS-VBA by 2 untimed runs",
+            ReferenceData.Method(1, 0, 3, 5, BenchWarmUp.UntilTheJitIsQuiet));
+    }
+
+    [TestMethod]
+    [TestCategory("CLI")]
+    public void Harness_RunsEachCaseUntimed_AsOftenAsRdcBenchAtTheFewest_BeforeItsTimedRuns()
+    {
+        var text = MsVbaHarness.ModuleText(Cases);
+
+        Assert.Contains($"Private Const WarmUpRuns As Long = {BenchWarmUp.UntilTheJitIsQuiet.Runs}\r\n", text);
+        var warmUp = text.IndexOf("        For R = 1 To WarmUpRuns\r\n            RunCase I\r\n        Next\r\n", StringComparison.Ordinal);
+        var timed = text.IndexOf("        For R = 1 To Runs\r\n            QueryPerformanceCounter T0\r\n", StringComparison.Ordinal);
+        Assert.IsGreaterThan(0, warmUp);
+        Assert.IsGreaterThan(warmUp, timed);
     }
 
     [TestMethod]
@@ -271,7 +288,7 @@ public sealed class BenchMsVbaCommandTests
         var root = document.RootElement;
         Assert.AreEqual("16.0 build 20527 (64-bit)", root.GetProperty("reference").GetProperty("excel").GetString());
         Assert.AreEqual("2026-11-17", root.GetProperty("reference").GetProperty("date").GetString());
-        Assert.AreEqual(ReferenceData.Method(3, 2, 2, 1), root.GetProperty("reference").GetProperty("method").GetString());
+        Assert.AreEqual(ReferenceData.Method(3, 2, 2, 1, BenchWarmUp.UntilTheJitIsQuiet), root.GetProperty("reference").GetProperty("method").GetString());
         CollectionAssert.AreEqual(Cases, root.GetProperty("cases").EnumerateObject().Select(property => property.Name).ToArray());
         // the fastest of the rounds on each side: MS-VBA's third round and RD-VBA's second.
         Assert.AreEqual(0.1, root.GetProperty("cases").GetProperty("Arrays.BenchFill").GetProperty("msvba").GetDouble(), 1e-9);

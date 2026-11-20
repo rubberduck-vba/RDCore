@@ -67,6 +67,8 @@ internal static partial class MsVbaHarness
         Line("Private Declare PtrSafe Function GetCurrentProcessId Lib \"kernel32\" () As Long");
         Line();
         Line($"Private Const CaseCount As Long = {cases.Count.ToString(CultureInfo.InvariantCulture)}");
+        Line("'  the untimed runs of each case before its timed ones, as rdc bench makes at the fewest: MS-VBA compiles a procedure the first time it is called.");
+        Line($"Private Const WarmUpRuns As Long = {BenchWarmUp.UntilTheJitIsQuiet.Runs.ToString(CultureInfo.InvariantCulture)}");
         Line("Private Target As Object");
         Line();
         Line("Private Function CaseName(ByVal Index As Long) As String");
@@ -89,13 +91,17 @@ internal static partial class MsVbaHarness
         Line("    End Select");
         Line("End Sub");
         Line();
-        Line("'  each case, Runs times, a line each: \"Module.Case|us;us;...\", or \"Module.Case|error <number> <description>\" for a case that raises.");
+        Line("'  each case, WarmUpRuns times untimed, then Runs times, a line each: \"Module.Case|us;us;...\", or \"Module.Case|error <number> <description>\" for a");
+        Line("'  case that raises.");
         Line("Public Function TimeCorpus(ByVal Runs As Long) As String");
         Line("    Dim F As Currency, T0 As Currency, T1 As Currency, I As Long, R As Long, Entry As String, Result As String");
         Line("    QueryPerformanceFrequency F");
         Line("    For I = 1 To CaseCount");
         Line("        Entry = CaseName(I) & \"|\"");
         Line("        On Error GoTo Failed");
+        Line("        For R = 1 To WarmUpRuns");
+        Line("            RunCase I");
+        Line("        Next");
         Line("        For R = 1 To Runs");
         Line("            QueryPerformanceCounter T0");
         Line("            RunCase I");
@@ -269,7 +275,8 @@ internal static class ReferenceData
     /// <param name="excelRounds">The first rounds that run the Excel automation cases as well; none when 0.</param>
     /// <param name="runs">The runs of a case of the corpus, per round.</param>
     /// <param name="excelRuns">The runs of an Excel automation case, per round.</param>
-    public static string Method(int rounds, int excelRounds, int runs, int excelRuns)
+    /// <param name="warmUp">How RD-VBA warms up each case of the corpus, and MS-VBA its fewest runs of it; neither does when <see langword="null"/>.</param>
+    public static string Method(int rounds, int excelRounds, int runs, int excelRuns, BenchWarmUp? warmUp = null)
     {
         var text = new StringBuilder(string.Create(CultureInfo.InvariantCulture, $"alternated rounds on one machine: {rounds} for the corpus"));
         if (excelRounds > 0)
@@ -285,6 +292,12 @@ internal static class ReferenceData
         }
 
         text.Append(", fastest run");
+        if (warmUp is not null)
+        {
+            text.Append(CultureInfo.InvariantCulture,
+                $"; corpus cases warmed up first: RD-VBA by {warmUp.Describe()}, MS-VBA by {warmUp.Runs} untimed runs");
+        }
+
         if (excelRounds > 0)
         {
             text.Append("; MS-VBA runs the Excel automation cases from a second Excel instance, as RD-VBA runs them out of process, so both cross a process boundary");

@@ -29,6 +29,9 @@ internal sealed class BenchCommandOptions
     [Option('e', "engine", HelpText = "What runs the cases: Interpreter or Compiled. The configured engine when omitted.")]
     public RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine? Engine { get; set; }
 
+    [Option("no-warm-up", HelpText = "Time each case from its first run, with no untimed runs before it while the JIT settles.")]
+    public bool NoWarmUp { get; set; }
+
     [Option("format", HelpText = "Time formatting every module instead: its parse, and its indentation from that parse, with the default settings and with every alignment on.")]
     public bool Format { get; set; }
 }
@@ -98,9 +101,12 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
                 return 0;
             }
 
+            // tiered compilation settles a case's code over its first runs, for a number of them that differs from one process to the next.
+            var warmUp = options.NoWarmUp ? null : BenchWarmUp.UntilTheJitIsQuiet;
             var report = await runner.RunAsync(
-                workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine), name => Output.WriteLine($"  running {name}"), token);
-            WriteReport(report, options.List);
+                workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine, warmUp), name => Output.WriteLine($"  running {name}"),
+                token);
+            WriteReport(report, options.List, warmUp);
             return report.Problems.Count > 0 || report.Cases.Any(benchCase => benchCase.Error is not null) ? 1 : 0;
         }
         finally
@@ -152,7 +158,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         Output.WriteLine($"workspace  {(builtIn ? Resources.Bench_BuiltInCorpus : workspace.Root)} ({workspace.Modules.Count} modules)");
     }
 
-    private void WriteReport(BenchReport report, bool listOnly)
+    private void WriteReport(BenchReport report, bool listOnly, BenchWarmUp? warmUp)
     {
         Output.WriteLine();
         Output.WriteLine($"{"parse",-10}{Milliseconds(report.Parse),12}");
@@ -169,6 +175,14 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         if (report.Indent is { } indent)
         {
             Output.WriteLine($"{"indent",-10}{Milliseconds(indent),12}  ({BenchRunner.ProgramLines.ToString("N0", CultureInfo.InvariantCulture)} lines)");
+        }
+
+        if (!listOnly)
+        {
+            // the untimed runs made before the timed ones, over every case: no figure of the cases' comes from them.
+            Output.WriteLine(warmUp is null
+                ? $"{"warm-up",-10}{"none",12}"
+                : $"{"warm-up",-10}{report.Cases.Sum(benchCase => benchCase.WarmUpRuns).ToString("N0", CultureInfo.InvariantCulture),12} runs: {warmUp.Describe()}");
         }
 
         foreach (var problem in report.Problems)
