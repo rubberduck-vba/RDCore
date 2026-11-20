@@ -11,7 +11,7 @@ namespace RDCore.Parsing.Syntax;
 /// <c>Expected: …</c>, at the token where what it expects is missing.
 /// </summary>
 /// <remarks>
-/// MS-VBA compiles the module from its first procedure on line by line, and says of a line it cannot read only that it is a syntax error: from the start of
+/// MS-VBA compiles the module from its first procedure on, line by line, and says of a line it cannot read only that it is a syntax error: from the start of
 /// the line, its indentation, label or line number, to its last character, its comment and the lines it continues on included. The declarations of the
 /// module and the header of its first procedure it reads token by token, and says what it expected where it found something else: an identifier, a type
 /// name, an expression, the end of the statement, and so on. Where the grammar does not tell which of those it expected, the error is
