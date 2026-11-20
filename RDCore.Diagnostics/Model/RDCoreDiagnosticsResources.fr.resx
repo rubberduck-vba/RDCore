@@ -306,6 +306,9 @@
   <data name="FunctionReturnValueDiscarded_Message" xml:space="preserve">
     <value>La fonction &apos;{0}&apos; est appelée comme une instruction : la valeur qu&apos;elle renvoie est perdue.</value>
   </data>
+  <data name="FunctionReturnValueAlwaysDiscarded_Message" xml:space="preserve">
+    <value>Chaque appel de la fonction &apos;{0}&apos; perd la valeur qu&apos;elle renvoie : elle peut être une Sub.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>Le mot-clé Rem est obsolète : un commentaire commence par une apostrophe (').</value>
   </data>

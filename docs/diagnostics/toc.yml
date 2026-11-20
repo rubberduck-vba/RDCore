@@ -478,6 +478,8 @@
   href: rdc00215.md
 - name: "RDC00216: Function result discarded"
   href: rdc00216.md
+- name: "RDC00217: Function result always discarded"
+  href: rdc00217.md
 - name: "RDC00218: IsMissing of a Variant that is not Optional"
   href: rdc00218.md
 - name: "RDC00302: Obsolete Call statement"
