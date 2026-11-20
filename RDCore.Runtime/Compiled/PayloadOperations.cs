@@ -238,6 +238,21 @@ public static class PayloadOperations
     }
 
     /// <summary>
+    /// <c>left ^ right</c>, of two <c>Double</c>s (<strong>MS-VBAL §5.6.9.3.7</strong>): the left operand raised to the power of the right, 1 when both are
+    /// 0, as the boxed evaluation computes it (<see cref="Math.Pow"/>). It declines 0 raised to a negative power, which is error 5, and a power that is no
+    /// finite number: of a negative number raised to a fraction, error 5; past the range of a <c>Double</c>, error 6. The boxed evaluation raises them.
+    /// </summary>
+    /// <param name="left">The base.</param>
+    /// <param name="right">The exponent.</param>
+    /// <param name="result">The power.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PayloadStatus Power(double left, double right, out double result)
+    {
+        result = Math.Pow(left, right);
+        return left == 0 && right < 0 || !double.IsFinite(result) ? PayloadStatus.Decline : PayloadStatus.Ok;
+    }
+
+    /// <summary>
     /// A logical operation (<strong>MS-VBAL §5.6.9.8</strong>): the bits of the operands, in an integer type or a <c>Boolean</c> - a <c>Boolean</c>'s -1 or
     /// 0 giving -1 or 0.
     /// </summary>

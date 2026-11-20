@@ -1915,7 +1915,7 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // TryOperateBinary: each operand converted to the type the plan coerces them to, then the operation of the effective type - an integral operation, a
-    // comparison or a logical one.
+    // comparison or a logical one; and ^, which the boxed evaluation computes.
     private PayloadNode? Operate(OperationPlan plan, PayloadNode left, PayloadNode right, BoundBinary binary)
     {
         if (ScalarKinds.Of(plan.OperandDestination) is not { } destination || ScalarKinds.Of(plan.EffectiveType) is not { } effective)
@@ -1938,6 +1938,12 @@ internal sealed partial class ProcedureAnalysis
         if (OperatorTokens.LogicalOf(plan.Operator) is { } logical && ScalarKinds.IsIntegral(destination))
         {
             return new LogicalNode(logical, l, r, effective);
+        }
+
+        // MS-VBAL §5.6.9.3.7: ^ is of Doubles, its operands let-coerced to Double.
+        if (plan.Operator is Tokens.PowerOp && destination is ScalarKind.Double && effective is ScalarKind.Double)
+        {
+            return new PowerNode(l, r);
         }
 
         return Unsupported(binary);

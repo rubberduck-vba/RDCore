@@ -190,6 +190,9 @@ internal sealed record class IntegralNode(string Token, PayloadNode Left, Payloa
 // PayloadOperations.Logical.
 internal sealed record class LogicalNode(LogicalOperator Operator, PayloadNode Left, PayloadNode Right, ScalarKind Kind) : PayloadNode(Kind);
 
+// PayloadOperations.Power, of two Doubles: a Double (MS-VBAL §5.6.9.3.7). A power it declines is the interpreter's, which raises the error.
+internal sealed record class PowerNode(PayloadNode Left, PayloadNode Right) : PayloadNode(ScalarKind.Double);
+
 // PayloadOperations.Compare, of two payloads of one kind: a Boolean.
 internal sealed record class CompareNode(ComparisonOperator Operator, PayloadNode Left, PayloadNode Right) : PayloadNode(ScalarKind.Boolean);
 
