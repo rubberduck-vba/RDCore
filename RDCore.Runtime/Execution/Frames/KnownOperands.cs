@@ -8,7 +8,7 @@ namespace RDCore.Runtime.Execution.Frames;
 /// <summary>
 /// What compiled code had evaluated of an instruction when it handed the activation to the interpreter in the middle of it: the value of each expression it
 /// had evaluated (a call it made, a variable it read before the call), which the interpreter takes as it is, and does not evaluate again. The interpreter
-/// knows so the calls among the arguments of a call it made ahead of the rest of them, too (<see cref="Hoist"/>).
+/// also knows this way the calls among the arguments of a call that it made ahead of the rest of them (<see cref="Hoist"/>).
 /// </summary>
 /// <remarks>
 /// An expression is named by where it is in its instruction's statement: its index in the statement's nodes, in the order they are written

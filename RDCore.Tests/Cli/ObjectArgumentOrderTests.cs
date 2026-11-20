@@ -94,6 +94,10 @@ public sealed class ObjectArgumentOrderTests
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(N + 0, Bump(N))", "11,11|", DisplayName = "an expression of a variable, left of a call that adds to it")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2((N), Bump(N))", "11,11|", DisplayName = "a variable in parentheses, left of a call that adds to it")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(CLng(N), Bump(N))", "11,11|", DisplayName = "a conversion of a variable, left of a call that adds to it")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(CSng(N), Bump(N))", "11,11|", DisplayName = "CSng")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(CLngLng(N)), CStr(Bump(N)))", "11,11|", DisplayName = "CLngLng")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(CLngPtr(N)), CStr(Bump(N)))", "11,11|", DisplayName = "CLngPtr")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(N), CStr(Bump(N)))", "11,11|", DisplayName = "CStr")]
     [DataRow("Dim N As Long ;; N = 1 ;; Both2 N, Bump(N) ;; P Trail", "11,11|", DisplayName = "a variable, left of a call, in a call statement")]
     [DataRow("Dim X As Box ;; Set X = New Box ;; P Pair(X, Swapped(X)) ;; P Trail", "2,1:i1 i2 |i1 i2 t1 |",
         DisplayName = "an object variable, left of a call that gives it another object by reference")]
@@ -146,6 +150,7 @@ public sealed class ObjectArgumentOrderTests
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(Val(CStr(N)), Bump(N))", "1,11|", DisplayName = "Val")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(Sqr(N), Bump(N))", "1,11|", DisplayName = "Sqr")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(Round(N), Bump(N))", "1,11|", DisplayName = "Round")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(CDec(N)), CStr(Bump(N)))", "1,11|", DisplayName = "CDec")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Join2(Format$(N), CStr(Bump(N)))", "1,11|", DisplayName = "Format$")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Join2(Hex$(N), CStr(Bump(N)))", "1,11|", DisplayName = "Hex$")]
     [DataRow("Dim N As Long ;; N = 1 ;; P \"[\" ;; P Join2(Str$(N), CStr(Bump(N)))", "[| 1,11|", DisplayName = "Str$")]
@@ -341,7 +346,8 @@ public sealed class ObjectArgumentOrderTests
     [DataRow("P Tg2(1).Sum2F(Len(Trail), 0) ;; P Trail", "0,0|t1 sum |", DisplayName = "a function, inside an expression")]
     [DataRow("Tg2(Ix(\"i\", 1)).Take1 Len(Trail) ;; P Trail", "i t1 take(0) |", DisplayName = "a function given a call")]
     [DataRow(AnObject + "B.KidS(Ix(\"i\", 1)).Take1 Len(Trail) ;; P Trail", "i kid(1) take(2) |", DisplayName = "a Property Get given a call")]
-    [DataRow(AnObject + "B.KidS(1).Take2 Len(Trail), Vl(\"v\", 5) ;; P Trail", "v kid(1) take(2,5) |", DisplayName = "a Property Get, after the last argument")]
+    [DataRow(AnObject + "B.KidS(1).Take2 Len(Trail), Vl(\"v\", 5) ;; P Trail", "v kid(1) take(2,5) |",
+        DisplayName = "a Property Get, after the last argument")]
     [DataRow("Tg2(1).Take2 Vl(\"v\", 5), Len(Trail) ;; P Trail", "v t1 take(5,2) |", DisplayName = "a function, after the calls")]
     [DataRow(AnObject + "B.Me1.Take1 Len(Trail) ;; P Trail", "me take(0) |", DisplayName = "a Property Get with no argument")]
     [DataRow(AnObject + "P B.KidS(1).Sum2F(Len(Trail), 0) ;; P Trail", "0,0|kid(1) sum |", DisplayName = "a Property Get, inside an expression")]

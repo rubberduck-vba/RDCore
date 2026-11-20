@@ -121,6 +121,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBLongLongValue> CLngLng([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -132,6 +133,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBLongPtrValue> CLngPtr([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -142,6 +144,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBSingleValue> CSng([StdLibValue] VBVariantValue expression);
 
     /// <summary>

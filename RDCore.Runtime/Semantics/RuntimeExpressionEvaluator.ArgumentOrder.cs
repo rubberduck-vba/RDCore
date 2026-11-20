@@ -162,7 +162,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return null;
         }
 
-        // whether an argument reads what a call could change: one passed by value, or one that is no reference, but a literal.
+        // whether an argument reads what a call could change: one passed by value, or one that is not a reference and not a literal.
         bool AnyRead()
             => given.IsDefault
                 ? values.Any(static value => value is not null and not BoundLiteral && !IsReference(value))
