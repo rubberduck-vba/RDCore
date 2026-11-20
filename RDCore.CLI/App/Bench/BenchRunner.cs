@@ -237,8 +237,7 @@ internal sealed class BenchRunner(
             cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, options.WarmUp, token));
         }
 
-        // a bench of its own, run when the filter selects it: a run of one case does not wait for it, and it is run as many times as it needs whatever the
-        // cases' count is.
+        // a bench of its own, run when the filter selects it: a run of one case does not wait for it, and it is run IndentRuns times whatever --runs says.
         var indent = options.ListOnly || !Selected(IndentName, options.Filter) ? (TimeSpan?)null : IndentProgram(IndentRuns);
 
         // how compiled code made its calls: what says which way a case that calls ran.
