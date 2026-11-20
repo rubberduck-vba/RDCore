@@ -52,10 +52,11 @@ internal static class ExpressionFactDescriber
             }
 
             case MemberAccessExpressionNode access:
-                return DescribeMember(context, facts, access.Owner, access.Member.IdentifierName, type, expression, 0, error);
+                return DescribeMember(context, facts, access.Owner, access.Member, type, expression, 0, error);
 
             case DictionaryAccessExpressionNode dictionary:
-                return DescribeMember(context, facts, dictionary.Owner, dictionary.Member.IdentifierName, type, expression, ValueExpressionSemanticFlags.DictionaryAccess, error);
+                return DescribeMember(
+                    context, facts, dictionary.Owner, dictionary.Member, type, expression, ValueExpressionSemanticFlags.DictionaryAccess, error);
 
             case IndexExpressionNode index:
                 return DescribeIndex(context, facts, index, type, error);
@@ -97,9 +98,11 @@ internal static class ExpressionFactDescriber
     }
 
     private static ExpressionFact DescribeMember(
-        StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode? owner, string memberName, VBType? type,
+        StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode? owner, SimpleNameExpressionNode written, VBType? type,
         ExpressionNode expression, ValueExpressionSemanticFlags kind, VBCompileErrorInfo? error)
     {
+        var memberName = written.IdentifierName;
+
         ExpressionFact Fact(ExpressionClassification classification, Symbol? binding, ValueExpressionSemanticFlags flags)
             => MemberFacts.WithAccessors(context, facts, expression,
                 new(expression.Identity, expression.Location, type, classification, binding?.SemanticId, flags | BindingFlagsOf(binding), error)
@@ -113,7 +116,8 @@ internal static class ExpressionFactDescriber
         // MS-VBAL §5.6.12: the member of a project or of a procedural module is looked up in it.
         if (owner is not null && context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier)
         {
-            var member = context.Resolver.ResolveMember(qualifier, memberName, context.Scope.Uri).Symbol;
+            // a member written with a type character is looked for as written first: Strings.Left$ is not Strings.Left.
+            var member = context.Resolver.ResolveMember(qualifier, written, context.Scope.Uri).Symbol;
             return member is null
                 ? Fact(ExpressionClassification.Unknown, null, flags)
                 : Fact(ClassificationOf(member), member, flags | FlagsOf(member, memberName));
