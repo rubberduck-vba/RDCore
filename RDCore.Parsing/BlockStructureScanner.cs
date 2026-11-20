@@ -42,7 +42,10 @@ internal static class BlockStructureScanner
             var first = statement[0];
             switch (first.Type)
             {
+                // outside a procedure, Property with no Get, Let or Set (which the lexer reads as a name) is the header of one the grammar cannot read, and
+                // its error: the End Property after it ends it.
                 case VBALexer.SUB or VBALexer.FUNCTION or VBALexer.PROPERTY_GET or VBALexer.PROPERTY_LET or VBALexer.PROPERTY_SET:
+                case VBALexer.IDENTIFIER when !module.InProcedure && string.Equals(first.Text, "Property", StringComparison.OrdinalIgnoreCase):
                     open.Clear();
                     broken = false;
                     module.Enter();

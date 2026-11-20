@@ -6,15 +6,16 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.Parsing.Syntax;
 
 /// <summary>
-/// What MS-VBA says of a syntax error the grammar reports, and where it puts the caret (RD-VBAL §2.6.1): in the body of a procedure, <c>Syntax error</c>,
-/// over the whole line; outside it, in a procedure's header or a declaration of the module, <c>Expected: …</c>, at the token where what it expects is
-/// missing.
+/// What MS-VBA says of a syntax error the grammar reports, and where it puts the caret (RD-VBAL §2.6.1): in the body of a procedure, or in the header of a
+/// procedure after another, <c>Syntax error</c>, over the whole line; in a declaration of the module or the header of its first procedure,
+/// <c>Expected: …</c>, at the token where what it expects is missing.
 /// </summary>
 /// <remarks>
-/// MS-VBA compiles a procedure's body line by line, and says of a line it cannot read only that it is a syntax error: from the start of the line, its
-/// indentation, label or line number, to its last character, its comment and the lines it continues on included. A declaration and a procedure's header
-/// it reads token by token, and says what it expected where it found something else: an identifier, a type name, an expression, the end of the statement,
-/// and so on. Where the grammar does not tell which of those it expected, the error is <c>Syntax error</c> at the token.
+/// MS-VBA compiles the module from its first procedure on line by line, and says of a line it cannot read only that it is a syntax error: from the start of
+/// the line, its indentation, label or line number, to its last character, its comment and the lines it continues on included. The declarations of the
+/// module and the header of its first procedure it reads token by token, and says what it expected where it found something else: an identifier, a type
+/// name, an expression, the end of the statement, and so on. Where the grammar does not tell which of those it expected, the error is
+/// <c>Syntax error</c> at the token.
 /// </remarks>
 internal static class VBEWording
 {
@@ -24,12 +25,14 @@ internal static class VBEWording
     /// <param name="parser">The parser that found the error, as it is when it reports it.</param>
     /// <param name="offending">The token the parse failed at.</param>
     /// <param name="exception">The exception the parse raised for the error, if it raised one.</param>
+    /// <param name="afterAProcedure">Whether the text parsed is of the module after one of its procedures, a part of it parsed on its own.</param>
     /// <returns>The range MS-VBA marks, and its message.</returns>
-    public static (SourcePosition Start, SourcePosition End, string Message) Of(Parser parser, IToken offending, RecognitionException? exception)
+    public static (SourcePosition Start, SourcePosition End, string Message) Of(Parser parser, IToken offending, RecognitionException? exception,
+        bool afterAProcedure)
     {
         var tokens = (ITokenStream)parser.InputStream;
         var context = exception?.Context as ParserRuleContext ?? parser.Context;
-        if (InAProcedureBody(context, offending))
+        if (afterAProcedure || ReadLineByLine(context, offending))
         {
             var (start, end) = LineOf(tokens, offending);
             return (start, end, Exceptions.VBCompileError_SyntaxError_Verbose);
@@ -40,24 +43,34 @@ internal static class VBEWording
         return (at, to, Expected(parser, tokens, offending, context, exception) ?? Exceptions.VBCompileError_SyntaxError_Verbose);
     }
 
-    // whether the token is in the body of a procedure: in its block, or after its header, where the parse failed to read the block's end.
-    private static bool InAProcedureBody(RuleContext? context, IToken offending)
+    // whether MS-VBA reads the line the token is on line by line: in the block of a procedure, after its header where the parse failed to read the block's
+    // end, or anywhere after the header of the module's first procedure (a procedure after another, its header included).
+    private static bool ReadLineByLine(RuleContext? context, IToken offending)
     {
-        for (; context is not null; context = context.Parent)
+        for (var outer = context; outer is not null; outer = outer.Parent)
         {
-            switch (context)
+            switch (outer)
             {
                 case VBAParser.BlockContext:
                     return true;
-                case VBAParser.SubStmtContext or VBAParser.FunctionStmtContext or VBAParser.PropertyGetStmtContext or VBAParser.PropertyLetStmtContext
-                    or VBAParser.PropertySetStmtContext:
-                    var header = ((ParserRuleContext)context).GetChild<VBAParser.EndOfStatementContext>(0);
-                    return header?.Stop is { } end && offending.TokenIndex > end.TokenIndex;
+                case ParserRuleContext procedure when IsAProcedure(procedure) && AfterTheHeaderOf(procedure, offending):
+                    return true;
+                case VBAParser.ModuleContext module:
+                    return module.moduleBody()?.moduleBodyElement(0)?.children?.OfType<ParserRuleContext>().FirstOrDefault(IsAProcedure) is { } first
+                        && AfterTheHeaderOf(first, offending);
             }
         }
 
         return false;
     }
+
+    private static bool IsAProcedure(ParserRuleContext context)
+        => context is VBAParser.SubStmtContext or VBAParser.FunctionStmtContext or VBAParser.PropertyGetStmtContext or VBAParser.PropertyLetStmtContext
+            or VBAParser.PropertySetStmtContext;
+
+    // whether the token is after the header of the procedure: after the end of its first statement.
+    private static bool AfterTheHeaderOf(ParserRuleContext procedure, IToken offending)
+        => procedure.GetChild<VBAParser.EndOfStatementContext>(0)?.Stop is { } end && offending.TokenIndex > end.TokenIndex;
 
     // the line the token is on, as MS-VBA marks it: from its start to its last character that is no blank, through the lines it continues on.
     private static (SourcePosition Start, SourcePosition End) LineOf(ITokenStream tokens, IToken offending)

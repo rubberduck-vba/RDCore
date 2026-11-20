@@ -356,7 +356,10 @@ public partial class ModuleParser(
             // the segment's lines, each with the line ending it had in the module.
             var text = string.Join('\n', lines[segment.StartLine..segment.EndLine]) + (segment.EndLine < lines.Length ? "\n" : string.Empty);
             var start = new SourcePosition(segment.StartLine, 0).AnchoredAt(anchorOffset);
-            var segmentErrors = new ErrorListener(uri, start);
+            var segmentErrors = new ErrorListener(uri, start)
+            {
+                AfterAProcedure = children.Any(IsProcedure),
+            };
             var first = next;
             DeclarationsParseTreeListener listener;
             try
@@ -471,7 +474,11 @@ public partial class ModuleParser(
         return ast with { Children = [.. children] };
     }
 
-    private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode and not ExternalMemberDeclarationNode;
+    // a Sub, a Function or a Property: a member declaration is also a field, a Type, an Enum, an Event or a Declare.
+    private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode
+    {
+        MemberKind: MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet,
+    };
 
     private static ModuleNode EmptyModule(Uri uri, SourceRange wholeText)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, wholeText), []);
@@ -1329,7 +1336,10 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         : error)];
 
     // a listener of the same module and anchor, with no error yet.
-    public ErrorListener Fresh() => new(_uri, anchorOffset);
+    public ErrorListener Fresh() => new(_uri, anchorOffset) { AfterAProcedure = AfterAProcedure };
+
+    // whether the text parsed is of the module after one of its procedures, a part of it parsed on its own: MS-VBA reads all of it line by line (VBEWording).
+    public bool AfterAProcedure { get; init; }
 
     public void SyntaxError([NotNull] IRecognizer recognizer, [Nullable] IToken offendingSymbol, int line, int charPositionInLine, [NotNull] string msg, [Nullable] RecognitionException e)
     {
@@ -1372,7 +1382,7 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _errors.Add(error);
         if (recognizer is Parser parser && offendingSymbol is not null)
         {
-            var (from, to, message) = VBEWording.Of(parser, offendingSymbol, e);
+            var (from, to, message) = VBEWording.Of(parser, offendingSymbol, e, AfterAProcedure);
             _inTheVBEsWords[error] = (new SourceRange(from.AnchoredAt(anchorOffset), to.AnchoredAt(anchorOffset)), message);
         }
     }
