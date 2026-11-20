@@ -1,13 +1,15 @@
-﻿using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The environment host counts the references to a declaration that every module of the project can refer to, and nothing outside the project can, over every
-/// module of the project: a <c>Friend</c> procedure (MS-VBAL §5.3.1.1), and a <c>Public</c> variable or constant of a module that is
-/// <c>Option Private Module</c> (MS-VBAL §5.2.1.4). Each counted reference is stated with where it is.
+/// module of the project: a <c>Friend</c> procedure (MS-VBAL §5.3.1.1), a <c>Public</c> variable or constant of a module that is
+/// <c>Option Private Module</c> (MS-VBAL §5.2.1.4), and a <c>Public</c> member of a program, whose run starts at its entry point. A library's members that
+/// a referencing project can use count as used by one. Each counted reference is stated with where it is.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 5.0.3 Semantic Analysis")]
@@ -36,9 +38,9 @@ public sealed class ProjectReferenceCountTests
 
     private static async Task<ModuleSemanticsDto> ModelOfAsync(
         string name, string program, IReadOnlyList<(string Name, string Source)>? classes = null, IReadOnlyList<(string Name, string Source)>? modules = null,
-        string moduleName = "")
+        string moduleName = "", ProjectBuild? build = null)
     {
-        var payload = await ModuleWorkspace.SemanticsAsync(classes ?? [Counter], program, moduleName, modules: modules);
+        var payload = await ModuleWorkspace.SemanticsAsync(classes ?? [Counter], program, moduleName, modules: modules, build: build);
         return payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == name);
     }
 
@@ -153,31 +155,151 @@ public sealed class ProjectReferenceCountTests
     }
 
     [TestMethod]
-    public async Task APublicConstantOfAPublicModule_HasNoCount_TheProjectsThatReferenceThisOneCanReferToIt()
+    public async Task APublicConstantOfAProgramsModule_IsCountedAcrossTheProject()
     {
         var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Debug.Print Limit", "End Sub"),
-            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Public Const Limit As Long = 10"))]);
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Public Const Limit As Long = 10", "Public Const Unread As Long = 1"))]);
 
-        Assert.IsNull(Declaration(model, "Limit").References);
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(model, "Limit").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unread").References);
     }
 
     [TestMethod]
-    public async Task APublicVariableOfAPublicModule_HasNoCount_TheProjectsThatReferenceThisOneCanReferToIt()
+    public async Task APublicVariableOfAProgramsModule_IsCountedAcrossTheProject()
     {
         var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Total = 1", "End Sub"),
-            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Public Total As Long"))]);
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Public Total As Long", "Public Unread As Long"))]);
 
-        Assert.IsNull(Declaration(model, "Total").References);
-        Assert.IsNull(Declaration(model, "Total").ReferencedFrom);
+        Assert.AreEqual(new DeclarationReferences(0, 1, 0), Declaration(model, "Total").References);
+        Assert.HasCount(1, Declaration(model, "Total").ReferencedFrom!.Value);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unread").References);
     }
 
     [TestMethod]
-    public async Task APublicProcedureOfAPrivateModule_HasNoCount_AStringCanNameIt()
+    public async Task APublicFunctionOfAProgramsModule_IsCountedAcrossTheProject()
+    {
+        var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Debug.Print Used(1)", "End Sub"),
+            modules: [("Common", ModuleWorkspace.StandardModule("Common",
+                "Public Function Used(ByVal n As Long) As Long", "Used = n", "End Function",
+                "Function Unused() As Long", "End Function"))]);
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(model, "Used").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unused").References, "a function with no access modifier is Public");
+    }
+
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsClass_IsCountedAcrossTheProject()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter", "Public Total As Long", "Public Unread As Long"));
+        var model = await ModelOfAsync("Counter", Program("Public Sub Main()", "Dim c As New Counter", "c.Total = 1", "End Sub"), classes: [counter]);
+
+        Assert.AreEqual(new DeclarationReferences(0, 1, 0), Declaration(model, "Total").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unread").References);
+    }
+
+    [TestMethod]
+    public async Task APublicProcedureOfAProgramsPrivateModule_IsCountedAcrossTheProject()
     {
         var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Helper", "End Sub"),
             modules: [("Common", ModuleWorkspace.StandardModule("Common", "Option Private Module", "Public Sub Helper()", "End Sub"))]);
 
-        Assert.IsNull(Declaration(model, "Helper").References);
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(model, "Helper").References);
+    }
+
+    [TestMethod]
+    public async Task TheEntryPoint_HasNoCount_ARunCallsIt()
+    {
+        var main = Declaration(await ModelOfAsync("Program", Program(UsesCounter)), "Main");
+
+        Assert.AreEqual(DeclarationRole.EntryPoint, main.Role);
+        Assert.IsNull(main.References);
+    }
+
+    [TestMethod]
+    public async Task AProgramsEventHandlerAndImplementation_HaveNoCount_TheirCallerIsNoExpression()
+    {
+        (string, string) shape = ("IShape", ModuleWorkspace.ClassModule("IShape", "Public Sub Draw()", "End Sub"));
+        (string, string) square = ("Square", ModuleWorkspace.ClassModule("Square",
+            "Implements IShape",
+            "Public Sub IShape_Draw()", "End Sub",
+            "Public Sub Class_Initialize()", "End Sub"));
+        var program = Program("Public Sub Main()", "Dim s As IShape", "Set s = New Square", "s.Draw", "End Sub");
+        var model = await ModelOfAsync("Square", program, classes: [shape, square]);
+
+        Assert.AreEqual(DeclarationRole.InterfaceImplementation, Declaration(model, "IShape_Draw").Role);
+        Assert.IsNull(Declaration(model, "IShape_Draw").References);
+        Assert.AreEqual(DeclarationRole.EventHandler, Declaration(model, "Class_Initialize").Role);
+        Assert.IsNull(Declaration(model, "Class_Initialize").References);
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(await ModelOfAsync("IShape", program, classes: [shape, square]), "Draw").References,
+            "the interface's member is called through it");
+    }
+
+    [TestMethod]
+    public async Task AMemberOfAProgramsClassThatAnAccessBoundLateNames_HasNoCount()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter", "Public Total As Long", "Public Sub Reset()", "End Sub"));
+        var model = await ModelOfAsync("Counter",
+            Program("Public Sub Main()", "Dim o As Object", "Set o = New Counter", "o.Total = 1", "End Sub"), classes: [counter]);
+
+        Assert.IsNull(Declaration(model, "Total").References, "the access bound late may be its");
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Reset").References, "no access names it");
+    }
+
+    [TestMethod]
+    public async Task NoMemberOfAProgramsClass_HasACount_WhenTheProgramCallsByName()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter", "Public Sub Reset()", "End Sub"));
+        var model = await ModelOfAsync("Counter",
+            Program("Public Sub Main()", "Dim c As New Counter", "CallByName c, \"Re\" & \"set\", vbMethod", "End Sub"), classes: [counter]);
+
+        Assert.IsNull(Declaration(model, "Reset").References);
+    }
+
+    [TestMethod]
+    public async Task TheDefaultMemberOfAProgramsClass_HasNoCount_AnObjectUsedAsAValueCallsIt()
+    {
+        (string, string) holder = ("Holder", ModuleWorkspace.ClassModule("Holder",
+            "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "Value = 1", "End Property"));
+        var model = await ModelOfAsync("Holder", Program("Public Sub Main()", "Dim h As New Holder", "Debug.Print h", "End Sub"), classes: [holder]);
+
+        Assert.IsNull(Declaration(model, "Value").References);
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfAProjectWithNoEntryPoint_HasNoCount_ItsHostCanCallIt()
+    {
+        var model = await ModelOfAsync("Common", Program("Public Sub Run()", "Debug.Print Used()", "End Sub"),
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Public Total As Long", "Public Function Used() As Long", "End Function"))]);
+
+        Assert.IsNull(Declaration(model, "Used").References);
+        Assert.IsNull(Declaration(model, "Total").References);
+    }
+
+    [TestMethod]
+    public async Task ALibrarysMemberThatAReferencingProjectCanUse_CountsAsUsed_AndHasNoCount()
+    {
+        (string, string) exposed = ("Shape", ModuleWorkspace.ClassModule("Shape", "Attribute VB_Exposed = True", "Public Sub Draw()", "End Sub"));
+        (string, string) inner = ("Inner", ModuleWorkspace.ClassModule("Inner", "Public Sub Hidden()", "End Sub", "Friend Sub Counted()", "End Sub"));
+        var build = new ProjectBuild { OutputType = ProjectOutputType.Library };
+        var modules = new[]
+        {
+            ("Common", ModuleWorkspace.StandardModule("Common", "Public Total As Long", "Public Function Used() As Long", "End Function")),
+            ("Private", ModuleWorkspace.StandardModule("Private", "Option Private Module", "Public Sub Helper()", "End Sub")),
+        };
+        async Task<ModuleSemanticsDto> ModelOf(string name)
+            => await ModelOfAsync(name, Program("Public Sub Run()", "End Sub"), [exposed, inner], modules, build: build);
+
+        var shared = await ModelOf("Common");
+        Assert.IsTrue(Declaration(shared, "Used").IsUsedByReferencingProjects);
+        Assert.IsNull(Declaration(shared, "Used").References);
+        Assert.IsTrue(Declaration(shared, "Total").IsUsedByReferencingProjects);
+        Assert.IsTrue(Declaration(await ModelOf("Shape"), "Draw").IsUsedByReferencingProjects, "the class is exposed");
+
+        var hidden = Declaration(await ModelOf("Inner"), "Hidden");
+        Assert.IsTrue(hidden.IsUsedByReferencingProjects, "no referencing project can name the class, and an object of it can be passed to one");
+        Assert.IsNull(hidden.References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(await ModelOf("Inner"), "Counted").References, "a Friend member is counted");
+        Assert.IsFalse(Declaration(await ModelOf("Private"), "Helper").IsUsedByReferencingProjects, "a private module is no name of a referencing project");
     }
 
     [TestMethod]
