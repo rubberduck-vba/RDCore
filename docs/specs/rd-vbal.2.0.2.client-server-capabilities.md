@@ -694,7 +694,7 @@ The range is on the declaration of a variable or on a use of it. The declaration
 
 |A variable of a module, declared|Changes|Code|
 |---|---|---|
-|`Static`|Nothing: it keeps its value between calls. In a class module, each object keeps its own, as it did ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|None.|
+|`Static`|Nothing: it keeps its value between calls. In a class module, each object keeps its own, as it does of the variable of the class ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|None.|
 |`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
 
 `rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
