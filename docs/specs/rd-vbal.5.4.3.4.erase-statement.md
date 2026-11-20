@@ -33,7 +33,7 @@ at run time may change them.
 |---|---|
 |A resizable array|Set to an empty array of the same element type. The dimensions and the data are gone.|
 |A `Variant` holding an array|The same. The variable keeps storing a `Variant`.|
-|A fixed-size array|The dimensions stay. Every element is reset to its element type's default value.|
+|A fixed-size array|The dimensions stay. Every element is reset to its type's default value, a record's fixed-size array fields keeping their bounds.|
 |A function, or a property of a module|Called: an array it returns is a copy of its own, and nothing else changes; anything else is error 13 (`Erase Now`).|
 |Anything else|Runtime error 13, `Type mismatch`.|
 
