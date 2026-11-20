@@ -58,9 +58,6 @@
   <data name="MoveCloserToUsage_SharesItsLine" xml:space="preserve">
     <value>'{0}' is declared by a statement that shares its line with another statement.</value>
   </data>
-  <data name="MoveCloserToUsage_ModuleExtent" xml:space="preserve">
-    <value>'{0}' is a variable of each object of the class: declared Static in '{1}', it is a variable of the module, whose value every object shares.</value>
-  </data>
   <data name="MoveCloserToUsage_NotKept" xml:space="preserve">
     <value>'{0}' keeps its value between calls: declared with Dim in '{1}', it is initialized at each call.</value>
   </data>

@@ -309,6 +309,9 @@
   <data name="FunctionReturnValueAlwaysDiscarded_Message" xml:space="preserve">
     <value>Every call of function &apos;{0}&apos; discards the value it returns: it can be a Sub.</value>
   </data>
+  <data name="MoveFieldCloserToUsage_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; of the module is used only in &apos;{1}&apos;: it can be declared there.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>

@@ -94,6 +94,7 @@ public enum RDCoreDiagnosticId
     EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public or Global variable of a module, which any code can assign
     SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
     ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
+    MoveFieldCloserToUsage = 413, // [RD2:MoveFieldCloserToUsageInspection] a variable of the module that only one procedure refers to: it can be a local
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,

@@ -522,6 +522,8 @@
   href: rdc00410.md
 - name: "RDC00411: Code in a class implemented as an interface"
   href: rdc00411.md
+- name: "RDC00413: Module variable used in one procedure"
+  href: rdc00413.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
