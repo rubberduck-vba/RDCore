@@ -21,7 +21,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// A procedure whose signature is not its own to choose is left out: an implementation of an interface member, a handler of an event, a <c>Declare</c>, an
 /// event, and a <c>Public</c> member of a class module, which may be a member of an interface (<strong>MS-VBAL §5.2.4.2</strong>). A parameter of an
-/// interface member or of an event is reported where it has implementations or handlers and none refers to its parameter at the same position, as the
+/// interface member or of an event is reported where it has implementations or handlers and none refers to its own parameter at that position, as the
 /// host states it over the project (<see cref="RDCore.SDK.Semantics.DeclarationFact.IsReferredToByABoundMember"/>). The fix removes a parameter of an
 /// interface member from its implementations too; an event's has none, since an event's parameters are not refactored.
 /// </remarks>

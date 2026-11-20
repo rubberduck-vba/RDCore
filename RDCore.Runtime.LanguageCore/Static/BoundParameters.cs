@@ -6,8 +6,8 @@ using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-// MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10: whether the implementations of an interface member, or the handlers of an event, refer to the parameter at the
-// position of each of its own (DeclarationFact.IsReferredToByABoundMember), over the modules of a project. The members bound to it are those the host binds
+// MS-VBAL §5.3.1.8, §5.3.1.9: whether the implementations of an interface member, or the handlers of an event, refer to their parameter at the position
+// of each of its own (DeclarationFact.IsReferredToByABoundMember), over the modules of a project. The members bound to it are those the host binds
 // (DeclarationFact.Binding), in any module of the project. Not stated for a member nothing is bound to, nor for one a referencing project may bind to: a
 // member of an exposed class, or of a library project. Where a member bound to it does not say what refers to its parameter, the answer is not known either.
 internal static class BoundParameters
