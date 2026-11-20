@@ -8,7 +8,7 @@
     <!-- the RDCore.Forms package the RDForms form host builds on (the RDCore.Forms and RDCore.Forms.Avalonia assemblies are inside it), and the Avalonia it is
          built with: the host starts Avalonia itself. A build on packages that are not published passes their version and feed, as -p:RDCoreSdkVersion,
          -p:RDCoreFormsVersion and -p:RestoreConfigFile. -->
-    <RDCoreFormsVersion>0.1.3-alpha</RDCoreFormsVersion>
+    <RDCoreFormsVersion>0.1.4-alpha</RDCoreFormsVersion>
     <AvaloniaVersion>12.0.5</AvaloniaVersion>
     <!-- the runtimes the platform is published for (release.yml builds a tree of each), and that rdc build can make a program for wherever it runs: the
          published rdc ships the .NET application host of each (RDCore.CLI.csproj), which tools/release/Test-PlatformTree.ps1 checks. -->
