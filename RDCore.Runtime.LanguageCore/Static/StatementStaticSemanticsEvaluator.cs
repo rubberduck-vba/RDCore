@@ -302,7 +302,7 @@ public static class StatementStaticSemanticsEvaluator
 
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
             CollectError(targetResult, walk);
-            MarkWritten(context, assignment.Target);
+            MarkWritten(context, assignment.Target, assignment.Kind is AssignmentKind.ExplicitLet or AssignmentKind.ImplicitLet);
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
 
             // what a Set statement assigns is an object, which a project, a module or an enumeration is not: a type mismatch (MS-VBA, observed in Excel),
@@ -790,16 +790,30 @@ public static class StatementStaticSemanticsEvaluator
         _ => [],
     };
 
-    // an expression a statement writes to is a fact of it: the element of an array is written through the array it is an element of.
-    private static void MarkWritten(StaticEvaluationContext context, ExpressionNode target)
+    // an expression a statement writes to is a fact of it: the element of an array is written through the array it is an element of. MS-VBAL §5.4.3.8: a
+    // Let of a variable of a class or Object is a Let of the default property of the object it holds, and an argument list given to an object goes to its
+    // default member (§5.6.13): what holds the object is read for it, and not written.
+    private static void MarkWritten(StaticEvaluationContext context, ExpressionNode target, bool isLet = false)
     {
         if (context.Facts is not { } facts)
         {
             return;
         }
 
+        if (isLet && facts.TryGet(target.Identity, out var assigned)
+            && assigned.Classification is SDK.Semantics.ExpressionClassification.Variable or SDK.Semantics.ExpressionClassification.Value
+            && IsAnObject(assigned))
+        {
+            return;
+        }
+
         while (target is IndexExpressionNode index)
         {
+            if (isLet && facts.TryGet(index.Callee.Identity, out var callee) && IsAnObject(callee))
+            {
+                return;
+            }
+
             target = index.Callee;
         }
 
@@ -807,6 +821,8 @@ public static class StatementStaticSemanticsEvaluator
         {
             facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.AssignmentTarget });
         }
+
+        static bool IsAnObject(ExpressionFact fact) => fact.DeclaredType is VBClassType or VBObjectType;
     }
 
     // an Exit For or Exit Do is checked against the loops it is lexically inside, so a body is walked with the kind of loop it belongs to counted. A loop

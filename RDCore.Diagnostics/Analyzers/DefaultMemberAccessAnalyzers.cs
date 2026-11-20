@@ -37,10 +37,12 @@ internal static class DefaultMemberAccesses
             .Where(assignment => assignment.ValueIsAnObject)
             .Select(assignment => assignment.Statement.Value.SourceLocation.Range)
             .ToHashSet();
+        // the target of a Let is what is assigned, and no operand of its conversion.
+        var targets = module.Descendants().OfType<AssignmentStatementNode>().Select(statement => statement.Target.SourceLocation.Range).ToHashSet();
         var converted = semantics.Procedures
             .SelectMany(procedure => (procedure.Runtime?.Conversions ?? [])
                 .Where(conversion => conversion.Flags.HasFlag(ConversionSemanticFlags.ObjectOperand))
-                .Select(conversion => OperandOf(procedure, conversion)))
+                .Select(conversion => OperandOf(procedure, conversion, targets)))
             .OfType<ExpressionFactDto>();
         // the static facts state it of the code the runtime pass does not reach as well: an operand after an error raised before it (x = CLng("abc") + h),
         // or a procedure it does not analyze fully.
@@ -78,12 +80,10 @@ internal static class DefaultMemberAccesses
 
         foreach (var statement in module.Descendants().OfType<AssignmentStatementNode>().Where(statement => statement.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet))
         {
-            // an element is written through its array, which is the assignment's target fact: the element's own fact is the one at the target, of the
-            // type the element holds.
+            // the target's fact is the one at the target: of the type an element holds, for an element. A Let of an object writes the default property of the
+            // object, which the target is read for (MS-VBAL §5.4.3.8), and is not flagged as written.
             var targetRange = statement.Target.SourceLocation.Range;
-            var isElement = statement.Target is IndexExpressionNode;
-            if (expressions.FirstOrDefault(fact => (isElement || fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget)) && fact.Location.Range == targetRange)
-                is not { } target)
+            if (expressions.FirstOrDefault(fact => fact.Location.Range == targetRange) is not { } target)
             {
                 continue;
             }
@@ -151,11 +151,11 @@ internal static class DefaultMemberAccesses
     /// <param name="declaredType">The declared type, as the host names it.</param>
     public static bool IsUnbound(string? declaredType) => string.Equals(declaredType, VBTypeNames.VBObject, StringComparison.OrdinalIgnoreCase);
 
-    // the outermost expression in the conversion whose declared type holds an object: a class, or Object.
-    private static ExpressionFactDto? OperandOf(ProcedureSemanticsDto procedure, ConversionFactDto conversion)
+    // the outermost expression in the conversion whose declared type holds an object: a class, or Object. The target of an assignment is not one.
+    private static ExpressionFactDto? OperandOf(ProcedureSemanticsDto procedure, ConversionFactDto conversion, HashSet<SourceRange> targets)
     {
         var candidates = procedure.Expressions
-            .Where(fact => !fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget)
+            .Where(fact => !fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) && !targets.Contains(fact.Location.Range)
                 && conversion.Location.Range.Contains(fact.Location.Range)
                 && HoldsAnObject(fact.DeclaredType))
             .ToArray();

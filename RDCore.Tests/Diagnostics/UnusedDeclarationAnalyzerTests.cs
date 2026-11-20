@@ -108,6 +108,30 @@ public sealed class UnusedDeclarationAnalyzerTests
         Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 3)]), fix.Edits.ApplyTo(ModuleWorkspace.StandardModule("Program", lines)));
     }
 
+    // MS-VBAL §5.4.3.8: a Let of an object assigns its default property, and reads the variable for the object.
+    [TestMethod]
+    public async Task AnObjectAssignedThroughItsDefaultMember_IsRead()
+    {
+        var holder = ModuleWorkspace.ClassModule("Holder",
+            "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "End Property",
+            "Public Property Let Value(ByVal v As Long)", "End Property");
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim h As New Holder",
+            "    h = 5",
+            "    Dim never As Holder",
+            "    never = 5",
+            "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([("Holder", holder)], program);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
+
+        Assert.IsEmpty(Run(new VariableNotUsedAnalyzer(), program, model, uri), "neither variable is only assigned: each is read for its object");
+        var notAssigned = Run(new VariableNotAssignedAnalyzer(), program, model, uri);
+        CollectionAssert.AreEqual(new[] { 5 }, Lines(notAssigned), "the variable no Set assigns is Nothing; not the one declared As New");
+    }
+
     [TestMethod]
     public void WithNoSemantics_NoVariableIsCounted()
         => Assert.IsEmpty(WithoutSemantics(new VariableNotUsedAnalyzer(), "Public Sub Main()", "    Dim unused As Long", "End Sub"));
