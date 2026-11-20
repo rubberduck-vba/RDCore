@@ -133,7 +133,8 @@ internal sealed record class BenchCase(
 /// <param name="Problems">What kept a module from being parsed or loaded. While there is any, no case is run: each is refused with it.</param>
 /// <param name="Indent">
 /// Indenting the shell's program of <see cref="BenchRunner.ProgramLines"/> lines as the shell does (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>), the
-/// fastest of the runs (<see cref="BenchOptions.Runs"/>, <c>--runs</c>): the same program whatever the workspace; none when the cases are only listed.
+/// fastest of <see cref="BenchRunner.IndentRuns"/> runs: the same program whatever the workspace; none when the cases are only listed, or when the filter does
+/// not select <see cref="BenchRunner.IndentName"/>.
 /// </param>
 /// <param name="DirectCalls">How many calls compiled code made of compiled procedures through their typed entries, over every run of every case.</param>
 /// <param name="IndirectCalls">How many calls compiled code made through the invoker, over every run of every case.</param>
@@ -187,6 +188,16 @@ internal sealed class BenchRunner(
     /// <summary>The lines of the shell's program whose indentation is timed: as many as a long paste at the prompt.</summary>
     public const int ProgramLines = 5000;
 
+    /// <summary>
+    /// The name the indentation of the shell's program goes by: a filter selects it as it selects a case.
+    /// </summary>
+    public const string IndentName = "Indent.Program";
+
+    /// <summary>
+    /// How many times the shell's program is indented, whatever <c>--runs</c> says: the fastest run is reported.
+    /// </summary>
+    public const int IndentRuns = 10;
+
     /// <summary>The environment the session is composed for: what runs the cases, and how they are built.</summary>
     public IRuntimeEnvironmentProfile Environment => environment;
 
@@ -226,7 +237,8 @@ internal sealed class BenchRunner(
             cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, options.WarmUp, token));
         }
 
-        var indent = options.ListOnly ? (TimeSpan?)null : IndentProgram(options.Runs);
+        // a bench of its own, run when the filter selects it: a run of one case does not wait for it, and it is run IndentRuns times whatever --runs says.
+        var indent = options.ListOnly || !Selected(IndentName, options.Filter) ? (TimeSpan?)null : IndentProgram(IndentRuns);
 
         // how compiled code made its calls: what says which way a case that calls ran.
         var (direct, indirect) = provider.Image.CompiledCalls;
