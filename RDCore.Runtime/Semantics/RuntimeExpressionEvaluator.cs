@@ -1989,7 +1989,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// the path in (<see cref="Statements.LetAssignmentEvaluator"/>).
     /// </summary>
     /// <param name="evaluated">The lists, evaluated.</param>
+    /// <typeparam name="T">What <paramref name="evaluate"/> returns.</typeparam>
     /// <param name="evaluate">What navigates the expression they are written in.</param>
+    /// <returns>What <paramref name="evaluate"/> returned.</returns>
     internal T WithEvaluatedSubscripts<T>(List<EvaluatedSubscripts> evaluated, Func<T> evaluate)
     {
         var before = _evaluatedSubscripts;
@@ -2003,6 +2005,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             _evaluatedSubscripts = before;
         }
     }
+
+    // an index list of a path through records, which the assignment evaluated before it navigates the path (WithEvaluatedSubscripts): what a call in it
+    // returned is what it evaluated to, and the call is not made again ahead of the rest of the list (EvaluateArgumentsFirst).
+    private bool IsAnEvaluatedIndexList(ImmutableArray<ExpressionNode> written)
+        => !written.IsDefaultOrEmpty && _evaluatedSubscripts is { } evaluated && evaluated.Exists(list => list.Arguments == written);
 
     private static VBTypeMemberSymbol? TryResolveCallableSub(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee)
     {
@@ -2080,8 +2087,22 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 break;
         }
 
+        switch (call.Callee)
+        {
+            case MemberAccessExpressionNode when !call.Arguments.IsEmpty:
+                _statementCallNodes.TryAdd(StatementCall(call.Callee, call.Arguments), 0);
+                break;
+            case IndexExpressionNode index when call.Arguments.IsEmpty:
+                _statementCallNodes.TryAdd(index, 0);
+                break;
+        }
+
         return call.Arguments.IsEmpty ? Evaluate(session, call.Callee, context) : Invoke(session, context, call.Callee, call.Arguments);
     }
+
+    // the call expression of each call statement that calls a member of an object with arguments, whose target is evaluated as a statement's
+    // (ArgumentOrder.TargetCallsIn).
+    private readonly ConcurrentDictionary<IndexExpressionNode, byte> _statementCallNodes = new(ReferenceEqualityComparer.Instance);
 
     // the member a call statement names on an object, and whether the arguments are the statement's own (`o.Item 1`) rather than those of an index expression
     // (`Call o.Item(1)`): by the callee's node, one statement each.
@@ -2425,12 +2446,51 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return mappingError;
         }
 
-        var mapped = mapResult.Mapped;
         var bound = new IRuntimeValue[parameters.Length];
-        var order = BindingOrder(given);
-        for (var k = 0; k < parameters.Length; k++)
+        var order = OrderOf(session, context, parameters.Length, given, mapResult.Mapped, mapResult.ParamArrayArguments);
+        var calls = ArgumentCalls.Begin(session);
+        try
         {
-            var i = order is null ? k : order[k];
+            if (BindArgumentsInOrder(session, context, parameters, order, given, mapResult, bound, calls, ref isKnown, borrowed, external, cellReferences,
+                    anyByAddress, dispatchedThrough, lateBound) is { } error)
+            {
+                return error;
+            }
+
+            calls.Settle();
+        }
+        finally
+        {
+            calls.End();
+        }
+
+        arguments = bound;
+        return null;
+    }
+
+    // the arguments evaluated and bound in the order MS-VBA evaluates them (ArgumentOrder): the calls among them first, left to right - those inside an
+    // argument that is no call made ahead of the rest of it, and known until the call is bound - then the others, right to left.
+    private RuntimeSemanticsEvaluationResult? BindArgumentsInOrder(IRuntimeSession session, RuntimeEvaluationContext context,
+        ImmutableArray<VBParameterSymbol> parameters, ArgumentOrder order, ImmutableArray<BoundArgument> given, ArgumentMapResult mapResult,
+        IRuntimeValue[] bound, ArgumentCalls calls, ref bool isKnown, List<MemoryAddress> borrowed, bool external, bool cellReferences, bool anyByAddress,
+        ExpressionNode? dispatchedThrough, bool lateBound)
+    {
+        var mapped = mapResult.Mapped;
+        foreach (var step in order)
+        {
+            var i = step.Index;
+            calls.Open(i);
+            if (step.CallsOnly)
+            {
+                if (calls.CanHoist
+                    && calls.KnowCallsIn(this, session, context, given.IsDefault ? null : given[i], given.IsDefault ? mapped![i] : null) is { } failed)
+                {
+                    return failed;
+                }
+
+                continue;
+            }
+
             var parameter = parameters[i];
             var boundArgument = given.IsDefault ? null : given[i];
 
@@ -2530,7 +2590,6 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
         }
 
-        arguments = bound;
         return null;
     }
 
@@ -2692,35 +2751,6 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
             : coercionResult.Result!.RuntimeValue;
         return null;
-    }
-
-    // MS-VBAL §5.3.1.11: each parameter is bound to its argument's data value, Let-assigned to the parameter's new local. A variable given to a parameter
-    // passed by value gives the value it has when the call is made, after the arguments right of it are evaluated - a call among them may change it, as
-    // MS-VBA has it. The order the arguments of a call are evaluated in: those variables last; null when it is the parameters' own.
-    private static int[]? BindingOrder(ImmutableArray<BoundArgument> given)
-    {
-        if (given.IsDefault)
-        {
-            return null;
-        }
-
-        bool[]? last = null;
-        var callsRightOfIt = false;
-        for (var i = given.Length - 1; i >= 0; i--)
-        {
-            var argument = given[i];
-            if (callsRightOfIt && argument is { Passing: ArgumentPassing.Value, Value: BoundVariable, Expression: not ByValArgumentExpressionNode })
-            {
-                (last ??= new bool[given.Length])[i] = true;
-            }
-
-            callsRightOfIt |= argument.Passing is ArgumentPassing.ParamArray ? argument.Elements.Any(MayCall) : argument.Value is { } value && MayCall(value);
-        }
-
-        return last is null ? null : [.. Enumerable.Range(0, given.Length).Where(i => !last[i]), .. Enumerable.Range(0, given.Length).Where(i => last[i])];
-
-        // what evaluating may change a variable: anything but a variable read or a literal.
-        static bool MayCall(BoundNode node) => node is not (BoundVariable or BoundLiteral);
     }
 
     private readonly record struct ParamArrayCollectResult(IRuntimeValue? Value, RuntimeSemanticsEvaluationResult? Error);
@@ -3026,7 +3056,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // the callee assigns is not written back to (MS-VBA, observed in Excel). MS-VBAL §5.6.12 classifies it as a
             // variable, which §5.3.1.11 would pass by reference: RD-VBA does as MS-VBA does, and warns (RDC11026, RD-VBAL §5.3.1.11). Named by itself in its
             // own class it is the variable, bound below as any name is.
-            return !takesAny && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
+            return (!takesAny || external) && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
         }
 
         if (qualified is null && argument is not SimpleNameExpressionNode)
@@ -3377,8 +3407,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        // a Declare's As Any parameter is given the field where it is in the record (MS-VBA, observed in Excel: RtlMoveMemory r.A, src, 8 writes r.A and the
+        // field after it), which the cell over the field tells the call.
         IBindingHandle? cell;
-        if (fieldType is VBUserDefinedType or VBVariantType)
+        if (fieldType is VBUserDefinedType or VBVariantType || external && parameter.ResolvedType is VBUnknownType)
         {
             cell = new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
         }

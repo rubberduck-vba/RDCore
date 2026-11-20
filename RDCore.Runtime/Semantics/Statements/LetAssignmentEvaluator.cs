@@ -294,6 +294,52 @@ public sealed class LetAssignmentEvaluator(
     private bool IsElementOfAQualifiedArray(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target)
         => target is IndexExpressionNode { Callee: MemberAccessExpressionNode callee } && expressions.ResolveNamespaceQualified(session, context, callee) is not null;
 
+    // whether a target is a call of an accessor, which an assignment to it calls with the value as its last argument (WithAccessorArgumentsFirst): a member
+    // of an object, of a Variant or of the object of the enclosing With block, given arguments or none; what an object or a Variant is given arguments, its
+    // default member or an element of the array it holds. A variable, an element of an array, a field of a record, what is named through its module, and a
+    // function assigned through what it returns, are none. The owner is what the accessor is called on, null for the object of the With block; the
+    // arguments are the target's, the value not among them. A target's declared types do not change, so it is found once for each target.
+    internal bool IsAnAccessorCall(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target, out ExpressionNode? owner,
+        out System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments)
+    {
+        (owner, arguments) = (null, []);
+        if (target is not (MemberAccessExpressionNode or IndexExpressionNode))
+        {
+            return false;
+        }
+
+        if (!_accessorCalls.TryGetValue(target, out var call))
+        {
+            call = AccessorCallOf(session, context, target);
+            _accessorCalls.AddOrUpdate(target, call);
+        }
+
+        (owner, arguments) = (call.Owner, call.Arguments);
+        return call.IsCall;
+    }
+
+    private AccessorCall AccessorCallOf(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target) => target switch
+    {
+        IndexExpressionNode { Callee: MemberAccessExpressionNode member } index
+            => new(IsAMemberOfAnObject(session, context, member), member.Owner, index.Arguments),
+        IndexExpressionNode index => new(!IsACallOfAFunction(session, context, target) && IsAnObject(session, context, index.Callee), index.Callee,
+            index.Arguments),
+        MemberAccessExpressionNode member => new(IsAMemberOfAnObject(session, context, member), member.Owner, []),
+        _ => new(false, null, []),
+    };
+
+    private bool IsAMemberOfAnObject(IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode member)
+        => expressions.ResolveNamespaceQualified(session, context, member) is null
+            && (member.Owner ?? context.EnclosingWithTargetExpression) is { } owner && IsAnObject(session, context, owner);
+
+    // an expression declared as a class, Object or Variant: what it is given is an object's, or what the Variant holds.
+    private bool IsAnObject(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
+        => expressions.DeclaredTypeOf(session, expression, context) is VBClassType or VBObjectType or VBVariantType;
+
+    private sealed record class AccessorCall(bool IsCall, ExpressionNode? Owner, System.Collections.Immutable.ImmutableArray<ExpressionNode> Arguments);
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ExpressionNode, AccessorCall> _accessorCalls = [];
+
     /// <summary>
     /// Assigns <paramref name="value"/> to an element of an array: <c>a(1, 2) = value</c>, or <c>owner.Items(1) = value</c> when the
     /// array is what a variable of an object holds (<strong>MS-VBAL §5.4.3.8</strong>, <strong>§5.4.3.9</strong>).
@@ -320,6 +366,7 @@ public sealed class LetAssignmentEvaluator(
         System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts, ExpressionNode source, VBTypedValue value, bool isSet)
     {
         var evaluated = expressions.EvaluateIndexed(session, arrayExpression, context);
+        expressions.SettleAccessorArguments(session);
         if (!evaluated.IsSuccess)
         {
             return evaluated.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
@@ -1150,6 +1197,7 @@ public sealed class LetAssignmentEvaluator(
         }
 
         var evaluated = expressions.Evaluate(session, memberAccess.Owner, context);
+        expressions.SettleAccessorArguments(session);
         if (!evaluated.IsSuccess)
         {
             failure = evaluated.IsInternalError

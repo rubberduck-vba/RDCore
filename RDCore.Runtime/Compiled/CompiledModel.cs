@@ -624,7 +624,8 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
 /// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
 /// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), for an optional <c>Variant</c> the call leaves out
-/// (<see cref="OmittedArgumentNode"/>), and for a <c>Variant</c> given the address of a variable (<see cref="VariantReferenceNode"/>).
+/// (<see cref="OmittedArgumentNode"/>), and for a <c>Variant</c> given the address of a variable (<see cref="VariantReferenceNode"/>) or the cell of a
+/// variable of a scalar type (<see cref="ReferenceNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -673,8 +674,9 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public bool ReturnsValue { get; init; }
 
     /// <summary>
-    /// For each parameter, whether it is a <c>Variant</c> passed by reference, given the address of a <c>Variant</c> variable of the activation
-    /// (<see cref="VariantReferenceNode"/>), whose <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
+    /// For each parameter, whether it is a <c>Variant</c> passed by reference, given a variable of the activation: the address of a <c>Variant</c> or a
+    /// <c>String</c> (<see cref="VariantReferenceNode"/>), or the cell of a variable of a scalar type (<see cref="ReferenceNode"/>), whose
+    /// <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
     /// </summary>
     public IReadOnlyList<bool> VariantReferences { get; init; } = [];
 
@@ -710,6 +712,12 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// Empty when the call has no object parameter.
     /// </summary>
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
+
+    /// <summary>
+    /// The order the arguments are evaluated in, as the interpreter evaluates them (<see cref="LanguageCore.Binding.ArgumentOrder"/>): the calls first, left
+    /// to right, then the others, right to left. An argument that is no call is evaluated whole with the calls when no call is made after it.
+    /// </summary>
+    public LanguageCore.Binding.ArgumentOrder Order { get; init; }
 
     /// <summary>
     /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default
