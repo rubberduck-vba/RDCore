@@ -353,8 +353,8 @@ public sealed class CompiledByRefCallTests
     // a field of a record, and an element of a fixed-size array field of one, is where the record is: the record's address plus its offset (VarPtr), which
     // the parameter is not bound at. Main takes the record's address first, so that the field is where the record is whichever is asked for first.
     [TestMethod]
-    [Ignore("a ByRef parameter given a place inside a record is bound at a borrowed address (typed place resolution inside a record not implemented); "
-        + "what is written through it reaches the place, and only its address is off")]
+    [Ignore("a ByRef parameter given a place inside a record is bound at an address of its own: storage resolves no address inside a record to the "
+        + "place there. What is written through the parameter reaches the place; only VarPtr of the parameter is not the place's address")]
     [DataRow(RecordArray, "", "A(2).X", "Long", "2", "3", DisplayName = "the address of a field of a record element")]
     [DataRow(ArrayFieldRecord, RecordAddressFirst, "R.Arr(2)", "Long", "2", "3", DisplayName = "the address of an element of a fixed-size array field")]
     [DataRow(RecordVariable, RecordAddressFirst, "R.S", "String", "\"t\"", "\"a\"", DisplayName = "the address of a field of a record")]
