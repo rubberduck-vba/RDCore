@@ -140,6 +140,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09381](vbc09381.md)|User-defined type may not be passed ByVal|A parameter of a record is declared `ByVal`|
 |[VBC09382](vbc09382.md)|Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions|A record is given to a `Variant`|
 |[VBC09383](vbc09383.md)|There is no host application to evaluate the expression|A name in brackets, such as `[A1]`, names nothing that is declared|
+|[VBC09385](vbc09385.md)|Not a legal object name|A module is named with a keyword of the language, such as `Circle`|
 
 ### Runtime errors
 

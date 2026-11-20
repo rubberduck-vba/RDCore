@@ -609,6 +609,12 @@
   <data name="VBCompileError_OnlyValidInObjectModule_Verbose" xml:space="preserve">
     <value>'{0}' is declared Friend, which only a procedure of a class module can be: declare it Public or Private.</value>
   </data>
+  <data name="VBCompileError_NotALegalObjectName" xml:space="preserve">
+    <value>Not a legal object name</value>
+  </data>
+  <data name="VBCompileError_NotALegalObjectName_Verbose" xml:space="preserve">
+    <value>'{0}' is a keyword of the language, which no module can be named: give the module another name.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>

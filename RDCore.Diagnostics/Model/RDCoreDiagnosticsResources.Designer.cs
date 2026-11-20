@@ -106,6 +106,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to MS-VBA refuses &apos;{0}&apos; as the name of a module, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not import the module. Give the module another name to keep it compatible with MS-VBA..
+        /// </summary>
+        public static string NameRefusedByMSVBA_ModuleMessage {
+            get {
+                return ResourceManager.GetString("NameRefusedByMSVBA_ModuleMessage", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to LSet copies a record that holds a variable-length String: MS-VBAL §5.4.3.6 allows it, and MS-VBA refuses it (Compile error: Type mismatch)..
         /// </summary>
         public static string LSetOfARecordWithAString_Message {
