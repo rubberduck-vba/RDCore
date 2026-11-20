@@ -165,6 +165,72 @@ public sealed class EndAndStopTests
         Assert.IsEmpty(run.Result.Output);
     }
 
+    // the value of an object is its default member's, which a statement reads where it needs a value: an End there ends the program, as an End in a function
+    // the statement calls does. Nothing after it runs, an On Error Resume Next has no error to go on from, and the next run of the program starts afresh.
+    [TestMethod]
+    [DataRow("Total = e", DisplayName = "assigned")]
+    [DataRow("Total = e + 1", DisplayName = "an operand")]
+    [DataRow("If e = 1 Then Total = 9", DisplayName = "compared")]
+    [DataRow("Dim i As Long: For i = e To 3: Next", DisplayName = "a For's start")]
+    [DataRow("Debug.Print CStr(e)", DisplayName = "converted")]
+    [DataRow("Total = Abs(e)", DisplayName = "a function's argument")]
+    [DataRow("Debug.Print e", DisplayName = "printed")]
+    [DataRow("If e Then Total = 9", DisplayName = "a condition")]
+    [DataRow("Select Case e: Case 1: End Select", DisplayName = "a Select Case's test expression")]
+    [DataRow("Debug.Print VarType(e)", DisplayName = "VarType's argument")]
+    [DataRow("Dim r As Object: Set r = CreateObject(\"VBScript.RegExp\"): r.Pattern = \"a\": Debug.Print r.Replace(\"a\", e)",
+        DisplayName = "a RegExp's replacement")]
+    public Task End_InADefaultMemberRead_EndsTheProgramThere(string read) => EndsTheProgramAt(read);
+
+    [TestMethod]
+    public async Task End_InADefaultMemberReadByWriteToAFile_EndsTheProgramThere()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"rdcore-end-write-{Guid.NewGuid():N}.txt");
+        try
+        {
+            await EndsTheProgramAt($"Dim ff As Integer: ff = FreeFile: Open \"{path}\" For Output As #ff: Write #ff, e");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private async Task EndsTheProgramAt(string read)
+    {
+        var ender = ModuleWorkspace.ClassModule("Ender", "Option Explicit",
+            "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "    Value = 1", "    End", "End Property");
+        foreach (var policy in new[] { string.Empty, "On Error Resume Next" })
+        {
+            ExecuteResult? first = null, again = null;
+            long total = -1;
+            await ModuleWorkspace.InspectAsync([("Ender", ender)], Program(
+                "Public Total As Long",
+                "Public Sub Main()",
+                "    Dim e As New Ender",
+                "    " + policy,
+                "    Debug.Print \"before \" & Total",
+                "    Total = 7",
+                "    " + read,
+                "    Debug.Print \"after \" & Err.Number",
+                "    Total = 8",
+                "End Sub"), async (provider, result, runAgain) =>
+            {
+                first = result;
+                total = Total(provider);
+                again = await runAgain();
+            });
+
+            var said = $"{(policy.Length == 0 ? "no handler" : policy)}: {first!.Outcome} | {string.Join(" ; ", first.Output)}"
+                + $" | {first.ErrorNumber} {first.ErrorMessage}";
+            Assert.AreEqual(ExecutionOutcome.Halted, first.Outcome, said);
+            CollectionAssert.AreEqual(new[] { "before 0" }, first.Output.Select(line => line.Trim()).ToArray(), said);
+            Assert.AreEqual(0, total, $"{said}: End reset the variable the program had set to 7");
+            CollectionAssert.AreEqual(
+                new[] { "before 0" }, again!.Output.Select(line => line.Trim()).ToArray(), $"{said}: the program run again starts from the start");
+        }
+    }
+
     // ---- Stop ----
 
     [TestMethod]

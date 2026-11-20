@@ -163,6 +163,92 @@ public sealed class CompiledObjectCallSetTests
             "    Checked = 2",
             "End Function"), "Checked", calls: 2, expected: "gone 5 | 13 VBR00013");
 
+    // what one call returns, each pass of a loop: the variable it is set to, the ByRef parameter it is given, and the With block it opens each hold the object
+    // the call returned that pass, while the call is made again and returns another. Held keeps the first one Keep was given, First the first one Last held.
+    [TestMethod]
+    public async Task WhatACallReturnedEachPass_IsHeldAsTheObjectItReturnedThatPass()
+        => _ = await AssertAlikeAsync(Program(
+            "Public Held As Gadget",
+            "Public Sub Main()",
+            "    Debug.Print Kept(3)",
+            "    Set Held = Nothing",
+            "    Debug.Print \"after\"",
+            "End Sub",
+            "Private Sub Keep(ByRef G As Gadget)",
+            "    If Held Is Nothing Then Set Held = G",
+            "End Sub",
+            "Private Function Kept(ByVal N As Long) As Long",
+            "    Dim First As Gadget, Last As Gadget, I As Long",
+            "    For I = 1 To N",
+            "        Set Last = Gadget.Create(I)",
+            "        If First Is Nothing Then Set First = Last",
+            "        Keep Gadget.Create(I * 10)",
+            "        With Gadget.Create(I * 100)",
+            "            Kept = Kept + Gadget.Create(I * 1000).Size + .Size",
+            "        End With",
+            "    Next",
+            "    Kept = Kept + First.Size * 100000 + Held.Size * 10000 + Last.Size",
+            "End Function"), Classes, expected: "; 206603 ;");
+
+    // what three calls return in one statement, the objects of the operands' members, each called by compiled code once Main made the default instance;
+    // and a With block on what a call returns, in a recursion: each activation's block holds its own object while the activations it
+    // calls open theirs.
+    [TestMethod]
+    public async Task WhatCallsReturnedInOneStatement_AndInEachActivationOfARecursion_AreEachTheirOwn()
+        => await AssertCalledAsync(Program(
+            "Public Sub Main()",
+            "    Dim G As Gadget",
+            "    Set G = Gadget.Create(9)",
+            "    Debug.Print Combined()",
+            "    Debug.Print Depth(3)",
+            "End Sub",
+            "Private Function Combined() As Long",
+            "    Combined = Gadget.Create(1).Size + Gadget.Create(2).Size * Gadget.Create(3).Size",
+            "End Function",
+            "Private Function Depth(ByVal N As Long) As Long",
+            "    With Gadget.Create(N)",
+            "        If N > 1 Then Depth = Depth(N - 1)",
+            "        Depth = Depth * 10 + .Size",
+            "    End With",
+            "End Function"), "Combined", calls: 6, expected: "; 7 ;");
+
+    // the objects a call's arguments and its target hold, what calls inside them returned, are let go of when the statement is over in the order of the
+    // parameters, then the target's, as MS-VBA lets go of them: in the order they were made in, where compiled code lets go of the last made first,
+    // so the interpreter runs the statement.
+    [TestMethod]
+    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", "gone 2 ; gone 3 ; gone 1 ; 7 ;",
+        DisplayName = "the target and two arguments")]
+    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size)", "gone 2 ; gone 1 ; 5 ;", DisplayName = "the target and an argument")]
+    [DataRow("G.Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", "gone 2 ; gone 3 ; 15 ;", DisplayName = "two arguments")]
+    public async Task WhatTheArgumentsAndTheTargetHold_IsLetGoOfInParameterOrder_ThenTheTargets(string expression, string expected)
+        => _ = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim G As Gadget",
+            "    Set G = Gadget.Create(9)",
+            "    Debug.Print Combined(G)",
+            "    Debug.Print Combined(G)",
+            "End Sub",
+            "Private Function Combined(ByVal G As Gadget) As Long",
+            $"    Combined = {expression}",
+            "End Function"), Classes, expected);
+
+    // what calls inside one argument, or the operands of an expression, returned: compiled code makes the calls, and lets go of the objects as the
+    // interpreter does.
+    [TestMethod]
+    [DataRow("G.Grown(Gadget.Create(1).Create(2).Size)", "; 13 ;", DisplayName = "a chain in an argument")]
+    [DataRow("Gadget.Create(1).Size + Gadget.Create(2).Size", "; 3 ;", DisplayName = "two operands")]
+    public async Task WhatOneArgumentHolds_IsLetGoOfAsTheInterpreterDoes(string expression, string expected)
+        => await AssertCalledAsync(Program(
+            "Public Sub Main()",
+            "    Dim G As Gadget",
+            "    Set G = Gadget.Create(9)",
+            "    Debug.Print Combined(G)",
+            "    Debug.Print Combined(G)",
+            "End Sub",
+            "Private Function Combined(ByVal G As Gadget) As Long",
+            $"    Combined = {expression}",
+            "End Function"), "Combined", calls: 8, expected);
+
     // a member called with an Optional argument left out, as a statement and in an expression: the parameter is given its default, as the interpreter gives
     // it; one given is given what it is given.
     [TestMethod]

@@ -66,23 +66,45 @@ public sealed class CodeLensWireTests
 
     private static DocumentUri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName));
 
-    // the workspace of the two documents, the program's text as it is when the workspace is composed.
-    private static RenameService Workspace(Func<string>? programText = null)
+    private static string Class(string name, params string[] lines)
+        => string.Join("\r\n", ["VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", $"Attribute VB_Name = \"{name}\"", .. lines]) + "\r\n";
+
+    // an interface, and two classes that implement it.
+    private static readonly (string FileName, string Text)[] Shapes =
+    [
+        ("IShape.cls", Class("IShape", "Public Function Area() As Double", "End Function")),
+        ("Square.cls", Class("Square", "Implements IShape", "Private Function IShape_Area() As Double", "End Function")),
+        ("Disc.cls", Class("Disc", "Implements IShape", "Private Function IShape_Area() As Double", "End Function")),
+    ];
+
+    // the line of a document that has a text.
+    private static int LineOf((string FileName, string Text)[] documents, string fileName, string text)
+        => Array.FindIndex(documents.Single(document => document.FileName == fileName).Text.Split("\r\n"),
+            line => line.Contains(text, StringComparison.Ordinal));
+
+    // the workspace of the two documents and of others, the program's text as it is when the workspace is composed.
+    private static RenameService Workspace(Func<string>? programText = null, params (string FileName, string Text)[] others)
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
         var helpers = new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 1);
+        var added = others.Select(other => new WorkspaceDocument(other.FileName, Root, other.Text, version: 1)).ToArray();
         var version = 0;
         WorkspaceDocument Program() => new("Main.rdc", Root, programText?.Invoke() ?? CodeLensWireTests.Program, version: ++version);
-        documents.GetAllDocuments().Returns(_ => [helpers, Program()]);
-        foreach (var fileName in new[] { "Helpers.bas", "Main.rdc" })
+        documents.GetAllDocuments().Returns(_ => [helpers, Program(), .. added]);
+        foreach (var fileName in new[] { "Helpers.bas", "Main.rdc" }.Concat(others.Select(other => other.FileName)))
         {
             var uri = new Uri(Path.Combine(Root, fileName));
             parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
-                    var document = fileName == "Main.rdc" ? Program() : helpers;
+                    var document = fileName switch
+                    {
+                        "Main.rdc" => Program(),
+                        "Helpers.bas" => helpers,
+                        _ => added.Single(other => other.Id.Uri == Document(fileName)),
+                    };
                     return Task.FromResult(new ModuleParser().Parse(document.Id.Uri.ToUri(), ParsingClientService.ModuleSourceOf(document)));
                 });
         }
@@ -95,7 +117,7 @@ public sealed class CodeLensWireTests
     }
 
     // the lenses of a document, each resolved as a client resolves the lenses it shows.
-    private static async Task<(CodeLens[] Answered, CodeLens[] Resolved)> LensesAsync(string fileName)
+    private static async Task<(CodeLens[] Answered, CodeLens[] Resolved)> LensesAsync(string fileName, params (string FileName, string Text)[] others)
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
         using var timeout = new CancellationTokenSource(SafetyCap);
@@ -104,7 +126,7 @@ public sealed class CodeLensWireTests
         var serving = OmniSharpLanguageServer.From(server => server
             .WithInput(toServer.Reader)
             .WithOutput(toClient.Writer)
-            .AddHandler(new CodeLensHandler(Workspace())), timeout.Token);
+            .AddHandler(new CodeLensHandler(Workspace(others: others))), timeout.Token);
         var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer), timeout.Token);
 
         await Task.WhenAll(serving, connecting);
@@ -124,6 +146,16 @@ public sealed class CodeLensWireTests
 
     private static string[] ReferencesOf(CodeLens lens)
         => [.. ((JArray)lens.Command!.Arguments![2]).Select(reference => $"{Path.GetFileName(DocumentUri.From(reference.Value<string>("uri")!).GetFileSystemPath())} {reference["range"]!["start"]!.Value<int>("line")}")];
+
+    // the one place a lens goes to: the file of its document, and the line where its range starts.
+    private static string PlaceOf(CodeLens lens)
+    {
+        Assert.AreEqual(RefactoringCommands.GoToLocation, lens.Command!.Name);
+        Assert.HasCount(2, lens.Command.Arguments!, "the URI of the document and the range");
+        var range = lens.Command.Arguments![1];
+        Assert.IsGreaterThan(range["start"]!.Value<int>("character"), range["end"]!.Value<int>("character"), "the range of the name");
+        return $"{Path.GetFileName(DocumentUri.From(lens.Command.Arguments![0].Value<string>()!).GetFileSystemPath())} {range["start"]!.Value<int>("line")}";
+    }
 
     [TestMethod]
     [Timeout(600_000, CooperativeCancellation = true)]
@@ -168,6 +200,44 @@ public sealed class CodeLensWireTests
 
         Assert.AreEqual(1, before);
         Assert.AreEqual(3, after);
+    }
+
+    // MS-VBAL §5.2.4.2: a member of a class other classes implement has a lens of the procedures that implement it, which lists them as Go to
+    // Implementation does; each procedure that implements it has a lens that names it, answered with the command that goes to its declaration.
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task AnInterfaceMember_HasALensOfItsImplementations_AndEachImplementation_ALensOfTheMemberItImplements()
+    {
+        var (answered, resolved) = await LensesAsync("IShape.cls", Shapes);
+
+        Assert.HasCount(2, answered, "the references of Area, and its implementations");
+        Assert.AreEqual(answered[0].Range, answered[1].Range);
+        Assert.AreEqual(RefactoringTitles.References(0), resolved[0].Command!.Title, "nothing calls Area");
+        Assert.AreEqual(RefactoringTitles.Implementations(2), resolved[1].Command!.Title);
+        Assert.AreEqual(RefactoringCommands.ShowReferences, resolved[1].Command!.Name);
+        var implementation = LineOf(Shapes, "Square.cls", "Private Function IShape_Area");
+        CollectionAssert.AreEquivalent(new[] { $"Disc.cls {implementation}", $"Square.cls {implementation}" }, ReferencesOf(resolved[1]));
+
+        var (square, _) = await LensesAsync("Square.cls", Shapes);
+        Assert.HasCount(2, square, "the references of IShape_Area, and the member it implements");
+        var implements = Assert.ContainsSingle(square.Where(lens => lens.Command is not null), "the lens of the member is answered with its command");
+        Assert.AreEqual(RefactoringTitles.Implements("IShape", "Area"), implements.Command!.Title);
+        Assert.AreEqual($"IShape.cls {LineOf(Shapes, "IShape.cls", "Public Function Area")}", PlaceOf(implements));
+    }
+
+    // a lens that leads to one place goes to it: with one implementation there is nothing to choose from.
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task AnInterfaceMember_ThatOneProcedureImplements_HasALensThatGoesToIt()
+    {
+        (string FileName, string Text)[] shapes = [Shapes[0], Shapes[1]];
+
+        var (_, resolved) = await LensesAsync("IShape.cls", shapes);
+
+        Assert.HasCount(2, resolved, "the references of Area, and its implementation");
+        Assert.AreEqual(RefactoringCommands.ShowReferences, resolved[0].Command!.Name, "the references are listed, however many there are");
+        Assert.AreEqual(RefactoringTitles.Implementations(1), resolved[1].Command!.Title);
+        Assert.AreEqual($"Square.cls {LineOf(shapes, "Square.cls", "Private Function IShape_Area")}", PlaceOf(resolved[1]));
     }
 
     [TestMethod]

@@ -12,9 +12,9 @@ internal sealed partial class SessionStorage
     // the BSTRs, by the address each starts at and by where a String in it is held; the addresses of the variables that are variable-length Strings, whose
     // bytes are the address of their characters; and the bytes poked into a String's pointer that point at no BSTR yet.
     private readonly Dictionary<MemoryAddress, StringBlock> _stringBlocks = [];
-    private readonly Dictionary<MemoryAddress, StringBlock> _stringOfHolder = [];
+    private readonly AddressMap<StringBlock> _stringOfHolder = new();
     private readonly HashSet<MemoryAddress> _stringVariables = [];
-    private readonly Dictionary<MemoryAddress, byte[]> _pendingPointers = [];
+    private readonly AddressMap<byte[]> _pendingPointers = new();
 
     /// <summary>
     /// Says that the variable at <paramref name="address"/> is a variable-length <c>String</c>: its bytes are a pointer to its characters, as
@@ -367,21 +367,18 @@ internal sealed partial class SessionStorage
     // the Strings held in what is freed, a variable, a record or an array's block, let go of their BSTRs, which are freed when they are no one's.
     private void FreeStringBlocksIn(MemoryAddress start, int size)
     {
-        // a String has a BSTR only once its address was given out (StrPtr, a pointer poked into it): most sessions have none, and are not looked through
-        // for any.
-        if (_pendingPointers.Count == 0 && _stringOfHolder.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var holder in _pendingPointers.Keys.Where(holder => holder.Value >= start.Value && holder.Value < start.Value + size).ToList())
+        // a String has a BSTR only once its address was given out (StrPtr, a pointer poked into it): most sessions have none, and nothing is looked at.
+        foreach (var holder in _pendingPointers.In(start, size))
         {
             _pendingPointers.Remove(holder);
         }
 
-        foreach (var (holder, block) in _stringOfHolder.Where(held => held.Key.Value >= start.Value && held.Key.Value < start.Value + size).ToList())
+        foreach (var holder in _stringOfHolder.In(start, size))
         {
-            Detach(holder, block, free: true);
+            if (_stringOfHolder.TryGetValue(holder, out var block))
+            {
+                Detach(holder, block, free: true);
+            }
         }
     }
 }

@@ -12,7 +12,7 @@ internal sealed partial class SessionStorage
 {
     // the descriptors, by the address each starts at and by what holds an array described by it.
     private readonly Dictionary<MemoryAddress, ArrayDescriptor> _descriptors = [];
-    private readonly Dictionary<MemoryAddress, ArrayDescriptor> _descriptorOf = [];
+    private readonly AddressMap<ArrayDescriptor> _descriptorOf = new();
 
     /// <summary>
     /// How many times an array is locked - by a <c>For Each</c> over it, a call it is passed to an element of (<c>ICallStackFrame.LocksArray</c>): what its
@@ -272,9 +272,12 @@ internal sealed partial class SessionStorage
     // the descriptors of the arrays held in what is freed are let go of, and freed when they are no one's.
     private void FreeDescriptorsIn(MemoryAddress start, int size)
     {
-        foreach (var (holder, descriptor) in _descriptorOf.Where(held => held.Key.Value >= start.Value && held.Key.Value < start.Value + size).ToList())
+        foreach (var holder in _descriptorOf.In(start, size))
         {
-            DetachDescriptor(holder, descriptor, free: true);
+            if (_descriptorOf.TryGetValue(holder, out var descriptor))
+            {
+                DetachDescriptor(holder, descriptor, free: true);
+            }
         }
     }
 }

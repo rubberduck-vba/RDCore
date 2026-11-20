@@ -8,7 +8,8 @@ namespace RDCore.Tests.Cli;
 /// What the semantic analysis states about a class module (<see cref="ClassModuleSemanticFlags"/>): whether the class has a default instance (<strong>MS-VBAL
 /// §5.2.4.1.2</strong>), and whether its objects hold state - variables declared at module level, which have object extent (<strong>§5.2.3.1</strong>). A
 /// default instance that holds none is the usual factory; one that does keeps what its members assign, where every module can reach it. A class that another
-/// class of the project names in its <c>Implements</c> directive is implemented (<strong>§5.2.4.2</strong>).
+/// class of the project names in its <c>Implements</c> directive is implemented (<strong>§5.2.4.2</strong>). A class whose <c>VB_Exposed</c> attribute is
+/// <c>True</c> is exposed to the projects that reference its own (<strong>§5.2.4.1.1</strong>).
 /// </summary>
 [TestClass]
 public sealed class ClassModuleSemanticFlagsTests
@@ -101,6 +102,24 @@ public sealed class ClassModuleSemanticFlagsTests
             "Private Function IShape_Area() As Double", "    undeclared = 1", "End Function")));
 
         Assert.AreEqual(ClassModuleSemanticFlags.Implemented, model?.Class);
+    }
+
+    [TestMethod]
+    public async Task AClassWhoseExposedAttributeIsTrue_IsExposed()
+    {
+        var model = await ModelOfAsync("Widget", ("Widget", ClassModule("Widget", "Attribute VB_Exposed = True", "Option Explicit")));
+
+        Assert.AreEqual(ClassModuleSemanticFlags.Exposed, model?.Class);
+    }
+
+    [TestMethod]
+    public async Task AClassWhoseExposedAttributeIsFalseOrAbsent_IsPrivate()
+    {
+        var stated = await ModelOfAsync("Widget", ("Widget", ClassModule("Widget", "Attribute VB_Exposed = False", "Option Explicit")));
+        var absent = await ModelOfAsync("Gadget", ("Gadget", ClassModule("Gadget", "Option Explicit")));
+
+        Assert.AreEqual(ClassModuleSemanticFlags.None, stated?.Class);
+        Assert.AreEqual(ClassModuleSemanticFlags.None, absent?.Class);
     }
 
     [TestMethod]

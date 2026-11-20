@@ -510,6 +510,9 @@
   <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose" xml:space="preserve">
     <value>'{0}' est déclaré As New {1}, dont la bibliothèque {2} ne dit pas qu'il peut être créé : une interface, ou une classe que la bibliothèque crée elle-même.</value>
   </data>
+  <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose" xml:space="preserve">
+    <value>'{0}' est déclaré As New {1}, une classe du projet {2} que seul son propre projet crée (Attribute VB_Creatable = False).</value>
+  </data>
   <data name="VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose" xml:space="preserve">
     <value>New {0} : la bibliothèque {1} ne dit pas que {0} peut être créé : une interface, ou une classe que la bibliothèque crée elle-même.</value>
   </data>
@@ -599,6 +602,24 @@
   </data>
   <data name="VBCompileError_NoHostApplicationToEvaluateExpression_Verbose" xml:space="preserve">
     <value>'[{0}]' ne nomme rien qui soit déclaré, ce qui en fait une expression qu&apos;une application hôte doit évaluer.</value>
+  </data>
+  <data name="VBCompileError_OnlyValidInObjectModule" xml:space="preserve">
+    <value>Valide uniquement dans un module objet</value>
+  </data>
+  <data name="VBCompileError_OnlyValidInObjectModule_Verbose" xml:space="preserve">
+    <value>'{0}' est déclaré Friend, ce que seule une procédure d&apos;un module de classe peut être : déclarez-le Public ou Private.</value>
+  </data>
+  <data name="VBCompileError_NotALegalObjectName" xml:space="preserve">
+    <value>Nom d&apos;objet non valide</value>
+  </data>
+  <data name="VBCompileError_NotALegalObjectName_Verbose" xml:space="preserve">
+    <value>'{0}' est un mot clé du langage, qu&apos;aucun module ne peut porter comme nom : donnez un autre nom au module.</value>
+  </data>
+  <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary" xml:space="preserve">
+    <value>Ce nom est en conflit avec un module, un projet ou une bibliothèque d&apos;objets existant</value>
+  </data>
+  <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose" xml:space="preserve">
+    <value>'{0}' est une bibliothèque ou un projet auquel le projet fait référence : donnez un autre nom au module.</value>
   </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>

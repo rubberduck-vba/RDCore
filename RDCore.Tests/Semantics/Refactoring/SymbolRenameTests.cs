@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
@@ -478,6 +479,93 @@ public sealed class SymbolRenameTests
 
         // a procedure named after the variable that handles none of its events is named as any other.
         Assert.AreEqual(Watcher.Replace("source", "watched").Replace("Public Sub Start()", "Private Sub source_Other()\r\nEnd Sub\r\nPublic Sub Start()"), Renamed(context, plan, "Watcher"));
+    }
+
+    private static readonly string Tracker = Lines(
+        "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Tracker\"",
+        "Private WithEvents watched As Gadget",
+        "Public Sub Start()", "    Set watched = New Gadget", "End Sub",
+        "Private Sub watched_Changed(ByVal p As Part)", "End Sub");
+
+    // the Widgets library, whose Gadget raises Changed: an event the workspace does not declare.
+    private static RenameContext ComposeWithWidgets(params (string Name, string Source)[] modules)
+        => ComposeReferencing(
+            [.. new LibrarySymbolProvider(Root, LibrarySymbolProvider.Load(new InMemoryLibrarySource(LibraryFixtures.Widgets),
+                [new RDCore.SDK.Workspace.RDCoreReference { Name = "Widgets" }])).ProvideSymbols()], modules);
+
+    // a handler's name is its source's and its event's: when the workspace declares one of them only, renaming the handler renames that one.
+    [TestMethod]
+    [DataRow("watched", DisplayName = "at the part of its name that is the variable's")]
+    [DataRow("Changed", DisplayName = "at the part of its name that is the library's event")]
+    public void AHandlerOfALibrarysEvent_IsRenamedAsItsWithEventsVariable(string text)
+    {
+        var context = ComposeWithWidgets(("Tracker", Tracker));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Tracker"), At(context, "Tracker", "Private Sub watched_Changed", text));
+
+        Assert.AreEqual("watched", preparation.Target?.Name, preparation.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
+        Assert.AreEqual(Tracker.Replace("watched", "observed"), Renamed(context, SymbolRename.Plan(context, preparation.Target!, "observed"), "Tracker"));
+    }
+
+    // an implementation of a library's class: neither the interface nor its member is the workspace's, and its name is not renamed by either part.
+    [TestMethod]
+    [DataRow("Gadget", DisplayName = "at the part of its name that is the interface's")]
+    [DataRow("Names", DisplayName = "at the part of its name that is the member's")]
+    public void AnImplementationOfALibrarysClass_IsNotRenamed(string text)
+    {
+        var context = ComposeWithWidgets(("Pretend", Lines(
+            "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Pretend\"",
+            "Implements Gadget", "Private Function Gadget_Names() As String()", "End Function")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Pretend"), At(context, "Pretend", "Private Function Gadget_Names", text));
+
+        Assert.AreEqual(RenameRefusalKind.BoundHandlerOrImplementation, preparation.Refusal?.Kind);
+    }
+
+    // the part of Microsoft Forms a UserForm with a command button uses: the classes of the form and of the button, and the button's event.
+    private static readonly LibraryDescription MSForms = new()
+    {
+        Name = "MSForms",
+        Classes =
+        [
+            new ClassDescription { Name = "UserForm" },
+            new ClassDescription { Name = "CommandButton", Events = [new EventDescription { Name = "Click" }] },
+        ],
+    };
+
+    private static readonly string Picker = Lines(
+        "VERSION 5.00", "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Picker", "   Caption = \"Pick\"", "   OleObjectBlob = \"Picker.frx\":0000", "End",
+        "Attribute VB_Name = \"Picker\"", "Attribute VB_PredeclaredId = True",
+        "Private Sub Ok_Click()", "End Sub");
+
+    // a UserForm's controls are in its binary file: its designer, as the language server reads it, has the command button Ok.
+    private static RenameContext ComposePicker()
+    {
+        var uri = ModuleUri("Picker");
+        var designer = new FormDescriptor("Picker", FormDesignerKind.MSForms, new FormControlClass("MSForms", "UserForm", FormDesigner.MSFormsClassId),
+            new Dictionary<string, string> { ["Caption"] = "Pick" },
+            [new FormControlDescriptor("Ok", new FormControlClass("MSForms", "CommandButton"), TabIndex: null, Index: null, [])]);
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Picker.frm"), Picker) with { Designer = designer };
+        var libraries = new LibrarySymbolProvider(Root, LibrarySymbolProvider.Load(new InMemoryLibrarySource(MSForms),
+            [new RDCore.SDK.Workspace.RDCoreReference { Name = "MSForms" }])).ProvideSymbols().ToList();
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(uri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(),
+            libraries: libraries);
+        return new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(uri, parse.SyntaxTree!, Picker, designer)]);
+    }
+
+    // a control's handler is named for the control, which the workspace's form declares, and for an event of the control's library.
+    [TestMethod]
+    [Ignore("the rename of a form's control, in its designer and its code, is not implemented")]
+    [DataRow("Ok", DisplayName = "at the part of its name that is the control's")]
+    [DataRow("Click", DisplayName = "at the part of its name that is the library's event")]
+    public void AHandlerOfAFormsControl_IsRenamedAsTheControl(string text)
+    {
+        var context = ComposePicker();
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Picker"), At(context, "Picker", "Private Sub Ok_Click", text));
+
+        Assert.AreEqual("Ok", preparation.Target?.Name, preparation.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
+        Assert.AreEqual(Picker.Replace("Ok", "Accept"), Renamed(context, SymbolRename.Plan(context, preparation.Target!, "Accept"), "Picker"));
     }
 
     [TestMethod]

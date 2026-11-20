@@ -32,8 +32,11 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 /// <param name="project">The project.</param>
 /// <param name="fileSystem">The file system the sources are read from.</param>
 /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+/// <param name="ansiCodePage">
+/// The code page of a source that has no byte order mark and is not valid UTF-8 (<see cref="ModuleFileText.Decode(byte[], int)"/>): the environment's.
+/// </param>
 public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem,
-    IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null) : ISymbolProvider
+    IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage) : ISymbolProvider
 {
     public IEnumerable<Symbol> ProvideSymbols()
     {
@@ -80,7 +83,7 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
         try
         {
             var path = fileSystem.Path.Combine(workspaceRoot.LocalPath, relativeUri);
-            return fileSystem.File.Exists(path) ? fileSystem.File.ReadAllText(path) : null;
+            return fileSystem.File.Exists(path) ? ModuleFileText.Decode(fileSystem.File.ReadAllBytes(path), ansiCodePage).Text : null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

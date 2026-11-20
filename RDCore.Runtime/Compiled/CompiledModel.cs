@@ -364,8 +364,9 @@ internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNo
 // Kind is not read.
 internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(default(ScalarKind));
 
-// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11): the variable's address, which
-// the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11), which the parameter is a second
+// name for: the variable's cell, for a call made directly (CompiledActivation.TakeTextReference), or its address, as the interpreter gives it. Only an
+// argument of a call; its Kind is not read.
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
@@ -623,7 +624,8 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
 /// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
 /// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), for an optional <c>Variant</c> the call leaves out
-/// (<see cref="OmittedArgumentNode"/>), and for a <c>Variant</c> given the address of a variable (<see cref="VariantReferenceNode"/>).
+/// (<see cref="OmittedArgumentNode"/>), and for a <c>Variant</c> given the address of a variable (<see cref="VariantReferenceNode"/>) or the cell of a
+/// variable of a scalar type (<see cref="ReferenceNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -672,16 +674,50 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public bool ReturnsValue { get; init; }
 
     /// <summary>
-    /// For each parameter, whether it is a <c>Variant</c> passed by reference, given the address of a <c>Variant</c> variable of the activation
-    /// (<see cref="VariantReferenceNode"/>), whose <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
+    /// For each parameter, whether it is a <c>Variant</c> passed by reference, given a variable of the activation: the address of a <c>Variant</c> or a
+    /// <c>String</c> (<see cref="VariantReferenceNode"/>), or the cell of a variable of a scalar type (<see cref="ReferenceNode"/>), whose
+    /// <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
     /// </summary>
     public IReadOnlyList<bool> VariantReferences { get; init; } = [];
+
+    /// <summary>
+    /// For each parameter, the slot of the callee's layout a <c>String</c> parameter of variable length is held in, whose <see cref="Parameters"/> kind is
+    /// <see langword="null"/> (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>); -1 for any other. Empty when the call has no
+    /// <c>String</c> parameter. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeText"/>,
+    /// <see cref="CompiledActivation.TakeTextReference"/>).
+    /// </summary>
+    public IReadOnlyList<int> TextSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether every parameter is a scalar or a <c>String</c> of variable length: what a call made through the callee's typed entry gives.
+    /// </summary>
+    public bool GivesScalarsAndTexts
+    {
+        get
+        {
+            for (var i = 0; i < Parameters.Count; i++)
+            {
+                if (Parameters[i] is null && (i >= TextSlots.Count || TextSlots[i] < 0))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
 
     /// <summary>
     /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.
     /// Empty when the call has no object parameter.
     /// </summary>
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
+
+    /// <summary>
+    /// The order the arguments are evaluated in, as the interpreter evaluates them (<see cref="LanguageCore.Binding.ArgumentOrder"/>): the calls first, left
+    /// to right, then the others, right to left. An argument that is no call is evaluated whole with the calls when no call is made after it.
+    /// </summary>
+    public LanguageCore.Binding.ArgumentOrder Order { get; init; }
 
     /// <summary>
     /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default

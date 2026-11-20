@@ -412,7 +412,6 @@ public sealed class NameAnalyzerTests
     }
 
     [TestMethod]
-    [Ignore("The parser does not fill LineLabelNode.NameRange: the finding falls back to the label's range, colon included.")]
     public void ALineLabel_IsReportedAtItsName_WithoutTheColon()
     {
         var finding = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Labels).Single();

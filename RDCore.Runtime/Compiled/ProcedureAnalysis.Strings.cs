@@ -19,7 +19,8 @@ internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
     /// The slots of the <c>String</c> parameters and variables of variable length (a fixed-length one pads or truncates what it is assigned), in order:
-    /// each is held in the cell its frame holds it in, which compiled code reads the text it holds from and writes the text it is assigned to.
+    /// each is held in a cell (<c>TextCell</c>), which compiled code reads the text it holds from and writes the text it is assigned to: the one its frame
+    /// holds it in, or, in an activation without a frame, the activation's, which its frame is given once it has one.
     /// </summary>
     public IReadOnlyList<int> TextSlots => [.. _textSlots];
 
@@ -28,10 +29,9 @@ internal sealed partial class ProcedureAnalysis
     // a String that holds the text it is assigned as it is.
     internal static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
 
-    // a String parameter or variable, held in the cell its frame holds it in.
+    // a String parameter or variable, held in a cell compiled code reads and writes: an activation without a frame holds it (CompiledActivation.StringCellOf).
     private void HoldText(int slot, Symbol symbol)
     {
-        NeedsFrame = true;
         _ = _textSlots.Add(slot);
         _slotSymbols[slot] = symbol;
     }
@@ -242,8 +242,8 @@ internal sealed partial class ProcedureAnalysis
     private static bool IsChrString(Symbol symbol)
         => StandardLibrary.IsLibraryMember(symbol) && symbol.GetProperty(SymbolProperties.ExternalTarget) == ChrString;
 
-    // TryCompareText: two Strings compared under the comparison mode of the module, which is the frame's - an activation that compares Strings has one, which
-    // is the current one while it runs.
+    // TryCompareText: two Strings compared under the comparison mode of the module the procedure is declared in (CompiledActivation.CompareText), which is
+    // its frame's, or the one its frame would have.
     private PayloadNode? CompareText(BoundBinary compared)
     {
         if (OperatorTokens.ComparisonOf(compared.Plan!.Operator) is not { } comparison)
@@ -256,13 +256,13 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        NeedsFrame = true;
         return new TextCompareNode(comparison, left, right);
     }
 
     // the argument of a String parameter, as the interpreter gives it (MS-VBAL §5.3.1.11): a String variable of the activation given by reference is given
-    // its address, which the parameter is a second name for; Strings given by value are given their text, of which the callee makes a cell of its own. Anything
-    // else (a Variant, a number, a field given by reference, an element) is let-coerced or passed by the interpreter, which makes the call.
+    // its cell, or its address through the invoker, which the parameter is a second name for; Strings given by value are given their text, of which the
+    // callee makes a cell of its own. Anything else (a Variant, a number, a field given by reference, an element) is let-coerced or passed by the
+    // interpreter, which makes the call.
     private PayloadNode? TextArgumentOf(BoundArgument argument) => argument switch
     {
         { Passing: ArgumentPassing.Reference, Value: BoundVariable variable } when TextSlotOf(variable) is { } slot => new TextReferenceNode(slot),

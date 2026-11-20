@@ -30,6 +30,13 @@ public sealed class LetThroughDefaultMemberAnalyzerTests
             "Public Property Get Kept() As Variant", "Kept = mV", "End Property",
             "Public Property Let Kept(ByVal v As Variant)", "mV = v", "End Property",
             "Public Function Made() As Variant", "End Function")),
+        ("Bare", ModuleWorkspace.ClassModule("Bare", "Public Tag As Long")),
+        ("Shelf", ModuleWorkspace.ClassModule("Shelf",
+            "Private mBare As New Bare",
+            "Public Property Get Item() As Bare", "Set Item = mBare", "End Property",
+            "Public Function Make() As Bare", "Set Make = mBare", "End Function",
+            "Public Property Get Stored() As Bare", "Set Stored = mBare", "End Property",
+            "Public Property Let Stored(ByVal n As Long)", "mBare.Tag = n", "End Property")),
     ];
 
     private static async Task<AnalyzerFinding[]> FindingsAsync(IModuleAnalyzer analyzer, string declaration, string statement)
@@ -80,4 +87,33 @@ public sealed class LetThroughDefaultMemberAnalyzerTests
     [DataRow("Debug.Print h.Held", DisplayName = "a read")]
     public async Task ALetThatNamesAPropertyLet_IsNotReportedAsRDC11046(string statement)
         => Assert.IsEmpty(await FindingsAsync(new LetThroughAVariantGetOrFunctionAnalyzer(), "Dim h As New Holder", statement));
+
+    // MS-VBA (observed in Excel): each compiles, and raises 438 when it runs (91 for Nothing), as MS-VBAL §5.4.3.8 does.
+    [TestMethod]
+    [DataRow("Dim b As New Bare", "b = 5", "b", DisplayName = "a variable")]
+    [DataRow("Dim b As New Bare", "Let b = 5", "b", DisplayName = "an explicit Let")]
+    [DataRow("Dim b As Bare", "b = 5", "b", DisplayName = "a variable that holds Nothing")]
+    [DataRow("Dim s As New Shelf", "s.Item = 5", "Item", DisplayName = "a Property Get with no Property Let")]
+    [DataRow("Dim s As New Shelf", "s.Item() = 5", "Item", DisplayName = "a Property Get given an empty argument list")]
+    [DataRow("Dim s As New Shelf", "s.Make = 5", "Make", DisplayName = "a function")]
+    [DataRow("Dim a(1) As Bare", "a(0) = 5", "a", DisplayName = "an element of an array")]
+    public async Task ALetToAnObjectWithNoDefaultMember_IsAWarningNamingTheTargetAndItsClass(string declaration, string statement, string name)
+    {
+        var finding = Assert.ContainsSingle(await FindingsAsync(new LetToAnObjectWithNoDefaultMemberAnalyzer(), declaration, statement));
+
+        Assert.AreEqual(RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember.ToCode(), finding.Code);
+        Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
+        StringAssert.Contains(finding.Message, $"'{name}' is of class 'Bare'");
+    }
+
+    [TestMethod]
+    [DataRow("Dim s As New Shelf", "s.Stored = 5", DisplayName = "a property with a Property Let")]
+    [DataRow("Dim l As New Leaf", "l = 5", DisplayName = "a class with a default member")]
+    [DataRow("Dim b As New Bare", "b.Tag = 5", DisplayName = "a member named")]
+    [DataRow("Dim b As New Bare", "Set b = New Bare", DisplayName = "a Set")]
+    [DataRow("Dim o As Object", "Set o = New Bare: o = 5", DisplayName = "an Object, whose class is known only at run time")]
+    [DataRow("Dim v As Variant", "Set v = New Bare: v = 5", DisplayName = "a Variant")]
+    [DataRow("Dim n As Long", "Err = 5", DisplayName = "a library class with a default member")]
+    public async Task ALetThatAssignsADefaultMemberOrNoObject_IsNotReportedAsRDC11050(string declaration, string statement)
+        => Assert.IsEmpty(await FindingsAsync(new LetToAnObjectWithNoDefaultMemberAnalyzer(), declaration, statement));
 }

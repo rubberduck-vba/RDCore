@@ -228,6 +228,27 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<Runtime.OpenDialogs>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>());
 
+        // the code actions, as textDocument/codeAction answers them, for the tools that fix code; the catalog holds those and the host's read tools.
+        services.AddSingleton<ICodeActionService>(provider => new CodeActionService(
+            provider.GetRequiredService<IRenameService>(), provider.GetRequiredService<IWorkspaceDocumentService>(), provider.GetRequiredService<System.IO.Abstractions.IFileSystem>(),
+            provider.GetRequiredService<IExtractMethodService>(), provider.GetRequiredService<IMoveMemberService>(), provider.GetRequiredService<IPlatformClientCapabilitiesService>(),
+            provider.GetRequiredService<OmniSharp.Extensions.JsonRpc.ISerializer>(), ExternalServices.GetService<IProjectFileService>(),
+            ExternalServices.GetService<RDCore.SDK.Runtime.Libraries.ILibrarySource>(), ExternalServices.GetService<IEncapsulateFieldService>(),
+            ExternalServices.GetService<IImplementInterfaceService>(), ExternalServices.GetService<IMoveCloserToUsageService>(), ExternalServices.GetService<IParameterReorderService>()));
+        services.AddSingleton(provider => new Assistant.FixToolEdits(ExternalServices.GetRequiredService<Assistant.AssistantDocuments>(),
+            ExternalServices.GetRequiredService<IDocumentDiagnosticsService>(), ExternalServices.GetRequiredService<IDocumentLifecycleService>(),
+            provider.GetRequiredService<ICodeActionService>(), ExternalServices.GetRequiredService<IWorkspaceDocumentService>(),
+            ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>(), new Assistant.ClientEdits(() => provider.GetService<ILanguageServerFacade>())));
+        services.AddSingleton(provider =>
+        {
+            var fixes = provider.GetRequiredService<Assistant.FixToolEdits>();
+            return new RDCore.SDK.Server.Assistant.AssistantToolCatalog(ExternalServices.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>().Concat(
+            [
+                new Assistant.ListFixesTool(fixes), new Assistant.PreviewFixTool(fixes), new Assistant.ApplyFixTool(fixes),
+                new Assistant.RenameTool(provider.GetRequiredService<IRenameService>(), fixes),
+            ]));
+        });
+
         // the commands a client asks the server to run (workspace/executeCommand).
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportIndenterSettingsCommand>();

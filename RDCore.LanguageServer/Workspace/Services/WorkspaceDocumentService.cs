@@ -1,10 +1,10 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RDCore.SDK.Server.Configuration;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.States;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Concurrent;
@@ -188,13 +188,14 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     System.IO.Abstractions.IFile ioFile,
     IOptions<SdkAppOptions>? options = null) : IWorkspaceDocumentService
 {
-    // a module file is read in its own encoding: its byte order mark, else UTF-8, else the environment's ANSI code page.
-    private int AnsiCodePage => options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage;
+    // a module file is read in its own encoding (ModuleFileText): a file VBA exported is in the environment's ANSI code page.
+    private async Task<ModuleFileText> DecodeModuleAsync(string path)
+        => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage);
 
-    private async Task<string> ReadModuleAsync(string path) => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), AnsiCodePage).Text;
+    private async Task<string> ReadModuleTextAsync(string path) => (await DecodeModuleAsync(path)).Text;
 
-    // the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync), while requests the server answers in parallel look them up: a plain
-    // dictionary written and read at once gave those requests an internal error.
+    // a concurrent dictionary: the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync) while requests the server answers in parallel
+    // look them up, and a plain dictionary must not be read while it is written.
     private readonly ConcurrentDictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
 
     // the changes of a document that read it and write it back - the client's, the project's, a move to another path - are made one at a time, with the state they leave it
@@ -340,7 +341,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                     logger.LogTrace("Loading workspace document from '{path}'...", path);
                 }
 
-                content = await ReadModuleAsync(path);
+                content = await ReadModuleTextAsync(path);
                 companion = ReadCompanion(content, path);
             }
         }
@@ -629,7 +630,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                     // written in UTF-8.
                     if (ioFile.Exists(path))
                     {
-                        var file = ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), AnsiCodePage).WithText(document.Text);
+                        var file = (await DecodeModuleAsync(path)).WithText(document.Text);
                         await file.WriteAsync(ioFile.FileSystem, path, CancellationToken.None);
                     }
                     else
@@ -806,7 +807,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             {
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.
-                var content = await ReadModuleAsync(path);
+                var content = await ReadModuleTextAsync(path);
                 var companion = ReadCompanion(content, path);
 
                 // the document is what it is when this is written, not what it was before the file was read: it may have moved on, or a project may have taken it.
