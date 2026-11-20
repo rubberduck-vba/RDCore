@@ -24,7 +24,7 @@ public class SessionMemoryReclaimTests
         Assert.AreEqual(address, reused);
         Assert.AreEqual(0, sut.Info.FreeBytes);
         Assert.AreEqual(committed, sut.Info.CommittedBytes);
-        Assert.AreEqual(20, sut.Info.AllocatedBytes);
+        Assert.AreEqual(24, sut.Info.AllocatedBytes, "20 bytes, and the 4 before the last block that put it on an 8-byte boundary");
     }
 
     [TestMethod]
@@ -105,7 +105,7 @@ public class SessionMemoryReclaimTests
 
         var reclaimed = sut.Reclaim();
 
-        Assert.AreEqual(12, reclaimed, "the block at the end only; the hole is not at the end of anything");
+        Assert.AreEqual(14, reclaimed, "the block at the end, with the 2 bytes before it that align it; the hole is not at the end of anything");
         Assert.AreEqual(4, sut.Info.FreeBytes);
         Assert.AreEqual(4, sut.Info.LargestFreeBlock);
     }

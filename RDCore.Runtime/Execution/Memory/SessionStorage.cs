@@ -172,6 +172,17 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             size = Math.Max(size, VariantSize);
         }
 
+        // a Boolean is two bytes and an object variable a pointer, which their values' Size is not: a block is aligned for what it is as wide as
+        // (SessionMemory.AlignmentFor), so a pointer the size of a Long would be on a Long's boundary only.
+        if (handle is Frames.ScalarCell { Type: SDK.Model.Types.VBBooleanType } or ValueBindingHandle { Value: VBRuntimeBooleanValue })
+        {
+            size = SDK.Model.Types.VBUserDefinedTypeLayout.WidthOf(SDK.Model.Types.VBBooleanType.TypeInfo, pointerSize);
+        }
+        else if (handle is ValueBindingHandle { Value: VBRuntimeValue<VBRuntimeObjectId> })
+        {
+            size = pointerSize;
+        }
+
         if (!allocator.TryAllocate(size <= 0 ? pointerSize : size, out address))
         {
             return false;
