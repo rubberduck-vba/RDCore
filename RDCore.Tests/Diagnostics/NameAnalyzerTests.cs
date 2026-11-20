@@ -175,11 +175,13 @@ public sealed class NameAnalyzerTests
         "Public Function Run_2() As Long", "End Function",
     ];
 
-    // Rubberduck's meaningful name inspection skips what an event names (the parameters of a handler), and not a name for its underscore.
+    // Rubberduck's meaningful name inspection skips what an event names (the parameters of a handler), and not a name for its underscore. The interface and the
+    // events are the workspace's: the names of their implementations and handlers are judged, and these are meaningful.
     [TestMethod]
-    public async Task TheNamesOfAnImplementationOrAHandler_AreTheInterfaceOrTheEventToChoose_AndAnUnderscoreSaysNothing()
+    public async Task TheParametersOfAHandler_AreTheEventsToChoose_AndAnUnderscoreSaysNothing()
         => CollectionAssert.AreEqual(new[] { "Test_1", "Run_2" }, Names(await ChosenAsync(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Chosen)));
 
+    // the prefixes are lowercase: IShape and the implementations named for it are not Hungarian names.
     [TestMethod]
     public async Task TheNamesOfAnImplementationOrAHandler_AreNotHungarianEither()
         => CollectionAssert.AreEqual(
