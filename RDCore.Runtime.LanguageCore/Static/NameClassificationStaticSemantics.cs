@@ -36,7 +36,7 @@ public static class NameClassificationStaticSemantics
         {
             SimpleNameExpressionNode simple => context.Resolver.ResolveValue(simple, ScopeKind.Local, context.Scope.Uri).Symbol,
             MemberAccessExpressionNode { Owner: { } namespaceOwner } access when context.Resolver.NamespaceOf(namespaceOwner, context.Scope.Uri) is { } qualifier
-                => context.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope.Uri).Symbol,
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
             _ => null,
         };
 
