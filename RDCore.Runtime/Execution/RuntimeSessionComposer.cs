@@ -131,6 +131,9 @@ public static class RuntimeSessionComposer
 
         // a variable replaced by a definition lets go of the objects it held, which the session counts the references of.
         symbols.LettingGo = session.LetGoOfReplaced;
+
+        // so does a field of a record, written through a reference parameter bound where the field is.
+        storage.FieldOfRecord = (record, index, type) => new RecordFieldBinding(session, record, index, type);
         return session;
     }
 }
