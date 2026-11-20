@@ -280,7 +280,13 @@ that does, a procedure that calls itself included.
 Once every module of the project has a model, the host also counts, over all of its modules, what only the project's code
 can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is `Option Private Module`
 (**MS-VBAL §5.3.1.1**, **§5.2.1.4**). A procedure that was not analyzed completely withholds the count of each name it writes,
-as in item 2. An argument taken by reference is counted there as in its module.
+as in item 2.
+
+Once every module of the project has a model, an argument taken by reference is also followed into a procedure of a
+standard module of the project, from any module: a call of its name runs that procedure. The counts of each module and
+those over the project follow it alike. A call through a variable of a class is not followed: the object may be of another
+class that implements it. While a procedure of a module was not analyzed completely, a parameter of any procedure of that
+module may be assigned; one that a procedure of it assigns is known all the same.
 
 A `Private` procedure or property is counted in every kind of project: only the code of its module can call it, and no
 access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:

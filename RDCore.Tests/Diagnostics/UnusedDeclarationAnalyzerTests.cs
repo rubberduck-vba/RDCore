@@ -350,6 +350,78 @@ public sealed class UnusedDeclarationAnalyzerTests
         Assert.IsTrue(filled?.Single(site => site.Kind == DeclarationReferenceKind.PassedAsArgument).AssignedThroughCall == true, "Fill assigns it");
     }
 
+    // a procedure of a standard module of the project is the one a call of its name runs, from any module: what it does with an argument is followed into
+    // it, and back into the module that called it; a member of a class called through a variable may be another class's that implements it.
+    [TestMethod]
+    public async Task AVariablePassedToAProcedureOfAnotherStandardModule_IsFollowedIntoIt()
+    {
+        var source = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public total As Long",
+            "Public Sub Main()",
+            "    Dim onlyRead As Long",
+            "    Helpers.Peek onlyRead",
+            "    Dim filled As Long",
+            "    Fill filled",
+            "    Dim relayed As Long",
+            "    Helpers.Relay relayed",
+            "    Dim throughObject As Long",
+            "    Dim counter As New Counter",
+            "    counter.Peek throughObject",
+            "    Peek total",
+            "    Debug.Print onlyRead + filled + relayed + throughObject + total",
+            "End Sub",
+            "Public Sub Back(ByRef value As Long)", "    value = 1", "End Sub");
+        var helpers = ModuleWorkspace.StandardModule("Helpers",
+            "Option Explicit",
+            "Public Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub",
+            "Public Sub Fill(ByRef x As Long)", "    x = 5", "End Sub",
+            "Public Sub Relay(ByRef x As Long)", "    Program.Back x", "End Sub");
+        var counter = ModuleWorkspace.ClassModule("Counter",
+            "Option Explicit",
+            "Public Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([("Counter", counter)], source, modules: [("Helpers", helpers)]);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+
+        var findings = Run(new VariableNotAssignedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
+
+        CollectionAssert.AreEqual(new[] { 2, 4 }, Lines(findings),
+            "total and onlyRead, which Helpers.Peek only reads; not filled, which Fill assigns, relayed, which Back assigns, nor the one Counter is given");
+        foreach (var name in new[] { "filled", "relayed" })
+        {
+            var sites = model.Declarations.Single(fact => fact.Name == name).ReferencedFrom;
+            Assert.IsTrue(sites?.Single(site => site.Kind == DeclarationReferenceKind.PassedAsArgument).AssignedThroughCall == true, name);
+        }
+    }
+
+    // a module that has a procedure not fully analyzed may assign what it is given: what an analyzed procedure of it assigns is known all the same.
+    [TestMethod]
+    public async Task AVariablePassedToAModuleThatWasNotFullyAnalyzed_IsNotReported_ThoughWhatItAssignsIsKnown()
+    {
+        var source = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim given As Long",
+            "    Helpers.Peek given",
+            "    Dim filled As Long",
+            "    Helpers.Fill filled",
+            "    Debug.Print given + filled",
+            "End Sub");
+        var helpers = ModuleWorkspace.StandardModule("Helpers",
+            "Option Explicit",
+            "Public Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub",
+            "Public Sub Fill(ByRef x As Long)", "    x = 5", "End Sub",
+            "Public Sub Broken()", "    Debug.Print Undeclared", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], source, modules: [("Helpers", helpers)]);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+
+        var findings = Run(new VariableNotAssignedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
+
+        Assert.IsEmpty(findings, "Broken has an error: Helpers is not taken as only reading what Peek is given");
+        var filled = model.Declarations.Single(fact => fact.Name == "filled").ReferencedFrom;
+        Assert.IsTrue(filled?.Single(site => site.Kind == DeclarationReferenceKind.PassedAsArgument).AssignedThroughCall == true, "Fill assigns it");
+    }
+
     // a procedure called through an object may be another class's that implements the class; one of another module, or of a library, is not followed.
     [TestMethod]
     public async Task AVariablePassedToAProcedureNotFollowed_IsNotReported()
