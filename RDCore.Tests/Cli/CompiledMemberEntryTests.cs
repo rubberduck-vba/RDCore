@@ -252,6 +252,53 @@ public sealed class CompiledMemberEntryTests
         AssertEntered(compiled, "InTurn", direct: 16, "Add", framesMade: 0);
     }
 
+    // Same says whether Me is the module's Other; Inner calls Same on Other, then on Me, while its own activation runs. Each activation of Same, one after
+    // another on the two objects, and one inside a call of Inner on either, compares the object it is on.
+    [TestMethod]
+    public async Task MeIs_TheObjectEachActivationIsOn_OneAfterAnotherAndInsideAnother()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Program(
+            "Public Other As Pair",
+            "Public Sub Main()",
+            "    Debug.Print Compared()",
+            "End Sub",
+            "Private Function Compared() As Long",
+            "    Dim A As Pair",
+            "    Dim B As Pair",
+            "    Dim I As Long",
+            "    Dim V As Long",
+            "    Set A = New Pair",
+            "    A.Id = 1",
+            "    Set B = New Pair",
+            "    B.Id = 2",
+            "    For I = 1 To 4",
+            "        If I Mod 2 = 0 Then Set Other = A Else Set Other = B",
+            "        V = A.Same()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "        V = B.Same()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "        V = A.Inner()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "        V = B.Inner()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "    Next",
+            "End Function"), [("Pair", ModuleWorkspace.ClassModule("Pair", "Option Explicit",
+                "Public Id As Long",
+                "Public Function Same() As Long",
+                "    Same = Id * 2",
+                "    If Me Is Other Then Same = Same + 1",
+                "End Function",
+                "Public Function Inner() As Long",
+                "    Dim V As Long",
+                "    V = Other.Same()",
+                "    Inner = V * 10 + Same()",
+                "    If Me Is Other Then Inner = Inner + 500",
+                "End Function"))]);
+
+        StringAssert.Contains(observed, "| 220455 |");
+        AssertEntered(compiled, "Compared", direct: 16, "Same", framesMade: 0);
+    }
+
     // what the caller called through a binding, the object given as Me (CompiledActivation.CallMember) - each a call of the member named, which is not
     // compiled - and nothing directly.
     private static void AssertCalledThroughBinding(IReadOnlyDictionary<string, CompilationResult> compiled, string caller, long indirect, string member)
