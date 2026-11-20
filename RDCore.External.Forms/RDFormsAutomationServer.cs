@@ -149,7 +149,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             if (component.Class.Property(member) is { } property)
             {
                 // the class says which of its properties only a form's file and a designer set (382 on an assignment), and which a program cannot reach at
-                // all (393 on a read): the Timer's Left and Top are its class's, not the property's. The forms are Visual Basic 6.0 forms, with VB's library.
+                // all (393 on a read): the Timer's Left and Top are its class's, not the property's. This server hosts Visual Basic 6.0 forms
+                // only, so the rule is VB6's.
                 if (invocation is AutomationInvocation.Let or AutomationInvocation.Set && component.Class.IsReadOnlyAtRunTimeOnAVisualBasic6Form(property))
                 {
                     throw FormFailure(FormError.SetNotSupportedAtRuntime);

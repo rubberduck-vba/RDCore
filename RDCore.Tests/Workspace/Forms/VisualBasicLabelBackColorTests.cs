@@ -6,8 +6,8 @@ using RDCore.Tests.Cli;
 namespace RDCore.Tests.Workspace.Forms;
 
 /// <summary>
-/// A running program's <c>BackColor</c> on a transparent <c>Label</c> is dropped, as VB6 drops it: no error, it reads back the colour the label had, and
-/// making the label opaque shows that colour. Once opaque, the label takes the next one.
+/// A running program's <c>BackColor</c> on a transparent <c>Label</c> is dropped, as VB6 drops it: no error, the property reads back the color the label
+/// had, and making the label opaque shows that color. Once opaque, the label takes the next one.
 /// </summary>
 [TestClass]
 public sealed class VisualBasicLabelBackColorTests
@@ -49,7 +49,8 @@ public sealed class VisualBasicLabelBackColorTests
     private static async Task<string> PrintedAsync(params string[] statements)
     {
         var form1 = Form1();
-        var printed = await ModuleWorkspace.RunAsync([], Program(statements), Libraries, [("Form1", form1, FormDesigner.Read(form1)!)], SupportedLanguages.VB6);
+        var printed = await ModuleWorkspace.RunAsync(
+            [], Program(statements), Libraries, [("Form1", form1, FormDesigner.Read(form1)!)], SupportedLanguages.VB6);
         return string.Join("|", printed);
     }
 
