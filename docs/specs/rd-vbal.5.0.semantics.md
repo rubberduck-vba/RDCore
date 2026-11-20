@@ -262,12 +262,15 @@ and are `null` otherwise, which says the references are not known, and not that 
    and every one has a fact. For a local or a parameter that is its procedure; for a variable or a constant of the module,
    every procedure that names it. A procedure refers to a variable or a constant by writing its name (**MS-VBAL §5.6.10**):
    one that was not analyzed completely, and that writes the name nowhere, not even in what the parser could not read, does
-   not refer to it. A constant of the module is also referred to by the expressions of the module's declarations (the bounds
-   of an array, the value of another constant, the default of a parameter), and every one of them was analyzed with no error.
+   not refer to it. A declaration counted over the modules of the project is the same: only a procedure of the project that
+   writes its name and was not analyzed completely withholds its count. A constant of the module is also referred to by the
+   expressions of the module's declarations (the bounds of an array, the value of another constant, the default of a
+   parameter), and every one of them was analyzed with no error.
 
-Once every procedure of the project was analyzed completely, the host also counts, over all of its modules, what only the
-project's code can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is
-`Option Private Module` (**MS-VBAL §5.3.1.1**, **§5.2.1.4**).
+Once every module of the project has a model, the host also counts, over all of its modules, what only the project's code
+can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is `Option Private Module`
+(**MS-VBAL §5.3.1.1**, **§5.2.1.4**). A procedure that was not analyzed completely withholds the count of each name it writes,
+as in item 2.
 
 A `Private` procedure or property is counted in every kind of project: only the code of its module can call it, and no
 access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:

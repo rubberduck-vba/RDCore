@@ -47,7 +47,7 @@ public sealed class ObjectArgumentOrderTests
         DisplayName = "a call that lets go of a variable by reference, left of a call that reads it")]
     [DataRow("Dim X As Box ;; Set X = New Box ;; P Sum2(IdOf(X), Cleared(X)) ;; P Trail", "1,1|i1 t1 |",
         DisplayName = "a call that reads a variable, left of a call that lets go of it by reference")]
-    [DataRow("Dim X As Box ;; Set X = New Box ;; P Pair(Swapped(X), X) ;; P Trail", "1,2|i1 i2 t1 |",
+    [DataRow("Dim X As Box ;; Set X = New Box ;; P Pair(Swapped(X), X) ;; P Trail", "1,2:i1 i2 |i1 i2 t1 |",
         DisplayName = "a call that gives a variable another object by reference, left of the variable")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(Bump(N), N)", "11,11|", DisplayName = "a call that adds to a variable by reference, left of the variable")]
     [DataRow("Dim X As Box ;; Set X = Tagged(\"x\") ;; Set X = Pick(Tagged(\"a\"), X) ;; P X.Id ;; P Trail", "2|x i1 a i2 t1 |",
