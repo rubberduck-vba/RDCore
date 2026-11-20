@@ -586,7 +586,8 @@ public sealed class CodeActionHandlerTests
         var moves = new List<CodeAction>();
         foreach (var finding in findings)
         {
-            moves.Add((await ActionsAsync(document, finding.Range, null, finding)).Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage));
+            moves.Add((await ActionsAsync(document, finding.Range, null, finding))
+                .Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage));
         }
 
         var intoTally = moves[0].Edit!.Changes!.ToDictionary(change => Path.GetFileName(change.Key.GetFileSystemPath()),
@@ -610,8 +611,10 @@ public sealed class CodeActionHandlerTests
         ClientShowsDisabledActions();
         var actions = await ActionsAsync(document, findings.Single().Range, null, findings.Single());
 
-        Assert.IsFalse(hidden.Any(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage), "a client that shows no disabled action is offered none");
-        Assert.AreEqual("'Count' is a member of each object of its class, which other modules use: only a Private variable of a class module is moved into a procedure.",
+        Assert.IsFalse(
+            hidden.Any(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage), "a client that shows no disabled action is offered none");
+        Assert.AreEqual(
+            "'Count' is a member of each object of its class, which other modules use: only a Private variable of a class module is moved into a procedure.",
             actions.Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage).Disabled?.Reason);
     }
 }

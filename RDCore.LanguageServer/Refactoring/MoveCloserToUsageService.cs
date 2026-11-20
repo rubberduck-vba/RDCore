@@ -179,7 +179,8 @@ internal sealed class MoveCloserToUsageService(IRenameService rename) : IMoveClo
             return (null, new(CloserToUsageRefusalKind.NotAVariable, string.Empty));
         }
 
-        var (target, refusal) = CloserToUsage.Prepare(part.Context, source, module.Parse, module.ToModulePosition(new Position(position.Line, position.Character)),
+        var (target, refusal) = CloserToUsage.Prepare(
+            part.Context, source, module.Parse, module.ToModulePosition(new Position(position.Line, position.Character)),
             uri => part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == uri.AbsoluteUri)?.Parse);
         return target is null ? (null, refusal) : (new Planned(part, target), null);
     }

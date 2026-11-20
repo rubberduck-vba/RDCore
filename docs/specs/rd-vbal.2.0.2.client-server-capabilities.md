@@ -690,7 +690,10 @@ When the module has other `Public` fields, Encapsulate Field also asks which of 
 The range is on the declaration of a variable or on a use of it. The declaration moves to a line of its own before the statement that first uses the variable, indented as that statement is, in the innermost block that holds every use of it. A use in the condition of an `If` or the bounds of a loop keeps it before that statement. A declaration is not executed ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)), so a variable of a procedure is the same wherever it is declared before its first use.
 
 - A variable of a procedure keeps its keyword, `Dim` or `Static`.
-- A variable of a module that a single procedure uses moves into that procedure: a `Private` one of its module, and a `Public` or `Global` one of a standard module, which a procedure of another module of the project can use. The uses are the names bound to the variable in every module of the project; a use qualified with the name of its module (`Globals.gCount`) loses the qualifier. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
+- A variable of a module that a single procedure uses moves into that procedure: a `Private` one of its module, and a `Public` or `Global` one of
+  a standard module, which a procedure of another module of the project can use. The uses are the names bound to the variable in every module of
+  the project; a use qualified with the name of its module (`Globals.gCount`) loses the qualifier. Its choice (`keyword`, an `Option`) is
+  `static`, the default, or `dim`.
 
 |A variable of a module, declared|Changes|Code|
 |---|---|---|

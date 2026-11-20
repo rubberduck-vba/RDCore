@@ -74,9 +74,11 @@ public sealed class CloserToUsageTests
             Assert.IsNull(refusal, refusal?.ToMessage());
             var (edits, refused) = CloserToUsage.Plan(target!, keyword);
             Assert.IsNull(refused, refused?.ToMessage());
-            return Modules.ToDictionary(each => each.Key, each => edits!.FirstOrDefault(edit => edit.Module.AbsoluteUri == each.Value.Module.Module.AbsoluteUri) is { } edited
-                ? DeclarationEdits.ApplyTo(each.Value.Module.Source, edited.Edits)
-                : each.Value.Module.Source);
+            return Modules.ToDictionary(
+                each => each.Key,
+                each => edits!.FirstOrDefault(edit => edit.Module.AbsoluteUri == each.Value.Module.Module.AbsoluteUri) is { } edited
+                    ? DeclarationEdits.ApplyTo(each.Value.Module.Source, edited.Edits)
+                    : each.Value.Module.Source);
         }
     }
 
@@ -272,7 +274,8 @@ public sealed class CloserToUsageTests
     [TestMethod]
     public void APublicVariableOfAClassModule_IsRefused()
     {
-        var (_, refusal) = Prepare(Compose(Header + "Public count As Long\r\n\r\nPublic Sub Tick()\r\n    count = 1\r\nEnd Sub\r\n", ModuleType.ClassModule), "count");
+        var (_, refusal) = Prepare(
+            Compose(Header + "Public count As Long\r\n\r\nPublic Sub Tick()\r\n    count = 1\r\nEnd Sub\r\n", ModuleType.ClassModule), "count");
 
         Assert.AreEqual(CloserToUsageRefusalKind.NotPrivate, refusal?.Kind);
     }

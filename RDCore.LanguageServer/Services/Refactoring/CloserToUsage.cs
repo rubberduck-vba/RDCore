@@ -200,7 +200,8 @@ internal static class CloserToUsage
         // a variable of a procedure, or a Private one of a module, is used in its module only; another is looked for in the project.
         var isOfTheModule = symbol is not VBLocalVariableSymbol;
         var (occurrences, unknown) = Bound(context, symbol, [source]);
-        if (DeclarationOf(context, symbol, occurrences) is not { Declaration.AccessModifier: AccessModifier.Private or AccessModifier.Implicit } && isOfTheModule)
+        if (DeclarationOf(context, symbol, occurrences) is not { Declaration.AccessModifier: AccessModifier.Private or AccessModifier.Implicit }
+            && isOfTheModule)
         {
             (occurrences, unknown) = Bound(context, symbol, context.Modules);
         }
@@ -211,7 +212,8 @@ internal static class CloserToUsage
         }
 
         // a variable of a class is a member of each of its objects, which no local of one procedure stands for.
-        if (isOfTheModule && declaration.AccessModifier is not (AccessModifier.Private or AccessModifier.Implicit) && EncapsulateField.IsOfAnObjectModule(symbol))
+        if (isOfTheModule && declaration.AccessModifier is not (AccessModifier.Private or AccessModifier.Implicit)
+            && EncapsulateField.IsOfAnObjectModule(symbol))
         {
             return (null, new(CloserToUsageRefusalKind.NotPrivate, symbol.Name));
         }
@@ -231,7 +233,9 @@ internal static class CloserToUsage
         if (users is not [({ } into, { } procedure)])
         {
             var names = string.Join(", ", users.Where(user => user.Procedure is not null)
-                .Select(user => user.Module!.Module.AbsoluteUri == declaring.Module.AbsoluteUri ? user.Procedure!.Name : $"{NameOf(user.Module!)}.{user.Procedure!.Name}"));
+                .Select(user => user.Module!.Module.AbsoluteUri == declaring.Module.AbsoluteUri
+                    ? user.Procedure!.Name
+                    : $"{NameOf(user.Module!)}.{user.Procedure!.Name}"));
             return (null, new(CloserToUsageRefusalKind.SeveralProcedures, symbol.Name, names));
         }
 
@@ -263,17 +267,20 @@ internal static class CloserToUsage
     }
 
     // the occurrences of the modules that are bound to the variable, and the names of its name that are bound to nothing.
-    private static (List<NameOccurrence> Bound, IReadOnlyList<NameOccurrence> Unknown) Bound(RenameContext context, Symbol symbol, IEnumerable<RenameModule> modules)
+    private static (List<NameOccurrence> Bound, IReadOnlyList<NameOccurrence> Unknown) Bound(
+        RenameContext context, Symbol symbol, IEnumerable<RenameModule> modules)
     {
         var found = NameOccurrences.Find(context, symbol.Name, modules);
         return ([.. found.Occurrences.Where(occurrence => occurrence.Binding == symbol.SemanticId)], found.Unknown);
     }
 
     // the declaration of the variable among its occurrences, and the module that declares it.
-    private static (VariableDeclarationNode Declaration, RenameModule Module)? DeclarationOf(RenameContext context, Symbol symbol, IReadOnlyList<NameOccurrence> occurrences)
+    private static (VariableDeclarationNode Declaration, RenameModule Module)? DeclarationOf(
+        RenameContext context, Symbol symbol, IReadOnlyList<NameOccurrence> occurrences)
         => occurrences.FirstOrDefault(occurrence => occurrence.Kind is OccurrenceKind.Declaration) is { Module: { } uri } declared
             && context.Modules.FirstOrDefault(module => module.Module.AbsoluteUri == uri.AbsoluteUri) is { } module
-            && module.Syntax.Descendants().OfType<VariableDeclarationNode>().FirstOrDefault(variable => variable.NameRange?.Start == declared.Range.Start) is { } node
+            && module.Syntax.Descendants().OfType<VariableDeclarationNode>()
+                .FirstOrDefault(variable => variable.NameRange?.Start == declared.Range.Start) is { } node
                 ? (node, module)
                 : null;
 
@@ -321,7 +328,11 @@ internal static class CloserToUsage
         var at = new SourcePosition(line, 0);
         IReadOnlyList<RefactorTextEdit> inserted =
         [
-            new RefactorTextEdit { Range = new SourceRange(at, at), NewText = $"{DeclarationEdits.IndentOf(into, line)}{written} {declarator}{new ExtractionText(into).NewLine}" },
+            new RefactorTextEdit
+            {
+                Range = new SourceRange(at, at),
+                NewText = $"{DeclarationEdits.IndentOf(into, line)}{written} {declarator}{new ExtractionText(into).NewLine}",
+            },
             .. target.Unqualified.Select(range => new RefactorTextEdit { Range = range, NewText = string.Empty }),
         ];
 
