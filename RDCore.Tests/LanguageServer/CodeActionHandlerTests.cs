@@ -553,6 +553,23 @@ public sealed class CodeActionHandlerTests
             "Static, which keeps its value from one call to the next as the variable of the module did");
     }
 
+    // a Static local of a member of a class has the extent of the object the member is called on, as the variable of the class did (RD-VBAL §5.4.3.1).
+    [TestMethod]
+    public async Task APrivateVariableOfAClassThatOneProcedureUses_IsOfferedItsMove_AtItsFinding_AsInAStandardModule()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Private mCalls As Long", "Public Sub Note()", "    mCalls = mCalls + 1", "End Sub"));
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim c As New Counter", "    c.Note", "End Sub");
+        var (document, findings) = await CloserToUsageFindingsAsync("Counter", program, [counter]);
+        var finding = findings.Single();
+
+        var actions = await ActionsAsync(document, finding.Range, null, finding);
+
+        var move = Assert.ContainsSingle(actions.Where(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage));
+        var edits = move.Edit!.Changes!.Single().Value.Select(edit => (edit.Range, edit.NewText)).ToArray();
+        CollectionAssert.AreEqual(new[] { (new Range(5, 0, 6, 0), string.Empty), (new Range(7, 0, 7, 0), "    Static mCalls As Long\r\n") }, edits);
+    }
+
     // the refactoring moves a Private variable only: a Public one, which the program's other modules can use, is offered disabled, with why.
     [TestMethod]
     public async Task APublicVariableOfAProgramsModule_IsOfferedItsMoveDisabled_AtItsFinding()

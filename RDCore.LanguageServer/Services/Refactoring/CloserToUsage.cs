@@ -85,12 +85,6 @@ internal enum CloserToUsageKeyword
 internal enum CloserToUsageChangeKind
 {
     /// <summary>
-    /// The variable of a class module has object extent: as a variable of a <c>Static</c> declaration, or of a <c>Static</c> procedure, it has module extent
-    /// (<strong>MS-VBAL §2.3</strong>, <strong>§5.4.3.1</strong>).
-    /// </summary>
-    ModuleExtent,
-
-    /// <summary>
     /// The variable keeps its value between calls: as a variable of a <c>Dim</c> declaration, it is initialized at each call.
     /// </summary>
     NotKept,
@@ -216,19 +210,13 @@ internal static class CloserToUsage
         return (new CloserToUsageTarget(symbol, declaration, procedure, before), null);
     }
 
-    // what moving the declaration with a keyword changes: a variable of a class module loses its object extent, and one of a standard module its value
-    // between calls when it is declared with Dim in a procedure that is not Static. A variable of a class module is a field of the instance scope.
+    // what moving the declaration with a keyword changes: a variable of the module loses its value between calls when it is declared with Dim in a procedure
+    // that is not Static. A Static local of a member of a class module has the extent of the object the member is called on (RD-VBAL §5.4.3.1), as the
+    // variable of the class did: each object keeps its own value.
     public static CloserToUsageNotice? ChangeOf(CloserToUsageTarget target, CloserToUsageKeyword keyword)
-    {
-        var keeps = keyword is CloserToUsageKeyword.Static || target.Procedure.IsStatic;
-        return target.Variable switch
-        {
-            VBModuleFieldVariableMemberSymbol { Scope: ScopeKind.Instance } or VBInstanceFieldVariableMemberSymbol when keeps
-                => new(null, target.Variable.Name, target.Procedure.Name, CloserToUsageChangeKind.ModuleExtent),
-            VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol when !keeps => new(null, target.Variable.Name, target.Procedure.Name, CloserToUsageChangeKind.NotKept),
-            _ => null,
-        };
-    }
+        => target.IsOfTheModule && keyword is CloserToUsageKeyword.Dim && !target.Procedure.IsStatic
+            ? new(null, target.Variable.Name, target.Procedure.Name, CloserToUsageChangeKind.NotKept)
+            : null;
 
     // the edits that move the declaration: the variable is removed from its statement, and declared on a line of its own before the statement that first uses
     // it, indented as that statement is. A variable of a procedure keeps its keyword; one of the module takes the keyword chosen.

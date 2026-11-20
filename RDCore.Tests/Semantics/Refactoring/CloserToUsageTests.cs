@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
+using RDCore.Tests.Cli;
 using System.Globalization;
 
 namespace RDCore.Tests.Semantics.Refactoring;
@@ -75,13 +76,42 @@ public sealed class CloserToUsageTests
         Assert.AreEqual(CloserToUsageChangeKind.NotKept, CloserToUsage.ChangeOf(target!, CloserToUsageKeyword.Dim)?.Change);
     }
 
+    // a Static local of a member of a class has the extent of the object the member is called on, as the variable of the class did (RD-VBAL §5.4.3.1).
     [TestMethod]
-    public void AVariableOfAClassModule_ChangesItsExtent_WithEitherKeyword()
+    public void AVariableOfAClassModule_KeepsItsValueAsStatic_AndNotAsDim()
     {
         var (target, _) = Prepare(Compose(Header + Counter, ModuleType.ClassModule), "count");
 
-        Assert.AreEqual(CloserToUsageChangeKind.ModuleExtent, CloserToUsage.ChangeOf(target!, CloserToUsageKeyword.Static)?.Change);
+        Assert.IsNull(CloserToUsage.ChangeOf(target!, CloserToUsageKeyword.Static));
         Assert.AreEqual(CloserToUsageChangeKind.NotKept, CloserToUsage.ChangeOf(target!, CloserToUsageKeyword.Dim)?.Change);
+    }
+
+    // a class whose Tick counts the calls on each object, and a program that calls it on two objects: three times on one, once on the other.
+    private static readonly string Ticker = ModuleWorkspace.ClassModule("Ticker", "Option Explicit", "Private count As Long", "",
+        "Public Function Tick() As Long", "    count = count + 1", "    Tick = count", "End Function");
+
+    private static readonly string TwoTickers = ModuleWorkspace.StandardModule("Program", "Public Sub Main()",
+        "    Dim a As New Ticker", "    Dim b As New Ticker", "    a.Tick", "    a.Tick", "    Debug.Print a.Tick", "    Debug.Print b.Tick", "End Sub");
+
+    [TestMethod]
+    public async Task AVariableOfAClassModule_MovedAsStatic_KeepsAValueForEachObject()
+    {
+        var moved = Moved(Ticker, "count", CloserToUsageKeyword.Static, ModuleType.ClassModule);
+
+        StringAssert.Contains(moved, "    Static count As Long\r\n    count = count + 1");
+        var before = await ModuleWorkspace.RunAsync([("Ticker", Ticker)], TwoTickers);
+        CollectionAssert.AreEqual(new[] { "3", "1" }, before, "each object counts its own calls");
+        CollectionAssert.AreEqual(before, await ModuleWorkspace.RunAsync([("Ticker", moved)], TwoTickers), "and still does");
+    }
+
+    [TestMethod]
+    public async Task AVariableOfAClassModule_MovedWithDim_IsInitializedAtEachCall_AsItsNoticeSays()
+    {
+        var (target, _) = Prepare(Compose(Ticker, ModuleType.ClassModule), "count");
+        var moved = Moved(Ticker, "count", CloserToUsageKeyword.Dim, ModuleType.ClassModule);
+
+        Assert.AreEqual(CloserToUsageChangeKind.NotKept, CloserToUsage.ChangeOf(target!, CloserToUsageKeyword.Dim)?.Change);
+        CollectionAssert.AreEqual(new[] { "1", "1" }, await ModuleWorkspace.RunAsync([("Ticker", moved)], TwoTickers));
     }
 
     [TestMethod]
