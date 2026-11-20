@@ -5,7 +5,7 @@ using RDCore.SDK.Semantics.Flags;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The host states the default members an argument list or the name of a dictionary access given to an object goes through (MS-VBAL 5.6.13, 5.6.14),
+/// The host states the default members an argument list or the name of a dictionary access given to an object goes through (MS-VBAL §5.6.13, §5.6.14),
 /// in the order they are called, from the class the object is declared as: the code that names them all is what the access is short for.
 /// </summary>
 [TestClass]

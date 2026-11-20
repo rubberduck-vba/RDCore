@@ -182,8 +182,9 @@ is stated; what an element holds is assumed, so `x = 1 \ a(1)` says nothing.
 An access of a default member that the code does not name, given an argument list or the name of a dictionary access, states the default members it goes
 through in the order they are called (`MemberAccessFact.DefaultMembers`), from the class the object is declared as
 ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)). When `Child` is the default member of `t`'s class and `Item` that of the
-class `Child` returns, `t(1)` goes through `Child` and `Item`, and is `t.Child().Item(1)` written out. None is stated for an object declared `As Object` or
-`Variant`, of a class that is not known, or through an array.
+class `Child` returns, `t(1)` goes through `Child` and `Item`, and is `t.Child().Item(1)` written out. None is stated when an `Object`, a `Variant` or a
+class that is not known is on the way, when the arguments index an array a member returns, or when a default member returns a class the chain already
+went through.
 
 ## Language Core Conditions and Analyzer Opinions
 
