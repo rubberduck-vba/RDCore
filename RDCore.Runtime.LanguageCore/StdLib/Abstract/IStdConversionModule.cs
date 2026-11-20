@@ -23,6 +23,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBBooleanValue> CBool([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -33,6 +34,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBByteValue> CByte([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -43,6 +45,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBCurrencyValue> CCur([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -53,6 +56,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBDateValue> CDate([StdLibValue] VBVariantValue expression);
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.3.1.4 CVDate</strong>
@@ -72,6 +76,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBDoubleValue> CDbl([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -93,6 +98,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBIntegerValue> CInt([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -103,6 +109,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBLongValue> CLng([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -145,6 +152,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBStringValue> CStr([StdLibValue] VBVariantValue expression);
 
     /// <summary>
@@ -155,6 +163,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="expression">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBVariantValue> CVar(VBVariantValue expression);
 
     /// <summary>
@@ -195,6 +204,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBVariantValue> Fix([StdLibValue(ValueDestination.AnyValue)] VBVariantValue number);
 
     /// <summary>
@@ -225,6 +235,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBVariantValue> Int([StdLibValue(ValueDestination.AnyValue)] VBVariantValue number);
 
     /// <summary>
