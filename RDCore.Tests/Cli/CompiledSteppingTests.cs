@@ -220,12 +220,12 @@ public sealed class CompiledSteppingTests
         CollectionAssert.AreEqual(new[] { 5, 5 }, stepped.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(), "the For, counted from 0");
     }
 
-    // an error the interpreter raises in a statement it runs alone (an operator compiled code does not do, Like), with no handler: the caller's handler
-    // catches it, as it does the interpreter's.
+    // an error the interpreter raises in a statement it runs alone (a call of P's member, late-bound), with no handler: the caller's handler catches it,
+    // as it does the interpreter's.
     [TestMethod]
     public async Task AnErrorInAStatementTheInterpreterRuns_GoesToTheCaller()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
+    {
+        var program = LateBound(
             "    On Error GoTo Caught",
             "    Debug.Print Failing(\"x\")",
             "    Exit Sub",
@@ -237,8 +237,11 @@ public sealed class CompiledSteppingTests
             "    For I = 1 To 2",
             "        Failing = Failing + I",
             "    Next",
-            "    Failing = Failing + CLng(S) + (S Like \"y\")",
-            "End Function"), "Failing", recoveries: 0);
+            "    Failing = Failing + CLng(S) + P.Size(S)",
+            "End Function");
+
+        AssertLateBoundIsStepped(program, await AssertAlikeAsync(program, "Failing", recoveries: 0, classes: Pieces));
+    }
 
     [TestMethod]
     public async Task AnErrorInAStatementTheInterpreterRuns_GonePast_GoesOnCompiled()
