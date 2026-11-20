@@ -79,8 +79,8 @@ public sealed class CompiledAsNewWithTests
             "    Counted = Counted + 1",
             "End Function");
 
-    // a Set to Nothing leaves the variable holding none: the next With makes another object, and the block opened before holds the first. The Set is not
-    // this test's subject, which compiled code or the interpreter may run: the With statements are, and neither is stepped.
+    // a Set to Nothing leaves the variable holding none: the next With makes another object, and the block opened before holds the first. The Set, which
+    // compiled code or the interpreter may run, is not this test's subject: the With statements are, and neither is stepped.
     [TestMethod]
     public async Task AWithOfALocalAsNewSetToNothing_MakesAnotherObject()
         => await AssertNoneSteppedAsync("Again", "mademade 15 ", supported: true,
