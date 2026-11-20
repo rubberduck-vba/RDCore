@@ -196,6 +196,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         var declared = DeclarationUsage.DeclaredBy(members).ToList();
         var document = module is VBClassModuleSymbol documentClass ? DocumentModuleFact.Of(documentClass, session.Symbols.Resolver) : null;
         var excludedBranchNames = ExcludedBranchNames.Of(written, deadRanges);
+        var byRefArguments = DeclarationUsage.ArgumentsOf(declared, procedureModels, arguments);
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {
             // a language that has no such directive has no fact to state about it.
@@ -203,7 +204,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             Declarations = DeclarationUsage.Of(
                 declared, procedureModels,
                 module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames,
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), byRefArguments, declarationFacts,
+                excludedBranchNames,
                 symbol => StatementsCompiledOn(written, symbol.Name, platforms), namesInUnanalyzedCode: unanalyzedNames),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
@@ -220,7 +222,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails, syntaxTree, module.Uri);
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms,
-            LateBoundNames.Of(syntaxTree, moduleModel.Procedures), unanalyzedNames);
+            LateBoundNames.Of(syntaxTree, moduleModel.Procedures), unanalyzedNames, byRefArguments);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
