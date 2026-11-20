@@ -471,7 +471,7 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a String is held in the cell its frame holds it in, whose text compiled code reads and writes.
+            // a String is held in a cell whose text compiled code reads and writes: its frame's, or its activation's (HoldText).
             if (parameter is not ParamArrayParameterSymbol && IsText(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
             {
                 HoldText(_layout.ParameterSlots[i], parameter);
@@ -1019,6 +1019,7 @@ internal sealed partial class ProcedureAnalysis
         ObjectParameter?[]? objects = null;
         bool[]? omitted = null;
         bool[]? variants = null;
+        int[]? texts = null;
         for (var i = 0; i < parameters.Length; i++)
         {
             // a Variant passed by reference, given a Variant or a String variable or parameter of the activation: its address, which the parameter is a
@@ -1035,6 +1036,22 @@ internal sealed partial class ProcedureAnalysis
                 kinds.Add(null);
                 byReference.Add(true);
                 values.Add(address);
+                continue;
+            }
+
+            // a Variant passed by reference, given a variable of a scalar type of the activation: the parameter is bound to the variable, and knows the
+            // type it is declared as (MS-VBAL §5.3.1.11). It reads as a Variant holding what the variable holds, and what it is assigned is let-coerced to
+            // the variable's type. The variable is given its cell, held in a cell from the start of the activation as any variable passed by reference is.
+            if (parameters[i] is not ParamArrayParameterSymbol && parameters[i].ResolvedType is VBVariantType
+                && RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind)
+                && arguments[i] is { Passing: ArgumentPassing.Reference, Value: BoundVariable bound }
+                && SlotOf(bound) is { } scalarSlot)
+            {
+                (variants ??= new bool[parameters.Length])[i] = true;
+                kinds.Add(null);
+                byReference.Add(true);
+                values.Add(new ReferenceNode(scalarSlot, _slots[scalarSlot]));
+                escaping.Add(scalarSlot);
                 continue;
             }
 
@@ -1076,7 +1093,8 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
+            // a String of a procedure of a standard module, given its text or the cell of a String of the activation, in the slot of the callee's layout
+            // that holds the parameter (CompiledCallee.TextSlots).
             if (parameters[i] is not ParamArrayParameterSymbol && site is null && defaultOf is null && receiver is null && IsText(parameters[i].ResolvedType))
             {
                 if (TextArgumentOf(arguments[i]) is not { } text)
@@ -1084,6 +1102,13 @@ internal sealed partial class ProcedureAnalysis
                     return null;
                 }
 
+                if (texts is null)
+                {
+                    texts = new int[parameters.Length];
+                    Array.Fill(texts, -1);
+                }
+
+                texts[i] = FrameLayout.For(procedure).ParameterSlots[i];
                 kinds.Add(null);
                 byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
                 values.Add(text);
@@ -1104,10 +1129,27 @@ internal sealed partial class ProcedureAnalysis
             }
         }
 
+        // MS-VBA makes the calls among the arguments first, left to right, then evaluates the others, right to left, the target last (ArgumentOrder); the
+        // objects the calls returned are let go of in the order of the parameters, then the target's (ObjectReferences.SettleCall). Compiled code
+        // evaluates them in that order, and lets go of them in the opposite order, the last made first: an argument, or the target, that holds what its
+        // calls returned is let go of in MS-VBA's order only when no other does. A call that makes a call inside an argument that is not a call ahead of a
+        // call after it, more than one of whose arguments and target hold objects, or whose target's member calls make calls among their arguments, is the
+        // interpreter's.
+        var order = ArgumentOrder.Of(arguments);
+        var returnedObjects = values.Count(static value => value is ObjectArgumentNode { Call: not null });
+        var holdingObjects = values.Count(static value => Within(value).Any(static node => ReceiverCallsOf(node).Any()));
+        var targetReturned = site is { Owner: { } target } && ArgumentOrder.IsCall(target) ? 1 : 0;
+        if (CallsAheadOfACall(order) || returnedObjects > 0 && returnsObject || holdingObjects + targetReturned > 1
+            || site is { Owner: { } owner } && TargetArgumentsCall(owner))
+        {
+            return null;
+        }
+
         // the variables passed by reference are held in cells from the start of the activation, which the call is made with.
         _cellSlots.UnionWith(escaping);
         Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference)
         {
+            Order = order,
             Site = site,
             DefaultOf = defaultOf,
             CallsOwnMember = site is null && defaultOf is null && receiver is not null,
@@ -1120,6 +1162,7 @@ internal sealed partial class ProcedureAnalysis
             ObjectParameters = objects ?? [],
             Omitted = omitted ?? [],
             VariantReferences = variants ?? [],
+            TextSlots = texts ?? [],
         });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
@@ -1139,9 +1182,40 @@ internal sealed partial class ProcedureAnalysis
     internal static VBType? ReturnedType(VBTypeMemberSymbol procedure)
         => procedure is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol ? ((VBReturningMemberSymbol)procedure).ResolvedType : null;
 
+    // whether an argument that is no call makes a call that is made ahead of the rest of it, before a call made after it: the last argument's is made in
+    // place, after it.
+    private static bool CallsAheadOfACall(ArgumentOrder order)
+    {
+        var callAfter = order.LastCalls;
+        for (var i = order.Count - 1; i >= 0; i--)
+        {
+            if (order.Hoists(i) && callAfter)
+            {
+                return true;
+            }
+
+            callAfter |= order.IsCall(i) || order.Hoists(i);
+        }
+
+        return false;
+    }
+
+    // whether a member call of the target makes a call among its arguments, which a call statement makes ahead of its last argument and the rest of the
+    // target (ArgumentOrder.TargetCallsIn).
+    private static bool TargetArgumentsCall(BoundNode target)
+        => ArgumentOrder.TargetCallsIn(target).Any(static member => member switch
+        {
+            BoundIndex index => index.Arguments.Any(ArgumentOrder.ContainsCall),
+            BoundMember { BoundArguments: { } bound } => bound.Any(static argument => argument.Value is { } value && ArgumentOrder.ContainsCall(value)
+                || argument.Elements.Any(ArgumentOrder.ContainsCall)),
+            BoundMember { Arguments: not null } => true,
+            _ => false,
+        });
+
     // the argument of a parameter of kind: a value let-coerced to it, for one passed by value or for one passed by reference that is given no variable; the
     // cell of a variable of the activation of that very kind, for one passed by reference that is given it. A variable of another kind, or of another
     // activation (a field, an element), is the interpreter's to pass. An optional parameter the call leaves out is given its default (OmittedArgumentOf).
+
     private PayloadNode? ArgumentOf(BoundArgument argument, ScalarKind kind)
     {
         switch (argument)

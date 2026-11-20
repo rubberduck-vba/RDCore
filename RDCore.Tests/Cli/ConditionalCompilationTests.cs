@@ -97,15 +97,18 @@ public sealed class ConditionalCompilationTests
     }
 
     // the operating system the host runs on decides the constant of each (RD-VBAL §2.3.1.2): a branch is live on its own operating system only, the module's
-    // declarations in it as well as its statements.
+    // declarations in it as well as its statements. Win64 is a bitness test on Windows and on a Mac, as in Excel for Mac, unless the platform sets it on
+    // Windows only; Is64BitEnv is one on any operating system, and Linux64, which is not predefined, is 0 everywhere.
     [TestMethod]
-    [DataRow(VBOperatingSystem.Linux, true, "Linux|Linux64|linux", DisplayName = "64-bit Linux")]
-    [DataRow(VBOperatingSystem.Linux, false, "Linux|linux", DisplayName = "32-bit Linux")]
-    [DataRow(VBOperatingSystem.Windows, true, "Win32|Win64|other", DisplayName = "64-bit Windows")]
-    [DataRow(VBOperatingSystem.Windows, false, "Win32|other", DisplayName = "32-bit Windows")]
-    [DataRow(VBOperatingSystem.MacOS, true, "Mac|other", DisplayName = "macOS")]
-    [DataRow(VBOperatingSystem.Other, true, "other", DisplayName = "another operating system")]
-    public async Task AnOperatingSystemsConstant_IsTrue_OnItsOwnOperatingSystemOnly(VBOperatingSystem os, bool is64Bit, string expected)
+    [DataRow(VBOperatingSystem.Linux, true, false, "Linux|Is64BitEnv|linux", DisplayName = "64-bit Linux")]
+    [DataRow(VBOperatingSystem.Linux, false, false, "Linux|linux", DisplayName = "32-bit Linux")]
+    [DataRow(VBOperatingSystem.Windows, true, false, "Win32|Win64|Is64BitEnv|other", DisplayName = "64-bit Windows")]
+    [DataRow(VBOperatingSystem.Windows, false, false, "Win32|other", DisplayName = "32-bit Windows")]
+    [DataRow(VBOperatingSystem.MacOS, true, false, "Win64|Mac|Is64BitEnv|other", DisplayName = "64-bit macOS")]
+    [DataRow(VBOperatingSystem.MacOS, true, true, "Mac|Is64BitEnv|other", DisplayName = "64-bit macOS, Win64 on Windows only")]
+    [DataRow(VBOperatingSystem.Other, true, false, "Is64BitEnv|other", DisplayName = "another operating system")]
+    public async Task AnOperatingSystemsConstant_IsTrue_OnItsOwnOperatingSystemOnly(
+        VBOperatingSystem os, bool is64Bit, bool win64OnlySetOnWindows, string expected)
     {
         var source = Module(
             "#If Linux Then", "Private Const Os As String = \"linux\"", "#Else", "Private Const Os As String = \"other\"", "#End If",
@@ -115,6 +118,7 @@ public sealed class ConditionalCompilationTests
             "#If Mac Then", "Debug.Print \"Mac\"", "#End If",
             "#If Linux Then", "Debug.Print \"Linux\"", "#End If",
             "#If Linux64 Then", "Debug.Print \"Linux64\"", "#End If",
+            "#If Is64BitEnv Then", "Debug.Print \"Is64BitEnv\"", "#End If",
             "Debug.Print Os",
             "End Sub");
 
@@ -124,7 +128,7 @@ public sealed class ConditionalCompilationTests
             Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, run.ErrorMessage);
             output = [.. run.Output.Select(line => line.Trim())];
             return Task.CompletedTask;
-        }, environment: profile => profile with { OperatingSystem = os, Is64Bit = is64Bit });
+        }, environment: profile => profile with { OperatingSystem = os, Is64Bit = is64Bit, Win64OnlySetOnWindows = win64OnlySetOnWindows });
 
         CollectionAssert.AreEqual(expected.Split('|'), output);
     }

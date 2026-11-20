@@ -431,7 +431,7 @@ A procedure bound to what it implements or handles (**MS-VBAL §5.3.1.8**, **§5
 |An event (`Spun`)|The `RaiseEvent` statements of its class, and its handlers in every class, each bound to it by a `WithEvents` variable of its class (`source_Spun` to `source_Turned`).|
 |A `WithEvents` variable (`source`)|The handlers of its events, those of a library's class included (`source_Spun` to `watched_Spun`). A procedure named for an event its class does not have (`source_Turned`) keeps its name.|
 
-A rename can start at either part of such a procedure's name: before the underscore, it renames the interface or the variable; after it, the member or the event. A procedure renamed with it must not take the name of another member of its class.
+A rename can start at either part of such a procedure's name: before the underscore, it renames the interface or the variable; after it, the member or the event. When the workspace declares only one of the two, a rename at either part renames that one: `watched_Changed`, for an event of a library's class, renames the variable `watched`, and a rename of a control's handler (`Ok_Click`) is a rename of the control, which is refused (below). A procedure renamed with it must not take the name of another member of its class.
 
 The module's file is renamed with it when the file has the module's name (`Helpers.bas`), after its text is edited (**LSP 3.17** `RenameFile`), and only when no file of the new name exists there already. A client that does not rename files (`workspace.workspaceEdit.resourceOperations`) is sent the rest of the edit. The module is named by its `VB_Name` attribute, so its file keeps its old name. A client that renames the file says so (`workspace/didRenameFiles`), and the server writes the project file.
 
@@ -468,7 +468,7 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The symbol is a document module|Its document names it, and would not be renamed with it.|
 |The symbol is the workspace's project, and the new name is that of one of its modules, of a project it references, or of a `Public` `Type` or `Enum` of the project or of one it references|A qualifier with the new name would mean the module or the other project. No `Public` `Type` or `Enum` is named as a project (**MS-VBAL §5.2.3.3**, **§5.2.3.4**).|
 |The symbol is a form's control|Its designer names it, and would not be renamed with it.|
-|The symbol is a procedure bound to an event it handles (of its own class or form, `Class_Initialize`, `UserForm_Click`, of its document's host, or of a control) or to an interface member it implements|Renamed whole, it would be bound to neither. Its source, or the event or member it is bound to, is renamed instead. A procedure that is only named like one (`Form_Foo` in a class that is not a form) is renamed like any other.|
+|The symbol is a procedure bound to an event it handles or to an interface member it implements, and the workspace declares neither part of its name (`Class_Initialize`, `UserForm_Click`, a handler of its document's host, an implementation of a library's class)|Renamed whole, it would be bound to neither. A procedure that is only named like one (`Form_Foo` in a class that is not a form) is renamed like any other.|
 |The symbol is a procedure of a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for is not known, and the rename could make that call fail.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
 
@@ -690,22 +690,26 @@ When the module has other `Public` fields, Encapsulate Field also asks which of 
 The range is on the declaration of a variable or on a use of it. The declaration moves to a line of its own before the statement that first uses the variable, indented as that statement is, in the innermost block that holds every use of it. A use in the condition of an `If` or the bounds of a loop keeps it before that statement. A declaration is not executed ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)), so a variable of a procedure is the same wherever it is declared before its first use.
 
 - A variable of a procedure keeps its keyword, `Dim` or `Static`.
-- A `Private` variable of a module that a single procedure uses moves into that procedure. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
+- A variable of a module that a single procedure uses moves into that procedure: a `Private` one of its module, and a `Public` or `Global` one of
+  a standard module, which a procedure of another module of the project can use. The uses are the names bound to the variable in every module of
+  the project; a use qualified with the name of its module (`Globals.gCount`) loses the qualifier. Its choice (`keyword`, an `Option`) is
+  `static`, the default, or `dim`.
 
 |A variable of a module, declared|Changes|Code|
 |---|---|---|
-|`Static`, in a standard module|Nothing: it keeps its value between calls.|None.|
-|`Static`, in a class module|Its extent: a variable of the class has object extent, a `Static` variable module extent (**MS-VBAL §2.3**, **§5.4.3.1**).|`moveCloserToUsage.moduleExtent`|
+|`Static`|Nothing: it keeps its value between calls. In a class module, each object keeps its own, as it does of the variable of the class ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|None.|
+|`Static`, a variable of a standard module, in a member of a class module|Its extent: the variable had one value for the program, and the local has one for each object of the class.|`moveCloserToUsage.oneForEachObject`|
 |`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
 
 `rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
 
 |Refused|Code|
 |---|---|
-|A variable of a module that is `Public`, `Global` or `Friend`|`moveCloserToUsage.notPrivate`|
+|A variable of a class module that is `Public`, `Global` or `Friend`: a member of each object of the class|`moveCloserToUsage.notPrivate`|
 |A variable declared `WithEvents`|`moveCloserToUsage.withEvents`|
 |A variable that nothing uses|`moveCloserToUsage.notUsed`|
-|A variable of a module used by more than one procedure|`moveCloserToUsage.severalProcedures`|
+|A variable of a module used by more than one procedure, of its module or of others|`moveCloserToUsage.severalProcedures`|
+|A variable of a module whose procedure names, unqualified, something else of its name, which the local would hide|`moveCloserToUsage.hidesAName`|
 |A declaration, or a first use, in a branch of an `#If` block|`moveCloserToUsage.conditional`|
 |A variable of a procedure declared before its first use with nothing but declarations between them|`moveCloserToUsage.alreadyClose`|
 |A declaration that is the only one of a statement sharing its line with another statement|`moveCloserToUsage.sharesItsLine`|
@@ -735,8 +739,15 @@ A lens is answered without its command (`resolveProvider = true`), since its ref
 |Resolved lens|Is|
 |---|---|
 |`command.title`|The count, in the language of the user interface: `0 references`, `1 reference`, `3 references` (`0 référence`, `1 référence`, `3 références`).|
-|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
+|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references, even when there is one or none.|
 |`command.arguments`|The URI of the document, the position of the name, and the references (`Location[]`): the arguments of VS Code's `editor.action.showReferences`.|
+
+A member of a class that other classes implement (**MS-VBAL §5.2.4.2**) has a second lens at its name, which counts the procedures that implement it, as `textDocument/implementation` finds them. Each procedure that implements a member of an interface has a lens that names that member (`implements IShape.Area`), answered with its command. A lens that leads to a single place takes the user there instead of listing it: the `implements` lens of a procedure, and the count lens of a member that one procedure implements (`1 implementation`).
+
+|Lens|`command.command`|`command.arguments`|
+|---|---|---|
+|Two or more implementations, or none|`rdcore.showReferences`|The URI of the document, the position of the name, and the implementations (`Location[]`).|
+|One implementation, or the member a procedure implements|`rdcore.goToLocation` ([`RefactoringCommands.GoToLocation`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)): the client opens the document and selects the range.|The URI of the document and the range (`Range`).|
 
 ### `textDocument/typeDefinition` and `textDocument/implementation`
 

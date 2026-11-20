@@ -70,8 +70,9 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     public RuntimeExecutionOutcome Execute(IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement)
         => statement switch
         {
-            AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment => ExecuteLetAssignment(session, context, assignment),
-            AssignmentStatementNode { Kind: AssignmentKind.Set } assignment => ExecuteSetAssignment(session, context, assignment),
+            AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment
+                => ExecuteAssignment(session, context, assignment, isSet: false),
+            AssignmentStatementNode { Kind: AssignmentKind.Set } assignment => ExecuteAssignment(session, context, assignment, isSet: true),
             // MS-VBAL §5.4.3.6-7: LSet and RSet fit a value into the target's own current width.
             AssignmentStatementNode { Kind: AssignmentKind.LSet or AssignmentKind.RSet } assignment => _fixedAssignment.Execute(session, context, assignment),
             // MS-VBAL §5.4.3.5: Mid replaces a span of the characters (or bytes) of a string variable.
@@ -369,6 +370,24 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
     }
 
+    // MS-VBAL §5.4.3.8, §5.4.3.9. A target that is a call of an accessor is called as MS-VBA calls it, the value its last argument: its arguments and the
+    // value are evaluated first, in the order the arguments of a call statement are, and the assignment is made with what they evaluated to.
+    private RuntimeExecutionOutcome ExecuteAssignment(
+        IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment, bool isSet)
+    {
+        if (!_assignments.IsAnAccessorCall(session, context, assignment.Target, out var owner, out var arguments))
+        {
+            return isSet ? ExecuteSetAssignment(session, context, assignment) : ExecuteLetAssignment(session, context, assignment);
+        }
+
+        return _expressionEvaluator.WithAccessorArgumentsFirst(session, context, owner, arguments, assignment.Value,
+            (Provider: this, session, context, assignment, isSet),
+            static (state, failed) => failed is { } error
+                ? error.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(error.ErrorInfo!)
+                : state.isSet ? state.Provider.ExecuteSetAssignment(state.session, state.context, state.assignment)
+                : state.Provider.ExecuteLetAssignment(state.session, state.context, state.assignment));
+    }
+
     // MS-VBAL §5.4.3.8. Evaluating the source expression is this statement's own business; assigning the
     // result into the target is LetAssignmentEvaluator's, which the file statements that Let-assign what
     // they read share with it.
@@ -478,7 +497,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         {
             var memberValue = _expressionEvaluator.Evaluate(session, assignment.Value, context);
             return memberValue.IsSuccess
-                ? _assignments.AssignObjectMember(session, context, assignment, assignment.Target, assignment.Value, memberValue.Result!, isSet: true)
+                ? _assignments.SetMember(session, context, assignment, assignment.Target, assignment.Value, memberValue.Result!)
                 : memberValue.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(memberValue.ErrorInfo!);
         }
 
