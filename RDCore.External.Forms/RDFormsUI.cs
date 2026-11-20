@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Threading;
 using RDCore.External.Automation;
 using RDCore.Forms.Avalonia;
+using RDCore.SDK.Platform;
 
 namespace RDCore.External.Forms.RDForms;
 
@@ -22,11 +23,16 @@ public enum RDFormsPlatform
     Headless,
 }
 
-// the one Avalonia application of the process, on a thread of its own: Avalonia allows one UI thread to a process, and the thread that sets it up is that thread.
-// Every call on an RDForms object is made there, inline when it is made there already, as the calls an event's handlers make are.
+// the one Avalonia application of the process, on its UI thread: Avalonia allows one UI thread to a process, and the thread that sets it up is that thread.
+// It is a thread of its own, or the process's main thread on macOS (RDFormsUIThread). Every call on an RDForms object is made there, inline when it is made
+// there already, as the calls an event's handlers make are.
 internal static class RDFormsUI
 {
     private const int Failed = unchecked((int)0x80004005);
+
+    // windows that cannot be started are a form the platform cannot create, as on a platform with no form host: REGDB_E_CLASSNOTREG, which the call that
+    // creates the form (New, or the program's first use of it) reports as 429.
+    private const int CannotStart = unchecked((int)0x80040154);
 
     private static readonly object Gate = new();
     private static Dispatcher? _dispatcher;
@@ -77,7 +83,7 @@ internal static class RDFormsUI
         {
             if (_failure is not null)
             {
-                throw new AutomationException(Failed, _failure);
+                throw new AutomationException(CannotStart, _failure);
             }
 
             if (_dispatcher is not null)
@@ -90,52 +96,20 @@ internal static class RDFormsUI
                 return;
             }
 
-            Exception? failure = null;
-            Dispatcher? started = null;
-            using var ready = new ManualResetEventSlim();
-            var thread = new Thread(() =>
+            Dispatcher started;
+            try
             {
-                Dispatcher own;
-                try
+                started = RDFormsUIThread.Start(RDFormsUIThread.PlacementOf(platform, OperatingSystem.IsMacOS()), ProcessMainThread.Current, () =>
                 {
                     BuilderFor(platform).SetupWithoutStarting();
-                    own = Dispatcher.UIThread;
-                    if (!own.CheckAccess())
-                    {
-                        throw new InvalidOperationException("Avalonia's UI thread was set up on another thread of this process.");
-                    }
-
-                    started = own;
-                }
-                catch (Exception exception)
-                {
-                    failure = exception;
-                    return;
-                }
-                finally
-                {
-                    ready.Set();
-                }
-
-                own.MainLoop(CancellationToken.None);
-            })
-            {
-                IsBackground = true,
-                Name = "RDForms UI",
-            };
-
-            if (OperatingSystem.IsWindows())
-            {
-                // the desktop's drag and drop, clipboard and accessibility need a single-threaded apartment on Windows.
-                thread.SetApartmentState(ApartmentState.STA);
+                    var own = Dispatcher.UIThread;
+                    return own.CheckAccess() ? own : throw new InvalidOperationException("Avalonia's UI thread was set up on another thread of this process.");
+                }, (own, token) => own.MainLoop(token));
             }
-
-            thread.Start();
-            ready.Wait();
-            if (failure is not null)
+            catch (Exception failure)
             {
                 _failure = $"The RDForms windows cannot be started: {failure.Message}";
-                throw new AutomationException(Failed, _failure);
+                throw new AutomationException(CannotStart, _failure);
             }
 
             _platform = platform;
