@@ -739,8 +739,15 @@ A lens is answered without its command (`resolveProvider = true`), since its ref
 |Resolved lens|Is|
 |---|---|
 |`command.title`|The count, in the language of the user interface: `0 references`, `1 reference`, `3 references` (`0 référence`, `1 référence`, `3 références`).|
-|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
+|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references, even when there is one or none.|
 |`command.arguments`|The URI of the document, the position of the name, and the references (`Location[]`): the arguments of VS Code's `editor.action.showReferences`.|
+
+A member of a class that other classes implement (**MS-VBAL §5.2.4.2**) has a second lens at its name, which counts the procedures that implement it, as `textDocument/implementation` finds them. Each procedure that implements a member of an interface has a lens that names that member (`implements IShape.Area`), answered with its command. A lens that leads to a single place takes the user there instead of listing it: the `implements` lens of a procedure, and the count lens of a member that one procedure implements (`1 implementation`).
+
+|Lens|`command.command`|`command.arguments`|
+|---|---|---|
+|Two or more implementations, or none|`rdcore.showReferences`|The URI of the document, the position of the name, and the implementations (`Location[]`).|
+|One implementation, or the member a procedure implements|`rdcore.goToLocation` ([`RefactoringCommands.GoToLocation`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)): the client opens the document and selects the range.|The URI of the document and the range (`Range`).|
 
 ### `textDocument/typeDefinition` and `textDocument/implementation`
 
