@@ -190,21 +190,27 @@ public sealed class CompiledObjectCallSetTests
             "    Kept = Kept + First.Size * 100000 + Held.Size * 10000 + Last.Size",
             "End Function"), Classes, expected: "; 206603 ;");
 
-    // what three calls return in one statement, the first a member's object, the others its arguments; and a With block on what a call returns, in a
-    // recursion: each activation's block holds its own object while the activations it calls open theirs.
+    // what three calls return in one statement, the first a member's object, the others its arguments, each called by compiled code once Main made the
+    // default instance; and a With block on what a call returns, in a recursion: each activation's block holds its own object while the activations it
+    // calls open theirs.
     [TestMethod]
     public async Task WhatCallsReturnedInOneStatement_AndInEachActivationOfARecursion_AreEachTheirOwn()
-        => _ = await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)",
+            "    Dim G As Gadget",
+            "    Set G = Gadget.Create(9)",
+            "    Debug.Print Combined()",
             "    Debug.Print Depth(3)",
             "End Sub",
+            "Private Function Combined() As Long",
+            "    Combined = Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)",
+            "End Function",
             "Private Function Depth(ByVal N As Long) As Long",
             "    With Gadget.Create(N)",
             "        If N > 1 Then Depth = Depth(N - 1)",
             "        Depth = Depth * 10 + .Size",
             "    End With",
-            "End Function"), Classes, expected: "; 123");
+            "End Function"), "Combined", calls: 6, expected: "; 7 ;");
 
     // a member called with an Optional argument left out, as a statement and in an expression: the parameter is given its default, as the interpreter gives
     // it; one given is given what it is given.
