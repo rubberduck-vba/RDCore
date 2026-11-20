@@ -34,8 +34,8 @@ internal sealed partial class ProcedureAnalysis
     private bool HasObjectFields => _fields.Exists(reached => reached.Scope is FieldScope.Object);
 
     // the slot of a field compiled code reaches and holds (TakesFieldOfKind), numbered the first time it is named. A variable declared As New is made
-    // when it is read (MS-VBAL §5.2.3.1.4), which is the interpreter's: but one, and the default instance of a class, is held as an object field is when
-    // it is the object a member is called on (receiver), whose call compiled code makes only when the variable already holds an object
+    // when it is read (MS-VBAL §5.2.3.1.4), which is the interpreter's. One, like the default instance of a class, is held as an object field when it
+    // is the object a member is called on (receiver), whose call compiled code makes only when the variable already holds an object
     // (CompiledActivation.CanCallMember).
     private int? FieldSlotOf(BoundVariable variable, bool receiver = false)
     {
