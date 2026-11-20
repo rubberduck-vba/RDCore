@@ -206,7 +206,7 @@
     <value>Non décrit : {0}.</value>
   </data>
   <data name="ExportLibrary_Lost" xml:space="preserve">
-    <value>Le fichier remplacé indique des faits de membres que la bibliothèque ne déclare plus, qui sont perdus : {0}.</value>
+    <value>Le fichier remplacé indique des faits sur des membres que la bibliothèque ne déclare plus; ces faits sont perdus : {0}.</value>
   </data>
   <data name="Command_Unknown" xml:space="preserve">
     <value>Commande inconnue.</value>

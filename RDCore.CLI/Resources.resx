@@ -206,7 +206,7 @@
     <value>Not described: {0}.</value>
   </data>
   <data name="ExportLibrary_Lost" xml:space="preserve">
-    <value>The file this replaces states facts of members the library no longer declares, which are lost: {0}.</value>
+    <value>The file this replaces states facts of members the library no longer declares; those facts are lost: {0}.</value>
   </data>
   <data name="Command_Unknown" xml:space="preserve">
     <value>Unknown command.</value>

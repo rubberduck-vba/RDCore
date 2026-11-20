@@ -8,7 +8,7 @@ using RDCore.Tests.Cli;
 namespace RDCore.Tests.Semantics;
 
 /// <summary>
-/// The members a hidden default member of a library's class stands for, as the library's file states them (MS-VBAL 5.6.2.2, 5.6.13): Excel's
+/// The members a hidden default member of a library's class stands for, as the library's file states them (MS-VBAL §5.6.2.2, §5.6.13): Excel's
 /// <c>Range._Default</c> is <c>Item</c> given arguments and <c>Value</c> given none. The default member's fact carries them, on an expression of the class
 /// and on an access that goes through the default member, for a code fix that writes the access out in full.
 /// </summary>

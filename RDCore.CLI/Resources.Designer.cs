@@ -394,7 +394,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The file this replaces states facts of members the library no longer declares, which are lost: {0}..
+        ///   Looks up a localized string similar to The file this replaces states facts of members the library no longer declares; those facts are lost: {0}..
         /// </summary>
         public static string ExportLibrary_Lost {
             get {
