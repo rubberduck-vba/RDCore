@@ -3187,7 +3187,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // Once the subscripts are evaluated, an element that is not bound is passed as what they select - an error, or a value - and they are not evaluated again
     // (MS-VBA evaluates them once: a subscript outside the bounds is error 9, raised by the call's argument).
     // atItsAddress: the element's address is what is passed (VarPtr), and nothing is lent.
-    // An element of a fixed-size array field of a record is in the record, at the field's offset, and so is a parameter bound to it: where the record is is
+    // An element of a fixed-size array field of a record is in the record, at the field's offset, and so is a parameter bound to it: the record's place is
     // found first, and the array is the record's field, so that what selects the record is evaluated once. A record element of an array is lent to the call
     // (TryAddressOfRecord). A Declare is given the element of the array as any other (VBArrayElementLocation).
     private bool TryResolveElementByRefArgument(

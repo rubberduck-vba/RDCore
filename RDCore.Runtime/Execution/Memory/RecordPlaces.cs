@@ -11,7 +11,7 @@ namespace RDCore.Runtime.Execution.Memory;
 /// field, an element of a fixed-size array field, each where MS-VBA lays it out in the record (<see cref="VBUserDefinedTypeLayout"/>).
 /// </summary>
 /// <remarks>
-/// Several places can start at one address: a record and its first field, an array field and its first element. A record, and an array field, is the place
+/// Several places can start at one address: a record and its first field, an array field and its first element. A record, or an array field, is the place
 /// when it is of the type asked for; any other place is the innermost one that starts there, whatever type is asked for (an object field read as
 /// <c>Object</c>).
 /// </remarks>
