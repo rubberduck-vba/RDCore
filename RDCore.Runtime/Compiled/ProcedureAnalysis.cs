@@ -1337,11 +1337,13 @@ internal sealed partial class ProcedureAnalysis
     private readonly Dictionary<int, int> _selectOfOpener = [];
 
     // MS-VBAL §5.4.2.10, as ProcedureExecutor.ExecuteSelect does it on payloads (TryEvaluateSelectorUnboxed): a selector of a scalar type, evaluated once. A
-    // selector declared Variant is compared as a Variant, its Case values not converted to its type (RD-VBAL §5.4.2.10): the interpreter's.
+    // selector declared Variant is compared as a Variant, its Case values not converted to its type (RD-VBAL §5.4.2.10): the interpreter's. So is one of
+    // any other expression the static pass types Variant: a call of a function declared to return a Variant (Mid, Format, CVar, a function of the
+    // workspace), whose value is a Variant even when it holds a String.
     private CompiledStep? AnalyzeSelect(int offset, SelectCaseStatementNode selectCase, int end)
     {
         var bound = Bind(selectCase.ControlExpression);
-        if (RuntimeExpressionEvaluator.IsDeclaredVariant(bound))
+        if (RuntimeExpressionEvaluator.IsDeclaredVariant(bound) || DeclaredTypeOf(bound) is VBVariantType)
         {
             Refuse(IneligibilityKind.VariantOperand, "Select Case", selectCase.ControlExpression.Location);
             return null;
