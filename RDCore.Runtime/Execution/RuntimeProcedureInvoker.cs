@@ -175,7 +175,8 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             // A record is seeded field by field, as a declared variable of it is: a fixed-size array field has its dimensions, and the fields are the type's as
             // the session has it now (CurrentTypes).
             frame.ReturnValue = returning.ResolvedType is VBUserDefinedType record && Session.Symbols.Defaults is { } defaults
-                ? new VBUserDefinedTypeValue(CurrentTypes.Of(Session.Symbols.Resolver, record), defaults)
+                ? new VBUserDefinedTypeValue(
+                    defaults is DeclaredVariableDefaults declared ? declared.CurrentRecordOf(record) : CurrentTypes.Of(Session.Symbols.Resolver, record), defaults)
                 : returning.ResolvedType.DefaultValue;
         }
 
