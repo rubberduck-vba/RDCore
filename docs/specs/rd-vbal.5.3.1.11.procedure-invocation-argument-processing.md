@@ -99,8 +99,8 @@ they are given to, named arguments included, and the last argument is the last o
 
 A call is a `Function`, `Sub` or `Property Get` called, a member of an object (a public variable of an object included), or a
 function of the standard library. `New` is not a call. The standard library evaluates `Len`, `LenB`, `InStr`, `StrComp`, `Abs`,
-`Sgn`, `Int`, `Fix`, `CBool`, `CByte`, `CCur`, `CDate`, `CDbl`, `CInt`, `CLng`, `CStr` and `CVar` inline, as MS-VBA compiles them:
-none of them is a call. `UCase$`, `Mid$`, `Format$` and `Sqr` are calls.
+`Sgn`, `Int`, `Fix`, `CBool`, `CByte`, `CCur`, `CDate`, `CDbl`, `CInt`, `CLng`, `CLngLng`, `CLngPtr`, `CSng`, `CStr` and `CVar`
+inline, as MS-VBA compiles them: none of them is a call. `UCase$`, `Mid$`, `Format$`, `Sqr` and `CDec` are calls.
 
 With `Bump` adding 10 to the variable it is given by reference, and `a` at `1`:
 
