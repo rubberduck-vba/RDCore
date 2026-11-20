@@ -772,9 +772,9 @@ public sealed partial class CompiledActivation : ILightActivation
             // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject). A Variant the call
             // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted), and so is one given a variable's address, passed
             // by reference as the call's is (SetVariantReference). A String of variable length is one of the member's too, given the text or the variable's
-            // address (SetText, SetTextReference). A scalar the call leaves out is given the
-            // default the member it was bound to declares, which is this member's: an implemented member declares the defaults of the interface member
-            // (MS-VBAL §5.3.1.9), and one that does not is refused before the program runs.
+            // address (SetText, SetTextReference). A scalar the call leaves out is given the default the member it was bound to declares, which is this
+            // member's: an implemented member declares the defaults of the interface member (MS-VBAL §5.3.1.9), and one that does not is refused before
+            // the program runs.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
                 || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
                 || called.Parameters[i] is null && (passed is not null ? !passed.Type.Equals(parameter.ResolvedType)
