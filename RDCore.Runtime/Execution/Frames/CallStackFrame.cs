@@ -40,7 +40,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // needed: an activation that has none is that much smaller, and most calls make one that has none.
     private sealed class Occasional
     {
-        public Dictionary<SemanticId, ByRefAlias>? ByRefAliases;
+        public Dictionary<SemanticId, MemoryAddress>? ByRefAliases;
         public Dictionary<SemanticId, VBType>? ReferencedTypes;
         public Dictionary<int, VBTypedValue>? BlockState;
         public Dictionary<int, ScalarPayload>? SelectorPayloads;
@@ -56,10 +56,6 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         public List<MemoryAddress>? RetiredAddresses;
         public Dictionary<SemanticId, MemoryAddress>? ReferenceVariants;
     }
-
-    // the address of the variable a ByRef parameter is a second name for, and the type of the place it reads there (ISessionStorage.TryRead): a field of a
-    // record can start where the record does. A cell of the caller's given an address has the address to itself, and reads what is bound there.
-    private readonly record struct ByRefAlias(MemoryAddress Address, VBType? Type);
 
     private Occasional? _occasional;
 
@@ -1155,7 +1151,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
             }
 
-            held = new Slot(true, default, cell, referencedType, size, isAlias);
+            held = new Slot(true, default, cell, referencedType, size, isAlias, IsReferenced: referencedType is not null);
             return cell;
         }
 
@@ -1253,7 +1249,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             address = bound;
             if (isAlias)
             {
-                (Occasionally.ByRefAliases ??= [])[symbol.SemanticId] = new ByRefAlias(address, null);
+                (Occasionally.ByRefAliases ??= [])[symbol.SemanticId] = address;
             }
             else
             {
@@ -1273,7 +1269,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return false;
         }
 
-        (Occasionally.ByRefAliases ??= [])[symbol.SemanticId] = new ByRefAlias(address, null);
+        (Occasionally.ByRefAliases ??= [])[symbol.SemanticId] = address;
         return true;
     }
 
@@ -1380,8 +1376,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
         }
 
-        // the variable is of the parameter's type, unless the parameter is a Variant given a variable of another type.
-        (Occasionally.ByRefAliases ??= [])[symbol.SemanticId] = new ByRefAlias(address, referencedType ?? (symbol as ITypedSymbol)?.ResolvedType);
+        (Occasionally.ByRefAliases ??= [])[symbol.SemanticId] = address;
         if (referencedType is not null)
         {
             (_occasional!.ReferencedTypes ??= [])[symbol.SemanticId] = referencedType;
@@ -1430,20 +1425,34 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // the address a ByRef parameter is an alias of, if the symbol is one.
     private bool TryGetAlias(Symbol symbol, out MemoryAddress address)
     {
-        var aliased = TryGetByRefAlias(symbol, out var alias);
-        address = alias.Address;
-        return aliased;
+        address = default;
+        return _occasional?.ByRefAliases is { } aliases && aliases.TryGetValue(symbol.SemanticId, out address);
     }
 
-    private bool TryGetByRefAlias(Symbol symbol, out ByRefAlias alias)
+    // the type of the place a ByRef parameter reads at the address of its variable (ISessionStorage.TryRead), since a field of a record can start where the
+    // record does: the variable's, which is the parameter's unless the parameter is a Variant given a variable of another type. A cell of the caller's given
+    // an address (TryGiveAddress) is bound there itself, and is of that type.
+    private VBType? ReadTypeOf(Symbol parameter)
+        => TryGetReferencedType(parameter, out var referenced) ? referenced : (parameter as ITypedSymbol)?.ResolvedType;
+
+    // the same, of the parameter of the procedure the activation is of that has the identity (a ByRef parameter is one); none, when it has none.
+    private VBType? ReadTypeOf(SemanticId parameter)
     {
-        alias = default;
-        return _occasional?.ByRefAliases is { } aliases && aliases.TryGetValue(symbol.SemanticId, out alias);
-    }
+        if (_occasional?.ReferencedTypes is { } referencedTypes && referencedTypes.TryGetValue(parameter, out var referenced))
+        {
+            return referenced;
+        }
 
-    // what a ByRef parameter reads at the address of its variable: the place of the variable's type there.
-    private bool TryRead(ByRefAlias alias, [NotNullWhen(true)] out IBindingHandle? value)
-        => alias.Type is { } type ? Storage.TryRead(alias.Address, type, out value) : Storage.TryRead(alias.Address, out value);
+        foreach (var declared in Procedure is { } procedure ? RuntimeProcedureInvoker.GetParameters(procedure) : [])
+        {
+            if (declared.SemanticId == parameter)
+            {
+                return declared.ResolvedType;
+            }
+        }
+
+        return null;
+    }
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
@@ -1451,8 +1460,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <inheritdoc/>
     public bool TryResolve(Symbol symbol, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
-        => TryGetByRefAlias(symbol, out var aliased)
-            ? TryRead(aliased, out value)
+        => TryGetAlias(symbol, out var aliased)
+            ? Storage.TryRead(aliased, ReadTypeOf(symbol), out value)
             : TryGetCell(symbol, out value) || _addresses is not null && _addresses.TryRead(symbol, out value);
 
     /// <inheritdoc/>
@@ -1462,10 +1471,15 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // the slots of the activation, filled as they are read: each holds the cell of a variable that has no address, or the address of one
     // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
     // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address may (a POKE
-    // rebinds one that is not a cell), which is why it is read there every time rather than kept. ReadAs: the type of the place a ByRef parameter reads at
-    // the address (ByRefAlias).
+    // rebinds one that is not a cell), which is why it is read there every time rather than kept. Type: that type (IsReferenced), and at an address the type
+    // of the place a ByRef parameter reads there (ReadTypeOf), which for a Variant reference parameter is the same; a cell is read as it is.
     private readonly record struct Slot(
-        bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? ReferencedType, int Size, bool IsAlias = false, VBType? ReadAs = null);
+        bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? Type, int Size, bool IsAlias = false, bool IsReferenced = false)
+    {
+        public VBType? ReferencedType => IsReferenced ? Type : null;
+
+        public VBType? ReadAs => Cell is null ? Type : null;
+    }
 
     private bool TryRead(in Slot held, [NotNullWhen(true)] out IBindingHandle? handle)
         => held.ReadAs is { } type ? Storage.TryRead(held.Address, type, out handle) : Storage.TryRead(held.Address, out handle);
@@ -1509,13 +1523,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         {
             // a cell is read as it is, without giving the variable an address it does not need.
             var referenced = TryGetReferencedType(variable, out var type) ? type : null;
-            if (!TryGetByRefAlias(variable, out var alias) && _cells is not null && _cells.TryGetValue(variable.SemanticId, out var cell))
+            var aliased = TryGetAlias(variable, out var address);
+            if (!aliased && _cells is not null && _cells.TryGetValue(variable.SemanticId, out var cell))
             {
-                held = new Slot(true, default, cell.Cell, referenced, cell.Size);
+                held = new Slot(true, default, cell.Cell, referenced, cell.Size, IsReferenced: referenced is not null);
             }
-            else if (TryGetAddress(variable, out var address))
+            else if (aliased || TryGetAddress(variable, out address))
             {
-                held = new Slot(true, address, null, referenced, 0, ReadAs: alias.Type);
+                held = new Slot(true, address, null, aliased ? ReadTypeOf(variable) : referenced, 0, IsReferenced: referenced is not null);
             }
             else
             {
@@ -1545,11 +1560,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         // an element passed by reference, or a field of a record element: the parameter reads the element's own cell, or the field's.
-        foreach (var alias in _occasional?.ByRefAliases?.Values ?? Enumerable.Empty<ByRefAlias>())
+        if (_occasional?.ByRefAliases is { } aliases)
         {
-            if (TryRead(alias, out var handle) && IsCellOf(array, handle))
+            foreach (var (parameter, address) in aliases)
             {
-                return true;
+                if (Storage.TryRead(address, ReadTypeOf(parameter), out var handle) && IsCellOf(array, handle))
+                {
+                    return true;
+                }
             }
         }
 
