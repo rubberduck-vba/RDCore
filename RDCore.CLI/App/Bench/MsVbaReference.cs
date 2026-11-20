@@ -97,8 +97,8 @@ internal static partial class MsVbaHarness
         Line("    End Select");
         Line("End Sub");
         Line();
-        Line("'  each case, WarmUpRuns times untimed, then Runs times, a line each: \"Module.Case|us;us;...\", or \"Module.Case|error <number> <description>\" for a");
-        Line("'  case that raises.");
+        Line("'  each case, WarmUpRuns times untimed, then Runs times, a line each: \"Module.Case|us;us;...\", or");
+        Line("'  \"Module.Case|error <number> <description>\" for a case that raises.");
         Line("Public Function TimeCorpus(ByVal Runs As Long) As String");
         Line("    Dim F As Currency, T0 As Currency, T1 As Currency, I As Long, R As Long, Entry As String, Result As String");
         Line("    QueryPerformanceFrequency F");

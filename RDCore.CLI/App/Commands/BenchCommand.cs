@@ -180,9 +180,8 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         if (!listOnly)
         {
             // the untimed runs made before the timed ones, over every case: no figure of the cases' comes from them.
-            Output.WriteLine(warmUp is null
-                ? $"{"warm-up",-10}{"none",12}"
-                : $"{"warm-up",-10}{report.Cases.Sum(benchCase => benchCase.WarmUpRuns).ToString("N0", CultureInfo.InvariantCulture),12} runs: {warmUp.Describe()}");
+            var warmUpRuns = report.Cases.Sum(benchCase => benchCase.WarmUpRuns).ToString("N0", CultureInfo.InvariantCulture);
+            Output.WriteLine(warmUp is null ? $"{"warm-up",-10}{"none",12}" : $"{"warm-up",-10}{warmUpRuns,12} runs: {warmUp.Describe()}");
         }
 
         foreach (var problem in report.Problems)

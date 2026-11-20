@@ -35,7 +35,8 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="ListOnly">Whether the workspace is loaded and swept, and its cases listed, without running any of them.</param>
 /// <param name="Engine">What runs the cases; the engine the environment says when <see langword="null"/>.</param>
 /// <param name="WarmUp">How each case is warmed up before its timed runs; not at all when <see langword="null"/>.</param>
-internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, bool ListOnly = false, VBExecutionEngine? Engine = null, BenchWarmUp? WarmUp = null);
+internal sealed record class BenchOptions(
+    int Runs = 3, string? Filter = null, bool ListOnly = false, VBExecutionEngine? Engine = null, BenchWarmUp? WarmUp = null);
 
 /// <summary>
 /// How a case is warmed up before its timed runs: untimed runs, at least <paramref name="Runs"/> of them, until the JIT has compiled nothing for
@@ -62,7 +63,8 @@ internal sealed record class BenchWarmUp(int Runs, TimeSpan Quiet, TimeSpan Limi
     /// What the report says of the warm-up, in English whatever the culture: the text is data the bench job and the reference file keep.
     /// </summary>
     public string Describe() => string.Create(CultureInfo.InvariantCulture,
-        $"untimed runs of each case first, at least {Runs}, until the JIT compiles nothing for {Quiet.TotalMilliseconds:0} ms, for {Limit.TotalSeconds:0} s at the most");
+        $"untimed runs of each case first, at least {Runs}, until the JIT compiles nothing for {Quiet.TotalMilliseconds:0} ms, "
+        + $"for {Limit.TotalSeconds:0} s at the most");
 }
 
 /// <summary>
@@ -82,7 +84,8 @@ internal readonly record struct BenchRunCost(long Bytes, int Gen0, int Gen1, int
 /// <param name="Error">What stopped the case, when something did; no run that follows it is made.</param>
 /// <param name="Costs">What each run allocated and the collections made while it ran, in the order of <paramref name="Runs"/>.</param>
 /// <param name="WarmUpRuns">The untimed runs made before <paramref name="Runs"/> (<see cref="BenchOptions.WarmUp"/>).</param>
-internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs, string? Error = null, IReadOnlyList<BenchRunCost>? Costs = null, int WarmUpRuns = 0)
+internal sealed record class BenchCase(
+    string Name, IReadOnlyList<TimeSpan> Runs, string? Error = null, IReadOnlyList<BenchRunCost>? Costs = null, int WarmUpRuns = 0)
 {
     /// <summary>The fastest run, which is the least disturbed by anything else the machine did.</summary>
     public TimeSpan? Min => Runs.Count == 0 ? null : Runs.Min();

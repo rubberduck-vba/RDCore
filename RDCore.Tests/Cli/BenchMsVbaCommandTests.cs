@@ -159,8 +159,8 @@ public sealed class BenchMsVbaCommandTests
             ReferenceData.Method(5, 3, 7, 5));
         Assert.AreEqual("alternated rounds on one machine: 1 for the corpus (MS-VBA first); 3 runs a case, fastest run", ReferenceData.Method(1, 0, 3, 5));
         Assert.AreEqual(
-            "alternated rounds on one machine: 1 for the corpus (MS-VBA first); 3 runs a case, fastest run; corpus cases warmed up first: RD-VBA by untimed runs "
-            + "of each case first, at least 31, until the JIT compiles nothing for 250 ms, for 5 s at the most, MS-VBA by 2 untimed runs",
+            "alternated rounds on one machine: 1 for the corpus (MS-VBA first); 3 runs a case, fastest run; corpus cases warmed up first: RD-VBA by "
+            + "untimed runs of each case first, at least 31, until the JIT compiles nothing for 250 ms, for 5 s at the most, MS-VBA by 2 untimed runs",
             ReferenceData.Method(1, 0, 3, 5, BenchWarmUp.UntilTheJitIsQuiet));
     }
 

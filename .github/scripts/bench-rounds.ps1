@@ -27,7 +27,8 @@ foreach ($side in $sides.Keys) {
     $arguments[$side] = if ($both) { @('--runs', $Runs) } elseif ($warms[$side]) { @('--runs', $ColdRuns, '--no-warm-up') } else { @('--runs', $ColdRuns) }
 }
 
-Write-Host "== $(if ($both) { "both builds warm each case up, then $Runs timed runs" } else { "a build predates the warm-up: no warm-up on either, $ColdRuns runs a case" })"
+$how = if ($both) { "both builds warm each case up, then $Runs timed runs" } else { "a build predates the warm-up: neither warms up, $ColdRuns runs a case" }
+Write-Host "== $how"
 
 for ($round = 1; $round -le $Rounds; $round++) {
     $order = if ($round % 2 -eq 1) { 'merged', 'reference' } else { 'reference', 'merged' }
