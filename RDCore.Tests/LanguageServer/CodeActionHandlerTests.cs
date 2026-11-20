@@ -504,8 +504,8 @@ public sealed class CodeActionHandlerTests
         Assert.IsEmpty(await ActionsAsync(document, new Range(1, 0, 1, 0), [CodeActionKind.Refactor], diagnostic));
     }
 
-    // the RDC00413 findings of a module of a program, as the diagnostics a client sends back with the range it asks the actions of; the workspace holds the
-    // module, so that its actions can be asked.
+    // the RDC00413 findings of a module of a program, as the diagnostics a client sends back with the range it asks the actions of; the workspace holds
+    // every module of the program, so that its actions can be asked.
     private async Task<(DocumentUri Document, Diagnostic[] Findings)> CloserToUsageFindingsAsync(
         string name, string program, IReadOnlyList<(string Name, string Source)> classes, IReadOnlyList<(string Name, string Source)>? modules = null)
     {
@@ -515,7 +515,9 @@ public sealed class CodeActionHandlerTests
         var source = (isClass ? classes : modules!).Single(module => module.Name == name).Source;
         var file = $"{name}.{(isClass ? "cls" : "bas")}";
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, file));
-        Hold(new WorkspaceDocument(file, Root, source, version: 1));
+        Hold([.. classes.Select(each => new WorkspaceDocument($"{each.Name}.cls", Root, each.Source, version: 1)),
+            .. (modules ?? []).Select(each => new WorkspaceDocument($"{each.Name}.bas", Root, each.Source, version: 1)),
+            new WorkspaceDocument("Program.bas", Root, program, version: 1)]);
 
         var findings = new RDCore.Diagnostics.Analyzers.MoveFieldCloserToUsageAnalyzer()
             .Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), model));
@@ -570,44 +572,50 @@ public sealed class CodeActionHandlerTests
         CollectionAssert.AreEqual(new[] { (new Range(5, 0, 6, 0), string.Empty), (new Range(7, 0, 7, 0), "    Static mCalls As Long\r\n") }, edits);
     }
 
-    // the refactoring moves a Private variable only: a Public one, which the program's other modules can use, is offered disabled, with why.
+    // a Public variable of a standard module goes into the procedure that uses it, of its module or of another: one edit of each document.
     [TestMethod]
-    public async Task APublicVariableOfAProgramsModule_IsOfferedItsMoveDisabled_AtItsFinding()
+    public async Task APublicVariableOfAProgramsModule_IsOfferedItsMove_AtItsFinding_IntoTheProcedureThatUsesIt()
     {
         (string, string) globals = ("Globals", ModuleWorkspace.StandardModule("Globals",
             "Public gCount As Long", "Public gTotal As Long", "Public Sub Add()", "    gTotal = gTotal + 1", "End Sub"));
         var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Tally", "    Add", "End Sub",
-            "Public Sub Tally()", "    gCount = gCount + 1", "End Sub");
+            "Public Sub Tally()", "    Globals.gCount = gCount + 1", "End Sub");
         var (document, findings) = await CloserToUsageFindingsAsync("Globals", program, [], [globals]);
         Assert.HasCount(2, findings, "gCount, which Program.Tally uses, and gTotal, which Add does");
 
-        var hidden = await ActionsAsync(document, findings[0].Range, null, findings[0]);
-        ClientShowsDisabledActions();
-        var shown = new List<List<CodeAction>>();
+        var moves = new List<CodeAction>();
         foreach (var finding in findings)
         {
-            shown.Add(await ActionsAsync(document, finding.Range, null, finding));
+            moves.Add((await ActionsAsync(document, finding.Range, null, finding))
+                .Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage));
         }
 
-        Assert.IsFalse(hidden.Any(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage),
-            "a client that shows no disabled action is offered none");
-        CollectionAssert.AreEqual(
-            new[] { "'gCount' can be used by other modules: only a Private variable of a module is moved into a procedure.",
-                "'gTotal' can be used by other modules: only a Private variable of a module is moved into a procedure." },
-            shown.Select(actions => actions.Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage).Disabled?.Reason).ToArray());
+        var intoTally = moves[0].Edit!.Changes!.ToDictionary(change => Path.GetFileName(change.Key.GetFileSystemPath()),
+            change => change.Value.Select(edit => (edit.Range, edit.NewText)).ToArray());
+        CollectionAssert.AreEqual(new[] { (new Range(1, 0, 2, 0), string.Empty) }, intoTally["Globals.bas"]);
+        CollectionAssert.AreEqual(new[] { (new Range(6, 0, 6, 0), "    Static gCount As Long\r\n"), (new Range(6, 4, 6, 12), string.Empty) },
+            intoTally["Program.bas"], "declared before its use, which loses the name of its module");
+        CollectionAssert.AreEqual(new[] { (new Range(2, 0, 3, 0), string.Empty), (new Range(4, 0, 4, 0), "    Static gTotal As Long\r\n") },
+            moves[1].Edit!.Changes!.Single().Value.Select(edit => (edit.Range, edit.NewText)).ToArray());
     }
 
+    // a variable of a class is a member of each of its objects: the refactoring does not move a Public one, and offers its move disabled, with why.
     [TestMethod]
     public async Task APublicVariableOfAProgramsClass_ThatTheClassUses_IsOfferedItsMoveDisabled_AtItsFinding()
     {
         (string, string) item = ("Item", ModuleWorkspace.ClassModule("Item", "Public Count As Long", "Public Sub Touch()", "    Count = Count + 1", "End Sub"));
         var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim i As New Item", "    i.Touch", "End Sub");
         var (document, findings) = await CloserToUsageFindingsAsync("Item", program, [item]);
-        ClientShowsDisabledActions();
 
+        var hidden = await ActionsAsync(document, findings.Single().Range, null, findings.Single());
+        ClientShowsDisabledActions();
         var actions = await ActionsAsync(document, findings.Single().Range, null, findings.Single());
 
-        Assert.AreEqual("'Count' can be used by other modules: only a Private variable of a module is moved into a procedure.",
+        Assert.IsFalse(
+            hidden.Any(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage), "a client that shows no disabled action is offered none");
+        Assert.AreEqual(
+            "'Count' is a member of each object of its class, which other modules can use: only a Private variable of a class module is moved into a "
+            + "procedure.",
             actions.Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage).Disabled?.Reason);
     }
 }
