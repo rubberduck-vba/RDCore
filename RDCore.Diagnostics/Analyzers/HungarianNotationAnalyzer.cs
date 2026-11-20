@@ -20,7 +20,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </para>
 /// <para>
 /// The names of the controls of a form (<c>txtName</c>, <c>cmdOK</c>) are not reported: the platform has no source range for a control. A name that
-/// begins with a control's prefix is reported wherever the module declares it.
+/// begins with a control's prefix is reported wherever the module declares it. The handler of a control's event (<c>txtName_Change</c>) is reported at
+/// the handler, and is changed by renaming the control: the finding offers no rename of its own. So is the handler of an event, and the implementation of
+/// an interface member, declared by a project of the workspace, which renaming the event or the member changes.
 /// </para>
 /// </remarks>
 /// <param name="options">The settings of the extension.</param>
@@ -55,7 +57,9 @@ internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> opt
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.HungarianNotation_Message, declared.Name))
             {
-                Fixes = declared.IsModule ? null : new DiagnosticFixes { Rename = new RenameFix { Suggestions = WithoutPrefix(declared.Name) is { } suggested ? [suggested] : [] } },
+                Fixes = declared.IsModule || declared.IsBound
+                    ? null
+                    : new DiagnosticFixes { Rename = new RenameFix { Suggestions = WithoutPrefix(declared.Name) is { } suggested ? [suggested] : [] } },
             });
 
     /// <summary>
