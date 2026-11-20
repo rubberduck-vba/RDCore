@@ -1016,9 +1016,17 @@ public sealed partial class CompiledActivation : ILightActivation
                 return null;
             }
 
-            // the reference as the variable or the With block holds it, which the cell holds as it is: no copy of it is made.
-            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, new ValueBindingHandle(_receiver));
-            ObjectReferences.HoldIn(_session, activation._me, _memberInstance!.ObjectId);
+            // the reference as the variable or the With block holds it, which the cell holds as it is: no copy of it is made. A spare holds it in the cell
+            // its last activation let go of, when nothing else can hold that cell (EndMember).
+            var me = activation._spareMe ?? new ValueBindingHandle(_receiver);
+            if (activation._spareMe is not null)
+            {
+                me.Store(_receiver, isKnown: true);
+                activation._spareMe = null;
+            }
+
+            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, me);
+            ObjectReferences.HoldIn(_session, me, _memberInstance!.ObjectId);
         }
         else if (_invoker.PushMemberActivation(member, entry.List, (VBRuntimeValue<VBRuntimeObjectId>)_receiver) is { } frame)
         {
@@ -1040,6 +1048,10 @@ public sealed partial class CompiledActivation : ILightActivation
     // later holds Me in that cell (MakeFrame), and the activation lets go of it as the frame would have, when it returns (ReturnedDirectly).
     private IObjectInstance? _instance;
     private ValueBindingHandle? _me;
+
+    // the cell this activation held Me in the last time it ran a member, let go of when that member returned without a frame: no frame, and so nothing
+    // but the activation, ever held it, and no object is counted in it. The next member this activation runs holds Me in it (EnterMemberDirectly).
+    private ValueBindingHandle? _spareMe;
 
     /// <summary>
     /// The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.
@@ -1136,12 +1148,21 @@ public sealed partial class CompiledActivation : ILightActivation
     // runs then gives it its frame, as any call does; it is then taken off the stack with that frame, which holds Me in the same cell, let go of already.
     private RuntimeExecutionOutcome EndMember(CompiledActivation callee, ValueBindingHandle me, RuntimeExecutionOutcome outcome)
     {
-        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        var released = outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break);
+        if (released)
         {
             ObjectReferences.Release(_session, me);
         }
 
-        return _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+        outcome = _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+
+        // a cell that was let go of and given to no frame, not even by a Class_Terminate run as it was let go of, is the next activation's (_spareMe).
+        if (released && callee._frame is null)
+        {
+            callee._spareMe = me;
+        }
+
+        return outcome;
     }
 
     // an activation off the stack is the spare of its place (RuntimeCallStack.TakeSpare) until it is begun again: it keeps no object alive meanwhile.
