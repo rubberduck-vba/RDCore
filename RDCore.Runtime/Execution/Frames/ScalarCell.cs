@@ -142,26 +142,14 @@ internal sealed class ScalarCell : ICopyableBinding, IAddressedCell
 /// <param name="Floating">The value of a floating-point type, or the serial of a <c>Date</c>.</param>
 internal readonly record struct ScalarPayload(VBType Type, long Integral, double Floating)
 {
-    private readonly VBType _type = Type;
-
     /// <summary>
-    /// The type of the value; giving the payload another (<c>with</c>) gives it the kind of that type too.
+    /// The kind of <see cref="Type"/> (<see cref="ScalarKinds.Of"/>): what an operation on payloads is chosen by. <see langword="null"/> of a type that is
+    /// not a scalar type, of which no payload is ever read.
     /// </summary>
-    public VBType Type
-    {
-        get => _type;
-        init
-        {
-            _type = value;
-            Kind = ScalarKinds.Of(value);
-        }
-    }
-
-    /// <summary>
-    /// The kind of <see cref="Type"/> (<see cref="ScalarKinds.Of"/>), found once when the payload is made: what an operation on payloads is chosen by.
-    /// <see langword="null"/> of a type that is not a scalar type, of which no payload is ever read.
-    /// </summary>
-    public ScalarKind? Kind { get; private init; } = ScalarKinds.Of(Type);
+    /// <remarks>
+    /// It is found when it is read, not kept: a payload is made far more often than its kind is read, and is copied by value.
+    /// </remarks>
+    public ScalarKind? Kind => ScalarKinds.Of(Type);
 
     /// <summary>What a <c>Currency</c> is scaled by, to be held in <see cref="Integral"/>.</summary>
     public const long CurrencyScale = 10000;
