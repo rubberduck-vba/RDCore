@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -160,13 +161,48 @@ public static class DeclarationUsage
     // expressions in the declarations of each module were analyzed too (the value of another constant, the bounds of an array). A Public procedure of a
     // private module is not counted here: its name can be passed as a string to a library member that calls a procedure by its name, which a count of the
     // expressions does not see. Nor is a declaration of a name that an excluded #If branch of a module of the project writes (ExcludedBranchNames):
-    // excludedBranchNames holds those names for each module, by the module's address.
+    // excludedBranchNames holds those names for each module, by the module's address. The procedure a run of the project starts with (entryPoint,
+    // MemberRoles.EntryPointOf) is one only for the project as a whole, and is said here, whether or not the code is analyzed.
+    // A program (a project that is not a library, whose entry point is found) is run from its entry point, and no other project nor any host calls into it:
+    // a Public member of any of its modules is counted as a Friend one is (PublicMembersOfAProgram), with what each module's code accesses late (lateBound,
+    // by the module's address). A library's members that a referencing project can use count as used by one (isLibrary,
+    // DeclarationFact.IsUsedByReferencingProjects), and are not counted.
     public static IReadOnlyCollection<ModuleSemanticModel> AcrossProject(
         IReadOnlyCollection<ModuleSemanticModel> models, IReadOnlyDictionary<string, ModuleDeclarationFacts> declarations, IEnumerable<VBModuleSymbol> project,
-        IReadOnlyDictionary<string, IReadOnlySet<string>>? excludedBranchNames = null,
+        IReadOnlyDictionary<string, IReadOnlySet<string>>? excludedBranchNames = null, SemanticId? entryPoint = null, bool isLibrary = false,
+        IReadOnlyDictionary<string, LateBoundNames>? lateBound = null, Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>>? membersOf = null,
         IReadOnlyDictionary<string, IReadOnlySet<string>>? unanalyzedNames = null)
     {
+        // the members of a module as the session's symbols have them: a standard module's symbol does not hold its own.
+        membersOf ??= module => module.Members;
+        if (entryPoint is { } start)
+        {
+            models = [.. models.Select(model => model.Declarations.Any(fact => fact.Symbol == start)
+                ? model with
+                {
+                    Declarations = [.. model.Declarations.Select(fact => fact.Symbol == start ? fact with { Role = DeclarationRole.EntryPoint } : fact)],
+                }
+                : model)];
+        }
+
         var projectModules = project.DistinctBy(module => module.Uri.AbsoluteUri).ToList();
+        // what a referencing project can name, or reach through an object of its class, is said whether or not the code is analyzed.
+        if (isLibrary)
+        {
+            var usedFromOutside = projectModules
+                .SelectMany(module => membersOf(module).Where(member => ReferencedProjectSymbols.IsAccessible(member, module)))
+                .Select(member => member.SemanticId)
+                .ToHashSet();
+            models = [.. models.Select(model => model.Declarations.Any(fact => usedFromOutside.Contains(fact.Symbol))
+                ? model with
+                {
+                    Declarations = [.. model.Declarations.Select(fact => usedFromOutside.Contains(fact.Symbol)
+                        ? fact with { IsUsedByReferencingProjects = true }
+                        : fact)],
+                }
+                : model)];
+        }
+
         var modules = projectModules.Select(module => module.Uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
         var privateModules = projectModules.Where(module => module is not VBClassModuleSymbol && module.Directives.PrivateModule)
             .Select(module => module.Uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
@@ -199,10 +235,17 @@ public static class DeclarationUsage
         var references = Tally(inProject.SelectMany(model => CodeOf(model.Procedures, declarations.GetValueOrDefault(model.Module.AbsoluteUri))));
         var excluded = modules.SelectMany(module => excludedBranchNames?.GetValueOrDefault(module) ?? Enumerable.Empty<string>())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var program = !isLibrary && entryPoint is not null ? PublicMembersOfAProgram(projectModules, inProject, lateBound, membersOf) : null;
+        var late = projectModules.Select(module => lateBound?.GetValueOrDefault(module.Uri.AbsoluteUri)).ToList();
+        var namedInStrings = late.All(names => names is not null)
+            ? late.SelectMany(names => names!.NamedInStrings).Select(Normalized).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : null;
         return [.. models.Select(model => !modules.Contains(model.Module.AbsoluteUri) ? model : model with
         {
             Declarations = [.. model.Declarations.Select(fact => fact.References is null
-                && IsAccessibleOnlyWithinTheProject(fact, privateModules.Contains(model.Module.AbsoluteUri), constantsAreFullyAnalyzed)
+                && (IsAccessibleOnlyWithinTheProject(fact, privateModules.Contains(model.Module.AbsoluteUri), constantsAreFullyAnalyzed)
+                    || program?.Contains(fact.Symbol) == true && (fact.Kind is not DeclarationKind.Constant || constantsAreFullyAnalyzed)
+                    || IsCalledOnlyByItsModule(fact, model, lateBound?.GetValueOrDefault(model.Module.AbsoluteUri), namedInStrings))
                 && !excluded.Contains(fact.Name)
                 && !unanalyzed.Contains(Normalized(fact.Name))
                     ? Counted(fact, references.GetValueOrDefault(Key(fact.Symbol)) ?? new References())
@@ -218,6 +261,49 @@ public static class DeclarationUsage
         { Kind: DeclarationKind.Constant, Access: AccessModifier.Public or AccessModifier.Global } => inPrivateModule && constantsAreFullyAnalyzed,
         _ => false,
     };
+
+    // MS-VBAL §5.3.1.1: a Private procedure or property is accessible within its module and from nowhere else, and is not reached late: every call of one
+    // is an expression of its module. One with a role (a handler, an implementation) is called by no expression, nor is one of a module that calls
+    // CallByName with a name no string literal gives (LateBoundNames.CallsByName), nor one of a document module whose host's class is not known, whose events
+    // are not either. A host can call back a procedure by the name a string gives it (Application.Run, OnAction, OnTime), and a project's code says
+    // nothing of the host's members that do: a Private procedure whose name a string literal of the project writes (LateBoundNames.NamedInStrings) is not
+    // counted. namedInStrings holds those names, when the strings of every module of the project are known.
+    private static bool IsCalledOnlyByItsModule(DeclarationFact fact, ModuleSemanticModel model, LateBoundNames? late, IReadOnlySet<string>? namedInStrings)
+        => fact is { Role: DeclarationRole.None, Kind: DeclarationKind.Procedure or DeclarationKind.Property, Access: AccessModifier.Private }
+            && late is { CallsByName: false }
+            && namedInStrings is not null && !namedInStrings.Contains(Normalized(fact.Name))
+            && model.Document is not { HostClassUri: null };
+
+    // the Public procedures, properties, variables and constants of a program's modules (a procedure or a property with no access modifier is Public,
+    // MS-VBAL §5.3.1.1), that only the program's own code can call: none plays a role (the entry point, a handler, an implementation), whose caller is not
+    // an expression. A member of a class can also be reached where the code runs: as the default member or the enumerator of its object (VB_UserMemId 0 and
+    // -4, MS-VBAL §5.6.2.2, §5.4.2.4), through an access bound late that names it, or by CallByName (LateBoundNames). Those are not counted: no member of a
+    // class is, when the program calls CallByName, or when the late accesses of a module are not known.
+    private static HashSet<SemanticId> PublicMembersOfAProgram(
+        List<VBModuleSymbol> project, List<ModuleSemanticModel> models, IReadOnlyDictionary<string, LateBoundNames>? lateBound,
+        Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf)
+    {
+        var late = project.Select(module => lateBound?.GetValueOrDefault(module.Uri.AbsoluteUri)).ToList();
+        var classMembersAreCounted = late.All(names => names is { CallsByName: false });
+        var namedLate = late.OfType<LateBoundNames>().SelectMany(names => names.Members).Select(Normalized).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var roles = models.SelectMany(model => model.Declarations)
+            .Where(fact => fact.Role is not DeclarationRole.None)
+            .Select(fact => fact.Symbol)
+            .ToHashSet();
+
+        return [.. project.SelectMany(module => membersOf(module)
+            .Where(member => member is AccessibleTypedSymbol { AccessModifier: var access } && KindOf(member) is { } kind && access switch
+            {
+                AccessModifier.Public or AccessModifier.Global => kind is not DeclarationKind.Event,
+                AccessModifier.Implicit => kind is DeclarationKind.Procedure or DeclarationKind.Property,
+                _ => false,
+            })
+            .Where(member => !roles.Contains(member.SemanticId))
+            .Where(member => module is not VBClassModuleSymbol
+                || classMembersAreCounted && !namedLate.Contains(Normalized(member.Name))
+                    && !(member.TryGetProperty(SymbolProperties.UserMemId, out var id) && id is WellKnownDispIds.Value or WellKnownDispIds.NewEnum)))
+            .Select(member => member.SemanticId)];
+    }
 
     private static DeclarationFact Counted(DeclarationFact fact, References references)
         => fact with { References = references.Count, ReferencedFrom = references.Sites.ToImmutable() };

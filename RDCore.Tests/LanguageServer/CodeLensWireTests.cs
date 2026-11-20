@@ -147,6 +147,16 @@ public sealed class CodeLensWireTests
     private static string[] ReferencesOf(CodeLens lens)
         => [.. ((JArray)lens.Command!.Arguments![2]).Select(reference => $"{Path.GetFileName(DocumentUri.From(reference.Value<string>("uri")!).GetFileSystemPath())} {reference["range"]!["start"]!.Value<int>("line")}")];
 
+    // the one place a lens goes to: the file of its document, and the line where its range starts.
+    private static string PlaceOf(CodeLens lens)
+    {
+        Assert.AreEqual(RefactoringCommands.GoToLocation, lens.Command!.Name);
+        Assert.HasCount(2, lens.Command.Arguments!, "the URI of the document and the range");
+        var range = lens.Command.Arguments![1];
+        Assert.IsGreaterThan(range["start"]!.Value<int>("character"), range["end"]!.Value<int>("character"), "the range of the name");
+        return $"{Path.GetFileName(DocumentUri.From(lens.Command.Arguments![0].Value<string>()!).GetFileSystemPath())} {range["start"]!.Value<int>("line")}";
+    }
+
     [TestMethod]
     [Timeout(600_000, CooperativeCancellation = true)]
     public async Task EachMemberOfAModule_HasALens_AtItsName_ThatIsResolvedWithItsReferences()
@@ -193,7 +203,7 @@ public sealed class CodeLensWireTests
     }
 
     // MS-VBAL §5.2.4.2: a member of a class other classes implement has a lens of the procedures that implement it, which lists them as Go to
-    // Implementation does; each procedure that implements it has a lens that names it, answered with the command that shows its declaration.
+    // Implementation does; each procedure that implements it has a lens that names it, answered with the command that goes to its declaration.
     [TestMethod]
     [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AnInterfaceMember_HasALensOfItsImplementations_AndEachImplementation_ALensOfTheMemberItImplements()
@@ -212,8 +222,22 @@ public sealed class CodeLensWireTests
         Assert.HasCount(2, square, "the references of IShape_Area, and the member it implements");
         var implements = Assert.ContainsSingle(square.Where(lens => lens.Command is not null), "the lens of the member is answered with its command");
         Assert.AreEqual(RefactoringTitles.Implements("IShape", "Area"), implements.Command!.Title);
-        Assert.AreEqual(RefactoringCommands.ShowReferences, implements.Command.Name);
-        CollectionAssert.AreEqual(new[] { $"IShape.cls {LineOf(Shapes, "IShape.cls", "Public Function Area")}" }, ReferencesOf(implements));
+        Assert.AreEqual($"IShape.cls {LineOf(Shapes, "IShape.cls", "Public Function Area")}", PlaceOf(implements));
+    }
+
+    // a lens that leads to one place goes to it: with one implementation there is nothing to choose from.
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task AnInterfaceMember_ThatOneProcedureImplements_HasALensThatGoesToIt()
+    {
+        (string FileName, string Text)[] shapes = [Shapes[0], Shapes[1]];
+
+        var (_, resolved) = await LensesAsync("IShape.cls", shapes);
+
+        Assert.HasCount(2, resolved, "the references of Area, and its implementation");
+        Assert.AreEqual(RefactoringCommands.ShowReferences, resolved[0].Command!.Name, "the references are listed, however many there are");
+        Assert.AreEqual(RefactoringTitles.Implementations(1), resolved[1].Command!.Title);
+        Assert.AreEqual($"Square.cls {LineOf(shapes, "Square.cls", "Private Function IShape_Area")}", PlaceOf(resolved[1]));
     }
 
     [TestMethod]

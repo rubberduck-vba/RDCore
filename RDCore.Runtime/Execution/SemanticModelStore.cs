@@ -31,10 +31,11 @@ public sealed class SemanticModelStore
     private readonly Dictionary<string, Evaluation> _evaluations = [];
 
     // a module's model, the facts of the expressions of its declarations that the model was made with, the names its excluded #If branches write, the
-    // platforms each of its positions is compiled on, and the names its procedures not fully analyzed write: they are read together, from one snapshot.
+    // platforms each of its positions is compiled on, the names its code accesses late, and the names its procedures not fully analyzed write: they are
+    // read together, from one snapshot.
     private sealed record Stored(
         ModuleSemanticModel Model, ModuleDeclarationFacts? Declarations, IReadOnlySet<string>? ExcludedBranchNames, ModulePlatforms? Platforms,
-        IReadOnlySet<string>? UnanalyzedNames);
+        LateBoundNames? LateBound, IReadOnlySet<string>? UnanalyzedNames);
 
     private sealed record Evaluation(CancellationTokenSource Cancellation, Task Completion);
 
@@ -78,6 +79,10 @@ public sealed class SemanticModelStore
     /// The platforms each position of the module is compiled on, which the calls it makes of a <c>Declare</c>'d procedure are stated with
     /// (<see cref="WithNativeCalls"/>); <see langword="null"/> when they are not known, and its calls are not stated.
     /// </param>
+    /// <param name="lateBound">
+    /// The names of the members that the module's code accesses late, and whether it calls <c>CallByName</c> (<see cref="LateBoundNames"/>);
+    /// <see langword="null"/> when they are not known. <see cref="AcrossProject"/> counts no member of a class of a program that code may reach this way.
+    /// </param>
     /// <param name="unanalyzedNames">
     /// The names that the module's procedures that were not fully analyzed write (<see cref="DeclarationUsage.NamesIn"/>), empty when every one was;
     /// <see langword="null"/> when they are not known. <see cref="AcrossProject"/> states no count for a declaration of one of these names, and none at all
@@ -85,12 +90,13 @@ public sealed class SemanticModelStore
     /// </param>
     public void Store(
         ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate, ModuleDeclarationFacts? declarations = null,
-        IReadOnlySet<string>? excludedBranchNames = null, ModulePlatforms? platforms = null, IReadOnlySet<string>? unanalyzedNames = null)
+        IReadOnlySet<string>? excludedBranchNames = null, ModulePlatforms? platforms = null, LateBoundNames? lateBound = null,
+        IReadOnlySet<string>? unanalyzedNames = null)
     {
         lock (_storing)
         {
             var key = model.Module.AbsoluteUri;
-            _models = _models.SetItem(key, new Stored(model, declarations, excludedBranchNames, platforms, unanalyzedNames));
+            _models = _models.SetItem(key, new Stored(model, declarations, excludedBranchNames, platforms, lateBound, unanalyzedNames));
             Stop(key);
 
             if (evaluate is not null)
@@ -255,19 +261,29 @@ public sealed class SemanticModelStore
     /// counted over all of them.
     /// </summary>
     /// <param name="project">The modules of the project.</param>
+    /// <param name="entryPoint">The procedure a run of the project starts with, whose declaration is said to be its entry point; none when omitted.</param>
+    /// <param name="isLibrary">
+    /// Whether the project is a library, whose members that a referencing project can use count as used by one; <see langword="false"/> when omitted.
+    /// </param>
+    /// <param name="membersOf">The members of a module, as the session's symbols have them; the module symbol's own when omitted.</param>
     /// <remarks>
     /// The models and the facts of the expressions in their declarations are read from one snapshot. See <see cref="DeclarationUsage.AcrossProject"/>.
     /// </remarks>
-    public IReadOnlyCollection<ModuleSemanticModel> AcrossProject(IEnumerable<VBModuleSymbol> project)
+    public IReadOnlyCollection<ModuleSemanticModel> AcrossProject(
+        IEnumerable<VBModuleSymbol> project, SemanticId? entryPoint = null, bool isLibrary = false,
+        Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>>? membersOf = null)
     {
         var snapshot = _models.Values.ToList();
         var declarations = snapshot.Where(stored => stored.Declarations is not null)
             .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.Declarations!, StringComparer.Ordinal);
         var excluded = snapshot.Where(stored => stored.ExcludedBranchNames is { Count: > 0 })
             .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.ExcludedBranchNames!, StringComparer.Ordinal);
+        var lateBound = snapshot.Where(stored => stored.LateBound is not null)
+            .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.LateBound!, StringComparer.Ordinal);
         var unanalyzed = snapshot.Where(stored => stored.UnanalyzedNames is not null)
             .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.UnanalyzedNames!, StringComparer.Ordinal);
-        return DeclarationUsage.AcrossProject([.. snapshot.Select(stored => stored.Model)], declarations, project, excluded, unanalyzed);
+        return DeclarationUsage.AcrossProject(
+            [.. snapshot.Select(stored => stored.Model)], declarations, project, excluded, entryPoint, isLibrary, lateBound, membersOf, unanalyzed);
     }
 
     /// <summary>
