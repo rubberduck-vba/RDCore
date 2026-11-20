@@ -43,7 +43,7 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
             // an edit that no user can confirm is not made: what a string names, and which member a late-bound access calls, are only known when the code runs.
             if (IsUnattended())
             {
-                edit = Without(edit, question.Annotation);
+                edit = edit.Without(question.Annotation);
                 continue;
             }
 
@@ -60,7 +60,7 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
             }, cancellationToken);
             if (chosen?.Title == question.Rename)
             {
-                edit = Confirmed(edit, question.Annotation);
+                edit = edit.Confirmed(question.Annotation);
             }
             else if (chosen?.Title != question.Leave)
             {
@@ -70,14 +70,9 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
 
         // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit. The edit of a file
         // once it is renamed (a designer's text naming its renamed binary file) goes with the rename.
-        if (!TakesFileRenames(_client) && edit.DocumentChanges is { } documentChanges && documentChanges.Any(change => change.IsRenameFile))
+        if (!_client.TakesResourceOperation(ResourceOperationKind.Rename))
         {
-            var renamedTo = documentChanges.Where(change => change.IsRenameFile).Select(change => change.RenameFile!.NewUri.ToString()).ToHashSet(StringComparer.Ordinal);
-            edit = edit with
-            {
-                DocumentChanges = new Container<WorkspaceEditDocumentChange>(documentChanges.Where(change
-                    => !change.IsRenameFile && !(change.IsTextDocumentEdit && renamedTo.Contains(change.TextDocumentEdit!.TextDocument.Uri.ToString())))),
-            };
+            edit = edit.WithoutFileRenames();
         }
 
         // an edit the client can't apply is refused as any other rename is, with why: one it would apply none of would say nothing.
@@ -91,35 +86,10 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
         }
     }
 
-    private static bool TakesFileRenames(ClientCapabilities? client)
-        => client.TakesDocumentChanges()
-            && client?.Workspace?.WorkspaceEdit is { IsSupported: true, Value.ResourceOperations: { } kinds } && kinds.Contains(ResourceOperationKind.Rename);
-
     // whether the client said it runs with no user to ask (the platform handshake).
     private bool IsUnattended()
         => services.GetService(typeof(IPlatformClientCapabilitiesService)) is IPlatformClientCapabilitiesService expected
             && expected.Expects(capabilities => capabilities.Unattended);
-
-    // the edit as the user confirmed it: the edits of the annotation no longer need confirming, and are sent as the other edits are.
-    private static WorkspaceEdit Confirmed(WorkspaceEdit edit, ChangeAnnotationIdentifier confirmed) => edit with
-    {
-        ChangeAnnotations = edit.ChangeAnnotations?.ToDictionary(annotation => annotation.Key,
-            annotation => annotation.Key == confirmed ? annotation.Value with { NeedsConfirmation = false } : annotation.Value),
-    };
-
-    // the edit without the edits of the annotation, nor the annotation.
-    private static WorkspaceEdit Without(WorkspaceEdit edit, ChangeAnnotationIdentifier left) => edit with
-    {
-        DocumentChanges = edit.DocumentChanges is { } changes
-            ? new Container<WorkspaceEditDocumentChange>(changes.Select(change => change.IsTextDocumentEdit
-                ? new WorkspaceEditDocumentChange(change.TextDocumentEdit! with
-                {
-                    Edits = new TextEditContainer(change.TextDocumentEdit.Edits.Where(each => each is not AnnotatedTextEdit { AnnotationId: var id } || id != left)),
-                })
-                : change))
-            : null,
-        ChangeAnnotations = edit.ChangeAnnotations?.Where(annotation => annotation.Key != left).ToDictionary() is { Count: > 0 } kept ? kept : null,
-    };
 
     protected override RenameRegistrationOptions CreateRegistrationOptions(RenameCapability capability, ClientCapabilities clientCapabilities)
     {

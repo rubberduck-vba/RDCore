@@ -52,28 +52,12 @@ internal sealed class GetDiagnosticsTool(AssistantDocuments documents, IDocument
             found.AddRange(result.Diagnostics
                 .OrderBy(diagnostic => diagnostic.Range.Start.Line)
                 .ThenBy(diagnostic => diagnostic.Range.Start.Character)
-                .Select(diagnostic => Project(document.Id.Uri, diagnostic)));
+                .Select(diagnostic => documents.Project(document.Id.Uri, diagnostic)));
         }
 
         var capped = ToolResultLimits.Cap(found, ToolResultLimits.Diagnostics);
         return new DiagnosticsToolResult { Diagnostics = capped.Items, Total = capped.Total, Truncated = capped.Truncated };
     }
-
-    private ToolDiagnostic Project(DocumentUri uri, Diagnostic diagnostic) => new()
-    {
-        Location = documents.Locate(uri, diagnostic.Range),
-        Code = diagnostic.Code?.String ?? diagnostic.Code?.Long.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-        Severity = diagnostic.Severity switch
-        {
-            DiagnosticSeverity.Warning => ToolDiagnosticSeverity.Warning,
-            DiagnosticSeverity.Information => ToolDiagnosticSeverity.Information,
-            DiagnosticSeverity.Hint => ToolDiagnosticSeverity.Hint,
-            _ => ToolDiagnosticSeverity.Error,
-        },
-        Message = diagnostic.Message,
-        HelpUrl = diagnostic.CodeDescription?.Href?.ToString(),
-        HasFix = DiagnosticFixes.Of(diagnostic) is { } fixes && (fixes.Edits.Count > 0 || fixes.Rename is not null || fixes.Refactoring is not null || fixes.Project is not null),
-    };
 
     protected override string Render(DiagnosticsToolResult result, CultureInfo culture)
     {
