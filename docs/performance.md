@@ -150,7 +150,8 @@ while a block is read in four calls and written in four.
 - **The reference run.** On the reference machine, MS-VBA and RD-VBA run the corpus in five alternated rounds, MS-VBA first in odd rounds and RD-VBA
   first in even ones, and the Excel automation cases in the first three of those rounds. Each case runs seven times a round (five for Excel
   automation), and the figure is the fastest run. The reference run is repeated when the corpus changes.
-- **Pipeline setup.** A corpus case's RD-VBA time includes setting up that run's execution pipeline; MS-VBA's time has no such step.
+- **Pipeline setup.** `rdc bench` sets up each run's execution pipeline before it times the run. The RD-VBA times of the reference run include that
+  setup, which the build that recorded them timed; MS-VBA's times have no such step.
 - **On every merge.** A Windows build machine runs the corpus in three alternated rounds with two builds of `rdc`: the merged one, and the one the
   reference run used. A case's RD-VBA time is the reference run's, scaled by how the merged build compares with the reference build on that machine.
   Comparing the two builds on one machine keeps that machine's own speed out of the figure. The figures file (`bench.json`, on the `badges` branch)

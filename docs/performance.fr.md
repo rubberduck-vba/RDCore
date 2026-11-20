@@ -153,8 +153,9 @@ appelle Excel quatre fois par cellule, 40 000 fois en tout, alors qu'un bloc se 
   rondes impaires et RD-VBA en premier aux rondes paires, et les cas d'automatisation d'Excel dans les trois premières de ces rondes. Chaque cas
   s'exécute sept fois par ronde (cinq pour l'automatisation d'Excel), et le chiffre retenu est l'exécution la plus rapide. L'exécution de référence est
   refaite quand le corpus change.
-- **Mise en place du pipeline.** Le temps de RD-VBA pour un cas du corpus comprend la mise en place du pipeline d'exécution de cette exécution; le temps
-  de MS-VBA ne comprend aucune étape semblable.
+- **Mise en place du pipeline.** `rdc bench` met en place le pipeline d'exécution de chaque exécution avant de la chronométrer. Les temps de RD-VBA de
+  l'exécution de référence comprennent cette mise en place, que la compilation qui les a mesurés chronométrait; le temps de MS-VBA ne comprend aucune
+  étape semblable.
 - **À chaque fusion.** Une machine de compilation Windows exécute le corpus en trois rondes alternées avec deux compilations de `rdc` : celle de la
   fusion, et celle de l'exécution de référence. Le temps de RD-VBA pour un cas est celui de l'exécution de référence, multiplié par le rapport entre les
   deux compilations sur cette machine. Comparer les deux compilations sur une même machine écarte la vitesse propre de cette machine. Le fichier des
