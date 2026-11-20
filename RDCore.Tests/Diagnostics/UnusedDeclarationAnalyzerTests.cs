@@ -6,6 +6,7 @@ using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -43,6 +44,19 @@ public sealed class UnusedDeclarationAnalyzerTests
         var payload = await ModuleWorkspace.SemanticsAsync([("Button", button), (name, source)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub"));
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == name);
         return Run(analyzer, source, model, new Uri(Path.Combine(ModuleWorkspace.Root, $"{name}.cls")));
+    }
+
+    // the analyzer, given the named module of a project as the host models it: its Program module, its other standard modules and its class modules, built as
+    // the build section says (a program when it is omitted and the Program module declares a Sub Main).
+    private static async Task<AnalyzerFinding[]> ModuleOfAsync(
+        IModuleAnalyzer analyzer, string name, string program, IReadOnlyList<(string Name, string Source)> classes,
+        IReadOnlyList<(string Name, string Source)>? modules = null, ProjectBuild? build = null)
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync(classes, program, modules: modules, build: build);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == name);
+        var isClass = classes.Any(module => module.Name == name);
+        var source = name == "Program" ? program : (isClass ? classes : modules!).Single(module => module.Name == name).Source;
+        return Run(analyzer, source, model, new Uri(Path.Combine(ModuleWorkspace.Root, $"{name}.{(isClass ? "cls" : "bas")}")));
     }
 
     private static int[] Lines(AnalyzerFinding[] findings) => [.. findings.Select(finding => finding.Range.Start.Line)];
@@ -712,6 +726,111 @@ public sealed class UnusedDeclarationAnalyzerTests
         Assert.AreEqual(1, constants["Read"], "read by a statement");
         Assert.AreEqual(1, constants["Base"], "read by the value of another constant");
         Assert.AreEqual(1, constants["Derived"], "read by the bound of an array");
+    }
+
+    #endregion
+
+    #region RDC01011, RDC01012, RDC01015 the Public members of a program
+
+    // a program starts at its entry point: no other project, nor any host, uses its Public members, and the code of its modules is all that can.
+    private static readonly string[] Settings =
+    [
+        "Option Explicit",
+        "Public Unused As Long",
+        "Public Assigned As Long",
+        "Public Used As Long",
+        "Global Everyone As Long",
+        "Public Never As Long",
+        "Public Const Limit As Long = 10",
+        "Public Const Increment As Long = 1",
+    ];
+
+    private static readonly string UsesSettings = ModuleWorkspace.StandardModule("Program",
+        "Public Sub Main()",
+        "    Assigned = 1",
+        "    Used = Increment",
+        "    Debug.Print Used, Never",
+        "End Sub");
+
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsModule_ThatNothingReads_IsNotUsed()
+    {
+        var findings = await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Settings", UsesSettings, [],
+            [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))]);
+
+        CollectionAssert.AreEqual(new[] { 2, 3, 5 }, Lines(findings),
+            "nothing refers to it, only an assignment does, and a Global one; not one another module reads");
+        AssertAre(findings, RDCoreDiagnosticId.VariableNotUsed, DiagnosticSeverity.Information);
+        StringAssert.Contains(findings[1].Message, "assigned", "the variable that is only assigned says so");
+        Assert.IsNotNull(findings[0].Fixes, "the declaration of a variable nothing refers to can be removed");
+    }
+
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsModule_ThatAnotherModuleReadsAndNothingAssigns_IsNotAssigned()
+    {
+        var findings = await ModuleOfAsync(new VariableNotAssignedAnalyzer(), "Settings", UsesSettings, [],
+            [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))]);
+
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(findings), "read by Main, and assigned nowhere");
+        AssertAre(findings, RDCoreDiagnosticId.VariableNotAssigned, DiagnosticSeverity.Warning);
+        Assert.IsNull(findings[0].Fixes, "the fix that assigns the default value is offered for a local only");
+    }
+
+    [TestMethod]
+    public async Task APublicConstantOfAProgramsModule_ThatNoModuleRefersTo_IsNotUsed()
+    {
+        var findings = await ModuleOfAsync(new ConstantNotUsedAnalyzer(), "Settings", UsesSettings, [],
+            [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))]);
+
+        CollectionAssert.AreEqual(new[] { 7 }, Lines(findings), "not the one another module reads");
+        StringAssert.Contains(findings[0].Message, "'Limit'");
+    }
+
+    // a class that is not exposed: only the program's code uses an object of it.
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsClass_IsCountedOverTheProgram()
+    {
+        (string, string) item = ("Item",
+            ModuleWorkspace.ClassModule("Item", "Option Explicit", "Public Tag As String", "Public Title As String", "Public Count As Long"));
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()",
+            "    Dim i As New Item",
+            "    i.Title = \"a\"",
+            "    Debug.Print i.Title, i.Count",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Item", program, [item])),
+            "Tag, which nothing refers to");
+        CollectionAssert.AreEqual(new[] { 8 }, Lines(await ModuleOfAsync(new VariableNotAssignedAnalyzer(), "Item", program, [item])),
+            "Count, read through the object and never assigned");
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfALibrary_OrOfAProjectWithNoEntryPoint_IsNotReported()
+    {
+        (string, string)[] settings = [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))];
+        var noEntryPoint = ModuleWorkspace.StandardModule("Program", "Public Sub Run()", "End Sub");
+        var library = new ProjectBuild { OutputType = ProjectOutputType.Library };
+
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Settings", noEntryPoint, [], settings), "the host that runs the project can use it");
+        Assert.IsEmpty(await ModuleOfAsync(new ConstantNotUsedAnalyzer(), "Settings", noEntryPoint, [], settings));
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Settings", UsesSettings, [], settings, library), "a referencing project can use it");
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotAssignedAnalyzer(), "Settings", UsesSettings, [], settings, library));
+        Assert.IsEmpty(await ModuleOfAsync(new ConstantNotUsedAnalyzer(), "Settings", UsesSettings, [], settings, library));
+    }
+
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsClass_ThatTheCodeMayReachWhereItRuns_IsNotReported()
+    {
+        (string, string) item = ("Item", ModuleWorkspace.ClassModule("Item", "Option Explicit", "Public Tag As String", "Public Count As Long"));
+        var late = ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()", "    Dim o As Object", "    Set o = New Item", "    Debug.Print o.Tag", "End Sub");
+        var byName = ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()", "    Dim i As New Item", "    Debug.Print CallByName(i, \"Ta\" & \"g\", vbGet)", "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 7 }, Lines(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Item", late, [item])),
+            "Count, which no access names; not Tag, which the access bound late names");
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Item", byName, [item]), "CallByName can name any member of the class");
     }
 
     #endregion
