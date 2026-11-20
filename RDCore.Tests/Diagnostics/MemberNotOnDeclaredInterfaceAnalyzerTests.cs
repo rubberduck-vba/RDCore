@@ -71,7 +71,8 @@ public sealed class MemberNotOnDeclaredInterfaceAnalyzerTests
     }
 
     [TestMethod]
-    [Ignore("the analysis states run-time error 91 for a member of the With block of a parameter, which is not known to be Nothing: the access is the error's")]
+    [Ignore("the analysis states run-time error 91 for a member of the With block of a parameter, which is not known to be Nothing: "
+        + "the access is the error's")]
     public async Task AMemberThatALibrarysClassDoesNotDeclare_OnTheObjectOfAWithBlock_IsReported()
     {
         var (findings, _) = await FindingsAsync("ByVal ws As Worksheet", "With ws|.Rnage(\"A1\").Value = 1|End With");
@@ -128,7 +129,9 @@ public sealed class MemberNotOnDeclaredInterfaceAnalyzerTests
         var model = payload.Modules.Single(module => SymbolUri.ModuleNameOf(module.Module) == "Form1");
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Form1.frm"));
 
-        var findings = new MemberNotOnDeclaredInterfaceAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, form), model)).ToArray();
+        var findings = new MemberNotOnDeclaredInterfaceAnalyzer()
+            .Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, form), model))
+            .ToArray();
 
         Assert.IsEmpty(findings, string.Join("; ", findings.Select(finding => finding.Message)));
     }
