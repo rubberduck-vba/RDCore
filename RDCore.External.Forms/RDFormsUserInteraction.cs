@@ -84,7 +84,8 @@ public sealed class RDFormsUserInteraction(RDFormsFormHost forms, IHelpViewer? h
             }
         }
 
-        // the dialog is a call of the forms' program: what its forms raise while it waits is handled as the answer to it.
+        // the dialog is a call of the forms' program: what that program's forms raise while it waits is handled as the answer to it, and what another
+        // program's forms raise is not.
         var answer = RDFormsUI.Run(forms.Server.Program, () =>
         {
             var dialog = create();
