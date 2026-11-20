@@ -170,6 +170,7 @@ public enum RDCoreDiagnosticId
     LetToAnObjectWithNoDefaultMember = 11050, // p = 5, h.Plain = 5, of a class with no default member: compiles, raises 438 (91 for Nothing) whenever it runs
     SetToAnIncompatibleClass = 11051, // Set s = a, a's class never s's nor implementing it (§5.5.2.2.1): compiles, raises 13 whenever it runs with an object
     ArgumentOfAnIncompatibleClass = 11052, // Draw a, Sub Draw(ByVal s As IShape), a's class never IShape nor implementing it: compiles, 13 with an object
+    MemberNotOnDeclaredInterface = 11053, // [RD2:MemberNotOnInterfaceInspection] ws.Rnage, ws a Worksheet: not declared by a library's class, bound at run time
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits

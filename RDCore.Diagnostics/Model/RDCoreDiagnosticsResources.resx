@@ -528,6 +528,9 @@
   <data name="LetToAnObjectWithNoDefaultMember_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is of class &apos;{1}&apos;, which has no default member to assign the value to: run-time error 438 (91 when it is Nothing) every time this runs. Name the member the value is assigned to.</value>
   </data>
+  <data name="MemberNotOnDeclaredInterface_Message" xml:space="preserve">
+    <value>The class &apos;{1}&apos; does not declare a member &apos;{0}&apos;: the member is looked up on the object when the code runs, and the access raises run-time error 438 if the object has none.</value>
+  </data>
   <data name="LetThroughAVariantGet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is a Property Get declared Variant, with no Property Let. MS-VBAL specifies error 451 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name.</value>
   </data>

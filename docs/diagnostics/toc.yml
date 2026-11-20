@@ -650,6 +650,8 @@
   href: rdc11051.md
 - name: "RDC11052: Argument of an incompatible class"
   href: rdc11052.md
+- name: "RDC11053: Member not on the declared interface"
+  href: rdc11053.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md
 - name: "RDC30001: No entry point"

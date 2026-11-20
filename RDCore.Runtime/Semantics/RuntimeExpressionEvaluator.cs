@@ -392,12 +392,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // a member an extensible class does not declare is bound where the code runs, to a member of the object's class that has the name (MS-VBAL
             // §5.6.12), as an Object's is. The standard library's classes are the platform's, whose objects have the members their classes declare and no
             // other: none can answer the access, and it raises 438. A host's object can have members its library does not declare, which are not known.
+            // A library's class is the interface the code is compiled against, which does not declare the member; a control's object is also its
+            // extender's, whose members its class does not declare.
             if (member is null && memberName is not null && declared is VBClassType { Symbol: var declaredModule }
                 && (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, declaredModule) ?? declaredModule) is var extensible
                 && extensible.GetProperty(SymbolProperties.Extensible))
             {
+                var library = extensible.GetProperty(SymbolProperties.Library);
                 flags |= MemberAccessOperationSemanticFlags.LateBound;
-                candidates = extensible.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StandardLibrary.LibraryName ? [] : null;
+                candidates = library == SDK.Runtime.StdLib.StandardLibrary.LibraryName ? [] : null;
+                if (library is not null && !IsControl(session, context, ownerExpression ?? context.EnclosingWithTargetExpression))
+                {
+                    flags |= MemberAccessOperationSemanticFlags.NotOnDeclaredInterface;
+                }
             }
         }
 
@@ -507,6 +514,18 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);
         return ExpressionStaticSemanticsEvaluator.Evaluate(new StaticEvaluationContext(session.Symbols.Resolver, scope), ownerExpression).Result;
+    }
+
+    // whether an expression names a control of a form, as the static semantics read it.
+    private static bool IsControl(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? ownerExpression)
+    {
+        if (ownerExpression is null)
+        {
+            return false;
+        }
+
+        var scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);
+        return ObjectValueStaticSemantics.DesignerControlOf(new StaticEvaluationContext(session.Symbols.Resolver, scope), ownerExpression) is not null;
     }
 
     // a variable declared As New is made by a New, which a form's class refuses where no host can make its form; a default instance is the form's own, made by

@@ -372,6 +372,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11050](rdc11050.md)|Let to an object with no default member|A value assigned to an object of a class with no default member: VBA compiles it, and raises error 438 (91 for `Nothing`) every time it runs|
 |[RDC11051](rdc11051.md)|Set to an incompatible class|`Set shape = item`, no object of `item`'s class an object of `shape`'s or of a class that implements it: VBA compiles it, and raises error 13 every time it runs with an object|
 |[RDC11052](rdc11052.md)|Argument of an incompatible class|`Draw item`, no object of `item`'s class an object of the parameter's class or of a class that implements it: VBA compiles it, and raises error 13 every time it is made with an object|
+|[RDC11053](rdc11053.md)|Member not on the declared interface|A member that a library's class does not declare (`ws.Rnage` of a `Worksheet`): looked up when the code runs|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 |[RDC30001](rdc30001.md)|No entry point|`rdc run` or `rdc build` of a workspace with no `Sub Main`, an entry point the `.rdproj` names that nothing declares, or a library|
 |[RDC30002](rdc30002.md)|More than one entry point|`rdc run` or `rdc build` of a workspace where more than one standard module declares a `Sub Main`, and the `.rdproj` names none|
