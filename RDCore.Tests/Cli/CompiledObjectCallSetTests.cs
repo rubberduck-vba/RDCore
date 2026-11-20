@@ -190,8 +190,8 @@ public sealed class CompiledObjectCallSetTests
             "    Kept = Kept + First.Size * 100000 + Held.Size * 10000 + Last.Size",
             "End Function"), Classes, expected: "; 206603 ;");
 
-    // what three calls return in one statement, the first a member's object, the others its arguments, each called by compiled code once Main made the
-    // default instance; and a With block on what a call returns, in a recursion: each activation's block holds its own object while the activations it
+    // what three calls return in one statement, the objects of the operands' members, each called by compiled code once Main made the default instance;
+    // and a With block on what a call returns, in a recursion: each activation's block holds its own object while the activations it
     // calls open theirs.
     [TestMethod]
     public async Task WhatCallsReturnedInOneStatement_AndInEachActivationOfARecursion_AreEachTheirOwn()
@@ -203,7 +203,7 @@ public sealed class CompiledObjectCallSetTests
             "    Debug.Print Depth(3)",
             "End Sub",
             "Private Function Combined() As Long",
-            "    Combined = Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)",
+            "    Combined = Gadget.Create(1).Size + Gadget.Create(2).Size * Gadget.Create(3).Size",
             "End Function",
             "Private Function Depth(ByVal N As Long) As Long",
             "    With Gadget.Create(N)",
@@ -211,6 +211,42 @@ public sealed class CompiledObjectCallSetTests
             "        Depth = Depth * 10 + .Size",
             "    End With",
             "End Function"), "Combined", calls: 6, expected: "; 7 ;");
+
+    // the objects a call's arguments and its target hold, what calls inside them returned, are let go of when the statement is over in the order of the
+    // parameters, then the target's, as MS-VBA lets go of them: in another order than they were made in, which is the interpreter's to keep.
+    [TestMethod]
+    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", "gone 2 ; gone 3 ; gone 1 ; 7 ;",
+        DisplayName = "the target and two arguments")]
+    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size)", "gone 2 ; gone 1 ; 5 ;", DisplayName = "the target and an argument")]
+    [DataRow("G.Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", "gone 2 ; gone 3 ; 15 ;", DisplayName = "two arguments")]
+    public async Task WhatTheArgumentsAndTheTargetHold_IsLetGoOfInParameterOrder_ThenTheTargets(string expression, string expected)
+        => _ = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim G As Gadget",
+            "    Set G = Gadget.Create(9)",
+            "    Debug.Print Combined(G)",
+            "    Debug.Print Combined(G)",
+            "End Sub",
+            "Private Function Combined(ByVal G As Gadget) As Long",
+            $"    Combined = {expression}",
+            "End Function"), Classes, expected);
+
+    // what calls inside one argument, or the operands of an expression, returned: compiled code makes the calls, and lets go of the objects as the
+    // interpreter does.
+    [TestMethod]
+    [DataRow("G.Grown(Gadget.Create(1).Create(2).Size)", "; 13 ;", DisplayName = "a chain in an argument")]
+    [DataRow("Gadget.Create(1).Size + Gadget.Create(2).Size", "; 3 ;", DisplayName = "two operands")]
+    public async Task WhatOneArgumentHolds_IsLetGoOfAsTheInterpreterDoes(string expression, string expected)
+        => await AssertCalledAsync(Program(
+            "Public Sub Main()",
+            "    Dim G As Gadget",
+            "    Set G = Gadget.Create(9)",
+            "    Debug.Print Combined(G)",
+            "    Debug.Print Combined(G)",
+            "End Sub",
+            "Private Function Combined(ByVal G As Gadget) As Long",
+            $"    Combined = {expression}",
+            "End Function"), "Combined", calls: 8, expected);
 
     // a member called with an Optional argument left out, as a statement and in an expression: the parameter is given its default, as the interpreter gives
     // it; one given is given what it is given.
