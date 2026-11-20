@@ -241,6 +241,12 @@ being because something referred to it), and `OptionExplicit` says whether the m
 (**MS-VBAL §5.2.1.3**); it is not issued (`null`) for a language that has no such directive, such as the platform's BASIC. The
 accessors of a property are one declaration.
 
+A procedure that something other than the project's code calls has a `Role`. The project's entry point
+(`DeclarationRole.EntryPoint`) is the procedure a run of the project starts with: the one the project's build section names, or
+else the `Sub Main` of the one standard module that declares one. A library has none, and neither does a project where no
+standard module, or more than one, declares it. The entry point depends on every module of the project, so the host states it
+when it answers for the project's modules.
+
 **A fact is stated only when it is true.** A fact that says a declaration is _not used_ is a claim about every place that
 could use it, and the language core makes it only when it can vouch for all of them. A declaration's `References` (the
 expressions that read it, write to it, and pass it as an argument that may be taken by reference) are stated when both hold,

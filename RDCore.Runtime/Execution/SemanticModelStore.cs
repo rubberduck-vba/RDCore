@@ -249,17 +249,18 @@ public sealed class SemanticModelStore
     /// counted over all of them.
     /// </summary>
     /// <param name="project">The modules of the project.</param>
+    /// <param name="entryPoint">The procedure a run of the project starts with, whose declaration is said to be its entry point; none when omitted.</param>
     /// <remarks>
     /// The models and the facts of the expressions in their declarations are read from one snapshot. See <see cref="DeclarationUsage.AcrossProject"/>.
     /// </remarks>
-    public IReadOnlyCollection<ModuleSemanticModel> AcrossProject(IEnumerable<VBModuleSymbol> project)
+    public IReadOnlyCollection<ModuleSemanticModel> AcrossProject(IEnumerable<VBModuleSymbol> project, SemanticId? entryPoint = null)
     {
         var snapshot = _models.Values.ToList();
         var declarations = snapshot.Where(stored => stored.Declarations is not null)
             .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.Declarations!, StringComparer.Ordinal);
         var excluded = snapshot.Where(stored => stored.ExcludedBranchNames is { Count: > 0 })
             .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.ExcludedBranchNames!, StringComparer.Ordinal);
-        return DeclarationUsage.AcrossProject([.. snapshot.Select(stored => stored.Model)], declarations, project, excluded);
+        return DeclarationUsage.AcrossProject([.. snapshot.Select(stored => stored.Model)], declarations, project, excluded, entryPoint);
     }
 
     /// <summary>

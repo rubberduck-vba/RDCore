@@ -158,11 +158,22 @@ public static class DeclarationUsage
     // the declarations of each module were analyzed too (the value of another constant, the bounds of an array). A Public procedure of a private module is not counted
     // here: its name can be passed as a string to a library member that calls a procedure by its name, which a count of the expressions does not see. Nor is a
     // declaration of a name that an excluded #If branch of a module of the project writes (ExcludedBranchNames): excludedBranchNames holds those names for
-    // each module, by the module's address.
+    // each module, by the module's address. The procedure a run of the project starts with (entryPoint, MemberRoles.EntryPointOf) is one only for the
+    // project as a whole, and is said here, whether or not the code is analyzed.
     public static IReadOnlyCollection<ModuleSemanticModel> AcrossProject(
         IReadOnlyCollection<ModuleSemanticModel> models, IReadOnlyDictionary<string, ModuleDeclarationFacts> declarations, IEnumerable<VBModuleSymbol> project,
-        IReadOnlyDictionary<string, IReadOnlySet<string>>? excludedBranchNames = null)
+        IReadOnlyDictionary<string, IReadOnlySet<string>>? excludedBranchNames = null, SemanticId? entryPoint = null)
     {
+        if (entryPoint is { } start)
+        {
+            models = [.. models.Select(model => model.Declarations.Any(fact => fact.Symbol == start)
+                ? model with
+                {
+                    Declarations = [.. model.Declarations.Select(fact => fact.Symbol == start ? fact with { Role = DeclarationRole.EntryPoint } : fact)],
+                }
+                : model)];
+        }
+
         var projectModules = project.DistinctBy(module => module.Uri.AbsoluteUri).ToList();
         var modules = projectModules.Select(module => module.Uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
         var privateModules = projectModules.Where(module => module is not VBClassModuleSymbol && module.Directives.PrivateModule)
