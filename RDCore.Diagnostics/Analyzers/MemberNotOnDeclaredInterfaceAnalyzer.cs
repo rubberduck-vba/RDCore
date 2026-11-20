@@ -17,7 +17,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// The host states the access <c>MemberAccessOperationSemanticFlags.NotOnDeclaredInterface</c>. A class of the VBA library, whose objects have no other
-/// members, is <c>RDC11010</c>'s: its access has no candidates. An access whose run-time error the host already states (an object that is
+/// members, is <c>RDC11010</c>'s: its access has no candidates. An access whose run-time error the host states (an object that is
 /// <c>Nothing</c>) is the run-time error's. The class is the declared type of the object's expression, or of the <c>With</c> block's.
 /// </remarks>
 internal sealed class MemberNotOnDeclaredInterfaceAnalyzer : IModuleAnalyzer
