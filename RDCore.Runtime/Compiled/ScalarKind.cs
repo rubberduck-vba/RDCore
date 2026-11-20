@@ -57,12 +57,14 @@ internal static class ScalarKinds
     /// types, each by its exact type, and the two <c>LongPtr</c> types last: neither is sealed, and a test of one looks through the whole chain of base
     /// types of a type that is not it.
     /// </remarks>
+    /// <param name="type">The type, or <see langword="null"/>, which is of no kind.</param>
     public static ScalarKind? Of(VBType? type) => OfShared(type) ?? OfAny(type);
 
     /// <summary>
     /// The kind of <paramref name="type"/> when it is the shared instance of a scalar type (the one <see cref="TypeOf"/> gives); <see langword="null"/> of
     /// any other instance, an enumeration's and a <c>LongPtr</c>'s included.
     /// </summary>
+    /// <param name="type">The type, compared by reference with each shared instance.</param>
     public static ScalarKind? OfShared(VBType? type)
         => ReferenceEquals(type, _long) ? ScalarKind.Long
             : ReferenceEquals(type, _double) ? ScalarKind.Double
