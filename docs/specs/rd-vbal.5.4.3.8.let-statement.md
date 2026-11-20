@@ -98,8 +98,8 @@ A path through records is one reached from a variable, a variable named through 
 and elements of arrays of records (`LetAssignmentEvaluator.IndexListsOfARecordPath`).
 
 > [!NOTE]
-> **Not implemented.** A target that is a call (a property, a public variable of an object, a default member given arguments, an element of a
-> `Variant`) evaluates its object and its arguments after the value. MS-VBA evaluates its arguments as the call statement of its accessor does.
+> **Not implemented.** A target that is a call (a property, a public variable of an object, a default member given arguments, an element of an
+> array a `Variant` holds) evaluates its object and its arguments after the value. MS-VBA evaluates its arguments as the call statement of its accessor does.
 
 ### Targets of a class
 

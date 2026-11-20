@@ -140,8 +140,8 @@ public sealed class LetAssignmentEvaluator(
 
     // the index lists of a target that is an element of an array a record holds, reached from a variable through elements of arrays of records and
     // fields of records, the last list first: null for any other target, and for one written with a single list, which is evaluated where it is. A
-    // target reached through an object or a Variant is a call of what it is reached through, and is evaluated as one. The declared types of a target
-    // are its own, and so are its lists, which are found once.
+    // target reached through an object or a Variant is a call of what it is reached through, and is evaluated as one. A target's declared types do not
+    // change, so its lists are found once for each target.
     private System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<ExpressionNode>>? IndexListsOfARecordPath(
         IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target)
     {
