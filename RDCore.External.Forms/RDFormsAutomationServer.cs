@@ -459,6 +459,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
+    public bool IsFormHostObject(object target) => Owns(target);
+
+    /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
         => target is RDFormsFont ? IsFontClass(library, className)
             : target is RDFormsControls or RDFormsArray

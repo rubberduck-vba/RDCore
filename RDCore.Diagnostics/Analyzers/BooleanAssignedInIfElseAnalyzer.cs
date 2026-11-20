@@ -93,7 +93,7 @@ internal sealed class BooleanAssignedInIfElseAnalyzer : IModuleAnalyzer
         var range = statement.SourceLocation.Range;
         var condition = conditionExpression.SourceLocation.Range;
         if (!IsBoolean(conditionExpression)
-            || parse.Trivia.Concat(parse.PrecompilerTrivia).Any(trivia => trivia.SourceLocation.Range is var at && at.End > range.Start && at.Start < range.End))
+            || parse.Trivia.Concat(parse.PrecompilerTrivia).Any(trivia => range.Intersects(trivia.SourceLocation.Range)))
         {
             return null;
         }

@@ -249,4 +249,35 @@ public sealed class CompiledMemberFieldLetTests
             "    Set Q = New Point",
             "    Swap = 7",
             "End Function"), Classes, "0  7");
+
+    // one variable referring to two objects in turn, then to a new object at each turn: each write and read is of the object the variable refers to then.
+    [TestMethod]
+    public async Task AVariableReferringToAnotherObject_WritesThatObjectsVariable()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Alternated(); Renewed()",
+            "End Sub",
+            "Private Function Alternated() As Long",
+            "    Dim A As Point, B As Point, P As Point, I As Long",
+            "    Set A = New Point",
+            "    Set B = New Point",
+            "    For I = 1 To 6",
+            "        If I Mod 2 = 0 Then",
+            "            Set P = A",
+            "        Else",
+            "            Set P = B",
+            "        End If",
+            "        P.X = P.X + I",
+            "    Next",
+            "    Alternated = A.X * 100 + B.X",
+            "End Function",
+            "Private Function Renewed() As Long",
+            "    Dim P As Point, I As Long, T As Long",
+            "    For I = 1 To 6",
+            "        Set P = New Point",
+            "        P.X = P.X + I",
+            "        T = T + P.X",
+            "    Next",
+            "    Renewed = T",
+            "End Function"), Classes, "1209  21");
 }

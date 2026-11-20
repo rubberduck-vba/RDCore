@@ -1,3 +1,4 @@
+using RDCore.Runtime.Compiled;
 using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 
 namespace RDCore.Tests.Cli;
@@ -120,5 +121,64 @@ public sealed class CompiledVariantParameterOfAnotherTypeTests
             "End Sub"), expected: "21200");
         Assert.IsTrue(compiled.TryGetValue("Clipped", out var result), "Clipped was not called");
         Assert.IsNotNull(result.Body, string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+    }
+
+    // the caller's side: a String variable given by reference to the Variant parameter of a procedure, which compiled code gives the variable's address.
+    // What the callee appends to the parameter is what the String holds after the call, appended to by compiled code first.
+    [TestMethod]
+    public async Task AStringGivenByReferenceToAVariant_IsGivenItsAddressByCompiledCode()
+    {
+        var compiled = await AssertAlikeAsync(Program(
+            "Private Function Marked(Key As Variant) As Boolean",
+            "    Key = Key & \"!\"",
+            "    Marked = VarType(Key) = vbString",
+            "End Function",
+            "Public Sub Main()",
+            "    Debug.Print Joined()",
+            "End Sub",
+            "Private Function Joined() As String",
+            "    Dim S As String, I As Long, T As String",
+            "    For I = 1 To 3",
+            "        S = \"k\"",
+            "        S = S & I",
+            "        If Marked(S) Then T = T & S",
+            "    Next",
+            "    Joined = T",
+            "End Function"), expected: "k1!k2!k3!");
+        AssertNoneStepped(compiled, "Joined");
+    }
+
+    // the same, given to the Variant parameter of a member of an object of a class of the workspace.
+    [TestMethod]
+    public async Task AStringGivenByReferenceToAVariantOfAMember_IsGivenItsAddressByCompiledCode()
+    {
+        var compiled = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Joined()",
+            "End Sub",
+            "Private Function Joined() As String",
+            "    Dim S As String, I As Long, T As String, M As Marker",
+            "    Set M = New Marker",
+            "    For I = 1 To 3",
+            "        S = \"k\"",
+            "        S = S & I",
+            "        If M.Marked(S) Then T = T & S",
+            "    Next",
+            "    Joined = T",
+            "End Function"), classes: [("Marker", ModuleWorkspace.ClassModule("Marker",
+                "Option Explicit",
+                "Public Function Marked(Key As Variant) As Boolean",
+                "    Key = Key & \"!\"",
+                "    Marked = VarType(Key) = vbString",
+                "End Function"))], expected: "k1!k2!k3!");
+        AssertNoneStepped(compiled, "Joined");
+    }
+
+    // the procedure compiled, with no statement stepped by the interpreter.
+    internal static void AssertNoneStepped(IReadOnlyDictionary<string, CompilationResult> compiled, string procedure)
+    {
+        Assert.IsTrue(compiled.TryGetValue(procedure, out var result), $"{procedure} was not called");
+        Assert.IsNotNull(result.Body, string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        Assert.IsEmpty(result.Stepped, string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 }

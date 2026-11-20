@@ -254,9 +254,9 @@ internal sealed class SymbolSyncService(
         // a module the client keeps editing is defined again every time it is run, so the newest
         // definition has to win rather than being skipped as a duplicate. Its parse result travels with the request to
         // run it, not with this one.
-        await DefineModuleSymbolsAsync(
-            workspaceRoot, moduleUri, moduleName, ModuleType.StdModule, parseResult, workspaceResolver, replace: true,
-            withCode: false, token, sessionModule: sessionModule);
+        var module = new ParsedModule(moduleUri, moduleName, ModuleType.StdModule, parseResult);
+        var definition = new SessionDefinition(SessionDefinitionPhase.Declare, workspaceRoot, module, workspaceResolver, ImplicitScope, Replace: true);
+        await DefineModuleSymbolsAsync(definition, token, sessionModule);
         return moduleUri;
     }
 
@@ -313,61 +313,51 @@ internal sealed class SymbolSyncService(
             void Step(string message, string module) => progress?.Report(new WorkProgressStep(
                 string.Format(ProgressMessages.ItemOf, string.Format(message, module), step % modules.Count + 1, modules.Count), 100 * step++ / (3 * modules.Count)));
 
-            // every type exists before any declaration is bound to it, whichever module declares it and in whichever order the project lists them: those of
-            // the projects the project references, then its own.
-            var referenced = ReferencedProjectModules(token);
-            totalDefined += await DefineReferencedProjectsAsync(referenced, workspaceRoot, replace, declareTypesOnly: true, token);
-            foreach (var module in modules)
+            // the session is sent its definitions in the order every session is (SessionDefinitions): the projects the project references, and its own.
+            foreach (var definition in SessionDefinitions.Of(workspaceRoot, modules, workspaceResolver, ImplicitScope, replace, ReferencedProjects(token)))
             {
                 token.ThrowIfCancellationRequested();
-                Step(ProgressMessages.Declaring, module.Name);
-                try
+                var module = definition.Module;
+                if (definition.Referenced is null)
                 {
-                    totalDefined += await DefineModuleSymbolsAsync(
-                        workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace, withCode: false, token, declareTypesOnly: true);
+                    Step(definition.Phase switch
+                    {
+                        SessionDefinitionPhase.DeclareTypes => ProgressMessages.Declaring,
+                        SessionDefinitionPhase.Declare => ProgressMessages.Defining,
+                        _ => ProgressMessages.Loading,
+                    }, module.Name);
                 }
-                catch (Exception exception) when (exception is not OperationCanceledException)
-                {
-                    logger.LogError(exception, "❌ Declaring the types of module {module} failed; continuing with the remaining workspace modules.", module.Name);
-                    failed.TryAdd(module.Name, exception.Message);
-                }
-            }
 
-            totalDefined += await DefineReferencedProjectsAsync(referenced, workspaceRoot, replace, declareTypesOnly: false, token);
-            foreach (var module in modules)
-            {
-                token.ThrowIfCancellationRequested();
-                Step(ProgressMessages.Defining, module.Name);
                 try
                 {
-                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace, withCode: false, token);
+                    if (definition.Phase is SessionDefinitionPhase.Code)
+                    {
+                        await SendModuleCodeAsync(definition, token);
+                        if (definition.Referenced is null)
+                        {
+                            loaded.Add(module.Name);
+                        }
+                    }
+                    else
+                    {
+                        totalDefined += await DefineModuleSymbolsAsync(definition, token);
+                    }
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    // one module's failure (a malformed module, a projection bug) must not cost every
-                    // other module its symbols for the rest of the session — this sync is one-shot,
-                    // not re-run on didOpen/didChange, so an unguarded throw here used to make it
-                    // permanent instead of degrading to "this one module didn't get defined."
-                    logger.LogError(exception, "❌ Symbol sync failed for module {module}; continuing with the remaining workspace modules.", module.Name);
-                    failed.TryAdd(module.Name, exception.Message);
-                }
-            }
-
-            // the code of a module is checked against everything the workspace declares, which a module that names one defined after it cannot be until
-            // every module is: so the code is sent once all of them are defined.
-            foreach (var module in modules)
-            {
-                token.ThrowIfCancellationRequested();
-                Step(ProgressMessages.Loading, module.Name);
-                try
-                {
-                    await SendModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, token);
-                    loaded.Add(module.Name);
-                }
-                catch (Exception exception) when (exception is not OperationCanceledException)
-                {
-                    logger.LogError(exception, "❌ Loading the code of module {module} failed; continuing with the remaining workspace modules.", module.Name);
-                    failed.TryAdd(module.Name, exception.Message);
+                    // one module's failure (a malformed module, a projection bug) costs no other module its symbols or its code. What fails of a referenced
+                    // project is said, and is not of Unsynced, which lists the modules of the primary project.
+                    if (definition.Referenced is { } project)
+                    {
+                        logger.LogError(exception, "❌ {phase} of module {module} of the referenced project {project} failed; continuing.",
+                            definition.Phase, module.Name, project.Name);
+                    }
+                    else
+                    {
+                        logger.LogError(exception, "❌ {phase} of module {module} failed; continuing with the remaining workspace modules.",
+                            definition.Phase, module.Name);
+                        failed.TryAdd(module.Name, exception.Message);
+                    }
                 }
             }
 
@@ -450,83 +440,36 @@ internal sealed class SymbolSyncService(
         }
 
         var (_, modules, hosts) = CollectModules(other.Root, root, token);
-        var resolver = ResolverOf(root, other, modules, hosts);
-        foreach (var module in modules)
+        foreach (var definition in SessionDefinitions.Of(root, modules, ResolverOf(root, other, modules, hosts), ImplicitScope, replace: !composed))
         {
-            await DefineModuleSymbolsAsync(root, module.Uri, module.Name, module.Kind, module.Parse, resolver, replace: !composed, withCode: false, token, declareTypesOnly: true);
-        }
-
-        foreach (var module in modules)
-        {
-            await DefineModuleSymbolsAsync(root, module.Uri, module.Name, module.Kind, module.Parse, resolver, replace: !composed, withCode: false, token);
-        }
-
-        foreach (var module in modules)
-        {
-            await SendModuleCodeAsync(root, module.Uri, module.Name, module.Kind, module.Parse, token);
+            await (definition.Phase is SessionDefinitionPhase.Code ? SendModuleCodeAsync(definition, token) : DefineModuleSymbolsAsync(definition, token));
         }
 
         LogIfEnabled(LogLevel.Information, $"🔍 {other.Project.ProjectInfo.Name}: {modules.Count} module(s) defined in its analysis session.");
     }
 
     // what the names of another project's modules are bound against: its own modules, the libraries it references, and its own name.
-    private ISymbolResolver ResolverOf(Uri root, WorkspaceProject other, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> modules,
-        Dictionary<string, DocClassType> hosts)
+    private ISymbolResolver ResolverOf(Uri root, WorkspaceProject other, List<ParsedModule> modules, Dictionary<string, DocClassType> hosts)
         => WorkspaceSymbolResolver.Compose(
             root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver,
             projectName: other.Project.ProjectInfo.Name is { Length: > 0 } name ? name : null, implicitScope: ImplicitScope,
             libraries: referencedProjects?.LibrariesOf(root, other.Root) ?? referencedLibraries.SymbolsOf(root, other.Project.ProjectInfo),
             documentHosts: hosts);
 
-    // a project of the workspace the primary project references, as its modules are defined in the primary project's session.
-    private sealed record class ReferencedModules(
-        ReferencedProject Referenced, Uri Root, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules, ISymbolResolver Resolver);
-
-    // the projects the primary project references, each with its modules and what their names are bound against, as its own analysis binds them.
-    private List<ReferencedModules> ReferencedProjectModules(CancellationToken token)
+    // the projects the primary project references, each with its modules and what their names are bound against, as its own analysis binds them: they are
+    // defined in its session as names of those projects (DefineSymbolsParams.Library), beside its own modules.
+    private List<ReferencedProjectModules> ReferencedProjects(CancellationToken token)
     {
-        var referenced = new List<ReferencedModules>();
+        var referenced = new List<ReferencedProjectModules>();
         foreach (var project in referencedProjects?.ProjectsReferencedBy(documents.WorkspaceRoot) ?? [])
         {
             var root = SymbolUri.Root(project.Project.Root);
             var (_, modules, hosts) = CollectModules(project.Project.Root, root, token);
-            referenced.Add(new ReferencedModules(project, root, modules, ResolverOf(root, project.Project, modules, hosts)));
+            referenced.Add(new ReferencedProjectModules(project.Name, project.Priority, root, modules, ResolverOf(root, project.Project, modules, hosts)));
         }
 
         return referenced;
     }
-
-    // the modules of the projects the primary project references are defined in its session as names of those projects (DefineSymbolsParams.Library),
-    // beside its own modules: a Module1 of a project referenced is another module than the project's own Module1. Their code is not sent, and what fails
-    // is said, and is not of Unsynced: no module of them is one the program runs.
-    private async Task<int> DefineReferencedProjectsAsync(
-        List<ReferencedModules> referenced, Uri sessionRoot, bool replace, bool declareTypesOnly, CancellationToken token)
-    {
-        var defined = 0;
-        foreach (var (project, root, modules, projectResolver) in referenced)
-        {
-            foreach (var module in modules)
-            {
-                token.ThrowIfCancellationRequested();
-                try
-                {
-                    defined += await DefineModuleSymbolsAsync(
-                        root, module.Uri, module.Name, module.Kind, module.Parse, projectResolver, replace, withCode: false, token, declareTypesOnly,
-                        library: new LibraryModule(sessionRoot, project.Name, project.Priority));
-                }
-                catch (Exception exception) when (exception is not OperationCanceledException)
-                {
-                    logger.LogError(exception, "❌ Module {module} of the referenced project {project} could not be defined; continuing.",
-                        module.Name, project.Name);
-                }
-            }
-        }
-
-        return defined;
-    }
-
-    // what the session a module of a referenced project is defined in calls it: the session's root, and the project's name and precedence.
-    private sealed record class LibraryModule(Uri SessionRoot, string Name, int Priority);
 
     // a sync that did not finish loaded only some of what it collected, and may not have reached the collecting at all: what the last sync did not load is not
     // loaded either, unless this one loaded it.
@@ -543,46 +486,21 @@ internal sealed class SymbolSyncService(
         }
     }
 
-    private async Task<int> DefineModuleSymbolsAsync(
-        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false, bool sessionModule = false,
-        LibraryModule? library = null)
+    // the module's symbols are defined, as the definition says them; a module that declares no type has nothing to declare in the first phase.
+    private async Task<int> DefineModuleSymbolsAsync(SessionDefinition definition, CancellationToken token, bool sessionModule = false)
     {
-        var symbols = new SyntaxTreeSymbolProvider(
-            workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
-            withImplicitDeclarations: true, ImplicitScope).ProvideSymbols();
-        var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
-
-        // a module that declares no type has nothing to declare in the first phase.
-        if (declareTypesOnly && !descriptors.Any(descriptor => descriptor.Kind is SymbolDescriptorKind.UserDefinedType or SymbolDescriptorKind.Enum))
+        if (definition.ToRequest() is not { } request)
         {
             return 0;
         }
 
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
-            new DefineSymbolsParams
-            {
-                WorkspaceRoot = library?.SessionRoot ?? workspaceRoot,
-                ModuleUri = moduleUri,
-                ModuleName = moduleName,
-                Symbols = descriptors,
-                Directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives()),
-                ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
-                ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
-                ParseResultJson = withCode ? ParserJson.Of(parseResult) : string.Empty,
-                PrecompilerTriviaJson = library is null ? DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult) : string.Empty,
-                Replace = replace,
-                DeclareTypesOnly = declareTypesOnly,
-                SessionModule = sessionModule,
-                Library = library?.Name,
-                LibraryPriority = library?.Priority ?? 0,
-                ModuleType = moduleType,
-            }, token);
+            request with { SessionModule = sessionModule }, token);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("📤 {module}: {defined} defined, {replaced} replaced, {skipped} skipped, {unresolved} unresolved type(s).",
-                moduleName, result.Defined, result.Replaced, result.Skipped.Count, result.UnresolvedTypeNames.Count);
+                definition.Module.Name, result.Defined, result.Replaced, result.Skipped.Count, result.UnresolvedTypeNames.Count);
         }
 
         return result.Defined + result.Replaced;
@@ -591,11 +509,10 @@ internal sealed class SymbolSyncService(
     // every module of the primary project that has a parse: the resolver is composed over the whole project, so one module's `As SomeType` can bind to a sibling
     // module's Type / Enum declaration. The environment host runs that project and no other: a module of another project is defined in that project's analysis
     // session, and a `Module1` of it is never defined under the primary project's.
-    private (Uri? WorkspaceRoot, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules, Dictionary<string, DocClassType> Hosts)
-        CollectModules(CancellationToken token)
+    private (Uri? WorkspaceRoot, List<ParsedModule> Modules, Dictionary<string, DocClassType> Hosts) CollectModules(CancellationToken token)
         => CollectModules(documents.WorkspaceRoot, null, token);
 
-    private (Uri? WorkspaceRoot, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules, Dictionary<string, DocClassType> Hosts)
+    private (Uri? WorkspaceRoot, List<ParsedModule> Modules, Dictionary<string, DocClassType> Hosts)
         CollectModules(string projectRoot, Uri? workspaceRoot, CancellationToken token)
         => ProjectModules.Collect(documents, parsing, projectRoot, workspaceRoot, token);
 
@@ -622,8 +539,9 @@ internal sealed class SymbolSyncService(
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
                 implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token), documentHosts: hosts);
-            await DefineModuleSymbolsAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, workspaceResolver, replace: true, withCode: false, token);
-            await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, token);
+            SessionDefinition Changed(SessionDefinitionPhase phase) => new(phase, workspaceRoot, changed, workspaceResolver, ImplicitScope, Replace: true);
+            await DefineModuleSymbolsAsync(Changed(SessionDefinitionPhase.Declare), token);
+            await SendModuleCodeAsync(Changed(SessionDefinitionPhase.Code), token);
         }
 
         // and so it is in the analysis session of every other project that lists it: a file two projects list is a module of each.
@@ -643,8 +561,9 @@ internal sealed class SymbolSyncService(
             }
 
             var otherResolver = ResolverOf(root, other, theirs, theirHosts);
-            await DefineModuleSymbolsAsync(root, theirChanged.Uri, theirChanged.Name, theirChanged.Kind, theirChanged.Parse, otherResolver, replace: true, withCode: false, token);
-            await SendModuleCodeAsync(root, theirChanged.Uri, theirChanged.Name, theirChanged.Kind, theirChanged.Parse, token);
+            SessionDefinition Theirs(SessionDefinitionPhase phase) => new(phase, root, theirChanged, otherResolver, ImplicitScope, Replace: true);
+            await DefineModuleSymbolsAsync(Theirs(SessionDefinitionPhase.Declare), token);
+            await SendModuleCodeAsync(Theirs(SessionDefinitionPhase.Code), token);
         }
     }
 
@@ -675,30 +594,21 @@ internal sealed class SymbolSyncService(
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
         var workspaceRoot = SymbolUri.Root(documents.WorkspaceRoot);
-        return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult, token,
+        var module = new ParsedModule(SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult);
+        return SendModuleCodeAsync(new SessionDefinition(SessionDefinitionPhase.Code, workspaceRoot, module, resolver, ImplicitScope, Replace: false), token,
             fromShell: true);
     }
 
     // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded - once for as long as
     // it fails the same way, for the module is sent again at every edit of it (ModuleLoadFailures). A module is known by its address; a shell's program, which
-    // can be named as a module of the workspace is, by its own.
-    private async Task SendModuleCodeAsync(
-        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult, CancellationToken token, bool fromShell = false)
+    // can be named as a module of the workspace is, by its own. A module of a referenced project is sent as its symbols are (SessionDefinition.Referenced).
+    private async Task SendModuleCodeAsync(SessionDefinition definition, CancellationToken token, bool fromShell = false)
     {
+        var moduleName = definition.Module.Name;
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
-            new DefineSymbolsParams
-            {
-                WorkspaceRoot = workspaceRoot,
-                ModuleUri = moduleUri,
-                ModuleName = moduleName,
-                Directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives()),
-                ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
-                ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
-                ParseResultJson = ParserJson.Of(parseResult),
-                CodeOnly = true,
-            }, token);
+            definition.ToRequest(ParserJson.Of)!, token);
 
-        switch (_loadFailures.Record((fromShell ? "shell " : string.Empty) + moduleUri.AbsoluteUri, result.CodeErrors))
+        switch (_loadFailures.Record((fromShell ? "shell " : string.Empty) + definition.Module.Uri.AbsoluteUri, result.CodeErrors))
         {
             case ModuleLoadChange.Failed:
                 foreach (var error in result.CodeErrors)

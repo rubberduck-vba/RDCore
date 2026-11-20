@@ -129,7 +129,7 @@ public sealed class ExtractMethodServiceTests
             [Answer(ExtractMethodService.NameChoice, "Increment"), Answer(ExtractMethodService.AccessibilityChoice, "Public")], [], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        StringAssert.Contains(Applied(Module, answer.Edit!.Documents.Single().Edits), "\r\nPublic Sub Increment(");
+        StringAssert.Contains(DeclarationEdits.ApplyTo(Module,answer.Edit!.Documents.Single().Edits), "\r\nPublic Sub Increment(");
     }
 
     [TestMethod]
@@ -159,7 +159,7 @@ public sealed class ExtractMethodServiceTests
         Assert.IsNull(answer.Refusal, answer.Refusal);
         var document = answer.Edit!.Documents.Single();
         Assert.AreEqual(Version, document.Version);
-        var text = Applied(Module, document.Edits);
+        var text = DeclarationEdits.ApplyTo(Module,document.Edits);
         StringAssert.Contains(text, "Private Sub Increment(");
         StringAssert.Matches(text, new System.Text.RegularExpressions.Regex(@"\r\n    Increment (a, b|b, a)\r\n"));
     }
@@ -203,7 +203,7 @@ public sealed class ExtractMethodServiceTests
         ], [], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        var text = DeclarationEdits.ApplyTo(Module,answer.Edit!.Documents.Single().Edits);
         StringAssert.Contains(text, "Private Sub Increment(ByRef b As Long, ByRef x As Long)\r\n    b = x + 1\r\n");
         StringAssert.Contains(text, "\r\n    Increment b, a\r\n");
     }
@@ -232,7 +232,7 @@ public sealed class ExtractMethodServiceTests
             [Answer(ExtractMethodService.NameChoice, "Doubled"), Answer(ExtractMethodService.ReturnValueChoice, "t")], [], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        var text = DeclarationEdits.ApplyTo(Module,answer.Edit!.Documents.Single().Edits);
         StringAssert.Contains(text, "Private Function Doubled(ByVal v As Long) As Long");
         StringAssert.Contains(text, "t = Doubled(v)");
     }
@@ -244,7 +244,7 @@ public sealed class ExtractMethodServiceTests
             [Answer(ExtractMethodService.NameChoice, "Increment"), Answer(ExtractMethodService.ReturnValueChoice, "b")], [], CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
-        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        var text = DeclarationEdits.ApplyTo(Module,answer.Edit!.Documents.Single().Edits);
         StringAssert.Contains(text, "Private Function Increment(");
         StringAssert.Contains(text, "b = Increment(a)");
     }
@@ -364,26 +364,5 @@ public sealed class ExtractMethodServiceTests
             Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>() },
         }, CancellationToken.None);
         return actions!.Select(action => action.CodeAction!).SingleOrDefault(action => action.Kind == CodeActionHandler.RefactorExtractMethod);
-    }
-
-    // the text with the edits made, each of the text as it was before any of them.
-    private static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
-    {
-        var starts = new List<int> { 0 };
-        for (var index = 0; index < text.Length; index++)
-        {
-            if (text[index] == '\n')
-            {
-                starts.Add(index + 1);
-            }
-        }
-
-        int Offset(SourcePosition position) => starts[position.Line] + position.Character;
-        foreach (var edit in edits.OrderByDescending(edit => Offset(edit.Range.Start)))
-        {
-            text = string.Concat(text.AsSpan(0, Offset(edit.Range.Start)), edit.NewText, text.AsSpan(Offset(edit.Range.End)));
-        }
-
-        return text;
     }
 }

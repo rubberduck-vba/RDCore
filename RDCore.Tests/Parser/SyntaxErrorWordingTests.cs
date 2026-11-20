@@ -1,22 +1,23 @@
 using System.Globalization;
 using RDCore.Parsing;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// A syntax error is told as MS-VBA tells it when it compiles the module, at its caret (measured in Excel): in a procedure's body, <c>Syntax error</c>
-/// over the whole line, from its start to its last character; in a procedure's header or a declaration of the module, <c>Expected: …</c> at the token
-/// where what MS-VBA expected is missing, or right where the line ends.
+/// A syntax error is told as MS-VBA tells it when it compiles the module, at its caret (measured in Excel): in a procedure's body, or in the header of a
+/// procedure after another, <c>Syntax error</c> over the whole line, from its start to its last character; in a declaration of the module or the header
+/// of its first procedure, <c>Expected: …</c> at the token where what MS-VBA expected is missing, or right where the line ends.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 2.6.1 Syntax Errors")]
 public sealed class SyntaxErrorWordingTests
 {
-    private static VBSyntaxErrorInfo FirstErrorOf(string source)
+    private static VBSyntaxErrorInfo FirstErrorOf(string source, ModuleParser? parser = null)
     {
-        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
+        var parse = (parser ?? new ModuleParser()).Parse(TestUri.TestModuleUri(), source);
         return parse.SyntaxErrors.OrderBy(error => error.Location.Range.Start).First();
     }
 
@@ -61,12 +62,93 @@ public sealed class SyntaxErrorWordingTests
     [DataRow("Private Declare PtrSafe Function F Lib \"k\" () As", "Expected: type name", 48, 48, DisplayName = "a Declare Function with As and no type")]
     [DataRow("Option Compare", "Expected: Text or Binary", 14, 14, DisplayName = "an Option Compare with no comparison")]
     [DataRow("Private x As", "Expected: New or type name", 12, 12, DisplayName = "a variable with As and no type")]
+    [DataRow("Friend Something As Long", "Expected: Sub or Function or Property", 7, 16, DisplayName = "a Friend variable")]
+    [DataRow("Friend Something", "Expected: Sub or Function or Property", 7, 16, DisplayName = "a Friend variable with no type")]
+    [DataRow("Friend WithEvents x As Workbook", "Expected: Sub or Function or Property", 7, 17, DisplayName = "a Friend WithEvents variable")]
+    [DataRow("Friend Const K As Long = 1", "Expected: Sub or Function or Property", 7, 12, DisplayName = "a Friend constant")]
     public void OutsideAProcedureBody_ASyntaxError_SaysWhatWasExpected(string declaration, string message, int start, int end)
     {
         var error = FirstErrorOf($"{declaration}\r\n");
 
         Assert.AreEqual(message, error.Verbose);
         Assert.AreEqual(new SourceRange(new SourcePosition(0, start), new SourcePosition(0, end)), error.Location.Range);
+    }
+
+    // the header is on line 2 or 3, after the module's first procedure: MS-VBA reads it as a line, as it reads the lines of a body.
+    [TestMethod]
+    [DataRow("Public Sub ()\r\nEnd Sub", 2, 13, DisplayName = "a Sub with no name")]
+    [DataRow("Public Sub S(x As)\r\nEnd Sub", 2, 18, DisplayName = "a parameter with As and no type")]
+    [DataRow("Public Sub S(x, )\r\nEnd Sub", 2, 17, DisplayName = "a parameter list with no parameter after a comma")]
+    [DataRow("Public Sub S() As Long\r\nEnd Sub", 2, 22, DisplayName = "a Sub with a return type")]
+    [DataRow("Public Function F() As\r\nEnd Function", 2, 22, DisplayName = "a Function with As and no type")]
+    [DataRow("Public Property X()\r\nEnd Property", 2, 19, DisplayName = "a Property with no Get, Let or Set")]
+    [DataRow("' a comment\r\nPublic Sub ()\r\nEnd Sub", 3, 13, DisplayName = "a Sub with no name, after a comment")]
+    public void InTheHeaderOfAProcedureAfterAnother_ASyntaxError_IsTheWholeLine(string procedure, int line, int end)
+    {
+        var error = FirstErrorOf($"Public Sub First()\r\nEnd Sub\r\n{procedure}\r\n");
+
+        Assert.AreEqual("Syntax error", error.Verbose);
+        Assert.AreEqual(new SourceRange(new SourcePosition(line, 0), new SourcePosition(line, end)), error.Location.Range);
+    }
+
+    // a variable, a Type, an Enum, an Event and a Declare declare the module, before its first procedure: the header after them is read token by token.
+    [TestMethod]
+    [DataRow("Private m As Long", 1, DisplayName = "after a variable")]
+    [DataRow("Private Type T\r\n    a As Long\r\nEnd Type", 3, DisplayName = "after a Type")]
+    [DataRow("Private Enum E\r\n    A\r\nEnd Enum", 3, DisplayName = "after an Enum")]
+    [DataRow("Public Event Changed()", 1, DisplayName = "after an Event")]
+    [DataRow("Private Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal ms As Long)", 1, DisplayName = "after a Declare")]
+    public void InTheHeaderOfTheFirstProcedure_AfterDeclarations_ASyntaxError_SaysWhatWasExpected(string declarations, int line)
+    {
+        var source = $"{declarations}\r\nPublic Sub ()\r\nEnd Sub\r\n";
+
+        // as the module is parsed whole, and in parts.
+        foreach (var error in new[] { FirstErrorOf(source), FirstErrorOf(source, new ModuleParser { ForceSegments = true }) })
+        {
+            Assert.AreEqual("Expected: identifier", error.Verbose);
+            Assert.AreEqual(new SourceRange(new SourcePosition(line, 11), new SourcePosition(line, 12)), error.Location.Range);
+        }
+    }
+
+    // MS-VBAL §5.3.1.3: a procedure is named with an identifier. A name in brackets is refused where MS-VBA expects one, over the name; the tree keeps the
+    // procedure.
+    [TestMethod]
+    [DataRow("Public Sub [Foo]()\r\nEnd Sub", 0, 11, 16, DisplayName = "a Sub")]
+    [DataRow("Private m As Long\r\nPublic Sub [Foo]()\r\nEnd Sub", 1, 11, 16, DisplayName = "a Sub, after a declaration")]
+    [DataRow("Public Function [Foo]() As Long\r\nEnd Function", 0, 16, 21, DisplayName = "a Function")]
+    [DataRow("Public Function [Foo]$()\r\nEnd Function", 0, 16, 21, DisplayName = "a Function with a type hint")]
+    [DataRow("Public Property Get [Foo]() As Long\r\nEnd Property", 0, 20, 25, DisplayName = "a Property Get")]
+    [DataRow("Public Property Let [Foo](ByVal v As Long)\r\nEnd Property", 0, 20, 25, DisplayName = "a Property Let")]
+    [DataRow("Sub [My Sub]()\r\nEnd Sub", 0, 4, 12, DisplayName = "a name with a space")]
+    public void AProcedureNamedInBrackets_IsExpectedIdentifier_OverTheName(string source, int line, int start, int end)
+    {
+        foreach (var parser in new[] { new ModuleParser(), new ModuleParser { ForceSegments = true } })
+        {
+            var parse = parser.Parse(TestUri.TestModuleUri(), $"{source}\r\n");
+            var error = parse.SyntaxErrors.OrderBy(error => error.Location.Range.Start).First();
+
+            Assert.AreEqual("Expected: identifier", error.Verbose);
+            Assert.AreEqual(new SourceRange(new SourcePosition(line, start), new SourcePosition(line, end)), error.Location.Range);
+            Assert.ContainsSingle(parse.SyntaxErrors, "one error");
+            Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Where(member => member.MemberKind is not MemberKind.ModuleField));
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Public Sub Ok()\r\nEnd Sub\r\nPublic Sub [Foo]()\r\nEnd Sub", 2, 18, DisplayName = "a Sub after another")]
+    [DataRow("Public Sub Ok()\r\nEnd Sub\r\n' a comment\r\nPublic Sub [Foo]()\r\nEnd Sub", 3, 18, DisplayName = "a Sub after another and a comment")]
+    [DataRow("Public Sub Ok()\r\nEnd Sub\r\nPublic Function [Foo]() As Long\r\nEnd Function", 2, 31, DisplayName = "a Function after a Sub")]
+    public void AProcedureNamedInBrackets_AfterAnother_IsASyntaxError_OverTheLine(string source, int line, int end)
+    {
+        foreach (var parser in new[] { new ModuleParser(), new ModuleParser { ForceSegments = true } })
+        {
+            var parse = parser.Parse(TestUri.TestModuleUri(), $"{source}\r\n");
+            var error = parse.SyntaxErrors.OrderBy(error => error.Location.Range.Start).First();
+
+            Assert.AreEqual("Syntax error", error.Verbose);
+            Assert.AreEqual(new SourceRange(new SourcePosition(line, 0), new SourcePosition(line, end)), error.Location.Range);
+            Assert.ContainsSingle(parse.SyntaxErrors, "one error");
+        }
     }
 
     [TestMethod]
@@ -80,6 +162,10 @@ public sealed class SyntaxErrorWordingTests
         {
             Assert.AreEqual(inABody, FirstErrorOf("Public Sub S()\r\nx = 1 +\r\nEnd Sub\r\n").Verbose);
             Assert.AreEqual(outsideABody, FirstErrorOf("Private Type\r\nEnd Type\r\n").Verbose);
+            Assert.AreEqual(inABody, FirstErrorOf("Public Sub First()\r\nEnd Sub\r\nPublic Sub ()\r\nEnd Sub\r\n").Verbose, "a header after a procedure");
+            Assert.AreEqual(outsideABody, FirstErrorOf("Public Sub [Foo]()\r\nEnd Sub\r\n").Verbose, "a procedure named in brackets");
+            Assert.AreEqual(inABody, FirstErrorOf("Public Sub First()\r\nEnd Sub\r\nPublic Sub [Foo]()\r\nEnd Sub\r\n").Verbose,
+                "a procedure named in brackets, after another");
         }
         finally
         {

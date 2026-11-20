@@ -927,8 +927,7 @@ internal sealed partial class ProcedureEmitter
         var arguments = new Operand[call.Arguments.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = EmitArgument(call.Arguments[i],
-                call.Arguments[i] is TextArgumentNode or TextReferenceNode or VariantReferenceNode { IsText: true } ? RecoverAt(call.Offset) : failure);
+            arguments[i] = EmitArgument(call.Arguments[i], call.Arguments[i] is TextArgumentNode or TextReferenceNode ? RecoverAt(call.Offset) : failure);
         }
 
         // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
@@ -1006,6 +1005,19 @@ internal sealed partial class ProcedureEmitter
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
             var outcome = _il.DeclareLocal(typeof(RuntimeExecutionOutcome));
+
+            // a String variable given by reference is given its cell, which knows the address the variable has, so that the parameter finds it: one held in
+            // another cell (a parameter bound to an element of an array) is given its address, through the invoker (CompiledActivation.SetTextReference).
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                if (direct is not null && call.Arguments[i] is TextReferenceNode)
+                {
+                    _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.IsTextCell))!);
+                    _il.Emit(OpCodes.Brfalse, indirect);
+                }
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, call.Offset);
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
@@ -1018,10 +1030,29 @@ internal sealed partial class ProcedureEmitter
             // a CLR exception the callee lets out - a defect of the platform, which no handler of the program catches - takes its activation off the stack as it
             // goes by (CompiledActivation.AbandonDirectCall): what is on the stack after is what was before the call.
             _il.BeginExceptionBlock();
+
+            // the typed entry takes no String argument: its activation is given the text, or the cell of the variable given by reference, in the slot of
+            // the parameter (CompiledCallee.TextSlots), before the entry is called.
+            for (var i = 0; i < given.Length; i++)
+            {
+                if (call.Arguments[i] is TextArgumentNode or TextReferenceNode)
+                {
+                    _il.Emit(OpCodes.Ldloc, callee);
+                    _il.Emit(OpCodes.Ldc_I4, _analysis.Callees[call.Callee].TextSlots[i]);
+                    _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(call.Arguments[i] is TextReferenceNode
+                        ? nameof(CompiledActivation.TakeTextReference)
+                        : nameof(CompiledActivation.TakeText))!);
+                }
+            }
+
             _il.Emit(OpCodes.Ldloc, callee);
             for (var i = 0; i < given.Length; i++)
             {
-                Load(given[i], call.Arguments[i].Kind);
+                if (call.Arguments[i] is not (TextArgumentNode or TextReferenceNode))
+                {
+                    Load(given[i], call.Arguments[i].Kind);
+                }
             }
 
             if (direct is not null)
@@ -1859,20 +1890,17 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 return new Operand(_texts[reference.Slot], 0, 0);
 
-            // a String given to a Variant by reference is given its address as the call is made (CompiledActivation.SetVariantReference), what its appender
-            // holds written into its cell before, as for a String parameter.
-            case VariantReferenceNode { IsText: true } reference:
-                EmitWriteAppended(reference.Slot);
-                _il.Emit(OpCodes.Ldloc, _texts[reference.Slot]);
-                _il.Emit(OpCodes.Brfalse, failure);
-                return default;
-
             // what a call returns, made where the argument is evaluated, in a cell of its own (EmitObjectCall).
             case ObjectArgumentNode { Call: { } returned }:
                 return new Operand(EmitObjectCall(returned, failure), 0, 0);
 
             // an object is read from its cell, or given its address, as the call is made (CompiledActivation.SetObject, SetObjectReference).
             case ObjectArgumentNode or ObjectReferenceNode:
+                return default;
+
+            // a String given by reference to a Variant: what its appender holds, written into its cell, which the callee is given the address of.
+            case VariantReferenceNode { OfText: true } text:
+                EmitWriteAppended(text.Slot);
                 return default;
 
             // an optional Variant left out, and a Variant variable given by reference, are given as the call is made (CompiledActivation.SetOmitted,
@@ -1951,6 +1979,19 @@ internal sealed partial class ProcedureEmitter
             case ConvertNode convert:
             {
                 var operand = EmitPayload(convert.Operand, failure);
+
+                // a Single or a Double made an integer is rounded and checked against the type's range where it is (RoundedToWhole).
+                if (convert.Operand.Kind is ScalarKind.Single or ScalarKind.Double && PayloadOperations.IsWholeKind(convert.Kind))
+                {
+                    var whole = _il.DeclareLocal(typeof(long));
+                    Load(operand, convert.Operand.Kind);
+                    _il.Emit(OpCodes.Ldc_I4, (int)convert.Kind);
+                    _il.Emit(OpCodes.Ldloca, whole);
+                    _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.RoundedToWhole))!);
+                    _il.Emit(OpCodes.Brtrue, Fail(failure));
+                    return new Operand(whole, 0, 0);
+                }
+
                 var integral = _il.DeclareLocal(typeof(long));
                 var floating = _il.DeclareLocal(typeof(double));
                 _il.Emit(OpCodes.Ldc_I4, (int)convert.Operand.Kind);
@@ -2268,6 +2309,7 @@ internal sealed partial class ProcedureEmitter
         LibraryMemberNode member => member.Arguments.Any(MakesACall),
         VariantElementNode element => element.Subscripts.Any(MakesACall),
         VariantElementValueNode value => MakesACall(value.Element),
+        CallValueNode => true,
         _ => false,
     };
 
@@ -2433,6 +2475,10 @@ internal sealed partial class ProcedureEmitter
 
             case LibraryMemberNode member:
                 EmitLibraryMemberCall(member, result, failure);
+                break;
+
+            case CallValueNode called:
+                EmitVariantCall(called, result, failure);
                 break;
 
             default:

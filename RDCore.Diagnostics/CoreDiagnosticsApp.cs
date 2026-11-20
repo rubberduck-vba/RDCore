@@ -56,6 +56,7 @@ internal class CoreDiagnosticsApp(
 
         // every analyzer the extension has, which the handler calls for each document it diagnoses.
         services.AddSingleton<IModuleAnalyzer, OptionExplicitAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UndeclaredVariableAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteCallStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NotAllPathsReturnValueAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IsMissingAlwaysFalseAnalyzer>();
@@ -65,6 +66,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ProcedureCanBeWrittenAsFunctionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SelfAssignedDeclarationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, FunctionReturnValueDiscardedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, FunctionReturnValueAlwaysDiscardedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitNarrowingConversionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BitwiseSemanticsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AmbiguousConcatenationAnalyzer>();
@@ -130,6 +132,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, DeclarationNameDivergenceAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetToADefaultMemberWithNoPropertyLetAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetThroughAVariantGetOrFunctionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, LetToAnObjectWithNoDefaultMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectLetToVariantPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
@@ -148,7 +151,10 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, IndexedUnboundDefaultMemberAccessAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BangNotationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnboundBangNotationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, IndexedRecursiveDefaultMemberAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, RecursiveBangNotationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousLetAssignmentAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnresolvedLateBoundMemberAccessAnalyzer>();
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();
@@ -156,6 +162,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, EncapsulatePublicFieldAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousPredeclaredInstanceAccessAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplementedInterfaceMemberAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, MoveFieldCloserToUsageAnalyzer>();
 
         // what RD-VBA does not host: the code of a host's document, which is analyzed and does not run.
         services.AddSingleton<IModuleAnalyzer, HostedDocumentCodeAnalyzer>();
@@ -166,6 +173,9 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, KeywordUsedAsMemberNameAnalyzer>();
         // what calls a library that is not on every platform, wherever it runs.
         services.AddSingleton<IModuleAnalyzer, NativeCallReachableOnEveryPlatformAnalyzer>();
+        // what a directive's constants are: Win64 on a Mac, and a name nothing defines.
+        services.AddSingleton<IModuleAnalyzer, Win64IsABitnessTestAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UndefinedConditionalConstantAnalyzer>();
 
         // what has nothing in it: a block, a procedure, a module.
         services.AddSingleton<IModuleAnalyzer, EmptyIfBlockAnalyzer>();

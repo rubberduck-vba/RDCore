@@ -12,6 +12,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Install;
+using RDCore.CLI.App.Mcp;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
@@ -94,6 +95,12 @@ public class Program
             // which needs neither a workspace nor an LSP connection.
             if (args is [{ Length: > 0 } verb, ..] && !verb.StartsWith('-'))
             {
+                // rdc mcp brings the platform up as a client, and its standard output is the MCP session's from before anything is written.
+                if (string.Equals(verb, CommandNames.McpCommand, StringComparison.OrdinalIgnoreCase))
+                {
+                    McpStandardStreams.Claim();
+                }
+
                 using var commandHost = new RDCoreConsoleCommandHost();
                 try
                 {
@@ -516,6 +523,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<ICliCommand, BuildCommand>()
             .AddSingleton<ICliCommand, RunCommand>()
+            .AddSingleton<ICliCommand, McpCommand>()
             .AddSingleton<ICliCommand, InstallCommand>()
             .AddSingleton<ICliCommand, SplashCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
@@ -697,7 +705,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
         try
         {
             // a folder with no project file is the project it holds, as the language server makes it up.
-            var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
+            var workspace = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace;
+            var language = workspace.SupportedLanguage;
             var root = request.RootUri.GetFileSystemPath();
             ProjectFile project;
             try
@@ -712,7 +721,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
                 project = new ProjectFile(root, new RDCoreProject { Name = RDCoreProject.DefaultName });
             }
 
-            sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
+            // the constants of the command line are the project's, over those of its file.
+            sessionProvider.Compose(workspace.WithDefines(project.ProjectInfo), SymbolUri.Root(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }
         catch (Exception exception)

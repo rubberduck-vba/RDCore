@@ -5,6 +5,8 @@ using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -44,22 +46,23 @@ public sealed class UnusedDeclarationAnalyzerTests
         return Run(analyzer, source, model, new Uri(Path.Combine(ModuleWorkspace.Root, $"{name}.cls")));
     }
 
+    // the analyzer, given the named module of a project as the host models it: its Program module, its other standard modules and its class modules, built as
+    // the build section says (a program when it is omitted and the Program module declares a Sub Main).
+    private static async Task<AnalyzerFinding[]> ModuleOfAsync(
+        IModuleAnalyzer analyzer, string name, string program, IReadOnlyList<(string Name, string Source)> classes,
+        IReadOnlyList<(string Name, string Source)>? modules = null, ProjectBuild? build = null)
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync(classes, program, modules: modules, build: build);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == name);
+        var isClass = classes.Any(module => module.Name == name);
+        var source = name == "Program" ? program : (isClass ? classes : modules!).Single(module => module.Name == name).Source;
+        return Run(analyzer, source, model, new Uri(Path.Combine(ModuleWorkspace.Root, $"{name}.{(isClass ? "cls" : "bas")}")));
+    }
+
     private static int[] Lines(AnalyzerFinding[] findings) => [.. findings.Select(finding => finding.Range.Start.Line)];
 
     private static void AssertAre(AnalyzerFinding[] findings, RDCoreDiagnosticId id, DiagnosticSeverity severity)
         => Assert.IsTrue(findings.All(finding => finding.Severity == severity && finding.Id == id), string.Join("; ", findings.Select(finding => finding.Message)));
-
-    private static string Fixed(string program, EditFix fix)
-    {
-        var lines = program.Split("\r\n");
-        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
-        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
-        {
-            program = program[..OffsetOf(edit.Range.Start)] + edit.NewText + program[OffsetOf(edit.Range.End)..];
-        }
-
-        return program;
-    }
 
     private static AnalyzerFinding[] WithoutSemantics(IModuleAnalyzer analyzer, params string[] lines)
         => Run(analyzer, ModuleWorkspace.StandardModule("Program", lines), null, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
@@ -85,9 +88,10 @@ public sealed class UnusedDeclarationAnalyzerTests
             "    Next",
             "End Sub");
 
-        CollectionAssert.AreEqual(new[] { 2, 5, 6 }, Lines(findings), "a Private variable of the module and two locals; not a Public one, not a loop's counter");
+        CollectionAssert.AreEqual(new[] { 2, 3, 5, 6 }, Lines(findings),
+            "a Private variable of the module, a Public one of a program, and two locals; not a loop's counter");
         AssertAre(findings, RDCoreDiagnosticId.VariableNotUsed, DiagnosticSeverity.Information);
-        StringAssert.Contains(findings[2].Message, "assigned", "the variable that is only assigned says so");
+        StringAssert.Contains(findings[3].Message, "assigned", "the variable that is only assigned says so");
     }
 
     [TestMethod]
@@ -116,7 +120,31 @@ public sealed class UnusedDeclarationAnalyzerTests
             "the field and the local nothing refers to; not one assigned, one declared with another name, one with a comment on its line, nor one a ReDim names");
         var fix = findings.Single(finding => finding.Range.Start.Line == 4).Fixes!.Edits.Single();
         Assert.AreEqual("Remove the declaration of 'unused'", fix.Title);
-        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 3)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 3)]), fix.Edits.ApplyTo(ModuleWorkspace.StandardModule("Program", lines)));
+    }
+
+    // MS-VBAL §5.4.3.8: a Let of an object assigns its default property, and reads the variable for the object.
+    [TestMethod]
+    public async Task AnObjectAssignedThroughItsDefaultMember_IsRead()
+    {
+        var holder = ModuleWorkspace.ClassModule("Holder",
+            "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "End Property",
+            "Public Property Let Value(ByVal v As Long)", "End Property");
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim h As New Holder",
+            "    h = 5",
+            "    Dim never As Holder",
+            "    never = 5",
+            "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([("Holder", holder)], program);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
+
+        Assert.IsEmpty(Run(new VariableNotUsedAnalyzer(), program, model, uri), "neither variable is only assigned: each is read for its object");
+        var notAssigned = Run(new VariableNotAssignedAnalyzer(), program, model, uri);
+        CollectionAssert.AreEqual(new[] { 5 }, Lines(notAssigned), "the variable no Set assigns is Nothing; not the one declared As New");
     }
 
     [TestMethod]
@@ -172,6 +200,26 @@ public sealed class UnusedDeclarationAnalyzerTests
         Assert.AreEqual(1, declared.Length, string.Join(", ", model.Declarations.Select(declaration => $"{declaration.Name} L{declaration.Location.Range.Start.Line}")));
         Assert.AreEqual(7, declared[0].Location.Range.Start.Line);
         Assert.IsEmpty(Run(new VariableNotUsedAnalyzer(), program, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"))));
+    }
+
+    // Rubberduck's unused-variable inspection reports a variable of the module that the procedure with the error never names.
+    [TestMethod]
+    public async Task AVariableOfTheModule_IsNotUsed_WhenTheOnlyProcedureWithAnErrorDoesNotNameIt()
+    {
+        var findings = await ProgramAsync(new VariableNotUsedAnalyzer(),
+            "Option Explicit",
+            "Private unused As Long",
+            "Private named As Long",
+            "Public Sub Proc1()",
+            "    Debug.Print \"ok\"",
+            "End Sub",
+            "Public Sub Proc2()",
+            "    Dim x As Long",
+            "    x = Undeclared + named",
+            "    Debug.Print x",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 2 }, Lines(findings), "the variable nothing names; not the one Proc2 names after its error, nor a local of Proc2");
     }
 
     #endregion
@@ -251,18 +299,56 @@ public sealed class UnusedDeclarationAnalyzerTests
     }
 
     [TestMethod]
-    public async Task ADynamicArray_AnObject_AndAReDim_AreGivenWhatTheyHoldOtherwise()
+    public async Task ADynamicArray_AnObjectAsNew_AUserDefinedType_AndAReDim_AreGivenWhatTheyHoldOtherwise()
         => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
             "Option Explicit",
+            "Private Type Point",
+            "    X As Long",
+            "End Type",
             "Public Sub Main()",
             "    Dim values() As Long",
             "    Debug.Print UBound(values)",
-            "    Dim items As Collection",
-            "    Debug.Print items Is Nothing",
+            "    Dim items As New Collection",
+            "    Debug.Print items.Count",
+            "    Dim corner As Point",
+            "    Debug.Print corner.X",
             "    Dim resized As Variant",
             "    ReDim resized(2)",
             "    Debug.Print resized(0)",
             "End Sub"));
+
+    // a class cannot be told from a user-defined type by the name of the type: the declaration's fact states which it is.
+    [TestMethod]
+    [DataRow("    Dim items As Collection", "    Debug.Print items Is Nothing", DisplayName = "a class, which only a Set assigns")]
+    [DataRow("    Dim shelves(1 To 3) As Collection", "    Debug.Print shelves(1) Is Nothing", DisplayName = "a fixed-size array of a class")]
+    public async Task AVariableOfAClassThatNoSetAssigns_IsNotAssigned(string declaration, string read)
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit", "Public Sub Main()", declaration, read, "End Sub"));
+
+        Assert.AreEqual(RDCoreDiagnosticId.VariableNotAssigned, finding.Id);
+        Assert.IsNull(finding.Fixes?.Edits.SingleOrDefault(), "no Let of a literal assigns an object");
+    }
+
+    // a variable declared as an Enum is a Long (MS-VBAL §5.2.3.4), 0 until it is assigned (MS-VBAL §2.3).
+    [TestMethod]
+    [DataRow("    Dim shade As Colour", DisplayName = "an Enum of the module")]
+    [DataRow("    Dim answer As VbMsgBoxResult", DisplayName = "an Enum of the VBA library")]
+    public async Task AVariableOfAnEnumThatIsNeverAssigned_IsNotAssigned(string declaration)
+    {
+        var name = declaration.Contains("shade") ? "shade" : "answer";
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Private Enum Colour",
+            "    Red = 1",
+            "End Enum",
+            "Public Sub Main()",
+            declaration,
+            $"    Debug.Print {name}",
+            "End Sub"));
+
+        StringAssert.Contains(finding.Message, $"'{name}'");
+    }
 
     [TestMethod]
     [DataRow("    o.MoveNext", DisplayName = "a member call")]
@@ -398,6 +484,7 @@ public sealed class UnusedDeclarationAnalyzerTests
     public async Task ASignatureTheProcedureDoesNotChoose_IsNotReported()
     {
         var findings = await ClassAsync(new ParameterNotUsedAnalyzer(), "Panel",
+            "Attribute VB_Exposed = True",
             "Option Explicit",
             "Private WithEvents Source As Button",
             "Private Sub Source_Click(ByVal times As Long)",
@@ -407,8 +494,20 @@ public sealed class UnusedDeclarationAnalyzerTests
             "Private Sub Hide(ByVal mode As Long)",
             "End Sub");
 
-        Assert.HasCount(1, findings, "only the Private procedure: not a handler, not a Public member that may be in an interface");
+        Assert.HasCount(1, findings, "only the Private procedure: not a handler, not a Public member of an exposed class, which may be in an interface");
         StringAssert.Contains(findings[0].Message, "'mode'");
+        Assert.AreEqual(12, findings[0].Range.Start.Line, "Hide's (a class module's source has five lines of header)");
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfAClassThatNoProjectCanImplement_ChoosesItsSignature()
+    {
+        var findings = await ClassAsync(new ParameterNotUsedAnalyzer(), "Panel",
+            "Option Explicit",
+            "Public Sub Show(ByVal mode As Long)",
+            "End Sub");
+
+        StringAssert.Contains(Assert.ContainsSingle(findings).Message, "'mode'");
     }
 
     [TestMethod]
@@ -559,7 +658,7 @@ public sealed class UnusedDeclarationAnalyzerTests
     }
 
     [TestMethod]
-    public async Task AConstantOfTheModule_ReadByADeclarationOfTheModule_IsUsed_AndAPublicOneIsNotCounted()
+    public async Task AConstantOfTheModule_ReadByADeclarationOfTheModule_IsUsed_AndAPublicOneOfAProgramIsCounted()
     {
         var findings = await ProgramAsync(new ConstantNotUsedAnalyzer(),
             "Option Explicit",
@@ -572,7 +671,9 @@ public sealed class UnusedDeclarationAnalyzerTests
             "    Debug.Print Items(0), Twice",
             "End Sub");
 
-        Assert.IsEmpty(findings, "read by the bounds of an array of the module, by the value of another constant; a Public one may be read by another module");
+        // a program's code is all there is to read it: its Public constant that nothing reads is unused.
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(findings), "read by the bounds of an array of the module, by the value of another constant");
+        StringAssert.Contains(findings[0].Message, "'Limit'");
     }
 
     [TestMethod]
@@ -595,7 +696,7 @@ public sealed class UnusedDeclarationAnalyzerTests
             "not a constant declared with another, nor one with a comment on its line");
         var fix = findings[0].Fixes!.Edits.Single();
         Assert.AreEqual("Remove the declaration of 'Unused'", fix.Title);
-        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 2)]), Fixed(ModuleWorkspace.StandardModule("Program", lines), fix));
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", [.. lines.Where((_, index) => index != 2)]), fix.Edits.ApplyTo(ModuleWorkspace.StandardModule("Program", lines)));
     }
 
     [TestMethod]
@@ -629,6 +730,111 @@ public sealed class UnusedDeclarationAnalyzerTests
 
     #endregion
 
+    #region RDC01011, RDC01012, RDC01015 the Public members of a program
+
+    // a program starts at its entry point: no other project, nor any host, uses its Public members, and the code of its modules is all that can.
+    private static readonly string[] Settings =
+    [
+        "Option Explicit",
+        "Public Unused As Long",
+        "Public Assigned As Long",
+        "Public Used As Long",
+        "Global Everyone As Long",
+        "Public Never As Long",
+        "Public Const Limit As Long = 10",
+        "Public Const Increment As Long = 1",
+    ];
+
+    private static readonly string UsesSettings = ModuleWorkspace.StandardModule("Program",
+        "Public Sub Main()",
+        "    Assigned = 1",
+        "    Used = Increment",
+        "    Debug.Print Used, Never",
+        "End Sub");
+
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsModule_ThatNothingReads_IsNotUsed()
+    {
+        var findings = await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Settings", UsesSettings, [],
+            [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))]);
+
+        CollectionAssert.AreEqual(new[] { 2, 3, 5 }, Lines(findings),
+            "nothing refers to it, only an assignment does, and a Global one; not one another module reads");
+        AssertAre(findings, RDCoreDiagnosticId.VariableNotUsed, DiagnosticSeverity.Information);
+        StringAssert.Contains(findings[1].Message, "assigned", "the variable that is only assigned says so");
+        Assert.IsNotNull(findings[0].Fixes, "the declaration of a variable nothing refers to can be removed");
+    }
+
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsModule_ThatAnotherModuleReadsAndNothingAssigns_IsNotAssigned()
+    {
+        var findings = await ModuleOfAsync(new VariableNotAssignedAnalyzer(), "Settings", UsesSettings, [],
+            [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))]);
+
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(findings), "read by Main, and assigned nowhere");
+        AssertAre(findings, RDCoreDiagnosticId.VariableNotAssigned, DiagnosticSeverity.Warning);
+        Assert.IsNull(findings[0].Fixes, "the fix that assigns the default value is offered for a local only");
+    }
+
+    [TestMethod]
+    public async Task APublicConstantOfAProgramsModule_ThatNoModuleRefersTo_IsNotUsed()
+    {
+        var findings = await ModuleOfAsync(new ConstantNotUsedAnalyzer(), "Settings", UsesSettings, [],
+            [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))]);
+
+        CollectionAssert.AreEqual(new[] { 7 }, Lines(findings), "not the one another module reads");
+        StringAssert.Contains(findings[0].Message, "'Limit'");
+    }
+
+    // a class that is not exposed: only the program's code uses an object of it.
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsClass_IsCountedOverTheProgram()
+    {
+        (string, string) item = ("Item",
+            ModuleWorkspace.ClassModule("Item", "Option Explicit", "Public Tag As String", "Public Title As String", "Public Count As Long"));
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()",
+            "    Dim i As New Item",
+            "    i.Title = \"a\"",
+            "    Debug.Print i.Title, i.Count",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Item", program, [item])),
+            "Tag, which nothing refers to");
+        CollectionAssert.AreEqual(new[] { 8 }, Lines(await ModuleOfAsync(new VariableNotAssignedAnalyzer(), "Item", program, [item])),
+            "Count, read through the object and never assigned");
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfALibrary_OrOfAProjectWithNoEntryPoint_IsNotReported()
+    {
+        (string, string)[] settings = [("Settings", ModuleWorkspace.StandardModule("Settings", Settings))];
+        var noEntryPoint = ModuleWorkspace.StandardModule("Program", "Public Sub Run()", "End Sub");
+        var library = new ProjectBuild { OutputType = ProjectOutputType.Library };
+
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Settings", noEntryPoint, [], settings), "the host that runs the project can use it");
+        Assert.IsEmpty(await ModuleOfAsync(new ConstantNotUsedAnalyzer(), "Settings", noEntryPoint, [], settings));
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Settings", UsesSettings, [], settings, library), "a referencing project can use it");
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotAssignedAnalyzer(), "Settings", UsesSettings, [], settings, library));
+        Assert.IsEmpty(await ModuleOfAsync(new ConstantNotUsedAnalyzer(), "Settings", UsesSettings, [], settings, library));
+    }
+
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsClass_ThatTheCodeMayReachWhereItRuns_IsNotReported()
+    {
+        (string, string) item = ("Item", ModuleWorkspace.ClassModule("Item", "Option Explicit", "Public Tag As String", "Public Count As Long"));
+        var late = ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()", "    Dim o As Object", "    Set o = New Item", "    Debug.Print o.Tag", "End Sub");
+        var byName = ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()", "    Dim i As New Item", "    Debug.Print CallByName(i, \"Ta\" & \"g\", vbGet)", "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 7 }, Lines(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Item", late, [item])),
+            "Count, which no access names; not Tag, which the access bound late names");
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotUsedAnalyzer(), "Item", byName, [item]), "CallByName can name any member of the class");
+    }
+
+    #endregion
+
     #region RDC01016 a line label nothing jumps to
 
     [TestMethod]
@@ -650,6 +856,53 @@ public sealed class UnusedDeclarationAnalyzerTests
         AssertAre(findings, RDCoreDiagnosticId.LineLabelNotUsed, DiagnosticSeverity.Information);
         StringAssert.Contains(findings[0].Message, "'Unused'");
     }
+
+    // Rubberduck's line label not used inspection counts each label an On ... GoTo or On ... GoSub lists as used.
+    [TestMethod]
+    public void ALabelThatAnOnGoToOrAnOnGoSubLists_IsUsed()
+        => CollectionAssert.AreEqual(new[] { 9 }, Lines(WithoutSemantics(new LineLabelNotUsedAnalyzer(),
+            "Public Sub Main(ByVal choice As Long)",
+            "    On choice GoTo First, Second",
+            "    On choice GoSub Third",
+            "    Exit Sub",
+            "First:",
+            "Second:",
+            "Third:",
+            "    Return",
+            "Unused:",
+            "End Sub")));
+
+    // Rubberduck's quick fix removes the label; the program does what it did, and nothing else is reported of it.
+    [TestMethod]
+    [DataRow("Unused:", null, DisplayName = "a label on a line of its own: the line")]
+    [DataRow("Unused: Debug.Print 1", "Debug.Print 1", DisplayName = "a label before a statement: the label")]
+    [DataRow("Unused: ' the end", "' the end", DisplayName = "a label before a comment: the label")]
+    [DataRow("10 Unused:", "10 ", DisplayName = "a label after a line number: the label")]
+    public async Task TheFix_RemovesTheLabel(string line, string? left)
+    {
+        static string Program(params string[] middle)
+            => ModuleWorkspace.StandardModule("Program", ["Public Sub Main()", "    Debug.Print 0", .. middle, "End Sub"]);
+
+        var program = Program(line);
+        var fix = WithoutSemantics(new LineLabelNotUsedAnalyzer(), "Public Sub Main()", "    Debug.Print 0", line, "End Sub").Single().Fixes?.Edits.SingleOrDefault();
+        Assert.IsNotNull(fix, "the finding carries the fix");
+        Assert.AreEqual("Remove line label 'Unused'", fix.Title);
+
+        var fixedProgram = EveryAnalyzer.Applied(program, fix);
+        Assert.AreEqual(left is null ? Program() : Program(left), fixedProgram);
+        await EveryAnalyzer.AssertBringsNothingNewAsync(program, fixedProgram);
+    }
+
+    // the parser gives a label and a jump the name without its square brackets.
+    [TestMethod]
+    public void ALabelInSquareBrackets_IsTheOneAJumpNamesInThem()
+        => CollectionAssert.AreEqual(new[] { 5 }, Lines(WithoutSemantics(new LineLabelNotUsedAnalyzer(),
+            "Public Sub Main()",
+            "    GoTo [Try Again]",
+            "[Try Again]:",
+            "    Debug.Print 1",
+            "[Not Again]:",
+            "End Sub")));
 
     [TestMethod]
     public void ALabel_BelongsToItsProcedure()

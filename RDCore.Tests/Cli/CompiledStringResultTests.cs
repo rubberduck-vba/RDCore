@@ -223,7 +223,8 @@ public sealed class CompiledStringResultTests
             "    Named = \"[\" & Chr$(Code) & \"]\"",
             "End Function"), expected: "err 5"), "Named");
 
-    // a Double, a Currency, a Boolean and a Date are written in the regional settings: the interpreter assigns them, and the program runs the same.
+    // a Currency, a Boolean and a Date are the interpreter's to write: it assigns the text they are joined in, a Double beside them included, and the
+    // program runs the same.
     [TestMethod]
     public async Task OtherScalarsJoined_AreTheInterpretersToWrite()
         => await AssertAlikeAsync(Program(

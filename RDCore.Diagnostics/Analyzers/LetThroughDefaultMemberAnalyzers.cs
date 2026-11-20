@@ -63,7 +63,31 @@ internal sealed class LetThroughAVariantGetOrFunctionAnalyzer : IModuleAnalyzer
                 : RDCoreDiagnosticsResources.LetThroughAVariantGet_Message);
 }
 
-// a finding at the expression of each Let target that the facts say is assigned through a default member, named as the code writes it.
+/// <summary>
+/// <c>RDC11050</c>: a <c>Let</c> to a target declared as a class that has no default member (<c>p = 5</c>, <c>h.Plain = 5</c>), which MS-VBA compiles and
+/// which raises run-time error 438 whenever it runs.
+/// </summary>
+/// <remarks>
+/// <strong>MS-VBAL §5.4.3.8</strong> let-assigns the default property of the object the target holds, or that a <c>Property Get</c> or a function the target
+/// names returns, and raises 438 when its class has none; MS-VBA does the same, and 91 when the target holds <c>Nothing</c> (observed in Excel). A warning,
+/// because the statement fails every time it runs. The analyzer finds the <c>Let</c> in the syntax tree, and reads the target's <c>ExpressionFactDto</c>:
+/// a class, not an array, that has no <c>DefaultMember</c>, and no <c>Property Let</c> of its own (<c>Accessors</c>), bound to a member other than the
+/// procedure the statement is in.
+/// </remarks>
+internal sealed class LetToAnObjectWithNoDefaultMemberAnalyzer : IModuleAnalyzer
+{
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember.ToCode()];
+
+    public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
+        => LetThroughDefaultMember.Findings(context, target => target is SimpleNameExpressionNode or MemberAccessExpressionNode or InstanceExpressionNode or IndexExpressionNode ? target : null,
+            (procedure, fact) => fact is { Error: null, TypeKind: DeclaredTypeKind.Class, IsArray: false, DefaultMember: null }
+                && !fact.Accessors.HasFlag(PropertyAccessors.Let)
+                && fact.Binding?.AbsoluteUri != procedure.Procedure.AbsoluteUri,
+            RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, _ => RDCoreDiagnosticsResources.LetToAnObjectWithNoDefaultMember_Message);
+}
+
+// a finding at the expression of each Let target that the facts say is assigned through a default member, named as the code writes it, with the declared type
+// of the target as a second argument of the message.
 internal static class LetThroughDefaultMember
 {
     public static IEnumerable<AnalyzerFinding> Findings(ModuleAnalysisContext context, Func<ExpressionNode, ExpressionNode?> judged,
@@ -86,7 +110,7 @@ internal static class LetThroughDefaultMember
             {
                 if (NameOf(expressions[fact.Node]) is { } name)
                 {
-                    yield return new AnalyzerFinding(id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name));
+                    yield return new AnalyzerFinding(id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty));
                 }
             }
         }
@@ -97,6 +121,7 @@ internal static class LetThroughDefaultMember
         SimpleNameExpressionNode name => name.IdentifierName,
         MemberAccessExpressionNode access => access.Member.IdentifierName,
         InstanceExpressionNode => Tokens.Me,
+        IndexExpressionNode { Callee: var callee } => NameOf(callee),
         _ => null,
     };
 }
