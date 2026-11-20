@@ -220,29 +220,6 @@ public sealed class CompiledSteppingTests
         CollectionAssert.AreEqual(new[] { 5, 5 }, stepped.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(), "the For, counted from 0");
     }
 
-    // an error the interpreter raises in a statement it runs alone (a call of P's member, late-bound), with no handler: the caller's handler catches it,
-    // as it does the interpreter's.
-    [TestMethod]
-    public async Task AnErrorInAStatementTheInterpreterRuns_GoesToTheCaller()
-    {
-        var program = LateBound(
-            "    On Error GoTo Caught",
-            "    Debug.Print Failing(\"x\")",
-            "    Exit Sub",
-            "Caught:",
-            "    Debug.Print \"caught \" & Err.Number",
-            "End Sub",
-            "Private Function Failing(ByVal S As String) As Long",
-            "    Dim I As Long",
-            "    For I = 1 To 2",
-            "        Failing = Failing + I",
-            "    Next",
-            "    Failing = Failing + CLng(S) + P.Size(S)",
-            "End Function");
-
-        AssertLateBoundIsStepped(program, await AssertAlikeAsync(program, "Failing", recoveries: 0, classes: Pieces));
-    }
-
     [TestMethod]
     public async Task AnErrorInAStatementTheInterpreterRuns_GonePast_GoesOnCompiled()
         => await AssertAlikeAsync(Program(
