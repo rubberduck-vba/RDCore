@@ -18,7 +18,7 @@ namespace RDCore.Tests.Cli;
 [TestCategory("RDCore.CLI.ProgramExecution")]
 public sealed class PipelineLifetimeTests
 {
-    // Named is compiled: the invoker keeps the activation of its compiled body for the next call it makes of it.
+    // Named compiles: with the compiled engine, the invoker keeps the activation of its compiled body for the next call it makes of it.
     private static readonly string Program = string.Join("\r\n",
         "Attribute VB_Name = \"Program\"",
         "Public Sub Main()",
@@ -48,8 +48,9 @@ public sealed class PipelineLifetimeTests
             return Task.CompletedTask;
         }, engine: engine);
 
-    // runs Named on this thread, in a pipeline composed for the run, whose executor only the reference it gives holds, weakly: the pipeline is a local of
-    // this method only, which is over once it returns. A program's own thread, and the continuation of its task, would hold it until they unwind.
+    // runs Named on this thread, in a pipeline composed for the run, and returns a weak reference to the pipeline's executor, the only reference to it
+    // left: the pipeline is a local of this method only, which is over once it returns. A program's own thread, and the continuation of its task, would
+    // hold it until they unwind.
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference RunInAPipelineOfItsOwn(EnvironmentSessionProvider provider)
     {
