@@ -149,8 +149,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             if (component.Class.Property(member) is { } property)
             {
                 // the class says which of its properties only a form's file and a designer set (382 on an assignment), and which a program cannot reach at
-                // all (393 on a read): the Timer's Left and Top are its class's, not the property's.
-                if (invocation is AutomationInvocation.Let or AutomationInvocation.Set && component.Class.IsReadOnlyAtRunTime(property))
+                // all (393 on a read): the Timer's Left and Top are its class's, not the property's. The forms are Visual Basic 6.0 forms, with VB's library.
+                if (invocation is AutomationInvocation.Let or AutomationInvocation.Set && component.Class.IsReadOnlyAtRunTimeOnAVisualBasic6Form(property))
                 {
                     throw FormFailure(FormError.SetNotSupportedAtRuntime);
                 }
@@ -416,9 +416,15 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             value = CodeUnits.FromCode(component, property, (double)value!, form.Unit);
         }
 
-        if (!component.TrySet(property, value))
+        // RDForms' rules for a running program's assignment to a Visual Basic 6.0 form decide it: what VB6 refuses, and what it drops, such as a transparent
+        // Label's BackColor.
+        try
         {
-            throw new AutomationException(RDFormsValues.InvalidPropertyValue, "Invalid property value");
+            RunTime.Assign(component, property, value);
+        }
+        catch (FormErrorException exception)
+        {
+            throw FormFailure(exception.Error);
         }
 
         return null;
