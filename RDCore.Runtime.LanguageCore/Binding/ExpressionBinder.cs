@@ -16,6 +16,7 @@ using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Plans;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Binding;
@@ -121,13 +122,15 @@ public sealed class ExpressionBindings
             // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no
             // argument is not given what follows it in parentheses, which indexes what it returns: that is evaluated late-bound.
             MemberAccessExpressionNode { Owner: { } owner } access
-                when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(context, declared, access.Member.IdentifierName) is { } member
                 => new BoundMember(access, access, ownerNode, declared, member, null),
 
             // the class a TypeOf … Is tests against, by its name - bare, or qualified by its project - resolved as the evaluation resolves it.
             TypeOfIsExpressionNode typeOf
                 when NodeOf(typeOf.Operand) is { } operand && QualifiedTypeName(typeOf.TypeExpression) is var (qualifier, typeName)
-                    && VBProjectSymbol.ResolveQualifiedType(context.Resolver, qualifier, typeName, context.Scope.Uri).Symbol is VBClassModuleSymbol target
+                    && VBProjectSymbol.ResolveQualifiedType(
+                        context.Resolver, qualifier, typeName, context.Scope.Uri, ProjectVisibility.Instance, ProjectVisibility.ProjectOf(context.Scope))
+                        .Symbol is VBClassModuleSymbol target
                 => new BoundTypeOf(typeOf, operand, target),
 
             PrecompilerNameExpressionNode precompilerName => new BoundPrecompilerName(precompilerName),
@@ -137,7 +140,7 @@ public sealed class ExpressionBindings
                 => new BoundNew(newExpression, VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot),
 
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
-                when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(context, declared, access.Member.IdentifierName) is { } member
                     && !ReturnsToBeIndexed(member, index.Arguments)
                 => new BoundMember(index, access, ownerNode, declared, member, index, BoundArgumentsOf(member, index)),
 
@@ -161,11 +164,11 @@ public sealed class ExpressionBindings
 
             // a member of the target of the enclosing With block (MS-VBAL §5.6.15), declared as a class: the object is the block's, not an expression's.
             MemberAccessExpressionNode { Owner: null } access
-                when WithTargetOf(context) is { } declared && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                when WithTargetOf(context) is { } declared && InvocableMember(context, declared, access.Member.IdentifierName) is { } member
                 => new BoundMember(access, access, null, declared, member, null),
 
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: null } access } index
-                when WithTargetOf(context) is { } declared && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                when WithTargetOf(context) is { } declared && InvocableMember(context, declared, access.Member.IdentifierName) is { } member
                     && !ReturnsToBeIndexed(member, index.Arguments)
                 => new BoundMember(index, access, null, declared, member, index, BoundArgumentsOf(member, index)),
 
@@ -246,12 +249,16 @@ public sealed class ExpressionBindings
 
     // the member of a class a qualified name reads or calls: a Sub, a Function or a Property Get - not a Property Let or Set, which an assignment invokes -
     // or, when there is none of the name, a public variable, which is the storage of the object and is read.
-    private static VBTypeMemberSymbol? InvocableMember(VBClassModuleSymbol declared, string name)
-        => declared.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+    // Code of another project calls no Friend member of the class (ProjectVisibility.MembersSeenFrom).
+    private static VBTypeMemberSymbol? InvocableMember(StaticEvaluationContext context, VBClassModuleSymbol declared, string name)
+    {
+        var members = ProjectVisibility.MembersSeenFrom(declared.DefaultInterfaceMembers, declared, context.Scope).ToArray();
+        return members.FirstOrDefault(candidate =>
             candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
             && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))
-        ?? declared.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+        ?? members.FirstOrDefault(candidate =>
             candidate.Kind is SymbolKindExt.Field or SymbolKindExt.Variable && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
 
     // a Function or Property Get of an object that declares no parameter but its implicit Me, given arguments: they index what it returns.
     private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments)

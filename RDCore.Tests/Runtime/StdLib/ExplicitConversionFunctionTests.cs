@@ -317,6 +317,22 @@ public sealed class ExplicitConversionFunctionTests
     public void Int_OfADateIsADate()
         => Assert.AreEqual(1d, ((VBDateValue)Inner(Conversion().Int(Variant(new VBDateValue(1.5))))).SerialValue);
 
+    // MS-VBAL 6.1.2.3.1.16 and 6.1.2.3.1.18: CDate(Fix(CDbl(Number))) and CDate(Int(CDbl(Number))) of a Date before 1899-12-30, whose serial is negative.
+    [TestMethod]
+    public void Fix_OfADateBeforeItsEpochIsADate_AndIntGoesADayDown()
+    {
+        Assert.AreEqual(-1d, ((VBDateValue)Inner(Conversion().Fix(Variant(new VBDateValue(-1.25))))).SerialValue);
+        Assert.AreEqual(-2d, ((VBDateValue)Inner(Conversion().Int(Variant(new VBDateValue(-1.25))))).SerialValue);
+    }
+
+    // MS-VBAL 6.1.2.3.1.18: Int of a time on the first day of the Date range is below the range, which CDate raises 6 for; Fix of it is that day.
+    [TestMethod]
+    public void Int_BelowTheDateRangeIsOverflow()
+    {
+        Assert.AreEqual(VBRuntimeErrorId.Overflow, ErrorOf(Conversion().Int(Variant(new VBDateValue(-657434.5)))));
+        Assert.AreEqual(-657434d, ((VBDateValue)Inner(Conversion().Fix(Variant(new VBDateValue(-657434.5))))).SerialValue);
+    }
+
     [TestMethod]
     public void Int_OfABooleanIsAnInteger()
         => Assert.AreEqual((short)-1, ((VBIntegerValue)Inner(Conversion().Int(Variant(VBBooleanValue.True)))).Value);
@@ -455,6 +471,20 @@ public sealed class ExplicitConversionFunctionTests
     [DataRow("&o17", 15d)]
     [DataRow("&HFFZ", 255d)]
     [DataRow("$1,000", 0d)]
+    [DataRow("+.5", 0.5)]
+    [DataRow("5.", 5d)]
+    [DataRow(".", 0d)]
+    [DataRow("-", 0d)]
+    [DataRow("--5", 0d)]
+    [DataRow("-.e5", 0d)]
+    [DataRow("1.5.3", 1.5)]
+    [DataRow("1e+2", 100d)]
+    [DataRow("1E-2", 0.01)]
+    [DataRow("1e+", 1d)]
+    [DataRow("1D+3x", 1000d)]
+    [DataRow("-1.5d-1", -0.15)]
+    [DataRow("1.2e3e4", 1200d)]
+    [DataRow("١٢", 0d)]
     public void Val_ReadsTheLeadingNumber(string text, double expected)
         => Assert.AreEqual(expected, ValueOf(Conversion().Val(new VBStringValue(text))).Value);
 

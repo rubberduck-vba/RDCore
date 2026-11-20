@@ -775,12 +775,11 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         var arguments = ArrayPool<ScalarPayload>.Shared.Rent(parameters.Length);
-        var order = BindingOrder(given);
         try
         {
-            for (var k = 0; k < parameters.Length; k++)
+            // evaluating on payloads makes no call: the arguments are evaluated in any order, and an argument that makes one is the boxed evaluation's.
+            for (var i = 0; i < parameters.Length; i++)
             {
-                var i = order is null ? k : order[k];
                 var parameter = parameters[i];
                 // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted.
                 // any other is let-coerced to the parameter's type - an extended intermediate from its 80 bits (MS-VBAL §5.6.9.3).
@@ -995,8 +994,9 @@ public sealed partial class RuntimeExpressionEvaluator
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
-    // integer type, an integer as a floating-point value, a Single as a Double; and a Single or a Double made an integer by Banker's rounding, as the boxed
-    // coercion makes it (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL §5.5.1.2.1), which rounds.
+    // integer type, an integer as a floating-point value, a Single as a Double; a Single or a Double made an integer by Banker's rounding, and a Double (or a
+    // Date's serial) made the nearest Single, as the boxed coercion makes them (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL
+    // §5.5.1.2.1), which rounds.
     private static bool TryConvertPayload(ScalarPayload payload, VBType destination, out ScalarPayload converted)
         => TryConvertPayload(payload, destination, ScalarKinds.Of(destination), out converted);
 

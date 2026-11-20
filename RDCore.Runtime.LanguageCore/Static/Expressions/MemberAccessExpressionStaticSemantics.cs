@@ -11,6 +11,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
@@ -77,12 +78,16 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     // value at all: some members of that snapshot hold types that were not bound yet. The declaration is
     // the source of truth, so the members are read from it, by the type's own identity, through the
     // resolver; the snapshot is what remains only when the declaration cannot be found. A document module's
-    // members are its host's class's too (VBProjectSymbol.InterfaceMembersOf).
+    // members are its host's class's too (VBProjectSymbol.InterfaceMembersOf). A Friend member is not among those code of another project sees.
     internal static ImmutableArray<VBTypeMemberSymbol> CurrentMembersOf(StaticEvaluationContext context, IVBMemberOwnerType ownerType)
         => ownerType switch
         {
             VBClassType classType when VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) is { } current
-                => current.HostClass is null ? current.DefaultInterfaceMembers : [.. VBProjectSymbol.InterfaceMembersOf(context.Resolver, current)],
+                => [.. ProjectVisibility.MembersSeenFrom(
+                    current.HostClass is null ? current.DefaultInterfaceMembers : VBProjectSymbol.InterfaceMembersOf(context.Resolver, current),
+                    current, context.Scope)],
+            VBClassType { Symbol: { } snapshot, Members.IsDefault: false } classType
+                => [.. ProjectVisibility.MembersSeenFrom(classType.Members, snapshot, context.Scope)],
             VBUserDefinedType udtType when context.Resolver.ResolveType(udtType.Symbol.Name, ScopeKind.Global, udtType.Symbol.ParentUri).Symbol
                 is VBUserDefinedTypeMemberSymbol current => current.Members,
             _ => ownerType.Members,

@@ -181,6 +181,10 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim ll As LongLong, b As Byte ;; b = ll", "Type mismatch", DisplayName = "a LongLong to a Byte")]
     [DataRow("Dim ll As LongLong, c As Color ;; c = ll", "Type mismatch", DisplayName = "a LongLong to an Enum")]
     [DataRow("Dim lp As LongPtr, cy As Currency ;; cy = lp", "Type mismatch", DisplayName = "a 64-bit LongPtr to a Currency")]
+    [DataRow("Dim n As Long ;; Debug.Print Globals.Twice(CLngLng(n))", "Type mismatch", DisplayName = "what CLngLng returns, to a ByVal Long")]
+    [DataRow("Dim n As Long ;; Debug.Print Globals.Twice(CLngPtr(n))", "Type mismatch", DisplayName = "what CLngPtr returns, to a ByVal Long")]
+    [DataRow("Dim n As Long, l As Long ;; l = CLngLng(n)", "Type mismatch", DisplayName = "what CLngLng returns, to a Long")]
+    [DataRow("Dim ll As LongLong, l As Long ;; l = ll + 1", "Type mismatch", DisplayName = "a LongLong expression, to a Long")]
     [DataRow("Globals.TakesLong AddressOf Globals.SomeSub", "Type mismatch", DisplayName = "AddressOf to a ByRef Long")]
     [DataRow("Debug.Print Globals.Twice(AddressOf Globals.SomeSub)", "Type mismatch", DisplayName = "AddressOf to a ByVal Long")]
     [DataRow("Globals.TakesObject AddressOf Globals.SomeSub", "Type mismatch", DisplayName = "AddressOf to an Object")]
@@ -203,6 +207,15 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim o As Object ;; o (1)", DisplayName = "E13 an Object")]
     [DataRow("Dim c As New Collection ;; c.Add 1 ;; c.Count", DisplayName = "E14 a member of an object")]
     public async Task AnObjectCalled_IsNoCompileError(string body)
+        => Assert.IsEmpty(await LoadErrorsAsync(Classes, Modules, Program(body)));
+
+    // a LongLong let-coerced explicitly, or implicitly to what is no narrower than it, compiles (MS-VBAL §5.5.1.1; observed in Excel, 64-bit).
+    [TestMethod]
+    [DataRow("Dim n As Long ;; Debug.Print Globals.Twice(CLng(CLngLng(n)))", DisplayName = "CLng of what CLngLng returns, to a ByVal Long")]
+    [DataRow("Dim n As Long ;; Debug.Print CStr(CLngLng(n))", DisplayName = "CStr of what CLngLng returns")]
+    [DataRow("Dim n As Long ;; Globals.TakesDouble CLngLng(n)", DisplayName = "what CLngLng returns, to a ByVal Double")]
+    [DataRow("Dim n As Long ;; Globals.TakesPtr CLngLng(n)", DisplayName = "what CLngLng returns, to a ByVal LongPtr")]
+    public async Task ALongLongNotNarrowed_IsNoCompileError(string body)
         => Assert.IsEmpty(await LoadErrorsAsync(Classes, Modules, Program(body)));
 
     // what MS-VBA compiles: the address of a procedure of a standard module, given to what can hold a LongPtr. It does not run yet - an address is a value

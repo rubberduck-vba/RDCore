@@ -192,14 +192,14 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 ("SHOW", _) when visualBasic6 => ShowVisualBasic6(hosted, identity, request, resolver),
                 ("HIDE", _) when visualBasic6 => HideVisualBasic6(hosted, identity, request),
                 ("SHOW", _) => Show(hosted, request, form),
-                ("HIDE", _) => Done(() => outside.Forms.Hide(hosted)),
-                ("CAPTION", "get") => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(outside.Forms.GetCaption(hosted))),
-                ("CAPTION", "let") => Done(() => outside.Forms.SetCaption(hosted, StringOf(request.Arguments[^1]))),
-                ("VISIBLE", "get") => RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(outside.Forms.IsShown(hosted))),
+                ("HIDE", _) => Hosted(() => outside.Forms.Hide(hosted)),
+                ("CAPTION", "get") => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(Hosted(() => outside.Forms.GetCaption(hosted)))),
+                ("CAPTION", "let") => Hosted(StringOf(request.Arguments[^1]), caption => outside.Forms.SetCaption(hosted, caption)),
+                ("VISIBLE", "get") => RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(Hosted(() => outside.Forms.IsShown(hosted)))),
                 ("LEFT" or "TOP" or "WIDTH" or "HEIGHT", "get") when !visualBasic6 =>
-                    RuntimeSemanticsEvaluationResult.Success(new VBSingleValue(Side(outside.Forms.GetBounds(hosted), member))),
+                    RuntimeSemanticsEvaluationResult.Success(new VBSingleValue(Side(Hosted(() => outside.Forms.GetBounds(hosted)), member))),
                 ("LEFT" or "TOP" or "WIDTH" or "HEIGHT", "let") when !visualBasic6 =>
-                    Done(() => outside.Forms.SetBounds(hosted, WithSide(outside.Forms.GetBounds(hosted), member, SingleOf(request.Arguments[^1])))),
+                    Hosted(SingleOf(request.Arguments[^1]), side => outside.Forms.SetBounds(hosted, WithSide(outside.Forms.GetBounds(hosted), member, side))),
 
                 // a member of the VBA form object that the form host does not host raises 438 on a UserForm; a Visual Basic 6.0 form's own object model
                 // has it, and its server calls it.
@@ -377,6 +377,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         }
 
         session.ExternalObjects.Bind(identity, outside.Automation, created);
+        PlatformObjects.Of(session).AdoptForm(identity, created, designer);
         FormEvents.Listen(session, outside.Automation, outside.Forms, identity, created, designer);
         return created;
     }
@@ -526,7 +527,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 $"{request.Describe()}: another form is the topmost modal form."));
         }
 
-        return Done(() => outside.Forms.Hide(hosted));
+        return Hosted(() => outside.Forms.Hide(hosted));
     }
 
     // Show [Modal]: modal when it says vbModal, and as the designer's ShowModal says when it says nothing: a UserForm's is True unless its designer says otherwise,
@@ -546,9 +547,26 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 
-    private static RuntimeSemanticsEvaluationResult Done(Action call)
+    // a call of the form host is a call of a server, made with the turn given up as any other is: the thread the host makes it on can be handling
+    // an event of this session, which takes the turn, and a program that held it would wait for that thread while the thread waits for it. What the
+    // call is given is read first.
+    private T Hosted<T>(Func<T> call)
     {
-        call();
+        using (session.Turn.Yield())
+        {
+            return call();
+        }
+    }
+
+    private RuntimeSemanticsEvaluationResult Hosted(Action call) => Hosted(true, _ => call());
+
+    private RuntimeSemanticsEvaluationResult Hosted<TValue>(TValue value, Action<TValue> call)
+    {
+        using (session.Turn.Yield())
+        {
+            call(value);
+        }
+
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 

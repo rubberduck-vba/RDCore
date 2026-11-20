@@ -12,6 +12,7 @@ namespace RDCore.Tests.Platform;
 /// A server of the platform writes nothing to its console. Its client is on a pipe, its log is in its file, and the process that starts it may redirect its
 /// standard output and never read it: a console logger then filled that pipe, and every thread that logged blocked.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("Platform")]
 public sealed class ServerConsoleTests

@@ -122,7 +122,7 @@ public sealed partial class CompiledActivation
             return false;
         }
 
-        var result = LibraryCall(bindings, called, arguments);
+        var result = LibraryCall(bindings, called, called.Function, arguments);
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);

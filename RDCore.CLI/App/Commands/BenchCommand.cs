@@ -29,6 +29,9 @@ internal sealed class BenchCommandOptions
     [Option('e', "engine", HelpText = "What runs the cases: Interpreter or Compiled. The configured engine when omitted.")]
     public RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine? Engine { get; set; }
 
+    [Option("no-warm-up", HelpText = "Time each case from its first run, with no untimed runs before it while the JIT settles.")]
+    public bool NoWarmUp { get; set; }
+
     [Option("format", HelpText = "Time formatting every module instead: its parse, and its indentation from that parse, with the default settings and with every alignment on.")]
     public bool Format { get; set; }
 }
@@ -82,7 +85,8 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
             BenchWorkspace workspace;
             try
             {
-                workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? options.Path!, token);
+                workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? options.Path!, token,
+                    ansiCodePage: runner.Environment.AnsiCodePage);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
             {
@@ -97,9 +101,12 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
                 return 0;
             }
 
+            // tiered compilation settles a case's code over its first runs, for a number of them that differs from one process to the next.
+            var warmUp = options.NoWarmUp ? null : BenchWarmUp.UntilTheJitIsQuiet;
             var report = await runner.RunAsync(
-                workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine), name => Output.WriteLine($"  running {name}"), token);
-            WriteReport(report, options.List);
+                workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine, warmUp), name => Output.WriteLine($"  running {name}"),
+                token);
+            WriteReport(report, options.List, warmUp);
             return report.Problems.Count > 0 || report.Cases.Any(benchCase => benchCase.Error is not null) ? 1 : 0;
         }
         finally
@@ -117,17 +124,26 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
     /// Writes the corpus built into <c>rdc</c> to a folder of its own for a session to read, as any workspace is.
     /// </summary>
     /// <returns>The folder, which the caller deletes.</returns>
-    internal static string ExtractCorpus(IFileSystem fileSystem)
+    internal static string ExtractCorpus(IFileSystem fileSystem) => ExtractResources(fileSystem, CorpusResourcePrefix, "bench");
+
+    /// <summary>
+    /// Writes the files embedded in <c>rdc</c> under <paramref name="prefix"/> to a folder of their own, named for <paramref name="name"/> and this process.
+    /// </summary>
+    /// <param name="fileSystem">The file system the folder is made on.</param>
+    /// <param name="prefix">The prefix of the names of the embedded files; each file is written under its name without it.</param>
+    /// <param name="name">The folder's parent, under the <c>RDCore</c> folder of the temporary folder.</param>
+    /// <returns>The folder, which the caller deletes.</returns>
+    internal static string ExtractResources(IFileSystem fileSystem, string prefix, string name)
     {
-        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", name, Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
         fileSystem.Directory.CreateDirectory(folder);
 
         var assembly = typeof(BenchCommand).Assembly;
-        foreach (var resource in assembly.GetManifestResourceNames().Where(name => name.StartsWith(CorpusResourcePrefix, StringComparison.Ordinal)))
+        foreach (var resource in assembly.GetManifestResourceNames().Where(each => each.StartsWith(prefix, StringComparison.Ordinal)))
         {
             using var stream = assembly.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);
-            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[CorpusResourcePrefix.Length..]), reader.ReadToEnd());
+            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[prefix.Length..]), reader.ReadToEnd());
         }
 
         return folder;
@@ -142,7 +158,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         Output.WriteLine($"workspace  {(builtIn ? Resources.Bench_BuiltInCorpus : workspace.Root)} ({workspace.Modules.Count} modules)");
     }
 
-    private void WriteReport(BenchReport report, bool listOnly)
+    private void WriteReport(BenchReport report, bool listOnly, BenchWarmUp? warmUp)
     {
         Output.WriteLine();
         Output.WriteLine($"{"parse",-10}{Milliseconds(report.Parse),12}");
@@ -159,6 +175,13 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         if (report.Indent is { } indent)
         {
             Output.WriteLine($"{"indent",-10}{Milliseconds(indent),12}  ({BenchRunner.ProgramLines.ToString("N0", CultureInfo.InvariantCulture)} lines)");
+        }
+
+        if (!listOnly)
+        {
+            // the untimed runs made before the timed ones, over every case: no figure of the cases' comes from them.
+            var warmUpRuns = report.Cases.Sum(benchCase => benchCase.WarmUpRuns).ToString("N0", CultureInfo.InvariantCulture);
+            Output.WriteLine(warmUp is null ? $"{"warm-up",-10}{"none",12}" : $"{"warm-up",-10}{warmUpRuns,12} runs: {warmUp.Describe()}");
         }
 
         foreach (var problem in report.Problems)

@@ -34,9 +34,10 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
     private TextWriter Output => output ?? global::System.Console.Out;
     private TextWriter Error => error ?? global::System.Console.Error;
 
-    // the dialogs of the program: asked at the console, as the shell asks them, on every operating system; the machine's own where it has them, when the
-    // settings ask for them (AppOptions.NativeDialogs).
-    private IUserInteraction? Dialogs => ProgramDialogs.ShowsNative(options?.Value.NativeDialogs ?? false) ? null
+    // the dialogs of the program: a console application's are asked at the console, as the shell asks them, on every operating system; an RDForms
+    // application's, or one whose settings ask for them (AppOptions.NativeDialogs), are the machine's own where it has them.
+    private IUserInteraction? DialogsOf(ProjectBuild? build)
+        => ProgramDialogs.ShowsNative(ProgramDialogs.WantsNative(build, options?.Value.NativeDialogs ?? false)) ? null
         : output is null ? ConsoleUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
         : new ConsoleUserInteraction(keys ?? new SystemConsoleKeys(), output);
 
@@ -58,7 +59,8 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         BenchWorkspace workspace;
         try
         {
-            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token);
+            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
+                ansiCodePage: runner.Environment.AnsiCodePage);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
@@ -67,7 +69,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         }
 
         var profile = RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = options.Configuration };
-        var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, Dialogs, token);
+        var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, DialogsOf(workspace.Project.Build), token);
         using var session = provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1).

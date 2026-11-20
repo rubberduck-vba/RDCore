@@ -5,17 +5,19 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
 /// <c>RDC11033</c>: an Enum member named <c>Date</c>, <c>DoEvents</c> or <c>CDec</c>, which <strong>MS-VBAL §3.3.5.2</strong> reserves and MS-VBA compiles.
 /// <c>RDC11034</c>: a name <strong>MS-VBAL §3.3.5.2</strong> allows and MS-VBA refuses: a reserved type identifier that is no reserved name (<c>Long</c>,
-/// <c>Integer</c>, <c>Variant</c>) or <c>Local</c> as the name of anything but a member of a user-defined type, <c>Me</c> as a member of a user-defined type,
-/// <c>Name</c> as an Enum member.
+/// <c>Integer</c>, <c>Variant</c>) or <c>Local</c> as the name of anything but a member of a user-defined type, a module's own name included (its
+/// <c>VB_Name</c>, <strong>MS-VBAL §4.2</strong>), <c>Me</c> as a member of a user-defined type, <c>Name</c> as an Enum member.
 /// </summary>
 /// <remarks>
-/// RD-VBA compiles each of them. A name written in brackets is a foreign name (<strong>MS-VBAL §3.3.5.3</strong>), which both compile, and is not reported.
+/// RD-VBA compiles each of them. A name written in brackets is a foreign name (<strong>MS-VBAL §3.3.5.3</strong>), which both compile, and is not reported;
+/// a procedure named in brackets is a syntax error in both (<strong>MS-VBAL §5.3.1.3</strong>).
 /// </remarks>
 internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
 {
@@ -26,13 +28,22 @@ internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
 
     // the reserved type identifiers that are no reserved name (Date and String are both), and Local, which is no reserved identifier at all: MS-VBA refuses
     // each as the name of anything but a member of a user-defined type.
-    private static readonly HashSet<string> NamesMSVBARefusesButAsATypeMember = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Boolean", "Byte", "Currency", "Double", "Integer", "Long", "LongLong", "LongPtr", "Single", "Variant", "Local",
-    };
+    private static bool IsRefusedByMSVBAButAsATypeMember(string name)
+        => VBIdentifier.IsReserved(name) && !VBIdentifier.IsReservedIdentifier(name) || string.Equals(name, "Local", StringComparison.OrdinalIgnoreCase);
 
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
     {
+        // the module's own name (MS-VBAL §4.2): its VB_Name, or its file's when it says none. MS-VBA refuses to rename or import a module so named.
+        var said = module.GetDeclaredNameDirective();
+        var moduleName = module.GetDeclaredName() ?? ModuleName.FromFileName(module.SourceLocation.Uri.IsAbsoluteUri
+            ? module.SourceLocation.Uri.LocalPath
+            : module.SourceLocation.Uri.OriginalString);
+        if (IsRefusedByMSVBAButAsATypeMember(moduleName))
+        {
+            yield return Finding(RDCoreDiagnosticId.NameRefusedByMSVBA, said?.Location.Range ?? new SourceRange(0, 0, 0, 0),
+                RDCoreDiagnosticsResources.NameRefusedByMSVBA_ModuleMessage, moduleName);
+        }
+
         foreach (var node in module.Descendants())
         {
             var (name, range, kind) = node switch
@@ -63,8 +74,8 @@ internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
     private static bool IsRefusedByMSVBA(string name, Kind kind) => kind switch
     {
         Kind.TypeMember => string.Equals(name, "Me", StringComparison.OrdinalIgnoreCase),
-        Kind.EnumMember => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase) || NamesMSVBARefusesButAsATypeMember.Contains(name),
-        _ => NamesMSVBARefusesButAsATypeMember.Contains(name),
+        Kind.EnumMember => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase) || IsRefusedByMSVBAButAsATypeMember(name),
+        _ => IsRefusedByMSVBAButAsATypeMember(name),
     };
 
     // whether a name written without brackets, of an Enum member or of a member of a user-defined type, is reported here.

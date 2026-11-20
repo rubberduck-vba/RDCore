@@ -1,4 +1,7 @@
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -35,14 +38,19 @@ public sealed class ModuleSweep
     private readonly Uri _document;
     private readonly IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> _procedures;
     private readonly IErrorDetailsRecorder _errorDetails;
+    private readonly ModuleNode _syntaxTree;
+    private readonly Uri _module;
 
     private ModuleSweep(
-        IRuntimeSession analysis, Uri document, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
+        IRuntimeSession analysis, Uri document, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures,
+        IErrorDetailsRecorder errorDetails, ModuleNode syntaxTree, Uri module)
     {
         _analysis = analysis;
         _document = document;
         _procedures = procedures;
         _errorDetails = errorDetails;
+        _syntaxTree = syntaxTree;
+        _module = module;
     }
 
     /// <summary>
@@ -52,15 +60,18 @@ public sealed class ModuleSweep
     /// <param name="document">The document the module's code is in, where each of its facts is located.</param>
     /// <param name="procedures">The procedures to evaluate with their lowered bodies.</param>
     /// <param name="errorDetails">Records the details of the errors the evaluation raises.</param>
+    /// <param name="syntaxTree">The module's syntax tree: what the classes of the object of a late-bound member access are found in.</param>
+    /// <param name="module">The address of the module's symbol.</param>
     public static ModuleSweep Prepare(
-        IRuntimeSession session, Uri document, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
-        => new(RuntimeSessionComposer.ComposeForAnalysis(session), document, procedures, errorDetails);
+        IRuntimeSession session, Uri document, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures,
+        IErrorDetailsRecorder errorDetails, ModuleNode syntaxTree, Uri module)
+        => new(RuntimeSessionComposer.ComposeForAnalysis(session), document, procedures, errorDetails, syntaxTree, module);
 
     /// <summary>
     /// Evaluates the procedures.
     /// </summary>
     /// <param name="cancellation">
-    /// Stops the evaluation between instructions, and while it makes the elements of a fixed-size array a procedure declares.
+    /// Stops the evaluation between instructions, and when it makes an element of a fixed-size array a procedure declares.
     /// </param>
     /// <returns>
     /// The facts of each procedure, by the <see cref="Symbol.SemanticId"/> of the procedure. A procedure that could not be evaluated in full has the facts
@@ -76,6 +87,8 @@ public sealed class ModuleSweep
         }
 
         var collector = new AnalysisFactCollector();
+        var nodes = new Lazy<IReadOnlyDictionary<SyntaxNodeId, SyntaxNode>>(
+            () => _syntaxTree.Descendants().DistinctBy(node => node.Identity).ToDictionary(node => node.Identity));
         var bodies = _procedures.ToDictionary(entry => entry.Procedure.SemanticId, entry => entry.Body);
         var pipeline = RuntimeExecutionPipeline.CreateForSweep(_analysis, bodies, _errorDetails, new FactsOfTheDocument(_document, collector), cancellation);
 
@@ -97,7 +110,8 @@ public sealed class ModuleSweep
             // a sweep that was stopped did not finish the procedure it was in, and there is no telling which of the others it had not yet reached.
             cancellation.ThrowIfCancellationRequested();
 
-            facts[procedure.SemanticId] = collector.Take(complete);
+            // the sweep follows no path, and says nothing of the classes the code may give the object of a late-bound access: the module's Set statements do.
+            facts[procedure.SemanticId] = LateBoundCandidateFacts.Fill(collector.Take(complete), _analysis, _module, _syntaxTree, nodes);
         }
 
         return facts.ToImmutable();

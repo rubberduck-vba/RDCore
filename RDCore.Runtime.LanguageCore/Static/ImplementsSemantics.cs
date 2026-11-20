@@ -90,8 +90,9 @@ public static class ImplementsSemantics
 
         for (var index = 0; index < module.ImplementedInterfaceNames.Length; index++)
         {
+            // MS-VBAL §5.6.4: the name is bound in the type binding context of the module, as its own project sees the classes.
             var name = module.ImplementedInterfaceNames[index];
-            if (resolver.ResolveType(name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is not VBClassModuleSymbol named)
+            if (resolver.ResolveType(name, ScopeKind.Global, module.Uri).Symbol is not VBClassModuleSymbol named)
             {
                 errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, LocationOfDirective(module, index),
                     $"'Implements {name}' names no class (MS-VBAL §5.2.4.2)."));
@@ -210,34 +211,21 @@ public static class ImplementsSemantics
     }
 
     // the kinds of the declarations that implement a member of an interface: what RequiredShapes says, as declarations are written.
-    internal static IEnumerable<MemberKind> RequiredKindsOf(VBTypeMemberSymbol member) => RequiredShapes(member).Select(shape => shape switch
+    internal static IEnumerable<MemberKind> RequiredKindsOf(VBTypeMemberSymbol member) => RequiredShapes(member).Select(KindOf);
+
+    // the kind of declaration a member of a class is, as declarations are written; null for a variable, an event, a constant or a type.
+    internal static MemberKind? KindOf(VBTypeMemberSymbol member) => ShapeOf(member) is { } shape ? KindOf(shape) : null;
+
+    private static MemberKind KindOf(Shape shape) => shape switch
     {
         Shape.Sub => MemberKind.Procedure,
         Shape.Function => MemberKind.Function,
         Shape.PropertyGet => MemberKind.PropertyGet,
         Shape.PropertyLet => MemberKind.PropertyLet,
         _ => MemberKind.PropertySet,
-    });
-
-    // the kind of declaration a member of a class is, as declarations are written; null for a variable, an event, a constant or a type.
-    internal static MemberKind? KindOf(VBTypeMemberSymbol member) => ShapeOf(member) switch
-    {
-        Shape.Sub => MemberKind.Procedure,
-        Shape.Function => MemberKind.Function,
-        Shape.PropertyGet => MemberKind.PropertyGet,
-        Shape.PropertyLet => MemberKind.PropertyLet,
-        Shape.PropertySet => MemberKind.PropertySet,
-        _ => null,
     };
 
-    private static string Describe(Shape shape) => shape switch
-    {
-        Shape.Sub => "Sub",
-        Shape.Function => "Function",
-        Shape.PropertyGet => "Property Get",
-        Shape.PropertyLet => "Property Let",
-        _ => "Property Set",
-    };
+    private static string Describe(Shape shape) => ProcedureKeywords.Of(KindOf(shape))!;
 
     // MS-VBAL §5.3.1.9: why the candidate is not the implemented name declaration of the member, or null when it is.
     private static string? Incompatibility(VBClassModuleSymbol implemented, VBTypeMemberSymbol member, VBTypeMemberSymbol candidate)

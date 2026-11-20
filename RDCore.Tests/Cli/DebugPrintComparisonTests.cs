@@ -6,6 +6,7 @@ namespace RDCore.Tests.Cli;
 /// What <c>Debug.Print</c> prints is its output list, and a comparison is an expression of the list like any other: <c>Debug.Print x = 0</c> prints whether
 /// <c>x</c> is 0. It is no Let of 0 to <c>Debug.Print x</c>, the target of a Let being an l-expression (<strong>MS-VBAL §5.4.3.8</strong>).
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.8 Print Statement")]
 public sealed class DebugPrintComparisonTests

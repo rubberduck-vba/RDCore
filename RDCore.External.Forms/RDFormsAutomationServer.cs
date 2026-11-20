@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using RDCore.External.Automation;
+using RDCore.Forms.Avalonia.Rendering;
 using RDCore.Forms.Menus;
 using RDCore.Forms.Model;
 using RDCore.Forms.Porting;
@@ -458,6 +459,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
+    public bool IsFormHostObject(object target) => Owns(target);
+
+    /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
         => target is RDFormsFont ? IsFontClass(library, className)
             : target is RDFormsControls or RDFormsArray
@@ -528,6 +532,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
     // the forms that are not destroyed, which a modal one keeps from being used. Touched on the UI thread only.
     internal List<RDFormsForm> Forms { get; } = [];
+
+    // the program the forms are of, as RDForms sees it: its windows share one active form, which another program's window taking the activation leaves alone.
+    internal RDFormsProgram Program { get; } = new();
 
     internal void Destroy(RDFormsForm form) => RDFormsUI.Run(() =>
     {

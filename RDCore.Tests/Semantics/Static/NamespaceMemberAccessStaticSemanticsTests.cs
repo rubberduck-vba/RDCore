@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -71,7 +72,7 @@ public sealed class NamespaceMemberAccessStaticSemanticsTests
 
         public StaticEvaluationContext Context(params Symbol[] extra)
         {
-            var tree = ScopeTreeBuilder.Build([Enclosing, LibraryProject, Strings, Util, Caller, LenB, Counter, Reset, .. extra]);
+            var tree = ProjectVisibility.ScopeTreeOf([Enclosing, LibraryProject, Strings, Util, Caller, LenB, Counter, Reset, .. extra]);
             return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(Caller.Uri));
         }
     }

@@ -64,6 +64,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormLeave, LeaveForm);
         channel.Handle<FormHoldParams, ExternalDoneResult>(ExternalProtocol.FormHold, HoldForms);
         channel.Handle<FormDoEventsParams, ExternalDoneResult>(ExternalProtocol.FormDoEvents, DoEvents);
+        channel.Handle<FormKeepSystemThemeParams, ExternalDoneResult>(ExternalProtocol.FormKeepSystemTheme, KeepSystemTheme);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
         InvokeOnClient = call => channel.CallAsync<SessionInvokeParams, SessionInvokeResult>(ExternalProtocol.SessionInvoke, call);
         ReleaseOnClient = released => channel.CallAsync<SessionReleaseParams, ExternalDoneResult>(ExternalProtocol.SessionRelease, released);
@@ -204,6 +205,16 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormKeepSystemTheme"/>.
+    /// </summary>
+    /// <param name="request">The request, which says whether the forms' windows follow the application's theme.</param>
+    public ExternalDoneResult KeepSystemTheme(FormKeepSystemThemeParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.KeepSystemTheme = request.KeepSystemTheme;
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
     /// <summary>Answers <see cref="ExternalProtocol.FormIsShown"/>.</summary>
     public FormIsShownResult IsFormShown(FormParams request)
         => Answer(request.HandlingEvent, () => new FormIsShownResult { IsShown = _forms.IsShown(_handles.ObjectOf(request.Target)) }, Failed<FormIsShownResult>);
@@ -264,7 +275,11 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationClassName"/>.</summary>
     public AutomationClassNameResult ClassName(AutomationClassNameParams request)
-        => Answer(request.HandlingEvent, () => new AutomationClassNameResult { Name = platform.ClassNameOf(_handles.ObjectOf(request.Target)) }, Failed<AutomationClassNameResult>);
+        => Answer(request.HandlingEvent, () =>
+            {
+                var target = _handles.ObjectOf(request.Target);
+                return new AutomationClassNameResult { Name = platform.ClassNameOf(target), IsFormHostObject = platform.IsFormHostObject(target) };
+            }, Failed<AutomationClassNameResult>);
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationIsInstanceOf"/>.</summary>
     public AutomationIsInstanceOfResult IsInstanceOf(AutomationIsInstanceOfParams request)

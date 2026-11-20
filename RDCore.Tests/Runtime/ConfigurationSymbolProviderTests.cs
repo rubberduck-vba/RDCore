@@ -21,23 +21,29 @@ public sealed class ConfigurationSymbolProviderTests
             .ToDictionary(s => s.Name, s => s, StringComparer.OrdinalIgnoreCase);
 
     // each operating system's constant is 1 on it alone, as MS-VBA's are (Win32, Win64, VBA6 and VBA7 are 1 in 64-bit Excel), and defined 0 on
-    // every other; Win32 says the Win32 API is there, as MS-VBA's does in 64-bit Office too.
+    // every other; Win32 says the Win32 API is there, as MS-VBA's does in 64-bit Office too. Win64 is 1 on a 64-bit Mac too, as in Excel for Mac, unless
+    // the platform sets it on Windows only; Is64BitEnv is 1 in any 64-bit environment, and Linux64 is not predefined.
     [TestMethod]
-    [DataRow(VBOperatingSystem.Windows, true, "Win32 Win64", DisplayName = "64-bit Windows")]
-    [DataRow(VBOperatingSystem.Windows, false, "Win32", DisplayName = "32-bit Windows")]
-    [DataRow(VBOperatingSystem.Linux, true, "Linux Linux64", DisplayName = "64-bit Linux")]
-    [DataRow(VBOperatingSystem.Linux, false, "Linux", DisplayName = "32-bit Linux")]
-    [DataRow(VBOperatingSystem.MacOS, true, "Mac", DisplayName = "macOS")]
-    [DataRow(VBOperatingSystem.Other, true, "", DisplayName = "another operating system")]
-    public void BuiltIns_ReflectTheOperatingSystemAndBitness(VBOperatingSystem os, bool is64, string trueOnes)
+    [DataRow(VBOperatingSystem.Windows, true, false, "Win32 Win64 Is64BitEnv", DisplayName = "64-bit Windows")]
+    [DataRow(VBOperatingSystem.Windows, true, true, "Win32 Win64 Is64BitEnv", DisplayName = "64-bit Windows, Win64 on Windows only")]
+    [DataRow(VBOperatingSystem.Windows, false, false, "Win32", DisplayName = "32-bit Windows")]
+    [DataRow(VBOperatingSystem.Linux, true, false, "Linux Is64BitEnv", DisplayName = "64-bit Linux")]
+    [DataRow(VBOperatingSystem.Linux, false, false, "Linux", DisplayName = "32-bit Linux")]
+    [DataRow(VBOperatingSystem.MacOS, true, false, "Mac Win64 Is64BitEnv", DisplayName = "64-bit macOS")]
+    [DataRow(VBOperatingSystem.MacOS, true, true, "Mac Is64BitEnv", DisplayName = "64-bit macOS, Win64 on Windows only")]
+    [DataRow(VBOperatingSystem.Other, true, false, "Is64BitEnv", DisplayName = "another operating system")]
+    public void BuiltIns_ReflectTheOperatingSystemAndBitness(VBOperatingSystem os, bool is64, bool win64OnlySetOnWindows, string trueOnes)
     {
-        var symbols = Provide(new RuntimeEnvironmentProfile(is64, 0, 1252, false, OperatingSystem: os), new RDCoreProject());
+        var environment = new RuntimeEnvironmentProfile(is64, 0, 1252, false, OperatingSystem: os, Win64OnlySetOnWindows: win64OnlySetOnWindows);
+        var symbols = Provide(environment, new RDCoreProject());
         var expectedTrue = trueOnes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Append("VBA6").Append("VBA7").Append("DEBUG").ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var name in new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7", "DEBUG" })
+        foreach (var name in new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7", "DEBUG" })
         {
             Assert.AreEqual(expectedTrue.Contains(name) ? (short)1 : (short)0, ((VBIntegerValue)symbols[name].Value).Value, name);
         }
+
+        Assert.DoesNotContain("Linux64", symbols.Keys, "a retired constant is not predefined");
     }
 
     [TestMethod]

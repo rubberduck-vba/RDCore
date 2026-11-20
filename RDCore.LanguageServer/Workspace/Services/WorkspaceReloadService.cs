@@ -177,7 +177,8 @@ internal sealed class WorkspaceReloadService(
     System.IO.Abstractions.IPath ioPath,
     IWorkspaceRefresh refresh,
     ILogger<WorkspaceReloadService> logger,
-    RDCore.LanguageServer.Debugging.IEditStatusMonitor? editStatus = null) : IWorkspaceReloadService
+    RDCore.LanguageServer.Debugging.IEditStatusMonitor? editStatus = null,
+    IProjectFileDiagnostics? projectFileDiagnostics = null) : IWorkspaceReloadService
 {
     // one reload at a time: a client that writes the project file twice in a row is told about it twice, and the second reload reads what the second write
     // left.
@@ -521,6 +522,9 @@ internal sealed class WorkspaceReloadService(
 
         // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
         await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
+
+        // the projects may reference one another differently now (RDC31001).
+        projectFileDiagnostics?.Publish();
 
         // a program that waits may not have what the batch changed: it is said, before the batch is done.
         if (editStatus is not null)

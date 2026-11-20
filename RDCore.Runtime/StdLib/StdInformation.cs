@@ -32,8 +32,9 @@ namespace RDCore.Runtime.StdLib;
 /// <param name="session">The session whose state these members report on.</param>
 public sealed class StdInformation(IRuntimeSession session) : IStdInformationModule
 {
-    // the error object is one object for the life of the session (MS-VBAL 6.1.3.2), so it has one identity.
-    private readonly VBRuntimeObjectId _errorObject = session.Objects.CreateObject();
+    // the error object is one object for the life of the session (MS-VBAL 6.1.3.2), so it has one identity, which the session's library objects keep: a
+    // dispatcher is composed for every run and every analysis, and an object made for each would stay in the session's objects for good.
+    private readonly SessionLibraryObjects _objects = SessionLibraryObjects.Of(session);
 
     private static RuntimeSemanticsEvaluationResult<TValue> Succeed<TValue>(TValue value)
         where TValue : VBTypedValue
@@ -52,21 +53,29 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
     /// </summary>
     public RuntimeSemanticsEvaluationResult<VBObjectValue> Err()
     {
-        if (!session.Symbols.TryGetInstance(_errorObject, out _))
+        lock (_objects)
         {
-            // the standard library's class, named by its library, whatever else a referenced library declares by that name.
-            var declared = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, "ErrObject", StaticSymbol.GlobalUri).Symbol;
-            // every session the platform composes defines the standard library: one without it is a fault of the platform's, an internal error.
-            if (declared is not VBClassModuleSymbol errorClass)
+            var errorObject = _objects.ErrorObject;
+            if (errorObject.Equals(default(VBRuntimeObjectId)) || !session.Symbols.TryGetInstance(errorObject, out _))
             {
-                return Fail<VBObjectValue>(VBRuntimeErrorId.InternalError,
-                    "The standard library's 'ErrObject' class is not defined in this session.");
+                // the standard library's class, named by its library, whatever else a referenced library declares by that name.
+                var declared = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, "ErrObject", StaticSymbol.GlobalUri).Symbol;
+                // every session the platform composes defines the standard library: one without it is a fault of the platform's, an internal error.
+                if (declared is not VBClassModuleSymbol errorClass)
+                {
+                    return Fail<VBObjectValue>(VBRuntimeErrorId.InternalError,
+                        "The standard library's 'ErrObject' class is not defined in this session.");
+                }
+
+                // made the first time, and again only once the session no longer has it (it was wiped). The session's library objects hold it, so a
+                // statement that lets go of the last reference it took does not destroy it.
+                errorObject = _objects.ErrorObject = session.Objects.CreateObject();
+                session.Symbols.CreateInstance(errorObject, errorClass);
+                _ = ObjectReferences.Keep(session, new VBObjectValue(errorObject));
             }
 
-            session.Symbols.CreateInstance(_errorObject, errorClass);
+            return Succeed(new VBObjectValue(errorObject));
         }
-
-        return Succeed(new VBObjectValue(_errorObject));
     }
 
     /// <summary>
@@ -168,8 +177,8 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
     public RuntimeSemanticsEvaluationResult<VBLongValue> VarType(VBVariantValue varName)
         => Succeed(new VBLongValue((int)VarTypeOf(ValueOf(varName))));
 
-    // a Variant that holds a Variant holds what that one does.
-    private static VBTypedValue Unwrapped(VBTypedValue value)
+    // a Variant that holds a Variant holds what that one does, in a Variant's cell that compiled code reads too (VariantOperations).
+    internal static VBTypedValue Unwrapped(VBTypedValue value)
     {
         while (value is VBVariantValue variant)
         {
@@ -259,8 +268,8 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         return classModule.GetProperty(SymbolProperties.ReportedTypeName) ?? classModule.Name;
     }
 
-    // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of.
-    private static string NameOf(VBVarType varType) => varType switch
+    // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of: what compiled code names a Variant's subtype by too (VariantOperations.TypeName).
+    internal static string NameOf(VBVarType varType) => varType switch
     {
         VBVarType.VBEmpty => "Empty",
         VBVarType.VBNull => "Null",
