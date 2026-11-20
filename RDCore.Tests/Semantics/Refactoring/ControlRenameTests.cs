@@ -87,7 +87,8 @@ public sealed class ControlRenameTests
             ? new LibrarySymbolProvider(Root, LibrarySymbolProvider.Load(ShippedLibrariesTests.Platform, [], SupportedLanguages.VB6)).ProvideSymbols().ToList()
             : new LibrarySymbolProvider(Root, ReferencedLibraries.Load(ShippedLibrariesTests.Platform, ["MSForms"], ["VBA"])).ProvideSymbols().ToList();
         var uri = ModuleUri(name);
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(uri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(), libraries: libraries);
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            Root, [(uri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(), libraries: libraries);
         return new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(uri, parse.SyntaxTree!, source, parse.Designer)]);
     }
 

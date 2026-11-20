@@ -338,7 +338,8 @@ public static class SymbolRename
             return Refused(conflict);
         }
 
-        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName)).Concat(DesignerEdits(context, symbols, newName)).ToList();
+        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName))
+            .Concat(DesignerEdits(context, symbols, newName)).ToList();
         if (BindingEdits(context, symbols, newName, named) is { } taken)
         {
             return Refused(taken);
