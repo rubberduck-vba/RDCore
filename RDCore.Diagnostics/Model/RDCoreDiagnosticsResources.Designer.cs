@@ -1403,6 +1403,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Pass the value of the default member &apos;{0}&apos;.
+        /// </summary>
+        public static string ObjectLetToVariantProperty_DefaultMember_Fix {
+            get {
+                return ResourceManager.GetString("ObjectLetToVariantProperty_DefaultMember_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Pass the object itself, with Set.
+        /// </summary>
+        public static string ObjectLetToVariantProperty_Set_Fix {
+            get {
+                return ResourceManager.GetString("ObjectLetToVariantProperty_Set_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
         /// </summary>
         public static string NewOfAClassNotCreatable_New_Message {

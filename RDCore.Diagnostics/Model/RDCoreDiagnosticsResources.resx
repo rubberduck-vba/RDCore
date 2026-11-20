@@ -531,6 +531,12 @@
   <data name="ObjectLetToVariantProperty_Message" xml:space="preserve">
     <value>Property &apos;{0}&apos; receives the object itself, as in MS-VBA, where MS-VBAL §5.4.3.8 passes the value of its default member. Name the default member to pass its value.</value>
   </data>
+  <data name="ObjectLetToVariantProperty_DefaultMember_Fix" xml:space="preserve">
+    <value>Pass the value of the default member '{0}'</value>
+  </data>
+  <data name="ObjectLetToVariantProperty_Set_Fix" xml:space="preserve">
+    <value>Pass the object itself, with Set</value>
+  </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
   </data>
