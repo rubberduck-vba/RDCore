@@ -636,6 +636,12 @@
   <data name="BangNotation_Fix" xml:space="preserve">
     <value>Nommer le membre par défaut &apos;{0}&apos;, en lui passant le nom en String</value>
   </data>
+  <data name="IndexedRecursiveDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Nommer les membres par défaut &apos;{0}&apos;</value>
+  </data>
+  <data name="RecursiveBangNotation_Fix" xml:space="preserve">
+    <value>Nommer les membres par défaut &apos;{0}&apos;, en passant le nom en String au dernier</value>
+  </data>
   <data name="SuspiciousLetAssignment_Fix" xml:space="preserve">
     <value>Nommer les deux membres par défaut, ce qui garde le Let des valeurs</value>
   </data>

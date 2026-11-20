@@ -1633,6 +1633,22 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
+        ///   Looks up a localized string similar to Name the default members &apos;{0}&apos;.
+        /// </summary>
+        public static string IndexedRecursiveDefaultMemberAccess_Fix {
+            get {
+                return ResourceManager.GetString("IndexedRecursiveDefaultMemberAccess_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default members &apos;{0}&apos;, passing the last one the name as a String.
+        /// </summary>
+        public static string RecursiveBangNotation_Fix {
+            get {
+                return ResourceManager.GetString("RecursiveBangNotation_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
         ///   Looks up a localized string similar to Name both default members, which keeps the Let of the values.
         /// </summary>
         public static string SuspiciousLetAssignment_Fix {
