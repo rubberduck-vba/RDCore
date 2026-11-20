@@ -1,4 +1,5 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using System.Collections.Immutable;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Abstract;
@@ -137,13 +138,15 @@ internal static class DefaultMemberAccesses
             .GroupBy(access => access.Location.Range)
             .Select(facts => (
                 Access: facts.FirstOrDefault(fact => fact.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.Recursive)) ?? facts.First(),
-                Flags: facts.Aggregate(default(MemberAccessOperationSemanticFlags), (all, fact) => all | fact.MemberAccessOpSemanticFlags!.Value)))
+                Flags: facts.Aggregate(default(MemberAccessOperationSemanticFlags), (all, fact) => all | fact.MemberAccessOpSemanticFlags!.Value),
+                // the chain from the class the object is declared as: what each default member returns states the rest of it again, from its own class.
+                Chain: facts.Select(fact => fact.DefaultMembers).Where(chain => chain is not null).MaxBy(chain => chain!.Value.Length)))
             .Where(each => each.Flags is var flags
                 && flags.HasFlag(MemberAccessOperationSemanticFlags.DictionaryAccess) == dictionaryAccess
                 && (dictionaryAccess || flags.HasFlag(MemberAccessOperationSemanticFlags.ArgumentList))
                 && flags.HasFlag(MemberAccessOperationSemanticFlags.LateBound) == unbound
                 && (unbound || flags.HasFlag(MemberAccessOperationSemanticFlags.Recursive) == recursive))
-            .Select(each => each.Access);
+            .Select(each => each.Access with { DefaultMembers = each.Chain });
 
     /// <summary>
     /// Whether a declared type is <c>Object</c>, whose default member is known only at run time.
@@ -188,6 +191,47 @@ internal static class DefaultMemberAccesses
         => Written(member) is { } written
             ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(title, member!), SyntaxEdits.Insert(after, $".{written}"))] }
             : null;
+
+    /// <summary>
+    /// The default members an access goes through, each written after a period as the code names it (<see cref="Written"/>), in the order they are called:
+    /// <c>.Inner.Child.Item</c>. A default member that takes no arguments is called by its name alone (<strong>MS-VBAL §5.6.12</strong>), and its result
+    /// is the object of the next one. <see langword="null"/> when the chain is not known, and when one of its names cannot be written.
+    /// </summary>
+    /// <param name="members">The default members, as the host states them.</param>
+    public static (string Written, string Shown)? ChainOf(ImmutableArray<DefaultMemberFact>? members)
+    {
+        if (members is not { Length: > 0 } chain)
+        {
+            return null;
+        }
+
+        var written = chain.Select(member => Written(member.Name)).ToArray();
+        return written.Any(name => name is null)
+            ? null
+            : (string.Concat(written.Select(name => $".{name}")), string.Join(".", chain.Select(member => member.Name)));
+    }
+
+    /// <summary>
+    /// The fix that writes the default members a dictionary access gives its name to (<strong>MS-VBAL §5.6.14</strong>): <c>b!key</c> becomes
+    /// <c>b.Item("key")</c>, and <c>!key</c> in a <c>With</c> block becomes <c>.Item("key")</c>. A name in brackets (<c>b![a key]</c>) is the name inside
+    /// them.
+    /// </summary>
+    /// <param name="bang">The dictionary access.</param>
+    /// <param name="key">The name after the <c>!</c>.</param>
+    /// <param name="written">The members, each after a period, as the code writes them.</param>
+    /// <param name="title">What the fix is called, with the members' names in it.</param>
+    /// <param name="shown">The members' names, as the title shows them.</param>
+    public static DiagnosticFixes NameBang(DictionaryAccessExpressionNode bang, string key, string written, string title, string shown)
+    {
+        var from = bang.Owner?.SourceLocation.Range.End ?? bang.SourceLocation.Range.Start;
+        var literal = key.Replace("\"", "\"\"", StringComparison.Ordinal);
+        return new DiagnosticFixes
+        {
+            Edits = [SyntaxEdits.Fix(
+                AnalyzerMessages.Format(title, shown),
+                SyntaxEdits.Replace(new SourceRange(from, bang.SourceLocation.Range.End), $"{written}(\"{literal}\")"))],
+        };
+    }
 
     /// <summary>
     /// A member's name as the code writes it after a period: as it is when it is an identifier and no keyword (a letter, then letters, digits and
@@ -369,28 +413,10 @@ internal sealed class BangNotationAnalyzer : IModuleAnalyzer
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.BangNotation_Message, access.Member ?? string.Empty))
             {
                 Fixes = accesses[access.Location.Range].FirstOrDefault() is { Member.IdentifierName: { } key } bang
-                    ? FixOf(bang, key, access.Member)
+                    && DefaultMemberAccesses.Written(access.Member) is { } written
+                    ? DefaultMemberAccesses.NameBang(bang, key, $".{written}", RDCoreDiagnosticsResources.BangNotation_Fix, access.Member!)
                     : null,
             });
-    }
-
-    // MS-VBAL §5.6.14: the name after the ! is given to the default member as a String literal. b!key is b.Item("key"); in a With block, !key is
-    // .Item("key"). A name in brackets (b![a key]) is the name inside them.
-    private static DiagnosticFixes? FixOf(DictionaryAccessExpressionNode bang, string key, string? member)
-    {
-        if (DefaultMemberAccesses.Written(member) is not { } written)
-        {
-            return null;
-        }
-
-        var from = bang.Owner?.SourceLocation.Range.End ?? bang.SourceLocation.Range.Start;
-        var literal = key.Replace("\"", "\"\"", StringComparison.Ordinal);
-        return new DiagnosticFixes
-        {
-            Edits = [SyntaxEdits.Fix(
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.BangNotation_Fix, member!),
-                SyntaxEdits.Replace(new SourceRange(from, bang.SourceLocation.Range.End), $".{written}(\"{literal}\")"))],
-        };
     }
 }
 
@@ -424,12 +450,32 @@ internal sealed class IndexedRecursiveDefaultMemberAccessAnalyzer : IModuleAnaly
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: false, unbound: false, recursive: true)
+    {
+        if (context.Semantics is not { } semantics)
+        {
+            return [];
+        }
+
+        // every default member is named between the object and its argument list: t(1) is t.Child.Item(1).
+        var indexes = (context.ParseResult.SyntaxTree?.Descendants().OfType<IndexExpressionNode>() ?? [])
+            .ToLookup(index => index.SourceLocation.Range);
+        return DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: false, unbound: false, recursive: true)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.IndexedRecursiveDefaultMemberAccess.ToCode(),
                 access.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.IndexedRecursiveDefaultMemberAccess_Message, access.Member ?? string.Empty)));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.IndexedRecursiveDefaultMemberAccess_Message, access.Member ?? string.Empty))
+            {
+                Fixes = indexes[access.Location.Range].FirstOrDefault() is { } index && DefaultMemberAccesses.ChainOf(access.DefaultMembers) is { } chain
+                    ? new DiagnosticFixes
+                    {
+                        Edits = [SyntaxEdits.Fix(
+                            AnalyzerMessages.Format(RDCoreDiagnosticsResources.IndexedRecursiveDefaultMemberAccess_Fix, chain.Shown),
+                            SyntaxEdits.Insert(index.Callee.SourceLocation.Range.End, chain.Written))],
+                    }
+                    : null,
+            });
+    }
 }
 
 /// <summary>
@@ -443,12 +489,28 @@ internal sealed class RecursiveBangNotationAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: true, unbound: false, recursive: true)
+    {
+        if (context.Semantics is not { } semantics)
+        {
+            return [];
+        }
+
+        // d!Name is d.Inner.Child.Item("Name"): the last default member is given the name.
+        var accesses = (context.ParseResult.SyntaxTree?.Descendants().OfType<DictionaryAccessExpressionNode>() ?? [])
+            .ToLookup(access => access.SourceLocation.Range);
+        return DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: true, unbound: false, recursive: true)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.RecursiveBangNotation.ToCode(),
                 access.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.RecursiveBangNotation_Message, access.Member ?? string.Empty)));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.RecursiveBangNotation_Message, access.Member ?? string.Empty))
+            {
+                Fixes = accesses[access.Location.Range].FirstOrDefault() is { Member.IdentifierName: { } key } bang
+                    && DefaultMemberAccesses.ChainOf(access.DefaultMembers) is { } chain
+                    ? DefaultMemberAccesses.NameBang(bang, key, chain.Written, RDCoreDiagnosticsResources.RecursiveBangNotation_Fix, chain.Shown)
+                    : null,
+            });
+    }
 }
 
 /// <summary>
