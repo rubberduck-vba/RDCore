@@ -681,6 +681,12 @@
   <data name="ImplicitConstantType_Message" xml:space="preserve">
     <value>La constante &apos;{0}&apos; n&apos;indique aucun type : une clause As dit lequel elle a.</value>
   </data>
+  <data name="VariantStringFunction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; renvoie un Variant : &apos;{1}&apos; est la même fonction, et renvoie un String.</value>
+  </data>
+  <data name="VariantStringFunction_Fix" xml:space="preserve">
+    <value>Utiliser &apos;{0}&apos;</value>
+  </data>
   <data name="UnderscoreInPublicClassMember_Message" xml:space="preserve">
     <value>&apos;{0}&apos; a un trait de soulignement dans son nom : aucune classe ne peut implémenter celle-ci.</value>
   </data>

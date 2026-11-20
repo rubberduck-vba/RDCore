@@ -121,6 +121,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, OnErrorGoToMinusOneAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnrestoredOnErrorResumeNextAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitConstantTypeAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, VariantStringFunctionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnderscoreInPublicClassMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedByRefAnalyzer>();

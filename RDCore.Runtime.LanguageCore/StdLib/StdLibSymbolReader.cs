@@ -293,6 +293,13 @@ public sealed class StdLibSymbolReader
             .Concat(ConstantsOf(declaration).Select(field => ReadConstant(field, module.Uri)))
             .ToArray();
 
+        // MS-VBAL §6.1.2: a function whose $ form is the same function returning a String states that form.
+        var stringForms = MembersOf(declaration).Select(method => method.GetCustomAttribute<StdLibMemberAttribute>())
+            .Where(member => member is { IsStringForm: true, Name: [.., '$'] }).Select(member => member!.Name!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        members = [.. members.Select(member
+            => stringForms.Contains(member.Name + "$") ? member.With(SymbolProperties.StringForm, member.Name + "$") : member)];
+
         return (module, members);
     }
 

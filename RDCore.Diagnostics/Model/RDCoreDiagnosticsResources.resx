@@ -681,6 +681,12 @@
   <data name="ImplicitConstantType_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; states no type: an As clause says which one it has.</value>
   </data>
+  <data name="VariantStringFunction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; returns a Variant: &apos;{1}&apos; is the same function, and returns a String.</value>
+  </data>
+  <data name="VariantStringFunction_Fix" xml:space="preserve">
+    <value>Use &apos;{0}&apos;</value>
+  </data>
   <data name="UnderscoreInPublicClassMember_Message" xml:space="preserve">
     <value>&apos;{0}&apos; has an underscore in its name: no class can implement this one.</value>
   </data>

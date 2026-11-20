@@ -184,7 +184,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="errorNumber">The <em>error number</em>; when omitted, the number of the most recent run-time error.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    [StdLibMember("Error$")]
+    [StdLibMember("Error$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> ErrorStr(VBVariantValue? errorNumber = default);
 
     /// <summary>
@@ -214,7 +214,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    [StdLibMember("Hex$")]
+    [StdLibMember("Hex$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> HexStr(VBVariantValue number);
 
     /// <summary>
@@ -244,7 +244,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    [StdLibMember("Oct$")]
+    [StdLibMember("Oct$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> OctStr(VBVariantValue number);
 
     /// <summary>
@@ -264,7 +264,7 @@ public interface IStdConversionModule
     /// </remarks>
     /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    [StdLibMember("Str$")]
+    [StdLibMember("Str$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> StrStr(VBVariantValue number);
 
     /// <summary>
