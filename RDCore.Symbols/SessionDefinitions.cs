@@ -43,8 +43,8 @@ public sealed record class SessionDefinition(
 {
     // the request; null for a module that declares no type, which has nothing to declare in the first phase. A module of a referenced project that is not a
     // standard module is a type itself, which the first phase declares: the session's own project's are composed before any module is defined, and a
-    // referenced project's are not, so a declaration of a module before it that names it is bound to it. The code goes as the JSON of its parse (json;
-    // PlatformJson.Serialize when it is not given).
+    // referenced project's are not. Declared in the first phase, it is a type before any declaration that names it is bound, whatever the order of the
+    // modules. The code goes as the JSON of its parse (json; PlatformJson.Serialize when it is not given).
     public DefineSymbolsParams? ToRequest(Func<ModuleParseResult, string>? json = null)
     {
         var tree = Module.Parse.SyntaxTree;
