@@ -262,12 +262,31 @@ and are `null` otherwise, which says the references are not known, and not that 
    and every one has a fact. For a local or a parameter that is its procedure; for a variable or a constant of the module,
    every procedure that names it. A procedure refers to a variable or a constant by writing its name (**MS-VBAL §5.6.10**):
    one that was not analyzed completely, and that writes the name nowhere, not even in what the parser could not read, does
-   not refer to it. A constant of the module is also referred to by the expressions of the module's declarations (the bounds
-   of an array, the value of another constant, the default of a parameter), and every one of them was analyzed with no error.
+   not refer to it. A declaration counted over the modules of the project is the same: only a procedure of the project that
+   writes its name and was not analyzed completely withholds its count. A constant of the module is also referred to by the
+   expressions of the module's declarations (the bounds of an array, the value of another constant, the default of a
+   parameter), and every one of them was analyzed with no error.
 
-Once every procedure of the project was analyzed completely, the host also counts, over all of its modules, what only the
-project's code can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is
-`Option Private Module` (**MS-VBAL §5.3.1.1**, **§5.2.1.4**).
+An argument that a procedure of its own module takes by reference, called by name or through `Me`, is followed
+(**MS-VBAL §5.3.1.11**): the call assigns it when the procedure assigns the parameter, or passes it on by reference to one
+that does, a procedure that calls itself included.
+
+- One that a procedure of the chain assigns is `DeclarationReference.AssignedThroughCall`, whether or not the rest of the
+  module was analyzed completely.
+- One that no procedure of the chain assigns, nor passes on to any other call, is counted as read, once every procedure of the
+  module was analyzed completely.
+- An argument of any other call may be assigned, and is counted as passed.
+
+Once every module of the project has a model, the host also counts, over all of its modules, what only the project's code
+can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is `Option Private Module`
+(**MS-VBAL §5.3.1.1**, **§5.2.1.4**). A procedure that was not analyzed completely withholds the count of each name it writes,
+as in item 2.
+
+Once every module of the project has a model, an argument taken by reference is also followed into a procedure of a
+standard module of the project, from any module: a call of its name runs that procedure. The counts of each module and
+those over the project follow it alike. A call through a variable of a class is not followed: the object may be of another
+class that implements it. While a procedure of a module was not analyzed completely, a parameter of any procedure of that
+module may be assigned; an assignment that one of its analyzed procedures makes is known all the same.
 
 A `Private` procedure or property is counted in every kind of project: only the code of its module can call it, and no
 access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:
