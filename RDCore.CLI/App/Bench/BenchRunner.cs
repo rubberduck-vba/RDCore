@@ -421,7 +421,7 @@ internal sealed class BenchRunner(
         // they are bound in the environment the session was composed for: the profile's language and pointer width, which need not be the runner's.
         stopwatch.Restart();
         var composed = provider.Session.Environment;
-        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, composed.Language);
+        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project, composed.Language);
         var scope = composed.Language.ImplicitDeclarationScope;
 
         // each project the project references is bound as its own analysis binds it: its modules, the libraries it references, and its own name. It gives the
@@ -430,7 +430,7 @@ internal sealed class BenchRunner(
         {
             var projectRoot = each.Workspace.RootUri;
             var modules = Parsed(each.Workspace, projectRoot, problems, $"{each.Name}.", parsed: null);
-            var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project.References, composed.Language);
+            var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project, composed.Language);
             var projectResolver = WorkspaceSymbolResolver.Compose(
                 projectRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit), each.Name,
                 scope, [.. new LibrarySymbolProvider(projectRoot, ownLibraries, composed.Is64Bit).ProvideSymbols()], HostsOf(each.Workspace));
@@ -505,7 +505,7 @@ internal sealed class BenchRunner(
         {
             var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
             {
-                Designer = FormDesigner.Read(module.Source, module.Companion, out var designerProblem),
+                Designer = FormDesigner.Read(module.RelativePath, module.Source, module.Companion, out var designerProblem),
             };
             if ((module.CompanionProblem ?? designerProblem) is { } problem)
             {

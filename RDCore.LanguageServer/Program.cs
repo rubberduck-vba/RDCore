@@ -31,6 +31,9 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // a form ported to RDForms declares what its .xaml does, as RDForms reads it: the parse of its .rdform is given that form.
+        RDCore.SDK.Workspace.Forms.FormDesigner.Register(RDCore.Forms.Xaml.FormXamlDocumentReader.Instance);
+
         // the same platform, spoken to by a debugger client over standard input and output.
         if (RDCore.LanguageServer.Debugging.DebugAdapterEntry.IsRequested(args))
         {

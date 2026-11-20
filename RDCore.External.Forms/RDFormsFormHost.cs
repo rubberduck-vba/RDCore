@@ -1,14 +1,15 @@
 using RDCore.External.Automation;
 using RDCore.Forms.Import.VB6;
 using RDCore.Forms.Model;
+using RDCore.Forms.Xaml;
 using RDCore.SDK.Workspace.Forms;
 using Model = RDCore.Forms.Model;
 
 namespace RDCore.External.Forms.RDForms;
 
 /// <summary>
-/// Hosts Visual Basic 6.0 forms in RDForms windows: each form's model is read from its designer's text and its <c>.frx</c>, and is an object of an
-/// <see cref="RDFormsAutomationServer"/>.
+/// Hosts RDForms forms and Visual Basic 6.0 forms in RDForms windows: each form's model is read from its RDForms document, or from its designer's text and its
+/// <c>.frx</c>, and is an object of an <see cref="RDFormsAutomationServer"/>.
 /// </summary>
 /// <remarks>
 /// The window raises the events of the form and of its controls through the server's sinks. A user's close does not close it: the form's sink is asked to
@@ -73,9 +74,9 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     /// <inheritdoc/>
     public object Create(FormDefinition form)
     {
-        if (form.Kind != FormDesignerKind.VisualBasic6)
+        if (form.Kind is not (FormDesignerKind.VisualBasic6 or FormDesignerKind.RDForms))
         {
-            throw new AutomationException(ClassNotRegistered, $"{form.Name}: RDForms hosts Visual Basic 6.0 forms only.");
+            throw new AutomationException(ClassNotRegistered, $"{form.Name}: RDForms hosts RDForms forms and Visual Basic 6.0 forms only.");
         }
 
         var root = RootOf(form);
@@ -90,8 +91,13 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
 
         return RDFormsUI.Run(() =>
         {
-            // a VB6 form's code reads a control's position and size in its container's scale (twips in a Frame), and the form's own in twips.
-            var hosted = new RDFormsForm(new Model.FormDefinition(root), CodeUnit.VB6, Server.Program);
+            // a VB6 form's code reads a control's position and size in its container's scale (twips in a Frame), and the form's own in twips; an RDForms
+            // form's code reads them in pixels, as its document holds them.
+            var visualBasic = form.Kind == FormDesignerKind.VisualBasic6;
+            var hosted = new RDFormsForm(new Model.FormDefinition(root), visualBasic ? CodeUnit.VB6 : CodeUnit.Pixel, Server.Program)
+            {
+                IsVisualBasic = visualBasic,
+            };
             // in the program's theme before anything shows it.
             hosted.Window.KeepSystemTheme = _keepSystemTheme;
             Server.Forms.Add(hosted);
@@ -99,7 +105,8 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         });
     }
 
-    // the form's model: the one its designer's text declares, or, with no text, an empty form with the caption its designer gives it.
+    // the form's model: the one its designer's text declares (an RDForms form's document, or a VB6 form's designer block, read in place), or, with no
+    // text, an empty form with the caption its designer gives it.
     private static ComponentInstance RootOf(FormDefinition form)
     {
         if (form.DesignerText is not { } text)
@@ -107,11 +114,18 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
             return new ComponentInstance(ComponentClasses.Form, form.Name).Set(Properties.Caption, form.Caption ?? form.Name);
         }
 
-        var import = VB6FormReader.Read(text, form.State.IsEmpty ? null : form.State.ToArray());
-        if (import.Form is not { } model)
+        Model.FormDefinition? model;
+        if (form.Kind == FormDesignerKind.RDForms)
         {
-            var errors = import.Diagnostics.Where(diagnostic => diagnostic.Severity == VB6ImportSeverity.Error).Select(diagnostic => diagnostic.ToString());
-            throw new AutomationException(Failed, $"{form.Name}: its designer cannot be read. {string.Join(" ", errors)}");
+            var read = FormXaml.Read(text);
+            model = read.Form ?? throw new AutomationException(Failed,
+                $"{form.Name}: its document cannot be read. {string.Join(" ", read.Diagnostics.Where(d => d.Severity == FormXamlSeverity.Error))}");
+        }
+        else
+        {
+            var import = VB6FormReader.Read(text, form.State.IsEmpty ? null : form.State.ToArray());
+            model = import.Form ?? throw new AutomationException(Failed,
+                $"{form.Name}: its designer cannot be read. {string.Join(" ", import.Diagnostics.Where(d => d.Severity == VB6ImportSeverity.Error))}");
         }
 
         if (!ReferenceEquals(model.Root.Class, ComponentClasses.Form))

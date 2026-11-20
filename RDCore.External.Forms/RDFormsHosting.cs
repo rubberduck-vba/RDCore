@@ -125,7 +125,8 @@ public static class RDFormsHosting
             }
         }
 
-        public object Create(FormDefinition form) => form.Kind == FormDesignerKind.VisualBasic6
+        // RDForms renders an RDForms form, and a VB6 form in place.
+        public object Create(FormDefinition form) => form.Kind is FormDesignerKind.VisualBasic6 or FormDesignerKind.RDForms
             ? ((IFormHost?)visualBasic ?? UnavailableFormHost.Instance).Create(form)
             : microsoftForms.Create(form);
 

@@ -346,8 +346,9 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose), site, $"New {classModule.Name}", creating: true))
             : null;
 
-    // a Visual Basic 6.0 form is a class that is not registered (429) where the form host does not host one, as a UserForm is where Microsoft Forms is not.
-    private bool CanBeHosted(FormDescriptor designer) => designer.Kind != FormDesignerKind.VisualBasic6 || outside.Forms.HostsVisualBasic6Forms;
+    // a Visual Basic 6.0 form, or an RDForms form, is a class that is not registered (429) where the form host does not host one, as a UserForm is where
+    // Microsoft Forms is not: the host of the one is the host of the other.
+    private bool CanBeHosted(FormDescriptor designer) => !designer.HasVisualBasic6FormModel || outside.Forms.HostsVisualBasic6Forms;
 
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
     private object? FormOf(VBRuntimeObjectId identity, string form, ExternalCallRequest request)
@@ -383,7 +384,8 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return created;
     }
 
-    private bool IsVisualBasic6(string form) => forms.TryGetValue(form, out var designer) && designer.Kind == SDK.Workspace.Forms.FormDesignerKind.VisualBasic6;
+    // a VB6 form, or an RDForms form, which keeps VB6's form model.
+    private bool IsVisualBasic6(string form) => forms.TryGetValue(form, out var designer) && designer.HasVisualBasic6FormModel;
 
     // the session's Forms collection, of the standard library's class that has no name in VB6 (IStdFormsClass).
     private RuntimeSemanticsEvaluationResult FormsCollection()
@@ -531,14 +533,14 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return Hosted(() => outside.Forms.Hide(hosted));
     }
 
-    // Show [Modal]: modal when it says vbModal, and as the designer's ShowModal says when it says nothing: a UserForm's is True unless its designer says otherwise,
-    // and a Visual Basic 6.0 form has none, and is shown modeless (vbModeless). A modal form is waited for, and the program gives its turn up while it does: what the
-    // form raises meanwhile is the answer to the call.
+    // Show [Modal]: modal when it says vbModal, and as the designer's ShowModal says when it says nothing: a UserForm's is True unless its designer says
+    // otherwise, and a Visual Basic 6.0 form, or an RDForms form, has none, and is shown modeless (vbModeless). A modal form is waited for, and the
+    // program gives its turn up while it does: what the form raises meanwhile is the answer to the call.
     private RuntimeSemanticsEvaluationResult Show(object hosted, ExternalCallRequest request, string form)
     {
         var modal = request.Arguments.Length > 1 && VariantOf(request.Arguments[1]) is { } argument and not VBMissingValue
             ? Convert.ToInt32(argument.RuntimeValue.BoxedValue, System.Globalization.CultureInfo.InvariantCulture) != 0
-            : !forms.TryGetValue(form, out var designer) || (designer.ShowModal ?? designer.Kind != SDK.Workspace.Forms.FormDesignerKind.VisualBasic6);
+            : !forms.TryGetValue(form, out var designer) || (designer.ShowModal ?? !designer.HasVisualBasic6FormModel);
 
         using (session.Turn.Yield())
         {

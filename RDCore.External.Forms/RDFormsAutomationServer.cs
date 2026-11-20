@@ -24,6 +24,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private const int NotImplemented = unchecked((int)0x80004001);
     private const int VisualBasicError = unchecked((int)0x800A0000);
     private const string VisualBasicLibrary = "VB";
+    private const string RDFormsLibrary = "RDForms";
     private const string PopupMenuMember = "PopupMenu";
     private const string ControlsMember = "Controls";
     private const string NameMember = "Name";
@@ -132,6 +133,21 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return Invoke(assigned, DefaultMemberName, invocation, arguments, byReference, culture);
             }
 
+            // an RDForms form's program renames a control it added, as MSForms lets it; a control of the form's file keeps its name (382).
+            if (invocation is AutomationInvocation.Let && arguments.Length == 1 && !handle.Form.IsVisualBasic && component != handle.Form.Model.Root
+                && component.Class.Property(member) is null && string.Equals(member, NameMember, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    handle.Form.Model.RenameControl(component, (string)RDFormsValues.FromNeutral(arguments[0], typeof(string), culture)!);
+                    return null;
+                }
+                catch (FormErrorException exception)
+                {
+                    throw FormFailure(exception.Error);
+                }
+            }
+
             // a property the form's window answers, whose value its control holds, or which takes arguments: a ListBox's ListIndex and List(Index). It comes
             // before the model's property of the same name (a ListBox's List), which is the designer's.
             if (component.Class.Method(member) is { IsProperty: true } answered)
@@ -149,9 +165,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             if (component.Class.Property(member) is { } property)
             {
                 // the class says which of its properties only a form's file and a designer set (382 on an assignment), and which a program cannot reach at
-                // all (393 on a read): the Timer's Left and Top are its class's, not the property's. Every form hosted is a VB6 form, which keeps VB6's rule
-                // even where MSForms lets a program set the property (a TextBox's MultiLine).
-                if (invocation is AutomationInvocation.Let or AutomationInvocation.Set && component.Class.IsReadOnlyAtRunTimeOnAVisualBasic6Form(property))
+                // all (393 on a read): the Timer's Left and Top are its class's, not the property's. A VB6 form keeps VB6's rule; an RDForms form's program
+                // also sets what either library lets a program set (a TextBox's MultiLine, as MSForms does).
+                var readOnly = handle.Form.IsVisualBasic
+                    ? component.Class.IsReadOnlyAtRunTimeOnAVisualBasic6Form(property)
+                    : component.Class.IsReadOnlyAtRunTime(property);
+                if (invocation is AutomationInvocation.Let or AutomationInvocation.Set && readOnly)
                 {
                     throw FormFailure(FormError.SetNotSupportedAtRuntime);
                 }
@@ -455,7 +474,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         // the Controls collection and a control array are not of a library's class: a late-bound Object.
         => target is RDFormsFont ? StdFontClass
             : target is RDFormsControls or RDFormsArray ? null
-            : VisualBasicClasses.TryGetValue(HandleOf(target).Component.Class.TypeName, out var ported)
+            : HandleOf(target) is { Form.IsVisualBasic: true } handle && VisualBasicClasses.TryGetValue(handle.Component.Class.TypeName, out var ported)
                 ? $"{ported.LegacyLibrary}.{ported.LegacyName}"
                 : HandleOf(target).Component.Class.TypeName;
 
@@ -463,14 +482,32 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     public bool IsFormHostObject(object target) => Owns(target);
 
     /// <inheritdoc/>
+    // a VB6 form's components are of VB's classes, and an RDForms form's of RDForms'.
     public bool? IsInstanceOf(object target, string library, string className)
-        => target is RDFormsFont ? IsFontClass(library, className)
-            : target is RDFormsControls or RDFormsArray
-            ? null
-            : string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
-                ? VisualBasicClasses.TryGetValue(HandleOf(target).Component.Class.TypeName, out var ported)
-                    && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
+    {
+        if (target is RDFormsFont)
+        {
+            return IsFontClass(library, className);
+        }
+
+        if (target is RDFormsControls or RDFormsArray)
+        {
+            return null;
+        }
+
+        var handle = HandleOf(target);
+        var typeName = handle.Component.Class.TypeName;
+        if (handle.Form.IsVisualBasic)
+        {
+            return string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
+                ? VisualBasicClasses.TryGetValue(typeName, out var ported) && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
                 : null;
+        }
+
+        return string.Equals(library, RDFormsLibrary, StringComparison.OrdinalIgnoreCase)
+            ? string.Equals(typeName, $"{RDFormsLibrary}.{className}", StringComparison.OrdinalIgnoreCase)
+            : null;
+    }
 
     /// <inheritdoc/>
     public bool MoveNext(object enumerator, out object? current)

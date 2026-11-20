@@ -147,6 +147,23 @@ public sealed class EnvironmentSessionProviderTests
         CollectionAssert.AreEqual(new[] { "VBA 0", "VBRUN 1", "VB 2", "Scripting 3" }, session.References.Select(reference => $"{reference.Name} {reference.Priority}").ToArray());
     }
 
+    // a project with an RDForms form references RDForms without its .rdproj listing it: after the language's own, before the ones the project lists.
+    [TestMethod]
+    [DataRow("vb6", new[] { "VBA 0", "VBRUN 1", "VB 2", "RDForms 3", "Scripting 4" }, DisplayName = "a VB6 project")]
+    [DataRow("vba", new[] { "VBA 0", "RDForms 1", "Scripting 2" }, DisplayName = "an RD-VBA project")]
+    public void Compose_ExposesRDForms_ForAProjectWithAnRDFormsForm(string language, string[] references)
+    {
+        var project = new RDCoreProject
+        {
+            References = [new RDCoreReference { Name = "Scripting", Major = 1, Minor = 0 }],
+            Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }, new RDCoreModule { RelativeUri = "Forms/Form2.rdform" }],
+        };
+
+        var session = NewProvider(language: language == "vb6" ? SupportedLanguages.VB6 : SupportedLanguages.RDVBA).Compose(project, WorkspaceRoot);
+
+        CollectionAssert.AreEqual(references, session.References.Select(reference => $"{reference.Name} {reference.Priority}").ToArray());
+    }
+
     [TestMethod]
     public void Compose_DefaultProject_ExposesTheVBStandardLibraryReference()
     {
