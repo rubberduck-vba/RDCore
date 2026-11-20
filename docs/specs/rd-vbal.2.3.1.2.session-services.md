@@ -264,7 +264,7 @@ runs it.
 
 |Block|Made|Freed|
 |---|---|---|
-|An array's elements|The first time the address of an element is asked for, or an element is passed `ByRef`.|Once the array is gone (`ReDim`'d, assigned another, or a local of an activation that returned), when a block is made and the blocks number twice as many as the last time gone ones were freed (at least 16), or when a block has no room.|
+|An array's elements|The first time the address of an element is asked for, or an element is passed `ByRef`.|Once the array is gone (`ReDim`'d, assigned another, or a local of an activation that returned), when a block is made and there are twice as many blocks as were left the last time gone ones were freed (at least 16), or when a block has no room.|
 |A `BSTR`|The first time the address of the characters is asked for, or the bytes of the `String`.|When a `String` is assigned to what holds it, or what holds it is freed; not when a pointer `POKE`d over it lets go of it.|
 |An interface|The first time its address is asked for.|When the object is destroyed.|
 |A `SAFEARRAY`|The first time its address is asked for.|A dynamic array's when it holds no array (`Erase`), a `Variant`'s when it holds another; not when a pointer `POKE`d over it lets go of it.|

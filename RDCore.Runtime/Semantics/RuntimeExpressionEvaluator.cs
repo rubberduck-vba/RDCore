@@ -3135,7 +3135,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // the element, at its address in the block the array's elements are laid out in (VarPtr), lent to the call made with it until the caller gives it back
     // (borrowed). An element whose cell cannot be written yet (the inert one an element of an object or a Variant array starts with) is given one that can,
-    // holding its default, as an assignment to it would. A callee that is not a variable - a function, a property - is not reached into: its element is a
+    // holding its default, as an assignment to it would. A callee that is not a variable (a function, a property) is not reached into: its element is a
     // value.
     // Once the subscripts are evaluated, an element that is not bound is passed as what they select - an error, or a value - and they are not evaluated again
     // (MS-VBA evaluates them once: a subscript outside the bounds is error 9, raised by the call's argument).
