@@ -166,10 +166,16 @@
     <value>Possibly unintended constant expression; this operation does not affect the value.</value>
   </data>
   <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
-    <value>Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time.</value>
+    <value>No class the object can be of has a member &apos;{0}&apos; that this code can reach: the access raises run-time error 438 when it runs.</value>
   </data>
   <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
     <value>Option Explicit is not specified: a name that is not declared is not an error, and a variable is created where it is used. A misspelled name goes unnoticed.</value>
+  </data>
+  <data name="UndeclaredVariable_Message" xml:space="preserve">
+    <value>'{0}' is not declared: it is a variable that comes into being where it is first used. Declare it, or correct the name if it is misspelled.</value>
+  </data>
+  <data name="UndeclaredVariable_Fix" xml:space="preserve">
+    <value>Declare '{0}' As {1}, the type it has</value>
   </data>
   <data name="ObsoleteCallStatement_Message" xml:space="preserve">
     <value>The Call keyword is obsolete: the call is the same without it.</value>
@@ -513,6 +519,9 @@
   <data name="LetToADefaultMemberWithNoPropertyLet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is assigned through its default member, which has no Property Let. MS-VBA does not compile this assignment. Name the member the value is assigned to.</value>
   </data>
+  <data name="LetToAnObjectWithNoDefaultMember_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is of class &apos;{1}&apos;, which has no default member to assign the value to: run-time error 438 (91 when it is Nothing) every time this runs. Name the member the value is assigned to.</value>
+  </data>
   <data name="LetThroughAVariantGet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is a Property Get declared Variant, with no Property Let. MS-VBAL specifies error 451 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name.</value>
   </data>
@@ -521,6 +530,12 @@
   </data>
   <data name="ObjectLetToVariantProperty_Message" xml:space="preserve">
     <value>Property &apos;{0}&apos; receives the object itself, as in MS-VBA, where MS-VBAL §5.4.3.8 passes the value of its default member. Name the default member to pass its value.</value>
+  </data>
+  <data name="ObjectLetToVariantProperty_DefaultMember_Fix" xml:space="preserve">
+    <value>Pass the value of the default member '{0}'</value>
+  </data>
+  <data name="ObjectLetToVariantProperty_Set_Fix" xml:space="preserve">
+    <value>Pass the object itself, with Set</value>
   </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
@@ -539,6 +554,9 @@
   </data>
   <data name="EncapsulatePublicField_Message" xml:space="preserve">
     <value>Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value.</value>
+  </data>
+  <data name="EncapsulatePublicField_ModuleVariable_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is Public: any code of the project can assign it. A property can check the value.</value>
   </data>
   <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
     <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
@@ -585,6 +603,9 @@
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Nothing jumps to line label &apos;{0}&apos;.</value>
   </data>
+  <data name="LineLabelNotUsed_Fix" xml:space="preserve">
+    <value>Remove line label &apos;{0}&apos;</value>
+  </data>
   <data name="KeywordUsedAsMemberName_Message" xml:space="preserve">
     <value>Member &apos;{0}&apos; is named with a keyword of the language: code that uses it reads like the keyword. Give it a name that is not one.</value>
   </data>
@@ -627,6 +648,18 @@
   <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
     <value>An object is assigned to an object without Set: the value of one default member is assigned to the other&apos;s. Write Set to assign the object itself.</value>
   </data>
+  <data name="ImplicitDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Name the default member &apos;{0}&apos;</value>
+  </data>
+  <data name="IndexedDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Name the default member &apos;{0}&apos;</value>
+  </data>
+  <data name="BangNotation_Fix" xml:space="preserve">
+    <value>Name the default member &apos;{0}&apos;, passing it the name as a String</value>
+  </data>
+  <data name="SuspiciousLetAssignment_Fix" xml:space="preserve">
+    <value>Name both default members, which keeps the Let of the values</value>
+  </data>
   <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
     <value>On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on.</value>
   </data>
@@ -644,6 +677,9 @@
   </data>
   <data name="NameRefusedByMSVBA_Message" xml:space="preserve">
     <value>MS-VBA refuses &apos;{0}&apos; as the name of this declaration, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not compile the module. Give it another name to keep the module compatible with MS-VBA.</value>
+  </data>
+  <data name="NameRefusedByMSVBA_ModuleMessage" xml:space="preserve">
+    <value>MS-VBA refuses &apos;{0}&apos; as the name of a module, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not import the module. Give the module another name to keep it compatible with MS-VBA.</value>
   </data>
   <data name="LSetOfARecordWithAString_Message" xml:space="preserve">
     <value>LSet copies a record that holds a variable-length String: MS-VBAL §5.4.3.6 allows it, and MS-VBA refuses it (Compile error: Type mismatch).</value>

@@ -16,6 +16,7 @@ using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
@@ -137,6 +138,7 @@ public sealed class ReferencedClassMemberTests
             _ = symbols.TryGetModule(new UriBuilder(NavalLib.Root) { Fragment = "Widget" }.Uri, out found);
             _ = symbols.TryGetModule(new UriBuilder(AppRoot) { Fragment = "Widget" }.Uri, out ownFound);
             unknown = symbols.TryGetModule(new UriBuilder(NavalLib.Root) { Fragment = "Nowhere" }.Uri, out var none) || none is not null;
+            return Task.CompletedTask;
         });
 
         Assert.AreEqual(LibraryName, found?.GetProperty(SymbolProperties.Library));
@@ -354,6 +356,69 @@ public sealed class ReferencedClassMemberTests
         Assert.IsTrue(errors.Any(error => IsOf(error, "Program", "Plot")), string.Join("; ", errors));
     }
 
+    // MS-VBAL §5.6.12, §5.3.1.1: a late-bound access of an object of the referenced project's class may reach the members of its name the code of the
+    // access sees: a Friend member from the code of the referenced project only.
+    [TestMethod]
+    [DataRow(false, "Label", "Crate.Label Public", DisplayName = "a Public member, from the project")]
+    [DataRow(false, "Seal", "", DisplayName = "a Friend member, from the project: none, which raises 438")]
+    [DataRow(true, "Seal", "Crate.Seal Friend", DisplayName = "a Friend member, from the code of its own project")]
+    public async Task ALateBoundAccessOfAnObjectOfAReferencedProjectsClass_MayReachTheMembersItsCodeSees(bool fromItsProject, string member, string expected)
+    {
+        var crate = new Source("Crate", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Crate", "Attribute VB_Exposed = True", "Option Explicit",
+            "Public Function Label() As String", "End Function", "Friend Function Seal() As Long", "End Function"));
+        string[] body = ["    Dim o As Object", "    Dim x As Variant", "    Set o = New Crate", $"    x = o.{member}"];
+        var crates = new Source("Crates", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Crates", ["Option Explicit", "Public Sub Check()", .. body, "End Sub"]));
+        string? candidates = "none read";
+
+        var (errors, _) = await LoadAsync([], [NavalLib with { Modules = [.. Library, crate, crates] }], run: false, inspect: async provider =>
+        {
+            // the facts of the code are evaluated in the background, after the model is stored.
+            await provider.Image.Semantics.WhenAllEvaluatedAsync();
+            var model = provider.Image.Semantics.All.Single(each => SymbolUri.ModuleNameOf(each.Module) == (fromItsProject ? "Crates" : "Program"));
+            var access = model.Procedures.Single().Runtime!.Operations.OfType<MemberAccessFact>().Single();
+            candidates = access.LateBoundCandidates is { } found
+                ? string.Join(", ", found.Select(candidate => $"{candidate.Member.Fragment.TrimStart('#')} {candidate.Access}"))
+                : null;
+        }, main: fromItsProject ? [] : body);
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(expected, candidates);
+    }
+
+    // the project's class Holder has a field of a Type of the referenced project, and an object of a class of it, which a function of the referenced project
+    // makes. The Type is given a field, and the class a Class_Initialize, while the program waits after an object of Holder was made and let go of: the object
+    // of Holder the run again makes has the record as the Type now declares it, and the object made for it runs the Class_Initialize.
+    [TestMethod]
+    public async Task ATypeAndAClassOfTheReferencedProjectEditedWhileTheProgramWaits_TheObjectOfTheRunAgainHasThem()
+    {
+        static Source Geometry(params string[] fields) => new("Geometry", ModuleType.StdModule, ModuleWorkspace.StandardModule("Geometry",
+            ["Option Explicit", "Public Type Pt", .. fields, "End Type",
+                "Public Function NewGauge() As Gauge", "    Set NewGauge = New Gauge", "End Function"]));
+        static Source Gauge(params string[] body)
+            => new("Gauge", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Gauge", ["Attribute VB_Exposed = True", "Option Explicit", .. body]));
+        var holder = new Source("Holder", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Holder",
+            "Option Explicit", "Private P As Pt", "Private G As Gauge",
+            "Private Sub Class_Initialize()", "    Set G = NewGauge()", "End Sub",
+            "Public Function Size() As Long", "    Size = Len(P)", "End Function"));
+        var before = NavalLib with { Modules = [.. Library, Geometry("    X As Long"), Gauge()] };
+        var after = NavalLib with
+        {
+            Modules =
+            [
+                .. Library, Geometry("    X As Long", "    Y As Long"),
+                Gauge("Private Sub Class_Initialize()", "    Debug.Print \"gauge\"", "End Sub"),
+            ],
+        };
+
+        var (stopped, again) = await RunAgainEditedAsync([holder], before, after,
+            "Dim H As Holder", "Set H = New Holder", "Debug.Print H.Size", "Set H = Nothing", "Stop");
+
+        CollectionAssert.AreEqual(new[] { "4" }, stopped.Output.Select(line => line.Trim()).ToArray());
+        Assert.AreEqual(ExecutionOutcome.Suspended, again.Outcome, again.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "gauge", "8" }, again.Output.Select(line => line.Trim()).ToArray());
+    }
+
     // a class of the referenced project with a Friend member of each kind, Public properties whose writers are Friend, the same with Private writers, and a
     // Private member.
     private static readonly Source Crew = new("Crew", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Crew",
@@ -501,6 +566,27 @@ public sealed class ReferencedClassMemberTests
         Assert.AreNotEqual("0", refused);
     }
 
+    // a class of the referenced project is a type before any of its modules is bound, whatever their order: a function of a module listed before the class,
+    // declared as the class, returns an object of it, which the project's code assigns.
+    [TestMethod]
+    [DataRow("Gauge", false, DisplayName = "to a variable of the class")]
+    [DataRow("Object", false, DisplayName = "to an Object")]
+    [DataRow("Gauge", true, DisplayName = "to a variable of the class, from a module that declares a Type")]
+    public async Task AFunctionOfTheReferencedProject_DeclaredAsAClassListedAfterIt_ReturnsAnObjectOfIt(string declaredType, bool declaresAType)
+    {
+        string[] type = declaresAType ? ["Public Type Pt", "    X As Long", "End Type"] : [];
+        var maker = new Source("Maker", ModuleType.StdModule, ModuleWorkspace.StandardModule("Maker",
+            ["Option Explicit", .. type, "Public Function NewGauge() As Gauge", "    Set NewGauge = New Gauge", "End Function"]));
+        var gauge = new Source("Gauge", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Gauge", "Attribute VB_Exposed = True", "Option Explicit"));
+
+        var (errors, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, maker, gauge] }], run: true,
+            $"Dim G As {declaredType}", "Set G = NewGauge()", "Debug.Print TypeName(G)");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "Gauge" }, run.Output.Select(line => line.Trim()).ToArray());
+    }
+
     // an error of the module that names the name.
     private static bool IsOf(string error, string module, string name)
         => error.StartsWith($"{module}: ", StringComparison.Ordinal) && error.Contains(name, StringComparison.Ordinal);
@@ -531,10 +617,45 @@ public sealed class ReferencedClassMemberTests
     // the project's own and of the referenced projects': what stopped a module from loading, each after its module's name, and the run of Program.Main.
     private static async Task<(IReadOnlyList<string> Errors, ExecuteResult? Run)> LoadAsync(
         IReadOnlyList<Source> ownModules, IReadOnlyList<Project> references, bool run, params string[] main)
-        => await LoadAsync(ownModules, references, run, inspect: null, main);
+        => await LoadAsync(ownModules, references, run, inspect: null, whenStopped: null, main: main);
 
+    // the run of Program.Main under a debugger, as far as its Stop, and its run again once the referenced project reads as edited does: each of its
+    // modules the edit changes is defined again and has its code loaded again while the program waits, as the language server does with an edit of its
+    // document.
+    private static async Task<(ExecuteResult Stopped, ExecuteResult Again)> RunAgainEditedAsync(
+        IReadOnlyList<Source> own, Project referenced, Project edited, params string[] main)
+    {
+        ExecuteResult? stopped = null;
+        var (errors, again) = await LoadAsync(own, [referenced], run: true, inspect: null, whenStopped: async (provider, result, runAgain) =>
+        {
+            stopped = result;
+            Assert.AreEqual(ExecutionOutcome.Suspended, result.Outcome, result.ErrorMessage);
+            var edits = Composed(edited);
+            var changed = edits.Modules.Where(module => !referenced.Modules.Contains(edited.Modules.Single(source => source.Name == module.Name))).ToArray();
+            foreach (var phase in new[] { SessionDefinitionPhase.DeclareTypes, SessionDefinitionPhase.Declare, SessionDefinitionPhase.Code })
+            {
+                foreach (var module in changed)
+                {
+                    var definition = new SessionDefinition(phase, AppRoot, module, edits.Resolver, ImplicitDeclarationScope.Procedure, Replace: true, edits);
+                    if (definition.ToRequest() is { } request)
+                    {
+                        var defined = await DefineAsync(provider, request);
+                        Assert.IsFalse(defined.CodeErrors.Any(), $"{module.Name}: {string.Join("; ", defined.CodeErrors)}");
+                    }
+                }
+            }
+
+            return await runAgain().WaitAsync(TimeSpan.FromMinutes(5));
+        }, main: main);
+
+        Assert.AreEqual(0, errors.Count, string.Join("; ", errors));
+        return (stopped!, again!);
+    }
+
+    // with whenStopped, the program runs under a debugger, and the run is what whenStopped answers, given the run so far and a function that runs it again.
     private static async Task<(IReadOnlyList<string> Errors, ExecuteResult? Run)> LoadAsync(
-        IReadOnlyList<Source> ownModules, IReadOnlyList<Project> references, bool run, Action<EnvironmentSessionProvider>? inspect, params string[] main)
+        IReadOnlyList<Source> ownModules, IReadOnlyList<Project> references, bool run, Func<EnvironmentSessionProvider, Task>? inspect,
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task<ExecuteResult>>? whenStopped = null, params string[] main)
     {
         var program = ModuleWorkspace.StandardModule("Program", ["Option Explicit", "Public Sub Main()", .. main, "End Sub"]);
         Source[] own = [.. ownModules, new("Program", ModuleType.StdModule, program)];
@@ -544,13 +665,7 @@ public sealed class ReferencedClassMemberTests
             Modules = [.. own.Select(module => new RDCoreModule { RelativeUri = module.FileName })],
         });
 
-        var referenced = references.Select(reference =>
-        {
-            var modules = Parsed(reference.Root, reference.Modules);
-            var resolver = WorkspaceSymbolResolver.Compose(
-                reference.Root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(), reference.Name);
-            return new ReferencedProjectModules(reference.Name, reference.Priority, reference.Root, modules, resolver);
-        }).ToArray();
+        var referenced = references.Select(Composed).ToArray();
 
         var app = Parsed(AppRoot, own);
         var appResolver = WorkspaceSymbolResolver.Compose(
@@ -576,21 +691,38 @@ public sealed class ReferencedClassMemberTests
             errors.AddRange(defined.CodeErrors.Select(error => $"{name}: {error}"));
         }
 
-        inspect?.Invoke(provider);
+        if (inspect is not null)
+        {
+            await inspect(provider);
+        }
+
         if (!run)
         {
             return (errors, null);
         }
 
         var entry = app.Single(module => module.Name == "Program");
-        var result = await new HostExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
-            .Handle(new HostExecuteParams
-            {
-                Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
-                ModuleName = "Program",
-                EntryPoint = "Main",
-            }, CancellationToken.None);
-        return (errors, result);
+        Task<ExecuteResult> Execute()
+            => new HostExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
+                .Handle(new HostExecuteParams
+                {
+                    Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
+                    ModuleName = "Program",
+                    EntryPoint = "Main",
+                    Debug = whenStopped is not null,
+                }, CancellationToken.None);
+
+        var result = await Execute();
+        return (errors, whenStopped is null ? result : await whenStopped(provider, result, Execute));
+    }
+
+    // a referenced project's modules, parsed under its root, the names they declare bound among them.
+    private static ReferencedProjectModules Composed(Project reference)
+    {
+        var modules = Parsed(reference.Root, reference.Modules);
+        var resolver = WorkspaceSymbolResolver.Compose(
+            reference.Root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(), reference.Name);
+        return new ReferencedProjectModules(reference.Name, reference.Priority, reference.Root, modules, resolver);
     }
 
     private static ParsedModule[] Parsed(Uri root, IEnumerable<Source> modules) => [.. modules.Select(module =>

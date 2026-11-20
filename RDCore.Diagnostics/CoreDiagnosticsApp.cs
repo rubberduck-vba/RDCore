@@ -56,6 +56,7 @@ internal class CoreDiagnosticsApp(
 
         // every analyzer the extension has, which the handler calls for each document it diagnoses.
         services.AddSingleton<IModuleAnalyzer, OptionExplicitAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UndeclaredVariableAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteCallStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NotAllPathsReturnValueAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IsMissingAlwaysFalseAnalyzer>();
@@ -130,6 +131,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, DeclarationNameDivergenceAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetToADefaultMemberWithNoPropertyLetAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetThroughAVariantGetOrFunctionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, LetToAnObjectWithNoDefaultMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectLetToVariantPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
@@ -151,6 +153,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, IndexedRecursiveDefaultMemberAccessAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RecursiveBangNotationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousLetAssignmentAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnresolvedLateBoundMemberAccessAnalyzer>();
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();

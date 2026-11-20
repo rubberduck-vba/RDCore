@@ -24,7 +24,7 @@ namespace RDCore.Runtime.Execution.Frames;
 /// is written again: <see cref="TryRead"/> says so.
 /// </para>
 /// </remarks>
-internal sealed class ScalarCell : ICopyableBinding
+internal sealed class ScalarCell : ICopyableBinding, IAddressedCell
 {
     private IRuntimeValue? _boxed;
     private ScalarPayload _payload;

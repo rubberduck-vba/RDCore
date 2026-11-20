@@ -140,6 +140,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09381](vbc09381.md)|User-defined type may not be passed ByVal|A parameter of a record is declared `ByVal`|
 |[VBC09382](vbc09382.md)|Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions|A record is given to a `Variant`|
 |[VBC09383](vbc09383.md)|There is no host application to evaluate the expression|A name in brackets, such as `[A1]`, names nothing that is declared|
+|[VBC09384](vbc09384.md)|Only valid in object module|A procedure of a standard module is declared `Friend`|
+|[VBC09385](vbc09385.md)|Not a legal object name|A module is named with a keyword of the language, such as `Circle`|
 
 ### Runtime errors
 
@@ -267,6 +269,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00125](rdc00125.md)|Suspicious Let assignment|An object assigned to an object without `Set`|
 |[RDC00126](rdc00126.md)|Indexed recursive default member access|An argument list given through a default member that takes none, to the default member of what it returns|
 |[RDC00127](rdc00127.md)|Recursive bang notation|`b!key` through a default member that takes none, to the default member of what it returns|
+|[RDC00128](rdc00128.md)|Undeclared variable|A variable that no statement declares, in a module with no `Option Explicit`|
 |[RDC00201](rdc00201.md)|Integer data type declaration|An As Integer clause or a % type character|
 |[RDC00202](rdc00202.md)|Module-scope Dim declaration|A module-level variable declared with Dim|
 |[RDC00203](rdc00203.md)|Multiline parameter declaration|One parameter declared over several lines|
@@ -318,7 +321,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
 |[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
 |[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
-|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
+|[RDC01015](rdc01015.md)|Constant not used|A constant nothing refers to|
 |[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
 |[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
 |[RDC01018](rdc01018.md)|Keyword used as a member name|An Enum member or a member of a user-defined type named with a keyword|
@@ -326,6 +329,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
+|[RDC11010](rdc11010.md)|Unresolved late-bound member access|A member of an `Object` that no class it can be of has: error 438 when it runs|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String|The number is less, whatever the values|
 |[RDC11012](rdc11012.md)|Set of a call that always fails|A function whose default member has no Property Set, as the target of a Set|
 |[RDC11013](rdc11013.md)|Variant compared with a String as text|MS-VBA compares their text, where MS-VBAL specifies a type mismatch|
@@ -362,9 +366,11 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11046](rdc11046.md)|Let through a Variant property or function|RD-VBA assigns the returned object's default member, as MS-VBA does, where MS-VBAL raises 451 or 450|
 |[RDC11047](rdc11047.md)|Object assigned with Let to an object property|An object given with `Let` to a property whose value parameter is a class or `Object`: MS-VBA passes the object, MS-VBAL makes it a type mismatch|
 |[RDC11049](rdc11049.md)|Single-line If with no statement|`If x Then:` with nothing after the colon: VB6 and MS-VBA run it as an `If` that does nothing, MS-VBAL gives the line no reading|
+|[RDC11050](rdc11050.md)|Let to an object with no default member|A value assigned to an object of a class with no default member: VBA compiles it, and raises error 438 (91 for `Nothing`) every time it runs|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 |[RDC30001](rdc30001.md)|No entry point|`rdc run` or `rdc build` of a workspace with no `Sub Main`, an entry point the `.rdproj` names that nothing declares, or a library|
 |[RDC30002](rdc30002.md)|More than one entry point|`rdc run` or `rdc build` of a workspace where more than one standard module declares a `Sub Main`, and the `.rdproj` names none|
+|[RDC31001](rdc31001.md)|Circular reference of projects|A project that references itself, directly or through the projects it references|
 
 ---
 [ACCUEIL](../index.fr.md) • [HOME](../index.md) | ℹ️ [BIENVENUE](../introduction.fr.md) • [WELCOME](../introduction.md) | 🧩 [BÂTISSONS](../getting-started.fr.md) • [BUILD](../getting-started.md) | [**RD-VBAL**](../specs/rd-vbal.md) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

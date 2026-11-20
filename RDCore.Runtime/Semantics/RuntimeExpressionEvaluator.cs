@@ -371,6 +371,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         VBTypeMemberSymbol? member = null;
+        ImmutableArray<LateBoundCandidate>? candidates = null;
         if (declared is VBVariantType or VBObjectType)
         {
             flags |= MemberAccessOperationSemanticFlags.LateBound;
@@ -387,6 +388,17 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             {
                 flags |= MemberAccessOperationSemanticFlags.DefaultMember;
             }
+
+            // a member an extensible class does not declare is bound where the code runs, to a member of the object's class that has the name (MS-VBAL
+            // §5.6.12), as an Object's is. The standard library's classes are the platform's, whose objects have the members their classes declare and no
+            // other: none can answer the access, and it raises 438. A host's object can have members its library does not declare, which are not known.
+            if (member is null && memberName is not null && declared is VBClassType { Symbol: var declaredModule }
+                && (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, declaredModule) ?? declaredModule) is var extensible
+                && extensible.GetProperty(SymbolProperties.Extensible))
+            {
+                flags |= MemberAccessOperationSemanticFlags.LateBound;
+                candidates = extensible.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StandardLibrary.LibraryName ? [] : null;
+            }
         }
 
         // the error is the access's when the object it is accessed on is known, and nothing it took to access the member was assumed.
@@ -401,7 +413,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             isKnown,
             error,
             memberName ?? member?.Name,
-            flags));
+            flags)
+        {
+            LateBoundCandidates = candidates,
+        });
     }
 
     /// <summary>
@@ -3162,12 +3177,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private const int VariantSize32 = 16;
     private const int VariantSize64 = 24;
 
-    // the element's own cell, given an address of its own for as long as the call that is made with it runs - which the caller gives back (borrowed). An
-    // element whose cell cannot be written yet (the inert one an element of an object or a Variant array starts with) is given one that can, holding its
-    // default, as an assignment to it would. A callee that is not a variable - a function, a property - is not reached into: its element is a value.
+    // the element, at its address in the block the array's elements are laid out in (VarPtr), lent to the call made with it until the caller gives it back
+    // (borrowed). An element whose cell cannot be written yet (the inert one an element of an object or a Variant array starts with) is given one that can,
+    // holding its default, as an assignment to it would. A callee that is not a variable (a function, a property) is not reached into: its element is a
+    // value.
     // Once the subscripts are evaluated, an element that is not bound is passed as what they select - an error, or a value - and they are not evaluated again
     // (MS-VBA evaluates them once: a subscript outside the bounds is error 9, raised by the call's argument).
-    // atItsAddress: the element is given the address it has in the block the array's elements are laid out in (VarPtr), which lasts as long as the array.
+    // atItsAddress: the element's address is what is passed (VarPtr), and nothing is lent. An element of a fixed-size array field of a record is in the
+    // record.
     private bool TryResolveElementByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, IndexExpressionNode element, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, out RuntimeSemanticsEvaluationResult? evaluated, bool external = false, bool atItsAddress = false)
@@ -3257,7 +3274,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return true;
         }
 
-        if (!session.Storage.TryAllocate(array.ItemType.DefaultValue.Size, cell, out var address))
+        // the parameter is bound where the element is (VarPtr), as one given a variable is bound at the variable's address: what is read and written there is
+        // the element's own cell. The address is lent to the call, and the array held until the caller gives it back (borrowed).
+        if (session.Storage is not Execution.Memory.SessionStorage lender || !lender.TryLendElement(array, array.IndexOf(indices), out var address))
         {
             evaluated = array[indices] is { } value ? RuntimeSemanticsEvaluationResult.Success(value) : null;
             return false;
@@ -3343,6 +3362,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     {
         foreach (var address in borrowed)
         {
+            // an element is where it was: only the address it was lent at is given back.
+            if (session.Storage is Execution.Memory.SessionStorage storage && storage.TryGiveBackElement(address))
+            {
+                continue;
+            }
+
             if (returned && session.Storage.TryRead(address, out var passed) && passed is Execution.FixedStringArgument fixedString)
             {
                 fixedString.WriteBack(session.Symbols.Resolver);

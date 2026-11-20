@@ -224,7 +224,10 @@ the expression that has it.
 
 An expression an assignment writes to, the counter or control variable of a `For` or `For Each`, the string a `Mid` statement
 replaces a part of, and the array a `ReDim` gives its dimensions, is flagged `AssignmentTarget`; an element of an array is
-written through the array. What a statement prints is an expression like any other, evaluated and described as one.
+written through the array. A `Let` of a variable of a class or `Object` assigns the default property of its object
+([**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)), and an argument list given to an object goes to its
+default member ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)): the variable is read, and not flagged.
+What a statement prints is an expression like any other, evaluated and described as one.
 
 Facts are descriptions, not opinions: whether a late-bound member, a name written in another case or the obsolete `Call` keyword
 is worth a diagnostic is for an analyzer to say.
