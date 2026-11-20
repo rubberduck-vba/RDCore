@@ -221,6 +221,10 @@ public static class DeclarationUsage
             return models;
         }
 
+        // every module of the project is there: what the members bound to an interface member or an event refer to is said of its parameters.
+        models = BoundParameters.Stated(models, projectModules, membersOf, isLibrary);
+        inProject = [.. models.Where(model => modules.Contains(model.Module.AbsoluteUri))];
+
         var unanalyzed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var model in inProject.Where(model => !model.Procedures.All(procedure => procedure.IsFullyAnalyzed)))
         {
