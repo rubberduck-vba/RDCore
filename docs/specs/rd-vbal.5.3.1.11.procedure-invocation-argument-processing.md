@@ -260,10 +260,15 @@ A write to a `ByRef`-aliased parameter inside the callee is immediately visible 
 `CallStackFrame.ReleaseAll` never deallocates the address of a `ByRef` alias. The address belongs to its
 original allocator; the callee only borrows it.
 
-An element of an array has a cell and no address of its own: the call is given an address bound to the element's cell, which the call site gives back once
-the call is over - after every handler, for a `RaiseEvent`. What the callee assigns is what the element holds, and the array is locked for as long as the call
-runs ([**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)). An element of what a function or a property returns is a value, and is copied;
-so is an element passed to a `Declare`d procedure, which the marshaller lays out.
+An element of an array is bound where it is in the block the array's elements are laid out in, at the address
+[`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr) gives it: the parameter reads and writes the element itself. The call site lends the address to the
+call and holds the array until the call is over (after every handler, for a `RaiseEvent`). The array is locked for as long as the call runs
+([**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)). An element of what a function or a property returns is a value, and is
+copied; so is an element passed to a `Declare`d procedure, which the marshaller lays out.
+
+> [!NOTE]
+> **Not implemented.** A field of a record (`r.X`, `a(1).X`) and an element of a fixed-size array field (`r.N(2)`) are bound at an address of their own,
+> which the call site gives back once the call is over. The parameter reads and writes the field, but `VarPtr` of it is not the field's address.
 
 #### A public variable of an object
 

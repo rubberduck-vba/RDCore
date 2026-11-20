@@ -66,6 +66,54 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         return true;
     }
 
+    // the arrays an element of which is passed by reference, by the address the element was lent at: each is held, once for each call it is lent to, until
+    // the address is given back.
+    private readonly Dictionary<MemoryAddress, (SDK.Model.Values.Intrinsic.VBArrayValue Array, int Calls)> _lentElements = [];
+
+    /// <summary>
+    /// The address of the element at <paramref name="flatIndex"/> of <paramref name="array"/> (<see cref="TryAddressOfElement"/>), lent to a call the element
+    /// is passed to by reference: a parameter bound there reads and writes the element (<see cref="TryRead"/>), and the array is held until the address is
+    /// given back (<see cref="TryGiveBackElement"/>), whatever the variable that held it is assigned meanwhile.
+    /// </summary>
+    /// <param name="array">The array.</param>
+    /// <param name="flatIndex">The element's index, as <see cref="SDK.Model.Values.Intrinsic.VBArrayValue.IndexOf"/> numbers it.</param>
+    /// <param name="address">Where the element is.</param>
+    /// <returns><see langword="false"/> when there is no element at the index, or no room for the array's block.</returns>
+    public bool TryLendElement(SDK.Model.Values.Intrinsic.VBArrayValue array, int flatIndex, out MemoryAddress address)
+    {
+        if (!TryAddressOfElement(array, flatIndex, out address))
+        {
+            return false;
+        }
+
+        _lentElements[address] = (array, _lentElements.TryGetValue(address, out var lent) ? lent.Calls + 1 : 1);
+        return true;
+    }
+
+    /// <summary>
+    /// Gives back an address an element was lent at (<see cref="TryLendElement"/>): the call it was lent to is over. The element stays where it is.
+    /// </summary>
+    /// <param name="address">The address.</param>
+    /// <returns><see langword="false"/> when no element was lent at the address.</returns>
+    public bool TryGiveBackElement(MemoryAddress address)
+    {
+        if (!_lentElements.TryGetValue(address, out var lent))
+        {
+            return false;
+        }
+
+        if (lent.Calls > 1)
+        {
+            _lentElements[address] = lent with { Calls = lent.Calls - 1 };
+        }
+        else
+        {
+            _lentElements.Remove(address);
+        }
+
+        return true;
+    }
+
     // whether any was freed.
     private bool FreeBlocksOfArraysThatAreGone()
     {

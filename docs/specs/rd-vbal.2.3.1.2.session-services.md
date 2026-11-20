@@ -239,7 +239,7 @@ runs it.
 |A variable: a module's, a `Static` local, a field of an object in its own code|Its own, given when it is defined, the same for as long as it exists.|
 |A local, a parameter `ByVal`|Its own, given the first time it is asked for: for the whole activation, whatever is assigned to it.|
 |A parameter `ByRef`|The address of the variable it was given.|
-|An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)).|
+|An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)), or one of them is passed `ByRef`.|
 |A field of a record|The record's address, plus the field's offset; a fixed-size array field's elements are in the record.|
 |The result variable of a `Function` or a `Property Get`, in its own code|Its own, for the activation.|
 |What is no variable (a literal, an expression, a fixed-length `String` given to `VarPtr`)|A temporary's, until the statement is over.|
@@ -264,7 +264,7 @@ runs it.
 
 |Block|Made|Freed|
 |---|---|---|
-|An array's elements|The first time the address of an element is asked for.|When the array is gone - `ReDim`'d, assigned another, a local of an activation that returned - when a block is made and the blocks number twice as many as the last time gone ones were freed (at least 16), or when a block has no room.|
+|An array's elements|The first time the address of an element is asked for, or an element is passed `ByRef`.|When the array is gone - `ReDim`'d, assigned another, a local of an activation that returned - when a block is made and the blocks number twice as many as the last time gone ones were freed (at least 16), or when a block has no room.|
 |A `BSTR`|The first time the address of the characters is asked for, or the bytes of the `String`.|When a `String` is assigned to what holds it, or what holds it is freed; not when a pointer `POKE`d over it lets go of it.|
 |An interface|The first time its address is asked for.|When the object is destroyed.|
 |A `SAFEARRAY`|The first time its address is asked for.|A dynamic array's when it holds no array (`Erase`), a `Variant`'s when it holds another; not when a pointer `POKE`d over it lets go of it.|
