@@ -156,8 +156,9 @@ public static class DeclarationUsage
     // MS-VBAL §5.3.1.1, §5.2.1.4: a Friend procedure, and a Public variable or constant of a procedural module that is Option Private Module, are accessible
     // within the project and from nowhere else - the projects that reference it included. Every reference to one is in the code of a module of the project, and
     // it is counted over all of them once each module has a model. A procedure that was not fully analyzed refers to a declaration by writing its name
-    // (MS-VBAL §5.6.10): a declaration of a name one writes (NamesIn) is not counted, and the rest are. unanalyzedNames holds those names for each module, by
-    // the module's address; when a module has a procedure not fully analyzed and its names are not known, nothing is counted. A constant is counted once the
+    // (MS-VBAL §5.6.10): a declaration of a name such a procedure writes (NamesIn) is not counted, and the rest are. unanalyzedNames holds those names
+    // for each module, by the module's address; when a module has a procedure not fully analyzed and its names are not known, nothing is counted.
+    // A constant is counted once the
     // expressions in the declarations of each module were analyzed too (the value of another constant, the bounds of an array). A Public procedure of a
     // private module is not counted here: its name can be passed as a string to a library member that calls a procedure by its name, which a count of the
     // expressions does not see. Nor is a declaration of a name that an excluded #If branch of a module of the project writes (ExcludedBranchNames):
