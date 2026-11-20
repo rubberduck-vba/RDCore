@@ -956,7 +956,9 @@ internal sealed partial class ProcedureAnalysis
 
         if (call is not { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundVariable owner,
                 IsLateBound: false }
-            || (owner.Variable is VBPredeclaredInstanceSymbol ? DefaultInstanceSlotOf(owner, call.Member) : ObjectSlotOf(owner)) is not { } receiver)
+            || (owner.Variable is VBPredeclaredInstanceSymbol
+                ? DefaultInstanceSlotOf(owner, call.Member)
+                : ObjectSlotOf(owner, receiver: true)) is not { } receiver)
         {
             return null;
         }
@@ -1482,11 +1484,13 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
 
     // an object variable of the activation, or an object field it reaches (ProcedureAnalysis.Fields.cs): one declared As New is made when it is read
-    // (MS-VBAL §5.2.3.1.4), which is the interpreter's.
-    private int? ObjectSlotOf(BoundVariable variable)
-        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index)
-            ? slot.Index
-            : FieldSlotOf(variable) is { } field && _objectSlots.Contains(field) ? field : null;
+    // (MS-VBAL §5.2.3.1.4), which is the interpreter's. Not as the object a member is called on (receiver): compiled code makes the call only when the
+    // variable holds an object (CompiledActivation.CanCallMember), and while it holds Nothing the interpreter makes the call, and the object with it.
+    private int? ObjectSlotOf(BoundVariable variable, bool receiver = false)
+        => variable is { Slot: { } slot } && (receiver || !variable.IsAutoInstantiated) && ReferenceEquals(slot.Layout, _layout)
+            && _objectSlots.Contains(slot.Index)
+                ? slot.Index
+                : FieldSlotOf(variable, receiver) is { } field && _objectSlots.Contains(field) ? field : null;
 
     // a type whose values are object references: Object, a class or an interface.
     private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;

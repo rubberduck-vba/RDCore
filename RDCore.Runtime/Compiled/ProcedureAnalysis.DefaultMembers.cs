@@ -26,7 +26,8 @@ internal sealed partial class ProcedureAnalysis
         switch (node)
         {
             case BoundIndex { Callee: BoundVariable variable, Index: var index }
-                when ObjectSlotOf(variable) is { } slot && variable.Variable is ITypedSymbol { ResolvedType: VBClassType { Symbol: var declared } }
+                when ObjectSlotOf(variable, receiver: true) is { } slot
+                    && variable.Variable is ITypedSymbol { ResolvedType: VBClassType { Symbol: var declared } }
                     && DefaultMemberOf(declared) is ({ } member, { } resolved) && DefaultArgumentsOf(member, index) is { } arguments:
                 return (member, resolved, arguments, slot, null);
 
