@@ -774,12 +774,11 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         var arguments = ArrayPool<ScalarPayload>.Shared.Rent(parameters.Length);
-        var order = BindingOrder(given);
         try
         {
-            for (var k = 0; k < parameters.Length; k++)
+            // evaluating on payloads makes no call: the arguments are evaluated in any order, and an argument that makes one is the boxed evaluation's.
+            for (var i = 0; i < parameters.Length; i++)
             {
-                var i = order is null ? k : order[k];
                 var parameter = parameters[i];
                 // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted.
                 // any other is let-coerced to the parameter's type - an extended intermediate from its 80 bits (MS-VBAL §5.6.9.3).

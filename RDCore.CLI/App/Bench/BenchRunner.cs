@@ -562,9 +562,11 @@ internal sealed class BenchRunner(
     private async Task<BenchCase> RunCaseAsync(
         EnvironmentSessionProvider provider, string name, VBTypeMemberSymbol entryPoint, int runs, BenchWarmUp? warmUp, CancellationToken token)
     {
-        // a pipeline per run, as the host composes one per request: its cancellation is the run's.
-        Task<ExecuteResult> RunOnceAsync() => provider.Execution.RunAsync(
-            RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errorDetails, token, outside: provider.Outside), entryPoint, debug: false, token);
+        // a pipeline per run, as the host composes one per request: its cancellation is the run's. A timed run's is composed before its heap is collected
+        // and its stopwatch starts, so neither the time it takes nor what it allocates is the run's.
+        RuntimeExecutionPipeline Compose()
+            => RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errorDetails, token, outside: provider.Outside);
+        Task<ExecuteResult> RunAsync(RuntimeExecutionPipeline pipeline) => provider.Execution.RunAsync(pipeline, entryPoint, debug: false, token);
 
         var warmUpRuns = 0;
         if (warmUp is not null)
@@ -577,7 +579,7 @@ internal sealed class BenchRunner(
             while (warmUpRuns == 0 || (elapsed.Elapsed < warmUp.Limit && (warmUpRuns < warmUp.Runs || quiet.Elapsed < warmUp.Quiet)))
             {
                 token.ThrowIfCancellationRequested();
-                var result = await RunOnceAsync();
+                var result = await RunAsync(Compose());
                 warmUpRuns++;
                 if (result.Outcome is not ExecutionOutcome.Completed)
                 {
@@ -598,6 +600,7 @@ internal sealed class BenchRunner(
         for (var run = 0; run < runs; run++)
         {
             token.ThrowIfCancellationRequested();
+            var pipeline = Compose();
 
             // every run starts from a collected heap, so a collection inside it depends on what the run allocates and keeps, not on the runs and
             // cases before it.
@@ -608,7 +611,7 @@ internal sealed class BenchRunner(
             var bytes = GC.GetTotalAllocatedBytes(precise: true);
             int gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2);
             var stopwatch = Stopwatch.StartNew();
-            var result = await RunOnceAsync();
+            var result = await RunAsync(pipeline);
             stopwatch.Stop();
             var cost = new BenchRunCost(GC.GetTotalAllocatedBytes(precise: true) - bytes,
                 GC.CollectionCount(0) - gen0, GC.CollectionCount(1) - gen1, GC.CollectionCount(2) - gen2);
