@@ -36,9 +36,9 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether a member access is a member of an object compiled code reaches, declared as a class, not late-bound: of an object variable it holds, of Me, or
-    // of the object of the enclosing With block, whose expression is declared as a class. A record's field, and a member of anything else, is not. An object
-    // variable declared As New is one: what compiled code assigns of it, it assigns while the variable holds an object, and the interpreter assigns the rest,
-    // which makes the object (MS-VBAL §5.2.3.1.4).
+    // of the object of the enclosing With block, whose expression is declared as a class. A record's field, and a member of anything else, is not. A member of
+    // an object variable declared As New is one: compiled code assigns it while the variable holds an object, and while the variable holds Nothing the
+    // interpreter assigns it, which makes the object (MS-VBAL §5.2.3.1.4).
     private bool IsMemberOfAnObject(BoundNode node)
         => node is BoundMember { IsLateBound: false, Arguments: null } member && member.Owner switch
         {
