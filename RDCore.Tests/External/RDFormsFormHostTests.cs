@@ -315,6 +315,50 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a
+    // call of the first, is no answer to a call of the second, which is waiting on none; the first program's form's event is the answer to the first's
+    // call. It runs alone: a window another test shows meanwhile can take the activation, and the focus events of the second form's Text1 are no part of this.
+    [TestMethod]
+    [DoNotParallelize]
+    public void AnEventRaisedDuringACallOfAnotherProgram_IsNotTheAnswerToACall()
+    {
+        var first = Host();
+        var second = Host();
+        var mine = first.Create(VisualBasicForm());
+        var theirs = second.Create(VisualBasicForm());
+        try
+        {
+            first.Show(mine, modal: false);
+            second.Show(theirs, modal: false);
+            first.DoEvents();
+            second.DoEvents();
+            var myText = Get(first, mine, "Text1")!;
+            var theirText = Get(second, theirs, "Text1")!;
+            var myEvents = new Recorder();
+            var theirEvents = new Recorder();
+            first.Server.Advise(myText, myEvents);
+            second.Server.Advise(theirText, theirEvents);
+
+            RDFormsUI.Run(first.Server.Program, () =>
+            {
+                RDFormsAutomationServer.HandleOf(theirText).Component.Set(RDCore.Forms.Model.Properties.Text, "theirs");
+                RDFormsAutomationServer.HandleOf(myText).Component.Set(RDCore.Forms.Model.Properties.Text, "mine");
+            });
+
+            first.DoEvents();
+            second.DoEvents();
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised, $"heard: {myEvents}"),
+                "raised during its own program's call, the event is its answer");
+            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised, $"heard: {theirEvents}"),
+                "raised during another program's call, the event is no answer");
+        }
+        finally
+        {
+            first.Destroy(mine);
+            second.Destroy(theirs);
+        }
+    }
+
     // two programs in one process, whose forms share its one UI thread: as in VB6, each program has its own active form, and the second program's form taking
     // the activation and the focus raises nothing on the first's (no Deactivate, no LostFocus). It runs alone: another test's window shown meanwhile is of no
     // program of this test, and would take the activation from both.
@@ -453,7 +497,7 @@ public sealed class RDFormsFormHostTests
             // focus, as the user's click would after it.
             var control = RDFormsAutomationServer.HandleOf(text);
             var window = control.Form.Window;
-            var focused = RDFormsUI.Run(() =>
+            var focused = RDFormsUI.Run(host.Server.Program, () =>
             {
                 window.Activate();
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -503,7 +547,7 @@ public sealed class RDFormsFormHostTests
             host.Show(form, modal: false, owner);
 
             var ownerWindow = RDFormsAutomationServer.HandleOf(owner).Form.Window;
-            var actual = RDFormsUI.Run(() => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
+            var actual = RDFormsUI.Run(host.Server.Program, () => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
             Assert.AreEqual(owned, ReferenceEquals(ownerWindow, actual));
             Assert.IsTrue(owned || actual is null, "a form not owned has no owner");
         }
@@ -789,7 +833,11 @@ public sealed class RDFormsFormHostTests
     }
 
     // whether the window of a form of the host follows the application's theme, as the window says on the UI thread.
-    private static bool KeepsSystemTheme(object form) => RDFormsUI.Run(() => ((RDFormsObject)form).Form.Window.KeepSystemTheme);
+    private static bool KeepsSystemTheme(object form)
+    {
+        var hosted = ((RDFormsObject)form).Form;
+        return RDFormsUI.Run(hosted.Program, () => hosted.Window.KeepSystemTheme);
+    }
 
     // the value said before the host makes its first form is that form's window's before anything shows it, and one said after is every window's.
     [TestMethod]

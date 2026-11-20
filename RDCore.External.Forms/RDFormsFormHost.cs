@@ -60,7 +60,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
                 return;
             }
 
-            RDFormsUI.Run(() =>
+            RDFormsUI.Run(Server.Program, () =>
             {
                 _keepSystemTheme = value;
                 foreach (var hosted in Server.Forms)
@@ -89,7 +89,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
             RDFormsUI.Start(Server.Platform);
         }
 
-        return RDFormsUI.Run(() =>
+        return RDFormsUI.Run(Server.Program, () =>
         {
             // a VB6 form's code reads a control's position and size in its container's scale (twips in a Frame), and the form's own in twips; an RDForms
             // form's code reads them in pixels, as its document holds them.
@@ -141,7 +141,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     {
         var hosted = FormOf(form);
         var owning = owner is null ? null : FormOf(owner);
-        RDFormsUI.Run(() =>
+        RDFormsUI.Run(Server.Program, () =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
             if (modal)
@@ -159,7 +159,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public void Hide(object form)
     {
         var hosted = FormOf(form);
-        RDFormsUI.Run(() =>
+        RDFormsUI.Run(Server.Program, () =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
             hosted.Hide();
@@ -170,7 +170,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public bool IsShown(object form)
     {
         var hosted = FormOf(form);
-        return RDFormsUI.Run(() =>
+        return RDFormsUI.Run(Server.Program, () =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
             return hosted.Window.IsVisible;
@@ -181,7 +181,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public string GetCaption(object form)
     {
         var hosted = FormOf(form);
-        return RDFormsUI.Run(() =>
+        return RDFormsUI.Run(Server.Program, () =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
             return hosted.Model.Root.Get(Properties.Caption);
@@ -192,7 +192,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public void SetCaption(object form, string caption)
     {
         var hosted = FormOf(form);
-        RDFormsUI.Run(() =>
+        RDFormsUI.Run(Server.Program, () =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
             hosted.Model.Root.Set(Properties.Caption, caption);
@@ -205,7 +205,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public FormBounds GetBounds(object form)
     {
         var hosted = FormOf(form);
-        RDFormsUI.Run(() => RDFormsAutomationServer.Alive(hosted.Handle));
+        RDFormsUI.Run(Server.Program, () => RDFormsAutomationServer.Alive(hosted.Handle));
         throw new AutomationException(MemberNotFound, "RDForms hosts Visual Basic 6.0 forms only: a form's Left, Top, Width and Height are its own members.");
     }
 
@@ -213,7 +213,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public void SetBounds(object form, FormBounds bounds)
     {
         var hosted = FormOf(form);
-        RDFormsUI.Run(() => RDFormsAutomationServer.Alive(hosted.Handle));
+        RDFormsUI.Run(Server.Program, () => RDFormsAutomationServer.Alive(hosted.Handle));
         throw new AutomationException(MemberNotFound, "RDForms hosts Visual Basic 6.0 forms only: a form's Left, Top, Width and Height are its own members.");
     }
 
@@ -221,7 +221,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     public void Leave(object form)
     {
         var hosted = FormOf(form);
-        RDFormsUI.Run(() =>
+        RDFormsUI.Run(Server.Program, () =>
         {
             RDFormsAutomationServer.Alive(hosted.Handle);
             hosted.Hide();
@@ -255,7 +255,7 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     {
         if (Server.Forms.Count > 0)
         {
-            RDFormsUI.Run(RDFormsUI.Pump);
+            RDFormsUI.Run(Server.Program, RDFormsUI.Pump);
         }
     }
 
