@@ -368,6 +368,49 @@ public sealed class UnusedDeclarationAnalyzerTests
         CollectionAssert.AreEqual(new[] { 12 }, Lines(findings), "only the one passed through Me, whose procedure is the class's own");
     }
 
+    // a Declare'd procedure and a late-bound member are not analyzed: either may assign what it is given ByRef.
+    [TestMethod]
+    [DataRow("    Fill given", DisplayName = "a Declare'd procedure")]
+    [DataRow("    Dim target As Object\r\n    Set target = New Collection\r\n    target.Peek given", DisplayName = "a late-bound member")]
+    public async Task AVariablePassedToADeclaredOrALateBoundProcedure_IsNotReported(string call)
+        => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Private Declare PtrSafe Sub Fill Lib \"lib\" (ByRef x As Long)",
+            "Public Sub Main()",
+            "    Dim given As Long",
+            call,
+            "    Debug.Print given",
+            "End Sub"));
+
+    // the handlers of an event are not followed: one may assign what RaiseEvent gives it by reference.
+    [TestMethod]
+    public async Task AVariableRaisedByReferenceToTheHandlersOfAnEvent_IsNotReported()
+        => Assert.IsEmpty(await ClassAsync(new VariableNotAssignedAnalyzer(), "Counter",
+            "Option Explicit",
+            "Public Event Changed(ByRef value As Long)",
+            "Public Sub Main()",
+            "    Dim given As Long",
+            "    RaiseEvent Changed(given)",
+            "    Debug.Print given",
+            "End Sub"));
+
+    // the procedures of another module are not followed: the one that only reads what it is given may still be taken to assign it.
+    [TestMethod]
+    public async Task AVariablePassedToAProcedureOfAnotherModule_IsNotReported()
+    {
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim total As Long",
+            "    Helpers.Peek total",
+            "    Debug.Print total",
+            "End Sub");
+        var helpers = ModuleWorkspace.StandardModule("Helpers",
+            "Option Explicit", "Public Sub Peek(ByRef value As Long)", "    Debug.Print value", "End Sub");
+
+        Assert.IsEmpty(await ModuleOfAsync(new VariableNotAssignedAnalyzer(), "Program", program, [], [("Helpers", helpers)]));
+    }
+
     [TestMethod]
     public async Task ADynamicArray_AnObjectAsNew_AUserDefinedType_AndAReDim_AreGivenWhatTheyHoldOtherwise()
         => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
