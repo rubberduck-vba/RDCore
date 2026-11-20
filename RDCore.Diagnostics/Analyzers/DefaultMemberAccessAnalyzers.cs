@@ -123,14 +123,27 @@ internal static class DefaultMemberAccesses
     /// <param name="semantics">The host's model of the module.</param>
     /// <param name="dictionaryAccess">Whether the access is a dictionary access (<c>a!b</c>).</param>
     /// <param name="unbound">Whether the object is an <c>Object</c>, whose default member is known only at run time.</param>
-    public static IEnumerable<OperatorFactDto> ImplicitIndexedAccesses(ModuleSemanticsDto semantics, bool dictionaryAccess, bool unbound)
+    /// <param name="recursive">
+    /// Whether the access of an object of a known class goes through more than one default member: one that takes no arguments gives them to the default
+    /// member of what it returns (<see cref="MemberAccessOperationSemanticFlags.Recursive"/>). Ignored when <paramref name="unbound"/> is
+    /// <see langword="true"/>: the default member of an <c>Object</c> is known only at run time.
+    /// </param>
+    public static IEnumerable<OperatorFactDto> ImplicitIndexedAccesses(ModuleSemanticsDto semantics, bool dictionaryAccess, bool unbound, bool recursive = false)
         // a value assigned to an object (h = 5), or to an element that holds one (a(1) = 5), is an implicit access of its default member that is given no
-        // argument list: RDC00119 and RDC00120 report it.
-        => MemberAccesses(semantics).Where(access => access.MemberAccessOpSemanticFlags!.Value is var flags
-            && flags.HasFlag(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember)
-            && flags.HasFlag(MemberAccessOperationSemanticFlags.DictionaryAccess) == dictionaryAccess
-            && (dictionaryAccess || flags.HasFlag(MemberAccessOperationSemanticFlags.ArgumentList))
-            && flags.HasFlag(MemberAccessOperationSemanticFlags.LateBound) == unbound);
+        // argument list: RDC00119 and RDC00120 report it. The host states a fact at the access for each default member it goes through: those facts are
+        // read together as one access of the code, named by the first default member, whose fact carries Recursive.
+        => MemberAccesses(semantics)
+            .Where(access => access.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember))
+            .GroupBy(access => access.Location.Range)
+            .Select(facts => (
+                Access: facts.FirstOrDefault(fact => fact.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.Recursive)) ?? facts.First(),
+                Flags: facts.Aggregate(default(MemberAccessOperationSemanticFlags), (all, fact) => all | fact.MemberAccessOpSemanticFlags!.Value)))
+            .Where(each => each.Flags is var flags
+                && flags.HasFlag(MemberAccessOperationSemanticFlags.DictionaryAccess) == dictionaryAccess
+                && (dictionaryAccess || flags.HasFlag(MemberAccessOperationSemanticFlags.ArgumentList))
+                && flags.HasFlag(MemberAccessOperationSemanticFlags.LateBound) == unbound
+                && (unbound || flags.HasFlag(MemberAccessOperationSemanticFlags.Recursive) == recursive))
+            .Select(each => each.Access);
 
     /// <summary>
     /// Whether a declared type is <c>Object</c>, whose default member is known only at run time.
@@ -394,6 +407,44 @@ internal sealed class UnboundBangNotationAnalyzer : IModuleAnalyzer
                 access.Location.Range,
                 DiagnosticSeverity.Warning,
                 RDCoreDiagnosticsResources.UnboundBangNotation_Message));
+}
+
+/// <summary>
+/// <c>RDC00126</c>: an argument list given to an object of a known class whose default member takes none: it goes to the default member of the object that
+/// one returns, so more than one default member is called and none is named (<strong>MS-VBAL §5.6.13</strong>).
+/// </summary>
+internal sealed class IndexedRecursiveDefaultMemberAccessAnalyzer : IModuleAnalyzer
+{
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.IndexedRecursiveDefaultMemberAccess.ToCode()];
+
+    public AnalysisPhase Phase => AnalysisPhase.Runtime;
+
+    public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
+        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: false, unbound: false, recursive: true)
+            .Select(access => new AnalyzerFinding(
+                RDCoreDiagnosticId.IndexedRecursiveDefaultMemberAccess.ToCode(),
+                access.Location.Range,
+                DiagnosticSeverity.Information,
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.IndexedRecursiveDefaultMemberAccess_Message, access.Member ?? string.Empty)));
+}
+
+/// <summary>
+/// <c>RDC00127</c>: a dictionary access (<c>b!key</c>) of an object of a known class whose default member takes no arguments: the name goes to the default
+/// member of the object that one returns (<strong>MS-VBAL §5.6.14</strong>, <strong>§5.6.13</strong>).
+/// </summary>
+internal sealed class RecursiveBangNotationAnalyzer : IModuleAnalyzer
+{
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.RecursiveBangNotation.ToCode()];
+
+    public AnalysisPhase Phase => AnalysisPhase.Runtime;
+
+    public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
+        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: true, unbound: false, recursive: true)
+            .Select(access => new AnalyzerFinding(
+                RDCoreDiagnosticId.RecursiveBangNotation.ToCode(),
+                access.Location.Range,
+                DiagnosticSeverity.Information,
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.RecursiveBangNotation_Message, access.Member ?? string.Empty)));
 }
 
 /// <summary>

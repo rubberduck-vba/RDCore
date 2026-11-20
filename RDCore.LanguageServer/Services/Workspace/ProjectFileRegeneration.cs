@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Resources;
 using System.Text.Json;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Services.Workspace;
 
@@ -33,8 +34,8 @@ public static class ProjectFileRegeneration
         ArgumentNullException.ThrowIfNull(ask);
 
         var backup = Path.GetFileName(backupPath);
-        var question = (unreadable as JsonException ?? unreadable.InnerException as JsonException) is { LineNumber: { } line } json
-            ? Say("ProjectFile_Regenerate_Offer", projectFilePath, line + 1, ColumnOf(text, line, json.BytePositionInLine ?? 0) + 1, backup)
+        var question = (unreadable as JsonException ?? unreadable.InnerException as JsonException)?.PlaceIn(text) is { } place
+            ? Say("ProjectFile_Regenerate_Offer", projectFilePath, place.Line, place.Column, backup)
             : Say("ProjectFile_Regenerate_Offer_Unplaced", projectFilePath, backup);
         var regenerate = Say("ProjectFile_Regenerate_Choice_Regenerate");
         string? chosen;
@@ -50,43 +51,6 @@ public static class ProjectFileRegeneration
         }
 
         return chosen == regenerate;
-    }
-
-    // the characters before a position the JSON reader gives in UTF-8 bytes from the start of a line it counts from 0, lines ending at '\n' as it ends them.
-    private static long ColumnOf(string? text, long line, long bytes)
-    {
-        if (text is null)
-        {
-            return bytes;
-        }
-
-        var start = 0;
-        for (var at = 0L; at < line; at++)
-        {
-            var end = text.IndexOf('\n', start);
-            if (end < 0)
-            {
-                return bytes;
-            }
-
-            start = end + 1;
-        }
-
-        var stop = text.IndexOf('\n', start);
-        var counted = 0L;
-        var characters = 0L;
-        foreach (var rune in text.AsSpan(start, (stop < 0 ? text.Length : stop) - start).EnumerateRunes())
-        {
-            if (counted >= bytes)
-            {
-                break;
-            }
-
-            counted += rune.Utf8SequenceLength;
-            characters += rune.Utf16SequenceLength;
-        }
-
-        return characters;
     }
 
     internal static string Say(string key, params object[] arguments)

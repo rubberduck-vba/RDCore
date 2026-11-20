@@ -10,8 +10,9 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// A default member called without being named, as the host states it: an object used as a value or assigned one (<c>RDC00119</c>, <c>RDC00120</c> for an
-/// <c>Object</c>), an argument list given to an object (<c>RDC00121</c>, <c>RDC00122</c>), a dictionary access (<c>RDC00123</c>, <c>RDC00124</c>), and an
-/// object assigned to an object without <c>Set</c> (<c>RDC00125</c>).
+/// <c>Object</c>), an argument list given to an object (<c>RDC00121</c>, <c>RDC00122</c>), a dictionary access (<c>RDC00123</c>, <c>RDC00124</c>), an
+/// object assigned to an object without <c>Set</c> (<c>RDC00125</c>), and an argument list or a dictionary access that goes through more than one default
+/// member (<c>RDC00126</c>, <c>RDC00127</c>).
 /// </summary>
 [TestClass]
 public sealed class DefaultMemberAccessAnalyzerTests
@@ -77,6 +78,13 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "LetAnObjectToAByRefParameter(ByRef h As Holder)|Dim h2 As New Holder|h = h2",
         "LetAnObjectToAByValParameterOfAClassWithNoDefaultMember(ByVal p As Plain)|Dim h2 As New Holder|p = h2",
         "LetAnObjectToAByRefParameterOfAClassWithNoDefaultMember(ByRef p As Plain)|Dim h2 As New Holder|p = h2",
+        "IndexThroughTwoDefaultMembers|Dim n As Nest|Set n = New Nest|x = n(1)",
+        "IndexThroughTwoDefaultMembersOfAnAssumedObject|Dim n As New Nest|x = n(1)",
+        "IndexThroughTwoUnboundDefaultMembers|Dim v As Object|Set v = New Nest|x = v(1)",
+        "NameTheFirstOfTwoDefaultMembers|Dim n As New Nest|x = n.Inner(1)",
+        "BangThroughTwoDefaultMembers|Dim n As Nest|Set n = New Nest|x = n!key",
+        "BangThroughTwoDefaultMembersInAWith|Dim n As Nest|Set n = New Nest|With n|x = !key|End With",
+        "BangThroughTwoUnboundDefaultMembers|Dim v As Object|Set v = New Nest|x = v!key",
     ];
 
     private static string _source = string.Empty;
@@ -97,6 +105,8 @@ public sealed class DefaultMemberAccessAnalyzerTests
             "Public Property Let Item(ByVal key As Variant, ByVal v As Long)", "End Property");
         var opt = ModuleWorkspace.ClassModule("Opt", "Public Function Item(Optional ByVal key As Variant) As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Function");
         var plain = ModuleWorkspace.ClassModule("Plain", "Public Tag As Long");
+        // a default member that takes no parameters, and returns an object whose default member takes them.
+        var nest = ModuleWorkspace.ClassModule("Nest", "Public Property Get Inner() As Bag", "Attribute Inner.VB_UserMemId = 0", "Set Inner = New Bag", "End Property");
 
         var lines = new List<string> { "Option Explicit" };
         foreach (var procedure in Procedures)
@@ -111,7 +121,7 @@ public sealed class DefaultMemberAccessAnalyzerTests
         lines.AddRange(["Public Sub AssignAParameter(ByVal p As Holder)", "    p = 5", "End Sub", "Public Sub Take(ByVal n As Long)", "End Sub"]);
         var program = ModuleWorkspace.StandardModule("Program", [.. lines]);
         var payload = await ModuleWorkspace.SemanticsAsync(
-            [("Holder", holder), ("Bag", bag), ("Outer", outer), ("Box", box), ("Opt", opt), ("Plain", plain)], program);
+            [("Holder", holder), ("Bag", bag), ("Outer", outer), ("Box", box), ("Opt", opt), ("Plain", plain), ("Nest", nest)], program);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
         Assert.IsEmpty(model.Procedures.SelectMany(procedure => procedure.CompileErrors), string.Join("; ", model.Procedures.SelectMany(p => p.CompileErrors).Select(e => e.Description)));
         (_source, _model) = (program, model);
@@ -167,15 +177,15 @@ public sealed class DefaultMemberAccessAnalyzerTests
             new[]
             {
                 "IndexAnObject: b(1)", "IndexAnObjectWithAnEmptyList: op()", "AssignAnIndexedObject: bx(1)",
-                "AssignAnArgumentListToWhatAPropertyReturns: o.Boxed(1)",
+                "AssignAnArgumentListToWhatAPropertyReturns: o.Boxed(1)", "NameTheFirstOfTwoDefaultMembers: n.Inner(1)",
             },
             Findings(new IndexedDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.IndexedDefaultMemberAccess, DiagnosticSeverity.Information),
-            "read or assigned, an empty list too, and not a member named");
+            "read or assigned, an empty list too, and not a member named, nor one that goes through two default members");
 
     [TestMethod]
     public void AnArgumentListGivenToAnObject_GoesToADefaultMemberKnownOnlyAtRunTime()
         => CollectionAssert.AreEqual(
-            new[] { "IndexAnUnboundObject: v(1)", "AssignAnIndexedUnboundObject: v(1)" },
+            new[] { "IndexAnUnboundObject: v(1)", "AssignAnIndexedUnboundObject: v(1)", "IndexThroughTwoUnboundDefaultMembers: v(1)" },
             Findings(new IndexedUnboundDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.IndexedUnboundDefaultMemberAccess, DiagnosticSeverity.Warning));
 
     [TestMethod]
@@ -187,8 +197,22 @@ public sealed class DefaultMemberAccessAnalyzerTests
     [TestMethod]
     public void ABangName_GoesToADefaultMemberKnownOnlyAtRunTime()
         => CollectionAssert.AreEqual(
-            new[] { "BangAnUnboundObject: v!key" },
+            new[] { "BangAnUnboundObject: v!key", "BangThroughTwoUnboundDefaultMembers: v!key" },
             Findings(new UnboundBangNotationAnalyzer(), RDCoreDiagnosticId.UnboundBangNotation, DiagnosticSeverity.Warning));
+
+    [TestMethod]
+    public void AnArgumentListGivenToADefaultMemberThatTakesNone_GoesToTheDefaultMemberOfWhatItReturns()
+        => CollectionAssert.AreEqual(
+            new[] { "IndexThroughTwoDefaultMembers: n(1)", "IndexThroughTwoDefaultMembersOfAnAssumedObject: n(1)" },
+            Findings(new IndexedRecursiveDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.IndexedRecursiveDefaultMemberAccess, DiagnosticSeverity.Information),
+            "of a known object and of one the analysis assumes, by its class; not an Object, nor the first default member named");
+
+    [TestMethod]
+    public void ABangNameGivenToADefaultMemberThatTakesNone_GoesToTheDefaultMemberOfWhatItReturns()
+        => CollectionAssert.AreEqual(
+            new[] { "BangThroughTwoDefaultMembers: n!key", "BangThroughTwoDefaultMembersInAWith: !key" },
+            Findings(new RecursiveBangNotationAnalyzer(), RDCoreDiagnosticId.RecursiveBangNotation, DiagnosticSeverity.Information),
+            "a With block's too; not an Object");
 
     [TestMethod]
     public void AnObjectAssignedToAnObjectWithoutSet_IsSuspicious()

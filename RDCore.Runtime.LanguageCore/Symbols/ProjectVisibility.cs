@@ -29,6 +29,25 @@ public sealed class ProjectVisibility : IProjectVisibility
         return symbols.ScopeOf(handle) is { } scope ? ProjectOf(scope) : null;
     }
 
+    // MS-VBAL §5.3.1.1, §5.6.12: the members of an object of a class the code in a scope reaches, as IsVisibleFrom says: a Friend member from its own
+    // project only. A type library's class shows every project its whole interface, and code of no known project reaches all of it.
+    public static IEnumerable<VBTypeMemberSymbol> MembersSeenFrom(IEnumerable<VBTypeMemberSymbol> members, VBModuleSymbol module, LexicalScope scope)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+
+        return MembersSeenFrom(members, module, ProjectOf(scope));
+    }
+
+    // the same, from code of the project at the root: the session's code knows its project by its root (ProjectOf).
+    public static IEnumerable<VBTypeMemberSymbol> MembersSeenFrom(IEnumerable<VBTypeMemberSymbol> members, VBModuleSymbol module, Uri? originProject)
+    {
+        ArgumentNullException.ThrowIfNull(members);
+        ArgumentNullException.ThrowIfNull(module);
+
+        var ofTypeLibrary = module.GetProperty(SymbolProperties.Library) is not null && !module.GetProperty(SymbolProperties.OfSourceProject);
+        return originProject is not null && !ofTypeLibrary ? members.Where(member => Instance.IsVisibleFrom(member, module, originProject)) : members;
+    }
+
     public bool IsProjectVisible(Symbol member, VBModuleSymbol module)
     {
         ArgumentNullException.ThrowIfNull(member);

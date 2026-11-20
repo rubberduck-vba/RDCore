@@ -465,6 +465,24 @@
   <data name="NativeCallReachableOnEveryPlatform_Fix" xml:space="preserve">
     <value>Écrire l&apos;instruction Declare dans #If {0} Then</value>
   </data>
+  <data name="Win64IsABitnessTest_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; vaut 1 sur un Mac 64 bits aussi, comme dans Excel pour Mac. Testez Is64BitEnv pour un environnement 64 bits, ou Win32 And Is64BitEnv pour Windows 64 bits.</value>
+  </data>
+  <data name="Win64IsABitnessTest_Fix" xml:space="preserve">
+    <value>Tester Is64BitEnv</value>
+  </data>
+  <data name="Win64IsABitnessTest_WindowsFix" xml:space="preserve">
+    <value>Tester Win32 And Is64BitEnv</value>
+  </data>
+  <data name="UndefinedConditionalConstant_Message" xml:space="preserve">
+    <value>Rien ne définit &apos;{0}&apos; : elle vaut 0, et une condition qui la teste est False.</value>
+  </data>
+  <data name="UndefinedConditionalConstant_Retired_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est une constante prédéfinie retirée, que rien ne définit : elle vaut 0. {1} teste la même chose.</value>
+  </data>
+  <data name="UndefinedConditionalConstant_Fix" xml:space="preserve">
+    <value>Tester {0}</value>
+  </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est un module de document, où MS-VBAL dit qu&apos;une directive Implements ne peut pas figurer : MS-VBA compile &apos;Implements {1}&apos; tout de même, et RD-VBA aussi.</value>
   </data>
@@ -596,6 +614,12 @@
   </data>
   <data name="BangNotation_Message" xml:space="preserve">
     <value>Le &apos;!&apos; donne le nom, en String, à &apos;{0}&apos;, le membre par défaut de l&apos;objet.</value>
+  </data>
+  <data name="IndexedRecursiveDefaultMemberAccess_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, le membre par défaut de l&apos;objet, ne prend pas d&apos;arguments : ils vont au membre par défaut de ce qu&apos;il retourne, et le code ne nomme ni l&apos;un ni l&apos;autre.</value>
+  </data>
+  <data name="RecursiveBangNotation_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, le membre par défaut de l&apos;objet, ne prend pas d&apos;arguments : le &apos;!&apos; donne le nom, en String, au membre par défaut de ce qu&apos;il retourne.</value>
   </data>
   <data name="UnboundBangNotation_Message" xml:space="preserve">
     <value>Le &apos;!&apos; donne le nom, en String, au membre par défaut d&apos;un Object, connu seulement à l&apos;exécution : un objet qui n&apos;en a pas lève l&apos;erreur d&apos;exécution 438.</value>

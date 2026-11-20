@@ -959,9 +959,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return result;
     }
 
+    // isRecursive: the arguments went to the default member of an object a default member returned (MS-VBAL §5.6.13), and not to the first one.
     private RuntimeSemanticsEvaluationResult CallDefaultMember(
-        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression, VBObjectValue indexed)
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression, VBObjectValue indexed,
+        out bool isRecursive)
     {
+        isRecursive = false;
         if (indexed.IsNothing())
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
@@ -993,6 +996,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     expression.Location, "The default member takes no arguments, and what it returned is not an object to give them to."));
             }
 
+            isRecursive = returned.IsSuccess && held is VBObjectValue;
             return IndexValue(session, context, expression, indexExpression, returned);
         }
 
@@ -1011,7 +1015,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         if (TryResolveInvocableMember(session, context, qualified.Owner, owner, qualified.Member.IdentifierName) is not { } found)
         {
-            return (EvaluateInstanceField(session, qualified, owner, qualified.Member.IdentifierName), false);
+            return (EvaluateInstanceField(session, context, qualified, owner, qualified.Member.IdentifierName), false);
         }
 
         var returnsToBeIndexed = ReturnsToBeIndexed(found.Member, indexExpression.Arguments);
@@ -1038,7 +1042,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return TryResolveInvocableMember(session, context, memberAccess.Owner, owner, memberName) is { } found
             ? PropertyCalledByAStatement(session, memberAccess, owner, found.Member, argumentsIndexWhatItReturns: false)
                 ?? InvokeProcedure(session, context, found.Member, [], found.Receiver, call: memberAccess)
-            : EvaluateInstanceField(session, memberAccess, owner, memberName);
+            : EvaluateInstanceField(session, context, memberAccess, owner, memberName);
     }
 
     // a member of an object variable that holds no object - never set, or set to Nothing - is error 91: there is no
@@ -1099,7 +1103,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (objectValue.RuntimeValue, implementation);
         }
 
-        if (InvocableMemberOf(instance.ClassModule, memberName) is { } member)
+        if (InvocableMemberOf(session, context, instance.ClassModule, memberName) is { } member)
         {
             return (objectValue.RuntimeValue, member);
         }
@@ -1125,13 +1129,27 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && classModule.DefaultInterfaceMembers.Any(candidate => candidate is VBPropertyGetMemberSymbol
                 && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
+    // MS-VBAL §5.3.1.1, §5.6.3: the members of an object's class that the code in the scope reaches by name, as it reaches them early-bound:
+    // a Friend member from the class's own project only; from another, its name is unknown, error 438.
+    internal static IEnumerable<VBTypeMemberSymbol> InterfaceSeenFrom(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBClassModuleSymbol classModule)
+        => ProjectVisibility.MembersSeenFrom(classModule.DefaultInterfaceMembers, classModule, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
+
     // a member of a class's own interface that a read or a call invokes by name. A Property Let or Set derives from the subroutine's symbol and is not one:
     // reading the property is its Get.
     // A late-bound object's class declares nothing, and every name reaches the member of that name, which the object answers to or not when it is called.
+    private static VBTypeMemberSymbol? InvocableMemberOf(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBClassModuleSymbol classModule, string memberName)
+        => InvocableMemberOf(classModule, InterfaceSeenFrom(session, context, classModule), memberName);
+
+    // the same, of the whole interface: for an access bound early, whose name the static semantics found accessible where it is written.
     private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, string memberName)
+        => InvocableMemberOf(classModule, classModule.DefaultInterfaceMembers, memberName);
+
+    private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, IEnumerable<VBTypeMemberSymbol> members, string memberName)
         => Execution.External.Automation.LateBinding.IsLateBound(classModule)
             ? Execution.External.Automation.LateBinding.MemberOf(classModule, memberName, RDCore.External.Automation.AutomationInvocation.Get)
-            : classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            : members.FirstOrDefault(candidate =>
                 candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
                 && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
@@ -1385,7 +1403,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
         }
 
-        var candidates = actual.DefaultInterfaceMembers
+        var candidates = InterfaceSeenFrom(session, context, actual)
             .Where(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase)).ToArray();
 
         if (candidates.FirstOrDefault(candidate => isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol) is { } accessor)
@@ -1519,7 +1537,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // A late-bound Variant/Object member, and a call through a Property/Function/Sub member, are both
     // invocations, not reads - only a Field/Variable-kind member is readable this way.
-    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(IRuntimeSession session, MemberAccessExpressionNode memberAccess, VBTypedValue owner, string memberName)
+    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBTypedValue owner, string memberName)
     {
         // a UDT field is not reached through an instance the session knows about: a UDT has location identity
         // but no instance record, and its fields live on the value itself (MS-VBAL §2.1 - a UDT data value is
@@ -1547,7 +1566,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var member = instance.ClassModule.DefaultInterfaceMembers
+        var member = InterfaceSeenFrom(session, context, instance.ClassModule)
             .FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
         // an object whose class has no member of the name - late-bound, or reached through a Variant - does not support it: error 438 (MS-VBA).
@@ -1684,10 +1703,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             var unknown = RuntimeSemanticsEvaluationResult.Success(VBVariantType.TypeInfo.CreateIndeterminateValue());
 
             // what is not known is still declared: an object that is indexed is a call of its default member, whichever object it is.
-            if (Observation is not null && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBClassType or VBObjectType)
+            if (Observation is not null && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is { } declared && declared is VBClassType or VBObjectType)
             {
                 ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList
+                        | (IndexesThroughMoreThanOneDefaultMember(session, declared, indexExpression.Arguments) ? MemberAccessOperationSemanticFlags.Recursive : 0),
                     assumedBefore, unknown);
             }
 
@@ -1698,9 +1718,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (calleeValue is VBObjectValue indexed)
         {
             var assumedBefore = AssumedSoFar;
-            var called = CallDefaultMember(session, context, expression, indexExpression, indexed);
+            var called = CallDefaultMember(session, context, expression, indexExpression, indexed, out var isRecursive);
             ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList
+                    | (isRecursive ? MemberAccessOperationSemanticFlags.Recursive : 0),
                 assumedBefore, called);
             return called;
         }
@@ -1811,6 +1832,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         => callee is SimpleNameExpressionNode name
             && session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is { } variable
             && variable.GetProperty(SymbolProperties.AutoInstantiated);
+
+    // MS-VBAL §5.6.13: an object of the class it is declared as, given arguments, goes through more than one default member when its default member takes
+    // none and returns an object: of a class, or an Object. Where the object is not known, its declared class decides.
+    private static bool IndexesThroughMoreThanOneDefaultMember(IRuntimeSession session, VBType declared, ImmutableArray<ExpressionNode> arguments)
+        => declared is VBClassType declaredClass
+            && CurrentTypes.Of(session.Symbols.Resolver, declaredClass) is { DefaultMember: VBReturningMemberSymbol member }
+            && ReturnsToBeIndexed(member, arguments)
+            && member.ResolvedType is VBClassType or VBObjectType;
 
     // a Function or Property Get that declares no parameters, called with arguments: they are not its own, and index what it returns.
     private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments)
@@ -3558,16 +3587,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         IRuntimeSession session, RuntimeEvaluationContext context, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
     {
         var assumedBefore = AssumedSoFar;
-        var result = CallThroughDictionary(session, context, dictionaryAccess, dictionaryAccess, owner);
+        var result = CallThroughDictionary(session, context, dictionaryAccess, dictionaryAccess, owner, out var isRecursive);
         ObserveMemberAccess(session, context, dictionaryAccess, Tokens.DictionaryAccess, dictionaryAccess.Owner, owner, null,
-            MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.DictionaryAccess,
+            MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.DictionaryAccess
+                | (isRecursive ? MemberAccessOperationSemanticFlags.Recursive : 0),
             assumedBefore, result);
         return result;
     }
 
     private RuntimeSemanticsEvaluationResult CallThroughDictionary(
-        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner,
+        out bool isRecursive)
     {
+        isRecursive = false;
         while (owner is VBVariantValue { TypedValue: { } wrapped })
         {
             owner = wrapped;
@@ -3595,6 +3627,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var name = new LiteralExpressionNode(
             dictionaryAccess.Member.Identity, dictionaryAccess.Member.Location, new VBStringValue(dictionaryAccess.Member.IdentifierName));
+
+        // MS-VBAL §5.6.14: the access is the index expression of the owner given the name as its argument, so a default member that takes no parameters is
+        // called with none, and the name given to what it returns (§5.6.13).
+        if (ReturnsToBeIndexed(defaultMember.Member, [name]) && (dictionaryAccess.Owner ?? context.EnclosingWithTargetExpression) is { } callee)
+        {
+            var index = new IndexExpressionNode(dictionaryAccess.Identity, dictionaryAccess.Location, callee, [name]);
+            return CallDefaultMember(session, context, expression, index, objectValue, out isRecursive);
+        }
+
         return InvokeProcedure(session, context, defaultMember.Member, [name], defaultMember.Receiver, call: expression);
     }
 
