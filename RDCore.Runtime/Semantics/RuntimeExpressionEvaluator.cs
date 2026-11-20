@@ -2986,7 +2986,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // the callee assigns is not written back to (MS-VBA, observed in Excel). MS-VBAL §5.6.12 classifies it as a
             // variable, which §5.3.1.11 would pass by reference: RD-VBA does as MS-VBA does, and warns (RDC11026, RD-VBAL §5.3.1.11). Named by itself in its
             // own class it is the variable, bound below as any name is.
-            return !takesAny && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
+            return (!takesAny || external) && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
         }
 
         if (qualified is null && argument is not SimpleNameExpressionNode)
@@ -3337,8 +3337,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        // a Declare's As Any parameter is given the field where it is in the record (MS-VBA, observed in Excel: RtlMoveMemory r.A, src, 8 writes r.A and the
+        // field after it), which the cell over the field tells the call.
         IBindingHandle? cell;
-        if (fieldType is VBUserDefinedType or VBVariantType)
+        if (fieldType is VBUserDefinedType or VBVariantType || external && parameter.ResolvedType is VBUnknownType)
         {
             cell = new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
         }
