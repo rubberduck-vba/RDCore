@@ -538,8 +538,18 @@ internal sealed partial class ProcedureAnalysis
         TruthNode truth => Admits(truth.Value),
         // what a call returns, compared with Nothing or with what another returns: an object read (of a variable, a field, an element) is not known.
         ElementIsNode compared => Admits(compared.Left) && Admits(compared.Right),
+        // a String given to a call by value: its text, evaluated as the call is made, where the interpreter evaluates it, when it calls nothing. A text that
+        // calls, and a String variable given by reference, which the call may change before the expression reads it where compiled code does not see a
+        // read of it (ReadAndPassed), are the interpreter's.
+        TextArgumentNode { Value: var text } => CallsNothing(text),
         _ => false,
     };
+
+    private static bool CallsNothing(TextNode text)
+    {
+        var calls = false;
+        return Admits(text, ref calls) && !calls;
+    }
 
     private static bool Admits(ObjectOperand? operand) => operand switch
     {

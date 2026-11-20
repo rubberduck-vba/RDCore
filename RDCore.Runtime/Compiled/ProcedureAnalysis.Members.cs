@@ -153,10 +153,11 @@ internal sealed partial class ProcedureAnalysis
     // the parameter's range, which is an error the interpreter raises (PayloadOperations.Convert): a value of that kind; an integer or a Boolean, to any
     // kind (a LongLong to a Single excepted); a Single or a Double, to a Single, a Double, a Boolean or an integer type, which it rounds as the interpreter
     // does (MS-VBAL §5.5.1.2.1). What it would decline (a Currency, a Variant, a Date) it hands the interpreter to assign, as any member's (MemberLetStep).
-    // An object parameter's value is Set-coerced, and declines nothing.
+    // An object parameter's value is Set-coerced, and declines nothing. A String parameter of variable length is given the value's text, which compiled code
+    // evaluates (TextArgumentNode) or leaves the assignment to the interpreter.
     private bool ConvertsWithoutDeclining(ExpressionNode value, VBParameterSymbol parameter)
     {
-        if (IsObjectType(parameter.ResolvedType))
+        if (IsObjectType(parameter.ResolvedType) || IsText(parameter.ResolvedType))
         {
             return true;
         }
