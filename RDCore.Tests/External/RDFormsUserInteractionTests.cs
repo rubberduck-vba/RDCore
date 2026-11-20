@@ -5,6 +5,7 @@ using RDCore.External.Forms;
 using RDCore.External.Forms.RDForms;
 using RDCore.External.Interaction;
 using RDCore.Forms.Avalonia.Dialogs;
+using RDCore.Forms.Avalonia.Rendering;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Workspace.Forms;
@@ -29,6 +30,9 @@ public sealed class RDFormsUserInteractionTests
 
     private static RDFormsFormHost Host() => new(new RDFormsAutomationServer(RDFormsPlatform.Headless));
 
+    // the program the test's own calls on the UI thread are made for: no form's program, so they answer none of the forms' events.
+    private static readonly RDFormsProgram TheTest = new();
+
     // a prompt no other test's dialog shows: what tells a test's dialog from the others that open meanwhile.
     private static string Prompt() => $"Sure? {Guid.NewGuid():N}";
 
@@ -37,7 +41,7 @@ public sealed class RDFormsUserInteractionTests
     private static Opened WhenOpen<TDialog>(string prompt, Action<TDialog> answer) where TDialog : Window
     {
         RDFormsUI.Start(RDFormsPlatform.Headless);
-        return new Opened(RDFormsUI.Run(() => Window.WindowOpenedEvent.AddClassHandler<TDialog>((dialog, _) =>
+        return new Opened(RDFormsUI.Run(TheTest, () => Window.WindowOpenedEvent.AddClassHandler<TDialog>((dialog, _) =>
         {
             if (PromptOf(dialog) == prompt)
             {
@@ -48,7 +52,7 @@ public sealed class RDFormsUserInteractionTests
 
     private sealed class Opened(IDisposable handler) : IDisposable
     {
-        public void Dispose() => RDFormsUI.Run(handler.Dispose);
+        public void Dispose() => RDFormsUI.Run(TheTest, handler.Dispose);
     }
 
     private static string? PromptOf(Window dialog) => dialog switch
@@ -162,7 +166,7 @@ public sealed class RDFormsUserInteractionTests
 
         Assert.ThrowsExactly<OperationCanceledException>(
             () => new RDFormsUserInteraction(Host()).ShowMessage(new MessageBoxRequest(prompt, "T", style), stop.Token));
-        Assert.IsFalse(RDFormsUI.Run(() => shown!.IsVisible));
+        Assert.IsFalse(RDFormsUI.Run(TheTest, () => shown!.IsVisible));
     }
 
     [TestMethod]
@@ -178,7 +182,7 @@ public sealed class RDFormsUserInteractionTests
         });
 
         Assert.ThrowsExactly<OperationCanceledException>(() => new RDFormsUserInteraction(Host()).Prompt(new InputBoxRequest(prompt, "T"), stop.Token));
-        Assert.IsFalse(RDFormsUI.Run(() => shown!.IsVisible));
+        Assert.IsFalse(RDFormsUI.Run(TheTest, () => shown!.IsVisible));
         Assert.IsNull(shown!.Result);
     }
 
@@ -208,7 +212,7 @@ public sealed class RDFormsUserInteractionTests
             host.Show(active, modal: false);
             var owning = RDFormsAutomationServer.HandleOf(active).Form.Window;
             var waiting = RDFormsAutomationServer.HandleOf(other).Form.Window;
-            RDFormsUI.Run(() =>
+            RDFormsUI.Run(host.Server.Program, () =>
             {
                 owning.Activate();
                 Dispatcher.UIThread.RunJobs();
@@ -226,7 +230,7 @@ public sealed class RDFormsUserInteractionTests
 
             Assert.AreSame(owning, seen?.Owner, "the active form owns the dialog");
             Assert.IsFalse(seen?.OtherEnabled, "the other form waits while the dialog is open");
-            Assert.IsTrue(RDFormsUI.Run(() => waiting.IsEnabled), "the other form no longer waits once the dialog is closed");
+            Assert.IsTrue(RDFormsUI.Run(host.Server.Program, () => waiting.IsEnabled), "the other form no longer waits once the dialog is closed");
         }
         finally
         {
