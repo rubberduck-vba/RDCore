@@ -11,7 +11,7 @@ using System.IO.Abstractions;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// <c>RDC11051</c>: a member access on an object declared as a class of a referenced library that the class does not declare (MS-VBAL §5.6.12): the
+/// <c>RDC11053</c>: a member access on an object declared as a class of a referenced library that the class does not declare (MS-VBAL §5.6.12): the
 /// access is bound when the code runs, and the host's object may have the member. Reported at Warning severity, from the access the host states
 /// <c>NotOnDeclaredInterface</c>; a class of the VBA library is <c>RDC11010</c>'s.
 /// </summary>

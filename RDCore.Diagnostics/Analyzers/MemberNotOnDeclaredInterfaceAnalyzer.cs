@@ -12,7 +12,7 @@ using RDCore.SDK.Semantics.Flags;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC11051</c>: a member access on an object declared as a class of a referenced library that the class does not declare (<strong>MS-VBAL
+/// <c>RDC11053</c>: a member access on an object declared as a class of a referenced library that the class does not declare (<strong>MS-VBAL
 /// §5.6.12</strong>): the library's class is extensible, so the code compiles, and the member is looked up on the object when the code runs.
 /// </summary>
 /// <remarks>
