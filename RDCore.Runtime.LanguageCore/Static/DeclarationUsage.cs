@@ -113,7 +113,14 @@ public static class DeclarationUsage
     public static ByRefArguments ArgumentsOf(IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, ArgumentParameters arguments)
     {
         var models = procedures.ToList();
-        var parameters = declared.OfType<VBParameterSymbol>().Select(parameter => parameter.SemanticId).ToHashSet();
+        // a Declare'd procedure has no body of the module's: what its library does with a parameter is not known, and an argument given to one may be
+        // assigned.
+        var bodiless = declared.OfType<VBTypeMemberSymbol>()
+            .Where(member => member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol)
+            .SelectMany(member => DeclarationStaticSemanticsEvaluator.ParametersOf(member))
+            .Select(parameter => parameter.SemanticId)
+            .ToHashSet();
+        var parameters = declared.OfType<VBParameterSymbol>().Select(parameter => parameter.SemanticId).Where(id => !bodiless.Contains(id)).ToHashSet();
         var bound = Bound(models.SelectMany(procedure => procedure.Expressions.Values)).ToList();
         var given = models.SelectMany(procedure => procedure.Arguments)
             .Where(argument => argument is { IsExternal: false, IsLibrary: false, IsParamArray: false })
