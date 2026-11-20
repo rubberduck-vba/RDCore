@@ -215,6 +215,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             UndefinedConditionalConstants = PrecompilerLiveBranchEvaluator.UndefinedConstantsOf(session, parseResult.PrecompilerTrivia),
             ProjectConditionalConstants = ProjectConditionalConstants.FactsOf(session),
             Win64OnlySetOnWindows = session.Environment.Win64OnlySetOnWindows,
+            Expressions = (declarationFacts ?? ModuleDeclarationFacts.None).Expressions,
         };
 
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by
