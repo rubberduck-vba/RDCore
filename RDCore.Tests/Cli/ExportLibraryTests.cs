@@ -249,6 +249,39 @@ public sealed class ExportLibraryTests
         Assert.HasCount(others.Count + 1, files.Directory.GetFiles(@"c:\out"), "one file of the library exported");
     }
 
+    // the file of the library exported before, with what a type library cannot state: Dictionary's Item stands for other members, and Count is design-time
+    // only (neither is true of Scripting: the export is told so, to see it kept).
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task AnExportThatReplacesTheFileOfItsLibrary_KeepsWhatTheFileStatesThatATypeLibraryCannot()
+    {
+        var before = Export();
+        var stated = before with
+        {
+            Classes = [.. before.Classes.Select(declared => declared.Name != "Dictionary" ? declared : declared with
+            {
+                Members = [.. declared.Members.Select(member => member switch
+                {
+                    { Name: "Item", Kind: MemberKind.PropertyGet } => member with { WrittenAs = new("Item", "Count") },
+                    { Name: "Count" } => member with { IsDesignTimeOnly = true },
+                    _ => member,
+                })],
+            })],
+        };
+        var files = new MockFileSystem();
+        files.AddDirectory(@"c:\out");
+        files.AddFile(@"c:\out\Scripting.json", new MockFileData(LibraryJson.Write(stated)));
+
+        var command = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files);
+        var exit = await command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit);
+        var dictionary = LibraryJson.Read(files.File.ReadAllText(@"c:\out\Scripting.json")).Classes.Single(declared => declared.Name == "Dictionary");
+        var item = dictionary.Members.Single(member => member is { Name: "Item", Kind: MemberKind.PropertyGet });
+        Assert.AreEqual(new RDCore.SDK.Semantics.DefaultMemberNames("Item", "Count"), item.WrittenAs);
+        Assert.IsTrue(dictionary.Members.Single(member => member.Name == "Count").IsDesignTimeOnly);
+    }
+
     // stdole2.tlb's StdFunctions: two functions, LoadPicture's optional parameters with the defaults the library gives them.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]

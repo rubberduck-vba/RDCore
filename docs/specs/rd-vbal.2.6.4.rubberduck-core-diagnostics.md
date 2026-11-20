@@ -206,6 +206,11 @@ class `Child` returns, `t(1)` goes through `Child` and `Item`, and is `t.Child()
 class that is not known is on the way, when the arguments index an array a member returns, or when a default member returns a class the chain already
 went through.
 
+A hidden default member of a library's class can stand for other members, which the library's file states and its type library cannot: Excel's
+`Range._Default` is `Item` given arguments (`r(1)` is `r.Item(1)`) and `Value` given none (`x = r` is `x = r.Value`). Its fact carries them
+(`DefaultMemberFact.WrittenAs`), on an expression of the class (`ExpressionFact.DefaultMember`) and in the default members an access goes through, so a code
+fix writes the members the code can name. `rdc export-library` keeps them, as it keeps the members that are design-time only, from the file it replaces.
+
 ## Language Core Conditions and Analyzer Opinions
 
 The `VBC`, `VBR` and `VBA` diagnostic families describe conditions the language core defines. `RDC` diagnostics are opinions of the analyzer.
