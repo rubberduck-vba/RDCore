@@ -130,8 +130,8 @@ public sealed class ProjectReferenceCountTests
     [TestMethod]
     public async Task APublicVariableOfAPrivateModule_IsCountedAcrossTheProject()
     {
-        var model = await ModelOfAsync("Shared", Program("Public Sub Main()", "Total = 1", "Debug.Print Total", "End Sub"),
-            modules: [("Shared", ModuleWorkspace.StandardModule("Shared", "Option Private Module", "Public Total As Long", "Public Unread As Long"))]);
+        var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Total = 1", "Debug.Print Total", "End Sub"),
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Option Private Module", "Public Total As Long", "Public Unread As Long"))]);
 
         Assert.AreEqual(new DeclarationReferences(1, 1, 0), Declaration(model, "Total").References);
         Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unread").References);
@@ -140,9 +140,9 @@ public sealed class ProjectReferenceCountTests
     [TestMethod]
     public async Task APublicConstantOfAPrivateModule_IsCountedAcrossTheProject_InTheCodeAndTheDeclarationsOfEachModule()
     {
-        var model = await ModelOfAsync("Shared",
+        var model = await ModelOfAsync("Common",
             Program("Private Const Ceiling As Long = Limit + 1", "Public Sub Main()", "Debug.Print Limit, Ceiling", "End Sub"),
-            modules: [("Shared", ModuleWorkspace.StandardModule("Shared", "Option Private Module",
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Option Private Module",
                 "Public Const Limit As Long = 10", "Public Const Twice As Long = Limit * 2", "Public Const Unread As Long = 1"))]);
         var limit = Declaration(model, "Limit");
 
@@ -155,8 +155,8 @@ public sealed class ProjectReferenceCountTests
     [TestMethod]
     public async Task APublicConstantOfAPublicModule_HasNoCount_TheProjectsThatReferenceThisOneCanReferToIt()
     {
-        var model = await ModelOfAsync("Shared", Program("Public Sub Main()", "Debug.Print Limit", "End Sub"),
-            modules: [("Shared", ModuleWorkspace.StandardModule("Shared", "Public Const Limit As Long = 10"))]);
+        var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Debug.Print Limit", "End Sub"),
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Public Const Limit As Long = 10"))]);
 
         Assert.IsNull(Declaration(model, "Limit").References);
     }
@@ -164,8 +164,8 @@ public sealed class ProjectReferenceCountTests
     [TestMethod]
     public async Task APublicVariableOfAPublicModule_HasNoCount_TheProjectsThatReferenceThisOneCanReferToIt()
     {
-        var model = await ModelOfAsync("Shared", Program("Public Sub Main()", "Total = 1", "End Sub"),
-            modules: [("Shared", ModuleWorkspace.StandardModule("Shared", "Public Total As Long"))]);
+        var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Total = 1", "End Sub"),
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Public Total As Long"))]);
 
         Assert.IsNull(Declaration(model, "Total").References);
         Assert.IsNull(Declaration(model, "Total").ReferencedFrom);
@@ -174,8 +174,8 @@ public sealed class ProjectReferenceCountTests
     [TestMethod]
     public async Task APublicProcedureOfAPrivateModule_HasNoCount_AStringCanNameIt()
     {
-        var model = await ModelOfAsync("Shared", Program("Public Sub Main()", "Helper", "End Sub"),
-            modules: [("Shared", ModuleWorkspace.StandardModule("Shared", "Option Private Module", "Public Sub Helper()", "End Sub"))]);
+        var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Helper", "End Sub"),
+            modules: [("Common", ModuleWorkspace.StandardModule("Common", "Option Private Module", "Public Sub Helper()", "End Sub"))]);
 
         Assert.IsNull(Declaration(model, "Helper").References);
     }
