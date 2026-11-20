@@ -151,6 +151,35 @@ public sealed class SyntaxErrorWordingTests
         }
     }
 
+    // MS-VBAL §3.3.5.2: `Circle` is a special-form, a reserved identifier, which a type is not named with. `As Circle` is refused as MS-VBA refuses it
+    // (observed in Excel), whatever the project declares: MS-VBA renames a class module named Circle when it imports it, and RD-VBA refuses one
+    // (ModuleNameCompileErrorTests).
+    [TestMethod]
+    [DataRow("Public Sub S()\r\nDim C As Circle\r\nEnd Sub", "Syntax error", 1, 0, 15, DisplayName = "a variable of a procedure")]
+    [DataRow("Public Sub S(ByVal C As Circle)\r\nEnd Sub", "Expected: type name", 0, 24, 30, DisplayName = "a parameter of the first procedure")]
+    public void ATypeNamedCircle_IsRefused(string source, string message, int line, int start, int end)
+    {
+        foreach (var parser in new[] { new ModuleParser(), new ModuleParser { ForceSegments = true } })
+        {
+            var parse = parser.Parse(TestUri.TestModuleUri(), $"{source}\r\n");
+            var error = parse.SyntaxErrors.OrderBy(error => error.Location.Range.Start).First();
+
+            Assert.AreEqual(message, error.Verbose);
+            Assert.AreEqual(new SourceRange(new SourcePosition(line, start), new SourcePosition(line, end)), error.Location.Range);
+        }
+    }
+
+    [TestMethod]
+    public void ATypeNamedCircle2_IsATypeName()
+    {
+        foreach (var parser in new[] { new ModuleParser(), new ModuleParser { ForceSegments = true } })
+        {
+            var parse = parser.Parse(TestUri.TestModuleUri(), "Public Sub S(ByVal C As Circle2)\r\nDim D As Circle2\r\nEnd Sub\r\n");
+
+            Assert.IsEmpty(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(error => error.Verbose)));
+        }
+    }
+
     [TestMethod]
     [DataRow("en-US", "Syntax error", "Expected: identifier")]
     [DataRow("fr-CA", "Erreur de syntaxe", "Attendu : identificateur")]
