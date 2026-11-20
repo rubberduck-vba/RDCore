@@ -166,7 +166,7 @@
     <value>Possibly unintended constant expression; this operation does not affect the value.</value>
   </data>
   <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
-    <value>Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time.</value>
+    <value>No class the object can be of has a member &apos;{0}&apos; that this code can reach: the access raises run-time error 438 when it runs.</value>
   </data>
   <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
     <value>Option Explicit is not specified: a name that is not declared is not an error, and a variable is created where it is used. A misspelled name goes unnoticed.</value>

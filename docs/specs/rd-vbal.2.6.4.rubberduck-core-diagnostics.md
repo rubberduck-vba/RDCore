@@ -112,6 +112,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC01020`](../diagnostics/rdc01020.md)|Undefined conditional constant|Hint|`ModuleSemanticModel.UndefinedConditionalConstants`: the names the host found no constant for, the project's and the command line's considered|
 |[`RDC11005`](../diagnostics/rdc11005.md)|Bitwise operator|Hint|`ProcedureSemanticModel.Runtime`: `LogicalOperatorSemanticFlags.IsBitwiseSemantics` of the `LogicalOperatorFact`s|
 |[`RDC11006`](../diagnostics/rdc11006.md)|Ambiguous concatenation|Information|`ProcedureSemanticModel.Runtime`: `ArithmeticOperatorSemanticFlags.VBStringEffectiveType` of the `ArithmeticOperatorFact`s of `+`|
+|[`RDC11010`](../diagnostics/rdc11010.md)|Unresolved late-bound member access|Warning|`ProcedureSemanticModel.Runtime`: a `MemberAccessFact` with `MemberAccessOperationSemanticFlags.LateBound`, an empty `LateBoundCandidates` and no `Error`; once per access|
 |[`RDC11011`](../diagnostics/rdc11011.md)|Variant number compared with a Variant String|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantStringNumericException` of the `ComparisonOperatorFact`s|
 |[`RDC11012`](../diagnostics/rdc11012.md)|Set of a call that always fails|Error|the syntax tree's `Set` statements: a target that calls a function, or a property with a `Property Get` and no `Property Set` (`ExpressionFact.Accessors`), outside its own body, whose `TypeKind` is `Class`, not an array, of a class whose default member has no `Property Set` (`ExpressionFact.DefaultMember`); on a line where `ProcedureSemanticModel.Runtime` does not already report the error 438|
 |[`RDC11013`](../diagnostics/rdc11013.md)|Variant compared with a String as text|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText` of the `ComparisonOperatorFact`s|
@@ -179,6 +180,13 @@ state of the standard library or of the outside world (files, `Rnd`, `CreateObje
 target). `Dim c As Collection: c.Add 1` raises error 91 when it runs, but the sweep does not follow paths and cannot tell that nothing set `c`, so it says nothing.
 The bounds of a fixed-size array are not assumed: they are its declaration's, whatever it holds. `Dim a(5) As Long: a(6) = 1` is error 9 whenever it runs, and
 is stated; what an element holds is assumed, so `x = 1 \ a(1)` says nothing.
+
+A late-bound member access (`MemberAccessOperationSemanticFlags.LateBound`) states its `LateBoundCandidates`: each member of its name of a class its object may
+be of, with its access modifier, as the code of the access sees it (a `Friend` member is its own project's). The classes are those of the objects the module's
+`Set` statements give the variable, when nothing else can assign it: a local, or a `Private` variable of the module, that no `For Each` or call by reference
+assigns. An empty list means the access raises error 438. The candidates are not known for a parameter, a public variable, a variable that is never given an
+object, an object of a class that another class implements, or an extensible class that does not declare the member.
+
 `MemberAccessOperationSemanticFlags.CallByNameAccess` is not stated yet: a `CallByName` call is a call of the library, which the sweep does not look into.
 
 ## Language Core Conditions and Analyzer Opinions

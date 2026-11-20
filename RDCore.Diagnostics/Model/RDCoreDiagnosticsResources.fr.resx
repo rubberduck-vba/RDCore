@@ -166,7 +166,7 @@
     <value>Expression constante possiblement non-intentionnelle; cette opération n'affecte pas la valeur.</value>
   </data>
   <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
-    <value>Appel à liaison tardive non résolu : il semble que cet appel pourrait soulever l'erreur d'exécution 438 (VBR00438).</value>
+    <value>Aucune des classes que l&apos;objet peut avoir n&apos;a de membre &apos;{0}&apos; que ce code peut atteindre : l&apos;accès soulève l&apos;erreur d&apos;exécution 438 quand il s&apos;exécute.</value>
   </data>
   <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
     <value>Option Explicit n'est pas spécifiée; un nom non déclaré n'est pas une erreur, et une variable est créée où il est utilisé. Un nom mal écrit passe inaperçu.</value>

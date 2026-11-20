@@ -153,6 +153,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, IndexedRecursiveDefaultMemberAccessAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RecursiveBangNotationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousLetAssignmentAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnresolvedLateBoundMemberAccessAnalyzer>();
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();

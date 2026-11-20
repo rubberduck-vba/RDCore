@@ -16,6 +16,7 @@ using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
@@ -137,6 +138,7 @@ public sealed class ReferencedClassMemberTests
             _ = symbols.TryGetModule(new UriBuilder(NavalLib.Root) { Fragment = "Widget" }.Uri, out found);
             _ = symbols.TryGetModule(new UriBuilder(AppRoot) { Fragment = "Widget" }.Uri, out ownFound);
             unknown = symbols.TryGetModule(new UriBuilder(NavalLib.Root) { Fragment = "Nowhere" }.Uri, out var none) || none is not null;
+            return Task.CompletedTask;
         });
 
         Assert.AreEqual(LibraryName, found?.GetProperty(SymbolProperties.Library));
@@ -354,6 +356,36 @@ public sealed class ReferencedClassMemberTests
         Assert.IsTrue(errors.Any(error => IsOf(error, "Program", "Plot")), string.Join("; ", errors));
     }
 
+    // MS-VBAL §5.6.12, §5.3.1.1: a late-bound access of an object of the referenced project's class may reach the members of its name the code of the
+    // access sees: a Friend member from the code of the referenced project only.
+    [TestMethod]
+    [DataRow(false, "Label", "Crate.Label Public", DisplayName = "a Public member, from the project")]
+    [DataRow(false, "Seal", "", DisplayName = "a Friend member, from the project: none, which raises 438")]
+    [DataRow(true, "Seal", "Crate.Seal Friend", DisplayName = "a Friend member, from the code of its own project")]
+    public async Task ALateBoundAccessOfAnObjectOfAReferencedProjectsClass_MayReachTheMembersItsCodeSees(bool fromItsProject, string member, string expected)
+    {
+        var crate = new Source("Crate", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Crate", "Attribute VB_Exposed = True", "Option Explicit",
+            "Public Function Label() As String", "End Function", "Friend Function Seal() As Long", "End Function"));
+        string[] body = ["    Dim o As Object", "    Dim x As Variant", "    Set o = New Crate", $"    x = o.{member}"];
+        var crates = new Source("Crates", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Crates", ["Option Explicit", "Public Sub Check()", .. body, "End Sub"]));
+        string? candidates = "none read";
+
+        var (errors, _) = await LoadAsync([], [NavalLib with { Modules = [.. Library, crate, crates] }], run: false, inspect: async provider =>
+        {
+            // the facts of the code are evaluated in the background, after the model is stored.
+            await provider.Image.Semantics.WhenAllEvaluatedAsync();
+            var model = provider.Image.Semantics.All.Single(each => SymbolUri.ModuleNameOf(each.Module) == (fromItsProject ? "Crates" : "Program"));
+            var access = model.Procedures.Single().Runtime!.Operations.OfType<MemberAccessFact>().Single();
+            candidates = access.LateBoundCandidates is { } found
+                ? string.Join(", ", found.Select(candidate => $"{candidate.Member.Fragment.TrimStart('#')} {candidate.Access}"))
+                : null;
+        }, fromItsProject ? [] : body);
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(expected, candidates);
+    }
+
     // a class of the referenced project with a Friend member of each kind, Public properties whose writers are Friend, the same with Private writers, and a
     // Private member.
     private static readonly Source Crew = new("Crew", ModuleType.ClassModule, ModuleWorkspace.ClassModule("Crew",
@@ -534,7 +566,8 @@ public sealed class ReferencedClassMemberTests
         => await LoadAsync(ownModules, references, run, inspect: null, main);
 
     private static async Task<(IReadOnlyList<string> Errors, ExecuteResult? Run)> LoadAsync(
-        IReadOnlyList<Source> ownModules, IReadOnlyList<Project> references, bool run, Action<EnvironmentSessionProvider>? inspect, params string[] main)
+        IReadOnlyList<Source> ownModules, IReadOnlyList<Project> references, bool run, Func<EnvironmentSessionProvider, Task>? inspect,
+        params string[] main)
     {
         var program = ModuleWorkspace.StandardModule("Program", ["Option Explicit", "Public Sub Main()", .. main, "End Sub"]);
         Source[] own = [.. ownModules, new("Program", ModuleType.StdModule, program)];
@@ -576,7 +609,11 @@ public sealed class ReferencedClassMemberTests
             errors.AddRange(defined.CodeErrors.Select(error => $"{name}: {error}"));
         }
 
-        inspect?.Invoke(provider);
+        if (inspect is not null)
+        {
+            await inspect(provider);
+        }
+
         if (!run)
         {
             return (errors, null);

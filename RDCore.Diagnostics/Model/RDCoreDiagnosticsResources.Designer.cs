@@ -945,7 +945,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time..
+        ///   Looks up a localized string similar to No class the object can be of has a member &apos;{0}&apos; that this code can reach: the access raises run-time error 438 when it runs..
         /// </summary>
         public static string UnresolvedLateBoundMemberAccess_Message {
             get {
