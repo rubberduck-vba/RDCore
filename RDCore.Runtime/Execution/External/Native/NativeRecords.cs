@@ -45,8 +45,9 @@ internal static class NativeRecords
         => TryDescribe(value, pointerWidth, null, out record, out takeBack);
 
     /// <summary>
-    /// Describes the copy of the record a field of which is the argument of an <c>As Any</c> parameter, as MS-VBA passes it: the record where it is in
-    /// memory, and the address of the field given - so a function that writes past the field (<c>RtlMoveMemory r.A, …, 8</c>) writes the fields after it too.
+    /// Describes the copy of a record passed for one of its fields given to an <c>As Any</c> parameter. MS-VBA passes the record where it is in memory,
+    /// at the address of the field, so a function that writes past the field (<c>RtlMoveMemory r.A, …, 8</c>) writes the fields after it too. The copy
+    /// is laid out as the record is, the function is given the field's address in it, and <paramref name="takeBack"/> writes what it left to the fields.
     /// </summary>
     /// <param name="value">The record whose field is given, whose fields are written to.</param>
     /// <param name="field">The field's position in declaration order.</param>
@@ -54,7 +55,7 @@ internal static class NativeRecords
     /// <param name="record">The copy, as it is passed.</param>
     /// <param name="offset">How many bytes from the start of the copy the field is: the address the function is given.</param>
     /// <param name="takeBack">Takes back what the function left in each field, in the order of the copy's fields.</param>
-    /// <returns><see langword="false"/> when the type holds a field that cannot be passed yet, or the field is laid out as nothing.</returns>
+    /// <returns><see langword="false"/> when the type holds a field that cannot be passed, or the field is laid out as nothing.</returns>
     public static bool TryDescribeField(VBUserDefinedTypeValue value, int field, int pointerWidth, out NativeRecord record, out int offset,
         out Action<ExternalValue> takeBack)
     {

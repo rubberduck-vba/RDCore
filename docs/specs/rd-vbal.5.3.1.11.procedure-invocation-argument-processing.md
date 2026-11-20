@@ -327,6 +327,10 @@ a field of it holds the field's record itself. With `r` a `TOuter`, `t` an array
 
 RD-VBA writes `r.V` too, as it writes `.V` in `With r`.
 
+A field of a record, or an element of a fixed-size array field, given to an `As Any` parameter of a `Declare`d procedure is passed where it is in the
+record, named in full or through a `With` block, as MS-VBA passes it (observed in Excel): the function is given the field's address, and what it writes
+past the field is in the fields after it. With `A` and `X` two `Long` fields in a row, `RtlMoveMemory r.A, src, 8` writes both.
+
 The `ByVal` and `ByRef`-fallback copy is made by a direct Let-coercion call, since there is no addressable
 symbol to Let-assign through. A Let-assignment to the function result variable makes the same lower-level call,
 for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
