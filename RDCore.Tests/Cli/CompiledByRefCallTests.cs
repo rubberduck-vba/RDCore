@@ -345,22 +345,39 @@ public sealed class CompiledByRefCallTests
         StringAssert.Contains(observed, $"| {expected} |");
     }
 
+    private const string RecordArray = Record + "\r\nPrivate A(1 To 2) As Rec";
+    private const string RecordVariable = Record + "\r\nPrivate R As Rec";
+    private const string ArrayFieldRecord = "Private Type Holder\r\n    N As Long\r\n    Arr(1 To 3) As Long\r\nEnd Type\r\nPrivate R As Holder";
+    private const string RecordAddressFirst = "    Dim Q As LongPtr: Q = VarPtr(R)";
+
     // a field of a record, and an element of a fixed-size array field of one, is where the record is: the record's address plus its offset (VarPtr), which
     // the parameter is not bound at. Main takes the record's address first, so that the field is where the record is whichever is asked for first.
     [TestMethod]
-    [Ignore("a field of a record passed by reference is bound at an address of its own: storage resolves no address inside a record to the field there, and a "
-        + "record's first field is at the record's own address")]
-    [DataRow(Record + "\r\nPrivate A(1 To 2) As Rec", "", "A(2).X", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "a field of a record element")]
-    [DataRow("Private Type Holder\r\n    N As Long\r\n    Arr(1 To 3) As Long\r\nEnd Type\r\nPrivate R As Holder", "    Dim Q As LongPtr: Q = VarPtr(R)",
-        "R.Arr(2)", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "an element of a fixed-size array field")]
-    [DataRow(Record + "\r\nPrivate R As Rec", "    Dim Q As LongPtr: Q = VarPtr(R)", "R.S", "String", "", "\"t\"", "\"a\"", "0 ; t ; a",
-        DisplayName = "a field of a record")]
+    [Ignore("a ByRef parameter given a place inside a record is bound at a borrowed address (typed place resolution inside a record not implemented); "
+        + "what is written through it reaches the place, and only its address is off")]
+    [DataRow(RecordArray, "", "A(2).X", "Long", "2", "3", DisplayName = "the address of a field of a record element")]
+    [DataRow(ArrayFieldRecord, RecordAddressFirst, "R.Arr(2)", "Long", "2", "3", DisplayName = "the address of an element of a fixed-size array field")]
+    [DataRow(RecordVariable, RecordAddressFirst, "R.S", "String", "\"t\"", "\"a\"", DisplayName = "the address of a field of a record")]
     public async Task AFieldPassedByReference_IsBoundWhereTheFieldIs(
-        string declarations, string setUp, string element, string type, string member, string first, string second, string expected)
+        string declarations, string setUp, string element, string type, string first, string second)
     {
-        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, member, first, second));
+        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, "", first, second));
 
-        StringAssert.Contains(observed, $"| {expected} |");
+        StringAssert.Contains(observed, "| 0 ; ");
+    }
+
+    // the same places: what P writes through its parameter is in the place, and what is written to the place P reads through its parameter.
+    [TestMethod]
+    [DataRow(RecordArray, "", "A(2).X", "Long", "2", "3", "2 ; 3", DisplayName = "a field of a record element")]
+    [DataRow(ArrayFieldRecord, RecordAddressFirst, "R.Arr(2)", "Long", "2", "3", "2 ; 3", DisplayName = "an element of a fixed-size array field")]
+    [DataRow(RecordVariable, RecordAddressFirst, "R.S", "String", "\"t\"", "\"a\"", "t ; a", DisplayName = "a field of a record")]
+    public async Task AFieldPassedByReference_IsTheField(
+        string declarations, string setUp, string element, string type, string first, string second, string expected)
+    {
+        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, "", first, second));
+
+        StringAssert.StartsWith(observed, "Completed |");
+        StringAssert.Contains(observed, $" ; {expected} |");
     }
 
     // Go passes Touch a value by reference twice, and its variable once, in each of count turns; Touch takes the address of its parameter, after the
