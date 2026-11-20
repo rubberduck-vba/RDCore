@@ -142,6 +142,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09383](vbc09383.md)|There is no host application to evaluate the expression|A name in brackets, such as `[A1]`, names nothing that is declared|
 |[VBC09384](vbc09384.md)|Only valid in object module|A procedure of a standard module is declared `Friend`|
 |[VBC09385](vbc09385.md)|Not a legal object name|A module is named with a keyword of the language, such as `Circle`|
+|[VBC09386](vbc09386.md)|Name conflicts with existing module, project, or object library|A module is named as a library or a project that the project references, such as `Excel`|
 
 ### Runtime errors
 

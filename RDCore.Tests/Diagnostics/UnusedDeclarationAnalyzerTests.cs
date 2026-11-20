@@ -280,6 +280,148 @@ public sealed class UnusedDeclarationAnalyzerTests
         AssertAre(findings, RDCoreDiagnosticId.VariableNotAssigned, DiagnosticSeverity.Warning);
     }
 
+    // an assignment that is known ends the question, whatever else the variable is passed to: only when none is known does a procedure that was not fully
+    // analyzed, which may assign it, keep it from being reported.
+    [TestMethod]
+    public async Task AVariableThatACallAssigns_OrThatAProcedureNotAnalyzedIsGiven_IsNotReported()
+    {
+        var findings = await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim direct As Long",
+            "    direct = 1",
+            "    Broken direct",
+            "    Dim forwarded As Long",
+            "    Show forwarded",
+            "    Broken forwarded",
+            "    Dim unknown As Long",
+            "    Broken unknown",
+            "    Debug.Print direct + forwarded + unknown",
+            "End Sub",
+            "Private Sub Show(ByRef n As Long)", "    Fill n", "End Sub",
+            "Private Sub Fill(ByRef value As Long)", "    value = 5", "End Sub",
+            "Private Sub Broken(ByRef x As Long)", "    Debug.Print Undeclared", "End Sub");
+
+        Assert.IsEmpty(findings, "assigned, assigned by Fill through Show, and given to Broken, which was not analyzed");
+    }
+
+    [TestMethod]
+    public async Task AVariableThatNoProcedureOfTheChainAssigns_IsReported_WhenEveryProcedureWasAnalyzed()
+    {
+        var findings = await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim forwarded As Long",
+            "    Show forwarded",
+            "    Dim filled As Long",
+            "    Relay filled",
+            "    Debug.Print forwarded + filled",
+            "End Sub",
+            "Private Sub Show(ByRef n As Long)", "    Peek n", "End Sub",
+            "Private Sub Peek(ByRef value As Long)", "    Debug.Print value", "End Sub",
+            "Private Sub Relay(ByRef n As Long)", "    Fill n", "End Sub",
+            "Private Sub Fill(ByRef value As Long)", "    value = 5", "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 3 }, Lines(findings), "Show passes it to Peek, which only reads it; not the one Fill assigns through Relay");
+    }
+
+    // a program's Public variable is counted over the program, and an argument is counted there as in its module: one that a call only reads is read.
+    [TestMethod]
+    public async Task APublicVariableOfAProgram_PassedWhereNoProcedureAssignsIt_IsReported()
+    {
+        var source = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public total As Long",
+            "Public filled As Long",
+            "Public Sub Main()",
+            "    Peek total",
+            "    Fill filled",
+            "    Debug.Print total + filled",
+            "End Sub",
+            "Private Sub Peek(ByRef value As Long)", "    Debug.Print value", "End Sub",
+            "Private Sub Fill(ByRef value As Long)", "    value = 5", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], source);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+
+        var findings = Run(new VariableNotAssignedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
+
+        CollectionAssert.AreEqual(new[] { 2 }, Lines(findings), "total, which Peek only reads; not filled, which Fill assigns");
+        var filled = model.Declarations.Single(fact => fact.Name == "filled").ReferencedFrom;
+        Assert.IsTrue(filled?.Single(site => site.Kind == DeclarationReferenceKind.PassedAsArgument).AssignedThroughCall == true, "Fill assigns it");
+    }
+
+    // a procedure of a standard module of the project is the one a call of its name runs, from any module: what it does with an argument is followed into
+    // it, and back into the module that called it; a member of a class called through a variable may be another class's that implements it.
+    [TestMethod]
+    public async Task AVariablePassedToAProcedureOfAnotherStandardModule_IsFollowedIntoIt()
+    {
+        var source = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public total As Long",
+            "Public Sub Main()",
+            "    Dim onlyRead As Long",
+            "    Helpers.Peek onlyRead",
+            "    Dim filled As Long",
+            "    Fill filled",
+            "    Dim relayed As Long",
+            "    Helpers.Relay relayed",
+            "    Dim throughObject As Long",
+            "    Dim counter As New Counter",
+            "    counter.Peek throughObject",
+            "    Peek total",
+            "    Debug.Print onlyRead + filled + relayed + throughObject + total",
+            "End Sub",
+            "Public Sub Back(ByRef value As Long)", "    value = 1", "End Sub");
+        var helpers = ModuleWorkspace.StandardModule("Helpers",
+            "Option Explicit",
+            "Public Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub",
+            "Public Sub Fill(ByRef x As Long)", "    x = 5", "End Sub",
+            "Public Sub Relay(ByRef x As Long)", "    Program.Back x", "End Sub");
+        var counter = ModuleWorkspace.ClassModule("Counter",
+            "Option Explicit",
+            "Public Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([("Counter", counter)], source, modules: [("Helpers", helpers)]);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+
+        var findings = Run(new VariableNotAssignedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
+
+        CollectionAssert.AreEqual(new[] { 2, 4 }, Lines(findings),
+            "total and onlyRead, which Helpers.Peek only reads; not filled, which Fill assigns, relayed, which Back assigns, nor the one Counter is given");
+        foreach (var name in new[] { "filled", "relayed" })
+        {
+            var sites = model.Declarations.Single(fact => fact.Name == name).ReferencedFrom;
+            Assert.IsTrue(sites?.Single(site => site.Kind == DeclarationReferenceKind.PassedAsArgument).AssignedThroughCall == true, name);
+        }
+    }
+
+    // a module that has a procedure not fully analyzed may assign what it is given: what an analyzed procedure of it assigns is known all the same.
+    [TestMethod]
+    public async Task AVariablePassedToAModuleThatWasNotFullyAnalyzed_IsNotReported_ThoughWhatItAssignsIsKnown()
+    {
+        var source = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim given As Long",
+            "    Helpers.Peek given",
+            "    Dim filled As Long",
+            "    Helpers.Fill filled",
+            "    Debug.Print given + filled",
+            "End Sub");
+        var helpers = ModuleWorkspace.StandardModule("Helpers",
+            "Option Explicit",
+            "Public Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub",
+            "Public Sub Fill(ByRef x As Long)", "    x = 5", "End Sub",
+            "Public Sub Broken()", "    Debug.Print Undeclared", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], source, modules: [("Helpers", helpers)]);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+
+        var findings = Run(new VariableNotAssignedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
+
+        Assert.IsEmpty(findings, "Broken has an error: Helpers is not taken as only reading what Peek is given");
+        var filled = model.Declarations.Single(fact => fact.Name == "filled").ReferencedFrom;
+        Assert.IsTrue(filled?.Single(site => site.Kind == DeclarationReferenceKind.PassedAsArgument).AssignedThroughCall == true, "Fill assigns it");
+    }
+
     // a procedure called through an object may be another class's that implements the class; one of another module, or of a library, is not followed.
     [TestMethod]
     public async Task AVariablePassedToAProcedureNotFollowed_IsNotReported()
@@ -297,6 +439,32 @@ public sealed class UnusedDeclarationAnalyzerTests
 
         CollectionAssert.AreEqual(new[] { 12 }, Lines(findings), "only the one passed through Me, whose procedure is the class's own");
     }
+
+    // a Declare'd procedure and a late-bound member are not analyzed: either may assign what it is given ByRef.
+    [TestMethod]
+    [DataRow("    Fill given", DisplayName = "a Declare'd procedure")]
+    [DataRow("    Dim target As Object\r\n    Set target = New Collection\r\n    target.Peek given", DisplayName = "a late-bound member")]
+    public async Task AVariablePassedToADeclaredOrALateBoundProcedure_IsNotReported(string call)
+        => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Private Declare PtrSafe Sub Fill Lib \"lib\" (ByRef x As Long)",
+            "Public Sub Main()",
+            "    Dim given As Long",
+            call,
+            "    Debug.Print given",
+            "End Sub"));
+
+    // the handlers of an event are not followed: one may assign what RaiseEvent gives it by reference.
+    [TestMethod]
+    public async Task AVariableRaisedByReferenceToTheHandlersOfAnEvent_IsNotReported()
+        => Assert.IsEmpty(await ClassAsync(new VariableNotAssignedAnalyzer(), "Counter",
+            "Option Explicit",
+            "Public Event Changed(ByRef value As Long)",
+            "Public Sub Main()",
+            "    Dim given As Long",
+            "    RaiseEvent Changed(given)",
+            "    Debug.Print given",
+            "End Sub"));
 
     [TestMethod]
     public async Task ADynamicArray_AnObjectAsNew_AUserDefinedType_AndAReDim_AreGivenWhatTheyHoldOtherwise()
