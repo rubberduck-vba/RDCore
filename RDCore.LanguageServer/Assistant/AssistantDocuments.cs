@@ -4,6 +4,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Assistant;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Server.Assistant;
 using System.Globalization;
@@ -57,6 +58,23 @@ internal sealed class AssistantDocuments(IWorkspaceDocumentService documents, IS
 
     public TextLocation Locate(DocumentUri uri, LspRange range)
         => TextLocation.Of(Root, uri.ToUri(), new SourceRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character));
+
+    // a finding as the tools say it: where it is, its code and severity, and whether something fixes it.
+    public ToolDiagnostic Project(DocumentUri uri, Diagnostic diagnostic) => new()
+    {
+        Location = Locate(uri, diagnostic.Range),
+        Code = diagnostic.Code?.String ?? diagnostic.Code?.Long.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+        Severity = diagnostic.Severity switch
+        {
+            DiagnosticSeverity.Warning => ToolDiagnosticSeverity.Warning,
+            DiagnosticSeverity.Information => ToolDiagnosticSeverity.Information,
+            DiagnosticSeverity.Hint => ToolDiagnosticSeverity.Hint,
+            _ => ToolDiagnosticSeverity.Error,
+        },
+        Message = diagnostic.Message,
+        HelpUrl = diagnostic.CodeDescription?.Href?.ToString(),
+        HasFix = DiagnosticFixes.Of(diagnostic) is { } fixes && (fixes.Edits.Count > 0 || fixes.Rename is not null || fixes.Refactoring is not null || fixes.Project is not null),
+    };
 
     public static Position PositionOf(PositionToolArguments arguments)
     {
