@@ -39,28 +39,30 @@ internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, b
 
 /// <summary>
 /// How a case is warmed up before its timed runs: untimed runs, at least <paramref name="Runs"/> of them, until the JIT has compiled nothing for
-/// <paramref name="Quiet"/>, or until <paramref name="Limit"/> has passed.
+/// <paramref name="Quiet"/>; or one run at least, until <paramref name="Limit"/> has passed.
 /// </summary>
 /// <remarks>
-/// Tiered compilation recompiles the methods a case calls in the background, with dynamic PGO, once they are called often enough and the JIT has been idle
-/// for a while. Until it has, a run can take several times as long as the runs after it, for a number of runs that differs from one process to the next: a
-/// fixed number of warm-up runs does not cover it.
+/// Tiered compilation recompiles a method at its optimized tier, with dynamic PGO, in the background, once it has been called 30 times and the JIT has been
+/// idle for a while: a method called once a run is recompiled after 30 runs. Until then a run can take several times as long as the runs after it, for a
+/// number of runs that differs from one process to the next. After it, the JIT goes on recompiling a few methods now and then; a short quiet spell ends the
+/// warm-up.
 /// </remarks>
 /// <param name="Runs">The fewest warm-up runs.</param>
 /// <param name="Quiet">How long the JIT compiles nothing before the warm-up ends.</param>
-/// <param name="Limit">How long the warm-up of a case lasts at the most, whatever the JIT does.</param>
+/// <param name="Limit">How long the warm-up of a case lasts at the most, whatever the JIT does and however few runs it made, after its first run.</param>
 internal sealed record class BenchWarmUp(int Runs, TimeSpan Quiet, TimeSpan Limit)
 {
     /// <summary>
-    /// The warm-up of <c>rdc bench</c>: at least 2 runs, until the JIT has compiled nothing for half a second, for 10 seconds at the most.
+    /// The warm-up of <c>rdc bench</c>: at least 31 runs, past the 30 calls that tier a method up, until the JIT has compiled nothing for 250 ms, for 5 seconds
+    /// at the most.
     /// </summary>
-    public static BenchWarmUp UntilTheJitIsQuiet { get; } = new(2, TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(10));
+    public static BenchWarmUp UntilTheJitIsQuiet { get; } = new(31, TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(5));
 
     /// <summary>
     /// What the report says of the warm-up, in English whatever the culture: the text is data the bench job and the reference file keep.
     /// </summary>
     public string Describe() => string.Create(CultureInfo.InvariantCulture,
-        $"untimed runs of each case first, at least {Runs}, until the JIT compiles nothing for {Quiet.TotalMilliseconds:0} ms (at most {Limit.TotalSeconds:0} s)");
+        $"untimed runs of each case first, at least {Runs}, until the JIT compiles nothing for {Quiet.TotalMilliseconds:0} ms, for {Limit.TotalSeconds:0} s at the most");
 }
 
 /// <summary>
@@ -568,7 +570,8 @@ internal sealed class BenchRunner(
             var elapsed = Stopwatch.StartNew();
             var quiet = Stopwatch.StartNew();
             var compiled = JitInfo.GetCompiledMethodCount(currentThread: false);
-            while (warmUpRuns < warmUp.Runs || (quiet.Elapsed < warmUp.Quiet && elapsed.Elapsed < warmUp.Limit))
+            // a case slow enough to reach the limit first has run its loops long enough for the JIT to have replaced them.
+            while (warmUpRuns == 0 || (elapsed.Elapsed < warmUp.Limit && (warmUpRuns < warmUp.Runs || quiet.Elapsed < warmUp.Quiet)))
             {
                 token.ThrowIfCancellationRequested();
                 var result = await RunOnceAsync();

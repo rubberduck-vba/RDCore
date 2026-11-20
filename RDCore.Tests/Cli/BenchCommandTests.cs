@@ -290,7 +290,7 @@ public sealed class BenchCommandTests
     public async Task TheWarmUp_RunsEachCaseUntimed_BeforeItsTimedRuns_AndTheirCostsAreNotTheCases()
     {
         var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
-        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.Zero);
+        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.FromDays(1));
         var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 3, Filter: "callsanobject", WarmUp: warmUp));
 
         var benchCase = report.Cases.Single();
@@ -304,7 +304,7 @@ public sealed class BenchCommandTests
     public async Task TheWarmUp_IsRunsOfTheProgram_SoTheTimedRunsComeAfterThem()
     {
         var fileSystem = Files(("Counted.bas", Counted));
-        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.Zero);
+        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.FromDays(1));
         var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 3, WarmUp: warmUp));
 
         // the third call is the first timed run: it raises, and no run is kept.
@@ -318,7 +318,7 @@ public sealed class BenchCommandTests
     public async Task ACaseThatRaisesAnErrorInItsWarmUp_SaysWhich_AndIsNotTimed()
     {
         var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
-        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.Zero);
+        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.FromDays(1));
         var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 3, Filter: "fails", WarmUp: warmUp));
 
         var failed = report.Cases.Single();
@@ -328,10 +328,22 @@ public sealed class BenchCommandTests
     }
 
     [TestMethod]
+    public async Task TheWarmUp_EndsAtItsLimit_AfterItsFirstRun_HoweverFewRunsItMade()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var warmUp = new BenchWarmUp(1000, TimeSpan.Zero, TimeSpan.Zero);
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count", WarmUp: warmUp));
+
+        var benchCase = report.Cases.Single();
+        Assert.AreEqual(1, benchCase.WarmUpRuns);
+        Assert.HasCount(1, benchCase.Runs);
+    }
+
+    [TestMethod]
     public async Task TheWarmUp_EndsAtItsLimit_WhateverTheJitDoes()
     {
         var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
-        // never quiet enough: only the limit ends it, after its fewest runs.
+        // never quiet enough: only the limit ends it.
         var warmUp = new BenchWarmUp(1, TimeSpan.FromDays(1), TimeSpan.FromMilliseconds(50));
         var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count", WarmUp: warmUp));
 

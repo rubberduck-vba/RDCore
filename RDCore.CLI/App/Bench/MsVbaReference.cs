@@ -30,6 +30,12 @@ internal static partial class MsVbaHarness
     /// </summary>
     public const string ExcelProgramFile = "Program.bas";
 
+    /// <summary>
+    /// The untimed runs the harness makes of each case of the corpus before its timed ones. MS-VBA compiles a procedure the first time it is called and does
+    /// not recompile it, so it needs no more.
+    /// </summary>
+    public const int WarmUpRuns = 2;
+
     // MS-VBA rejects Local as the name of a variable ("Syntax error"), which MS-VBAL does not reserve and RD-VBA accepts: the MS-VBA copy names it LocalCount.
     [GeneratedRegex(@"\bLocal\b", RegexOptions.CultureInvariant)]
     private static partial Regex Local();
@@ -67,8 +73,8 @@ internal static partial class MsVbaHarness
         Line("Private Declare PtrSafe Function GetCurrentProcessId Lib \"kernel32\" () As Long");
         Line();
         Line($"Private Const CaseCount As Long = {cases.Count.ToString(CultureInfo.InvariantCulture)}");
-        Line("'  the untimed runs of each case before its timed ones, as rdc bench makes at the fewest: MS-VBA compiles a procedure the first time it is called.");
-        Line($"Private Const WarmUpRuns As Long = {BenchWarmUp.UntilTheJitIsQuiet.Runs.ToString(CultureInfo.InvariantCulture)}");
+        Line("'  the untimed runs of each case before its timed ones: MS-VBA compiles a procedure the first time it is called.");
+        Line($"Private Const WarmUpRuns As Long = {WarmUpRuns.ToString(CultureInfo.InvariantCulture)}");
         Line("Private Target As Object");
         Line();
         Line("Private Function CaseName(ByVal Index As Long) As String");
@@ -275,7 +281,8 @@ internal static class ReferenceData
     /// <param name="excelRounds">The first rounds that run the Excel automation cases as well; none when 0.</param>
     /// <param name="runs">The runs of a case of the corpus, per round.</param>
     /// <param name="excelRuns">The runs of an Excel automation case, per round.</param>
-    /// <param name="warmUp">How RD-VBA warms up each case of the corpus, and MS-VBA its fewest runs of it; neither does when <see langword="null"/>.</param>
+    /// <param name="warmUp">How RD-VBA warms up each case of the corpus; MS-VBA then makes <see cref="MsVbaHarness.WarmUpRuns"/> untimed runs of it. Neither
+    /// side warms up when <see langword="null"/>.</param>
     public static string Method(int rounds, int excelRounds, int runs, int excelRuns, BenchWarmUp? warmUp = null)
     {
         var text = new StringBuilder(string.Create(CultureInfo.InvariantCulture, $"alternated rounds on one machine: {rounds} for the corpus"));
@@ -295,7 +302,7 @@ internal static class ReferenceData
         if (warmUp is not null)
         {
             text.Append(CultureInfo.InvariantCulture,
-                $"; corpus cases warmed up first: RD-VBA by {warmUp.Describe()}, MS-VBA by {warmUp.Runs} untimed runs");
+                $"; corpus cases warmed up first: RD-VBA by {warmUp.Describe()}, MS-VBA by {MsVbaHarness.WarmUpRuns} untimed runs");
         }
 
         if (excelRounds > 0)

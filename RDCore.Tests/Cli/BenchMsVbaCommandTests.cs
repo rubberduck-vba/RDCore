@@ -160,17 +160,17 @@ public sealed class BenchMsVbaCommandTests
         Assert.AreEqual("alternated rounds on one machine: 1 for the corpus (MS-VBA first); 3 runs a case, fastest run", ReferenceData.Method(1, 0, 3, 5));
         Assert.AreEqual(
             "alternated rounds on one machine: 1 for the corpus (MS-VBA first); 3 runs a case, fastest run; corpus cases warmed up first: RD-VBA by untimed runs "
-            + "of each case first, at least 2, until the JIT compiles nothing for 500 ms (at most 10 s), MS-VBA by 2 untimed runs",
+            + "of each case first, at least 31, until the JIT compiles nothing for 250 ms, for 5 s at the most, MS-VBA by 2 untimed runs",
             ReferenceData.Method(1, 0, 3, 5, BenchWarmUp.UntilTheJitIsQuiet));
     }
 
     [TestMethod]
     [TestCategory("CLI")]
-    public void Harness_RunsEachCaseUntimed_AsOftenAsRdcBenchAtTheFewest_BeforeItsTimedRuns()
+    public void Harness_RunsEachCaseUntimedTwice_BeforeItsTimedRuns()
     {
         var text = MsVbaHarness.ModuleText(Cases);
 
-        Assert.Contains($"Private Const WarmUpRuns As Long = {BenchWarmUp.UntilTheJitIsQuiet.Runs}\r\n", text);
+        Assert.Contains("Private Const WarmUpRuns As Long = 2\r\n", text);
         var warmUp = text.IndexOf("        For R = 1 To WarmUpRuns\r\n            RunCase I\r\n        Next\r\n", StringComparison.Ordinal);
         var timed = text.IndexOf("        For R = 1 To Runs\r\n            QueryPerformanceCounter T0\r\n", StringComparison.Ordinal);
         Assert.IsGreaterThan(0, warmUp);
