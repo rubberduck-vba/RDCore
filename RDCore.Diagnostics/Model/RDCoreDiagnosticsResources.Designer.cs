@@ -1385,6 +1385,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to No object of class &apos;{0}&apos; is an object of class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this Set runs with an object..
+        /// </summary>
+        public static string SetToAnIncompatibleClass_Message {
+            get {
+                return ResourceManager.GetString("SetToAnIncompatibleClass_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No object of class &apos;{0}&apos; is an object of the parameter&apos;s class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this call is made with an object..
+        /// </summary>
+        public static string ArgumentOfAnIncompatibleClass_Message {
+            get {
+                return ResourceManager.GetString("ArgumentOfAnIncompatibleClass_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is given the object itself: MS-VBA passes an object Let-assigned to a property whose value is an object as a Set would, where MS-VBAL §5.5.1.1 makes the assignment a type mismatch. Assign it with Set..
         /// </summary>
         public static string ObjectLetToObjectProperty_Message {

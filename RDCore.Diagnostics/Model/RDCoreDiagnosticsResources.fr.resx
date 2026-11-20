@@ -768,4 +768,10 @@
   <data name="SingleLineIfWithNoStatement_Message" xml:space="preserve">
     <value>Rien ne suit le deux-points après Then : cette ligne s&apos;exécute comme un If sans instruction, comme dans VB6, et les lignes qui la suivent s&apos;exécutent quelle que soit la condition. MS-VBAL §5.4.2.9 ne donne aucune lecture de cette ligne.</value>
   </data>
+  <data name="SetToAnIncompatibleClass_Message" xml:space="preserve">
+    <value>Aucun objet de la classe &apos;{0}&apos; n&apos;est un objet de la classe &apos;{1}&apos; ni d&apos;une classe qui l&apos;implémente : erreur d&apos;exécution 13 (Type incompatible) chaque fois que ce Set s&apos;exécute avec un objet.</value>
+  </data>
+  <data name="ArgumentOfAnIncompatibleClass_Message" xml:space="preserve">
+    <value>Aucun objet de la classe &apos;{0}&apos; n&apos;est un objet de la classe &apos;{1}&apos; du paramètre ni d&apos;une classe qui l&apos;implémente : erreur d&apos;exécution 13 (Type incompatible) chaque fois que cet appel est fait avec un objet.</value>
+  </data>
 </root>

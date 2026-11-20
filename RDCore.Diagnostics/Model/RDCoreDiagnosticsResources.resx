@@ -768,4 +768,10 @@
   <data name="SingleLineIfWithNoStatement_Message" xml:space="preserve">
     <value>Nothing follows the colon after Then: this line runs as an If with no statement, as in VB6, and the lines after it run whatever the condition. MS-VBAL §5.4.2.9 gives the line no reading.</value>
   </data>
+  <data name="SetToAnIncompatibleClass_Message" xml:space="preserve">
+    <value>No object of class &apos;{0}&apos; is an object of class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this Set runs with an object.</value>
+  </data>
+  <data name="ArgumentOfAnIncompatibleClass_Message" xml:space="preserve">
+    <value>No object of class &apos;{0}&apos; is an object of the parameter&apos;s class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this call is made with an object.</value>
+  </data>
 </root>
