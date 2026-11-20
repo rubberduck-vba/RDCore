@@ -9,7 +9,8 @@ namespace RDCore.Tests.Cli;
 /// The environment host counts the references to a declaration that every module of the project can refer to, and nothing outside the project can, over every
 /// module of the project: a <c>Friend</c> procedure (MS-VBAL §5.3.1.1), a <c>Public</c> variable or constant of a module that is
 /// <c>Option Private Module</c> (MS-VBAL §5.2.1.4), and a <c>Public</c> member of a program, whose run starts at its entry point. A library's members that
-/// a referencing project can use count as used by one. Each counted reference is stated with where it is.
+/// a referencing project can use count as used by one. A <c>Private</c> procedure is counted within its module (MS-VBAL §5.3.1.1), unless something other
+/// than an expression can call it. Each counted reference is stated with where it is.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 5.0.3 Semantic Analysis")]
@@ -256,6 +257,17 @@ public sealed class ProjectReferenceCountTests
     }
 
     [TestMethod]
+    public async Task OnlyTheMemberOfAProgramsClassThatCallByNameNamesWithALiteral_HasNoCount()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter", "Public Sub Reset()", "End Sub", "Public Sub Other()", "End Sub"));
+        var model = await ModelOfAsync("Counter",
+            Program("Public Sub Main()", "Dim c As New Counter", "CallByName c, \"Reset\", vbMethod", "End Sub"), classes: [counter]);
+
+        Assert.IsNull(Declaration(model, "Reset").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Other").References);
+    }
+
+    [TestMethod]
     public async Task TheDefaultMemberOfAProgramsClass_HasNoCount_AnObjectUsedAsAValueCallsIt()
     {
         (string, string) holder = ("Holder", ModuleWorkspace.ClassModule("Holder",
@@ -300,6 +312,55 @@ public sealed class ProjectReferenceCountTests
         Assert.IsNull(hidden.References);
         Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(await ModelOf("Inner"), "Counted").References, "a Friend member is counted");
         Assert.IsFalse(Declaration(await ModelOf("Private"), "Helper").IsUsedByReferencingProjects, "a private module is no name of a referencing project");
+    }
+
+    [TestMethod]
+    public async Task APrivateProcedureOrProperty_IsCountedWithinItsModule_InAProjectWithNoEntryPoint()
+    {
+        var model = await ModelOfAsync("Shared", Program("Public Sub Run()", "End Sub"),
+            modules: [("Shared", ModuleWorkspace.StandardModule("Shared",
+                "Private Sub Helper()", "End Sub",
+                "Private Function Unused() As Long", "End Function",
+                "Private Property Get Total() As Long", "End Property",
+                "Public Sub Work()", "Helper", "Debug.Print Total", "End Sub"))]);
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(model, "Helper").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unused").References);
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(model, "Total").References);
+    }
+
+    [TestMethod]
+    public async Task APrivateProcedureThatAStringOfTheProjectNames_HasNoCount_AHostCanCallItBack()
+    {
+        var model = await ModelOfAsync("Shared", Program("Public Sub Run()", "Debug.Print \"Shared.Helper\"", "End Sub"),
+            modules: [("Shared", ModuleWorkspace.StandardModule("Shared", "Private Sub Helper()", "End Sub", "Private Sub Other()", "End Sub"))]);
+
+        Assert.IsNull(Declaration(model, "Helper").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Other").References);
+    }
+
+    [TestMethod]
+    public async Task APrivateEventHandler_HasNoCount_ItsCallerIsNoExpression()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter", "Private Sub Class_Initialize()", "End Sub"));
+        var initialize = Declaration(await ModelOfAsync("Counter", Program("Public Sub Run()", "End Sub"), classes: [counter]), "Class_Initialize");
+
+        Assert.AreEqual(DeclarationRole.EventHandler, initialize.Role);
+        Assert.IsNull(initialize.References);
+    }
+
+    [TestMethod]
+    [DataRow("CallByName Me, \"Re\" & \"set\", vbMethod", null, DisplayName = "a name no string literal gives: nothing of the module is counted")]
+    [DataRow("CallByName Me, \"Reset\", vbMethod", 0, DisplayName = "a name a string literal gives: what it names is not counted")]
+    [DataRow("CallByName Me, ProcName:=\"Reset\", CallType:=vbMethod", 0, DisplayName = "a name a string literal gives by name")]
+    public async Task APrivateProcedureOfAModuleThatCallsByName_IsCountedOnlyWhenEachNameIsALiteral(string call, int? others)
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Private Sub Reset()", "End Sub", "Private Sub Other()", "End Sub", "Public Sub Run()", call, "End Sub"));
+        var model = await ModelOfAsync("Counter", Program("Public Sub Run()", "End Sub"), classes: [counter]);
+
+        Assert.IsNull(Declaration(model, "Reset").References);
+        Assert.AreEqual(others, Declaration(model, "Other").References?.Reads);
     }
 
     [TestMethod]

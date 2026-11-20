@@ -253,7 +253,7 @@ and are `null` otherwise, which says the references are not known, and not that 
    `Global` or `Friend`. A procedure, a property and an event are also called through what they are bound to (an event handler,
    a member that implements an interface) or by name at run time: they have no references, except a `Private` procedure named
    as the handler of an event of a control that it does not match (`DeclarationRole.UnmatchedEventHandler`), which only the
-   form's own code can call.
+   form's own code can call. The others are counted over the project, below.
 2. The code that could refer to it was analyzed completely (`ProcedureSemanticModel.IsFullyAnalyzed`): the procedure has no
    error, and the body was looked at again, apart from the pass, for each place a name is written that refers to something,
    and every one has a fact. For a local or a parameter that is its procedure; for a variable or a constant of the module,
@@ -264,11 +264,22 @@ and are `null` otherwise, which says the references are not known, and not that 
 
 Once every procedure of the project was analyzed completely, the host also counts, over all of its modules, what only the
 project's code can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is
-`Option Private Module` (**MS-VBAL §5.3.1.1**, **§5.2.1.4**). For a `Public` member, the project's kind decides:
+`Option Private Module` (**MS-VBAL §5.3.1.1**, **§5.2.1.4**).
+
+A `Private` procedure or property is counted in every kind of project: only the code of its module can call it, and no
+access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:
+
+- one bound as a handler or an implementation (`DeclarationRole.EventHandler`, `InterfaceImplementation`);
+- every one of a module that calls `CallByName` with a name that is not a string literal;
+- every one of a document module whose host's class is not known, nor the events it raises;
+- one whose name a string literal of the project writes (`"Module1.Helper"` writes `Module1` and `Helper`): a host can call
+  back a procedure by the name a string gives it (Excel's `Application.Run`, `OnAction`, `OnTime`).
+
+For a `Public` member, the project's kind decides:
 
 |Project|A `Public` member|
 |---|---|
-|A program: not a library, and its entry point is found|Counted, since no other project or host calls into it. A member with a `Role` is not counted, nor a member of a class that code can reach where it runs: its default member or enumerator (`VB_UserMemId` `0` or `-4`), a member that an access bound late names (**MS-VBAL §5.6.12**), and every member of a class when the program calls `CallByName`.|
+|A program: not a library, and its entry point is found|Counted, since no other project or host calls into it. A member with a `Role` is not counted, nor a member of a class that code can reach where it runs: its default member or enumerator (`VB_UserMemId` `0` or `-4`), a member that an access bound late names (**MS-VBAL §5.6.12**), the member a `CallByName` names with a string literal, and every member of a class when the program calls `CallByName` with any other name.|
 |A library|`IsUsedByReferencingProjects` when a referencing project can name it, or reach it through an object of its class; not counted.|
 |Any other project|Not counted: the host that runs it can call it.|
 
