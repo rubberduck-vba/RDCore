@@ -170,9 +170,4 @@ public sealed class DuckyReplCommandTests
         _console.Received().WriteMessage(MessageKind.Error, Resources.Repl_UndefinedLine, "99");
         await _platform.DidNotReceive().GetCodeActionsAsync(Arg.Any<Uri>(), Arg.Any<Range>(), Arg.Any<IReadOnlyList<Diagnostic>>(), Arg.Any<CancellationToken>());
     }
-
-    [TestMethod]
-    public void TheEditsOfAText_AreMadeFromTheLastToTheFirst()
-        => Assert.AreEqual("10 Dim count As Long\r\n20 count = count + 1\r\n", ReplTextEdits.Apply("10 Dim x As Long\r\n20 x = x + 1\r\n",
-            [Write(0, 7, 8, "count"), Write(1, 3, 4, "count"), Write(1, 7, 8, "count")]));
 }

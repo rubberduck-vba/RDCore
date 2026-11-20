@@ -120,7 +120,7 @@ internal static class ExpressionCoverage
     }
 
     // the blocks of statements a statement holds, as the walk of the pass reaches them.
-    private static IEnumerable<StatementBlock> NestedBlocksOf(StatementNode statement)
+    internal static IEnumerable<StatementBlock> NestedBlocksOf(StatementNode statement)
     {
         switch (statement)
         {

@@ -15,7 +15,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldc_I4, support.Offset);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RunStatement))!);
-        _il.Emit(OpCodes.Brfalse, CallFailedAt(support.Offset));
+        _il.Emit(OpCodes.Brfalse, CallFailedAfterSpillAt(support.Offset));
         EmitReadBackAfterStatement(support.Offset);
     }
 

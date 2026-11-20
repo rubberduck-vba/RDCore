@@ -272,7 +272,7 @@
     <value>Avec un espace de travail, l'interpréteur exécute les instructions dans son projet. Le programme numéroté, et les commandes qui s'en servent, sont pour l'interpréteur sans espace de travail.</value>
   </data>
   <data name="Repl_UndefinedLine" xml:space="preserve">
-    <value>ERREUR: LIGNE NON DÉFINIE</value>
+    <value>ERREUR : LIGNE NON DÉFINIE</value>
   </data>
   <data name="Repl_UndefinedModule" xml:space="preserve">
     <value>ERREUR : MODULE NON DÉFINI</value>
@@ -284,7 +284,7 @@
     <value>AUCUNE INSTRUCTION À {0}</value>
   </data>
   <data name="Repl_NotAvailable" xml:space="preserve">
-    <value>ERREUR: NON DISPONIBLE</value>
+    <value>ERREUR : NON DISPONIBLE</value>
   </data>
   <data name="Repl_NotAvailable_Verbose" xml:space="preserve">
     <value>Le serveur de langage ne fournit pas la capacité de plateforme « {0} ».</value>
@@ -305,7 +305,7 @@
     <value>Affiche la liste des commandes.</value>
   </data>
   <data name="Repl_Help_Blocks" xml:space="preserve">
-    <value>Une ligne numérotée dans un bloc ouvert (If, Select Case, une boucle, With) ouvre la ligne suivante sur son numéro plus 10, avec les fermetures en dessous. Tab prend le numéro ; une fois que le bloc a une instruction, Tab prend sa fermeture et valide la ligne.</value>
+    <value>Une ligne numérotée dans un bloc ouvert (If, Select Case, une boucle, With) ouvre la ligne suivante sur son numéro plus 10, avec les fermetures en dessous. Tab prend le numéro; une fois que le bloc a une instruction, Tab prend sa fermeture et valide la ligne.</value>
   </data>
   <data name="Repl_List_Summary" xml:space="preserve">
     <value>Affiche le programme, ou une plage de lignes (LIST 100-200).</value>
@@ -314,10 +314,10 @@
     <value>Efface le programme.</value>
   </data>
   <data name="Repl_Load_Summary" xml:space="preserve">
-    <value>Charge un programme depuis un fichier .rdc: LOAD &lt;nom&gt;</value>
+    <value>Charge un programme depuis un fichier .rdc : LOAD &lt;nom&gt;</value>
   </data>
   <data name="Repl_Save_Summary" xml:space="preserve">
-    <value>Enregistre le programme dans un fichier .rdc; dans le fichier d'origine sans nom: SAVE [&lt;nom&gt;]</value>
+    <value>Enregistre le programme dans un fichier .rdc; dans le fichier d'origine sans nom : SAVE [&lt;nom&gt;]</value>
   </data>
   <data name="Repl_BadFileName" xml:space="preserve">
     <value>BAD FILE NAME ERROR</value>
@@ -362,10 +362,10 @@
     <value>PILE D'APPELS :</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
-    <value>ERREUR: NON IMPLÉMENTÉ</value>
+    <value>ERREUR : NON IMPLÉMENTÉ</value>
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
-    <value>ERREUR: PROCÉDURE NON DÉFINIE</value>
+    <value>ERREUR : PROCÉDURE NON DÉFINIE</value>
   </data>
   <data name="Repl_Analyze_NoFindings" xml:space="preserve">
     <value>RIEN À SIGNALER ({0} FOURNISSEUR(S))</value>
@@ -374,16 +374,16 @@
     <value>{0} DIAGNOSTIC(S)</value>
   </data>
   <data name="Repl_Memory_NotAllocated" xml:space="preserve">
-    <value>ERREUR: ADRESSE ILLÉGALE</value>
+    <value>ERREUR : ADRESSE ILLÉGALE</value>
   </data>
   <data name="Repl_Memory_BadArguments" xml:space="preserve">
-    <value>ERREUR: QUANTITÉ ILLÉGALE</value>
+    <value>ERREUR : QUANTITÉ ILLÉGALE</value>
   </data>
   <data name="Repl_Memory_Summary" xml:space="preserve">
     <value>Affiche un sommaire de l'utilisation de la mémoire de la session.</value>
   </data>
   <data name="Repl_Theme_Summary" xml:space="preserve">
-    <value>Modifie le thème (couleurs) de la console, ou affiche les thèmes disponibles: THEME LIST|&lt;nom&gt;</value>
+    <value>Modifie le thème (couleurs) de la console, ou affiche les thèmes disponibles : THEME LIST|&lt;nom&gt;</value>
   </data>
   <data name="Repl_Theme_ChooseHint" xml:space="preserve">
     <value>←/→ pour choisir, ENTRÉE pour appliquer, ÉCHAP pour garder le thème actuel</value>
@@ -867,6 +867,18 @@
   </data>
   <data name="Install_ProfileHasBlock" xml:space="preserve">
     <value>{0} n&apos;est pas encore dans le PATH de ce terminal : {1} l&apos;y ajoute dans un nouveau terminal.</value>
+  </data>
+  <data name="Mcp_Summary" xml:space="preserve">
+    <value>Sert les outils de RDCore à un assistant, comme serveur Model Context Protocol sur l'entrée et la sortie standard.</value>
+  </data>
+  <data name="Mcp_Usage" xml:space="preserve">
+    <value>Utilisation : rdc mcp --workspace &lt;chemin&gt;. L'espace de travail est un dossier, avec ou sans fichier .rdproj.</value>
+  </data>
+  <data name="Mcp_NoSuchWorkspace" xml:space="preserve">
+    <value>Le dossier d'espace de travail « {0} » n'existe pas.</value>
+  </data>
+  <data name="Mcp_Instructions" xml:space="preserve">
+    <value>Les outils lisent et vérifient le code VBA de l'espace de travail RDCore situé à {0}. Les chemins sont relatifs à ce dossier, ou absolus; les lignes et les colonnes comptent à partir de 1.</value>
   </data>
   <data name="BenchMsVba_Summary" xml:space="preserve">
     <value>Exécute le corpus de bancs d&apos;essai et les cas d&apos;automatisation d&apos;Excel dans MS-VBA et dans RD-VBA, en tours alternés sur cette machine, et écrit les chiffres de référence (msvba.json). Requiert Windows et Excel.</value>

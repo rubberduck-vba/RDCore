@@ -21,11 +21,13 @@ namespace RDCore.Runtime.Execution.External;
 internal static class ExternalObjectCreation
 {
     /// <summary>
-    /// Whether the objects of <paramref name="classModule"/> are held by something outside the workspace: it is a class of a referenced library, and not of
-    /// the standard library, whose objects the platform implements itself.
+    /// Whether the objects of <paramref name="classModule"/> are held by something outside the workspace: it is a class of a referenced library project, and
+    /// not of the standard library, whose objects the platform implements itself. A class of a referenced source project is VBA code (MS-VBAL §4.1), whose
+    /// objects are created in the session as the workspace's own are.
     /// </summary>
     public static bool IsExternal(VBClassModuleSymbol classModule)
-        => classModule.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StandardLibrary.LibraryName;
+        => SymbolProperties.IsOfALibraryProject(classModule)
+            && classModule.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StandardLibrary.LibraryName;
 
     /// <summary>
     /// Asks the pipeline to create the external object that <paramref name="objectId"/>, a new instance of <paramref name="classModule"/>, stands for.

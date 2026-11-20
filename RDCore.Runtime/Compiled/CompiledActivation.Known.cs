@@ -3,6 +3,7 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Runtime.Compiled;
@@ -48,15 +49,37 @@ public sealed partial class CompiledActivation
     /// Takes what the call just made returned, of a function or a <c>Property Get</c> that returns an object (<see cref="CompiledCallee.ReturnsObject"/>):
     /// the statement's temporaries hold it until the statement is over, as they hold what a call the interpreter makes returns (MS-VBAL §5.3.1.10).
     /// </summary>
+    /// <param name="site">The number of the call among the body's calls for an object, whose cell is <paramref name="cell"/>.</param>
     /// <param name="cell">A cell that refers to the object, as an object variable's does, which compiled code reads a member of the object through; the
-    /// reference is the temporary's, and not counted again.</param>
+    /// reference is the temporary's, and not counted again. Each site has a cell of its own in the activation, which the site's next call is given again:
+    /// what reads it reads its value, and holds it only while the statement runs.</param>
     /// <returns>The object, as the call returned it, which the interpreter is given when the statement is handed to it (<see cref="KnowObject"/>).</returns>
-    public object? TakeReturnedObject(out object? cell)
+    public object? TakeReturnedObject(int site, out object? cell)
     {
         var returned = _returnedObject;
         _returnedObject = null;
-        cell = returned is null ? null : new ValueBindingHandle(returned.RuntimeValue);
+        cell = returned is null ? null : ReturnedCell(site, returned.RuntimeValue);
         return returned;
+    }
+
+    // the cells of the body's calls for an object, by site (TakeReturnedObject): made as each site is first reached, and kept with the activation.
+    private ValueBindingHandle?[]? _returnedCells;
+
+    private ValueBindingHandle ReturnedCell(int site, IRuntimeValue value)
+    {
+        if (_returnedCells is not { } cells || site >= cells.Length)
+        {
+            Array.Resize(ref _returnedCells, site + 1);
+            cells = _returnedCells;
+        }
+
+        if (cells[site] is { } cell)
+        {
+            cell.Store(value, isKnown: true);
+            return cell;
+        }
+
+        return cells[site] = new ValueBindingHandle(value);
     }
 
     // what the last call of a function or a Property Get that returns a String returned (CompiledCallee.ReturnsText).
@@ -84,6 +107,32 @@ public sealed partial class CompiledActivation
 
         text = null;
         return false;
+    }
+
+    /// <summary>
+    /// Takes what the call just made returned, of a function or a <c>Property Get</c> of the workspace that returns a <c>Variant</c>
+    /// (<see cref="CompiledCallee.ReturnsValue"/>), inside an expression compiled code evaluates on payloads (<see cref="CallValueNode"/>): the payload of the
+    /// value of a scalar type it holds, of its own subtype.
+    /// </summary>
+    /// <param name="returned">The value, as the call returned it, which the interpreter is given when the statement is handed to it
+    /// (<see cref="KnowObject"/>).</param>
+    /// <param name="value">The payload of the value; the default when it is of no scalar type.</param>
+    /// <returns>Whether what the call returned holds a value of a scalar type; when not (a <c>String</c>, <c>Empty</c>, <c>Null</c>, an object, an array),
+    /// the interpreter is given it, and goes on with the statement.</returns>
+    public bool TakeReturnedPayload(out object? returned, out VariantPayload value)
+    {
+        var held = _returnedObject;
+        _returnedObject = null;
+        returned = held;
+        value = default;
+        var inner = held is VBVariantValue { TypedValue: var wrapped } ? wrapped : held;
+        if (inner is null or VBVariantValue || !ScalarPayload.TryOf(inner.TypeInfo, inner.RuntimeValue, out var payload))
+        {
+            return false;
+        }
+
+        value = new VariantPayload(payload);
+        return true;
     }
 
     // the frame given what compiled code evaluated of the instruction at pc, which the interpreter runs from the middle (inside); nothing, when it runs the

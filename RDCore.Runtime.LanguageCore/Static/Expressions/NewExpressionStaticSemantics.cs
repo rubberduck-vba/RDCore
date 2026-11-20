@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
@@ -40,7 +41,8 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
 
-        var result = VBProjectSymbol.ResolveQualifiedType(context.Resolver, qualifier, typeName, context.Scope.Uri);
+        var result = VBProjectSymbol.ResolveQualifiedType(
+            context.Resolver, qualifier, typeName, context.Scope.Uri, ProjectVisibility.Instance, ProjectVisibility.ProjectOf(context.Scope));
         if (result.IsError)
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(result.ErrorId!.Value, expression.Location,
@@ -55,8 +57,10 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
         }
 
         // MS-VBAL §5.2.3.1.4: a class of a library its type library does not say can be created - an interface (New Range), a class with no
-        // TYPEFLAG_FCANCREATE (New Office.CommandBars) - is no class New can create (MS-VBA, observed in Excel).
-        if (result.Symbol is VBClassModuleSymbol libraryClass && libraryClass.GetProperty(SymbolProperties.Library) is { } library
+        // TYPEFLAG_FCANCREATE (New Office.CommandBars) - is not a class New can create (MS-VBA, observed in Excel). A class of a referenced source project
+        // has an instancing mode (MS-VBAL §5.2.4.1.1), as the project's own has, which is decided below.
+        if (result.Symbol is VBClassModuleSymbol libraryClass && SymbolProperties.IsOfALibraryProject(libraryClass)
+            && libraryClass.GetProperty(SymbolProperties.Library) is { } library
             && !libraryClass.GetProperty(SymbolProperties.Creatable))
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, expression.Location,

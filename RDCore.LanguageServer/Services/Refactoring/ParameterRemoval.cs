@@ -48,6 +48,9 @@ public enum ParameterRemovalRefusalKind
     CalledByName,
 
     Unresolved,
+
+    // what the host of a document module that is not known calls its procedures for, and with which arguments, cannot be told.
+    UnknownDocumentHost,
 }
 
 public sealed record class ParameterRemovalRefusal(ParameterRemovalRefusalKind Kind, string Name, string? Other = null, Uri? Module = null, SourcePosition Position = default)
@@ -120,7 +123,7 @@ public static class ParameterRemoval
 
         if (FamilyOf(context, procedure, target.Name) is not { } family)
         {
-            return Refused(new(ParameterRemovalRefusalKind.Handler, procedure.Name));
+            return Refused(new(SymbolRename.HasUnknownHost(context, procedure) ? ParameterRemovalRefusalKind.UnknownDocumentHost : ParameterRemovalRefusalKind.Handler, procedure.Name));
         }
 
         var edits = new List<RenameEdit>();
@@ -154,13 +157,13 @@ public static class ParameterRemoval
     internal static IReadOnlyList<Symbol>? FamilyOf(RenameContext context, Symbol procedure, string parameter)
     {
         var root = procedure;
-        if (NameOccurrences.SymbolOf(context, new SemanticId(procedure.ParentUri)) is VBClassModuleSymbol owner && procedure.Name.Contains('_'))
+        if (NameOccurrences.SymbolOf(context, new SemanticId(procedure.ParentUri)) is VBClassModuleSymbol owner)
         {
             if (ImplementedBy(owner, procedure) is { } implemented)
             {
                 root = implemented;
             }
-            else if (SymbolRename.IsNamedByConvention(context, owner, procedure))
+            else if (SymbolRename.IsBound(context, owner, procedure))
             {
                 return null;
             }

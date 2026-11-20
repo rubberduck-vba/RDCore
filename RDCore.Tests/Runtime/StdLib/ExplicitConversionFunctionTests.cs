@@ -471,6 +471,20 @@ public sealed class ExplicitConversionFunctionTests
     [DataRow("&o17", 15d)]
     [DataRow("&HFFZ", 255d)]
     [DataRow("$1,000", 0d)]
+    [DataRow("+.5", 0.5)]
+    [DataRow("5.", 5d)]
+    [DataRow(".", 0d)]
+    [DataRow("-", 0d)]
+    [DataRow("--5", 0d)]
+    [DataRow("-.e5", 0d)]
+    [DataRow("1.5.3", 1.5)]
+    [DataRow("1e+2", 100d)]
+    [DataRow("1E-2", 0.01)]
+    [DataRow("1e+", 1d)]
+    [DataRow("1D+3x", 1000d)]
+    [DataRow("-1.5d-1", -0.15)]
+    [DataRow("1.2e3e4", 1200d)]
+    [DataRow("١٢", 0d)]
     public void Val_ReadsTheLeadingNumber(string text, double expected)
         => Assert.AreEqual(expected, ValueOf(Conversion().Val(new VBStringValue(text))).Value);
 

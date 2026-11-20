@@ -198,6 +198,7 @@ public interface IStdStringsModule
     /// <param name="arg3">The pattern to search for, when a start position was given.</param>
     /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBVariantValue> InStr(
         VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default,
         [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
@@ -273,9 +274,11 @@ public interface IStdStringsModule
     /// </summary>
     /// <param name="expression">The string, or a variable of any type.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBVariantValue> Len([StdLibValue(ValueDestination.StringOrVariable)] VBVariantValue expression);
 
     /// <inheritdoc cref="Len"/>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBVariantValue> LenB([StdLibValue(ValueDestination.StringOrVariable)] VBVariantValue expression);
 
     /// <summary>
@@ -407,6 +410,7 @@ public interface IStdStringsModule
     /// <param name="string2">The second string.</param>
     /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibInline]
     RuntimeSemanticsEvaluationResult<VBVariantValue> StrComp(
         VBVariantValue string1, VBVariantValue string2,
         [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);

@@ -144,6 +144,23 @@ public sealed class CompiledRecordTests
         => [("Noisy", ModuleWorkspace.ClassModule("Noisy", ["Option Explicit", "Public Name As String",
             "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Name", "End Sub"]))];
 
+    // a Variant field that holds an object is the object to a member access (MS-VBAL §5.6.12): its member is let and read through the field, of a record,
+    // of a record's record, and of a record an array holds, as through a Variant variable.
+    [TestMethod]
+    [DataRow("A.V", DisplayName = "a field of a record")]
+    [DataRow("P.Inner.V", DisplayName = "a field of a record's record")]
+    [DataRow("R(1).V", DisplayName = "a field of an element of an array")]
+    public async Task AVariantFieldHoldingAnObject_GivesTheObjectsMembers(string field)
+        => await AssertPrintsAsync(Noisy(), Module(
+            "Public Sub Main()",
+            "    Dim A As TPoint, P As TPair, R(1) As TPoint",
+            $"    Set {field} = New Noisy",
+            $"    {field}.Name = \"a\"",
+            $"    Debug.Print {field}.Name; TypeName({field})",
+            $"    Set {field} = Nothing",
+            "    Debug.Print \"after\"",
+            "End Sub"), null, 0, 0, "aNoisy", "gone a", "after");
+
     // an object a field holds is let go of where the interpreter lets go of it: a copy of another record over the record, a Let of a number to a Variant
     // field that held it - which compiled code hands to the interpreter - and the end of the activation whose variable the record is.
     [TestMethod]
@@ -563,6 +580,28 @@ public sealed class CompiledRecordTests
             "    D.Inn.N = 5",
             "    Debug.Print C.Inn.S; C.Inn.N; D.Inn.S; D.Inn.N",
             "End Sub"]), null, 0, 0, "a 1 b 2", "c 3 d 5");
+
+    // a String field of a record is a String target of LSet and RSet as a String variable is (MS-VBAL §5.4.3.6, §5.4.3.7): the String it is given is fitted
+    // to the length the field holds, a fixed-length field's or a variable-length field's current one, and a field of a record's record is one too.
+    [TestMethod]
+    [DataRow("LSet", "[x  ]", "[y   ]", "[z ]")]
+    [DataRow("RSet", "[  x]", "[   y]", "[ z]")]
+    public async Task AStringFieldOfARecord_IsFittedByLSetAndRSet(string statement, string variable, string fixedLength, string inner)
+        => await AssertPrintsAsync(Module([.. Texts,
+            "Private Type TFit",
+            "    F As String * 4",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As TText, B As TFit, C As TWrap",
+            "    A.S = \"abc\"",
+            $"    {statement} A.S = \"x\"",
+            "    Debug.Print \"[\" & A.S & \"]\"",
+            $"    {statement} B.F = \"y\"",
+            "    Debug.Print \"[\" & B.F & \"]\"",
+            "    C.Inn.S = \"ab\"",
+            $"    {statement} C.Inn.S = \"z\"",
+            "    Debug.Print \"[\" & C.Inn.S & \"]\"",
+            "End Sub"]), null, 0, 0, variable, fixedLength, inner);
 
     private static (string Name, string Source)[] Box()
         => [("Box", ModuleWorkspace.ClassModule("Box", ["Option Explicit", "Public Name As String"]))];

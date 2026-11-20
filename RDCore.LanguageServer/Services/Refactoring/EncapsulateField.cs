@@ -98,6 +98,22 @@ internal enum EncapsulationRefusalKind
     WrittenOutside,
 
     /// <summary>
+    /// A property of a standard module is to be declared <c>Friend</c>, which only an object module's procedure can be.
+    /// </summary>
+    FriendInStandardModule,
+
+    /// <summary>
+    /// The <c>Property Get</c> is declared <c>Private</c>, and a reference outside the module reads the field, which it cannot reach.
+    /// </summary>
+    ReadOutside,
+
+    /// <summary>
+    /// The <c>Property Let</c> and <c>Property Set</c> are declared <c>Private</c>, and a reference outside the module assigns the field, which they cannot
+    /// take.
+    /// </summary>
+    AssignedOutside,
+
+    /// <summary>
     /// A <c>Mid</c> statement outside the module replaces characters of the field. Its target is a variable (MS-VBAL §5.4.3.5): a property is not one, so
     /// the code would not compile ("Variable required").
     /// </summary>
@@ -113,7 +129,12 @@ internal enum EncapsulationRefusalKind
 /// <param name="ReadOnly">Whether only a <c>Property Get</c> is written.</param>
 /// <param name="InsideThroughProperties">Whether the references inside the module go through the properties, in place of the state. One that assigns the field
 /// still goes through the state when no property takes the assignment.</param>
-internal sealed record class EncapsulationOptions(string? BackingField = null, bool ReadOnly = false, bool InsideThroughProperties = false)
+/// <param name="ReadAccess">The access modifier of the <c>Property Get</c>: <c>Public</c>, <c>Friend</c> or <c>Private</c>.</param>
+/// <param name="WriteAccess">The access modifier of the <c>Property Let</c> and <c>Property Set</c>; <see langword="null"/> for the module's default:
+/// <c>Friend</c> in a class module, <c>Public</c> in a standard module, which has no <c>Friend</c> procedure (MS-VBAL §5.3.1.1).</param>
+internal sealed record class EncapsulationOptions(
+    string? BackingField = null, bool ReadOnly = false, bool InsideThroughProperties = false, AccessModifier ReadAccess = AccessModifier.Public,
+    AccessModifier? WriteAccess = null)
 {
     /// <summary>
     /// The <c>this</c> pattern, read and written, with the references inside the module through the state.
@@ -321,6 +342,12 @@ internal static class EncapsulateField
             return (null, refused);
         }
 
+        // MS-VBAL §5.3.1.1: a standard module has no Friend procedure (VBC09384).
+        if (!IsOfAnObjectModule(field) && (options.ReadAccess is AccessModifier.Friend || options.WriteAccess is AccessModifier.Friend))
+        {
+            return (null, new(EncapsulationRefusalKind.FriendInStandardModule));
+        }
+
         var found = NameOccurrences.Find(context, field.Name, context.Modules);
         var mine = found.Occurrences.Where(occurrence => occurrence.Binding == field.SemanticId).ToList();
         var references = new Dictionary<(string, SourcePosition), SymbolReference>();
@@ -340,6 +367,17 @@ internal static class EncapsulateField
                 is { } assigned)
         {
             return (null, new(isRecord ? EncapsulationRefusalKind.WritesThroughACopy : EncapsulationRefusalKind.WrittenOutside, Module: assigned.Module, Range: assigned.Range));
+        }
+
+        // MS-VBAL §5.3.1.1: a Private property is reached from its own module only. The references are the project's: a Friend one reaches them all.
+        var writeAccess = WriteAccessOf(field, options);
+        if (outside
+                .Select(occurrence => (Occurrence: (NameOccurrence?)occurrence, Writes: ReferenceOf(occurrence)?.Use is ReferenceUse.Let or ReferenceUse.Set))
+                .FirstOrDefault(each => each.Writes ? assignable && writeAccess is AccessModifier.Private : options.ReadAccess is AccessModifier.Private)
+            is { Occurrence: { } unreached, Writes: var writes })
+        {
+            var kind = writes ? EncapsulationRefusalKind.AssignedOutside : EncapsulationRefusalKind.ReadOutside;
+            return (null, new(kind, Module: unreached.Module, Range: unreached.Range));
         }
 
         // a Mid statement replaces characters of a variable: on a property, it does not compile.
@@ -402,7 +440,7 @@ internal static class EncapsulateField
         var typeName = TypeNameOf(variable, type is VBArrayType array ? array.ItemType : type);
         var length = variable.ChildNodes().OfType<AsTypeExpressionNode>().FirstOrDefault()?.FixedLength;
         string Declared(string name) => type is VBArrayType ? $"{name}() As {typeName}" : length is { } n ? $"{name} As {typeName} * {n}" : $"{name} As {typeName}";
-        var properties = Properties(field.Name, type, typeName, state, options.ReadOnly, shared.NewLine);
+        var properties = Properties(field.Name, type, typeName, state, options.ReadOnly, (options.ReadAccess, writeAccess), shared.NewLine);
 
         // a name written alone inside the module that goes through the state is the field's value, which the holder now has; a qualified one (`Module1.Name`,
         // `Me.Name`) is left to refer to the property, as are those that go through the properties.
@@ -732,9 +770,11 @@ internal static class EncapsulateField
 
     // the properties of the field: its value read and written through what holds it (`this.Name`, or the backing field), the way its type is assigned
     // (MS-VBAL §5.4.3.8, §5.4.3.9); a Get only when it is read-only. The parameter of a Let or a Set is named like neither the property nor the backing field.
-    // The type name of an array is its element type's.
-    private static string Properties(string name, VBType type, string typeName, string held, bool readOnly, string newLine)
+    // The type name of an array is its element type's. The Get, and the Let and Set, are declared with the access modifiers chosen.
+    private static string Properties(
+        string name, VBType type, string typeName, string held, bool readOnly, (AccessModifier Read, AccessModifier Write) access, string newLine)
     {
+        var (read, write) = (Keyword(access.Read), Keyword(access.Write));
         var value = new[] { "value", "newValue", "assigned" }.First(candidate
             => !string.Equals(candidate, name, StringComparison.OrdinalIgnoreCase) && !string.Equals(candidate, held, StringComparison.OrdinalIgnoreCase));
         string[] get = type switch
@@ -746,20 +786,36 @@ internal static class EncapsulateField
 
         // an array is given as an array of its element type, and taken by reference: a parameter that is an array cannot be ByVal.
         var isArray = type is VBArrayType;
-        var blocks = new List<string> { Block($"Public Property Get {name}() As {typeName}{(isArray ? "()" : string.Empty)}", get) };
+        var blocks = new List<string> { Block($"{read} Property Get {name}() As {typeName}{(isArray ? "()" : string.Empty)}", get) };
         if (!readOnly && type is not (VBClassType or VBObjectType or VBUserDefinedType or VBExternalUserDefinedType))
         {
             var parameter = isArray ? $"{value}() As {typeName}" : $"ByVal {value} As {typeName}";
-            blocks.Add(Block($"Public Property Let {name}({parameter})", [$"    {held} = {value}"]));
+            blocks.Add(Block($"{write} Property Let {name}({parameter})", [$"    {held} = {value}"]));
         }
 
         if (!readOnly && type is VBClassType or VBObjectType or VBVariantType)
         {
-            blocks.Add(Block($"Public Property Set {name}(ByVal {value} As {typeName})", [$"    Set {held} = {value}"]));
+            blocks.Add(Block($"{write} Property Set {name}(ByVal {value} As {typeName})", [$"    Set {held} = {value}"]));
         }
 
         return string.Join(newLine + newLine, blocks) + newLine;
 
         string Block(string header, string[] body) => string.Join(newLine, [header, .. body, "End Property"]);
     }
+
+    // whether the field is of an object module (a class, a form, a document), whose procedures may be Friend (MS-VBAL §5.3.1.1): a variable of an object
+    // module is a field of the instance scope.
+    public static bool IsOfAnObjectModule(Symbol field)
+        => field is VBModuleFieldVariableMemberSymbol { Scope: ScopeKind.Instance } or VBInstanceFieldVariableMemberSymbol;
+
+    // the access modifier of the Let and the Set: the one chosen, or the module's default.
+    private static AccessModifier WriteAccessOf(Symbol field, EncapsulationOptions options)
+        => options.WriteAccess ?? (IsOfAnObjectModule(field) ? AccessModifier.Friend : AccessModifier.Public);
+
+    private static string Keyword(AccessModifier access) => access switch
+    {
+        AccessModifier.Friend => Tokens.Friend,
+        AccessModifier.Private => Tokens.Private,
+        _ => Tokens.Public,
+    };
 }

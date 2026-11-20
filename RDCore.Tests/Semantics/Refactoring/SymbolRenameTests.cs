@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
@@ -112,7 +113,23 @@ public sealed class SymbolRenameTests
 
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [.. parsed.Select(module => (module.Uri, module.Type, module.Parse))], new IntrinsicSymbolResolver(),
             projectName: projectName, libraries: libraries.Count == 0 ? null : libraries);
-        return new RenameContext(composition.Resolver, composition.ScopeTree, [.. parsed.Select(module => new RenameModule(module.Uri, module.Parse.SyntaxTree!, module.Source))]);
+        return new RenameContext(composition.Resolver, composition.ScopeTree,
+            [.. parsed.Select(module => new RenameModule(module.Uri, module.Parse.SyntaxTree!, module.Source, module.Parse.Designer))]);
+    }
+
+    // a workbook's document module: its host's class resolves only when the project references Excel's library.
+    private static RenameContext ComposeWorkbook(string source, bool referencesExcel)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/ThisWorkbook.doccls"), source);
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+        var libraries = referencesExcel
+            ? new LibrarySymbolProvider(Root, LibrarySymbolProvider.Load(RDCore.Tests.Cli.DocumentModuleTests.Excel.Source,
+                [new RDCore.SDK.Workspace.RDCoreReference { Name = "Excel" }])).ProvideSymbols().ToList()
+            : null;
+        var uri = ModuleUri("ThisWorkbook");
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(uri, ModuleType.DocumentModule, parse)], new IntrinsicSymbolResolver(),
+            libraries: libraries, documentHosts: new Dictionary<string, RDCore.SDK.Workspace.DocClassType> { ["ThisWorkbook"] = RDCore.SDK.Workspace.DocClassType.ExcelWorkbook });
+        return new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(uri, parse.SyntaxTree!, source)]);
     }
 
     private static Uri ModuleUri(string name) => new UriBuilder(Root) { Fragment = name }.Uri;
@@ -464,6 +481,93 @@ public sealed class SymbolRenameTests
         Assert.AreEqual(Watcher.Replace("source", "watched").Replace("Public Sub Start()", "Private Sub source_Other()\r\nEnd Sub\r\nPublic Sub Start()"), Renamed(context, plan, "Watcher"));
     }
 
+    private static readonly string Tracker = Lines(
+        "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Tracker\"",
+        "Private WithEvents watched As Gadget",
+        "Public Sub Start()", "    Set watched = New Gadget", "End Sub",
+        "Private Sub watched_Changed(ByVal p As Part)", "End Sub");
+
+    // the Widgets library, whose Gadget raises Changed: an event the workspace does not declare.
+    private static RenameContext ComposeWithWidgets(params (string Name, string Source)[] modules)
+        => ComposeReferencing(
+            [.. new LibrarySymbolProvider(Root, LibrarySymbolProvider.Load(new InMemoryLibrarySource(LibraryFixtures.Widgets),
+                [new RDCore.SDK.Workspace.RDCoreReference { Name = "Widgets" }])).ProvideSymbols()], modules);
+
+    // a handler's name is its source's and its event's: when the workspace declares one of them only, renaming the handler renames that one.
+    [TestMethod]
+    [DataRow("watched", DisplayName = "at the part of its name that is the variable's")]
+    [DataRow("Changed", DisplayName = "at the part of its name that is the library's event")]
+    public void AHandlerOfALibrarysEvent_IsRenamedAsItsWithEventsVariable(string text)
+    {
+        var context = ComposeWithWidgets(("Tracker", Tracker));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Tracker"), At(context, "Tracker", "Private Sub watched_Changed", text));
+
+        Assert.AreEqual("watched", preparation.Target?.Name, preparation.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
+        Assert.AreEqual(Tracker.Replace("watched", "observed"), Renamed(context, SymbolRename.Plan(context, preparation.Target!, "observed"), "Tracker"));
+    }
+
+    // an implementation of a library's class: neither the interface nor its member is the workspace's, and its name is not renamed by either part.
+    [TestMethod]
+    [DataRow("Gadget", DisplayName = "at the part of its name that is the interface's")]
+    [DataRow("Names", DisplayName = "at the part of its name that is the member's")]
+    public void AnImplementationOfALibrarysClass_IsNotRenamed(string text)
+    {
+        var context = ComposeWithWidgets(("Pretend", Lines(
+            "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Pretend\"",
+            "Implements Gadget", "Private Function Gadget_Names() As String()", "End Function")));
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Pretend"), At(context, "Pretend", "Private Function Gadget_Names", text));
+
+        Assert.AreEqual(RenameRefusalKind.BoundHandlerOrImplementation, preparation.Refusal?.Kind);
+    }
+
+    // the part of Microsoft Forms a UserForm with a command button uses: the classes of the form and of the button, and the button's event.
+    private static readonly LibraryDescription MSForms = new()
+    {
+        Name = "MSForms",
+        Classes =
+        [
+            new ClassDescription { Name = "UserForm" },
+            new ClassDescription { Name = "CommandButton", Events = [new EventDescription { Name = "Click" }] },
+        ],
+    };
+
+    private static readonly string Picker = Lines(
+        "VERSION 5.00", "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Picker", "   Caption = \"Pick\"", "   OleObjectBlob = \"Picker.frx\":0000", "End",
+        "Attribute VB_Name = \"Picker\"", "Attribute VB_PredeclaredId = True",
+        "Private Sub Ok_Click()", "End Sub");
+
+    // a UserForm's controls are in its binary file: its designer, as the language server reads it, has the command button Ok.
+    private static RenameContext ComposePicker()
+    {
+        var uri = ModuleUri("Picker");
+        var designer = new FormDescriptor("Picker", FormDesignerKind.MSForms, new FormControlClass("MSForms", "UserForm", FormDesigner.MSFormsClassId),
+            new Dictionary<string, string> { ["Caption"] = "Pick" },
+            [new FormControlDescriptor("Ok", new FormControlClass("MSForms", "CommandButton"), TabIndex: null, Index: null, [])]);
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Picker.frm"), Picker) with { Designer = designer };
+        var libraries = new LibrarySymbolProvider(Root, LibrarySymbolProvider.Load(new InMemoryLibrarySource(MSForms),
+            [new RDCore.SDK.Workspace.RDCoreReference { Name = "MSForms" }])).ProvideSymbols().ToList();
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(uri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(),
+            libraries: libraries);
+        return new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(uri, parse.SyntaxTree!, Picker, designer)]);
+    }
+
+    // a control's handler is named for the control, which the workspace's form declares, and for an event of the control's library.
+    [TestMethod]
+    [Ignore("the rename of a form's control, in its designer and its code, is not implemented")]
+    [DataRow("Ok", DisplayName = "at the part of its name that is the control's")]
+    [DataRow("Click", DisplayName = "at the part of its name that is the library's event")]
+    public void AHandlerOfAFormsControl_IsRenamedAsTheControl(string text)
+    {
+        var context = ComposePicker();
+
+        var preparation = SymbolRename.Prepare(context, ModuleUri("Picker"), At(context, "Picker", "Private Sub Ok_Click", text));
+
+        Assert.AreEqual("Ok", preparation.Target?.Name, preparation.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
+        Assert.AreEqual(Picker.Replace("Ok", "Accept"), Renamed(context, SymbolRename.Plan(context, preparation.Target!, "Accept"), "Picker"));
+    }
+
     [TestMethod]
     public void AHandlerThatWouldTakeTheNameOfAnotherMember_RefusesTheRenameOfTheEvent()
     {
@@ -488,15 +592,134 @@ public sealed class SymbolRenameTests
 
     [TestMethod]
     [DataRow("Private Sub Class_Initialize()", "Class_Initialize", DisplayName = "the class's own event")]
-    [DataRow("Private Sub UserForm_Click()", "UserForm_Click", DisplayName = "a form's own event")]
-    public void AClassProcedureCalledByItsName_AsAHandlerOfItsOwnEvents_IsNotRenamed(string declaration, string name)
+    [DataRow("Private Sub Class_Terminate()", "Class_Terminate", DisplayName = "the class's own event, Terminate")]
+    public void AClassProcedureBoundToItsOwnEvents_IsNotRenamed(string declaration, string name)
     {
         var context = Compose(
             ("Spinner", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Spinner\"", "Public Event Spun()")),
             ("Watcher", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Watcher\"", "Private WithEvents source As Spinner",
                 declaration, "End Sub")));
 
-        Assert.AreEqual(RenameRefusalKind.NamedByConvention, SymbolRename.Prepare(context, ModuleUri("Watcher"), At(context, "Watcher", declaration, name)).Refusal?.Kind);
+        Assert.AreEqual(RenameRefusalKind.BoundHandlerOrImplementation, SymbolRename.Prepare(context, ModuleUri("Watcher"), At(context, "Watcher", declaration, name)).Refusal?.Kind);
+    }
+
+    // MS-VBAL §5.3.1.8, §5.3.1.10: a procedure that is named like a handler and is bound to no event is a procedure like any other, whatever its name.
+    [TestMethod]
+    [DataRow("Private Sub Form_Foo()", "Form_Foo", DisplayName = "a form's own event, in a class that is not a form")]
+    [DataRow("Private Sub UserForm_Click()", "UserForm_Click", DisplayName = "a UserForm's own event, in a class that is not a form")]
+    [DataRow("Private Sub Class_Foo()", "Class_Foo", DisplayName = "no event of the class's lifecycle")]
+    [DataRow("Private Sub source_Turned()", "source_Turned", DisplayName = "a WithEvents variable whose class has no such event")]
+    [DataRow("Private Sub other_Spun()", "other_Spun", DisplayName = "no event source by that name")]
+    public void AClassProcedureNamedLikeAHandler_BoundToNoEvent_IsRenamedLikeAnyOther(string declaration, string name)
+    {
+        var watcher = Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Watcher\"", "Private WithEvents source As Spinner",
+            declaration, "End Sub", "Public Sub Start()", $"    {name}", "End Sub");
+        var context = Compose(("Spinner", Spinner), ("Watcher", watcher));
+
+        var plan = Rename(context, "Watcher", declaration, name, "Renamed");
+
+        Assert.AreEqual(watcher.Replace(name, "Renamed"), Renamed(context, plan, "Watcher"));
+    }
+
+    private static readonly string Workbook = Lines("Option Explicit", "Private Sub Workbook_Open()", "    DoIt", "End Sub", "Public Sub DoIt()", "End Sub");
+
+    // MS-VBAL §5.3.1.8: a document module handles the events of its host's class; its other procedures are procedures like any other.
+    [TestMethod]
+    [TestCategory(TestCategories.Wide)]
+    public void ADocumentModuleWhoseHostIsKnown_RefusesTheRenameOfItsHandlers_AndRenamesItsOtherProcedures()
+    {
+        var context = ComposeWorkbook(Workbook, referencesExcel: true);
+
+        var handler = SymbolRename.Prepare(context, ModuleUri("ThisWorkbook"), At(context, "ThisWorkbook", "Private Sub Workbook_Open", "Workbook_Open"));
+        var plan = Rename(context, "ThisWorkbook", "Public Sub DoIt", "DoIt", "Start");
+
+        Assert.AreEqual(RenameRefusalKind.BoundHandlerOrImplementation, handler.Refusal?.Kind);
+        Assert.AreEqual(Workbook.Replace("DoIt", "Start"), Renamed(context, plan, "ThisWorkbook"));
+    }
+
+    // what the host of a document module calls its procedures for is not known when its class is not: none of them is renamed, whatever its name.
+    [TestMethod]
+    [DataRow("Private Sub Workbook_Open", "Workbook_Open", DisplayName = "named like a handler")]
+    [DataRow("Public Sub DoIt", "DoIt", DisplayName = "named like no handler")]
+    public void ADocumentModuleWhoseHostsClassIsNotResolved_RefusesTheRenameOfItsProcedures_ForThatReason(string line, string name)
+    {
+        var context = ComposeWorkbook(Workbook, referencesExcel: false);
+
+        Assert.AreEqual(RenameRefusalKind.UnknownDocumentHost, SymbolRename.Prepare(context, ModuleUri("ThisWorkbook"), At(context, "ThisWorkbook", line, name)).Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void ADocumentModuleWhoseHostsClassIsNotResolved_RefusesToRemoveOrReorderTheParametersOfItsProcedures_ForThatReason()
+    {
+        var source = Lines("Option Explicit", "Public Sub Add(ByVal a As Long, ByVal b As Long)", "End Sub");
+        var context = ComposeWorkbook(source, referencesExcel: false);
+
+        var removal = ParameterRemoval.Prepare(context, ModuleUri("ThisWorkbook"), At(context, "ThisWorkbook", "Public Sub Add", "a As"));
+        var reordering = ParameterReorder.Prepare(context, ModuleUri("ThisWorkbook"), At(context, "ThisWorkbook", "Public Sub Add", "Add"));
+
+        Assert.AreEqual(ParameterRemovalRefusalKind.UnknownDocumentHost, ParameterRemoval.Plan(context, removal.Target!).Refusal?.Kind);
+        Assert.AreEqual(ParameterReorderRefusalKind.UnknownDocumentHost, ParameterReorder.Plan(context, reordering.Target!, [1, 0]).Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void RenamingAWithEventsVariable_OrItsClassesEvent_LeavesAProcedureThatIsOnlyNamedLikeAHandler()
+    {
+        // source_Turned is named for an event Spinner does not have: renaming the event, or the variable, binds nothing to it.
+        var watcher = Watcher.Replace("Public Sub Start()", "Private Sub source_Turned()\r\nEnd Sub\r\nPublic Sub Start()");
+        var context = Compose(("Spinner", Spinner), ("Watcher", watcher));
+
+        var variable = Rename(context, "Watcher", "Private WithEvents source", "source", "watched");
+        var spun = Rename(context, "Spinner", "Public Event Spun", "Spun", "Twirled");
+
+        Assert.AreEqual(Watcher.Replace("source", "watched").Replace("Public Sub Start()", "Private Sub source_Turned()\r\nEnd Sub\r\nPublic Sub Start()"),
+            Renamed(context, variable, "Watcher"));
+        Assert.AreEqual(watcher.Replace("source_Spun", "source_Twirled"), Renamed(context, spun, "Watcher"));
+    }
+
+    [TestMethod]
+    public void AnEventsHandlers_InEveryClassThatHandlesIt_AreRenamedWithIt_AndOnlyThey()
+    {
+        // MS-VBAL §5.3.1.8: each class's handler is bound by its own WithEvents variable; a class whose variable is not WithEvents handles nothing.
+        var other = Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Other\"",
+            "Private WithEvents spinning As Spinner", "Private quiet As Spinner",
+            "Private Sub spinning_Spun()", "End Sub", "Private Sub quiet_Spun()", "End Sub");
+        var context = Compose(("Spinner", Spinner), ("Watcher", Watcher), ("Other", other));
+
+        var plan = Rename(context, "Watcher", "Private Sub source_Spun", "Spun", "Turned");
+
+        Assert.AreEqual(Spinner.Replace("Spun", "Turned"), Renamed(context, plan, "Spinner"));
+        Assert.AreEqual(Watcher.Replace("source_Spun", "source_Turned"), Renamed(context, plan, "Watcher"));
+        Assert.AreEqual(other.Replace("spinning_Spun", "spinning_Turned"), Renamed(context, plan, "Other"));
+    }
+
+    // MS-VBAL §5.3.1.9: an implementation is bound to the interface its class implements and to the member: a procedure that is only named like one is not.
+    [TestMethod]
+    public void RenamingAnInterface_OrItsMember_RenamesItsImplementations_AndNotAProcedureThatIsOnlyNamedLikeOne()
+    {
+        var circle = Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Circle\"",
+            "Private Sub IShape_Draw()", "End Sub");
+        var square = Square.Replace("Public Sub Show()", "Private Sub IShape_Helper()\r\nEnd Sub\r\nPublic Sub Show()");
+        var context = Compose(("IShape", Shape), ("Square", square), ("Circle", circle));
+
+        var member = Rename(context, "IShape", "Public Sub Draw()", "Draw", "Paint");
+        var type = Rename(context, "Square", "Implements IShape", "IShape", "IFigure");
+
+        Assert.AreEqual(square.Replace("IShape_Draw", "IShape_Paint"), Renamed(context, member, "Square"));
+        Assert.AreEqual(circle, Renamed(context, member, "Circle"), "Circle implements nothing");
+        Assert.AreEqual(Square.Replace("IShape", "IFigure").Replace("Public Sub Show()", "Private Sub IShape_Helper()\r\nEnd Sub\r\nPublic Sub Show()"),
+            Renamed(context, type, "Square"));
+        Assert.AreEqual(circle, Renamed(context, type, "Circle"));
+    }
+
+    [TestMethod]
+    public void AProcedureNamedLikeAnImplementation_OfNoMemberOfTheInterface_IsRenamedLikeAnyOther()
+    {
+        var square = Square.Replace("Public Sub Show()", "Private Sub IShape_Helper()\r\nEnd Sub\r\nPublic Sub Show()");
+        var context = Compose(("IShape", Shape), ("Square", square));
+
+        var plan = Rename(context, "Square", "Private Sub IShape_Helper", "IShape_Helper", "Helper");
+
+        Assert.AreEqual(square.Replace("IShape_Helper", "Helper"), Renamed(context, plan, "Square"));
     }
 
     [TestMethod]

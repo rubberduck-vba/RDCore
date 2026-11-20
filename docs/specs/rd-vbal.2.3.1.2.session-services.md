@@ -10,7 +10,8 @@ An _execution session_'s services are rooted at an
 |Exposes|Description|
 |---|---|
 |`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). With `Environment.OperatingSystem`, it sets the [predefined conditional-compilation constants](#predefined-conditional-compilation-constants).|
-|`Environment.OperatingSystem`|The operating system the environment host runs on: Windows, macOS, Linux, or another. It decides which of `Win32`, `Win64`, `Mac`, `Linux` and `Linux64` is `1` ([below](#predefined-conditional-compilation-constants)).|
+|`Environment.OperatingSystem`|The operating system the environment host runs on: Windows, macOS, Linux, or another. It decides which of `Win32`, `Mac` and `Linux` is `1`, and with the bitness, `Win64` ([below](#predefined-conditional-compilation-constants)).|
+|`Environment.Win64OnlySetOnWindows`|Whether `Win64` is `1` on 64-bit Windows only. One value per installation, in the environment host's `appsettings.json`: a user's settings and a workspace's cannot set it. `false` unless the installation says otherwise: `Win64` is `1` on a 64-bit Mac too, as in MS-VBA.|
 |`Environment.Culture`|The culture of the environment, which its `Lcid` selects; `0` is the invariant culture. Text compares in it (`Option Compare Text`, `Like`), and `Format` writes in it given a format.|
 |`Environment.Regional`|The regional settings of the environment: a number or a date let-coerced to `String` is written in them, and a `String` let-coerced to a number or a date is read in them ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)). en-US unless the platform says otherwise.|
 |`Environment.AnsiEncoding`|The `Encoding` of the environment's `AnsiCodePage`: what a character is as one or two bytes outside a `String`'s own data, which the session's files are written and read in. Let-coercion between `String` and `Byte()` takes no code page ([**RD-VBAL §5.5.1.2.6** Let-coercion to and from resizable Byte()](rd-vbal.5.5.1.2.runtime-semantics.md#55126-let-coercion-to-and-from-resizable-byte)).|
@@ -27,10 +28,10 @@ decides which `#If` branch is live from the same session, so every part of the p
 |---|---|---|
 |`Win16`|Never.|`0`|
 |`Win32`|The environment runs on Windows, 32-bit or 64-bit. It means the Win32 API is there, as in MS-VBA, where 64-bit Office defines it too.|`0`|
-|`Win64`|The environment runs on 64-bit Windows.|`0`|
+|`Win64`|The environment runs on 64-bit Windows, or on a 64-bit Mac, as in Excel for Mac. With `Environment.Win64OnlySetOnWindows`, on 64-bit Windows only.|`0`|
 |`Mac`|The environment runs on macOS.|`0`|
 |`Linux`|The environment runs on Linux, 32-bit or 64-bit. RD-VBA addition.|`0`|
-|`Linux64`|The environment runs on 64-bit Linux. RD-VBA addition.|`0`|
+|`Is64BitEnv`|The environment is 64-bit, on any operating system. RD-VBA addition.|`0`|
 |`VBA6`|Always, as in MS-VBA 7.|`0`|
 |`VBA7`|Always.|`0`|
 |`DEBUG`|The build is a debug build (`Environment.Configuration`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md)). RD-VBA addition.|`0`|
@@ -38,6 +39,34 @@ decides which `#If` branch is live from the same session, so every part of the p
 - Each constant is `1` or `0`, as MS-VBA defines its own (recorded in 64-bit Excel), not `-1` as a `Boolean` stores `True`.
 - Each operating system's constant is defined `0` on every other one. `#If Linux` on Windows is `False`, as an undefined constant would be.
 - A `.rdproj` `#Const`, a `--define` argument, or a module's own `#Const` overrides any of them.
+- A constant nothing defines is `0`, as in MS-VBA, so a condition that tests it is `False` and is not an error. The analyzers report it as
+  [**RDC01020** Undefined conditional constant](../diagnostics/rdc01020.md). **RD-VBA differs from MS-VBAL:** in
+  [**MS-VBAL §5.6.10** Simple Name Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e3af3398-f090-40db-ade6-de3a93589c76),
+  a name that matches no constant is invalid.
+- A completion list in the condition of a `#If` or a `#ElseIf`, or in the value of a `#Const`, offers the module's own constants, the project's, and
+  these.
+
+### Bitness
+
+`Is64BitEnv` is the bitness of the environment host's process, as `Win64` is: a 32-bit host on 64-bit Windows is not 64-bit, and `LongPtr` is a `Long`
+there. A condition on the width of a pointer tests `Is64BitEnv`.
+
+`Win64` keeps MS-VBA's meaning, which is a bitness test on Windows and on a Mac: Excel for Mac defines it on a 64-bit Mac, along with `Mac`, and not
+`Win32`. A `Declare` of a Windows library in `#If Win64 Then` is compiled there, and its call raises run-time error 53. The analyzers report each `Win64`
+a directive reads as [**RDC01019** Win64 is a bitness test](../diagnostics/rdc01019.md), with two fixes:
+
+|`Win64` means|Fix|
+|---|---|
+|A 64-bit environment|`Is64BitEnv`|
+|64-bit Windows|`Win32 And Is64BitEnv`|
+
+On 64-bit Linux, `Is64BitEnv` is `1` and `Win64` is `0`, so the first fix makes the branch live there, as a bitness test should.
+
+With `Environment.Win64OnlySetOnWindows`, `Win64` is `1` on 64-bit Windows only and is not reported. Code written for Excel for Mac that tests `Win64`
+then takes the other branch on a Mac. A `Win64` the project defines (`.rdproj`, `--define`) is not reported either: the environment host states the
+project's constants and this setting with each module's semantics, and the analyzers read them there.
+
+`Linux64` is retired, and nothing predefines it: it is `0` unless the code defines it. RDC01020 reports it with the fix `Linux And Is64BitEnv`.
 
 A condition that tests a constant by itself (`#If Win64 Then`), or compares it with `0` or `1`, means what it says. One that reads the constant's bits
 does not, in MS-VBA and in RD-VBA alike ([**MS-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md)):
@@ -239,7 +268,7 @@ runs it.
 |A variable: a module's, a `Static` local, a field of an object in its own code|Its own, given when it is defined, the same for as long as it exists.|
 |A local, a parameter `ByVal`|Its own, given the first time it is asked for: for the whole activation, whatever is assigned to it.|
 |A parameter `ByRef`|The address of the variable it was given.|
-|An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)).|
+|An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)), or one of them is passed `ByRef`.|
 |A field of a record|The record's address, plus the field's offset; a fixed-size array field's elements are in the record.|
 |The result variable of a `Function` or a `Property Get`, in its own code|Its own, for the activation.|
 |What is no variable (a literal, an expression, a fixed-length `String` given to `VarPtr`)|A temporary's, until the statement is over.|
@@ -264,7 +293,7 @@ runs it.
 
 |Block|Made|Freed|
 |---|---|---|
-|An array's elements|The first time the address of an element is asked for.|When the array is gone - `ReDim`'d, assigned another, a local of an activation that returned - the next time a block is made.|
+|An array's elements|The first time the address of an element is asked for, or an element is passed `ByRef`.|Once the array is gone (`ReDim`'d, assigned another, or a local of an activation that returned), when a block is made and there are twice as many blocks as were left the last time gone ones were freed (at least 16), or when a block has no room.|
 |A `BSTR`|The first time the address of the characters is asked for, or the bytes of the `String`.|When a `String` is assigned to what holds it, or what holds it is freed; not when a pointer `POKE`d over it lets go of it.|
 |An interface|The first time its address is asked for.|When the object is destroyed.|
 |A `SAFEARRAY`|The first time its address is asked for.|A dynamic array's when it holds no array (`Erase`), a `Variant`'s when it holds another; not when a pointer `POKE`d over it lets go of it.|

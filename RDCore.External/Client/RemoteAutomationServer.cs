@@ -385,7 +385,13 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     }
 
     /// <inheritdoc/>
-    public string? ClassNameOf(object target)
+    public string? ClassNameOf(object target) => ClassOf(target)?.Name;
+
+    /// <inheritdoc/>
+    public bool IsFormHostObject(object target) => ClassOf(target)?.IsFormHostObject is true;
+
+    // what the external host's server says of the class of an object; nothing for an object that is lost, or that it cannot say anything of.
+    private AutomationClassNameResult? ClassOf(object target)
     {
         if (target is not RemoteObject { Incarnation.IsLost: false } remote)
         {
@@ -395,7 +401,9 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         try
         {
             return Send<AutomationClassNameParams, AutomationClassNameResult>(
-                remote.Incarnation, ExternalProtocol.AutomationClassName, new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent }).Name;
+                remote.Incarnation,
+                ExternalProtocol.AutomationClassName,
+                new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
         }
         catch (AutomationException)
         {
