@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using RDCore.External.Automation;
 using RDCore.Forms.Avalonia;
 using RDCore.SDK.Platform;
+using System.Globalization;
 
 namespace RDCore.External.Forms.RDForms;
 
@@ -83,14 +84,18 @@ internal static class RDFormsUI
         {
             if (_failure is not null)
             {
-                throw new AutomationException(CannotStart, _failure);
+                throw new AutomationException(CannotStart, string.Format(CultureInfo.CurrentCulture, ExternalMessages.RDFormsCannotStart, _failure));
             }
 
             if (_dispatcher is not null)
             {
+                // Avalonia sets up one windowing platform per process, for good, so the windows cannot switch. No entry point mixes the two: a process
+                // runs its programs all unattended or all attended (--unattended, or the client's Unattended capability), and has one external host.
                 if (platform != _platform)
                 {
-                    throw new AutomationException(Failed, $"The RDForms windows of this process are {_platform}, and cannot be {platform} as well.");
+                    throw new AutomationException(Failed, _platform == RDFormsPlatform.Headless
+                        ? ExternalMessages.RDFormsWindowsAreHeadless
+                        : ExternalMessages.RDFormsWindowsAreOnTheDesktop);
                 }
 
                 return;
@@ -108,8 +113,8 @@ internal static class RDFormsUI
             }
             catch (Exception failure)
             {
-                _failure = $"The RDForms windows cannot be started: {failure.Message}";
-                throw new AutomationException(CannotStart, _failure);
+                _failure = failure.Message;
+                throw new AutomationException(CannotStart, string.Format(CultureInfo.CurrentCulture, ExternalMessages.RDFormsCannotStart, _failure));
             }
 
             _platform = platform;

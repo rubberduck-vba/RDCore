@@ -811,4 +811,32 @@ public sealed class RDFormsFormHostTests
         Assert.AreEqual(hosts, forms.HostsVisualBasic6Forms);
         Assert.AreEqual(hosts, status.HostsVisualBasic6Forms);
     }
+
+    // a process's windows are the first platform it starts them on, headless here: a host of desktop windows in the same process makes no form, and says
+    // what to do, in the language of the user.
+    [TestMethod]
+    [DataRow("en-US", "The forms of this session are loaded with no screen to show them, as those of a program run unattended are, and a form cannot be shown on "
+        + "the desktop as well. Run the program in a new session.", DisplayName = "en-US")]
+    [DataRow("fr-CA", "Les formulaires de cette session sont chargés sans écran pour les afficher, comme ceux d'un programme exécuté sans surveillance, et un "
+        + "formulaire ne peut pas aussi être affiché sur le bureau. Exécutez le programme dans une nouvelle session.", DisplayName = "fr-CA")]
+    public void AFormOfADesktopHost_InAProcessWhoseWindowsAreHeadless_FailsWithWhatToDo(string culture, string expected)
+    {
+        var (_, headless) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { Headless = true });
+        headless.Destroy(headless.Create(VisualBasicForm()));
+        var (_, desktop) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { Headless = false });
+
+        var language = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = new CultureInfo(culture);
+        try
+        {
+            var failure = Assert.ThrowsExactly<AutomationException>(() => desktop.Create(VisualBasicForm()));
+
+            Assert.AreEqual(unchecked((int)0x80004005), failure.HResult);
+            Assert.AreEqual(expected, failure.Message);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = language;
+        }
+    }
 }
