@@ -162,23 +162,22 @@ public static class SymbolRename
 
         var split = source.Name.Length;
         var start = range.Start;
-        if (position.Character - start.Character <= split)
+
+        // after the underscore, the name is the event's or the member's, which is renamed when the workspace declares it. When it does not (a library's
+        // event, a control's), the source is the one part of the name the workspace declares, and the rename at either part renames it.
+        if (position.Character - start.Character > split && binding.Bound is { } bound && NameOccurrences.SymbolOf(context, bound) is { } member
+            && NameOccurrences.IsDeclaredBy(context, member))
         {
-            var prefix = new SourceRange(start, new SourcePosition(start.Line, start.Character + split));
-            return source is VBClassModuleSymbol implemented
-                ? PrepareType(context, module, prefix, implemented)
-                : RefusalOf(context, source) is { } refused ? new(null, refused) : new(new RenameTarget(source.Name, module, prefix, [source.SemanticId]), null);
+            var suffix = new SourceRange(new SourcePosition(start.Line, start.Character + split + 1), range.End);
+            return RefusalOf(context, member) is { } refusal
+                ? new(null, refusal)
+                : new(new RenameTarget(member.Name, module, suffix, [.. RenamedTogether(context, member).Select(renamed => renamed.SemanticId)]), null);
         }
 
-        var suffix = new SourceRange(new SourcePosition(start.Line, start.Character + split + 1), range.End);
-        if (binding.Bound is not { } bound || NameOccurrences.SymbolOf(context, bound) is not { } member)
-        {
-            return new(null, new RenameRefusal(RenameRefusalKind.NotDeclaredByWorkspace, procedure.Name[(split + 1)..]));
-        }
-
-        return RefusalOf(context, member) is { } refusal
-            ? new(null, refusal)
-            : new(new RenameTarget(member.Name, module, suffix, [.. RenamedTogether(context, member).Select(renamed => renamed.SemanticId)]), null);
+        var prefix = new SourceRange(start, new SourcePosition(start.Line, start.Character + split));
+        return source is VBClassModuleSymbol implemented
+            ? PrepareType(context, module, prefix, implemented)
+            : RefusalOf(context, source) is { } refused ? new(null, refused) : new(new RenameTarget(source.Name, module, prefix, [source.SemanticId]), null);
     }
 
     // what the members of a class are bound to (MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10): the events of its form, as its designer has them, and of its host,
@@ -342,7 +341,8 @@ public static class SymbolRename
             return Refused(conflict);
         }
 
-        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName)).Concat(DesignerEdits(context, symbols, newName)).ToList();
+        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName))
+            .Concat(DesignerEdits(context, symbols, newName)).ToList();
         if (BindingEdits(context, symbols, newName, named) is { } taken)
         {
             return Refused(taken);
@@ -693,24 +693,22 @@ public static class SymbolRename
         return null;
     }
 
-    // where a module's VB_Name attribute writes its name, between the quotes.
-    private static (Uri Module, SourceRange Range)? VbNameRange(RenameContext context, Symbol module)
+    // the text of the module a symbol is of, as the rename reads it.
+    private static RenameModule? SourceOf(RenameContext context, Symbol module)
     {
         var at = NameOccurrences.ModuleOf(module.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
-        {
-            return null;
-        }
-
-        return ModuleHeader.NameRangeOf(source.Source) is { } name ? (source.Module, name) : null;
+        return context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri);
     }
 
-    // a module's name is its VB_Name (MS-VBAL §4.2), and a module whose source writes none is named by its file. Its rename writes its VB_Name, first of
-    // its attributes, after its header.
+    // where a module's VB_Name attribute writes its name, between the quotes.
+    private static (Uri Module, SourceRange Range)? VbNameRange(RenameContext context, Symbol module)
+        => SourceOf(context, module) is { } source && ModuleHeader.NameRangeOf(source.Source) is { } range ? (source.Module, range) : null;
+
+    // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name where its first attribute goes, after
+    // its header.
     private static RenameEdit? VbNameInsertion(RenameContext context, Symbol module, string newName)
     {
-        var at = NameOccurrences.ModuleOf(module.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
+        if (SourceOf(context, module) is not { } source)
         {
             return null;
         }
@@ -724,30 +722,26 @@ public static class SymbolRename
     // Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog), before its attributes.
     private static (Uri Module, SourceRange Range)? DesignerNameRange(RenameContext context, Symbol module)
     {
-        var at = NameOccurrences.ModuleOf(module.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source)
+        if (SourceOf(context, module) is not { } source || FormNameRangeOf(source.Source) is not { } range)
         {
             return null;
         }
 
-        SourceRange? range;
+        var name = source.Source.Split('\n')[range.Start.Line][range.Start.Character..range.End.Character];
+        return string.Equals(name, module.Name, StringComparison.OrdinalIgnoreCase) ? (source.Module, range) : null;
+    }
+
+    // a designer block that is not terminated names no form a rename can change.
+    private static SourceRange? FormNameRangeOf(string source)
+    {
         try
         {
-            range = FormDesigner.FormNameRangeOf(source.Source);
+            return FormDesigner.FormNameRangeOf(source);
         }
         catch (FormDesignerFormatException)
         {
-            // a designer block that is not terminated names nothing the rename can find
             return null;
         }
-
-        if (range is not { } name)
-        {
-            return null;
-        }
-
-        var written = source.Source.Split('\n')[name.Start.Line][name.Start.Character..name.End.Character];
-        return string.Equals(written, module.Name, StringComparison.OrdinalIgnoreCase) ? (source.Module, name) : null;
     }
 
     // the name an Implements directive writes, where it is the module's.

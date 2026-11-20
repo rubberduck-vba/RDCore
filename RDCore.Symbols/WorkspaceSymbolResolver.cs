@@ -10,6 +10,7 @@ using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Services;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Symbols;
 
@@ -21,7 +22,9 @@ namespace RDCore.Symbols;
 /// <param name="ScopeTree">The scope tree over the composed workspace's symbols.</param>
 /// <param name="Designers">What the designer of each form module of the workspace declares, by the module's <see cref="Uri.AbsoluteUri"/> (a module's Uri
 /// differs from its siblings' only in the fragment, which Uri equality ignores).</param>
-public readonly record struct WorkspaceComposition(ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyDictionary<string, FormDescriptor>? Designers = null)
+/// <param name="Symbols">The symbols the scope tree is built over: the workspace's, its project's, and those of the libraries it was composed with.</param>
+public readonly record struct WorkspaceComposition(
+    ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyDictionary<string, FormDescriptor>? Designers = null, IReadOnlyList<Symbol>? Symbols = null)
 {
     /// <summary>
     /// What the designer of the module <paramref name="module"/> declares, or <see langword="null"/> when it is no form module of the workspace.
@@ -87,14 +90,14 @@ public static class WorkspaceSymbolResolver
         // resolves — so it must not do implicit declaration, which would take every reference in every
         // procedure for an undeclared name.
         var declared = BuildSymbols(workspaceRoot, parsed, fallback, projectName, withImplicitDeclarations: false, libraries: libraries, documentHosts: documentHosts);
-        var declaredResolver = new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(declared)), fallback);
+        var declaredResolver = new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ProjectVisibility.ScopeTreeOf(declared)), fallback);
 
         var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
-        var scopeTree = ScopeTreeBuilder.Build(bound);
+        var scopeTree = ProjectVisibility.ScopeTreeOf(bound);
         var designers = parsed.Where(module => module.Parse.Designer is not null)
             .GroupBy(module => module.ModuleUri.AbsoluteUri)
             .ToDictionary(group => group.Key, group => group.First().Parse.Designer!);
-        return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree, designers);
+        return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree, designers, bound);
     }
 
     // one extraction pass: every module symbol and member symbol, with each declared type name bound

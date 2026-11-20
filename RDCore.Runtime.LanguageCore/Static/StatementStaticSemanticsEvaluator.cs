@@ -18,6 +18,7 @@ using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
@@ -301,7 +302,7 @@ public static class StatementStaticSemanticsEvaluator
 
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
             CollectError(targetResult, walk);
-            MarkWritten(context, assignment.Target);
+            MarkWritten(context, assignment.Target, assignment.Kind is AssignmentKind.ExplicitLet or AssignmentKind.ImplicitLet);
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
 
             // what a Set statement assigns is an object, which a project, a module or an enumeration is not: a type mismatch (MS-VBA, observed in Excel),
@@ -365,6 +366,14 @@ public static class StatementStaticSemanticsEvaluator
                 var objectCoercion = valueResult.Result is VBClassType or VBObjectType ? SetCoercionStaticSemantics.Instance : LetCoercionStaticSemantics.Instance;
                 CollectError(objectCoercion.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, objectParameter), walk);
                 return;
+            }
+
+            // MS-VBAL §5.4.3.8: a Let of an object is a Let of its default member, which is given the value Let-coerced to what it takes, as the
+            // run-time pass coerces it. An Object's default member is found only when it runs; a class that has none raises 438 and takes no value.
+            if (letsADefaultMember && valueResult.IsSuccess && (targetResult.Result is VBObjectType
+                || targetResult.Result is VBClassType targetClass && CurrentTypes.Of(context.Resolver, targetClass).DefaultMember is not null))
+            {
+                ObjectValueStaticSemantics.MarkLetCoerced(context.Facts, assignment.Value);
             }
 
             if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
@@ -781,16 +790,30 @@ public static class StatementStaticSemanticsEvaluator
         _ => [],
     };
 
-    // an expression a statement writes to is a fact of it: the element of an array is written through the array it is an element of.
-    private static void MarkWritten(StaticEvaluationContext context, ExpressionNode target)
+    // an expression a statement writes to is a fact of it: the element of an array is written through the array it is an element of. MS-VBAL §5.4.3.8: a
+    // Let of a variable of a class or Object is a Let of the default property of the object it holds, and an argument list given to an object goes to its
+    // default member (§5.6.13): what holds the object is read for it, and not written.
+    private static void MarkWritten(StaticEvaluationContext context, ExpressionNode target, bool isLet = false)
     {
         if (context.Facts is not { } facts)
         {
             return;
         }
 
+        if (isLet && facts.TryGet(target.Identity, out var assigned)
+            && assigned.Classification is SDK.Semantics.ExpressionClassification.Variable or SDK.Semantics.ExpressionClassification.Value
+            && IsAnObject(assigned))
+        {
+            return;
+        }
+
         while (target is IndexExpressionNode index)
         {
+            if (isLet && facts.TryGet(index.Callee.Identity, out var callee) && IsAnObject(callee))
+            {
+                return;
+            }
+
             target = index.Callee;
         }
 
@@ -798,6 +821,8 @@ public static class StatementStaticSemanticsEvaluator
         {
             facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.AssignmentTarget });
         }
+
+        static bool IsAnObject(ExpressionFact fact) => fact.DeclaredType is VBClassType or VBObjectType;
     }
 
     // an Exit For or Exit Do is checked against the loops it is lexically inside, so a body is walked with the kind of loop it belongs to counted. A loop
@@ -1122,7 +1147,9 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         var name = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-        return DeclaredTypes.Resolve(context.Resolver, name, context.Scope.Uri, is64Bit: true) is { } type and not VBUnknownType ? type : null;
+        var resolved = DeclaredTypes.Resolve(
+            context.Resolver, name, context.Scope.Uri, is64Bit: true, ProjectVisibility.Instance, ProjectVisibility.ProjectOf(context.Scope));
+        return resolved is { } type and not VBUnknownType ? type : null;
     }
 
     // what a ReDim's target names: a name, or a member of a project or a procedural module (`Globals.Items`).
@@ -1192,7 +1219,7 @@ public static class StatementStaticSemanticsEvaluator
     private static VBCompileErrorInfo? NoTypeErrorOf(StaticEvaluationContext context, AsTypeExpressionNode asType)
     {
         var (bound, _) = TypeNameClassifier.Classify(asType.QualifierName is { Length: > 0 } ? asType.QualifierName : null, asType.TypeName,
-            context.Scope.Uri, context.Resolver);
+            context.Scope.Uri, context.Resolver, ProjectVisibility.ProjectOf(context.Scope));
         var written = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
         return DeclarationStaticSemanticsEvaluator.NoTypeError(bound, written, asType.Location);
     }
@@ -1391,7 +1418,10 @@ public static class StatementStaticSemanticsEvaluator
                 return null;
             }
 
-            members = [.. (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
+            // MS-VBAL §5.3.1.1, §5.4.3.8: the accessors the code's project can reach; a Friend Let of another project's class is inaccessible, as a
+            // Private one is.
+            var declared = VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot;
+            members = [.. ProjectVisibility.MembersSeenFrom(declared.DefaultInterfaceMembers, declared, context.Scope)
                 .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))];
         }
         else

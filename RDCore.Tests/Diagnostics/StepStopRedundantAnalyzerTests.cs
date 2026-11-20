@@ -5,6 +5,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -74,18 +75,6 @@ public sealed class StepStopRedundantAnalyzerTests
     public void TheConventionsDefault_IsImplicit()
         => Assert.AreEqual(ForStepConvention.Implicit, new DiagnosticsOptions().ForStep);
 
-    private static string Fixed(string program, EditFix fix)
-    {
-        var lines = program.Split("\r\n");
-        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
-        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
-        {
-            program = program[..OffsetOf(edit.Range.Start)] + edit.NewText + program[OffsetOf(edit.Range.End)..];
-        }
-
-        return program;
-    }
-
     // the fix of the one finding of the analyzer leaves the module as it is expected, and the program prints the same.
     private static async Task AssertFixedAsync(IModuleAnalyzer analyzer, string before, string after, string title, ModuleSemanticsDto? semantics = null)
     {
@@ -94,7 +83,7 @@ public sealed class StepStopRedundantAnalyzerTests
         Assert.IsNotNull(fix);
         Assert.AreEqual(title, fix.Title);
 
-        var fixedProgram = Fixed(program, fix);
+        var fixedProgram = fix.Edits.ApplyTo(program);
         Assert.AreEqual(Module(after), fixedProgram);
         Assert.IsEmpty(Run(analyzer, fixedProgram, semantics), "the fix leaves nothing to report");
         CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
@@ -255,7 +244,7 @@ public sealed class StepStopRedundantAnalyzerTests
         Assert.IsNotNull(fix);
 
         Assert.AreEqual("Remove the Stop: the program no longer breaks here", fix.Title);
-        Assert.AreEqual(Module("Public Sub DoSomething()\n    Debug.Print 1\n    Debug.Print 2\nEnd Sub"), Fixed(source, fix));
+        Assert.AreEqual(Module("Public Sub DoSomething()\n    Debug.Print 1\n    Debug.Print 2\nEnd Sub"), fix.Edits.ApplyTo(source));
     }
 
     [TestMethod]

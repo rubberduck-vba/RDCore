@@ -19,7 +19,8 @@ internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
     /// The slots of the <c>String</c> parameters and variables of variable length (a fixed-length one pads or truncates what it is assigned), in order:
-    /// each is held in the cell its frame holds it in, which compiled code reads the text it holds from and writes the text it is assigned to.
+    /// each is held in a cell (<c>TextCell</c>), which compiled code reads the text it holds from and writes the text it is assigned to: the one its frame
+    /// holds it in, or, in an activation without a frame, the activation's, which its frame is given once it has one.
     /// </summary>
     public IReadOnlyList<int> TextSlots => [.. _textSlots];
 
@@ -28,19 +29,25 @@ internal sealed partial class ProcedureAnalysis
     // a String that holds the text it is assigned as it is.
     internal static bool IsText(VBType? type) => type is VBStringType and not VBFixedStringType;
 
-    // a String parameter or variable, held in the cell its frame holds it in.
+    // a String parameter or variable, held in a cell compiled code reads and writes: an activation without a frame holds it (CompiledActivation.StringCellOf).
     private void HoldText(int slot, Symbol symbol)
     {
-        NeedsFrame = true;
         _ = _textSlots.Add(slot);
         _slotSymbols[slot] = symbol;
     }
 
     /// <summary>
-    /// The slots of the <c>String</c> variables a Let appends to (<see cref="TextAppendStep"/>), each held in an appender of the activation while it is
-    /// appended to.
+    /// The slots of the <c>String</c> variables a Let appends to (<see cref="TextAppendStep"/>) or a <c>Mid</c> statement changes (<see cref="MidStep"/>),
+    /// each held in an appender of the activation while it is appended to or changed. A parameter by reference is neither: it is the caller's variable,
+    /// which other names reach, and its cell holds what it is assigned at once.
     /// </summary>
-    public IReadOnlySet<int> AppendedTextSlots => Steps.OfType<TextAppendStep>().Select(step => step.Slot).ToHashSet();
+    public IReadOnlySet<int> AppendedTextSlots
+        => Steps.Select(step => step switch
+            {
+                TextAppendStep append => append.Slot,
+                MidStep mid when !IsPassedByReference(mid.Slot) => mid.Slot,
+                _ => (int?)null,
+            }).OfType<int>().ToHashSet();
 
     // S = S & a & b: the texts appended to S, in order, when what is assigned is S joined on its left. A parameter by reference is the caller's variable, which
     // the caller reads once the call returned: it is assigned the String joined.
@@ -181,14 +188,19 @@ internal sealed partial class ProcedureAnalysis
             case var textCall when TextCalledBy(textCall) is { } function:
                 return TextCallOf(textCall, function);
 
-            // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
-            // and a Date are the interpreter's, which writes them in the regional settings of the session. A node whose payload cannot be read is refused
-            // once: by the reason the read gave, or else by its own.
+            // a number of a whole type, a Single or a Double let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it, a
+            // Single or a Double in the regional settings of the session as it runs: a Currency, a Boolean and a Date are the interpreter's. A node whose
+            // payload cannot be read is refused once: by the reason the read gave, or else by its own.
             default:
                 var refused = _reasons.Count;
-                if (WholeOf(node) is { } number)
+                switch (NumberOf(node))
                 {
-                    return number is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(number);
+                    case { Kind: ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong } number:
+                        return number is ConstantNode { Integral: var digits }
+                            ? new TextConstantNode(StringOperations.OfWhole(digits))
+                            : new WholeTextNode(number);
+                    case { Kind: ScalarKind.Single or ScalarKind.Double } floating:
+                        return new FloatingTextNode(floating);
                 }
 
                 if (_reasons.Count == refused)
@@ -218,10 +230,10 @@ internal sealed partial class ProcedureAnalysis
 
     // the payload of a Byte, an Integer, a Long or a LongLong: not a Variant's, nor an extended intermediate's.
     private PayloadNode? WholeOf(BoundNode node)
-        => !IsVariant(node) && !IsExtended(node)
-            && Payload(node) is { Kind: ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong } whole
-                ? whole
-                : null;
+        => NumberOf(node) is { Kind: ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong } whole ? whole : null;
+
+    // the payload of a number: not a Variant's, nor an extended intermediate's.
+    private PayloadNode? NumberOf(BoundNode node) => !IsVariant(node) && !IsExtended(node) ? Payload(node) : null;
 
     // the library's Chr$ (IStdStringsModule.ChrString), by the member the library declares it as, which no procedure of the workspace is.
     private static readonly string ChrString
@@ -230,8 +242,8 @@ internal sealed partial class ProcedureAnalysis
     private static bool IsChrString(Symbol symbol)
         => StandardLibrary.IsLibraryMember(symbol) && symbol.GetProperty(SymbolProperties.ExternalTarget) == ChrString;
 
-    // TryCompareText: two Strings compared under the comparison mode of the module, which is the frame's - an activation that compares Strings has one, which
-    // is the current one while it runs.
+    // TryCompareText: two Strings compared under the comparison mode of the module the procedure is declared in (CompiledActivation.CompareText), which is
+    // its frame's, or the one its frame would have.
     private PayloadNode? CompareText(BoundBinary compared)
     {
         if (OperatorTokens.ComparisonOf(compared.Plan!.Operator) is not { } comparison)
@@ -244,13 +256,13 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        NeedsFrame = true;
         return new TextCompareNode(comparison, left, right);
     }
 
     // the argument of a String parameter, as the interpreter gives it (MS-VBAL §5.3.1.11): a String variable of the activation given by reference is given
-    // its address, which the parameter is a second name for; Strings given by value are given their text, of which the callee makes a cell of its own. Anything
-    // else (a Variant, a number, a field given by reference, an element) is let-coerced or passed by the interpreter, which makes the call.
+    // its cell, or its address through the invoker, which the parameter is a second name for; Strings given by value are given their text, of which the
+    // callee makes a cell of its own. Anything else (a Variant, a number, a field given by reference, an element) is let-coerced or passed by the
+    // interpreter, which makes the call.
     private PayloadNode? TextArgumentOf(BoundArgument argument) => argument switch
     {
         { Passing: ArgumentPassing.Reference, Value: BoundVariable variable } when TextSlotOf(variable) is { } slot => new TextReferenceNode(slot),

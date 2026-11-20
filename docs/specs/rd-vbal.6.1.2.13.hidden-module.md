@@ -68,6 +68,9 @@ As in **MS-VBA** (recorded in Excel):
 |An array|Compile error [`VBC09310`](../diagnostics/vbc09310.md) _Type mismatch_, as it is for a `Declare`'s `As Any`; an element of it is valid.|
 
 > [!NOTE]
+> **Not implemented.** A field named through a `With` block (`VarPtr(.X)` in `With r`) gives an address of its own, not the field's in the record.
+> A procedure given the field by reference writes the field itself.
+
 The bytes at an element's or a record's address are what it holds, laid out as **MS-VBA** lays them out: a number, a `Boolean`, a `Date` and a
 fixed-length `String` are their bytes, a variable-length `String` the address of its characters ([StrPtr](#strptr)), an object the address of its interface
 ([ObjPtr](#objptr)), a `Variant` its `VARIANT` ([below](#variant)), and a record its fields' at their offsets, padding zeroed. A `POKE` there writes the element

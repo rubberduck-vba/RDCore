@@ -144,6 +144,10 @@ it is declared in the same project. `DeclarationStaticSemanticsEvaluator` checks
 |A `WithEvents` variable (`Private WithEvents w As New Widget`, **MS-VBAL §5.2.3.1.2**)|`VBC09368`.|
 |An intrinsic type (`As New Long`, `As New String`, `As New Variant`, `As New Object`)|Compile error [`VBC00001`](../diagnostics/vbc00001.md) _Syntax error_: `New` is followed by a type name no class can have.|
 
+`As New` of a class of a project the project references, when the class is not creatable (`VB_Creatable = False`), is `VBC09368` as well: only
+its own project creates its objects (**MS-VBAL §5.2.3.1.4**, **MS-VBAL §5.2.4.1.1**). The code of that project declares it `As New` as the project's
+own code does.
+
 An automatic instantiation variable that is _dependent_ on another (**MS-VBAL §2.5.1**) is created on its first
 reference too:
 

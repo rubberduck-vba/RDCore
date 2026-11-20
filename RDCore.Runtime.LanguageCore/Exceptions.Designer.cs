@@ -868,6 +868,15 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New {1}, a class of the {2} project that only its own project creates (Attribute VB_Creatable = False)..
+        /// </summary>
+        internal static string VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0}: the {1} library does not say {0} can be created: an interface, or a class the library makes itself..
         /// </summary>
         internal static string VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose {
@@ -1152,6 +1161,60 @@ namespace RDCore.Runtime.LanguageCore {
         internal static string VBCompileError_NoHostApplicationToEvaluateExpression_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NoHostApplicationToEvaluateExpression_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Only valid in object module.
+        /// </summary>
+        internal static string VBCompileError_OnlyValidInObjectModule {
+            get {
+                return ResourceManager.GetString("VBCompileError_OnlyValidInObjectModule", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared Friend, which only a procedure of a class module can be: declare it Public or Private..
+        /// </summary>
+        internal static string VBCompileError_OnlyValidInObjectModule_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_OnlyValidInObjectModule_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Not a legal object name.
+        /// </summary>
+        internal static string VBCompileError_NotALegalObjectName {
+            get {
+                return ResourceManager.GetString("VBCompileError_NotALegalObjectName", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a keyword of the language, which no module can be named: give the module another name..
+        /// </summary>
+        internal static string VBCompileError_NotALegalObjectName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NotALegalObjectName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Name conflicts with existing module, project, or object library.
+        /// </summary>
+        internal static string VBCompileError_NameConflictsWithModuleProjectOrLibrary {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameConflictsWithModuleProjectOrLibrary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a library or a project that the project references: give the module another name..
+        /// </summary>
+        internal static string VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose", resourceCulture);
             }
         }
 

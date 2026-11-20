@@ -104,6 +104,16 @@ internal sealed record class RenameAnswer<T>(T? Value, string? Refusal, IReadOnl
 /// <param name="Leave">The answer that renames the symbol and leaves those edits out.</param>
 internal sealed record class RenameQuestion(ChangeAnnotationIdentifier Annotation, string Message, string Rename, string Leave);
 
+/// <summary>
+/// A lens above the name of a member a document declares, in the text of the document (<see cref="SymbolLenses.In(RenameContext, RenameModule)"/>).
+/// </summary>
+/// <param name="Range">The name of the member.</param>
+/// <param name="Kind">What the lens counts or says.</param>
+/// <param name="Implemented">
+/// Of an <see cref="SymbolLensKind.Implements"/> lens, the interface and the member the procedure implements, and where the member is declared.
+/// </param>
+internal sealed record class WorkspaceLens(LspRange Range, SymbolLensKind Kind, (string Interface, string Member, Location Declaration)? Implemented = null);
+
 /// <inheritdoc cref="IRenameService"/>
 /// <remarks>
 /// The workspace is composed from the parse of each document as the server holds it - the text the client last sent - with the libraries the project references,
@@ -456,16 +466,7 @@ internal sealed class RenameWorkspace
     private (StagedFile? Staged, RenameRefusal? Refusal) ReplacedFrxOf(ProjectPart part, Uri form, string name, string newName)
     {
         var module = part.Modules.First(candidate => candidate.Module.AbsoluteUri == form.AbsoluteUri);
-        FormDesignerReference? reference;
-        try
-        {
-            reference = FormDesigner.CompanionOf(module.Source);
-        }
-        catch (FormDesignerFormatException)
-        {
-            reference = null;
-        }
-
+        var reference = CompanionNamedBy(module.Source);
         if (Stage is not { } stage || reference is null || Path.GetFileName(reference.FileName) != reference.FileName || module.Document.Companion.IsEmpty)
         {
             return (null, new(RenameRefusalKind.UserFormControl, name));
@@ -486,17 +487,19 @@ internal sealed class RenameWorkspace
             : (null, new(RenameRefusalKind.UserFormControl, name));
     }
 
-    // the binary file of a designer's file, by the extension of each (a form's .frx, a user control's .ctx), when the designer's text names it as the file of
-    // the same name (OleObjectBlob = "Dialog.frx":0000): its rename, and where the text names it, in the text of the module.
+    // the binary file of a designer's file (a form's .frx, a user control's .ctx), when the designer's text names it as the file of the same name
+    // (OleObjectBlob = "Dialog.frx":0000): its rename, and where the text names it, in the text of the module.
     private static (RenameFile Rename, IReadOnlyList<SDK.Model.Source.SourceRange> Names, string NewName)? CompanionOf(DocumentModule module, string newName)
     {
         var path = module.Document.Id.Uri.GetFileSystemPath();
-        if (!FormDesigner.CompanionExtensions.TryGetValue(Path.GetExtension(path), out var extension))
+        if (!FormDesigner.CompanionExtensions.TryGetValue(Path.GetExtension(path), out var extension)
+            || CompanionNamedBy(module.Source) is not { } named
+            || !string.Equals(named.FileName, Path.GetFileNameWithoutExtension(path) + extension, StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        var companion = Path.GetFileNameWithoutExtension(path) + extension;
+        var companion = named.FileName;
         var names = new List<SDK.Model.Source.SourceRange>();
         var lines = module.Source.Split('\n');
         for (var line = 0; line < lines.Length && !lines[line].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase); line++)
@@ -519,6 +522,19 @@ internal sealed class RenameWorkspace
             NewUri = Sibling(module.Document.Id.Uri, newName + extension),
             Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = false },
         }, names, newName + extension);
+    }
+
+    // a designer block that is not terminated names no companion a rename can change.
+    private static FormDesignerReference? CompanionNamedBy(string source)
+    {
+        try
+        {
+            return FormDesigner.CompanionOf(source);
+        }
+        catch (FormDesignerFormatException)
+        {
+            return null;
+        }
     }
 
     // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
@@ -725,10 +741,11 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The members a document declares whose references a client shows (<see cref="SymbolLenses.In"/>): each name, in the text of the document.
+    /// The lenses of the members a document declares (<see cref="SymbolLenses.In(RenameContext, RenameModule)"/>): each at the member's name, in the text of
+    /// the document.
     /// </summary>
-    /// <returns>Each member; none in a program of the platform's BASIC, whose procedure is the one its lines are the body of.</returns>
-    public IReadOnlyList<(string Name, LspRange Range)> Lenses(Uri documentUri)
+    /// <returns>Each lens; none in a program of the platform's BASIC, whose procedure is the one its lines are the body of.</returns>
+    public IReadOnlyList<WorkspaceLens> Lenses(Uri documentUri)
     {
         if (ModuleOf(documentUri) is not { } module
             || BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
@@ -737,7 +754,24 @@ internal sealed class RenameWorkspace
             return [];
         }
 
-        return [.. SymbolLenses.In(source).Select(lens => (lens.Name, module.ToTextRange(lens.NameRange)))];
+        var lenses = new List<WorkspaceLens>();
+        foreach (var lens in SymbolLenses.In(PartOf(module).Context, source))
+        {
+            if (lens.Implemented is { } implemented)
+            {
+                // a member of an interface no document of the workspace holds has nowhere to go to.
+                if (LocationsOf([implemented.Declaration]) is [var declaration])
+                {
+                    lenses.Add(new WorkspaceLens(module.ToTextRange(lens.NameRange), lens.Kind, (implemented.Interface, implemented.Member, declaration)));
+                }
+
+                continue;
+            }
+
+            lenses.Add(new WorkspaceLens(module.ToTextRange(lens.NameRange), lens.Kind));
+        }
+
+        return lenses;
     }
 
     /// <summary>
@@ -745,18 +779,26 @@ internal sealed class RenameWorkspace
     /// included: each name, in the text of its document.
     /// </summary>
     public IReadOnlyList<Location> LensReferences(Uri documentUri, Position position)
-    {
-        if (ModuleOf(documentUri) is not { } module)
-        {
-            return [];
-        }
+        => ModuleOf(documentUri) is { } module
+            ? LocationsOf(SymbolLenses.ReferencesOf(PartOf(module).Context, module.Module, module.ToModulePosition(position)))
+            : [];
 
-        var part = PartOf(module);
-        return [.. SymbolLenses.ReferencesOf(part.Context, module.Module, module.ToModulePosition(position))
-            .Select(site => (Site: site, Document: part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+    /// <summary>
+    /// The procedures that implement the member whose name is written at a position of a document (<see cref="SymbolLenses.ImplementationsOf"/>), as Go to
+    /// Implementation finds them: each name, in the text of its document.
+    /// </summary>
+    public IReadOnlyList<Location> LensImplementations(Uri documentUri, Position position)
+        => ModuleOf(documentUri) is { } module
+            ? LocationsOf(SymbolLenses.ImplementationsOf(PartOf(module).Context, module.Module, module.ToModulePosition(position)))
+            : [];
+
+    // each site at its name, in the text of its document; none of a document no project of the workspace holds.
+    private IReadOnlyList<Location> LocationsOf(IEnumerable<SymbolSite> sites)
+        => [.. sites
+            .Select(site => (Site: site,
+                Document: PartOf(site.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
             .Where(found => found.Document is not null)
             .Select(found => new Location { Uri = found.Document!.Document.Id.Uri, Range = found.Document.ToTextRange(found.Site.SelectionRange) })];
-    }
 
     /// <summary>
     /// The names in a document that refer to the symbol named at a position of it (<strong>LSP 3.17</strong> §Document Highlights Request): what a rename of

@@ -57,7 +57,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, let.Offset);
         _il.Emit(OpCodes.Ldloc, value);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.LetMember))!);
-        _il.Emit(OpCodes.Brfalse, CallFailedAt(let.Offset));
+        _il.Emit(OpCodes.Brfalse, CallFailedAfterSpillAt(let.Offset));
 
         // asked as after a call, which the random failed accesses fail the first read-back after a wait by, whatever the seed.
         var read = _il.DefineLabel();

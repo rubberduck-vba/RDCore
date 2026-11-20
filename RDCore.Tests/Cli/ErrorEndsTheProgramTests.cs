@@ -97,6 +97,32 @@ public sealed class ErrorEndsTheProgramTests
         Assert.AreEqual(0, run.TotalAgain);
     }
 
+    // the Err object is reset with the session: the next run starts with no error, and an error it raises with a number alone is described as that number's
+    // (MS-VBAL §6.1.3.2.1.2 takes the description Err holds only when it has not been cleared).
+    [TestMethod]
+    [DataRow(VBExecutionEngine.Interpreter, DisplayName = "interpreted")]
+    [DataRow(VBExecutionEngine.Compiled, DisplayName = "compiled")]
+    public async Task AnUnhandledError_LeavesErrClearedForTheNextRun(VBExecutionEngine engine)
+    {
+        var run = await RunTwiceAsync(engine, Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print Err.Number; \"[\" & Err.Description & \"]\"",
+            "    On Error Resume Next",
+            "    Err.Raise 13",
+            "    Debug.Print Err.Number; \"[\" & Err.Description & \"]\"",
+            "    On Error GoTo 0",
+            "    Dim Z As Long",
+            "    Debug.Print 1 \\ Z",
+            "End Sub"));
+
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, run.First.Outcome, run.First.ErrorMessage);
+        Assert.AreEqual(11, run.First.ErrorNumber);
+        CollectionAssert.AreEqual(new[] { "0 []", "13 [Type mismatch]" }, Printed(run.First));
+        Assert.AreEqual(11, run.Second.ErrorNumber);
+        CollectionAssert.AreEqual(new[] { "0 []", "13 [Type mismatch]" }, Printed(run.Second), "the error that ended the run before is no error of this one");
+    }
+
     // MS-VBA runs no Class_Terminate when the error dialog is answered End, nor when it is answered Debug and the project is then reset: not for a local of
     // the activation that raised the error, of its callers, of a Static local, nor of a module variable (measured in Excel, 64-bit).
     [TestMethod]

@@ -8,6 +8,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
@@ -71,7 +72,7 @@ public sealed record class TypeOfIsExpressionStaticSemantics : IStaticSemantics
         }
 
         var written = qualifier is null ? name : $"{qualifier}.{name}";
-        var (bound, _) = TypeNameClassifier.Classify(qualifier, name, context.Scope.Uri, context.Resolver);
+        var (bound, _) = TypeNameClassifier.Classify(qualifier, name, context.Scope.Uri, context.Resolver, ProjectVisibility.ProjectOf(context.Scope));
         return bound switch
         {
             TypeNameClass.Type => null,

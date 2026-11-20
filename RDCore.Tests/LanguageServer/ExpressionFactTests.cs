@@ -249,9 +249,11 @@ public sealed class ExpressionFactTests
     }
 
     // the names of the body's variables that are flagged as written to, in the order they are written.
-    private static string[] Written(params string[] body)
+    private static string[] Written(params string[] body) => WrittenWith([], body);
+
+    private static string[] WrittenWith((Uri Uri, ModuleType ModuleType, ModuleParseResult Parse)[] modules, string[] body)
     {
-        var (model, run, _) = Analyze([], body);
+        var (model, run, _) = Analyze([], body, modules);
         var names = run.Descendants().OfType<SimpleNameExpressionNode>().ToDictionary(name => name.Identity);
         return [.. model.Expressions.Values
             .Where(fact => names.ContainsKey(fact.Node) && fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget))
@@ -270,4 +272,26 @@ public sealed class ExpressionFactTests
     [DataRow(new[] { "Dim a() As Long", "Dim b() As Long", "Erase a, b" }, new[] { "a", "b" }, DisplayName = "the arrays of an Erase statement")]
     public void WhatAStatementWritesTo_IsFlaggedAsAnAssignmentTarget(string[] body, string[] expected)
         => CollectionAssert.AreEqual(expected, Written(body));
+
+    private static readonly (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) Holder = Class("Holder",
+        "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "End Property",
+        "Public Property Let Value(ByVal v As Long)", "End Property");
+
+    private static readonly (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) Bag = Class("Bag",
+        "Public Property Get Item(ByVal i As Long) As Long", "Attribute Item.VB_UserMemId = 0", "End Property",
+        "Public Property Let Item(ByVal i As Long, ByVal v As Long)", "End Property");
+
+    // MS-VBAL §5.4.3.8: a Let-assignment to a variable of a class or Object is a Let-assignment to the default property of the object it holds, which the
+    // variable is read for; an argument list given to an object is its default member's (§5.6.13). A Set assigns the variable, and so does a Let of a Variant
+    // or of an element of an array of values.
+    [TestMethod]
+    [DataRow(new[] { "Dim h As New Holder", "h = 5" }, new string[0], DisplayName = "a Let of an object, to its default property")]
+    [DataRow(new[] { "Dim o As Object", "o = 5" }, new string[0], DisplayName = "a Let of an Object, to the default property of what it holds")]
+    [DataRow(new[] { "Dim b As New Bag", "b(1) = 5" }, new string[0], DisplayName = "an argument list given to an object, its default property's")]
+    [DataRow(new[] { "Dim hs(1) As Holder", "hs(0) = 5" }, new string[0], DisplayName = "a Let of an element of an array of objects")]
+    [DataRow(new[] { "Dim h As Holder", "Set h = New Holder" }, new[] { "h" }, DisplayName = "a Set of an object")]
+    [DataRow(new[] { "Dim v As Variant", "v = 5" }, new[] { "v" }, DisplayName = "a Let of a Variant")]
+    [DataRow(new[] { "Dim a(1) As Long", "a(0) = 5" }, new[] { "a" }, DisplayName = "a Let of an element of an array of values")]
+    public void ALetThroughADefaultMember_ReadsTheVariable_AndDoesNotAssignIt(string[] body, string[] expected)
+        => CollectionAssert.AreEqual(expected, WrittenWith([Holder, Bag], body), string.Join(", ", WrittenWith([Holder, Bag], body)));
 }

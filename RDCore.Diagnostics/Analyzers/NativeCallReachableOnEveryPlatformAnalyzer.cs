@@ -18,7 +18,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// <para>
 /// No library is on every platform: a <c>Declare</c> that no <c>#If</c> on the platform constants (<c>Win32</c>, <c>Win64</c>, <c>Mac</c>, <c>Linux</c>,
-/// <c>Linux64</c>) makes dead calls its library on a platform that does not have it, where the call raises run-time error 53 or 453. A procedure written
+/// <c>Is64BitEnv</c>) makes dead calls its library on a platform that does not have it, where the call raises run-time error 53 or 453. A procedure written
 /// once in each branch of a <c>#If</c> on them is declared on every platform, each by the statement of its own branch, and is not one. The host states where
 /// each statement and each call is compiled, every platform considered and not only the one it runs on (<see cref="DeclarationFactDto.StatementsCompiledOn"/>,
 /// <see cref="ExpressionFactDto.NativeCall"/>).

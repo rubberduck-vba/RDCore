@@ -266,6 +266,11 @@ public sealed record class AutomationClassNameResult : ExternalResult
 {
     /// <summary>The name a server gives the class of the object, qualified by its library; <see langword="null"/> when it gives none.</summary>
     public string? Name { get; init; }
+
+    /// <summary>
+    /// Whether the object is one that the form host of the external host made (<see cref="Automation.IAutomationServer.IsFormHostObject"/>).
+    /// </summary>
+    public bool IsFormHostObject { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationIsInstanceOf"/>.</summary>

@@ -15,9 +15,10 @@ namespace RDCore.Tests.Diagnostics;
 [TestClass]
 public sealed class SyntaxTreeAnalyzerTests
 {
-    private static AnalyzerFinding[] Run(IModuleAnalyzer analyzer, string source)
+    private static AnalyzerFinding[] Run(IModuleAnalyzer analyzer, string source) => Run(analyzer, source, TestUri.TestModuleUri());
+
+    private static AnalyzerFinding[] Run(IModuleAnalyzer analyzer, string source, Uri uri)
     {
-        var uri = TestUri.TestModuleUri();
         var parseResult = new ModuleParser().Parse(uri, source);
         Assert.IsEmpty(parseResult.SyntaxErrors, $"the source is valid: {string.Join("; ", parseResult.SyntaxErrors.Select(error => $"{error.Location.Range.Start}: {error.Description} {error.Verbose}"))}");
         return [.. analyzer.Analyze(new ModuleAnalysisContext(uri, parseResult, null)).OrderBy(finding => finding.Range.Start)];
@@ -426,6 +427,57 @@ public sealed class SyntaxTreeAnalyzerTests
             End Enum
             Private {name} As Long
             Public Sub Work(ByVal {name} As Long)
+            End Sub
+            """);
+
+        Assert.IsEmpty(findings);
+    }
+
+    // a module's own name (MS-VBAL §4.2), which MS-VBA refuses to rename a module to or import it with (observed in Excel): at its VB_Name, or at the
+    // start of a module its file names. A reserved-identifier (Circle) is a compile error of the module, and no warning.
+    [TestMethod]
+    [DataRow("Long")]
+    [DataRow("Variant")]
+    [DataRow("Local")]
+    [DataRow("integer", DisplayName = "integer, written in lower case")]
+    public void AModuleNamedWithANameMSVBARefuses_IsAWarningAtItsName(string name)
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), $"""
+            Attribute VB_Name = "{name}"
+            Public Sub Work()
+            End Sub
+            """);
+
+        var finding = Assert.ContainsSingle(findings);
+        Assert.AreEqual(RDCoreDiagnosticId.NameRefusedByMSVBA, finding.Id);
+        Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
+        Assert.AreEqual(0, finding.Range.Start.Line, "the VB_Name");
+        StringAssert.Contains(finding.Message, $"'{name}'");
+        StringAssert.Contains(finding.Message, "module");
+    }
+
+    [TestMethod]
+    public void AModuleItsFileNamesWithANameMSVBARefuses_IsAWarningAtItsStart()
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), """
+            Public Sub Work()
+            End Sub
+            """, new Uri(Path.Combine(Path.GetTempPath(), "rdcore-module-names", "Long.bas")));
+
+        var finding = Assert.ContainsSingle(findings);
+        Assert.AreEqual(RDCoreDiagnosticId.NameRefusedByMSVBA, finding.Id);
+        Assert.AreEqual(new SourceRange(0, 0, 0, 0), finding.Range);
+    }
+
+    [TestMethod]
+    [DataRow("Circle", DisplayName = "Circle, a reserved-identifier")]
+    [DataRow("Name", DisplayName = "Name, which MS-VBA accepts")]
+    [DataRow("Shapes")]
+    public void AModuleNamedWithANameMSVBAAcceptsOrTheSpecificationReserves_IsNoWarning(string name)
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), $"""
+            Attribute VB_Name = "{name}"
+            Public Sub Work()
             End Sub
             """);
 
