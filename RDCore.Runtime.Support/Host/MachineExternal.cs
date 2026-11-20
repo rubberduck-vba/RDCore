@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using RDCore.External;
 using RDCore.External.Client;
+using RDCore.External.Interaction;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Platform;
@@ -39,7 +40,7 @@ internal static class MachineExternal
                 NullLogger<ChildConnection>.Instance),
             Executable,
             NullLogger<ExternalHost>.Instance);
-        var servers = new RemoteAutomationServer(host);
+        var servers = _servers = new RemoteAutomationServer(host);
         return new ExternalWorld(servers, new RemoteNativeLibraryHost(host))
         {
             Forms = servers,
@@ -52,6 +53,19 @@ internal static class MachineExternal
     /// The outside world of this machine.
     /// </summary>
     public static ExternalWorld World => _world.Value;
+
+    private static RemoteAutomationServer? _servers;
+
+    /// <summary>
+    /// The dialogs of a program whose user interface is its forms: shown by the external host over them, or by <paramref name="fallback"/> when the
+    /// external host shows none.
+    /// </summary>
+    /// <param name="fallback">The dialogs shown when the external host shows none.</param>
+    public static IUserInteraction FormDialogs(IUserInteraction fallback)
+    {
+        _ = World;
+        return new RemoteUserInteraction(_servers!, fallback);
+    }
 
     /// <summary>
     /// Stops the external host, if one was started, and waits for its process to end: a program that ended leaves nothing running in its folder.

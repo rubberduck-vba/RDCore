@@ -498,6 +498,26 @@ public sealed class StdInteraction(
 
     #region dialogs
 
+    // the help file a dialog names, a relative one taken from the current directory (CurDir) as the program's file statements take it: what opens it can run
+    // in another directory. A name with no current directory to take it from, or none a path can be made of, stays as it was given.
+    private string? HelpFileOf(RuntimeSemanticsEvaluationResult<VBTypedValue>? file)
+    {
+        if (file?.Result?.ToString() is not { Length: > 0 } name || Path.IsPathFullyQualified(name)
+            || session.Files.TryGetCurrentDirectory(null, out var current) is not null)
+        {
+            return file?.Result?.ToString();
+        }
+
+        try
+        {
+            return Path.GetFullPath(name, current);
+        }
+        catch (ArgumentException)
+        {
+            return name;
+        }
+    }
+
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBLongValue> MsgBox(
         VBVariantValue prompt, VBMsgBoxStyle buttons = VBMsgBoxStyle.VBDefaultButton1, VBVariantValue? title = default,
@@ -515,13 +535,21 @@ public sealed class StdInteraction(
             return RuntimeSemanticsEvaluationResult<VBLongValue>.Error(caption.ErrorInfo!);
         }
 
+        RuntimeSemanticsEvaluationResult<VBTypedValue>? file = IsOmitted(helpFile) ? null : ToText(helpFile!);
+        RuntimeSemanticsEvaluationResult<VBTypedValue>? context = IsOmitted(helpContext) ? null : ToLong(helpContext!);
+        if (new[] { file, context }.FirstOrDefault(result => result is { IsSuccess: false }) is { } failed)
+        {
+            return RuntimeSemanticsEvaluationResult<VBLongValue>.Error(failed.ErrorInfo!);
+        }
+
         // a program run unattended has nobody to answer it, and fails (IRuntimeSession.RunsUnattended).
         if (session.RunsUnattended)
         {
             return RuntimeSemanticsEvaluationResult<VBLongValue>.Error(Execution.Unattended.NobodyToAnswer(session, "MsgBox"));
         }
 
-        var request = new MessageBoxRequest(text.Result!.ToString()!, caption.Result!.ToString()!, buttons);
+        var request = new MessageBoxRequest(
+            text.Result!.ToString()!, caption.Result!.ToString()!, buttons, HelpFileOf(file), context is { Result: VBLongValue topic } ? topic.Value : null);
         try
         {
             return Succeed(new VBLongValue((int)_outside.Interaction.ShowMessage(request, cancellation)));
@@ -529,7 +557,8 @@ public sealed class StdInteraction(
         catch (OperationCanceledException)
         {
             // the run is being stopped, and stops at the next instruction: what the dialog answers in the meantime is the one a window closed without a choice answers.
-            return Succeed(new VBLongValue((int)(request.EscapeResult ?? request.Choices[request.DefaultChoice])));
+            var answer = VBMsgBoxButtons.EscapeResultOf(buttons) ?? VBMsgBoxButtons.ChoicesOf(buttons)[VBMsgBoxButtons.DefaultChoiceOf(buttons)];
+            return Succeed(new VBLongValue((int)answer));
         }
         catch (DialogNotAnsweredException unanswered)
         {
@@ -551,7 +580,9 @@ public sealed class StdInteraction(
         var initial = IsOmitted(defaultValue) ? RuntimeSemanticsEvaluationResult<VBTypedValue>.Success(VBStringValue.ZeroLengthString) : ToText(defaultValue!);
         RuntimeSemanticsEvaluationResult<VBTypedValue>? x = IsOmitted(xpos) ? null : ToLong(xpos!);
         RuntimeSemanticsEvaluationResult<VBTypedValue>? y = IsOmitted(ypos) ? null : ToLong(ypos!);
-        if (new[] { text, caption, initial, x, y }.FirstOrDefault(result => result is { IsSuccess: false }) is { } failed)
+        RuntimeSemanticsEvaluationResult<VBTypedValue>? file = IsOmitted(helpFile) ? null : ToText(helpFile!);
+        RuntimeSemanticsEvaluationResult<VBTypedValue>? context = IsOmitted(helpContext) ? null : ToLong(helpContext!);
+        if (new[] { text, caption, initial, x, y, file, context }.FirstOrDefault(result => result is { IsSuccess: false }) is { } failed)
         {
             return RuntimeSemanticsEvaluationResult<VBStringValue>.Error(failed.ErrorInfo!);
         }
@@ -563,7 +594,8 @@ public sealed class StdInteraction(
 
         var request = new InputBoxRequest(
             text.Result!.ToString()!, caption.Result!.ToString()!, initial.Result!.ToString()!,
-            x is { Result: VBLongValue left } ? left.Value : null, y is { Result: VBLongValue top } ? top.Value : null);
+            x is { Result: VBLongValue left } ? left.Value : null, y is { Result: VBLongValue top } ? top.Value : null,
+            HelpFileOf(file), context is { Result: VBLongValue topic } ? topic.Value : null);
         try
         {
             // a dialog that was cancelled answers vbNullString, and one that was confirmed with nothing in it a zero-length string: StrPtr tells them apart.
