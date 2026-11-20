@@ -10,6 +10,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -181,9 +182,11 @@ internal sealed partial class ProcedureAnalysis
             ? VBProjectSymbol.ResolveClass(_session.Symbols.Resolver, snapshot) ?? snapshot
             : null;
 
-    // the Property Let, or the Property Set, of the name, of the class.
-    private static VBTypeMemberSymbol? AccessorOf(VBClassModuleSymbol declared, string name, bool isSet)
-        => declared.DefaultInterfaceMembers.FirstOrDefault(candidate => (isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol)
+    // the Property Let, or the Property Set, of the name, of the class, that the procedure's project reaches (MS-VBAL §5.3.1.1): a Friend one of another
+    // project's class is not, and the interpreter refuses the assignment as it refuses one through a Private accessor.
+    private VBTypeMemberSymbol? AccessorOf(VBClassModuleSymbol declared, string name, bool isSet)
+        => ProjectVisibility.MembersSeenFrom(declared.DefaultInterfaceMembers, declared, ProjectVisibility.ProjectOf(_session.Symbols, _procedure.Uri))
+            .FirstOrDefault(candidate => (isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol)
             && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
 }
 
