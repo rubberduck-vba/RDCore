@@ -405,6 +405,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var isKnown = owner is { IsIndeterminate: false };
         var error = isKnown && observation.Assumptions == assumedBefore ? StatedErrors.Of(result.ErrorInfo) : null;
 
+        // the default members an argument list or the name of a dictionary access given to the object goes through, of the class it is declared as
+        // (MS-VBAL §5.6.13, §5.6.14). A dictionary access is the index of what the owner's default member returns, when that takes no parameters.
+        const MemberAccessOperationSemanticFlags implied = MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember;
+        var defaultMembers = memberName is null && (kind & implied) == implied
+            && (kind & (MemberAccessOperationSemanticFlags.ArgumentList | MemberAccessOperationSemanticFlags.DictionaryAccess)) != 0
+            ? DefaultMemberChain.Of(session.Symbols.Resolver, declared, kind.HasFlag(MemberAccessOperationSemanticFlags.DictionaryAccess)
+                || access is DictionaryAccessExpressionNode
+                || access is IndexExpressionNode { Arguments: var arguments } && !IndexExpressionNode.IsEmptyArgumentList(arguments))
+            : null;
+
         observation.OnOperation(new MemberAccessFact(
             access.Identity,
             access.Location,
@@ -416,6 +426,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             flags)
         {
             LateBoundCandidates = candidates,
+            DefaultMembers = defaultMembers,
         });
     }
 
