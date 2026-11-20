@@ -3,6 +3,7 @@ using RDCore.External.Interaction;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.StdLib.Abstract;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -234,7 +235,11 @@ public sealed class StdInteraction(
                 : CallFailed(answered);
         }
 
-        var candidates = instance.ClassModule.DefaultInterfaceMembers
+        // MS-VBAL §5.3.1.1: the members the calling code reaches by name, as a late-bound access of it does: a Friend one from the class's own project only.
+        var caller = session.CallStack.Current is CallStackFrame { Procedure: { } procedure }
+            ? ProjectVisibility.ProjectOf(session.Symbols, procedure.Uri)
+            : null;
+        var candidates = ProjectVisibility.MembersSeenFrom(instance.ClassModule.DefaultInterfaceMembers, instance.ClassModule, caller)
             .Where(member => string.Equals(member.Name, procName.Value, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 

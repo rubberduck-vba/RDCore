@@ -62,7 +62,7 @@ internal sealed class HostProjectReloadHandler(
             return new HostProjectReloadResult { IsProgramRunning = true };
         }
 
-        sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri), language);
+        sessionProvider.Compose(workspace.WithDefines(project.ProjectInfo), SymbolUri.Root(project.Uri), language);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
