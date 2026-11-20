@@ -1989,7 +1989,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// the path in (<see cref="Statements.LetAssignmentEvaluator"/>).
     /// </summary>
     /// <param name="evaluated">The lists, evaluated.</param>
+    /// <typeparam name="T">What <paramref name="evaluate"/> returns.</typeparam>
     /// <param name="evaluate">What navigates the expression they are written in.</param>
+    /// <returns>What <paramref name="evaluate"/> returned.</returns>
     internal T WithEvaluatedSubscripts<T>(List<EvaluatedSubscripts> evaluated, Func<T> evaluate)
     {
         var before = _evaluatedSubscripts;
