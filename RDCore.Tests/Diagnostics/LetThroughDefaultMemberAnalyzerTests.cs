@@ -52,7 +52,7 @@ public sealed class LetThroughDefaultMemberAnalyzerTests
     [TestMethod]
     [DataRow("Dim r As New ReadOnly", "r = 5", "r", DisplayName = "a Property Get default member")]
     [DataRow("Dim m As New MakesLeaf", "m = 5", "m", DisplayName = "a function default member")]
-    [DataRow("Dim s As New Shelf", "s.Reader = 5", "Reader", DisplayName = "a Property Get with no Property Let, of such a class")]
+    [DataRow("Dim s As New Shelf", "s.Reader = 5", "Reader", DisplayName = "a Property Get with no Property Let that returns such a class")]
     public async Task ALetToADefaultMemberWithNoPropertyLet_IsAWarningNamingTheTarget(string declaration, string statement, string name)
     {
         var finding = Assert.ContainsSingle(await FindingsAsync(new LetToADefaultMemberWithNoPropertyLetAnalyzer(), declaration, statement));
