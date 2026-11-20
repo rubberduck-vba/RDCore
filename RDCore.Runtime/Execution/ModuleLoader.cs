@@ -277,10 +277,13 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                     handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
                     break;
 
-                // a record is given again the fields it starts with, when one of them is a fixed-size array: nothing has run that assigned it.
+                // a record whose fixed-size array field is still without its elements is given the fields it starts with: nothing has run that
+                // assigned it. It is allocated again, for its elements are in it (VBUserDefinedTypeLayout): the storage it was given had none in that
+                // field. A record that has them, its module loaded again at an edit, keeps its values and its address.
                 case VBUserDefinedType record when HasFixedSizeArrayField(session.Symbols.Resolver, record, [])
+                    && type.CreateValue(handle!) is VBUserDefinedTypeValue current && LacksElements(current)
                     && defaults.DefaultValueOf(member) is VBUserDefinedTypeValue sized:
-                    handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
+                    _ = session.Symbols.Resolver.TryAllocate(member, sized, out _);
                     break;
             }
         }
@@ -307,6 +310,16 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             VBUserDefinedType nested => HasFixedSizeArrayField(resolver, nested, seen),
             _ => false,
         });
+
+    // whether a fixed-size array field of the record, or of a record field of it, is without its elements.
+    private static bool LacksElements(VBUserDefinedTypeValue record)
+        => record.TypeInfo is VBUserDefinedType declared
+            && declared.Fields().Select((field, at) => (field.ResolvedType, Held: record.StoredFieldAt(at))).Any(field => field switch
+            {
+                (VBFixedSizeArrayType, not VBArrayValue { IsInitialized: true }) => true,
+                (_, VBUserDefinedTypeValue nested) => LacksElements(nested),
+                _ => false,
+            });
 
     // the first header of a declaration that is in no dead branch and declares a procedure the session defines, with the body; none when there is none.
     private static (MemberDeclarationNode? Declaration, VBTypeMemberSymbol? Procedure) LiveHeaderOf(

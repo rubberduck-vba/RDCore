@@ -673,6 +673,34 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "edited:2", "main:end" }, Output(resumed));
     }
 
+    // a module's record with a fixed-size array field is allocated again at its load only while the field is without its elements: the load at an
+    // edit leaves the record as the program made it, where it was.
+    [TestMethod]
+    public async Task AModulesRecordWithAFixedSizeArrayField_KeepsItsValuesAndItsAddress_AcrossAnEdit()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Private Type TFixed",
+            "    B As Byte",
+            "    N(2) As Long",
+            "    After As Integer",
+            "End Type",
+            "Private R As TFixed",
+            "Private Address As LongPtr",
+            "Public Sub Main()",
+            "    R.N(1) = 42",
+            "    R.After = 7",
+            "    Address = VarPtr(R)",
+            "    Stop",
+            "    Debug.Print \"main:\" & R.N(1) & \"|\" & R.After & \"|\" & (VarPtr(R) = Address)",
+            "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("\"main:\"", "\"edited:\"", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "edited:42|7|True" }, Output(resumed));
+    }
+
     [TestMethod]
     public async Task AnEditOfTheOpeningOfTheLoopTheProgramIsIn_IsRefused()
     {
