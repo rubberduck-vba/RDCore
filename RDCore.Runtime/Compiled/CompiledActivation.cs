@@ -1049,8 +1049,8 @@ public sealed partial class CompiledActivation : ILightActivation
     private IObjectInstance? _instance;
     private ValueBindingHandle? _me;
 
-    // the cell the activation's last activation held Me in, let go of when it returned without a frame: no frame, and so nothing but the activation, ever
-    // held it, and no object is counted in it. The next activation of the member begun in this one holds Me in it (EnterMemberDirectly).
+    // the cell this activation held Me in the last time it ran a member, let go of when that member returned without a frame: no frame, and so nothing
+    // but the activation, ever held it, and no object is counted in it. The next member this activation runs holds Me in it (EnterMemberDirectly).
     private ValueBindingHandle? _spareMe;
 
     /// <summary>
