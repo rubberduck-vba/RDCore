@@ -1,5 +1,6 @@
 using System.Globalization;
 using RDCore.Parsing;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 
@@ -109,6 +110,47 @@ public sealed class SyntaxErrorWordingTests
         }
     }
 
+    // MS-VBAL §5.3.1.3: a procedure is named with an identifier. A name in brackets is refused where MS-VBA expects one, over the name; the tree keeps the
+    // procedure.
+    [TestMethod]
+    [DataRow("Public Sub [Foo]()\r\nEnd Sub", 0, 11, 16, DisplayName = "a Sub")]
+    [DataRow("Private m As Long\r\nPublic Sub [Foo]()\r\nEnd Sub", 1, 11, 16, DisplayName = "a Sub, after a declaration")]
+    [DataRow("Public Function [Foo]() As Long\r\nEnd Function", 0, 16, 21, DisplayName = "a Function")]
+    [DataRow("Public Function [Foo]$()\r\nEnd Function", 0, 16, 21, DisplayName = "a Function with a type hint")]
+    [DataRow("Public Property Get [Foo]() As Long\r\nEnd Property", 0, 20, 25, DisplayName = "a Property Get")]
+    [DataRow("Public Property Let [Foo](ByVal v As Long)\r\nEnd Property", 0, 20, 25, DisplayName = "a Property Let")]
+    [DataRow("Sub [My Sub]()\r\nEnd Sub", 0, 4, 12, DisplayName = "a name with a space")]
+    public void AProcedureNamedInBrackets_IsExpectedIdentifier_OverTheName(string source, int line, int start, int end)
+    {
+        foreach (var parser in new[] { new ModuleParser(), new ModuleParser { ForceSegments = true } })
+        {
+            var parse = parser.Parse(TestUri.TestModuleUri(), $"{source}\r\n");
+            var error = parse.SyntaxErrors.OrderBy(error => error.Location.Range.Start).First();
+
+            Assert.AreEqual("Expected: identifier", error.Verbose);
+            Assert.AreEqual(new SourceRange(new SourcePosition(line, start), new SourcePosition(line, end)), error.Location.Range);
+            Assert.ContainsSingle(parse.SyntaxErrors, "one error");
+            Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Where(member => member.MemberKind is not MemberKind.ModuleField));
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Public Sub Ok()\r\nEnd Sub\r\nPublic Sub [Foo]()\r\nEnd Sub", 2, 18, DisplayName = "a Sub after another")]
+    [DataRow("Public Sub Ok()\r\nEnd Sub\r\n' a comment\r\nPublic Sub [Foo]()\r\nEnd Sub", 3, 18, DisplayName = "a Sub after another and a comment")]
+    [DataRow("Public Sub Ok()\r\nEnd Sub\r\nPublic Function [Foo]() As Long\r\nEnd Function", 2, 31, DisplayName = "a Function after a Sub")]
+    public void AProcedureNamedInBrackets_AfterAnother_IsASyntaxError_OverTheLine(string source, int line, int end)
+    {
+        foreach (var parser in new[] { new ModuleParser(), new ModuleParser { ForceSegments = true } })
+        {
+            var parse = parser.Parse(TestUri.TestModuleUri(), $"{source}\r\n");
+            var error = parse.SyntaxErrors.OrderBy(error => error.Location.Range.Start).First();
+
+            Assert.AreEqual("Syntax error", error.Verbose);
+            Assert.AreEqual(new SourceRange(new SourcePosition(line, 0), new SourcePosition(line, end)), error.Location.Range);
+            Assert.ContainsSingle(parse.SyntaxErrors, "one error");
+        }
+    }
+
     [TestMethod]
     [DataRow("en-US", "Syntax error", "Expected: identifier")]
     [DataRow("fr-CA", "Erreur de syntaxe", "Attendu : identificateur")]
@@ -121,6 +163,9 @@ public sealed class SyntaxErrorWordingTests
             Assert.AreEqual(inABody, FirstErrorOf("Public Sub S()\r\nx = 1 +\r\nEnd Sub\r\n").Verbose);
             Assert.AreEqual(outsideABody, FirstErrorOf("Private Type\r\nEnd Type\r\n").Verbose);
             Assert.AreEqual(inABody, FirstErrorOf("Public Sub First()\r\nEnd Sub\r\nPublic Sub ()\r\nEnd Sub\r\n").Verbose, "a header after a procedure");
+            Assert.AreEqual(outsideABody, FirstErrorOf("Public Sub [Foo]()\r\nEnd Sub\r\n").Verbose, "a procedure named in brackets");
+            Assert.AreEqual(inABody, FirstErrorOf("Public Sub First()\r\nEnd Sub\r\nPublic Sub [Foo]()\r\nEnd Sub\r\n").Verbose,
+                "a procedure named in brackets, after another");
         }
         finally
         {

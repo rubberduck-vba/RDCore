@@ -129,6 +129,7 @@ the line ends:
 |Written|Message|At|
 |---|---|---|
 |`Sub ()`, `Sub S(x, )`, `Private Type`, `Private Enum`|Expected: identifier|`)`, the end of the line|
+|`Sub [Foo]()`, `Function [Foo]()`, `Property Get [Foo]()`: a procedure is named with an identifier, not a name in brackets (**MS-VBAL §5.3.1.3**)|Expected: identifier|`[Foo]`|
 |`Sub S(x As)`, `Function F() As`|Expected: type name|`)`, the end of the line|
 |`Private x As`|Expected: New or type name|the end of the line|
 |`Friend x As Long`, `Friend Const K = 1`, `Friend WithEvents w As Workbook`: `Friend` declares a procedure only (**MS-VBAL §5.3.1**)|Expected: Sub or Function or Property|`x`, `Const`, `WithEvents`|

@@ -43,6 +43,25 @@ internal static class VBEWording
         return (at, to, Expected(parser, tokens, offending, context, exception) ?? Exceptions.VBCompileError_SyntaxError_Verbose);
     }
 
+    /// <summary>
+    /// What MS-VBA says of a name the grammar reads in a procedure's header where MS-VBA expects an identifier, and where: <c>Expected: identifier</c> over
+    /// the name in the header of the module's first procedure, <c>Syntax error</c> over the whole line in the header of a procedure after another.
+    /// </summary>
+    /// <param name="tokens">The tokens of the parse.</param>
+    /// <param name="name">The name, in the parse's tree.</param>
+    /// <param name="afterAProcedure">Whether the text parsed is of the module after one of its procedures, a part of it parsed on its own.</param>
+    /// <returns>The range MS-VBA marks, in the coordinates of the parse's own text, and its message.</returns>
+    public static (SourcePosition Start, SourcePosition End, string Message) OfAName(ITokenStream tokens, ParserRuleContext name, bool afterAProcedure)
+    {
+        if (afterAProcedure || ReadLineByLine(name, name.Start))
+        {
+            var (start, end) = LineOf(tokens, name.Start);
+            return (start, end, Exceptions.VBCompileError_SyntaxError_Verbose);
+        }
+
+        return (new SourcePosition(name.Start.Line - 1, name.Start.Column), EndOf(name.Stop), Exceptions.VBCompileError_ExpectedIdentifier_Verbose);
+    }
+
     // whether MS-VBA reads the line the token is on line by line: in the block of a procedure, after its header where the parse failed to read the block's
     // end, or anywhere after the header of the module's first procedure (a procedure after another, its header included).
     private static bool ReadLineByLine(RuleContext? context, IToken offending)
