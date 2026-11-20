@@ -646,6 +646,8 @@
   href: rdc11049.md
 - name: "RDC11050: Let to an object with no default member"
   href: rdc11050.md
+- name: "RDC11051: Member not on the declared interface"
+  href: rdc11051.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md
 - name: "RDC30001: No entry point"

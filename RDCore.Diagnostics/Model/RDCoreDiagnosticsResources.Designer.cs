@@ -1385,6 +1385,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The class &apos;{1}&apos; does not declare a member &apos;{0}&apos;: the member is looked up on the object when the code runs, and the access raises run-time error 438 if the object has none..
+        /// </summary>
+        public static string MemberNotOnDeclaredInterface_Message {
+            get {
+                return ResourceManager.GetString("MemberNotOnDeclaredInterface_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is given the object itself: MS-VBA passes an object Let-assigned to a property whose value is an object as a Set would, where MS-VBAL §5.5.1.1 makes the assignment a type mismatch. Assign it with Set..
         /// </summary>
         public static string ObjectLetToObjectProperty_Message {

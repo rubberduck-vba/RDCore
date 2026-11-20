@@ -370,6 +370,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11047](rdc11047.md)|Object assigned with Let to an object property|An object given with `Let` to a property whose value parameter is a class or `Object`: MS-VBA passes the object, MS-VBAL makes it a type mismatch|
 |[RDC11049](rdc11049.md)|Single-line If with no statement|`If x Then:` with nothing after the colon: VB6 and MS-VBA run it as an `If` that does nothing, MS-VBAL gives the line no reading|
 |[RDC11050](rdc11050.md)|Let to an object with no default member|A value assigned to an object of a class with no default member: VBA compiles it, and raises error 438 (91 for `Nothing`) every time it runs|
+|[RDC11051](rdc11051.md)|Member not on the declared interface|A member that a library's class does not declare (`ws.Rnage` of a `Worksheet`): looked up when the code runs|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 |[RDC30001](rdc30001.md)|No entry point|`rdc run` or `rdc build` of a workspace with no `Sub Main`, an entry point the `.rdproj` names that nothing declares, or a library|
 |[RDC30002](rdc30002.md)|More than one entry point|`rdc run` or `rdc build` of a workspace where more than one standard module declares a `Sub Main`, and the `.rdproj` names none|
