@@ -213,6 +213,49 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         return handle is not null;
     }
 
+    /// <summary>
+    /// The binding of a field of a record that is a record itself or a <c>Variant</c>, which has no cell of its own (<see cref="RecordFieldBinding"/>): what
+    /// a place of one read at its address is (<see cref="TryRead(MemoryAddress, SDK.Model.Types.Abstract.VBType?, out IBindingHandle?)"/>). The session
+    /// gives it, since what the field holds is the session's to count.
+    /// </summary>
+    public Func<SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue, int, SDK.Model.Types.Abstract.VBType, IBindingHandle>? FieldOfRecord { get; set; }
+
+    // what is bound at an address, or the place of the type inside it that starts there: a record's first field, a field of a record that starts inside it,
+    // an element of a fixed-size array field (RecordPlaces), in a record variable or a record element of an array.
+    public bool TryRead(MemoryAddress address, SDK.Model.Types.Abstract.VBType? type, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? handle)
+    {
+        if (type is null)
+        {
+            return TryRead(address, out handle);
+        }
+
+        if (_handleByAddress.TryGetValue(address, out handle))
+        {
+            if (RecordOf(handle) is { } bound && !RecordPlaces.IsRecordOf(type, bound)
+                && RecordPlaces.TryFind(bound, 0, type, pointerSize, FieldOfRecord, out var first))
+            {
+                handle = first;
+            }
+
+            return true;
+        }
+
+        if (!allocator.TryFindBlock(address, out var found))
+        {
+            return false;
+        }
+
+        var offset = address.Value - found.Address.Value;
+        if (_arrayBlocks.TryGetValue(found.Address, out var block))
+        {
+            return block.TryGetArray(out var array)
+                && RecordPlaces.TryFindElement(array, block.ElementWidth, offset, type, pointerSize, FieldOfRecord, out handle);
+        }
+
+        return _handleByAddress.TryGetValue(found.Address, out var outer) && CanRead(outer) && RecordOf(outer) is { } record
+            && RecordPlaces.TryFind(record, offset, type, pointerSize, FieldOfRecord, out handle);
+    }
+
     public bool TryDeallocate(MemoryAddress address)
     {
         Generation++;

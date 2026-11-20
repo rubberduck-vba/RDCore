@@ -19,7 +19,7 @@ The static and runtime semantic layers read symbols through
 |`ResolveType`|Resolves a specified _identifier name_ in the _type binding context_, as seen from the scope that the symbol at a specified _handle_ `Uri` belongs to, to a `SymbolResolutionResult`.|
 |`ResolveQualifier`|Resolves a specified _identifier name_ as the _qualifier_ of a qualified type name (the `A` in `A.B`). It binds the project, or a procedural or class module, and never a user-defined type or an Enum type.|
 |`GetValue`|Gets the [IBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html) currently bound to a specified `Symbol`.|
-|`TryRead`|Gets the `IBindingHandle` held at a specified [MemoryAddress](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.MemoryAddress.html), if any.|
+|`TryRead`|Gets the `IBindingHandle` held at a specified [MemoryAddress](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.MemoryAddress.html), if any. Given a type, it gets the place of that type that starts at the address, which can be a field inside a record; given a `VBRuntimeReference` and the type of the parameter it is passed to, the variable the reference refers to ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).|
 |`TryGetAddress`|Resolves the address that a `ByRef` parameter binding aliases ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).|
 |`TryAllocate`|Allocates a `Static` local's own module-extent storage, in the session's module-level heap ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|
 

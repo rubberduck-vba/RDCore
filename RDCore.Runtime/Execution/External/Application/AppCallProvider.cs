@@ -216,7 +216,7 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
     // an argument as the type its parameter declares; one passed by reference is the variable it names.
     private static VBTypedValue? Read(IRuntimeValue argument, VBType declared, IRuntimeSymbolResolver resolver)
     {
-        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference, declared, out var cell))
         {
             argument = cell.Value;
         }

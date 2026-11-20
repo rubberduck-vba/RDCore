@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -288,7 +289,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         try
         {
             _ = outside.Automation.Invoke(handle, unload ? FormControlArrayMembers.Unload : FormControlArrayMembers.Load, AutomationInvocation.Method,
-                [Dereferenced(index, resolver).BoxedValue], [false], session.Environment.Culture);
+                [Dereferenced(index, VBLongType.TypeInfo, resolver).BoxedValue], [false], session.Environment.Culture);
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
         catch (AutomationException failure)
@@ -307,7 +308,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     // none.
     private static VBRuntimeObjectId? ObjectArgument(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
     {
-        argument = Dereferenced(argument, resolver);
+        argument = Dereferenced(argument, VBObjectType.TypeInfo, resolver);
         if (argument is VBRuntimeVariantValue { WrappedValue: var held })
         {
             if (held is not VBObjectValue)
@@ -321,10 +322,10 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBObjectValue { } value && !value.IsNothing() ? value.Value : null;
     }
 
-    // the value an argument is: the variable's, for one passed by reference.
-    private static IRuntimeValue Dereferenced(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
+    // the value an argument is: the variable's, of the type it is read as, for one passed by reference.
+    private static IRuntimeValue Dereferenced(IRuntimeValue argument, VBType type, IRuntimeSymbolResolver resolver)
     {
-        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference, type, out var cell))
         {
             argument = cell.Value;
         }
