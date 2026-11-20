@@ -59,8 +59,10 @@ internal sealed partial class ProcedureEmitter
     private readonly Label _walkBack;
 
     // the instruction at pc run by the interpreter alone, and the activation gone on with where it left it (CompiledActivation.Recover): every variable
-    // written into the frame first; read back after it (the re-entry); and the instruction the activation goes on at found by its offset (the dispatch).
+    // written into the frame first, unless it is there already (_recoverSpilled); read back after it (the re-entry); and the instruction the activation goes
+    // on at found by its offset (the dispatch).
     private readonly Label _recover;
+    private readonly Label _recoverSpilled;
     private readonly Label _recovered;
     private readonly Label _reentry;
     private readonly Label _dispatch;
@@ -89,6 +91,7 @@ internal sealed partial class ProcedureEmitter
         _pc = il.DeclareLocal(typeof(int));
         (_walkBack, _unread) = (il.DefineLabel(), il.DefineLabel());
         (_recover, _recovered, _reentry, _dispatch) = (il.DefineLabel(), il.DefineLabel(), il.DefineLabel(), il.DefineLabel());
+        _recoverSpilled = il.DefineLabel();
     }
 
     /// <summary>
@@ -1264,33 +1267,66 @@ internal sealed partial class ProcedureEmitter
         return label;
     }
 
+    private readonly Dictionary<int, Label> _failedSpilledCalls = [];
+
+    // the label a statement the interpreter ran for compiled code goes to when it raised an error, every variable written into the frame before it: the
+    // frame has what the statement left in it, which a procedure it called may have written a variable passed to it by reference in. Nothing is written
+    // into the frame again, which would put back what compiled code read before.
+    private Label CallFailedAfterSpillAt(int offset)
+    {
+        if (!_failedSpilledCalls.TryGetValue(offset, out var label))
+        {
+            label = _il.DefineLabel();
+            _failedSpilledCalls[offset] = label;
+        }
+
+        return label;
+    }
+
     private void EmitFailedCalls()
     {
         foreach (var (offset, label) in _failedCalls)
         {
-            _il.MarkLabel(label);
-            var spilled = _il.DefineLabel();
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
-            _il.Emit(OpCodes.Brtrue, spilled);
-
-            // a body with an error handler gives the callee's error to it, and goes on compiled where it sends the activation; but not after the program
-            // waited, when the frame is what the debugger left it.
-            if (_analysis.HandlesErrors)
-            {
-                _il.Emit(OpCodes.Br, RecoverAt(offset));
-            }
-            else
-            {
-                EmitSpill();
-            }
-
-            _il.MarkLabel(spilled);
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Ldc_I4, offset);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.AfterFailedCall))!);
-            _il.Emit(OpCodes.Ret);
+            EmitFailedCall(offset, label, spilled: false);
         }
+
+        foreach (var (offset, label) in _failedSpilledCalls)
+        {
+            EmitFailedCall(offset, label, spilled: true);
+        }
+    }
+
+    private void EmitFailedCall(int offset, Label label, bool spilled)
+    {
+        _il.MarkLabel(label);
+        var written = _il.DefineLabel();
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
+        _il.Emit(OpCodes.Brtrue, written);
+
+        // a body with an error handler gives the callee's error to it, and goes on compiled where it sends the activation; but not after the program
+        // waited, when the frame is what the debugger left it.
+        if (_analysis.HandlesErrors && spilled)
+        {
+            _il.Emit(OpCodes.Ldc_I4, offset);
+            _il.Emit(OpCodes.Stloc, _pc);
+            _il.Emit(OpCodes.Br, _recoverSpilled);
+            (_recovers, _dispatches) = (true, true);
+        }
+        else if (_analysis.HandlesErrors)
+        {
+            _il.Emit(OpCodes.Br, RecoverAt(offset));
+        }
+        else if (!spilled)
+        {
+            EmitSpill();
+        }
+
+        _il.MarkLabel(written);
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.AfterFailedCall))!);
+        _il.Emit(OpCodes.Ret);
     }
 
     // every variable read back from its cell, which a debugger may have changed while the program waited - but one held in a cell, which compiled code
@@ -1639,6 +1675,7 @@ internal sealed partial class ProcedureEmitter
 
         _il.MarkLabel(_recover);
         EmitSpill();
+        _il.MarkLabel(_recoverSpilled);
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldloc, _pc);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Recover))!);
