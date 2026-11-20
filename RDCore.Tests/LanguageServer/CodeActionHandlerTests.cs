@@ -614,7 +614,8 @@ public sealed class CodeActionHandlerTests
         Assert.IsFalse(
             hidden.Any(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage), "a client that shows no disabled action is offered none");
         Assert.AreEqual(
-            "'Count' is a member of each object of its class, which other modules use: only a Private variable of a class module is moved into a procedure.",
+            "'Count' is a member of each object of its class, which other modules can use: only a Private variable of a class module is moved into a "
+            + "procedure.",
             actions.Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage).Disabled?.Reason);
     }
 }
