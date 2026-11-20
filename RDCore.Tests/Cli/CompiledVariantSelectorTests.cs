@@ -6,9 +6,9 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A <c>Select Case</c> whose selector is a call of a function declared to return a <c>Variant</c>, compiled: the selector is a Variant, holding a String
-/// here, and each <c>Case</c> compares it with its value as a Variant (MS-VBAL §5.4.2.10, §5.6.9.5), "10" being greater than the number 9, as MS-VBA
-/// compares it. The interpreter steps the Select and its Cases. The function's String form, with a $, is a String selector, which compiled code compares
-/// as text, the value 9 let-coerced to "9" (RD-VBAL §5.4.2.10): "10" sorts before it. A program runs the same either way.
+/// here, and each <c>Case</c> compares it with its value as a Variant (MS-VBAL §5.4.2.10, §5.6.9.5): a String and an Integer compare as Integers, so "10"
+/// is greater than 9, as MS-VBA compares it. The interpreter steps the Select and its Cases. The function's String form, with a $, is a String selector,
+/// which compiled code compares as text, the value 9 let-coerced to "9" (RD-VBAL §5.4.2.10): "10" sorts before it. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledVariantSelectorTests
