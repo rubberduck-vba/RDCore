@@ -266,9 +266,16 @@ call and holds the array until the call is over (after every handler, for a `Rai
 ([**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)). An element of what a function or a property returns is a value, and is
 copied; so is an element passed to a `Declare`d procedure, which the marshaller lays out.
 
+A field of a record (`r.X`, `a(1).X`, `r.Inner.X`) and an element of a fixed-size array field (`r.N(2)`) are bound where they are in the record: at the
+record's address plus their offset, which `VarPtr` gives them. A record element of an array is lent to the call as an element is. Several places can
+start at one address (`r`, `r.Inner` and `r.Inner.X`), and the type of the variable tells them apart: the parameter's own, or the one a `Variant`
+parameter's reference names. The storage reads the place of that type at the address
+([ISymbolStorage](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolStorage.html)`.TryRead`), for the callee's
+frame, a library member and a `Declare`d procedure alike.
+
 > [!NOTE]
-> **Not implemented.** A field of a record (`r.X`, `a(1).X`) and an element of a fixed-size array field (`r.N(2)`) are bound at an address of their own,
-> which the call site gives back once the call is over. The parameter reads and writes the field, but `VarPtr` of it is not the field's address.
+> **Not implemented.** A field named through a `With` block (`.X` in `With r`) is bound at an address of its own, which the call site gives back once the
+> call is over. The parameter reads and writes the field, but `VarPtr` of it is not the field's address.
 
 #### A public variable of an object
 

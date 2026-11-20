@@ -292,7 +292,7 @@ public sealed class PictureCallProvider(IRuntimeSession session) : IExternalCall
     // an argument as the type its parameter declares; one passed by reference is the variable it names. A member of an enumeration is a Long (MS-VBAL §5.2.3.4).
     private static VBTypedValue? Read(IRuntimeValue argument, VBType declared, IRuntimeSymbolResolver resolver)
     {
-        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference, declared, out var cell))
         {
             argument = cell.Value;
         }

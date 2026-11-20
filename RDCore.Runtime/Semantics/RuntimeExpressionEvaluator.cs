@@ -2776,8 +2776,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return true;
         }
 
-        if (!TryResolveByRefArgument(session, context, argument, ElementParameterOf(paramArray), borrowed, out var reference, out evaluated)
-            || !session.Symbols.Resolver.TryRead(reference.Value, out var variable))
+        var element = ElementParameterOf(paramArray);
+        if (!TryResolveByRefArgument(session, context, argument, element, borrowed, out var reference, out evaluated)
+            || !session.Symbols.Resolver.TryRead(reference, element.ResolvedType, out var variable))
         {
             return false;
         }
@@ -3068,9 +3069,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     }
 
     // where a record is in the session's memory, and the record: a variable of a user-defined type, an element of an array of one, or a field of a record
-    // that is one itself.
+    // that is one itself. lend: an element is lent to the call a place in it is passed to, as an element passed itself is (borrowed).
     private bool TryAddressOfRecord(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, out MemoryAddress address,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBUserDefinedTypeValue? record, out RuntimeSemanticsEvaluationResult? evaluated)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBUserDefinedTypeValue? record, out RuntimeSemanticsEvaluationResult? evaluated,
+        List<MemoryAddress>? lend = null)
     {
         address = default;
         record = null;
@@ -3104,10 +3106,26 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 }
 
                 record = held;
-                return session.Storage is Execution.Memory.SessionStorage storage && storage.TryAddressOfElement(array, array.IndexOf(indices), out address);
+                if (session.Storage is not Execution.Memory.SessionStorage storage)
+                {
+                    return false;
+                }
+
+                if (lend is null)
+                {
+                    return storage.TryAddressOfElement(array, array.IndexOf(indices), out address);
+                }
+
+                if (!storage.TryLendElement(array, array.IndexOf(indices), out address))
+                {
+                    return false;
+                }
+
+                lend.Add(address);
+                return true;
 
             case MemberAccessExpressionNode { Owner: { } owner } nested
-                when TryAddressOfRecord(session, context, owner, out var outer, out var outerRecord, out evaluated):
+                when TryAddressOfRecord(session, context, owner, out var outer, out var outerRecord, out evaluated, lend):
                 var layout = VBUserDefinedTypeLayout.Of(outerRecord, PointerWidthOf(session));
                 var index = FieldIndexOf(layout.Fields, nested.Member.IdentifierName);
                 if (index < 0 || outerRecord.FieldAt(index) is not VBUserDefinedTypeValue inner)
@@ -3168,8 +3186,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // value.
     // Once the subscripts are evaluated, an element that is not bound is passed as what they select - an error, or a value - and they are not evaluated again
     // (MS-VBA evaluates them once: a subscript outside the bounds is error 9, raised by the call's argument).
-    // atItsAddress: the element's address is what is passed (VarPtr), and nothing is lent. An element of a fixed-size array field of a record is in the
-    // record.
+    // atItsAddress: the element's address is what is passed (VarPtr), and nothing is lent.
+    // An element of a fixed-size array field of a record is in the record, at the field's offset, and so is a parameter bound to it: where the record is is
+    // found first, and the array is the record's field, so that what selects the record is evaluated once. A record element of an array is lent to the call
+    // (TryAddressOfRecord). A Declare is given the element of the array as any other (VBArrayElementLocation).
     private bool TryResolveElementByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, IndexExpressionNode element, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, out RuntimeSemanticsEvaluationResult? evaluated, bool external = false, bool atItsAddress = false)
@@ -3184,15 +3204,39 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // an element of the array a public variable of an object holds, named as its member (b.V(0), Me.V(0), .V(0) in a With block of the object, a nested
         // one too), is a copy, as the variable itself is (MS-VBA, observed in Excel). Named by itself in its own class (V(0)) it is
         // the element, bound below.
-        if (element.Callee is MemberAccessExpressionNode member && (member.Owner is { } instance
-            ? DeclaredTypeOfOwner(session, context, instance) is VBClassType
-            : IsAnObject(context.EnclosingWithTarget)))
+        var member = element.Callee as MemberAccessExpressionNode;
+        var ownerType = member?.Owner is { } instance ? DeclaredTypeOfOwner(session, context, instance) : null;
+        if (member is not null && (member.Owner is not null ? ownerType is VBClassType : IsAnObject(context.EnclosingWithTarget)))
         {
             return false;
         }
 
-        var callee = Evaluate(session, element.Callee, context);
-        var held = callee.IsSuccess ? callee.Result : null;
+        VBTypedValue? held;
+        MemoryAddress? inRecord = null;
+        if ((!external || atItsAddress) && member is { Owner: { } recordOwner } && ownerType is VBUserDefinedType recordType
+            && recordType.Field(member.Member.IdentifierName) is { ResolvedType: VBFixedSizeArrayType }
+            && TryAddressOfRecord(session, context, recordOwner, out var start, out var record, out evaluated, atItsAddress ? null : borrowed))
+        {
+            var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
+            var index = FieldIndexOf(fields, member.Member.IdentifierName);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            held = record.FieldAt(index);
+            inRecord = new MemoryAddress(start.Value + fields[index].Offset);
+        }
+        else if (evaluated is not null)
+        {
+            return false;
+        }
+        else
+        {
+            var callee = Evaluate(session, element.Callee, context);
+            held = callee.IsSuccess ? callee.Result : null;
+        }
+
         while (held is VBVariantValue { TypedValue: var wrapped })
         {
             held = wrapped;
@@ -3233,23 +3277,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // the elements of an array are side by side, at the addresses MS-VBA gives them: those of a fixed-size array field of a record
         // in the record, at the field's offset, and those of any other array in a block of the array's own.
+        if (inRecord is { } fieldStart)
+        {
+            var width = VBUserDefinedTypeLayout.WidthOf(array.ItemType, PointerWidthOf(session));
+            reference = new VBRuntimeReference(new MemoryAddress(fieldStart.Value + array.IndexOf(indices) * width),
+                atItsAddress ? array.ItemType : ReferencedType(parameter, array.ItemType));
+            return true;
+        }
+
         if (atItsAddress)
         {
-            if (element.Callee is MemberAccessExpressionNode { Owner: { } owner } field && array is VBFixedSizeArrayValue
-                && TryAddressOfRecord(session, context, owner, out var start, out var record, out _))
-            {
-                var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
-                var index = FieldIndexOf(fields, field.Member.IdentifierName);
-                if (index < 0)
-                {
-                    return false;
-                }
-
-                var width = VBUserDefinedTypeLayout.WidthOf(array.ItemType, PointerWidthOf(session));
-                reference = new VBRuntimeReference(new MemoryAddress(start.Value + fields[index].Offset + array.IndexOf(indices) * width), array.ItemType);
-                return true;
-            }
-
             if (session.Storage is not Execution.Memory.SessionStorage storage || !storage.TryAddressOfElement(array, array.IndexOf(indices), out var laidOut))
             {
                 return false;
@@ -3275,21 +3312,27 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return true;
     }
 
-    // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it - what the callee assigns is
-    // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). Like an element of an array, the field's own cell is
-    // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own: it is given
-    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`. In a With block of a record, `.X` is the field of the
-    // With block variable (MS-VBAL §5.4.2.21), which is the record variable itself when the With expression is one (MS-VBA, observed in
-    // Excel).
+    // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it: what the callee assigns is
+    // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). The parameter is bound where the field is, in
+    // the record, at its offset (VarPtr), and reads there the field's own cell, or a binding over a field that is a record itself or a Variant, which has
+    // no cell of its own (RecordFieldBinding, MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`). A record element of an array is lent to the call, as
+    // an element passed itself is (borrowed). In a With block of a record, `.X` is the field of the With block variable (MS-VBAL §5.4.2.21), which is the
+    // record variable itself when the With expression is one (MS-VBA, observed in Excel): its cell, as the cell of a field of a record that is not where a
+    // variable is, is given an address for as long as the call runs, which the caller gives back (borrowed).
     private bool TryResolveRecordFieldByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, bool external)
     {
         reference = VBRuntimeReference.NullRef;
         VBTypedValue? held = null;
+        MemoryAddress? recordAt = null;
         if (access.Owner is { } owner)
         {
-            if (DenotesAVariable(session, context, owner))
+            if (TryAddressOfRecord(session, context, owner, out var where, out var addressed, out var failed, lend: borrowed))
+            {
+                (held, recordAt) = (addressed, where);
+            }
+            else if (failed is null && DenotesAVariable(session, context, owner))
             {
                 held = Evaluate(session, owner, context).Result;
             }
@@ -3311,16 +3354,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
-        IBindingHandle? cell;
-        if (fieldType is VBUserDefinedType or VBVariantType)
-        {
-            cell = new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
-        }
-        else
-        {
-            cell = record.GetFieldHandle(access.Member.IdentifierName);
-        }
-        if (cell is null || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        var overTheField = fieldType is VBUserDefinedType or VBVariantType;
+        var cell = overTheField ? null : record.GetFieldHandle(access.Member.IdentifierName);
+        if (!overTheField && (cell is null || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue)))
         {
             return false;
         }
@@ -3330,13 +3366,22 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        var referenced = external && parameter.ResolvedType is VBUnknownType ? fieldType : ReferencedType(parameter, fieldType);
+        if (recordAt is { } start)
+        {
+            var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
+            reference = new VBRuntimeReference(new MemoryAddress(start.Value + fields[FieldIndexOf(fields, access.Member.IdentifierName)].Offset), referenced);
+            return true;
+        }
+
+        cell ??= new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
         if (!session.Storage.TryAllocate(fieldType.DefaultValue.Size, cell, out var address))
         {
             return false;
         }
 
         borrowed.Add(address);
-        reference = new VBRuntimeReference(address, external && parameter.ResolvedType is VBUnknownType ? fieldType : ReferencedType(parameter, fieldType));
+        reference = new VBRuntimeReference(address, referenced);
         return true;
     }
 

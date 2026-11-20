@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -64,13 +65,15 @@ public sealed class ConnectionPointCallProvider(IRuntimeSession session, IAutoma
             return Returned(InvalidArgument);
         }
 
-        var sink = ObjectOf(request.Arguments[0], resolver);
-        var connect = Dereference(request.Arguments[2], resolver, out _) is var flag && VBLongType.TypeInfo.CreateValue(new ValueBindingHandle(flag)) is VBLongValue { Value: not 0 };
-        var target = ObjectOf(request.Arguments[3], resolver);
-        var cookieValue = Dereference(request.Arguments[4], resolver, out var cookieVariable);
         var parameters = RuntimeProcedureInvoker.GetParameters(request.Member);
+        var sink = ObjectOf(request.Arguments[0], resolver);
+        var connect = Dereference(request.Arguments[2], VBLongType.TypeInfo, resolver, out _) is var flag
+            && VBLongType.TypeInfo.CreateValue(new ValueBindingHandle(flag)) is VBLongValue { Value: not 0 };
+        var target = ObjectOf(request.Arguments[3], resolver);
+        var cookieValue = Dereference(request.Arguments[4], VBLongType.TypeInfo, resolver, out var cookieVariable);
         if (target is not { } source || parameters.Length < 2
-            || GuidOf(parameters[1].ResolvedType.CreateValue(new ValueBindingHandle(Dereference(request.Arguments[1], resolver, out _)))) is not { } events)
+            || GuidOf(parameters[1].ResolvedType.CreateValue(
+                new ValueBindingHandle(Dereference(request.Arguments[1], parameters[1].ResolvedType, resolver, out _)))) is not { } events)
         {
             return Returned(InvalidArgument);
         }
@@ -126,11 +129,12 @@ public sealed class ConnectionPointCallProvider(IRuntimeSession session, IAutoma
         _ => null,
     };
 
-    // the value an argument is, through the references a ByRef argument is; the variable it names, which what the function writes is written to.
-    private static IRuntimeValue Dereference(IRuntimeValue argument, IRuntimeSymbolResolver resolver, out IBindingHandle? variable)
+    // the value an argument is, through the references a ByRef argument is; the variable it names, which what the function writes is written to, of the
+    // type of its parameter (a cookie is a Long, an interface's identifier a GUID).
+    private static IRuntimeValue Dereference(IRuntimeValue argument, VBType? type, IRuntimeSymbolResolver resolver, out IBindingHandle? variable)
     {
         variable = null;
-        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference, type, out var cell))
         {
             variable = cell;
             argument = cell.Value;
@@ -140,7 +144,8 @@ public sealed class ConnectionPointCallProvider(IRuntimeSession session, IAutoma
     }
 
     private static VBRuntimeObjectId? ObjectOf(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
-        => VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(Dereference(argument, resolver, out _))) is VBObjectValue { } value && !value.IsNothing()
+        => VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(Dereference(argument, VBObjectType.TypeInfo, resolver, out _))) is VBObjectValue { } value
+            && !value.IsNothing()
             ? value.Value
             : null;
 
