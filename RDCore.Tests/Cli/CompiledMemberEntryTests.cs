@@ -682,6 +682,7 @@ public sealed class CompiledMemberEntryTests
     [DataRow(null, null, 4L, DisplayName = "the program resumed")]
     [DataRow("mTotal = 100", null, 4L, DisplayName = "a field of Me assigned in the member's frame")]
     [DataRow(null, "Private mExtra As Long", 2L, DisplayName = "a field added to the class")]
+    [DataRow("If Me Is Nothing Then mTotal = -1 Else mTotal = Me.Total() + 100", null, 4L, DisplayName = "Me read in the member's frame")]
     public async Task AMemberWaitedInUnderADebugger_IsWhatTheInterpreterHas(string? statement, string? field, long direct)
     {
         CompiledExecutionTests.RequirePayloads();
