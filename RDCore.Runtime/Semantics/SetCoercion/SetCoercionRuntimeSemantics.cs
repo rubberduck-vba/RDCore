@@ -33,6 +33,9 @@ public sealed record class SetCoercionRuntimeSemantics(IErrorDetailsRecorder Err
 {
     public SetCoercionResult EvaluateSetCoercion(IRuntimeSession session, ExpressionNode expression, VBTypedValue source, VBType destinationType)
     {
+        // a value that is not known (an analysis assumed it) coerces to a value that is not known either: the Nothing it holds is only what its type allows.
+        var isKnown = !source.IsIndeterminate;
+
         // a Variant source's own TypeInfo mirrors its wrapped value's, but the object pattern-match
         // below needs the real wrapped value, not the box around it - unwrap here, once (recursively -
         // a Variant may wrap another Variant), before anything else runs. Same fix as LetCoercion's own
@@ -40,8 +43,15 @@ public sealed record class SetCoercionRuntimeSemantics(IErrorDetailsRecorder Err
         while (source is VBVariantValue { TypedValue: var wrapped })
         {
             source = wrapped;
+            isKnown &= !source.IsIndeterminate;
         }
 
+        var coerced = Coerce(session, expression, source, destinationType);
+        return isKnown || !coerced.IsSuccess ? coerced : SetCoercionResult.Success(coerced.Result!.AsIndeterminate());
+    }
+
+    private SetCoercionResult Coerce(IRuntimeSession session, ExpressionNode expression, VBTypedValue source, VBType destinationType)
+    {
         if (source is not VBObjectValue sourceObject)
         {
             // MS-VBAL 5.5.2.2.2: source isn't an object reference at all.
