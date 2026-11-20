@@ -1529,6 +1529,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is used by no implementation of &apos;{1}&apos;..
+        /// </summary>
+        public static string ParameterNotUsed_Implementations_Message {
+            get {
+                return ResourceManager.GetString("ParameterNotUsed_Implementations_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is used by no handler of event &apos;{1}&apos;..
+        /// </summary>
+        public static string ParameterNotUsed_Handlers_Message {
+            get {
+                return ResourceManager.GetString("ParameterNotUsed_Handlers_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change..
         /// </summary>
         public static string AssignedByValParameter_Message {

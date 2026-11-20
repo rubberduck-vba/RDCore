@@ -20,7 +20,10 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// A procedure whose signature is not its own to choose is left out: an implementation of an interface member, a handler of an event, a <c>Declare</c>, an
-/// event, and a <c>Public</c> member of a class module, which may be a member of an interface (<strong>MS-VBAL §5.2.4.2</strong>).
+/// event, and a <c>Public</c> member of a class module, which may be a member of an interface (<strong>MS-VBAL §5.2.4.2</strong>). A parameter of an
+/// interface member or of an event is reported where it has implementations or handlers and none refers to its parameter at the same position, as the
+/// host states it over the project (<see cref="RDCore.SDK.Semantics.DeclarationFact.IsReferredToByABoundMember"/>). The fix removes a parameter of an
+/// interface member from its implementations too; an event's has none, since an event's parameters are not refactored.
 /// </remarks>
 internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
 {
@@ -33,12 +36,34 @@ internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
             yield break;
         }
 
-        foreach (var (fact, _) in UnusedDeclarations.Counted(semantics, DeclarationKind.Parameter).Where(counted => counted.References.Total == 0))
+        foreach (var fact in semantics.Declarations.Where(declaration => declaration is { Kind: DeclarationKind.Parameter, IsImplicit: false }
+            && (declaration.References?.Total ?? 0) == 0 && (declaration.References is not null || declaration.IsReferredToByABoundMember is false)))
         {
             // the implicit Me of a class member is a parameter fact too, with no declaration in the source.
             if (UnusedDeclarations.ParameterOf(module, fact) is not { } parameter
-                || UnusedDeclarations.ProcedureAt(module, fact.Location.Range.Start) is not { } procedure
-                || !UnusedDeclarations.ChoosesItsSignature(procedure, semantics))
+                || UnusedDeclarations.ProcedureAt(module, fact.Location.Range.Start) is not { } procedure)
+            {
+                continue;
+            }
+
+            if (fact.IsReferredToByABoundMember is false)
+            {
+                var isEvent = procedure.MemberKind is MemberKind.Event;
+                var message = isEvent
+                    ? RDCoreDiagnosticsResources.ParameterNotUsed_Handlers_Message
+                    : RDCoreDiagnosticsResources.ParameterNotUsed_Implementations_Message;
+                yield return new AnalyzerFinding(
+                    RDCoreDiagnosticId.ParameterNotUsed.ToCode(),
+                    parameter.NameRange ?? fact.Location.Range,
+                    DiagnosticSeverity.Information,
+                    AnalyzerMessages.Format(message, fact.Name, procedure.Name))
+                {
+                    Fixes = isEvent ? null : new DiagnosticFixes { Refactoring = new RefactoringFix { Kind = RefactoringKinds.RemoveParameter } },
+                };
+                continue;
+            }
+
+            if (fact.References is null || !UnusedDeclarations.ChoosesItsSignature(procedure, semantics))
             {
                 continue;
             }
