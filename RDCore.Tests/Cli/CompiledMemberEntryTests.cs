@@ -199,6 +199,42 @@ public sealed class CompiledMemberEntryTests
         AssertEntered(compiled, "Through", direct: 1, "Drop", framesMade: 1);
     }
 
+    // Through's object is a new Keeper each pass, which Drop lets go of: each activation of Drop runs on its own live object, which terminates as Drop
+    // returns, before the next pass makes another.
+    [TestMethod]
+    public async Task AnObjectWhoseLastReferenceGoesInAMember_EachPass_TerminatesWhenTheMemberReturns()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Program(
+            "Public Keeper As Kept",
+            "Public Sub Main()",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        Set Keeper = New Kept",
+            "        Keeper.Id = I",
+            "        Through Keeper",
+            "    Next",
+            "    Debug.Print \"after\"",
+            "End Sub",
+            "Private Sub Through(ByRef T As Kept)",
+            "    T.Drop 3",
+            "    Debug.Print \"returned\"; T Is Nothing",
+            "End Sub"), [("Kept", ModuleWorkspace.ClassModule("Kept", "Option Explicit",
+                "Public Id As Long",
+                "Public Sub Drop(ByVal N As Long)",
+                "    Id = Id * 10 + N",
+                "    Set Keeper = Nothing",
+                "    Id = Id * 10 + 1",
+                "    Debug.Print \"still here\"; Id",
+                "End Sub",
+                "Private Sub Class_Terminate()",
+                "    Debug.Print \"gone\"; Id",
+                "End Sub"))]);
+
+        AssertInOrder(observed, "still here 131", "gone 131", "returned", "still here 231", "gone 231", "returned", "still here 331", "gone 331", "returned",
+            "after");
+        AssertEntered(compiled, "Through", direct: 3, "Drop", framesMade: 3);
+    }
+
     // each pass makes a new object, and the one before terminates - its fields freed - as it is made: the new one's fields are its own, and start empty.
     [TestMethod]
     public async Task ANewObject_MadeAsTheOneBeforeTerminates_HasFieldsOfItsOwn()
