@@ -33,7 +33,7 @@ public sealed record class SetCoercionRuntimeSemantics(IErrorDetailsRecorder Err
 {
     public SetCoercionResult EvaluateSetCoercion(IRuntimeSession session, ExpressionNode expression, VBTypedValue source, VBType destinationType)
     {
-        // a value that is not known (an analysis assumed it) coerces to a value that is not known either: the Nothing it holds is only what its type allows.
+        // a value that is not known (an analysis assumed it) coerces to a value that is not known either: the Nothing it holds is its type's default, not a value the code gave it.
         var isKnown = !source.IsIndeterminate;
 
         // a Variant source's own TypeInfo mirrors its wrapped value's, but the object pattern-match
