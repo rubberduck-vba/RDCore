@@ -10,7 +10,7 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class VarPtrAlignmentTests
 {
-    // what follows a Byte, and an Integer, at the start of an 8-byte boundary: a Double before each puts it there, as the start of a module is in MS-VBA.
+    // what follows a Byte, and an Integer, on an 8-byte boundary: a Double before each puts it there, as the start of a module is in MS-VBA.
     private static readonly string[] Followers =
         ["Byte", "Integer", "Boolean", "Long", "Single", "Double", "Currency", "Date", "LongLong", "LongPtr", "String", "Object", "Variant", "TBD", "T3B"];
 
