@@ -159,23 +159,22 @@ public static class SymbolRename
 
         var split = source.Name.Length;
         var start = range.Start;
-        if (position.Character - start.Character <= split)
+
+        // after the underscore, the name is the event's or the member's, which is renamed when the workspace declares it. When it does not (a library's
+        // event, a control's), the source is the one part of the name the workspace declares, and the rename at either part renames it.
+        if (position.Character - start.Character > split && binding.Bound is { } bound && NameOccurrences.SymbolOf(context, bound) is { } member
+            && NameOccurrences.IsDeclaredBy(context, member))
         {
-            var prefix = new SourceRange(start, new SourcePosition(start.Line, start.Character + split));
-            return source is VBClassModuleSymbol implemented
-                ? PrepareType(context, module, prefix, implemented)
-                : RefusalOf(context, source) is { } refused ? new(null, refused) : new(new RenameTarget(source.Name, module, prefix, [source.SemanticId]), null);
+            var suffix = new SourceRange(new SourcePosition(start.Line, start.Character + split + 1), range.End);
+            return RefusalOf(context, member) is { } refusal
+                ? new(null, refusal)
+                : new(new RenameTarget(member.Name, module, suffix, [.. RenamedTogether(context, member).Select(renamed => renamed.SemanticId)]), null);
         }
 
-        var suffix = new SourceRange(new SourcePosition(start.Line, start.Character + split + 1), range.End);
-        if (binding.Bound is not { } bound || NameOccurrences.SymbolOf(context, bound) is not { } member)
-        {
-            return new(null, new RenameRefusal(RenameRefusalKind.NotDeclaredByWorkspace, procedure.Name[(split + 1)..]));
-        }
-
-        return RefusalOf(context, member) is { } refusal
-            ? new(null, refusal)
-            : new(new RenameTarget(member.Name, module, suffix, [.. RenamedTogether(context, member).Select(renamed => renamed.SemanticId)]), null);
+        var prefix = new SourceRange(start, new SourcePosition(start.Line, start.Character + split));
+        return source is VBClassModuleSymbol implemented
+            ? PrepareType(context, module, prefix, implemented)
+            : RefusalOf(context, source) is { } refused ? new(null, refused) : new(new RenameTarget(source.Name, module, prefix, [source.SemanticId]), null);
     }
 
     // what the members of a class are bound to (MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10): the events of its form, as its designer has them, and of its host,
