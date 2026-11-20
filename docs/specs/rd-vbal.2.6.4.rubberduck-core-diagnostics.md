@@ -50,8 +50,8 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00123`](../diagnostics/rdc00123.md)|Bang notation|Information|the member accesses with `Implicit`, `DefaultMember` and `DictionaryAccess`, and neither `LateBound` nor `Recursive`; for the fix, the `Owner` and `Member` of the syntax tree's `DictionaryAccessExpressionNode` at the access|
 |[`RDC00124`](../diagnostics/rdc00124.md)|Unbound bang notation|Warning|the same, with `DictionaryAccess` and `LateBound`|
 |[`RDC00125`](../diagnostics/rdc00125.md)|Suspicious Let assignment|Warning|the syntax tree's `Let` assignments whose target is an object (a default member, as `RDC00119` finds it, or declared `Object`) and whose value is the operand of a `ConversionSemanticFlags.ObjectOperand` conversion, or an `ExpressionFact` of a class or `Object`, not an array, with `IsLetCoerced`, which the static pass also states of a target that is Nothing or a parameter; for the fix, the target's default member and the `DefaultMember` of the value's `ExpressionFact`, with no `RequiredParameters`|
-|[`RDC00126`](../diagnostics/rdc00126.md)|Indexed recursive default member access|Information|the accesses of `RDC00121`, with `Recursive`: the default member takes no arguments, and they go to the default member of the object it returns (of the object when it is known, of its declared class when it is not)|
-|[`RDC00127`](../diagnostics/rdc00127.md)|Recursive bang notation|Information|the accesses of `RDC00123`, with `Recursive`|
+|[`RDC00126`](../diagnostics/rdc00126.md)|Indexed recursive default member access|Information|the accesses of `RDC00121`, with `Recursive`: the default member takes no arguments, and they go to the default member of the object it returns (of the object when it is known, of its declared class when it is not); for the fix, the access's `DefaultMembers`, in the order they are called, and the `Callee` of the `IndexExpressionNode` at the access|
+|[`RDC00127`](../diagnostics/rdc00127.md)|Recursive bang notation|Information|the accesses of `RDC00123`, with `Recursive`; for the fix, the access's `DefaultMembers` and the `DictionaryAccessExpressionNode` at the access|
 |[`RDC00128`](../diagnostics/rdc00128.md)|Undeclared variable|Warning|`ModuleSemanticModel.Declarations`: a local whose `DeclarationFact.DeclaredBy` is `Implicit`|
 |[`RDC00201`](../diagnostics/rdc00201.md)|Integer data type declaration|Information|the syntax tree: `AsTypeExpressionNode` and the `TypeHint` of a declaration node, except in the header of a procedure whose `DeclarationFact.Role` is `InterfaceImplementation` or `EventHandler`; for the fix, the `DeclarationFact.References` of the variable or the parameter (`PassedAsArguments`)|
 |[`RDC00202`](../diagnostics/rdc00202.md)|Module-scope Dim declaration|Information|the syntax tree: a module-level variable with no access modifier|
@@ -195,6 +195,13 @@ For a class of the VBA library (`c.Nope` of a `Collection`) the list is empty: t
 not declare. For a class of another library, or a class module with `Attribute VB_Extensible = True`, the candidates are not known.
 
 `MemberAccessOperationSemanticFlags.CallByNameAccess` is not stated yet: a `CallByName` call is a call of the library, which the sweep does not look into.
+
+An access of a default member that the code does not name, given an argument list or the name of a dictionary access, states the default members it goes
+through in the order they are called (`MemberAccessFact.DefaultMembers`), from the class the object is declared as
+([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)). When `Child` is the default member of `t`'s class and `Item` that of the
+class `Child` returns, `t(1)` goes through `Child` and `Item`, and is `t.Child().Item(1)` written out. None is stated when an `Object`, a `Variant` or a
+class that is not known is on the way, when the arguments index an array a member returns, or when a default member returns a class the chain already
+went through.
 
 ## Language Core Conditions and Analyzer Opinions
 
