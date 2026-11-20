@@ -44,6 +44,12 @@ internal sealed class ProjectFileWatchHandler(
                 {
                     GlobPattern = new GlobPattern($"**/*.{{{string.Join(',', WorkspaceFileSystemWatcher.SourceExtensions)}}}"),
                     Kind = WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                },
+                // a designer's binary file, which a rename that replaces it must not replace once it changed (StagedFiles.Verify).
+                new OmniSharp.Extensions.LanguageServer.Protocol.Models.FileSystemWatcher
+                {
+                    GlobPattern = new GlobPattern($"**/*.{{{string.Join(',', WorkspaceFileSystemWatcher.CompanionExtensions)}}}"),
+                    Kind = WatchKind.Create | WatchKind.Change | WatchKind.Delete,
                 }),
         };
 }

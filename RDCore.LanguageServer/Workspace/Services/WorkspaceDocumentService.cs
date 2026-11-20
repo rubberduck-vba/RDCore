@@ -186,7 +186,8 @@ internal enum DocumentChangeOutcome
 internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProvider, ILogger<WorkspaceDocumentService> logger,
     System.IO.Abstractions.IPath ioPath,
     System.IO.Abstractions.IFile ioFile,
-    IOptions<SdkAppOptions>? options = null) : IWorkspaceDocumentService
+    IOptions<SdkAppOptions>? options = null,
+    RDCore.SDK.Server.StagedFiles? staged = null) : IWorkspaceDocumentService
 {
     // a module file is read in its own encoding (ModuleFileText): a file VBA exported is in the environment's ANSI code page.
     private async Task<string> ReadModuleTextAsync(string path)
@@ -667,6 +668,22 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         if (problem is not null)
         {
             logger.LogWarning(problem, "⚠️ The companion file of '{path}' could not be read.", path);
+        }
+
+        // what a rename staged beside the companion and no edit put in place (a server that ended before its client applied the edit) is deleted.
+        if (staged is not null && !companion.IsEmpty && FormDesigner.CompanionPathOf(path, text) is { } companionPath)
+        {
+            try
+            {
+                if (staged.Sweep(DocumentUri.FromFileSystemPath(companionPath)) is > 0 and var swept)
+                {
+                    logger.LogInformation("🧹 Deleted {count} staged file(s) left beside '{path}'.", swept, companionPath);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                logger.LogWarning(exception, "⚠️ The staged files left beside '{path}' could not be deleted.", companionPath);
+            }
         }
 
         return companion;
