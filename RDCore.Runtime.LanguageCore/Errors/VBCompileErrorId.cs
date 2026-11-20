@@ -227,6 +227,8 @@ public enum VBCompileErrorId
     OnlyValidInObjectModule = 9384,
     // MS-VBAL §4.2 Module Structure: a module's name is a quoted-identifier, and an IDENTIFIER is not a reserved-identifier (§3.3.5.2).
     NotALegalObjectName = 9385,
+    // MS-VBAL §4.2 Module Structure: a module's name is not the project name of a project its project references, a library among them (§4.1).
+    NameConflictsWithModuleProjectOrLibrary = 9386,
 
 
     /***********************************************************************************************

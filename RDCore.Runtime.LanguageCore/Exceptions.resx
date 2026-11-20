@@ -615,6 +615,12 @@
   <data name="VBCompileError_NotALegalObjectName_Verbose" xml:space="preserve">
     <value>'{0}' is a keyword of the language, which no module can be named: give the module another name.</value>
   </data>
+  <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary" xml:space="preserve">
+    <value>Name conflicts with existing module, project, or object library</value>
+  </data>
+  <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose" xml:space="preserve">
+    <value>'{0}' is a library or a project that the project references: give the module another name.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>

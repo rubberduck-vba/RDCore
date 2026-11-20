@@ -1,3 +1,5 @@
+using RDCore.SDK.Runtime.Libraries;
+using RDCore.Tests.Runtime.Libraries;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
 namespace RDCore.Tests.Cli;
@@ -7,7 +9,9 @@ namespace RDCore.Tests.Cli;
 /// <c>reserved-identifier</c> is (<strong>MS-VBAL §3.3.5.2</strong>): a module named <c>Circle</c> or <c>Dim</c> is
 /// <see cref="RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.NotALegalObjectName"/>, at its <c>VB_Name</c>, and does not load. MS-VBA refuses to rename
 /// or import a module so named (observed in Excel). A module that says no <c>VB_Name</c> is named by its file, by the same rule. A
-/// <c>reserved-type-identifier</c> that is no <c>reserved-name</c> (<c>Long</c>) is an <c>IDENTIFIER</c>, and compiles.
+/// <c>reserved-type-identifier</c> that is no <c>reserved-name</c> (<c>Long</c>) is an <c>IDENTIFIER</c>, and compiles. A module named as a library the
+/// project references (<c>VBA</c>, <c>Excel</c>) is
+/// <see cref="RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary"/>, and does not load either.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 4.2 Modules")]
@@ -71,4 +75,53 @@ public sealed class ModuleNameCompileErrorTests
 
         Assert.IsEmpty(errors, string.Join(" | ", errors));
     }
+
+    // MS-VBAL §4.2: a module's name is not the project name of a project its project references, a library among them (§4.1). MS-VBA refuses to rename
+    // a module so, case aside, and renames one it imports (Excel1); observed in Excel.
+    [TestMethod]
+    [DataRow("VBA", DisplayName = "the standard library")]
+    [DataRow("vba", DisplayName = "the standard library, in lower case")]
+    [DataRow("Excel", DisplayName = "a library the project references")]
+    [DataRow("EXCEL", DisplayName = "a library the project references, in upper case")]
+    public async Task AStandardModuleNamedAsAReferencedLibrary_ConflictsWithIt(string name)
+    {
+        var errors = await LoadErrorsAsync([], [(name, StandardModule(name, Body))], Program, Excel);
+
+        var error = Assert.ContainsSingle(errors, string.Join(" | ", errors));
+        Assert.StartsWith(NameConflicts, error);
+        Assert.Contains($"'{name}'", error);
+    }
+
+    [TestMethod]
+    public async Task AClassModuleNamedAsAReferencedLibrary_ConflictsWithIt()
+    {
+        var errors = await LoadErrorsAsync([("Excel", ClassModule("Excel", Body))], Program, Excel);
+
+        Assert.StartsWith(NameConflicts, Assert.ContainsSingle(errors, string.Join(" | ", errors)));
+    }
+
+    [TestMethod]
+    public async Task AModuleNamedByItsFile_AsAReferencedLibrary_ConflictsWithIt()
+    {
+        var errors = await LoadErrorsAsync([], [("Excel", string.Join("\r\n", Body) + "\r\n")], Program, Excel);
+
+        Assert.StartsWith(NameConflicts, Assert.ContainsSingle(errors, string.Join(" | ", errors)));
+    }
+
+    // MS-VBA names a module as a library its project does not reference (Scripting).
+    [TestMethod]
+    public async Task AModuleNamedAsALibraryThatIsNotReferenced_Loads()
+    {
+        var errors = await LoadErrorsAsync([], [("Excel", StandardModule("Excel", Body))], Program);
+
+        Assert.IsEmpty(errors, string.Join(" | ", errors));
+    }
+
+    private const string NameConflicts = "Name conflicts with existing module, project, or object library";
+
+    private static readonly WorkspaceLibraries Excel = new(["Excel"], new InMemoryLibrarySource(new LibraryDescription
+    {
+        Name = "Excel",
+        Classes = [new ClassDescription { Name = "Range" }],
+    }));
 }
