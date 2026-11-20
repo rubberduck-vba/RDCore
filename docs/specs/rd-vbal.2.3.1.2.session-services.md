@@ -205,7 +205,8 @@ The order in which names are looked up in these heaps is specified in
 ## Memory addressing
 
 `ISessionMemoryAllocator` reserves address space, never values: blocks carved from segments of 4 KiB (2 KiB in a 32-bit
-environment) that begin at `0x10000`, a block that is freed being reused for a later one that fits. The width of a pointer
+environment) that begin at `0x10000`, each block on its boundary ([alignment](#alignment)), a block that is freed being
+reused for a later one that fits. The width of a pointer
 is the environment's (`IRuntimeEnvironmentProfile.Is64Bit`): 8 bytes, or 4.
 
 The _memory map_ (`MemoryAddress` → `IBindingHandle`) is held by the session storage (`SessionStorage`, below):
@@ -276,6 +277,27 @@ runs it.
 |An object|An interface of it, one for each it is asked for through ([`ObjPtr`](rd-vbal.6.1.2.13.hidden-module.md#objptr)).|
 |A dynamic array|Its `SAFEARRAY` ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#safearray)).|
 |A procedure of a standard module|Its own ([`AddressOf`](rd-vbal.5.6.16.constrained-expressions.md#56168-addressof-expressions)).|
+
+### Alignment
+
+A block starts on the largest power of two its size is a multiple of, up to 8 bytes, so a variable is on the boundary its type is aligned to, as in
+**MS-VBA** (recorded in Excel, 64-bit). The bytes skipped to reach the boundary are the block's, allocated and freed with it: the variables of a module are
+side by side in declaration order, each on its boundary, as the fields of a record are.
+
+|Declared after a `Byte` on an 8-byte boundary|Starts|
+|---|---|
+|A `Byte`, a record of `Byte`s|1 byte after it|
+|An `Integer`, a `Boolean`|2 bytes after it|
+|A `Long`, a `Single`|4 bytes after it|
+|A `Double`, a `Currency`, a `Date`, a `LongLong`, a `LongPtr`, a `String`, an object, a `Variant`, a record with a `Double` field|8 bytes after it|
+
+**RD-VBA differs from MS-VBA:**
+
+- A module's first variable is on its own boundary; **MS-VBA**'s is on 8 bytes.
+- A local is on its own boundary, in the order its address is first asked for; **MS-VBA** gives each local 8 bytes, in declaration order.
+- A record is on the boundary its size gives, which can be wider than its widest field's: a record of two `Long`s is on 8 bytes, **MS-VBA**'s on 4.
+- The elements of an array and the characters of a `String` start on their own boundary; **MS-VBA** puts the elements on 16 bytes, and the characters 8
+  bytes past 16.
 
 ### What the bytes are
 
