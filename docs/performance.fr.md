@@ -149,19 +149,19 @@ appelle Excel quatre fois par cellule, 40 000 fois en tout, alors qu'un bloc se 
 
 ## Comment les chiffres sont mesurés
 
-- **L'exécution de référence.** Sur la machine de référence, MS-VBA et RD-VBA exécutent le corpus en cinq rondes alternées (MS-VBA en premier aux quatre
-  premières, RD-VBA en premier à la cinquième), et les cas d'automatisation d'Excel en trois rondes, MS-VBA en premier. Chaque cas s'exécute sept fois
-  par ronde (cinq pour l'automatisation d'Excel), et le chiffre retenu est l'exécution la plus rapide. L'exécution de référence est refaite quand le
-  corpus change.
+- **L'exécution de référence.** Sur la machine de référence, MS-VBA et RD-VBA exécutent le corpus en cinq rondes alternées, MS-VBA en premier aux
+  rondes impaires et RD-VBA en premier aux rondes paires, et les cas d'automatisation d'Excel dans les trois premières de ces rondes. Chaque cas
+  s'exécute sept fois par ronde (cinq pour l'automatisation d'Excel), et le chiffre retenu est l'exécution la plus rapide. L'exécution de référence est
+  refaite quand le corpus change.
+- **Mise en place du pipeline.** Le temps de RD-VBA pour un cas du corpus comprend la mise en place du pipeline d'exécution de cette exécution; le temps
+  de MS-VBA ne comprend aucune étape semblable.
 - **À chaque fusion.** Une machine de compilation Windows exécute le corpus en trois rondes alternées avec deux compilations de `rdc` : celle de la
   fusion, et celle de l'exécution de référence. Le temps de RD-VBA pour un cas est celui de l'exécution de référence, multiplié par le rapport entre les
   deux compilations sur cette machine. Comparer les deux compilations sur une même machine écarte la vitesse propre de cette machine. Le fichier des
   chiffres (`bench.json`, sur la branche `badges`) nomme le processeur de cette machine.
 - **Préchauffage.** Avant ses exécutions chronométrées, `rdc bench` exécute chaque cas sans chronomètre jusqu'à ce que .NET ait fini d'optimiser le code
   qu'il appelle, et `rdc bench-msvba` exécute chaque cas du corpus deux fois sans chronomètre dans MS-VBA ([Bancs d'essai](benchmarks/index.fr.md)). À
-  chaque fusion, les deux compilations se réchauffent quand les deux le peuvent. Quand la compilation de référence est antérieure au préchauffage, comme
-  celle de l'exécution de référence actuelle, aucune ne se réchauffe, et chaque cas s'exécute 40 fois par ronde au lieu de sept : la plupart des cas
-  atteignent leur code optimisé au fil de ces exécutions.
+  chaque fusion, les deux compilations se réchauffent, comme dans l'exécution de référence, et chaque cas s'exécute sept fois par ronde.
 - **Chaque exécution part d'un tas récupéré.** Avant chaque exécution chronométrée, `rdc bench` lance une récupération de mémoire sur tout le tas :
   qu'une récupération de mémoire tombe pendant une exécution ne dépend alors que de ce que cette exécution alloue et garde. Le temps d'une récupération
   pendant une exécution fait partie du chiffre.

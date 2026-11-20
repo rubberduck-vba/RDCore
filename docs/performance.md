@@ -147,17 +147,17 @@ while a block is read in four calls and written in four.
 
 ## How the figures are measured
 
-- **The reference run.** On the reference machine, MS-VBA and RD-VBA run the corpus in five alternated rounds (MS-VBA first in the first four, RD-VBA
-  first in the fifth), and the Excel automation cases in three rounds, MS-VBA first. Each case runs seven times a round (five for Excel automation), and
-  the figure is the fastest run. The reference run is repeated when the corpus changes.
+- **The reference run.** On the reference machine, MS-VBA and RD-VBA run the corpus in five alternated rounds, MS-VBA first in odd rounds and RD-VBA
+  first in even ones, and the Excel automation cases in the first three of those rounds. Each case runs seven times a round (five for Excel
+  automation), and the figure is the fastest run. The reference run is repeated when the corpus changes.
+- **Pipeline setup.** A corpus case's RD-VBA time includes setting up that run's execution pipeline; MS-VBA's time has no such step.
 - **On every merge.** A Windows build machine runs the corpus in three alternated rounds with two builds of `rdc`: the merged one, and the one the
   reference run used. A case's RD-VBA time is the reference run's, scaled by how the merged build compares with the reference build on that machine.
   Comparing the two builds on one machine keeps that machine's own speed out of the figure. The figures file (`bench.json`, on the `badges` branch)
   names that machine's processor.
 - **Warm-up.** Before its timed runs, `rdc bench` runs each case untimed until .NET has finished optimizing the code it calls, and `rdc bench-msvba`
-  runs each corpus case twice untimed in MS-VBA ([Benchmarks](benchmarks/index.md)). On every merge, both builds warm up when both can. When the
-  reference build predates the warm-up, as the build of the current reference run does, neither warms up, and each case runs 40 times a round instead
-  of seven: most cases reach their optimized code within those runs.
+  runs each corpus case twice untimed in MS-VBA ([Benchmarks](benchmarks/index.md)). On every merge, both builds warm up,
+  as in the reference run, and each case runs seven times a round.
 - **Each run starts from a collected heap.** Before each timed run, `rdc bench` collects the heap, so whether a garbage collection falls inside a run
   depends only on what that run allocates and keeps. The time of a collection inside a run is part of the figure.
 - **Allocation.** For each case, `rdc bench` also gives what its fastest run allocated and the garbage collections of each generation made while it ran
