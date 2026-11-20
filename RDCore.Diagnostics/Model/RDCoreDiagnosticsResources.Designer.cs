@@ -178,6 +178,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplementationsShouldBePrivate_Interface_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Make &apos;{0}&apos; Private, which takes it off the default interface of the class.
+        /// </summary>
+        public static string ImplementationsShouldBePrivate_Fix {
+            get {
+                return ResourceManager.GetString("ImplementationsShouldBePrivate_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is implicitly passed ByRef: the procedure can change the caller&apos;s variable. Write ByRef if that is intended, and ByVal otherwise..

@@ -372,6 +372,9 @@
   <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
     <value>'{0}' implements a member of an interface, and is Public: it exposes that member on the default interface of this class, where it does not belong. Make it Private.</value>
   </data>
+  <data name="ImplementationsShouldBePrivate_Fix" xml:space="preserve">
+    <value>Make '{0}' Private, which takes it off the default interface of the class</value>
+  </data>
   <data name="ImplementationsShouldBePrivate_EventHandler_Message" xml:space="preserve">
     <value>'{0}' handles an event, and is Public: it can be called from outside, which an event handler never should be. Make it Private.</value>
   </data>

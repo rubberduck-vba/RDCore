@@ -93,6 +93,18 @@ public sealed class FunctionReturnValueAlwaysDiscardedAnalyzerTests
         CollectionAssert.AreEqual(new[] { ("Save", 5) }, await FoundInAsync("Document", program, [document]));
     }
 
+    // the interface says what the implementation returns: it cannot be a Sub, whatever the calls by its own name do with its value.
+    [TestMethod]
+    public async Task AnImplementationOfAnInterfaceMember_EveryCallDiscards_IsNotFound()
+    {
+        (string, string) shape = ("IShape", ModuleWorkspace.ClassModule("IShape", "Public Function Area() As Long", "End Function"));
+        (string, string) square = ("Square", ModuleWorkspace.ClassModule("Square",
+            "Implements IShape", "Public Function IShape_Area() As Long", "End Function"));
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "Dim s As New Square", "s.IShape_Area", "End Sub");
+
+        Assert.IsEmpty(await FoundInAsync("Square", program, [shape, square]));
+    }
+
     [TestMethod]
     public async Task APublicFunctionOfALibrary_OrOfAProjectWithNoEntryPoint_IsNotFound()
     {
