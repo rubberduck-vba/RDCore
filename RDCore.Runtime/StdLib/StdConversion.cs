@@ -9,7 +9,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
@@ -461,8 +460,51 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     private static string ErrorCodeText(VBErrorValue error)
         => ValueConversions.ToText(new VBLongValue(error.Value), CultureInfo.InvariantCulture).Value is VBStringValue code ? code.Value : string.Empty;
 
-    [GeneratedRegex(@"^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eEdD][+-]?[0-9]+)?", RegexOptions.CultureInvariant)]
-    private static partial Regex LeadingNumber();
+    // the length of the number text begins with, 0 for none: an optional sign, then digits with an optional decimal point after them or among them, or a
+    // decimal point and digits, then an exponent of e, E, d or D with an optional sign, read only when digits follow it. The digits are the ASCII ones.
+    private static int LeadingNumberLength(ReadOnlySpan<char> text)
+    {
+        var index = text is ['+' or '-', ..] ? 1 : 0;
+        var integral = index;
+        while (index < text.Length && char.IsAsciiDigit(text[index]))
+        {
+            index++;
+        }
+
+        var digits = index - integral;
+        if (index < text.Length && text[index] == '.')
+        {
+            var fraction = ++index;
+            while (index < text.Length && char.IsAsciiDigit(text[index]))
+            {
+                index++;
+            }
+
+            digits += index - fraction;
+        }
+
+        if (digits == 0)
+        {
+            return 0;
+        }
+
+        if (index < text.Length && text[index] is 'e' or 'E' or 'd' or 'D')
+        {
+            var exponent = index + 1 < text.Length && text[index + 1] is '+' or '-' ? index + 2 : index + 1;
+            var end = exponent;
+            while (end < text.Length && char.IsAsciiDigit(text[end]))
+            {
+                end++;
+            }
+
+            if (end > exponent)
+            {
+                index = end;
+            }
+        }
+
+        return index;
+    }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -516,24 +558,28 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             return true;
         }
 
-        var match = LeadingNumber().Match(text);
-        if (!match.Success)
+        var length = LeadingNumberLength(text);
+        if (length == 0)
         {
             return true;
         }
 
-        number = double.Parse(
-            match.Value.Replace('d', 'e').Replace('D', 'e'),
-            NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
-            CultureInfo.InvariantCulture);
+        // the number read where it is in the text; one whose exponent is written with a d or a D is read as a copy written with an e.
+        var leading = text.AsSpan(0, length);
+        number = leading.IndexOfAny('d', 'D') < 0
+            ? double.Parse(leading, Numbers, CultureInfo.InvariantCulture)
+            : double.Parse(leading.ToString().Replace('d', 'e').Replace('D', 'e'), Numbers, CultureInfo.InvariantCulture);
         if (double.IsInfinity(number))
         {
-            (number, overflow) = (0, $"'{match.Value}' is not a Double.");
+            (number, overflow) = (0, $"'{leading}' is not a Double.");
             return false;
         }
 
         return true;
     }
+
+    // what a number Val reads is written with: a sign, a decimal point and an exponent.
+    private const NumberStyles Numbers = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent;
 
     // MS-VBA reads the digits of a radix number as the bits of an integer, typed by its width and by the type-declaration character after them, if any, much
     // as a radix literal is (MS-VBAL §3.3.2), and the Double is that integer's value (observed in Excel). More than 64 bits

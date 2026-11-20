@@ -159,6 +159,95 @@ internal static class ObjectReferences
     }
 
     /// <summary>
+    /// Puts the temporaries a call's arguments and its target made, since <paramref name="start"/>, in the order <strong>MS-VBA</strong> lets go of them
+    /// when the statement is over (observed in Excel): the calls are let go of in the order they were made, each with the temporaries of its arguments in the
+    /// order of its parameters, then those of its target. What the calls inside an argument made were put in their order when those calls were made, and are
+    /// let go of before the argument's own. <see cref="ReleaseTemporaries"/> lets go of the last first: the first to go is put last.
+    /// </summary>
+    /// <param name="session">The session whose temporaries they are.</param>
+    /// <param name="frame">The activation that makes the call, whose statement the temporaries are of.</param>
+    /// <param name="start">How many temporaries there were before the call's arguments were evaluated.</param>
+    /// <param name="pieces">What each argument, and the target, made, in the order they were evaluated in.</param>
+    public static void SettleCall(IRuntimeSession session, CallStackFrame? frame, int start, ReadOnlySpan<TemporaryPiece> pieces)
+    {
+        var count = session.Objects.TemporaryCount;
+        var made = count - start;
+        if (made > 1 && pieces.Length > 0)
+        {
+            Settle(session, start, made, pieces);
+        }
+
+        if (frame is not null)
+        {
+            frame.SettledTemporaries = (count, frame.SettledTemporaries.Times + 1);
+        }
+    }
+
+    private static void Settle(IRuntimeSession session, int start, int made, ReadOnlySpan<TemporaryPiece> pieces)
+    {
+        var cells = System.Buffers.ArrayPool<IBindingHandle>.Shared.Rent(made);
+        var order = System.Buffers.ArrayPool<int>.Shared.Rent(made);
+        var placed = System.Buffers.ArrayPool<bool>.Shared.Rent(made);
+        try
+        {
+            for (var at = made - 1; at >= 0; at--)
+            {
+                cells[at] = session.Objects.PopTemporary()!;
+                placed[at] = false;
+            }
+
+            var next = 0;
+            void Place(int position)
+            {
+                var at = position - start;
+                if (at >= 0 && at < made && !placed[at])
+                {
+                    placed[at] = true;
+                    order[next++] = at;
+                }
+            }
+
+            // what the calls inside each argument made, as those calls put it: the last of each first.
+            foreach (var piece in pieces)
+            {
+                for (var position = piece.Settled - 1; position >= piece.Start; position--)
+                {
+                    Place(position);
+                }
+            }
+
+            // what each argument made itself, by parameter, then the target's: in the order it was made.
+            var owners = pieces.ToArray();
+            Array.Sort(owners, static (left, right) => left.Owner.CompareTo(right.Owner));
+            foreach (var piece in owners)
+            {
+                for (var position = piece.Settled; position < piece.End; position++)
+                {
+                    Place(position);
+                }
+            }
+
+            // anything else stays where it is, let go of after these.
+            for (var at = made - 1; at >= 0; at--)
+            {
+                Place(start + at);
+            }
+
+            for (var k = next - 1; k >= 0; k--)
+            {
+                session.Objects.PushTemporary(cells[order[k]]);
+            }
+        }
+        finally
+        {
+            Array.Clear(cells, 0, made);
+            System.Buffers.ArrayPool<IBindingHandle>.Shared.Return(cells);
+            System.Buffers.ArrayPool<int>.Shared.Return(order);
+            System.Buffers.ArrayPool<bool>.Shared.Return(placed);
+        }
+    }
+
+    /// <summary>
     /// Assigns a function's result (<strong>MS-VBAL §5.3.1</strong>: "a distinct function result variable"), which holds what it is assigned as a
     /// variable does: in a cell of its own, until the function returns it.
     /// </summary>
@@ -455,3 +544,13 @@ internal static class ObjectReferences
         }
     }
 }
+
+/// <summary>
+/// The temporaries one argument of a call made, or its target (<see cref="ObjectReferences.SettleCall"/>): from <see cref="Start"/> to <see cref="End"/>,
+/// the first of them, up to <see cref="Settled"/>, put in their order by the calls inside it.
+/// </summary>
+/// <param name="Owner">The index of the parameter the argument is given to; <see cref="int.MaxValue"/> for the target.</param>
+/// <param name="Start">How many temporaries there were before it was evaluated.</param>
+/// <param name="Settled">Where those the calls inside it put in order end.</param>
+/// <param name="End">How many temporaries there were after it was evaluated.</param>
+internal readonly record struct TemporaryPiece(int Owner, int Start, int Settled, int End);

@@ -131,6 +131,37 @@ public sealed class ArrayBlockTests
         Assert.AreSame(array.CellAt(1), cell);
     }
 
+    // an element passed by reference is lent to the call at its address, which reads its cell while nothing else holds the array: the variable that held it
+    // may be assigned something else during the call. The address is given back once for each call it was lent to.
+    [TestMethod]
+    public void AnElementLentToTwoCalls_IsReadAtItsAddress_UntilBothGiveItBack_WhileNothingElseHoldsTheArray()
+    {
+        var storage = Storage();
+        var (address, element) = LendTwice(storage);
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        Assert.IsTrue(storage.TryRead(address, out var cell));
+        Assert.AreSame(element, cell);
+        Assert.IsTrue(storage.TryGiveBackElement(address));
+        Assert.IsTrue(storage.TryGiveBackElement(address));
+        Assert.IsFalse(storage.TryGiveBackElement(address), "given back once for each call");
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static (MemoryAddress Address, IBindingHandle Element) LendTwice(SessionStorage storage)
+    {
+        var array = Longs(5, 6, 7);
+        Assert.IsTrue(storage.TryLendElement(array, 1, out var address));
+        Assert.IsTrue(storage.TryLendElement(array, 1, out var again));
+        Assert.AreEqual(address, again);
+        Assert.AreEqual(AddressOf(storage, array, 1), address.Value, "where the element is");
+        return (address, array.CellAt(1)!);
+    }
+
     [TestMethod]
     public void TheElementsOfARecordArray_AreRecordsAtTheirOffsets()
     {

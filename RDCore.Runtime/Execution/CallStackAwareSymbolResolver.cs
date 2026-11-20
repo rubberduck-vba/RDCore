@@ -54,6 +54,9 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, IRuntimeS
     public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name) => inner.ResolveProjectType(project, name);
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle) => inner.ResolveProjectType(project, name, handle);
+
+    /// <inheritdoc/>
     public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle)
         => inner.ResolveConditionalConstant(name, scope, handle);
 

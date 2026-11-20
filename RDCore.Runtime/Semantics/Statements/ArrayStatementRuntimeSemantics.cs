@@ -16,6 +16,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -201,7 +202,8 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
         // a name that resolves to no type is a compile error the static semantics report; the array is then what it would be without the clause.
         var typeName = asType.QualifierName is { } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-        var type = DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, context.Scope, session.Environment.Is64Bit);
+        var type = DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, context.Scope, session.Environment.Is64Bit,
+            ProjectVisibility.Instance, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
 
         // MS-VBAL 5.2.3.1.4: `String * n` is the type String*n.
         // TODO: a length written as the name of a constant is not read yet; such an array holds variable-length strings.
@@ -374,14 +376,23 @@ public sealed record class ArrayStatementRuntimeSemantics(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, Target target, VBFixedSizeArrayValue array)
     {
         // what the elements held is let go of; each is given a cell of its own holding the default - the type's default value is one value every
-        // caller shares, and an element written in place through its handle would write the default of every other.
+        // caller shares, and an element written in place through its handle would write the default of every other. A record element is reset where
+        // it is, field by field: its fixed-size array fields keep the bounds its declaration gave them, and an element never made is made as a
+        // declared variable of the type starts (IVariableDefaults.ElementDefaultOf).
         var held = ObjectReferences.HeldBy(InvalidBindingHandle.Default, array);
-        var initial = array.ItemType.DefaultValue;
-        var elementCell = session.Symbols.Defaults?.ElementCellOf(array.ItemType);
-        foreach (var subscripts in Subscripts(array))
+        if (array.ItemType is VBUserDefinedType)
         {
-            array.TrySetElement(elementCell?.Invoke()
-                ?? (initial.Handle is ValueBindingHandle ? BindingKnowledge.NewCell(initial.RuntimeValue, isKnown: true) : initial.Handle), subscripts);
+            array.ResetElements();
+        }
+        else
+        {
+            var initial = array.ItemType.DefaultValue;
+            var elementCell = session.Symbols.Defaults?.ElementCellOf(array.ItemType);
+            foreach (var subscripts in Subscripts(array))
+            {
+                array.TrySetElement(elementCell?.Invoke()
+                    ?? (initial.Handle is ValueBindingHandle ? BindingKnowledge.NewCell(initial.RuntimeValue, isKnown: true) : initial.Handle), subscripts);
+            }
         }
 
         ObjectReferences.Release(session, held);

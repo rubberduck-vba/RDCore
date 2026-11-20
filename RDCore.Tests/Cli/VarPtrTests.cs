@@ -25,6 +25,7 @@ public sealed class VarPtrTests
         "Public Type TDyn", "    A() As Long", "End Type",
         "Public Type Mixed", "    B As Byte", "    L As Long", "    D As Double", "    I As Integer", "    S As String", "    V As Variant", "    F As String * 3", "    C As Currency", "End Type",
         "Public G As Long",
+        "Public GF As TFixed", "Public GL As Long",
         "Public Function Stable() As Boolean", "    Dim a As LongPtr, b As LongPtr", "    a = VarPtr(Stable)", "    Stable = True", "    b = VarPtr(Stable)", "    Stable = (a = b)", "End Function",
         "Public Function NotALocal() As Boolean", "    Dim x As Long", "    NotALocal = (VarPtr(NotALocal) <> VarPtr(x))", "End Function",
         "Public Function Echo(ByVal n As Long) As Long", "    Dim a As LongPtr", "    a = VarPtr(Echo)", "    Echo = n + 1", "End Function",
@@ -164,6 +165,9 @@ public sealed class VarPtrTests
         "0|4|8|16|24|32|64|72|58|", DisplayName = "V13 every kind of field")]
     [DataRow("Dim r As TOuter ;; P VarPtr(r.Inner) - VarPtr(r) ;; P VarPtr(r.Inner.Y) - VarPtr(r) ;; P VarPtr(r.Tail) - VarPtr(r) ;; P LenB(r)", "4|8|16|24|", DisplayName = "P03 P11 a nested record")]
     [DataRow("Dim r As TFixed ;; P VarPtr(r.N(0)) - VarPtr(r) ;; P VarPtr(r.N(2)) - VarPtr(r) ;; P VarPtr(r.After) - VarPtr(r)", "4|12|16|", DisplayName = "P04 a fixed-size array field, inline")]
+    // a module's variable is allocated before the bounds of a fixed-size array field can be reduced: it is allocated again once they are, all of it.
+    [DataRow("P VarPtr(GF.After) - VarPtr(GF) ;; P (VarPtr(GL) + LenB(GL) <= VarPtr(GF) Or VarPtr(GF) + LenB(GF) <= VarPtr(GL))", "16|True|",
+        DisplayName = "a fixed-size array field of a module's variable, which the next variable is not in")]
     public async Task TheFieldsOfARecord_AreAtTheirOffsets(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 

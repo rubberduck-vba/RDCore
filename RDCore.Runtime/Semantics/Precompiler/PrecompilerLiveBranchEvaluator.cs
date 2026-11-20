@@ -1,9 +1,12 @@
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Platform;
@@ -111,6 +114,36 @@ public static class PrecompilerLiveBranchEvaluator
         }
 
         return new ModulePlatforms(each.ToImmutable());
+    }
+
+    /// <summary>
+    /// The names of the conditional-compilation constants that a module's directives read and nothing defines: no <c>#Const</c> of the module, and no
+    /// constant the session binds, of the project, of the command line or predefined. Each is <c>0</c> where it is read.
+    /// </summary>
+    /// <param name="session">The runtime session the project's constants are bound in.</param>
+    /// <param name="precompilerTrivia">A module's <c>ModuleParseResult.PrecompilerTrivia</c>.</param>
+    /// <returns>Each name once, as the first directive that reads it writes it, in the order the directives are written.</returns>
+    /// <remarks>
+    /// <strong>MS-VBAL §3.4.1</strong>: every <c>#Const</c> of the module is processed, those of an excluded block too, so every directive is read, in a
+    /// live branch or not.
+    /// </remarks>
+    public static ImmutableArray<string> UndefinedConstantsOf(IRuntimeSession session, ImmutableArray<SyntaxNode> precompilerTrivia)
+    {
+        if (precompilerTrivia.IsDefaultOrEmpty)
+        {
+            return [];
+        }
+
+        var declared = ConditionalConstantReads.DeclaredBy(precompilerTrivia);
+        bool IsBound(string name)
+            => session.Symbols.Resolver.ResolveConditionalConstant(name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is PrecompilerConstantSymbol;
+
+        return
+        [
+            .. ConditionalConstantReads.Of(precompilerTrivia).Select(read => read.Name.Name)
+                .Where(name => !declared.Contains(name) && !IsBound(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase),
+        ];
     }
 
     private static (PrecompilerEvaluation Evaluation, ImmutableArray<SourceRange> Undecided) EvaluateUnder(

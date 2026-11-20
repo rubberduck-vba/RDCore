@@ -6,22 +6,24 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A <c>String</c> given to a procedure of the workspace by compiled code, as the interpreter gives it (MS-VBAL §5.3.1.11): the text of Strings given by
-/// value, of which the callee makes a <c>String</c> of its own; the address of a <c>String</c> variable given by reference, which the parameter is a second
-/// name for. The call is made through the invoker, which makes the callee its frame. What compiled code gives nothing of (a <c>Variant</c>, a number, a
-/// field, an element) the interpreter gives, making the call. A program runs the same either way.
+/// value, of which the callee makes a <c>String</c> of its own; a <c>String</c> variable given by reference, which the parameter is a second name for, with
+/// the variable's one address. A compiled callee is called directly, through its typed entry: its activation holds the cells of its Strings, and its frame
+/// is given them once something is to see it. What compiled code gives nothing of (a <c>Variant</c>, a number, a field, an element) the interpreter gives,
+/// making the call. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledStringArgumentTests
 {
-    // the calls the caller made through the invoker, and none directly: a callee given a String has a frame, which the invoker makes it.
-    private static void AssertCalledThroughInvoker(CompilationResult result, long indirect)
+    // the calls the caller made directly, and none through the invoker: a callee given Strings is given their text, or the cell of the variable given by
+    // reference.
+    private static void AssertCalledDirectly(CompilationResult result, long direct)
     {
         if (CompiledExecution.HandsOverAtRandom)
         {
             return;
         }
 
-        Assert.AreEqual((0L, indirect), (result.Body!.DirectCalls, result.Body.IndirectCalls), "the caller's calls made directly, and through the invoker");
+        Assert.AreEqual((direct, 0L), (result.Body!.DirectCalls, result.Body.IndirectCalls), "the caller's calls made directly, and through the invoker");
     }
 
     // the lines of the program that make the call written as `call` are each the interpreter's to run, with the call.
@@ -78,7 +80,7 @@ public sealed class CompiledStringArgumentTests
             "    If S = \"xyxy\" Then Scored = 1 Else Scored = 2",
             "End Function"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 4);
+        AssertCalledDirectly(result, 4);
     }
 
     // a String variable given by reference: the callee writes the caller's variable, which the caller reads after the call. Built = S, a Let of the
@@ -103,7 +105,7 @@ public sealed class CompiledStringArgumentTests
             "    T = T & \"!\"",
             "End Sub"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 4);
+        AssertCalledDirectly(result, 4);
     }
 
     // one String variable given to two parameters by reference: both are second names for it, and each write is seen through the other, as the interpreter
@@ -127,7 +129,7 @@ public sealed class CompiledStringArgumentTests
             "    A = A & B",
             "End Sub"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 1);
+        AssertCalledDirectly(result, 1);
     }
 
     // a String given by reference to a callee that gives it on by reference: the second callee writes the first caller's variable. Built = S, a Let of
@@ -153,7 +155,7 @@ public sealed class CompiledStringArgumentTests
             "    U = U & \"!\"",
             "End Sub"), "Built", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 1);
+        AssertCalledDirectly(result, 1);
     }
 
     // a String given by reference to a callee that assigns it, then raises an error, which the caller's handler handles: the caller's variable was assigned
@@ -230,7 +232,7 @@ public sealed class CompiledStringArgumentTests
             "    If S = \"ab\" Then Size = 2 Else If S = \"cd\" Then Size = 4",
             "End Function"), "Given", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 2);
+        AssertCalledDirectly(result, 2);
     }
 
     // vbNullString given by value is given as itself, the null pointer it is, which the callee sees; S = vbNullString, a constant, is compiled code's.
@@ -250,7 +252,7 @@ public sealed class CompiledStringArgumentTests
             "    If StrPtr(S) = 0 Then Pointed = 1 Else Pointed = 2",
             "End Function"), "Given", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 1);
+        AssertCalledDirectly(result, 1);
     }
 
     // a String that ends with a lone byte, and a fixed-length String, given to a String parameter: compiled code reads no text of either, and the
@@ -351,7 +353,7 @@ public sealed class CompiledStringArgumentTests
             "    If VarPtr(A) = VarPtr(B) And VarPtr(A) = First Then Twice = 1 Else Twice = 2",
             "End Function"), "Probed", recoveries: 2, expected: " 1111111 ");
 
-        AssertCalledThroughInvoker(result, 5);
+        AssertCalledDirectly(result, 5);
     }
 
     // a String and a Long given by reference to one call: each the caller's variable, which the callee writes. N goes 1, 2, 3, 6, 7, 14, and S is "xxx":
@@ -376,7 +378,7 @@ public sealed class CompiledStringArgumentTests
             "    N = N + 1",
             "End Sub"), "Counted", recoveries: 0, expected: " 143 ");
 
-        AssertCalledThroughInvoker(result, 3);
+        AssertCalledDirectly(result, 3);
     }
 
     // a String variable in parentheses, and a String joined to "", given to a parameter passed by reference: values, of which the callee makes a String of
@@ -401,7 +403,7 @@ public sealed class CompiledStringArgumentTests
             "    T = T & \"x\"",
             "End Sub"), "Kept", recoveries: 0, expected: " 1 ");
 
-        AssertCalledThroughInvoker(result, 4);
+        AssertCalledDirectly(result, 4);
     }
 
     // Strings given by name, in another order than their parameters, and an Optional String omitted: the callee is given each where its parameter is, and
@@ -428,6 +430,154 @@ public sealed class CompiledStringArgumentTests
         var result = await AssertAlikeAsync(program, "Tagged", recoveries: 0, expected: " 1 ");
 
         AssertCallsAreSupportCalls(program, result, "Call Tag(S)");
-        AssertCalledThroughInvoker(result, 2);
+        AssertCalledDirectly(result, 2);
+    }
+
+    // how many activations of the procedure named were given a frame after they were entered: by the interpreter running a statement of theirs, or
+    // something looking at the stack. Under the random walk-back any activation may be handed to the interpreter.
+    private static void AssertFramesMade(IReadOnlyDictionary<string, CompilationResult> compiled, string procedure, long frames)
+    {
+        if (CompiledExecution.HandsOverAtRandom)
+        {
+            return;
+        }
+
+        Assert.AreEqual(frames, compiled[procedure].Body!.FramesMade, $"the activations of {procedure} given a frame after they were entered");
+    }
+
+    // a frame made in the middle of a call, for the interpreter to run a statement compiled code gives it (StrPtr), holds the Strings the activation was
+    // given and its own: the parameter by reference as the caller's variable, which the interpreter writes and compiled code then goes on with. Each of the
+    // 3 calls appends "yzy." to S.
+    [TestMethod]
+    public async Task AFrameMadeInTheMiddleOfACall_HoldsTheStringsOfTheActivation()
+    {
+        var compiled = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Built()",
+            "End Sub",
+            "Private Function Built() As String",
+            "    Dim S As String, I As Long",
+            "    S = \"x\"",
+            "    For I = 1 To 3",
+            "        Probed S, \"y\"",
+            "    Next",
+            "    Built = S",
+            "End Function",
+            "Private Sub Probed(ByRef T As String, ByVal A As String)",
+            "    Dim L As String",
+            "    L = A & \"z\"",
+            "    If StrPtr(L) <> 0 Then T = T & L & A",
+            "    T = T & \".\"",
+            "End Sub"), expected: "xyzy.yzy.yzy.");
+
+        AssertCalledDirectly(compiled["Built"], 3);
+        AssertFramesMade(compiled, "Probed", 3);
+    }
+
+    // the String of an activation is vbNullString when the activation begins, at each call (Kept, its activation made again for the next call), and each
+    // activation of a procedure that calls itself holds its own (Nested): its String after the call returns is the one it assigned before it. No activation
+    // is given a frame.
+    [TestMethod]
+    public async Task TheStringsOfAnActivation_AreItsOwn_AtEachCallAndUnderRecursion()
+    {
+        var compiled = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Built()",
+            "End Sub",
+            "Private Function Built() As String",
+            "    Dim S As String, I As Long",
+            "    For I = 1 To 3",
+            "        Kept S, \"k\"",
+            "    Next",
+            "    For I = 1 To 2",
+            "        Nested S, 2",
+            "    Next",
+            "    Built = S",
+            "End Function",
+            "Private Sub Kept(ByRef T As String, ByVal A As String)",
+            "    Dim L As String",
+            "    T = T & \"[\" & L & \"]\"",
+            "    L = A",
+            "    T = T & L",
+            "End Sub",
+            "Private Sub Nested(ByRef T As String, ByVal N As Long)",
+            "    Dim L As String",
+            "    T = T & \"(\" & L",
+            "    L = \"n\" & N",
+            "    If N > 0 Then Nested T, N - 1",
+            "    T = T & L & \")\"",
+            "End Sub"), expected: "[]k[]k[]k(((n0)n1)n2)(((n0)n1)n2)");
+
+        AssertCalledDirectly(compiled["Built"], 5);
+        AssertCalledDirectly(compiled["Nested"], 4);
+        AssertFramesMade(compiled, "Kept", 0);
+        AssertFramesMade(compiled, "Nested", 0);
+    }
+
+    // a String comparison in a member entered without a frame is made as its own module says (MS-VBAL §5.2.1.1): Text, in a class a module comparing
+    // Binary calls. Same is 1 at each of 2 calls, and "abc" = "ABC" in the module is False: 112.
+    [TestMethod]
+    public async Task AStringComparisonInAnActivationWithoutAFrame_IsMadeAsItsModuleSays()
+    {
+        var compiled = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Compared()",
+            "End Sub",
+            "Private Function Compared() As Long",
+            "    Dim C As Comparer, I As Long, S As String",
+            "    Set C = New Comparer",
+            "    For I = 1 To 2",
+            "        Compared = Compared * 10 + C.Same(1)",
+            "    Next",
+            "    S = \"abc\"",
+            "    If S = \"ABC\" Then Compared = Compared * 10 + 1 Else Compared = Compared * 10 + 2",
+            "End Function"),
+            [("Comparer", ModuleWorkspace.ClassModule("Comparer", "Option Compare Text",
+                "Public Function Same(ByVal N As Long) As Long",
+                "    Dim S As String",
+                "    S = \"abc\"",
+                "    If S = \"ABC\" Then Same = N",
+                "End Function"))], expected: " 112 ");
+
+        AssertCalledDirectly(compiled["Compared"], 2);
+        AssertFramesMade(compiled, "Same", 0);
+    }
+
+    // a String the interpreter gives by reference to a compiled callee, which gives it on: a field, which compiled code holds in a cell of its own, is
+    // given on directly; an element of an array, which it does not, through the invoker, by its address. Either way the parameter is the variable, at the
+    // address the first callee saw (VarPtr), and the field's own: 111.
+    [TestMethod]
+    public async Task AStringGivenOnByReference_IsTheVariable_WhereverItIsHeld()
+    {
+        var compiled = await AssertAlikeAsync(Program(
+            "Private Field As String",
+            "Private Seen As LongPtr",
+            "Private Hits As Long",
+            "Public Sub Main()",
+            "    Debug.Print Given()",
+            "End Sub",
+            "Private Function Given() As String",
+            "    Dim A(1 To 2) As String",
+            "    Field = \"f\"",
+            "    A(1) = \"e\"",
+            "    Passed Field",
+            "    If Seen = VarPtr(Field) Then Hits = Hits * 10 + 1 Else Hits = Hits * 10 + 2",
+            "    Passed A(1)",
+            "    Given = Field & A(1) & Hits",
+            "End Function",
+            "Private Sub Passed(ByRef T As String)",
+            "    Seen = VarPtr(T)",
+            "    Appended T",
+            "End Sub",
+            "Private Sub Appended(ByRef T As String)",
+            "    T = T & \"!\"",
+            "    If VarPtr(T) = Seen Then Hits = Hits * 10 + 1 Else Hits = Hits * 10 + 2",
+            "End Sub"), expected: "f!e!111");
+
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            var passed = compiled["Passed"].Body!;
+            Assert.AreEqual((1L, 1L), (passed.DirectCalls, passed.IndirectCalls), "Passed's calls made directly, and through the invoker");
+        }
     }
 }

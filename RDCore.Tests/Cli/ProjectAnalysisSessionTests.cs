@@ -28,12 +28,12 @@ public sealed class ProjectAnalysisSessionTests
     private static readonly string App = Path.Combine(Path.GetTempPath(), "rdcore-analysis-ws", "App");
     private static readonly string Tools = Path.Combine(Path.GetTempPath(), "rdcore-analysis-ws", "Tools");
 
-    // each project has a module named Shared, and a module of its own; each Shared declares a function the other's does not.
+    // each project has a module named Common, and a module of its own; each Common declares a function the other's does not.
     private static readonly (string Root, string Name, string Source)[] Modules =
     [
-        (App, "Shared", "Attribute VB_Name = \"Shared\"\r\nOption Explicit\r\nPublic Function FromApp() As Long\r\nFromApp = 1\r\nEnd Function\r\n"),
+        (App, "Common", "Attribute VB_Name = \"Common\"\r\nOption Explicit\r\nPublic Function FromApp() As Long\r\nFromApp = 1\r\nEnd Function\r\n"),
         (App, "AppOnly", "Attribute VB_Name = \"AppOnly\"\r\nOption Explicit\r\nPublic Sub Main()\r\nDebug.Print FromApp\r\nEnd Sub\r\n"),
-        (Tools, "Shared", "Attribute VB_Name = \"Shared\"\r\nOption Explicit\r\nPublic Function FromTools() As Long\r\nFromTools = 2\r\nEnd Function\r\n"),
+        (Tools, "Common", "Attribute VB_Name = \"Common\"\r\nOption Explicit\r\nPublic Function FromTools() As Long\r\nFromTools = 2\r\nEnd Function\r\n"),
         (Tools, "ToolsOnly", "Attribute VB_Name = \"ToolsOnly\"\r\nOption Explicit\r\nPublic Sub Run()\r\nDebug.Print FromTools\r\nEnd Sub\r\n"),
     ];
 
@@ -48,8 +48,8 @@ public sealed class ProjectAnalysisSessionTests
             _files.AddFile(Path.Combine(root, name + ".bas"), new MockFileData(source));
         }
 
-        WriteProject(App, "App", "Shared.bas", "AppOnly.bas");
-        WriteProject(Tools, "Tools", "Shared.bas", "ToolsOnly.bas");
+        WriteProject(App, "App", "Common.bas", "AppOnly.bas");
+        WriteProject(Tools, "Tools", "Common.bas", "ToolsOnly.bas");
         var profile = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false);
         _runtime = new EnvironmentSessionProvider(profile, _files, NullLogger<EnvironmentSessionProvider>.Instance);
         _analyses = new ProjectAnalysisSessions(profile, _files, NullLogger<ProjectAnalysisSessions>.Instance);
@@ -123,8 +123,8 @@ public sealed class ProjectAnalysisSessionTests
 
         Assert.IsTrue(analyzed.Composed);
         Assert.AreEqual(2, analyzed.ModuleCount);
-        CollectionAssert.AreEqual(new[] { SymbolUri.Module(Tools, "Shared").AbsoluteUri }, await ModelsAtAsync(Tools, "Shared"));
-        CollectionAssert.AreEqual(new[] { SymbolUri.Module(App, "Shared").AbsoluteUri }, await ModelsAtAsync(App, "Shared"));
+        CollectionAssert.AreEqual(new[] { SymbolUri.Module(Tools, "Common").AbsoluteUri }, await ModelsAtAsync(Tools, "Common"));
+        CollectionAssert.AreEqual(new[] { SymbolUri.Module(App, "Common").AbsoluteUri }, await ModelsAtAsync(App, "Common"));
     }
 
     [TestMethod]
@@ -139,12 +139,12 @@ public sealed class ProjectAnalysisSessionTests
         // the runtime session has the modules of the project it runs, and none of the other's.
         Assert.IsTrue(_runtime.Session.Symbols.TryGetModule("AppOnly", out _));
         Assert.IsFalse(_runtime.Session.Symbols.TryGetModule("ToolsOnly", out _));
-        CollectionAssert.AreEqual(new[] { "FromApp" }, MembersOf(_runtime.Session, App, "Shared"));
+        CollectionAssert.AreEqual(new[] { "FromApp" }, MembersOf(_runtime.Session, App, "Common"));
 
-        // and the analysis session the other way around: its Shared is its own.
+        // and the analysis session the other way around: its Common is its own.
         Assert.IsTrue(tools.Session.Symbols.TryGetModule("ToolsOnly", out _));
         Assert.IsFalse(tools.Session.Symbols.TryGetModule("AppOnly", out _));
-        CollectionAssert.AreEqual(new[] { "FromTools" }, MembersOf(tools.Session, Tools, "Shared"));
+        CollectionAssert.AreEqual(new[] { "FromTools" }, MembersOf(tools.Session, Tools, "Common"));
     }
 
     [TestMethod]
@@ -180,7 +180,7 @@ public sealed class ProjectAnalysisSessionTests
 
         Assert.IsTrue(first.Released);
         Assert.IsFalse(again.Released);
-        Assert.IsEmpty(await ModelsAtAsync(Tools, "Shared"));
+        Assert.IsEmpty(await ModelsAtAsync(Tools, "Common"));
     }
 
     [TestMethod]
@@ -189,7 +189,7 @@ public sealed class ProjectAnalysisSessionTests
         await ComposeAppAsync();
         await DefineAsync(App);
 
-        Assert.IsEmpty(await ModelsAtAsync(Tools, "Shared"));
+        Assert.IsEmpty(await ModelsAtAsync(Tools, "Common"));
     }
 
     [TestMethod]
@@ -202,9 +202,9 @@ public sealed class ProjectAnalysisSessionTests
         Assert.IsTrue(_analyses.TryGet(SymbolUri.Root(Tools), out var tools));
 
         await new HostDiscardHandler(_runtime, NullLogger<HostDiscardHandler>.Instance).Handle(
-            new HostDiscardParams { ModuleUri = SymbolUri.Module(Tools, "Shared"), ModuleName = "Shared" }, CancellationToken.None);
+            new HostDiscardParams { ModuleUri = SymbolUri.Module(Tools, "Common"), ModuleName = "Common" }, CancellationToken.None);
 
-        CollectionAssert.AreEqual(new[] { "FromApp" }, MembersOf(_runtime.Session, App, "Shared"));
-        CollectionAssert.AreEqual(new[] { "FromTools" }, MembersOf(tools.Session, Tools, "Shared"));
+        CollectionAssert.AreEqual(new[] { "FromApp" }, MembersOf(_runtime.Session, App, "Common"));
+        CollectionAssert.AreEqual(new[] { "FromTools" }, MembersOf(tools.Session, Tools, "Common"));
     }
 }

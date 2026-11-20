@@ -10,7 +10,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// How a module declares what it declares: a <c>Sub</c> that gives its result back through a parameter (<c>RDC00214</c>), a variable declared <c>As New</c>
-/// (<c>RDC00215</c>), and a <c>Public</c> variable of a class module (<c>RDC00409</c>).
+/// (<c>RDC00215</c>), and a <c>Public</c> variable of a module (<c>RDC00409</c>).
 /// </summary>
 [TestClass]
 public sealed class DeclarationDesignAnalyzerTests
@@ -74,11 +74,12 @@ public sealed class DeclarationDesignAnalyzerTests
     }
 
     [TestMethod]
-    public async Task APublicMemberOfAClassModule_MayBeOfAnInterface()
+    public async Task APublicMemberOfAnExposedClassModule_MayBeOfAnInterface()
     {
         var findings = await WorkspaceAsync(new ProcedureCanBeWrittenAsFunctionAnalyzer(), "Panel",
             ["Option Explicit"],
             [
+                "Attribute VB_Exposed = True",
                 "Option Explicit",
                 "Public Sub Measure(ByRef width As Long)",
                 "    width = 10",
@@ -88,7 +89,22 @@ public sealed class DeclarationDesignAnalyzerTests
                 "End Sub",
             ]);
 
-        CollectionAssert.AreEqual(new[] { 9 }, Lines(findings), "only the Private procedure (a class module's source has five lines of header)");
+        CollectionAssert.AreEqual(new[] { 10 }, Lines(findings), "only the Private procedure (a class module's source has five lines of header)");
+    }
+
+    [TestMethod]
+    public async Task APublicMemberOfAClassModuleThatNoProjectCanImplement_IsJudged()
+    {
+        var findings = await WorkspaceAsync(new ProcedureCanBeWrittenAsFunctionAnalyzer(), "Panel",
+            ["Option Explicit"],
+            [
+                "Option Explicit",
+                "Public Sub Measure(ByRef width As Long)",
+                "    width = 10",
+                "End Sub",
+            ]);
+
+        CollectionAssert.AreEqual(new[] { 6 }, Lines(findings), "not implemented, not exposed (a class module's source has five lines of header)");
     }
 
     #endregion
@@ -118,7 +134,7 @@ public sealed class DeclarationDesignAnalyzerTests
 
     #endregion
 
-    #region RDC00409 a Public variable of a class module
+    #region RDC00409 a Public variable of a module
 
     [TestMethod]
     public async Task APublicVariableOfAClassModule_IsAField()
@@ -142,8 +158,28 @@ public sealed class DeclarationDesignAnalyzerTests
     }
 
     [TestMethod]
-    public async Task APublicVariableOfAStandardModule_IsAGlobalVariable()
-        => Assert.IsEmpty(await WorkspaceAsync(new EncapsulatePublicFieldAnalyzer(), "Program", ["Option Explicit", "Public Total As Long"], ["Option Explicit"]));
+    public async Task APublicVariableOfAStandardModule_AnyCodeOfTheProjectCanAssign()
+    {
+        var findings = await WorkspaceAsync(new EncapsulatePublicFieldAnalyzer(), "Program",
+            [
+                "Option Explicit",
+                "Public Total As Long",
+                "Global Name As String",
+                "Private count As Long",
+                "Dim limit As Long",
+                "Public Const Rate As Double = 0.5",
+                "Public Sub Main()",
+                "    Dim local As Long",
+                "    Total = count + limit + local + Rate",
+                "End Sub",
+            ],
+            ["Option Explicit"]);
+
+        CollectionAssert.AreEqual(new[] { 2, 3 }, Lines(findings), "Public and Global; not a Private or Dim variable, a constant, nor a local");
+        AssertAre(findings, RDCoreDiagnosticId.EncapsulatePublicField, DiagnosticSeverity.Information);
+        StringAssert.Contains(findings[0].Message, "Variable 'Total'");
+        StringAssert.Contains(findings[1].Message, "'Name'");
+    }
 
     #endregion
 }

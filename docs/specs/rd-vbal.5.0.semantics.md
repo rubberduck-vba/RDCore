@@ -224,7 +224,10 @@ the expression that has it.
 
 An expression an assignment writes to, the counter or control variable of a `For` or `For Each`, the string a `Mid` statement
 replaces a part of, and the array a `ReDim` gives its dimensions, is flagged `AssignmentTarget`; an element of an array is
-written through the array. What a statement prints is an expression like any other, evaluated and described as one.
+written through the array. A `Let` of a variable of a class or `Object` assigns the default property of its object
+([**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)), and an argument list given to an object goes to its
+default member ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)): the variable is read, and not flagged.
+What a statement prints is an expression like any other, evaluated and described as one.
 
 Facts are descriptions, not opinions: whether a late-bound member, a name written in another case or the obsolete `Call` keyword
 is worth a diagnostic is for an analyzer to say.
@@ -238,18 +241,70 @@ being because something referred to it), and `OptionExplicit` says whether the m
 (**MS-VBAL §5.2.1.3**); it is not issued (`null`) for a language that has no such directive, such as the platform's BASIC. The
 accessors of a property are one declaration.
 
+A procedure that something other than the project's code calls has a `Role`. The project's entry point
+(`DeclarationRole.EntryPoint`) is the procedure a run of the project starts with: the one the project's build section names, or
+else the `Sub Main` of the one standard module that declares one. A library has none, and neither does a project where no
+standard module, or more than one, declares it. The entry point depends on every module of the project, so the host states it
+when it answers for the project's modules.
+
 **A fact is stated only when it is true.** A fact that says a declaration is _not used_ is a claim about every place that
 could use it, and the language core makes it only when it can vouch for all of them. A declaration's `References` (the
 expressions that read it, write to it, and pass it as an argument that may be taken by reference) are stated when both hold,
 and are `null` otherwise, which says the references are not known, and not that there are none:
 
-1. Nothing outside the code analyzed can refer to it: a local, a parameter, or a variable that is not `Public` or `Friend`. A
-   procedure, a property and an event are also called through what they are bound to (an event handler, a member that
-   implements an interface) or by name at run time, and a constant is referred to by the expressions of declarations (the bounds of an
-   array, the value of another constant), which are not evaluated as those of a procedure are: none of them has references yet.
+1. Nothing outside the code analyzed can refer to it: a local, a parameter, or a variable or a constant that is not `Public`,
+   `Global` or `Friend`. A procedure, a property and an event are also called through what they are bound to (an event handler,
+   a member that implements an interface) or by name at run time: they have no references, except a `Private` procedure named
+   as the handler of an event of a control that it does not match (`DeclarationRole.UnmatchedEventHandler`), which only the
+   form's own code can call. The others are counted over the project, below.
 2. The code that could refer to it was analyzed completely (`ProcedureSemanticModel.IsFullyAnalyzed`): the procedure has no
    error, and the body was looked at again, apart from the pass, for each place a name is written that refers to something,
-   and every one has a fact. For a local or a parameter that is its procedure; for a variable of the module, every procedure.
+   and every one has a fact. For a local or a parameter that is its procedure; for a variable or a constant of the module,
+   every procedure that names it. A procedure refers to a variable or a constant by writing its name (**MS-VBAL §5.6.10**):
+   one that was not analyzed completely, and that writes the name nowhere, not even in what the parser could not read, does
+   not refer to it. A declaration counted over the modules of the project is the same: only a procedure of the project that
+   writes its name and was not analyzed completely withholds its count. A constant of the module is also referred to by the
+   expressions of the module's declarations (the bounds of an array, the value of another constant, the default of a
+   parameter), and every one of them was analyzed with no error.
+
+An argument that a procedure of its own module takes by reference, called by name or through `Me`, is followed
+(**MS-VBAL §5.3.1.11**): the call assigns it when the procedure assigns the parameter, or passes it on by reference to one
+that does, a procedure that calls itself included.
+
+- One that a procedure of the chain assigns is `DeclarationReference.AssignedThroughCall`, whether or not the rest of the
+  module was analyzed completely.
+- One that no procedure of the chain assigns, nor passes on to any other call, is counted as read, once every procedure of the
+  module was analyzed completely.
+- An argument of any other call may be assigned, and is counted as passed.
+
+Once every module of the project has a model, the host also counts, over all of its modules, what only the project's code
+can refer to: a `Friend` procedure or property, and a `Public` variable or constant of a module that is `Option Private Module`
+(**MS-VBAL §5.3.1.1**, **§5.2.1.4**). A procedure that was not analyzed completely withholds the count of each name it writes,
+as in item 2.
+
+Once every module of the project has a model, an argument taken by reference is also followed into a procedure of a
+standard module of the project, from any module: a call of its name runs that procedure. The counts of each module and
+those over the project follow it alike. A call through a variable of a class is not followed: the object may be of another
+class that implements it. While a procedure of a module was not analyzed completely, a parameter of any procedure of that
+module may be assigned; an assignment that one of its analyzed procedures makes is known all the same.
+
+A `Private` procedure or property is counted in every kind of project: only the code of its module can call it, and no
+access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:
+
+- one bound as a handler or an implementation (`DeclarationRole.EventHandler`, `InterfaceImplementation`);
+- every one of a module that calls `CallByName` with a name that is not a string literal;
+- every one of a document module whose host's class is not known: the events of that class are not known either, so neither
+  are the handlers among its procedures;
+- one whose name a string literal of the project writes (`"Module1.Helper"` writes `Module1` and `Helper`): a host can call
+  back a procedure by the name a string gives it (Excel's `Application.Run`, `OnAction`, `OnTime`).
+
+For a `Public` member, the project's kind decides:
+
+|Project|A `Public` member|
+|---|---|
+|A program: not a library, and its entry point is found|Counted, since no other project or host calls into it. A member with a `Role` is not counted, nor a member of a class that code can reach where it runs: its default member or enumerator (`VB_UserMemId` `0` or `-4`), a member that an access bound late names (**MS-VBAL §5.6.12**), the member a `CallByName` names with a string literal, and every member of a class when the program calls `CallByName` with any other name.|
+|A library|`IsUsedByReferencingProjects` when a referencing project can name it, or reach it through an object of its class; not counted.|
+|Any other project|Not counted: the host that runs it can call it.|
 
 An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its
 to say.

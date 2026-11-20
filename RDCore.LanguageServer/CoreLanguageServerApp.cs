@@ -289,6 +289,17 @@ internal sealed class CoreLanguageServerApp(
 
         // a project that lists a file no workspace folder holds does not have it: the client is told which, and why.
         WorkspaceFolderChanges.TellRefused(server, projects.Refused);
+        TellFormatOf(server, workspace);
+    }
+
+    // a project file in a format that is not this platform's is said to the client as it is to the log: window/logMessage, which LSP allows before initialize
+    // is answered.
+    internal static void TellFormatOf(ILanguageServerFacade server, IWorkspaceService workspace)
+    {
+        if (workspace.FormatNote is { } note)
+        {
+            server.Window.Log(note);
+        }
     }
 
     // the language a client names in its initializationOptions is already the server's, and wins; one that names none leaves it to the project file. The

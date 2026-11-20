@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Select Case</c> of a <c>String</c> selector of variable length, compiled: the selector evaluated once to its text, and each value of a <c>Case</c>
 /// let-coerced to String and compared with it under the module's comparison mode (MS-VBAL §5.4.2.10, §5.6.9.5; RD-VBAL §5.4.2.10). A value compiled code
-/// does not write as text is compared by the interpreter, given the selector. A program runs the same either way.
+/// does not write as text (a Boolean, a Date, a Currency) is compared by the interpreter, given the selector. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledTextSelectCaseTests
@@ -71,11 +71,31 @@ public sealed class CompiledTextSelectCaseTests
             "    Twice = R & S",
             "End Function"), "Twice", recoveries: 0, expected: "ABbBBb"));
 
-    // a value that is neither a String nor a whole number (a Double, which the let-coercion writes in the regional settings of the session) is compared by
-    // the interpreter, each time its Case is reached ("1.5", "q" and "w": three recoveries), given the selector compiled code evaluated; the Case after it is
-    // compiled code's again, comparing the selector it reads back.
+    // a value that is neither a String nor a number (a Boolean, which the let-coercion writes as True or False) is compared by the interpreter, each time
+    // its Case is reached ("True", "q" and "w": three recoveries), given the selector compiled code evaluated; the Case after it is compiled code's again,
+    // comparing the selector it reads back.
     [TestMethod]
     public async Task AValueCompiledCodeDoesNotWriteAsText_IsComparedByTheInterpreter()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Picked(\"True\"); Picked(\"x\"); Picked(\"q\"); Picked(\"w\")",
+            "End Sub",
+            "Private Function Picked(ByVal S As String) As Long",
+            "    Select Case S",
+            "        Case \"x\"",
+            "            Picked = 1",
+            "        Case True",
+            "            Picked = 2",
+            "        Case \"q\"",
+            "            Picked = 3",
+            "        Case Else",
+            "            Picked = 4",
+            "    End Select",
+            "End Function"), "Picked", recoveries: 3);
+
+    // a Double, which the let-coercion writes in the regional settings of the session (MS-VBAL §5.5.1.2.4), is compared as its text by compiled code.
+    [TestMethod]
+    public async Task ADoubleValue_IsComparedAsItsText()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Picked(\"1.5\"); Picked(\"x\"); Picked(\"q\"); Picked(\"w\")",
@@ -91,7 +111,7 @@ public sealed class CompiledTextSelectCaseTests
             "        Case Else",
             "            Picked = 4",
             "    End Select",
-            "End Function"), "Picked", recoveries: 3);
+            "End Function"), "Picked", recoveries: 0);
 
     // the end of a To range is a String variable, whose text compiled code reads: the range is compiled, and the comparison of the start is held while
     // the end's is made.

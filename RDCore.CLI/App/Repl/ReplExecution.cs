@@ -454,7 +454,8 @@ internal static class ReplExecution
                 return;
             }
 
-            text = context.Files.File.ReadAllText(document.LocalPath).Split(["\r\n", "\n"], StringSplitOptions.None);
+            text = SDK.Workspace.ModuleFileText.Decode(context.Files.File.ReadAllBytes(document.LocalPath), context.AnsiCodePage).Text
+                .Split(["\r\n", "\n"], StringSplitOptions.None);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

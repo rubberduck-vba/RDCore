@@ -1,10 +1,10 @@
-using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.External.Interaction;
 using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Server.ProtocolExtensions;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.CLI.App.Repl.Commands;
@@ -108,9 +108,9 @@ internal sealed class DuckyReplCommand(ConsoleUserInteraction interaction) : IRe
         {
             await ApplyAsync(context, document, edit, action.Title, token);
         }
-        else if (action.Command is { Name: RefactoringCommands.Rename } rename && PositionOf(rename) is { } position)
+        else if (action.Command is { Name: RefactoringCommands.Rename } rename && rename.TryReadRename(out var renamed, out _))
         {
-            await RenameAsync(context, document, position, token);
+            await RenameAsync(context, document, renamed.Position.ToLsp(), token);
         }
         else
         {
@@ -195,53 +195,13 @@ internal sealed class DuckyReplCommand(ConsoleUserInteraction interaction) : IRe
             return;
         }
 
-        context.Program.Load(ReplTextEdits.Apply(context.Program.ToSourceText(), edits));
+        context.Program.Load(edits.ApplyTo(context.Program.ToSourceText()));
         await context.Document.SynchronizeAsync(token);
         context.Console.WriteMessage(MessageKind.Success, string.Format(Resources.Repl_Ducky_Done, title, edits.Count));
     }
 
     // the line of the text an action is about: its diagnostic's, or the position its command names.
     private static int? LineOf(CodeAction action)
-        => action.Diagnostics?.FirstOrDefault()?.Range.Start.Line ?? (action.Command is { } command ? PositionOf(command)?.Line : null);
-
-    // the position the rename command names: its second argument.
-    private static Position? PositionOf(Command command)
-        => command.Arguments is { Count: >= 2 } arguments && arguments[1] is JObject position
-            && position.Value<int?>("line") is { } line && position.Value<int?>("character") is { } character
-            ? new Position(line, character)
-            : null;
-}
-
-/// <summary>
-/// Makes the edits of a text (<strong>LSP 3.17</strong> <c>TextEdit</c>): each replaces a range of the text as it was, so they are made from the last to the first.
-/// </summary>
-internal static class ReplTextEdits
-{
-    /// <summary>The text, edited.</summary>
-    /// <param name="text">The text the edits are of.</param>
-    /// <param name="edits">The edits; no two of them overlap.</param>
-    public static string Apply(string text, IEnumerable<TextEdit> edits)
-    {
-        var starts = new List<int> { 0 };
-        for (var index = 0; index < text.Length; index++)
-        {
-            if (text[index] == '\n')
-            {
-                starts.Add(index + 1);
-            }
-        }
-
-        int OffsetOf(Position position)
-            => Math.Min(text.Length, (position.Line < starts.Count ? starts[position.Line] : text.Length) + position.Character);
-
-        var edited = text;
-        foreach (var edit in edits.OrderByDescending(edit => edit.Range.Start.Line).ThenByDescending(edit => edit.Range.Start.Character))
-        {
-            var start = OffsetOf(edit.Range.Start);
-            var end = OffsetOf(edit.Range.End);
-            edited = edited[..start] + edit.NewText + edited[end..];
-        }
-
-        return edited;
-    }
+        => action.Diagnostics?.FirstOrDefault()?.Range.Start.Line
+            ?? (action.Command is { Name: RefactoringCommands.Rename } command && command.TryReadRename(out var rename, out _) ? rename.Position.Line : null);
 }

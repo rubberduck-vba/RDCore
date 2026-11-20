@@ -76,7 +76,10 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.EndStatement))!);
     }
 
-    // the call made as a nested call is (EmitNestedCall), then the object it returned taken into a cell of its own, which the interpreter is given known
+    // how many calls for an object the body has emitted: each takes what it returns into a cell of its own (CompiledActivation.TakeReturnedObject).
+    private int _objectCallSites;
+
+    // the call made as a nested call is (EmitNestedCall), then the object it returned taken into the cell of its site, which the interpreter is given known
     // from then on: the call is not made again.
     private LocalBuilder EmitObjectCall(ObjectCallNode node, Label failure)
     {
@@ -89,6 +92,7 @@ internal sealed partial class ProcedureEmitter
         var returned = _il.DeclareLocal(typeof(object));
         var cell = _il.DeclareLocal(typeof(object));
         _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, _objectCallSites++);
         _il.Emit(OpCodes.Ldloca, cell);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TakeReturnedObject))!);
         _il.Emit(OpCodes.Stloc, returned);

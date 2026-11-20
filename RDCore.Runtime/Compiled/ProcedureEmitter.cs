@@ -59,8 +59,10 @@ internal sealed partial class ProcedureEmitter
     private readonly Label _walkBack;
 
     // the instruction at pc run by the interpreter alone, and the activation gone on with where it left it (CompiledActivation.Recover): every variable
-    // written into the frame first; read back after it (the re-entry); and the instruction the activation goes on at found by its offset (the dispatch).
+    // written into the frame first, unless it is there already (_recoverSpilled); read back after it (the re-entry); and the instruction the activation goes
+    // on at found by its offset (the dispatch).
     private readonly Label _recover;
+    private readonly Label _recoverSpilled;
     private readonly Label _recovered;
     private readonly Label _reentry;
     private readonly Label _dispatch;
@@ -89,6 +91,7 @@ internal sealed partial class ProcedureEmitter
         _pc = il.DeclareLocal(typeof(int));
         (_walkBack, _unread) = (il.DefineLabel(), il.DefineLabel());
         (_recover, _recovered, _reentry, _dispatch) = (il.DefineLabel(), il.DefineLabel(), il.DefineLabel(), il.DefineLabel());
+        _recoverSpilled = il.DefineLabel();
     }
 
     /// <summary>
@@ -918,17 +921,28 @@ internal sealed partial class ProcedureEmitter
     // the call made, what it returned in integral or floating, by its kind.
     private (LocalBuilder Integral, LocalBuilder Floating) EmitCallOf(CallStep call, Label failure)
     {
-        // a member of what a call returns: that call made first, as the interpreter evaluates the owner of a member before its arguments.
-        var returnedTo = call.ReceiverCall is { } receiverCall ? EmitObjectCall(receiverCall, failure) : null;
-
         // the arguments, each held where it is - a variable, a constant - or in a local of its own; one that fails fails the instruction before anything is called.
         // A String compiled code reads nothing of - one that ends with a lone byte, or is held in no cell of its own - is the interpreter's: the instruction
-        // is run by it alone, as a Let of one is.
+        // is run by it alone, as a Let of one is. They are evaluated in the order the interpreter evaluates them (CompiledCallee.Order): the calls first, left
+        // to right, then the others, right to left; an argument that is no call, whose calls no call follows, is evaluated whole with the calls.
         var arguments = new Operand[call.Arguments.Count];
-        for (var i = 0; i < arguments.Length; i++)
+        var order = _analysis.Callees[call.Callee].Order;
+        if (order.Count != arguments.Length)
         {
-            arguments[i] = EmitArgument(call.Arguments[i], call.Arguments[i] is TextArgumentNode or TextReferenceNode ? RecoverAt(call.Offset) : failure);
+            order = LanguageCore.Binding.ArgumentOrder.InPlace(arguments.Length);
         }
+
+        foreach (var step in order)
+        {
+            if (step.CallsOnly || !order.Hoists(step.Index))
+            {
+                arguments[step.Index] = EmitArgument(call.Arguments[step.Index],
+                    call.Arguments[step.Index] is TextArgumentNode or TextReferenceNode ? Fail(RecoverAt(call.Offset)) : failure);
+            }
+        }
+
+        // a member of what a call returns: that call made after the arguments, as the interpreter evaluates the target of a member call.
+        var returnedTo = call.ReceiverCall is { } receiverCall ? EmitObjectCall(receiverCall, failure) : null;
 
         // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
         if (call.Receiver is { } receiver)
@@ -1005,6 +1019,19 @@ internal sealed partial class ProcedureEmitter
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
             var outcome = _il.DeclareLocal(typeof(RuntimeExecutionOutcome));
+
+            // a String variable given by reference is given its cell, which knows the address the variable has, so that the parameter finds it: one held in
+            // another cell (a parameter bound to an element of an array) is given its address, through the invoker (CompiledActivation.SetTextReference).
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                if (direct is not null && call.Arguments[i] is TextReferenceNode)
+                {
+                    _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.IsTextCell))!);
+                    _il.Emit(OpCodes.Brfalse, indirect);
+                }
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, call.Offset);
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
@@ -1017,10 +1044,29 @@ internal sealed partial class ProcedureEmitter
             // a CLR exception the callee lets out - a defect of the platform, which no handler of the program catches - takes its activation off the stack as it
             // goes by (CompiledActivation.AbandonDirectCall): what is on the stack after is what was before the call.
             _il.BeginExceptionBlock();
+
+            // the typed entry takes no String argument: its activation is given the text, or the cell of the variable given by reference, in the slot of
+            // the parameter (CompiledCallee.TextSlots), before the entry is called.
+            for (var i = 0; i < given.Length; i++)
+            {
+                if (call.Arguments[i] is TextArgumentNode or TextReferenceNode)
+                {
+                    _il.Emit(OpCodes.Ldloc, callee);
+                    _il.Emit(OpCodes.Ldc_I4, _analysis.Callees[call.Callee].TextSlots[i]);
+                    _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(call.Arguments[i] is TextReferenceNode
+                        ? nameof(CompiledActivation.TakeTextReference)
+                        : nameof(CompiledActivation.TakeText))!);
+                }
+            }
+
             _il.Emit(OpCodes.Ldloc, callee);
             for (var i = 0; i < given.Length; i++)
             {
-                Load(given[i], call.Arguments[i].Kind);
+                if (call.Arguments[i] is not (TextArgumentNode or TextReferenceNode))
+                {
+                    Load(given[i], call.Arguments[i].Kind);
+                }
             }
 
             if (direct is not null)
@@ -1232,33 +1278,66 @@ internal sealed partial class ProcedureEmitter
         return label;
     }
 
+    private readonly Dictionary<int, Label> _failedSpilledCalls = [];
+
+    // the label a statement the interpreter ran for compiled code goes to when it raised an error, every variable written into the frame before it: the
+    // frame has what the statement left in it, which a procedure it called may have written a variable passed to it by reference in. Nothing is written
+    // into the frame again, which would put back what compiled code read before.
+    private Label CallFailedAfterSpillAt(int offset)
+    {
+        if (!_failedSpilledCalls.TryGetValue(offset, out var label))
+        {
+            label = _il.DefineLabel();
+            _failedSpilledCalls[offset] = label;
+        }
+
+        return label;
+    }
+
     private void EmitFailedCalls()
     {
         foreach (var (offset, label) in _failedCalls)
         {
-            _il.MarkLabel(label);
-            var spilled = _il.DefineLabel();
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
-            _il.Emit(OpCodes.Brtrue, spilled);
-
-            // a body with an error handler gives the callee's error to it, and goes on compiled where it sends the activation; but not after the program
-            // waited, when the frame is what the debugger left it.
-            if (_analysis.HandlesErrors)
-            {
-                _il.Emit(OpCodes.Br, RecoverAt(offset));
-            }
-            else
-            {
-                EmitSpill();
-            }
-
-            _il.MarkLabel(spilled);
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Ldc_I4, offset);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.AfterFailedCall))!);
-            _il.Emit(OpCodes.Ret);
+            EmitFailedCall(offset, label, spilled: false);
         }
+
+        foreach (var (offset, label) in _failedSpilledCalls)
+        {
+            EmitFailedCall(offset, label, spilled: true);
+        }
+    }
+
+    private void EmitFailedCall(int offset, Label label, bool spilled)
+    {
+        _il.MarkLabel(label);
+        var written = _il.DefineLabel();
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
+        _il.Emit(OpCodes.Brtrue, written);
+
+        // a body with an error handler gives the callee's error to it, and goes on compiled where it sends the activation; but not after the program
+        // waited, when the frame is what the debugger left it.
+        if (_analysis.HandlesErrors && spilled)
+        {
+            _il.Emit(OpCodes.Ldc_I4, offset);
+            _il.Emit(OpCodes.Stloc, _pc);
+            _il.Emit(OpCodes.Br, _recoverSpilled);
+            (_recovers, _dispatches) = (true, true);
+        }
+        else if (_analysis.HandlesErrors)
+        {
+            _il.Emit(OpCodes.Br, RecoverAt(offset));
+        }
+        else if (!spilled)
+        {
+            EmitSpill();
+        }
+
+        _il.MarkLabel(written);
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.AfterFailedCall))!);
+        _il.Emit(OpCodes.Ret);
     }
 
     // every variable read back from its cell, which a debugger may have changed while the program waited - but one held in a cell, which compiled code
@@ -1607,6 +1686,7 @@ internal sealed partial class ProcedureEmitter
 
         _il.MarkLabel(_recover);
         EmitSpill();
+        _il.MarkLabel(_recoverSpilled);
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldloc, _pc);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Recover))!);
@@ -1866,6 +1946,11 @@ internal sealed partial class ProcedureEmitter
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
 
+            // a String given by reference to a Variant: what its appender holds, written into its cell, which the callee is given the address of.
+            case VariantReferenceNode { OfText: true } text:
+                EmitWriteAppended(text.Slot);
+                return default;
+
             // an optional Variant left out, and a Variant variable given by reference, are given as the call is made (CompiledActivation.SetOmitted,
             // SetVariantReference).
             case OmittedArgumentNode or VariantReferenceNode:
@@ -1942,6 +2027,19 @@ internal sealed partial class ProcedureEmitter
             case ConvertNode convert:
             {
                 var operand = EmitPayload(convert.Operand, failure);
+
+                // a Single or a Double made an integer is rounded and checked against the type's range where it is (RoundedToWhole).
+                if (convert.Operand.Kind is ScalarKind.Single or ScalarKind.Double && PayloadOperations.IsWholeKind(convert.Kind))
+                {
+                    var whole = _il.DeclareLocal(typeof(long));
+                    Load(operand, convert.Operand.Kind);
+                    _il.Emit(OpCodes.Ldc_I4, (int)convert.Kind);
+                    _il.Emit(OpCodes.Ldloca, whole);
+                    _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.RoundedToWhole))!);
+                    _il.Emit(OpCodes.Brtrue, Fail(failure));
+                    return new Operand(whole, 0, 0);
+                }
+
                 var integral = _il.DeclareLocal(typeof(long));
                 var floating = _il.DeclareLocal(typeof(double));
                 _il.Emit(OpCodes.Ldc_I4, (int)convert.Operand.Kind);
@@ -2259,6 +2357,7 @@ internal sealed partial class ProcedureEmitter
         LibraryMemberNode member => member.Arguments.Any(MakesACall),
         VariantElementNode element => element.Subscripts.Any(MakesACall),
         VariantElementValueNode value => MakesACall(value.Element),
+        CallValueNode => true,
         _ => false,
     };
 
@@ -2424,6 +2523,10 @@ internal sealed partial class ProcedureEmitter
 
             case LibraryMemberNode member:
                 EmitLibraryMemberCall(member, result, failure);
+                break;
+
+            case CallValueNode called:
+                EmitVariantCall(called, result, failure);
                 break;
 
             default:

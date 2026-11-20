@@ -58,6 +58,13 @@ public sealed record class ExternalCallPipeline(
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
+        // a call of a form's, or of what a form handed out, is the program's own user interface: the platform answers it, which every interceptor is told.
+        var platform = Forms.PlatformObjects.Of(Session);
+        if (!request.IsAnsweredByPlatform && platform.Answers(Session, request))
+        {
+            request = request with { IsAnsweredByPlatform = true };
+        }
+
         foreach (var interceptor in Interceptors)
         {
             if (interceptor.Intercept(request, Session) is { IsBlocked: true } decision)
@@ -77,7 +84,11 @@ public sealed record class ExternalCallPipeline(
             {
                 // what the call returned is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily):
                 // an object a library made for it - CreateObject's, an enumerator - lives until whatever it is assigned to holds it.
-                var result = provider.Dispatch(request, resolver);
+                RuntimeSemanticsEvaluationResult result;
+                using (platform.Answering(request))
+                {
+                    result = provider.Dispatch(request, resolver);
+                }
 
                 // a handler of an event the call raised ended the program - an End, a debugger that ended it there - and the statement that made the call has
                 // no answer to go on with: the call ends with the program, as the session says (MS-VBAL 5.4.2.20's End runs nothing more of it).

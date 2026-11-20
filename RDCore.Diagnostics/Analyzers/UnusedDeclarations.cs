@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -48,15 +49,26 @@ internal static class UnusedDeclarations
 
     /// <summary>
     /// Whether a procedure's signature is its own to choose: not a <c>Declare</c>, an event, an implementation of an interface member, a handler of an event,
-    /// nor a <c>Public</c> member of a class module, which may be a member of an interface (<strong>MS-VBAL §5.2.4.2</strong>).
+    /// nor a <c>Public</c> member of a class module that may be an interface (<see cref="MayBeAnInterface"/>).
     /// </summary>
     /// <param name="procedure">The procedure.</param>
     /// <param name="semantics">The host's model of its module.</param>
     public static bool ChoosesItsSignature(MemberDeclarationNode procedure, ModuleSemanticsDto semantics)
         => procedure is not ExternalMemberDeclarationNode
             && procedure.MemberKind is not MemberKind.Event
-            && !(semantics.Class is not null && procedure.AccessModifier is AccessModifier.Public or AccessModifier.Implicit)
+            && !(MayBeAnInterface(semantics) && procedure.AccessModifier is AccessModifier.Public or AccessModifier.Implicit)
             && !HasAnothersSignature(procedure, semantics);
+
+    /// <summary>
+    /// Whether the <c>Public</c> members of a class module may be the members of an interface, which a module that implements it declares as they are
+    /// (<strong>MS-VBAL §5.2.4.2</strong>): a module of the project implements the class (<see cref="ClassModuleSemanticFlags.Implemented"/>), or the
+    /// class is exposed, and a project that references this one may implement it (<see cref="ClassModuleSemanticFlags.Exposed"/>,
+    /// <strong>MS-VBAL §5.2.4.1.1</strong>). A class that is neither has no implementation anywhere. <see langword="false"/> for a module that is not a
+    /// class module.
+    /// </summary>
+    /// <param name="semantics">The host's model of the module.</param>
+    public static bool MayBeAnInterface(ModuleSemanticsDto semantics)
+        => semantics.Class is { } flags && (flags & (ClassModuleSemanticFlags.Implemented | ClassModuleSemanticFlags.Exposed)) != 0;
 
     /// <summary>
     /// Whether a procedure's parameters and type are those of another member: it implements a member of an interface, or handles an event that it matches

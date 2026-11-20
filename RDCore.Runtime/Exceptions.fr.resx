@@ -270,6 +270,12 @@
   <data name="VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable" xml:space="preserve">
     <value>La stratégie d'évaluation de coercion a renvoyé un résultat 'NotApplicable' inattendu.</value>
   </data>
+  <data name="VBRuntimeInternalError_LetCoercionDefaultMemberStopped" xml:space="preserve">
+    <value>Le programme a été arrêté pendant que le membre par défaut '{0}' de l'objet s'exécutait; il n'a donc renvoyé aucune valeur.</value>
+  </data>
+  <data name="VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError" xml:space="preserve">
+    <value>L'appel du membre par défaut '{0}' de l'objet a échoué dans la plateforme sans donner d'erreur.</value>
+  </data>
   <data name="VBRuntimeTypeMismatch_OperationEffectiveType_Verbose" xml:space="preserve">
     <value>Aucune règle sémantique ne définit pour l'opération un type effectif avec les types d'opérandes spécifiées ({$OPERANDS}).</value>
   </data>

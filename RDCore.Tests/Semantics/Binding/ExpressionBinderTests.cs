@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -45,7 +46,7 @@ public sealed class ExpressionBinderTests
     {
         var module = new VBStandardModuleSymbol(Root, Root, "Module1");
         var members = fields.Select(field => new VBModuleFieldVariableMemberSymbol(Root, module.Uri, field.Name, ScopeKind.Module, field.Type, R, R, AccessModifier.Implicit)).ToArray();
-        var tree = ScopeTreeBuilder.Build([module with { Members = [.. members] }, .. members]);
+        var tree = ProjectVisibility.ScopeTreeOf([module with { Members = [.. members] }, .. members]);
         return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
     }
 
@@ -266,7 +267,7 @@ public sealed class ExpressionBinderTests
 
         var module = new VBStandardModuleSymbol(Root, Root, "Module1");
         var field = new VBModuleFieldVariableMemberSymbol(Root, module.Uri, "c", ScopeKind.Module, VBClassType.Of(counter), R, R, AccessModifier.Implicit);
-        var tree = ScopeTreeBuilder.Build([module with { Members = [field] }, field, complete, increment, value]);
+        var tree = ProjectVisibility.ScopeTreeOf([module with { Members = [field] }, field, complete, increment, value]);
         return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
     }
 
@@ -312,7 +313,8 @@ public sealed class ExpressionBinderTests
         var item = new VBPropertyGetMemberSymbol(Root, bag.Uri, ScopeKind.Instance, "Item", R, R, AccessModifier.Public) { ResolvedType = VBVariantType.TypeInfo };
         var module = new VBStandardModuleSymbol(Root, Root, "Module1");
         var field = new VBModuleFieldVariableMemberSymbol(Root, module.Uri, "c", ScopeKind.Module, VBClassType.Of(bag), R, R, AccessModifier.Implicit);
-        var tree = ScopeTreeBuilder.Build([module with { Members = [field] }, field, bag with { Members = [item], DefaultInterfaceMembers = [item] }, item]);
+        var tree = ProjectVisibility.ScopeTreeOf(
+            [module with { Members = [field] }, field, bag with { Members = [item], DefaultInterfaceMembers = [item] }, item]);
         var context = new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
 
         var identity = NextId();
@@ -383,7 +385,7 @@ public sealed class ExpressionBinderTests
             ],
         };
 
-        var tree = ScopeTreeBuilder.Build([module with { Members = [x, foo, bar] }, x, foo, bar]);
+        var tree = ProjectVisibility.ScopeTreeOf([module with { Members = [x, foo, bar] }, x, foo, bar]);
         return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
     }
 

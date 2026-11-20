@@ -11,7 +11,7 @@ internal sealed partial class ProcedureEmitter
     private void EmitForEachOpen(ForEachOpenStep open)
     {
         EmitSpill();
-        var next = EmitStepForEach(open.Offset);
+        var next = EmitStepForEach(open.Offset, spilled: true);
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.ReadsBackAfterCall))!.GetMethod!);
         _il.Emit(OpCodes.Pop);
@@ -31,7 +31,7 @@ internal sealed partial class ProcedureEmitter
         EmitSpill();
         _il.MarkLabel(spilled);
 
-        var at = EmitStepForEach(next.Offset);
+        var at = EmitStepForEach(next.Offset, spilled: false);
         var current = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.ReadsBackAfterCall))!.GetMethod!);
@@ -43,7 +43,8 @@ internal sealed partial class ProcedureEmitter
 
     // CompiledActivation.StepForEach: the offset the program goes on at, in a local; an error the instruction raised is given the activation's handler as a
     // call's is.
-    private LocalBuilder EmitStepForEach(int offset)
+    // spilled: whether every variable was written into the frame before it (CallFailedAfterSpillAt).
+    private LocalBuilder EmitStepForEach(int offset, bool spilled)
     {
         var next = _il.DeclareLocal(typeof(int));
         _il.Emit(OpCodes.Ldarg_0);
@@ -52,7 +53,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Stloc, next);
         _il.Emit(OpCodes.Ldloc, next);
         _il.Emit(OpCodes.Ldc_I4_M1);
-        _il.Emit(OpCodes.Beq, CallFailedAt(offset));
+        _il.Emit(OpCodes.Beq, spilled ? CallFailedAfterSpillAt(offset) : CallFailedAt(offset));
         return next;
     }
 
