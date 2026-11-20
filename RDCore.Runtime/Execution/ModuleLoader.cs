@@ -185,6 +185,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
             .AddRange(ModuleNameStaticSemantics.Check(syntaxTree, module.Name))
+            .AddRange(ModuleNameStaticSemantics.CheckReferences(syntaxTree, module, session.Symbols.Scopes.Global))
             .AddRange(headerErrors)
             .AddRange(constantErrors)
             .AddRange(sizeErrors)

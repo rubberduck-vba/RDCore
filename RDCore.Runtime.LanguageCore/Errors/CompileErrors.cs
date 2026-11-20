@@ -185,5 +185,6 @@ public static class CompileErrors
         [VBCompileErrorId.NoHostApplicationToEvaluateExpression] = Exceptions.VBCompileError_NoHostApplicationToEvaluateExpression,
         [VBCompileErrorId.OnlyValidInObjectModule] = Exceptions.VBCompileError_OnlyValidInObjectModule,
         [VBCompileErrorId.NotALegalObjectName] = Exceptions.VBCompileError_NotALegalObjectName,
+        [VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary] = Exceptions.VBCompileError_NameConflictsWithModuleProjectOrLibrary,
     };
 }
