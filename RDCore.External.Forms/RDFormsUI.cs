@@ -37,9 +37,9 @@ internal static class RDFormsUI
     // (AppBuilder.Setup marks it made before it begins), so one that failed cannot be made again, whatever changed since. Touched under Gate.
     private static string? _failure;
 
-    // the programs whose calls the UI thread is making, the innermost last: an event a form raises while it makes a call of the form's own program is the
-    // answer to that call, and one of another program's form is not, since that program waits for no call of it. Every program of the process shares the
-    // thread. Touched on the UI thread only.
+    // the programs whose calls the UI thread is making, the innermost last. An event a form raises while the thread makes a call of the form's own program
+    // is the answer to that call; an event of another program's form is not, since that program is waiting on no call. Every program of the process shares
+    // the thread. Touched on the UI thread only.
     private static readonly List<RDFormsProgram> Callers = [];
 
     // how many form hosts hold the windows' messages because a program of theirs runs. While one does, the UI thread makes the programs' calls and dispatches
