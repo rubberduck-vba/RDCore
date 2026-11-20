@@ -49,11 +49,12 @@ internal static class DeclaredNames
         bool IsNamedElsewhere(MemberDeclarationNode member) => namedElsewhere.Contains(member);
 
         var properties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var nameDirective = module.GetDeclaredNameDirective();
         foreach (var node in module.Descendants())
         {
             switch (node)
             {
-                case AttributeDirectiveNode { Binding: null } attribute when string.Equals(attribute.Name, Tokens.VB_Name, StringComparison.OrdinalIgnoreCase):
+                case AttributeDirectiveNode attribute when ReferenceEquals(attribute, nameDirective):
                     if (module.GetDeclaredName() is { Length: > 0 } name)
                     {
                         yield return new(name, attribute.Location.Range, IsModule: true);

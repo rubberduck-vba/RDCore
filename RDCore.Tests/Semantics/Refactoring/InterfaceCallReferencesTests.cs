@@ -14,8 +14,9 @@ using RDCore.Runtime.LanguageCore.Refactoring;
 namespace RDCore.Tests.Semantics.Refactoring;
 
 /// <summary>
-/// A call through an interface (<strong>MS-VBAL §5.2.4.2</strong>) is a reference of the interface's member and of each procedure that implements it,
-/// which the call may run: the code lens of an implementation counts it, and the references of the interface's member list the implementations.
+/// A call through an interface (<strong>MS-VBAL §5.2.4.2</strong>) binds to the interface's member: it is a reference of that member, and of none of the
+/// procedures that implement it. Go to Definition of the call leads to the member, and Go to Implementation to the procedures. The lenses say both: how many
+/// procedures implement a member of an interface, and which member a procedure implements (<strong>MS-VBAL §5.3.1.9</strong>).
 /// </summary>
 [TestClass]
 public sealed class InterfaceCallReferencesTests
@@ -103,35 +104,54 @@ public sealed class InterfaceCallReferencesTests
     private static string[] LensOf(RenameContext context, string module, string line, string text)
         => Described(context, SymbolLenses.ReferencesOf(context, ModuleUri(module), At(context, module, line, text)));
 
-    private static string[] ReferencesOf(RenameContext context, string module, string line, string text)
+    private static string[] ReferencesOf(RenameContext context, string module, string line, string text, bool includeDeclaration = true)
+        => Described(context, Found(SymbolNavigation.ReferencesAt, context, module, line, text, includeDeclaration).Sites);
+
+    private static SymbolNavigationTarget Found(Func<RenameContext, Uri, SourcePosition, bool, SymbolNavigationTarget?> navigate, RenameContext context,
+        string module, string line, string text, bool includeDeclaration = true)
     {
         var position = At(context, module, line, text);
-        var found = SymbolNavigation.ReferencesAt(context, ModuleUri(module), new SourcePosition(position.Line, position.Character + 1));
+        var found = navigate(context, ModuleUri(module), new SourcePosition(position.Line, position.Character + 1), includeDeclaration);
         Assert.IsNotNull(found, $"'{text}' on '{line}' names nothing");
-        return Described(context, found.Sites);
+        return found;
+    }
+
+    // each lens of a module as the trimmed line of its member, what it is, and of an Implements lens, the member and where it is declared.
+    private static string[] LensesOf(RenameContext context, string module)
+    {
+        var source = context.Modules.Single(candidate => SymbolUri.ModuleNameOf(candidate.Module) == module);
+        var lines = source.Source.Split("\r\n");
+        return [.. SymbolLenses.In(context, source).Select(lens => $"{lines[lens.NameRange.Start.Line].Trim()}: {lens.Kind}"
+            + (lens.Implemented is { } implemented
+                ? $" {implemented.Interface}.{implemented.Member}, at {Described(context, [implemented.Declaration]).Single()}"
+                : string.Empty))];
+    }
+
+    [TestMethod]
+    public void TheReferencesOfAnInterfaceMember_AreTheCallsThroughIt_AndItsDeclaration_AndNoImplementation()
+    {
+        var context = Workspace();
+
+        CollectionAssert.AreEqual(new[] { "IShape: Public Function Area() As Double", "Program: Debug.Print s.Area" },
+            ReferencesOf(context, "Program", "Debug.Print s.Area", "Area"));
+        CollectionAssert.AreEqual(new[] { "Program: Debug.Print s.Area" },
+            ReferencesOf(context, "Program", "Debug.Print s.Area", "Area", includeDeclaration: false));
     }
 
     [TestMethod]
     [DataRow("Square", DisplayName = "the implementation of the class the variable is set to")]
     [DataRow("Disc", DisplayName = "another implementation")]
-    public void TheLensOfAnImplementation_CountsTheCallsThroughItsInterface(string implementation)
+    public void TheReferencesOfAnImplementation_AreItsOwn_AndNoCallThroughItsInterface(string implementation)
     {
         var context = Workspace();
 
-        CollectionAssert.Contains(LensOf(context, implementation, "Private Function IShape_Area", "IShape_Area"), "Program: Debug.Print s.Area");
+        CollectionAssert.AreEqual(new[] { $"{implementation}: Private Function IShape_Area() As Double" },
+            ReferencesOf(context, implementation, "Private Function IShape_Area", "IShape_Area"));
+        Assert.IsEmpty(LensOf(context, implementation, "Private Function IShape_Area", "IShape_Area"));
     }
 
     [TestMethod]
-    public void TheLensOfAnImplementationOfAPropertyProcedure_CountsTheCallsOfItsProcedureThroughItsInterface()
-    {
-        var context = Workspace();
-
-        CollectionAssert.AreEqual(new[] { "Program: Debug.Print s.Name" }, LensOf(context, "Square", "Private Property Get IShape_Name", "IShape_Name"));
-        CollectionAssert.AreEqual(new[] { "Program: s.Name = \"sq\"" }, LensOf(context, "Square", "Private Property Let IShape_Name", "IShape_Name"));
-    }
-
-    [TestMethod]
-    public void TheLensOfAnInterfaceMember_CountsTheCallsThroughIt_AndNotItsImplementations()
+    public void TheLensOfAnInterfaceMember_CountsTheCallsThroughIt()
     {
         var context = Workspace();
 
@@ -139,25 +159,71 @@ public sealed class InterfaceCallReferencesTests
     }
 
     [TestMethod]
-    public void TheReferencesOfAnInterfaceMember_ListEachImplementation()
+    public void TheLensesOfAPropertyOfAnInterface_CountTheCallsOfEachOfItsProcedures_Apart()
     {
         var context = Workspace();
 
-        var references = ReferencesOf(context, "Program", "Debug.Print s.Area", "Area");
-
-        CollectionAssert.IsSubsetOf(
-            new[] { "Disc: Private Function IShape_Area() As Double", "IShape: Public Function Area() As Double", "Program: Debug.Print s.Area",
-                "Square: Private Function IShape_Area() As Double" },
-            references);
+        CollectionAssert.AreEqual(new[] { "Program: Debug.Print s.Name" }, LensOf(context, "IShape", "Public Property Get Name", "Name"));
+        CollectionAssert.AreEqual(new[] { "Program: s.Name = \"sq\"" }, LensOf(context, "IShape", "Public Property Let Name", "Name"));
     }
 
     [TestMethod]
-    public void TheReferencesOfAnImplementation_ListTheCallsThroughItsInterface()
+    public void GoToDefinition_OfACallThroughAnInterface_LeadsToTheInterfaceMember()
     {
         var context = Workspace();
 
-        var references = ReferencesOf(context, "Square", "Private Function IShape_Area", "IShape_Area");
+        var found = Found((context, module, position, _) => SymbolNavigation.DefinitionsAt(context, module, position), context,
+            "Program", "Debug.Print s.Area", "Area");
 
-        CollectionAssert.IsSubsetOf(new[] { "Program: Debug.Print s.Area", "Square: Private Function IShape_Area() As Double" }, references);
+        CollectionAssert.AreEqual(new[] { "IShape: Public Function Area() As Double" }, Described(context, found.Sites));
     }
+
+    [TestMethod]
+    [DataRow("Program", "Debug.Print s.Area", "Area", DisplayName = "of a call through the interface")]
+    [DataRow("IShape", "Public Function Area", "Area", DisplayName = "of the interface member")]
+    public void GoToImplementation_ListsTheProcedureOfEachClassThatImplementsTheMember(string module, string line, string text)
+    {
+        var context = Workspace();
+
+        var found = Found((context, module, position, _) => SymbolNavigation.ImplementationsAt(context, module, position), context, module, line, text);
+
+        CollectionAssert.AreEqual(new[] { "Disc: Private Function IShape_Area() As Double", "Square: Private Function IShape_Area() As Double" },
+            Described(context, found.Sites));
+    }
+
+    [TestMethod]
+    public void EachMemberOfAnInterface_HasALensOfItsReferences_AndALensOfItsImplementations()
+    {
+        var context = Workspace();
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Public Function Area() As Double: References", "Public Function Area() As Double: Implementations",
+            "Public Property Get Name() As String: References", "Public Property Get Name() As String: Implementations",
+            "Public Property Let Name(ByVal value As String): References", "Public Property Let Name(ByVal value As String): Implementations",
+        }, LensesOf(context, "IShape"));
+        var area = At(context, "IShape", "Public Function Area", "Area");
+        CollectionAssert.AreEqual(new[] { "Disc: Private Function IShape_Area() As Double", "Square: Private Function IShape_Area() As Double" },
+            Described(context, SymbolLenses.ImplementationsOf(context, ModuleUri("IShape"), area)));
+    }
+
+    [TestMethod]
+    public void EachProcedureThatImplementsAMember_HasALensOfTheMemberItImplements_ThatLeadsToItsDeclaration()
+    {
+        var context = Workspace();
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Private Function IShape_Area() As Double: References",
+            "Private Function IShape_Area() As Double: Implements IShape.Area, at IShape: Public Function Area() As Double",
+            "Private Property Get IShape_Name() As String: References",
+            "Private Property Get IShape_Name() As String: Implements IShape.Name, at IShape: Public Property Get Name() As String",
+            "Private Property Let IShape_Name(ByVal value As String): References",
+            "Private Property Let IShape_Name(ByVal value As String): Implements IShape.Name, at IShape: Public Property Let Name(ByVal value As String)",
+        }, LensesOf(context, "Square"));
+    }
+
+    [TestMethod]
+    public void AProcedureOfAClassNoClassImplements_HasALensOfItsReferences_Only()
+        => CollectionAssert.AreEqual(new[] { "Public Sub Main(): References" }, LensesOf(Workspace(), "Program"));
 }

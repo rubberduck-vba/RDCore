@@ -997,8 +997,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// The cell a variable that starts as <paramref name="value"/> is held in - a local's, a field's of an object: a variable of a scalar type holds its value
     /// as a payload, which an expression of it is evaluated on, in a cell made of the value as it is; a Variant that holds a scalar (or
     /// nothing yet) holds it as a payload too, which its subtype is the type of, and a Variant that holds <c>Null</c>, a <c>String</c> or an error holds it in
-    /// a Variant's cell as the value it is; anything else is a fresh copy of the value
-    /// (<see cref="SymbolAddressTable.FreshBinding"/>).
+    /// a Variant's cell as the value it is; a <c>String</c> of variable length is held in a cell that knows its address (<see cref="TextCell"/>); anything
+    /// else is a fresh copy of the value (<see cref="SymbolAddressTable.FreshBinding"/>).
     /// </summary>
     internal static IBindingHandle CellFor(VBTypedValue value)
         => UnboxedEvaluation.IsEnabled && ScalarPayload.IsScalar(value.TypeInfo) && value is { IsIndeterminate: false, Handle: ValueBindingHandle boxed }
@@ -1007,7 +1007,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 : UnboxedEvaluation.IsEnabled && value is VBVariantValue { IsIndeterminate: false, TypedValue: var held } && IsImmutable(held)
                     && VariantCell.TryCreate(VBVariantType.TypeInfo, new VBRuntimeVariantValue(held.TypeInfo.VarType(), held), out var variant)
                     ? variant!
-                    : SymbolAddressTable.FreshBinding(value);
+                    : UnboxedEvaluation.IsEnabled && TextCell.Holds(value.TypeInfo) && value is { IsIndeterminate: false, Handle: ValueBindingHandle text }
+                        ? new TextCell(text.Value)
+                        : SymbolAddressTable.FreshBinding(value);
 
     // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null, a String, an error (Missing among
     // them). A Mid statement assigns the new String it makes; an object, an array or a record can be changed in place.
@@ -1109,6 +1111,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <param name="cell">Its cell.</param>
     /// <param name="slot">The number of its slot.</param>
     internal void PushCell(Symbol symbol, ScalarCell cell, int slot) => Hold(symbol, cell, cell.Type.DefaultValue.Size, slot);
+
+    /// <summary>
+    /// Declares <paramref name="symbol"/>, a <c>String</c> of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds
+    /// it in, which the activation frees as its own. Its size is the one <see cref="Push(Symbol, VBTypedValue, int)"/> gives the String it holds.
+    /// </summary>
+    /// <param name="symbol">The parameter or the variable.</param>
+    /// <param name="cell">Its cell.</param>
+    /// <param name="slot">The number of its slot.</param>
+    internal void PushText(Symbol symbol, TextCell cell, int slot)
+        => Hold(symbol, cell, DeclaredValues.Of(((ITypedSymbol)symbol).ResolvedType!, cell.Value).Size, slot);
 
     /// <summary>
     /// Declares <paramref name="symbol"/>, a parameter of an object, held in <paramref name="cell"/>: the cell of its reference, as <see cref="HoldArgument"/>
@@ -1244,7 +1256,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // caller's variable was given by a parameter of a call it made (ReleaseAll).
     private bool TryGiveAddress(Symbol symbol, IBindingHandle cell, int size, bool isAlias, out MemoryAddress address)
     {
-        if (cell is ScalarCell { Address: { } bound })
+        if (cell is IAddressedCell { Address: { } bound })
         {
             address = bound;
             if (isAlias)
@@ -1328,7 +1340,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         var retired = Occasionally.RetiredAddresses ??= [];
         if (TryGetOwnSlot(local, out var index))
         {
-            if (_slots[index] is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+            if (_slots[index] is { IsAlias: false, Cell: IAddressedCell { Address: { } given } })
             {
                 retired.Add(given);
             }
@@ -1336,7 +1348,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             _slots[index] = default;
         }
 
-        if (_cells is not null && _cells.Remove(local.SemanticId, out var held) && held is { IsAlias: false, Cell: ScalarCell { Address: { } address } })
+        if (_cells is not null && _cells.Remove(local.SemanticId, out var held) && held is { IsAlias: false, Cell: IAddressedCell { Address: { } address } })
         {
             retired.Add(address);
         }
@@ -1635,7 +1647,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // address is this activation's (TryGiveAddress).
         foreach (var slot in _slots)
         {
-            if (slot is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+            if (slot is { IsAlias: false, Cell: IAddressedCell { Address: { } given } })
             {
                 Storage.TryDeallocate(given);
             }
@@ -1645,7 +1657,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         {
             foreach (var (_, held) in cells)
             {
-                if (held is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+                if (held is { IsAlias: false, Cell: IAddressedCell { Address: { } given } })
                 {
                     Storage.TryDeallocate(given);
                 }

@@ -106,6 +106,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to MS-VBA refuses &apos;{0}&apos; as the name of a module, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not import the module. Give the module another name to keep it compatible with MS-VBA..
+        /// </summary>
+        public static string NameRefusedByMSVBA_ModuleMessage {
+            get {
+                return ResourceManager.GetString("NameRefusedByMSVBA_ModuleMessage", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to LSet copies a record that holds a variable-length String: MS-VBAL §5.4.3.6 allows it, and MS-VBA refuses it (Compile error: Type mismatch)..
         /// </summary>
         public static string LSetOfARecordWithAString_Message {
@@ -194,6 +203,24 @@ namespace RDCore.Diagnostics.Model {
         public static string ImplicitDeclarationsEnabled_Message {
             get {
                 return ResourceManager.GetString("ImplicitDeclarationsEnabled_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not declared: it is a variable that comes into being where it is first used. Declare it, or correct the name if it is misspelled..
+        /// </summary>
+        public static string UndeclaredVariable_Message {
+            get {
+                return ResourceManager.GetString("UndeclaredVariable_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare &apos;{0}&apos; As {1}, the type it has.
+        /// </summary>
+        public static string UndeclaredVariable_Fix {
+            get {
+                return ResourceManager.GetString("UndeclaredVariable_Fix", resourceCulture);
             }
         }
         
@@ -630,11 +657,29 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Every call of function &apos;{0}&apos; discards the value it returns: it can be a Sub..
+        /// </summary>
+        public static string FunctionReturnValueAlwaysDiscarded_Message {
+            get {
+                return ResourceManager.GetString("FunctionReturnValueAlwaysDiscarded_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value..
         /// </summary>
         public static string EncapsulatePublicField_Message {
             get {
                 return ResourceManager.GetString("EncapsulatePublicField_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is Public: any code of the project can assign it. A property can check the value..
+        /// </summary>
+        public static string EncapsulatePublicField_ModuleVariable_Message {
+            get {
+                return ResourceManager.GetString("EncapsulatePublicField_ModuleVariable_Message", resourceCulture);
             }
         }
         
@@ -662,6 +707,15 @@ namespace RDCore.Diagnostics.Model {
         public static string ImplementedInterfaceMember_Fix {
             get {
                 return ResourceManager.GetString("ImplementedInterfaceMember_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; of the module is used only in &apos;{1}&apos;: it can be declared there..
+        /// </summary>
+        public static string MoveFieldCloserToUsage_Message {
+            get {
+                return ResourceManager.GetString("MoveFieldCloserToUsage_Message", resourceCulture);
             }
         }
 
@@ -909,7 +963,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time..
+        ///   Looks up a localized string similar to No class the object can be of has a member &apos;{0}&apos; that this code can reach: the access raises run-time error 438 when it runs..
         /// </summary>
         public static string UnresolvedLateBoundMemberAccess_Message {
             get {
@@ -1322,6 +1376,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is of class &apos;{1}&apos;, which has no default member to assign the value to: run-time error 438 (91 when it is Nothing) every time this runs. Name the member the value is assigned to..
+        /// </summary>
+        public static string LetToAnObjectWithNoDefaultMember_Message {
+            get {
+                return ResourceManager.GetString("LetToAnObjectWithNoDefaultMember_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is given the object itself: MS-VBA passes an object Let-assigned to a property whose value is an object as a Set would, where MS-VBAL §5.5.1.1 makes the assignment a type mismatch. Assign it with Set..
         /// </summary>
         public static string ObjectLetToObjectProperty_Message {
@@ -1354,6 +1417,24 @@ namespace RDCore.Diagnostics.Model {
         public static string ObjectLetToVariantProperty_Message {
             get {
                 return ResourceManager.GetString("ObjectLetToVariantProperty_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Pass the value of the default member &apos;{0}&apos;.
+        /// </summary>
+        public static string ObjectLetToVariantProperty_DefaultMember_Fix {
+            get {
+                return ResourceManager.GetString("ObjectLetToVariantProperty_DefaultMember_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Pass the object itself, with Set.
+        /// </summary>
+        public static string ObjectLetToVariantProperty_Set_Fix {
+            get {
+                return ResourceManager.GetString("ObjectLetToVariantProperty_Set_Fix", resourceCulture);
             }
         }
 
@@ -1502,6 +1583,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Remove line label &apos;{0}&apos;.
+        /// </summary>
+        public static string LineLabelNotUsed_Fix {
+            get {
+                return ResourceManager.GetString("LineLabelNotUsed_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Member &apos;{0}&apos; is named with a keyword of the language: code that uses it reads like the keyword. Give it a name that is not one..
         /// </summary>
         public static string KeywordUsedAsMemberName_Message {
@@ -1606,6 +1696,54 @@ namespace RDCore.Diagnostics.Model {
         public static string SuspiciousLetAssignment_Message {
             get {
                 return ResourceManager.GetString("SuspiciousLetAssignment_Message", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;.
+        /// </summary>
+        public static string ImplicitDefaultMemberAccess_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitDefaultMemberAccess_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;.
+        /// </summary>
+        public static string IndexedDefaultMemberAccess_Fix {
+            get {
+                return ResourceManager.GetString("IndexedDefaultMemberAccess_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;, passing it the name as a String.
+        /// </summary>
+        public static string BangNotation_Fix {
+            get {
+                return ResourceManager.GetString("BangNotation_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default members &apos;{0}&apos;.
+        /// </summary>
+        public static string IndexedRecursiveDefaultMemberAccess_Fix {
+            get {
+                return ResourceManager.GetString("IndexedRecursiveDefaultMemberAccess_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default members &apos;{0}&apos;, passing the last one the name as a String.
+        /// </summary>
+        public static string RecursiveBangNotation_Fix {
+            get {
+                return ResourceManager.GetString("RecursiveBangNotation_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name both default members, which keeps the Let of the values.
+        /// </summary>
+        public static string SuspiciousLetAssignment_Fix {
+            get {
+                return ResourceManager.GetString("SuspiciousLetAssignment_Fix", resourceCulture);
             }
         }
         /// <summary>

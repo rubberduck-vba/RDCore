@@ -10,7 +10,7 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// How a module declares what it declares: a <c>Sub</c> that gives its result back through a parameter (<c>RDC00214</c>), a variable declared <c>As New</c>
-/// (<c>RDC00215</c>), and a <c>Public</c> variable of a class module (<c>RDC00409</c>).
+/// (<c>RDC00215</c>), and a <c>Public</c> variable of a module (<c>RDC00409</c>).
 /// </summary>
 [TestClass]
 public sealed class DeclarationDesignAnalyzerTests
@@ -134,7 +134,7 @@ public sealed class DeclarationDesignAnalyzerTests
 
     #endregion
 
-    #region RDC00409 a Public variable of a class module
+    #region RDC00409 a Public variable of a module
 
     [TestMethod]
     public async Task APublicVariableOfAClassModule_IsAField()
@@ -158,8 +158,28 @@ public sealed class DeclarationDesignAnalyzerTests
     }
 
     [TestMethod]
-    public async Task APublicVariableOfAStandardModule_IsAGlobalVariable()
-        => Assert.IsEmpty(await WorkspaceAsync(new EncapsulatePublicFieldAnalyzer(), "Program", ["Option Explicit", "Public Total As Long"], ["Option Explicit"]));
+    public async Task APublicVariableOfAStandardModule_AnyCodeOfTheProjectCanAssign()
+    {
+        var findings = await WorkspaceAsync(new EncapsulatePublicFieldAnalyzer(), "Program",
+            [
+                "Option Explicit",
+                "Public Total As Long",
+                "Global Name As String",
+                "Private count As Long",
+                "Dim limit As Long",
+                "Public Const Rate As Double = 0.5",
+                "Public Sub Main()",
+                "    Dim local As Long",
+                "    Total = count + limit + local + Rate",
+                "End Sub",
+            ],
+            ["Option Explicit"]);
+
+        CollectionAssert.AreEqual(new[] { 2, 3 }, Lines(findings), "Public and Global; not a Private or Dim variable, a constant, nor a local");
+        AssertAre(findings, RDCoreDiagnosticId.EncapsulatePublicField, DiagnosticSeverity.Information);
+        StringAssert.Contains(findings[0].Message, "Variable 'Total'");
+        StringAssert.Contains(findings[1].Message, "'Name'");
+    }
 
     #endregion
 }

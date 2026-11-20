@@ -356,7 +356,10 @@ public partial class ModuleParser(
             // the segment's lines, each with the line ending it had in the module.
             var text = string.Join('\n', lines[segment.StartLine..segment.EndLine]) + (segment.EndLine < lines.Length ? "\n" : string.Empty);
             var start = new SourcePosition(segment.StartLine, 0).AnchoredAt(anchorOffset);
-            var segmentErrors = new ErrorListener(uri, start);
+            var segmentErrors = new ErrorListener(uri, start)
+            {
+                AfterAProcedure = children.Any(IsProcedure),
+            };
             var first = next;
             DeclarationsParseTreeListener listener;
             try
@@ -471,7 +474,11 @@ public partial class ModuleParser(
         return ast with { Children = [.. children] };
     }
 
-    private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode and not ExternalMemberDeclarationNode;
+    // a Sub, a Function or a Property: a member declaration is also a field, a Type, an Enum, an Event or a Declare.
+    private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode
+    {
+        MemberKind: MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet,
+    };
 
     private static ModuleNode EmptyModule(Uri uri, SourceRange wholeText)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, wholeText), []);
@@ -699,6 +706,7 @@ public partial class ModuleParser(
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
         ReportReservedDeclarationNames(declarationNames, findings);
+        ReportBracketedProcedureNames(declarationNames, tokens, findings);
         if (parser.NumberOfSyntaxErrors > 0)
         {
             MarkDanglingOperators(tree, tokens);
@@ -840,6 +848,17 @@ public partial class ModuleParser(
         foreach (var name in names.Names)
         {
             findings.ReplaceGrammarErrorAt(name, VBCompileErrorId.SyntaxError, string.Format(Exceptions.VBCompileError_ReservedDeclarationName_Verbose, name.Text));
+        }
+    }
+
+    // MS-VBAL §5.3.1.3: a procedure named in brackets is refused as MS-VBA refuses it, where it expects an identifier (VBEWording.OfAName). The tree keeps
+    // the procedure, as a reserved name keeps its declaration.
+    private static void ReportBracketedProcedureNames(ReservedDeclarationNameCollector names, ITokenStream tokens, ErrorListener findings)
+    {
+        foreach (var name in names.BracketedProcedureNames)
+        {
+            var (from, to, verbose) = VBEWording.OfAName(tokens, name, findings.AfterAProcedure);
+            findings.ReplaceGrammarErrorAt(from, to, VBCompileErrorId.SyntaxError, verbose);
         }
     }
 
@@ -1244,6 +1263,9 @@ internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
 
     public List<IToken> Names { get; } = [];
 
+    // the procedures named in brackets: MS-VBAL §5.3.1.3 names a Sub, a Function or a Property with an identifier, which a foreign name is not.
+    public List<VBAParser.ForeignNameContext> BracketedProcedureNames { get; } = [];
+
     public override void ExitArg([NotNull] VBAParser.ArgContext context)
     {
         if (context.unrestrictedIdentifier() is { exception: null, Start.TokenIndex: >= 0 } name && name.ChildCount > 0
@@ -1257,9 +1279,20 @@ internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
 
     public override void ExitConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context) => Add(context.identifier());
 
-    public override void ExitFunctionName([NotNull] VBAParser.FunctionNameContext context) => Add(context.identifier());
+    public override void ExitFunctionName([NotNull] VBAParser.FunctionNameContext context) => AddProcedureName(context.identifier());
 
-    public override void ExitSubroutineName([NotNull] VBAParser.SubroutineNameContext context) => Add(context.identifier());
+    public override void ExitSubroutineName([NotNull] VBAParser.SubroutineNameContext context) => AddProcedureName(context.identifier());
+
+    private void AddProcedureName(VBAParser.IdentifierContext? identifier)
+    {
+        Add(identifier);
+        if (identifier is { exception: null }
+            && (identifier.untypedIdentifier() ?? identifier.typedIdentifier()?.untypedIdentifier())?.identifierValue()?.foreignName() is
+                { exception: null, Start.TokenIndex: >= 0, Stop.TokenIndex: >= 0 } bracketed)
+        {
+            BracketedProcedureNames.Add(bracketed);
+        }
+    }
 
     public override void ExitEnumerationStmt_Constant([NotNull] VBAParser.EnumerationStmt_ConstantContext context)
     {
@@ -1329,7 +1362,10 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         : error)];
 
     // a listener of the same module and anchor, with no error yet.
-    public ErrorListener Fresh() => new(_uri, anchorOffset);
+    public ErrorListener Fresh() => new(_uri, anchorOffset) { AfterAProcedure = AfterAProcedure };
+
+    // whether the text parsed is of the module after one of its procedures, a part of it parsed on its own: MS-VBA reads all of it line by line (VBEWording).
+    public bool AfterAProcedure { get; init; }
 
     public void SyntaxError([NotNull] IRecognizer recognizer, [Nullable] IToken offendingSymbol, int line, int charPositionInLine, [NotNull] string msg, [Nullable] RecognitionException e)
     {
@@ -1372,7 +1408,7 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _errors.Add(error);
         if (recognizer is Parser parser && offendingSymbol is not null)
         {
-            var (from, to, message) = VBEWording.Of(parser, offendingSymbol, e);
+            var (from, to, message) = VBEWording.Of(parser, offendingSymbol, e, AfterAProcedure);
             _inTheVBEsWords[error] = (new SourceRange(from.AnchoredAt(anchorOffset), to.AnchoredAt(anchorOffset)), message);
         }
     }
@@ -1559,9 +1595,14 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 
     // reports what is wrong at a token, in place of what the grammar said there: its error at the token, if it has one, is the consequence.
     public void ReplaceGrammarErrorAt(IToken token, VBCompileErrorId id, string verbose)
+        => ReplaceGrammarErrorAt(new SourcePosition(token.Line - 1, token.Column), new SourcePosition(token.Line - 1, token.Column + token.Text.Length), id,
+            verbose);
+
+    // the same over a range of the parse's own text: what the grammar said at its start is the consequence.
+    public void ReplaceGrammarErrorAt(SourcePosition from, SourcePosition to, VBCompileErrorId id, string verbose)
     {
-        var start = new SourcePosition(token.Line - 1, token.Column).AnchoredAt(anchorOffset);
-        var end = new SourcePosition(token.Line - 1, token.Column + token.Text.Length).AnchoredAt(anchorOffset);
+        var start = from.AnchoredAt(anchorOffset);
+        var end = to.AnchoredAt(anchorOffset);
         _errors.RemoveAll(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.Equals(start));
         _reported.RemoveAll(error => error.Location.Range.Start.Equals(start));
         _reportedAt.RemoveWhere(location => location.Range.Start.Equals(start));
