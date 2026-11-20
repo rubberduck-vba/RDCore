@@ -79,8 +79,8 @@ public sealed class FunctionReturnValueAlwaysDiscardedAnalyzerTests
     // a program starts at its entry point: no other project, nor any host, calls its Public functions, and the code of its modules is all that can.
     [TestMethod]
     public async Task APublicFunctionOfAProgram_EveryCallDiscards_IsFound()
-        => CollectionAssert.AreEqual(new[] { ("Note", 2), ("Flush", 5) }, await FoundInAsync("Journal", NotesAndCounts, [], Journal),
-            "Note, called twice, and Flush, a function with no access modifier, which is Public; not Count, whose value Main prints");
+        => CollectionAssert.AreEqual(new[] { ("Note", 2), ("Flush", 5), ("Save", 10) }, await FoundInAsync("Journal", NotesAndCounts, [], Journal),
+            "Note, called twice, and Flush, a function with no access modifier, which is Public; not Count, whose value Main prints; and Save, a Private one");
 
     [TestMethod]
     public async Task APublicFunctionOfAProgramsClass_EveryCallDiscards_IsFound()
@@ -98,8 +98,11 @@ public sealed class FunctionReturnValueAlwaysDiscardedAnalyzerTests
     {
         var noEntryPoint = ModuleWorkspace.StandardModule("Program", "Public Sub Run()", "Note \"x\"", "Call Flush", "End Sub");
 
-        Assert.IsEmpty(await FoundInAsync("Journal", noEntryPoint, [], Journal), "the host that runs the project can call it");
-        Assert.IsEmpty(await FoundInAsync("Journal", NotesAndCounts, [], Journal, new ProjectBuild { OutputType = ProjectOutputType.Library }),
+        // Save, a Private function that only its module calls, is found in either.
+        CollectionAssert.AreEqual(new[] { ("Save", 10) }, await FoundInAsync("Journal", noEntryPoint, [], Journal),
+            "the host that runs the project can call it");
+        CollectionAssert.AreEqual(new[] { ("Save", 10) },
+            await FoundInAsync("Journal", NotesAndCounts, [], Journal, new ProjectBuild { OutputType = ProjectOutputType.Library }),
             "a referencing project can call it");
     }
 
@@ -113,8 +116,34 @@ public sealed class FunctionReturnValueAlwaysDiscardedAnalyzerTests
         Assert.IsEmpty(await FoundInAsync("Document", program, [document]), "the access bound late may use its value");
     }
 
+    // only its module can call a Private function.
     [TestMethod]
-    [Ignore("The host does not count the calls of a Private procedure: ReferencedFrom is not stated for one.")]
     public async Task APrivateFunctionEveryCallDiscards_IsFound()
         => CollectionAssert.Contains(await FoundInAsync("Journal", NotesAndCounts, [], Journal), ("Save", 10));
+
+    [TestMethod]
+    public async Task APrivateFunctionWhoseNameAStringWrites_IsNotFound()
+    {
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "Finish", "Debug.Print \"Save\"", "End Sub");
+
+        Assert.DoesNotContain(("Save", 10), await FoundInAsync("Journal", program, [], Journal), "the string can name it to a call bound late");
+    }
+
+    // a class whose Private function Save every call discards, and whose Finish calls CallByName with the name given.
+    private static (string, string) Ledger(string name) => ("Ledger", ModuleWorkspace.ClassModule("Ledger",
+        "Private Function Save() As Boolean", "Save = True", "End Function",
+        "Public Property Get Title() As String", "End Property",
+        "Public Sub Finish()", "Dim member As String", "member = \"Title\"", "Save", $"Debug.Print CallByName(Me, {name}, VbGet)", "End Sub"));
+
+    [TestMethod]
+    [DataRow("\"Title\"", true, DisplayName = "the name of another member, written as a string")]
+    [DataRow("member", false, DisplayName = "a name known when the code runs")]
+    public async Task APrivateFunctionOfAClassThatCallsCallByName_IsFound_OnlyWhereTheNameIsAnotherMembers(string name, bool found)
+    {
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "Dim l As New Ledger", "l.Finish", "End Sub");
+
+        var saves = (await FoundInAsync("Ledger", program, [Ledger(name)])).Where(finding => finding.Name == "Save").ToArray();
+
+        CollectionAssert.AreEqual(found ? new[] { ("Save", 5) } : [], saves);
+    }
 }
