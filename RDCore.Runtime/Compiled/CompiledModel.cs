@@ -734,7 +734,8 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 
     /// <summary>
     /// The class an object is declared as, of a call of its default member that an index expression makes (MS-VBAL §5.6.13): <see cref="Procedure"/> is
-    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class only; an object of another class is the interpreter's.
+    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class, and the member implementing it on an object of a class
+    /// that implements that class as an interface (MS-VBAL §5.3.1.9); an object of any other class is the interpreter's.
     /// <see cref="Site"/> is then <see langword="null"/>.
     /// </summary>
     public SDK.Model.Symbols.VBClassModuleSymbol? DefaultOf { get; init; }
