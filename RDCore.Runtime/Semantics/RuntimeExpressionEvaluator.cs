@@ -497,7 +497,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         _ => false,
     };
 
-    private static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
+    internal static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
 
     private static bool IsRecord(VBTypedValue? value) => value is VBUserDefinedTypeValue or VBVariantValue { TypedValue: VBUserDefinedTypeValue };
 
@@ -1927,6 +1927,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     public RuntimeSemanticsEvaluationResult? EvaluateSubscripts(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> arguments, out int[] subscripts, out bool isKnown)
     {
+        if (_evaluatedSubscripts is { } evaluatedFirst && evaluatedFirst.FindIndex(list => list.Arguments == arguments) is var at and >= 0)
+        {
+            (_, subscripts, isKnown) = evaluatedFirst[at];
+            evaluatedFirst.RemoveAt(at);
+            return null;
+        }
+
         subscripts = [];
         isKnown = true;
         var evaluated = new int[arguments.Length];
@@ -1981,6 +1988,39 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         subscripts = evaluated;
         return null;
+    }
+
+    /// <summary>
+    /// The subscripts of one index list, evaluated: what <see cref="EvaluateSubscripts(IRuntimeSession, RuntimeEvaluationContext,
+    /// ImmutableArray{ExpressionNode}, out int[], out bool)"/> gives for <paramref name="Arguments"/>.
+    /// </summary>
+    /// <param name="Arguments">The subscript expressions of the list.</param>
+    /// <param name="Subscripts">What they evaluated to.</param>
+    /// <param name="IsKnown">Whether every subscript is known.</param>
+    internal readonly record struct EvaluatedSubscripts(ImmutableArray<ExpressionNode> Arguments, int[] Subscripts, bool IsKnown);
+
+    // index lists evaluated before the expression they are written in (WithEvaluatedSubscripts): each is taken, once, in place of evaluating it again.
+    private List<EvaluatedSubscripts>? _evaluatedSubscripts;
+
+    /// <summary>
+    /// Runs <paramref name="evaluate"/> with index lists already evaluated: an index expression whose arguments are one of them is given its subscripts
+    /// instead of evaluating its arguments, once. An assignment to a path through records evaluates its index lists in another order than it navigates
+    /// the path in (<see cref="Statements.LetAssignmentEvaluator"/>).
+    /// </summary>
+    /// <param name="evaluated">The lists, evaluated.</param>
+    /// <param name="evaluate">What navigates the expression they are written in.</param>
+    internal T WithEvaluatedSubscripts<T>(List<EvaluatedSubscripts> evaluated, Func<T> evaluate)
+    {
+        var before = _evaluatedSubscripts;
+        _evaluatedSubscripts = evaluated;
+        try
+        {
+            return evaluate();
+        }
+        finally
+        {
+            _evaluatedSubscripts = before;
+        }
     }
 
     private static VBTypeMemberSymbol? TryResolveCallableSub(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee)
