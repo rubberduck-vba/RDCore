@@ -36,8 +36,16 @@ public sealed class DeclarationUsageTests
 
     private static Uri ModuleUri(string name) => new UriBuilder(Root) { Fragment = name }.Uri;
 
-    // the models of the standard modules of a project, each made as the module loader makes it.
-    private static List<ModuleSemanticModel> Project(params (string Name, string[] Source)[] modules)
+    // the models of the standard modules of a project, each made as the module loader makes it, but for the calls of a module's own procedures: what one
+    // does with the arguments it takes by reference is not followed.
+    private static List<ModuleSemanticModel> Project(params (string Name, string[] Source)[] modules) => Project(followsArguments: false, modules);
+
+    // the facts of the declarations of a standard module whose source is `source`, made as the module loader makes them: the calls of its own procedures
+    // are followed.
+    private static ImmutableArray<DeclarationFact> FollowedFacts(params string[] source)
+        => Project(followsArguments: true, ("Main", source)).Single().Declarations;
+
+    private static List<ModuleSemanticModel> Project(bool followsArguments, params (string Name, string[] Source)[] modules)
     {
         var parses = modules.Select(module =>
         {
@@ -57,13 +65,14 @@ public sealed class DeclarationUsageTests
 
             var procedures = new List<ProcedureSemanticModel>();
             var unanalyzedNames = new List<string>();
+            var arguments = new ArgumentParameters();
             foreach (var declaration in parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Where(declaration => declaration.MemberKind is not (MemberKind.Enum or MemberKind.UserDefinedType)))
             {
                 var procedure = members.First(member => string.Equals(member.Name, declaration.Name, StringComparison.OrdinalIgnoreCase)
                     && member is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
                 var model = StatementStaticSemanticsEvaluator.Analyze(
                     procedure.SemanticId, new StatementBlock([.. declaration.Children]), kind: declaration.MemberKind,
-                    context: new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(procedure.Uri)));
+                    context: new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(procedure.Uri)) { Arguments = arguments });
                 procedures.Add(model);
                 if (!model.IsFullyAnalyzed)
                 {
@@ -73,10 +82,12 @@ public sealed class DeclarationUsageTests
 
             var declarations = ModuleDeclarationStaticSemantics.Analyze(parse.SyntaxTree.Children, new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(uri)));
             // a provider may state a procedure's locals and parameters as symbols of their own, as well as on the procedure.
+            var declared = DeclarationUsage.DeclaredBy(members).Concat(symbols).ToList();
             models.Add(new ModuleSemanticModel(uri, [], [.. procedures])
             {
                 Declarations = DeclarationUsage.Of(
-                    DeclarationUsage.DeclaredBy(members).Concat(symbols), procedures, declarations: declarations, namesInUnanalyzedCode: unanalyzedNames),
+                    declared, procedures, byRefArguments: followsArguments ? DeclarationUsage.ArgumentsOf(declared, procedures, arguments) : null,
+                    declarations: declarations, namesInUnanalyzedCode: unanalyzedNames),
             });
         }
 
@@ -124,6 +135,55 @@ public sealed class DeclarationUsageTests
         var facts = Facts("Private Sub Work(p As Long)", "End Sub", "Public Sub Run()", "Dim n As Long", "Work n", "End Sub");
 
         Assert.AreEqual(new DeclarationReferences(0, 0, 1), References(facts, "n"));
+    }
+
+    // the one place the code refers to the declaration.
+    private static DeclarationReference Site(ImmutableArray<DeclarationFact> facts, string name)
+    {
+        var sites = Fact(facts, name).ReferencedFrom;
+        Assert.IsNotNull(sites, $"'{name}' has references that are known");
+        return Assert.ContainsSingle(sites.Value);
+    }
+
+    // MS-VBAL §5.3.1.11: the call assigns the argument when its procedure writes the ByRef parameter, or passes it on by reference to one that does.
+    [TestMethod]
+    public void AnArgumentThatAProcedureOfTheChainAssigns_IsAssignedThroughTheCall_AtEachLevel()
+    {
+        var facts = FollowedFacts(
+            "Public Sub Run()", "Dim n As Long", "Relay n", "End Sub",
+            "Private Sub Relay(ByRef x As Long)", "Fill x", "End Sub",
+            "Private Sub Fill(ByRef y As Long)", "y = 1", "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(0, 0, 1), References(facts, "n"));
+        Assert.IsTrue(Site(facts, "n").AssignedThroughCall, "Relay passes it on to Fill, which assigns it");
+        Assert.IsTrue(Site(facts, "x").AssignedThroughCall, "Fill assigns it");
+    }
+
+    [TestMethod]
+    public void AnArgumentThatNoProcedureOfTheChainAssigns_IsRead_AndNotAssignedThroughTheCall()
+    {
+        var facts = FollowedFacts(
+            "Public Sub Run()", "Dim n As Long", "Relay n", "End Sub",
+            "Private Sub Relay(ByRef x As Long)", "Peek x", "End Sub",
+            "Private Sub Peek(ByRef y As Long)", "Debug.Print y", "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), References(facts, "n"));
+        Assert.IsFalse(Site(facts, "n").AssignedThroughCall);
+    }
+
+    // a procedure that was not fully analyzed may assign what it is given; what one that was analyzed assigns is known whatever the rest of the module is.
+    [TestMethod]
+    public void AnArgumentThatAnAnalyzedProcedureAssigns_IsAssignedThroughTheCall_ThoughAnotherProcedureWasNotAnalyzed()
+    {
+        var facts = FollowedFacts(
+            "Option Explicit",
+            "Public Sub Run()", "Dim filled As Long", "Fill filled", "Dim given As Long", "Broken given", "End Sub",
+            "Private Sub Fill(ByRef y As Long)", "y = 1", "End Sub",
+            "Private Sub Broken(ByRef z As Long)", "Debug.Print Undeclared", "End Sub");
+
+        Assert.IsTrue(Site(facts, "filled").AssignedThroughCall);
+        Assert.AreEqual(DeclarationReferenceKind.PassedAsArgument, Site(facts, "given").Kind, "Broken may assign it");
+        Assert.IsFalse(Site(facts, "given").AssignedThroughCall);
     }
 
     [TestMethod]
