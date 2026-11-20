@@ -38,7 +38,7 @@
     <value>Nothing here is a variable whose declaration can be moved.</value>
   </data>
   <data name="MoveCloserToUsage_NotPrivate" xml:space="preserve">
-    <value>'{0}' is a member of each object of its class, which other modules use: only a Private variable of a class module is moved into a procedure.</value>
+    <value>'{0}' is a member of each object of its class, which other modules can use: only a Private variable of a class module is moved into a procedure.</value>
   </data>
   <data name="MoveCloserToUsage_WithEvents" xml:space="preserve">
     <value>'{0}' is declared WithEvents, which a procedure cannot declare.</value>

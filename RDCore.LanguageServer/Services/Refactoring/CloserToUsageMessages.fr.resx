@@ -38,7 +38,7 @@
     <value>Rien ici n'est une variable dont la déclaration peut être déplacée.</value>
   </data>
   <data name="MoveCloserToUsage_NotPrivate" xml:space="preserve">
-    <value>« {0} » est un membre de chaque objet de sa classe, qu'utilisent d'autres modules : seule une variable Private d'un module de classe est déplacée dans une procédure.</value>
+    <value>« {0} » est un membre de chaque objet de sa classe, que d'autres modules peuvent utiliser : seule une variable Private d'un module de classe est déplacée dans une procédure.</value>
   </data>
   <data name="MoveCloserToUsage_WithEvents" xml:space="preserve">
     <value>« {0} » est déclarée WithEvents, ce qu'une procédure ne peut pas déclarer.</value>
