@@ -94,6 +94,10 @@ public sealed class ObjectArgumentOrderTests
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(N + 0, Bump(N))", "11,11|", DisplayName = "an expression of a variable, left of a call that adds to it")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2((N), Bump(N))", "11,11|", DisplayName = "a variable in parentheses, left of a call that adds to it")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(CLng(N), Bump(N))", "11,11|", DisplayName = "a conversion of a variable, left of a call that adds to it")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(CSng(N), Bump(N))", "11,11|", DisplayName = "CSng")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(CLngLng(N)), CStr(Bump(N)))", "11,11|", DisplayName = "CLngLng")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(CLngPtr(N)), CStr(Bump(N)))", "11,11|", DisplayName = "CLngPtr")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(N), CStr(Bump(N)))", "11,11|", DisplayName = "CStr")]
     [DataRow("Dim N As Long ;; N = 1 ;; Both2 N, Bump(N) ;; P Trail", "11,11|", DisplayName = "a variable, left of a call, in a call statement")]
     [DataRow("Dim X As Box ;; Set X = New Box ;; P Pair(X, Swapped(X)) ;; P Trail", "2,1:i1 i2 |i1 i2 t1 |",
         DisplayName = "an object variable, left of a call that gives it another object by reference")]
@@ -146,6 +150,7 @@ public sealed class ObjectArgumentOrderTests
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(Val(CStr(N)), Bump(N))", "1,11|", DisplayName = "Val")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(Sqr(N), Bump(N))", "1,11|", DisplayName = "Sqr")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Sum2(Round(N), Bump(N))", "1,11|", DisplayName = "Round")]
+    [DataRow("Dim N As Long ;; N = 1 ;; P Join2(CStr(CDec(N)), CStr(Bump(N)))", "1,11|", DisplayName = "CDec")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Join2(Format$(N), CStr(Bump(N)))", "1,11|", DisplayName = "Format$")]
     [DataRow("Dim N As Long ;; N = 1 ;; P Join2(Hex$(N), CStr(Bump(N)))", "1,11|", DisplayName = "Hex$")]
     [DataRow("Dim N As Long ;; N = 1 ;; P \"[\" ;; P Join2(Str$(N), CStr(Bump(N)))", "[| 1,11|", DisplayName = "Str$")]
