@@ -1016,7 +1016,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
         }
 
-        if (TryResolveDefaultMember(session, indexed) is not { } defaultMember)
+        if (TryResolveDefaultMember(session, context, indexExpression.Callee, indexed) is not { } defaultMember)
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to index."));
@@ -1204,8 +1204,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// </summary>
     /// <remarks>
     /// The library's classes mark theirs the same way (<c>Collection.Item</c>), so one that is a class of the workspace's and one that is the library's are found alike.
+    /// An object reached through an expression declared as a class its own class implements as an interface invokes the member implementing the default
+    /// member of that class (<strong>MS-VBAL §5.3.1.9</strong>), as it does any member of it reached that way.
     /// </remarks>
-    private static (IRuntimeValue Receiver, VBTypeMemberSymbol Member)? TryResolveDefaultMember(IRuntimeSession session, VBObjectValue objectValue)
+    private static (IRuntimeValue Receiver, VBTypeMemberSymbol Member)? TryResolveDefaultMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? reachedThrough, VBObjectValue objectValue)
     {
         if (objectValue.IsNothing() || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
         {
@@ -1219,12 +1222,26 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 instance.ClassModule, Execution.External.Automation.LateBinding.DefaultMemberName, RDCore.External.Automation.AutomationInvocation.Get));
         }
 
-        var member = instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
-            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
-            && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
+        // the index expression (MS-VBAL §5.6.13), or the dictionary access (§5.6.14), references the default member of the class the expression is declared
+        // as; an object of a class that implements that class as an interface invokes the member implementing it.
+        if (DeclaredInterfaceOf(session, context, reachedThrough, instance.ClassModule) is { } implementedInterface)
+        {
+            return DefaultMemberIn(implementedInterface) is { } interfaceMember
+                && instance.ClassModule.FindImplementation(implementedInterface, interfaceMember) is { } implementation
+                    ? (objectValue.RuntimeValue, implementation)
+                    : null;
+        }
 
+        var member = DefaultMemberIn(instance.ClassModule);
         return member is null ? null : (objectValue.RuntimeValue, member);
     }
+
+    // the member of a class marked VB_UserMemId = 0: a Property Get, a function or a subroutine, not a Property Let or Set.
+    private static VBTypeMemberSymbol? DefaultMemberIn(VBClassModuleSymbol classModule)
+        => classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol
+                or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+            && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
 
     /// <summary>
     /// Whether the class of <paramref name="owner"/> has an enumeration member: a public property or function marked <c>VB_UserMemId = -4</c>
@@ -3793,7 +3810,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // owner!member is always sugar for a call through owner's default member (MS-VBAL §5.6.14), with the name of the member as its argument -
         // never a plain read. An object that has no default member to bind the call to does not support it: error 438.
-        if (TryResolveDefaultMember(session, objectValue) is not { } defaultMember)
+        if (TryResolveDefaultMember(session, context, dictionaryAccess.Owner, objectValue) is not { } defaultMember)
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to call with the name of the member."));
