@@ -27,6 +27,14 @@ public sealed class DefaultMemberFixTests
     // the lines of a module whose Sub Main has the given body
     private static string[] Body(params string[] body) => ["Option Explicit", "Public Sub Main()", .. body, "End Sub"];
 
+    // the Excel library, whose Range has a default member named _Default, which is not an identifier
+    private static ModuleWorkspace.WorkspaceLibraries Excel => new(["Excel"], new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(
+        new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols));
+
+    // the lines of a module with a Sub Main, and a procedure with two Excel.Range parameters whose body is given
+    private static string[] Ranges(params string[] body)
+        => ["Option Explicit", "Public Sub Main()", "End Sub", "Private Sub Peek(ByVal r As Excel.Range, ByVal s As Excel.Range)", .. body, "End Sub"];
+
     [TestMethod]
     public Task AnObjectReadAsAValue_IsReadThroughItsDefaultMember()
         => CodeActionFixture.AssertFixedAsync(
@@ -126,4 +134,14 @@ public sealed class DefaultMemberFixTests
     public Task AnObjectLetToAnObjectVariable_IsNotFixed()
         => CodeActionFixture.AssertNoFixAsync(
             RDCoreDiagnosticId.SuspiciousLetAssignment, Classes, Body("Dim o As Object", "Set o = New Cell", "Dim b As New Cell", "o = b"));
+
+    // a name that is not an identifier is written in brackets, which make it a name (MS-VBAL §3.3.5.3).
+    [TestMethod]
+    [DataRow(RDCoreDiagnosticId.ImplicitDefaultMemberAccess, "x = r", "x = r.[_Default]", DisplayName = "read as a value")]
+    [DataRow(RDCoreDiagnosticId.ImplicitDefaultMemberAccess, "r = 5", "r.[_Default] = 5", DisplayName = "assigned a value")]
+    [DataRow(RDCoreDiagnosticId.IndexedDefaultMemberAccess, "Debug.Print r(1)", "Debug.Print r.[_Default](1)", DisplayName = "given an argument list")]
+    [DataRow(RDCoreDiagnosticId.BangNotation, "Debug.Print r!A1", "Debug.Print r.[_Default](\"A1\")", DisplayName = "given a name with !")]
+    [DataRow(RDCoreDiagnosticId.SuspiciousLetAssignment, "r = s", "r.[_Default] = s.[_Default]", DisplayName = "an object let to an object")]
+    public Task ADefaultMemberNotNamedByAnIdentifier_IsNamedInBrackets(RDCoreDiagnosticId code, string implicitly, string named)
+        => CodeActionFixture.AssertFixedAsync(code, Ranges("Dim x As Variant", implicitly), Ranges("Dim x As Variant", named), libraries: Excel);
 }

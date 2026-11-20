@@ -33,11 +33,13 @@ internal static class CodeActionFixture
             : throw new NotSupportedException($"an analyzer takes a {parameter.ParameterType}, which the fixture does not make");
 
     /// <summary>
-    /// What every analyzer finds in the <c>Program</c> standard module whose source is given, in a workspace with the given class modules (none when omitted).
+    /// What every analyzer finds in the <c>Program</c> standard module whose source is given, in a workspace with the given class modules and referenced
+    /// libraries (none when omitted).
     /// </summary>
-    public static async Task<AnalyzerFinding[]> FindingsOfAsync(string program, IReadOnlyList<(string Name, string Source)>? classes = null)
+    public static async Task<AnalyzerFinding[]> FindingsOfAsync(
+        string program, IReadOnlyList<(string Name, string Source)>? classes = null, ModuleWorkspace.WorkspaceLibraries? libraries = null)
     {
-        var payload = await ModuleWorkspace.SemanticsAsync(classes ?? [], program);
+        var payload = await ModuleWorkspace.SemanticsAsync(classes ?? [], program, libraries: libraries);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
         var context = new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model);
@@ -48,14 +50,14 @@ internal static class CodeActionFixture
     /// The fix of the first finding of the code in the module of <paramref name="before"/>, made: the module is <paramref name="after"/>, and analyzed
     /// again, that finding is gone and none is found that was not found before; it compiles if it did; and if it <paramref name="runs"/>, <c>Main</c> prints
     /// what it printed. A finding that carries more than one fix is fixed by the one at <paramref name="choice"/>; one that carries one fix, by it.
-    /// The workspace has the given class modules, none when omitted.
+    /// The workspace has the given class modules and referenced libraries, none when omitted.
     /// </summary>
     public static async Task AssertFixedAsync(
         RDCoreDiagnosticId code, string[] before, string[] after, bool runs = false, int finding = 0, int? choice = null,
-        IReadOnlyList<(string Name, string Source)>? classes = null)
+        IReadOnlyList<(string Name, string Source)>? classes = null, ModuleWorkspace.WorkspaceLibraries? libraries = null)
     {
         var program = Module(before);
-        var found = await FindingsOfAsync(program, classes);
+        var found = await FindingsOfAsync(program, classes, libraries);
         var fixedOne = found.Where(each => each.Id == code).ElementAt(finding);
         var fix = choice is { } index ? fixedOne.Fixes?.Edits.ElementAtOrDefault(index) : fixedOne.Fixes?.Edits.SingleOrDefault();
         Assert.IsNotNull(fix, $"the finding carries a fix: {fixedOne.Message}");
@@ -65,13 +67,17 @@ internal static class CodeActionFixture
 
         // a finding is new when it is not one of the others found before: the fixed one, found again, is new. A fix may make others go with it.
         var others = found.Where(each => !ReferenceEquals(each, fixedOne)).Select(Said).ToList();
-        var appeared = (await FindingsOfAsync(fixedProgram, classes)).Select(Said).Where(each => !others.Remove(each)).ToArray();
+        var appeared = (await FindingsOfAsync(fixedProgram, classes, libraries)).Select(Said).Where(each => !others.Remove(each)).ToArray();
         Assert.IsEmpty(appeared, $"the finding is gone, and nothing new is found: {string.Join(" | ", appeared)}");
 
-        if ((await ModuleWorkspace.LoadErrorsAsync(classes ?? [], program)).Length == 0)
+        if ((await LoadErrorsAsync(program)).Length == 0)
         {
-            Assert.IsEmpty(await ModuleWorkspace.LoadErrorsAsync(classes ?? [], fixedProgram), "it compiles, as it did");
+            Assert.IsEmpty(await LoadErrorsAsync(fixedProgram), "it compiles, as it did");
         }
+
+        Task<string[]> LoadErrorsAsync(string module) => libraries is null
+            ? ModuleWorkspace.LoadErrorsAsync(classes ?? [], module)
+            : ModuleWorkspace.LoadErrorsAsync(classes ?? [], module, libraries);
 
         if (runs)
         {

@@ -179,24 +179,28 @@ internal static class DefaultMemberAccesses
 
     /// <summary>
     /// The fix that names a default member after an expression: <c>.</c> and the member's name, which calls the member the code called without naming it,
-    /// with the same arguments (<strong>MS-VBAL §5.6.12</strong>). None for a name the code cannot write after a period without brackets.
+    /// with the same arguments (<strong>MS-VBAL §5.6.12</strong>). None for a name that brackets cannot hold (<see cref="Written"/>).
     /// </summary>
     /// <param name="after">Where the member's name is written: the end of the expression.</param>
     /// <param name="member">The name of the default member.</param>
     /// <param name="title">What the fix is called, with the member's name in it.</param>
     public static DiagnosticFixes? NameAfter(SourcePosition after, string? member, string title)
-        => IsPlainName(member)
-            ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(title, member!), SyntaxEdits.Insert(after, $".{member}"))] }
+        => Written(member) is { } written
+            ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(title, member!), SyntaxEdits.Insert(after, $".{written}"))] }
             : null;
 
     /// <summary>
-    /// Whether a member's name can be written after a period as it is: a letter, then letters, digits and underscores, and no keyword
-    /// (<strong>MS-VBAL §3.3.5</strong>). A library member named otherwise (<c>_Default</c>) is not named by a fix.
+    /// A member's name as the code writes it after a period: as it is when it is an identifier and no keyword (a letter, then letters, digits and
+    /// underscores, <strong>MS-VBAL §3.3.5</strong>), and in brackets otherwise, as a <c>FOREIGN-NAME</c> (<strong>MS-VBAL §3.3.5.3</strong>): a library's
+    /// <c>_Default</c> is written <c>[_Default]</c>. <see langword="null"/> for no name, and for one that brackets cannot hold: with a <c>]</c> or a line
+    /// break in it.
     /// </summary>
     /// <param name="member">The name of the member.</param>
-    public static bool IsPlainName(string? member)
-        => member is { Length: > 0 } name && char.IsLetter(name[0]) && name.All(character => char.IsLetterOrDigit(character) || character == '_')
-            && !VBIdentifier.IsReserved(name);
+    public static string? Written(string? member)
+        => member is not { Length: > 0 } name ? null
+            : char.IsLetter(name[0]) && name.All(character => char.IsLetterOrDigit(character) || character == '_') && !VBIdentifier.IsReserved(name) ? name
+            : name.IndexOfAny([']', '\r', '\n']) < 0 ? $"[{name}]"
+            : null;
 }
 
 /// <summary>
@@ -374,7 +378,7 @@ internal sealed class BangNotationAnalyzer : IModuleAnalyzer
     // .Item("key"). A name in brackets (b![a key]) is the name inside them.
     private static DiagnosticFixes? FixOf(DictionaryAccessExpressionNode bang, string key, string? member)
     {
-        if (!DefaultMemberAccesses.IsPlainName(member))
+        if (DefaultMemberAccesses.Written(member) is not { } written)
         {
             return null;
         }
@@ -385,7 +389,7 @@ internal sealed class BangNotationAnalyzer : IModuleAnalyzer
         {
             Edits = [SyntaxEdits.Fix(
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.BangNotation_Fix, member!),
-                SyntaxEdits.Replace(new SourceRange(from, bang.SourceLocation.Range.End), $".{member}(\"{literal}\")"))],
+                SyntaxEdits.Replace(new SourceRange(from, bang.SourceLocation.Range.End), $".{written}(\"{literal}\")"))],
         };
     }
 }
@@ -484,13 +488,14 @@ internal sealed class SuspiciousLetAssignmentAnalyzer : IModuleAnalyzer
     // change it. None for a target declared Object, whose default member is known only at run time, nor for a value whose default member requires an
     // argument.
     private static DiagnosticFixes? FixOf(AssignmentStatementNode statement, string? target, DefaultMemberFact? value)
-        => DefaultMemberAccesses.IsPlainName(target) && value is { RequiredParameters: 0 } && DefaultMemberAccesses.IsPlainName(value.Name)
+        => DefaultMemberAccesses.Written(target) is { } writtenTarget && value is { RequiredParameters: 0 }
+            && DefaultMemberAccesses.Written(value.Name) is { } writtenValue
             ? new DiagnosticFixes
             {
                 Edits = [SyntaxEdits.Fix(
                     RDCoreDiagnosticsResources.SuspiciousLetAssignment_Fix,
-                    SyntaxEdits.Insert(statement.Target.SourceLocation.Range.End, $".{target}"),
-                    SyntaxEdits.Insert(statement.Value.SourceLocation.Range.End, $".{value.Name}"))],
+                    SyntaxEdits.Insert(statement.Target.SourceLocation.Range.End, $".{writtenTarget}"),
+                    SyntaxEdits.Insert(statement.Value.SourceLocation.Range.End, $".{writtenValue}"))],
             }
             : null;
 }
