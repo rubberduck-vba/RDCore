@@ -371,6 +371,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         VBTypeMemberSymbol? member = null;
+        ImmutableArray<LateBoundCandidate>? candidates = null;
         if (declared is VBVariantType or VBObjectType)
         {
             flags |= MemberAccessOperationSemanticFlags.LateBound;
@@ -387,6 +388,17 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             {
                 flags |= MemberAccessOperationSemanticFlags.DefaultMember;
             }
+
+            // a member an extensible class does not declare is bound where the code runs, to a member of the object's class that has the name (MS-VBAL
+            // §5.6.12), as an Object's is. The standard library's classes are the platform's, whose objects have the members their classes declare and no
+            // other: none can answer the access, and it raises 438. A host's object can have members its library does not declare, which are not known.
+            if (member is null && memberName is not null && declared is VBClassType { Symbol: var declaredModule }
+                && (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, declaredModule) ?? declaredModule) is var extensible
+                && extensible.GetProperty(SymbolProperties.Extensible))
+            {
+                flags |= MemberAccessOperationSemanticFlags.LateBound;
+                candidates = extensible.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StandardLibrary.LibraryName ? [] : null;
+            }
         }
 
         // the error is the access's when the object it is accessed on is known, and nothing it took to access the member was assumed.
@@ -401,7 +413,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             isKnown,
             error,
             memberName ?? member?.Name,
-            flags));
+            flags)
+        {
+            LateBoundCandidates = candidates,
+        });
     }
 
     /// <summary>
