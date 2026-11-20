@@ -4,7 +4,7 @@ using RDCore.LanguageServer.Debugging;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// The workspace a debug adapter is started with: a relative one is the folder of whoever started it, read against the current directory.
+/// The workspace a debug adapter is started with: a relative one is read against the current directory, the folder the adapter was started in.
 /// </summary>
 [TestClass]
 public sealed class DebugAdapterArgumentsTests
@@ -16,7 +16,7 @@ public sealed class DebugAdapterArgumentsTests
     [DataRow(".", DisplayName = "the current folder")]
     [DataRow("Ledger", DisplayName = "a folder in the current one")]
     public void ARelativeWorkspace_IsTheFolderItNamesInTheCurrentDirectory(string workspace)
-        // read as a URI, "." was the root of the drive, and "Ledger" a folder there.
+        // read as a URI, "." would be the root of the drive, and "Ledger" a folder there.
         => Assert.AreEqual(Root(workspace), DebugAdapterHost.Arguments(["--workspace", workspace]).WorkspaceUri);
 
     [TestMethod]
