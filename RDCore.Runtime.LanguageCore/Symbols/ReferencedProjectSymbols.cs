@@ -64,7 +64,7 @@ public static class ReferencedProjectSymbols
 
         var names = ImmutableArray.CreateBuilder<Symbol>();
         names.Add(Tagged(new VBProjectSymbol(workspaceRoot, projectName)));
-        var accessible = modules.Values.Where(IsAccessible).Select(Tagged).ToArray();
+        var accessible = modules.Values.Where(IsAccessible).Select(module => Tagged(WithoutFriendMembers(module))).ToArray();
         names.AddRange(accessible);
         names.AddRange(accessible.OfType<VBClassModuleSymbol>()
             .Where(module => module.GetProperty(SymbolProperties.PredeclaredId))
@@ -152,6 +152,17 @@ public static class ReferencedProjectSymbols
         };
 
         return (VBPredeclaredInstanceSymbol)Tagged(instance, library, classModule.GetProperty(SymbolProperties.LibraryPriority));
+    }
+
+    // MS-VBAL §5.3.1.1: a class's Friend members are accessible within its project only, so the class a referencing project names has none.
+    private static VBModuleSymbol WithoutFriendMembers(VBModuleSymbol module)
+    {
+        return module is VBClassModuleSymbol classModule
+            ? classModule with { Members = WithoutFriend(classModule.Members), DefaultInterfaceMembers = WithoutFriend(classModule.DefaultInterfaceMembers) }
+            : module;
+
+        static ImmutableArray<VBTypeMemberSymbol> WithoutFriend(ImmutableArray<VBTypeMemberSymbol> members)
+            => members.IsDefault ? members : [.. members.Where(member => member.AccessModifier is not AccessModifier.Friend)];
     }
 
     // a symbol of the referenced project, by its name and precedence: of a source project (MS-VBAL §4.1), whose code runs in the session.

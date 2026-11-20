@@ -210,11 +210,14 @@ internal static class ModuleWorkspace
     /// <param name="libraries">The libraries the project references, and the source they and others are found in; only the standard library when omitted.</param>
     /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
     /// <param name="documents">The document modules of the workspace (<see cref="LoadDocumentsAsync"/>).</param>
+    /// <param name="environment">What the host's environment is, from the default profile; the default profile when omitted.</param>
+    /// <param name="constants">The conditional-compilation constants the project defines, by name; none when omitted.</param>
     /// <param name="build">The project's build section; none when omitted.</param>
     public static async Task<SemanticsPayload> SemanticsAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "", SupportedLanguage? language = null,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null,
         IReadOnlyList<(string Name, string Source)>? modules = null, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null,
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IReadOnlyDictionary<string, string>? constants = null,
         ProjectBuild? build = null)
     {
         SemanticsPayload? payload = null;
@@ -222,7 +225,8 @@ internal static class ModuleWorkspace
         {
             var result = await new HostSemanticsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>()).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
             payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
-        }, language: language, libraries: libraries, forms: forms, modules: modules, documents: documents, build: build);
+        }, language: language, libraries: libraries, forms: forms, modules: modules, documents: documents, environment: environment, constants: constants,
+            build: build);
 
         return payload!;
     }
@@ -456,7 +460,7 @@ internal static class ModuleWorkspace
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine? engine = null,
         bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false,
         bool syntaxErrors = false, Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null,
-        IHostInteractionChannel? interaction = null, ProjectBuild? build = null)
+        IHostInteractionChannel? interaction = null, IReadOnlyDictionary<string, string>? constants = null, ProjectBuild? build = null)
     {
         // the engine a test asks for is the one that runs its program, whichever the suite runs every other with: the program's runs, and what the test does
         // with the session while it waits, are in this flow.
@@ -485,6 +489,7 @@ internal static class ModuleWorkspace
                 Super = supers.TryGetValue(module.Name, out var super) ? super : null,
             })],
             References = [.. (libraries?.References ?? []).Select(name => new RDCoreReference { Name = name })],
+            PrecompilerConstants = new((constants ?? new Dictionary<string, string>()).ToDictionary(), StringComparer.OrdinalIgnoreCase),
             Build = build,
         });
         var files = new Dictionary<string, MockFileData> { [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)) };

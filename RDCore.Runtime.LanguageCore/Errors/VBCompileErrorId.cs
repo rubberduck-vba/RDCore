@@ -223,6 +223,8 @@ public enum VBCompileErrorId
     // MS-VBAL §3.3.5.3 Special Identifier Forms, §5.6.10 Simple Name Expressions: a name in brackets that nothing declares is an expression for a host
     // application to evaluate, and RD-VBA has none.
     NoHostApplicationToEvaluateExpression = 9383,
+    // MS-VBAL §5.3.1.1 Procedure Scope: Friend declares a procedure of a class module only.
+    OnlyValidInObjectModule = 9384,
 
 
     /***********************************************************************************************

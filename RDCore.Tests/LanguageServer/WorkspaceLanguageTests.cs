@@ -45,6 +45,30 @@ public sealed class WorkspaceLanguageTests
         Assert.AreEqual(expected, workspace.Language);
     }
 
+    // a folder with no project file, opened by the shell, whose lines are the platform's BASIC: the project made up for it is the folder's modules, the .bas
+    // and .cls files the shell's lines call, and not the shell's own .rdc programs, which are text files of lines.
+    [TestMethod]
+    public async Task AFolderOpenedByTheShell_IsMadeAProjectOfItsModules()
+    {
+        // the shell starts its language server in its own language (--language basic), which the client's options name again.
+        var workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = SupportedLanguages.BASIC.Id };
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(Root, "Other.bas")] = new MockFileData("Attribute VB_Name = \"Other\"\r\nPublic Sub Divide()\r\nEnd Sub\r\n"),
+            [Path.Combine(Root, "Thing.cls")] = new MockFileData("Attribute VB_Name = \"Thing\"\r\n"),
+            [Path.Combine(Root, "Lines.rdc")] = new MockFileData("10 PRINT 1\r\n"),
+        });
+        var (sut, projectFiles) = ServiceAndProjectFiles(fs, () => workspace.SupportedLanguage);
+        var request = new InitializeParams { InitializationOptions = JObject.Parse($"{{ \"Language\": \"{SupportedLanguages.BASIC.Id}\" }}") };
+
+        await sut.LoadAsync(Root, [Root], ask: null, CancellationToken.None, CoreLanguageServerApp.LanguageTakerOf(request, workspace));
+
+        Assert.AreEqual(SupportedLanguages.BASIC.Id, workspace.Language);
+        Assert.IsTrue(projectFiles.Project.IsSynthesized);
+        CollectionAssert.AreEqual(new[] { "Other.bas", "Thing.cls" },
+            projectFiles.Project.ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
+    }
+
     // a folder of one Visual Basic 6 project with no project file of its own: the project made up for it says it is VB6's, and is made again of VB6's
     // source files once that is taken. A document module is RD-VBA's.
     [TestMethod]
