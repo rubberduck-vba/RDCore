@@ -275,10 +275,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                     handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
                     break;
 
-                // a record is given again the fields it starts with, when one of them is a fixed-size array: nothing has run that assigned it.
+                // a record is given again the fields it starts with, when one of them is a fixed-size array: nothing has run that assigned it. It is
+                // allocated again, for its elements are in it (VBUserDefinedTypeLayout): the storage it was given had none in that field.
                 case VBUserDefinedType record when HasFixedSizeArrayField(session.Symbols.Resolver, record, [])
                     && defaults.DefaultValueOf(member) is VBUserDefinedTypeValue sized:
-                    handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
+                    _ = session.Symbols.Resolver.TryAllocate(member, sized, out _);
                     break;
             }
         }
