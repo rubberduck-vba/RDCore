@@ -280,6 +280,76 @@ public sealed class UnusedDeclarationAnalyzerTests
         AssertAre(findings, RDCoreDiagnosticId.VariableNotAssigned, DiagnosticSeverity.Warning);
     }
 
+    // an assignment that is known ends the question, whatever else the variable is passed to: only when none is known does a procedure that was not fully
+    // analyzed, which may assign it, keep it from being reported.
+    [TestMethod]
+    public async Task AVariableThatACallAssigns_OrThatAProcedureNotAnalyzedIsGiven_IsNotReported()
+    {
+        var findings = await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim direct As Long",
+            "    direct = 1",
+            "    Broken direct",
+            "    Dim forwarded As Long",
+            "    Show forwarded",
+            "    Broken forwarded",
+            "    Dim unknown As Long",
+            "    Broken unknown",
+            "    Debug.Print direct + forwarded + unknown",
+            "End Sub",
+            "Private Sub Show(ByRef n As Long)", "    Fill n", "End Sub",
+            "Private Sub Fill(ByRef value As Long)", "    value = 5", "End Sub",
+            "Private Sub Broken(ByRef x As Long)", "    Debug.Print Undeclared", "End Sub");
+
+        Assert.IsEmpty(findings, "assigned, assigned by Fill through Show, and given to Broken, which was not analyzed");
+    }
+
+    [TestMethod]
+    public async Task AVariableThatNoProcedureOfTheChainAssigns_IsReported_WhenEveryProcedureWasAnalyzed()
+    {
+        var findings = await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim forwarded As Long",
+            "    Show forwarded",
+            "    Dim filled As Long",
+            "    Relay filled",
+            "    Debug.Print forwarded + filled",
+            "End Sub",
+            "Private Sub Show(ByRef n As Long)", "    Peek n", "End Sub",
+            "Private Sub Peek(ByRef value As Long)", "    Debug.Print value", "End Sub",
+            "Private Sub Relay(ByRef n As Long)", "    Fill n", "End Sub",
+            "Private Sub Fill(ByRef value As Long)", "    value = 5", "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 3 }, Lines(findings), "Show passes it to Peek, which only reads it; not the one Fill assigns through Relay");
+    }
+
+    // a program's Public variable is counted over the program, and an argument is counted there as in its module: one that a call only reads is read.
+    [TestMethod]
+    public async Task APublicVariableOfAProgram_PassedWhereNoProcedureAssignsIt_IsReported()
+    {
+        var source = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public total As Long",
+            "Public filled As Long",
+            "Public Sub Main()",
+            "    Peek total",
+            "    Fill filled",
+            "    Debug.Print total + filled",
+            "End Sub",
+            "Private Sub Peek(ByRef value As Long)", "    Debug.Print value", "End Sub",
+            "Private Sub Fill(ByRef value As Long)", "    value = 5", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], source);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+
+        var findings = Run(new VariableNotAssignedAnalyzer(), source, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")));
+
+        CollectionAssert.AreEqual(new[] { 2 }, Lines(findings), "total, which Peek only reads; not filled, which Fill assigns");
+        var filled = model.Declarations.Single(fact => fact.Name == "filled").ReferencedFrom;
+        Assert.IsTrue(filled?.Single(site => site.Kind == DeclarationReferenceKind.PassedAsArgument).AssignedThroughCall == true, "Fill assigns it");
+    }
+
     // a procedure called through an object may be another class's that implements the class; one of another module, or of a library, is not followed.
     [TestMethod]
     public async Task AVariablePassedToAProcedureNotFollowed_IsNotReported()
