@@ -106,6 +106,39 @@ public sealed class CompiledDoubleToIntegralTests
             "    Outer = L",
             "End Function"), [], "| 2  4 |", ("Outer", 0));
 
+    // a Long added to a Variant that holds a Single or a Double is a Variant that holds a Double (MS-VBAL §5.6.9.3), let-coerced back to the Long.
+    [TestMethod]
+    [DataRow("D", DisplayName = "a Double")]
+    [DataRow("CSng(D)", DisplayName = "a Single")]
+    public async Task ALongPlusAVariantHoldingAFloatingValue_IsRoundedToEven(string held)
+        => await AssertCompiledAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(1.5); Outer(2.5)",
+            "End Sub",
+            "Private Function Outer(ByVal D As Double) As Long",
+            "    Dim V As Variant, L As Long",
+            $"    V = {held}",
+            "    L = 1",
+            "    L = L + V",
+            "    Outer = L",
+            "End Function"), [], "| 2  4 |", ("Outer", 0));
+
+    // past the range of the Long, the interpreter is given the statement, and raises error 6 (Overflow).
+    [TestMethod]
+    public async Task ALongPlusAVariantHoldingADouble_PastTheRange_RaisesError6()
+        => await AssertCompiledAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer()",
+            "End Sub",
+            "Private Function Outer() As Long",
+            "    Dim V As Variant, L As Long",
+            "    V = 0.5",
+            "    L = 2147483647",
+            "    On Error Resume Next",
+            "    L = L + V",
+            "    Outer = Err.Number",
+            "End Function"), [], "| 6 |", ("Outer", 1));
+
     // the operands of an integer division are let-coerced to an integer type (MS-VBAL §5.6.9.3.5), each rounded to even.
     [TestMethod]
     public async Task TheOperandsOfAnIntegerDivision_AreRoundedToEven()
