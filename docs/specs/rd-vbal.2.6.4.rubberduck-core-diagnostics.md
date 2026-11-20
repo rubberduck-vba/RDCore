@@ -179,6 +179,12 @@ The bounds of a fixed-size array are not assumed: they are its declaration's, wh
 is stated; what an element holds is assumed, so `x = 1 \ a(1)` says nothing.
 `MemberAccessOperationSemanticFlags.CallByNameAccess` is not stated yet: a `CallByName` call is a call of the library, which the sweep does not look into.
 
+An access of a default member that the code does not name, given an argument list or the name of a dictionary access, states the default members it goes
+through in the order they are called (`MemberAccessFact.DefaultMembers`), from the class the object is declared as
+([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)). When `Child` is the default member of `t`'s class and `Item` that of the
+class `Child` returns, `t(1)` goes through `Child` and `Item`, and is `t.Child().Item(1)` written out. None is stated for an object declared `As Object` or
+`Variant`, of a class that is not known, or through an array.
+
 ## Language Core Conditions and Analyzer Opinions
 
 The `VBC`, `VBR` and `VBA` diagnostic families describe conditions the language core defines. `RDC` diagnostics are opinions of the analyzer.
