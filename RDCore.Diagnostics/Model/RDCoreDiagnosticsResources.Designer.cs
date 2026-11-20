@@ -1565,6 +1565,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The project is named &apos;{0}&apos;, the name MS-VBA gives a new project: give it a name of its own..
+        /// </summary>
+        public static string DefaultProjectName_Message {
+            get {
+                return ResourceManager.GetString("DefaultProjectName_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Remove the declaration of &apos;{0}&apos;.
         /// </summary>
         public static string VariableNotUsed_Fix {

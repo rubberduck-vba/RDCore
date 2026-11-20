@@ -44,6 +44,7 @@ internal class CoreDiagnosticsApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DiagnoseDocumentHandler>();
+        builder.WithHandler<DiagnoseProjectHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -182,6 +183,9 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, EmptyCodeBlockAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyProcedureAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyModuleAnalyzer>();
+
+        // every project analyzer, which the project handler calls for each project of the workspace.
+        services.AddSingleton<IProjectAnalyzer, DefaultProjectNameAnalyzer>();
     }
 
     protected override void Dispose(bool disposing)

@@ -78,7 +78,7 @@ internal sealed class WorkspaceDiagnosticHandler(
 
             // a project's .rdproj that has something wrong with it (RDC31001); one that has nothing now, and was reported, is cleared as a module that is
             // gone.
-            var projectReports = projectFiles?.Current() ?? [];
+            var projectReports = projectFiles is null ? [] : await projectFiles.CurrentAsync(token);
             foreach (var (uri, items) in projectReports)
             {
                 Answer(ReportOf(uri, items, previous.GetValueOrDefault(uri)));
