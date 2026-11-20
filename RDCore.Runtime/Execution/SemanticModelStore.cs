@@ -31,11 +31,11 @@ public sealed class SemanticModelStore
     private readonly Dictionary<string, Evaluation> _evaluations = [];
 
     // a module's model, the facts of the expressions of its declarations that the model was made with, the names its excluded #If branches write, the
-    // platforms each of its positions is compiled on, the names its code accesses late, and the names its procedures not fully analyzed write: they are
-    // read together, from one snapshot.
+    // platforms each of its positions is compiled on, the names its code accesses late, the names its procedures not fully analyzed write, and what its
+    // calls do with the arguments they take by reference: they are read together, from one snapshot.
     private sealed record Stored(
         ModuleSemanticModel Model, ModuleDeclarationFacts? Declarations, IReadOnlySet<string>? ExcludedBranchNames, ModulePlatforms? Platforms,
-        LateBoundNames? LateBound, IReadOnlySet<string>? UnanalyzedNames);
+        LateBoundNames? LateBound, IReadOnlySet<string>? UnanalyzedNames, ByRefArguments? ByRefArguments);
 
     private sealed record Evaluation(CancellationTokenSource Cancellation, Task Completion);
 
@@ -88,15 +88,20 @@ public sealed class SemanticModelStore
     /// <see langword="null"/> when they are not known. <see cref="AcrossProject"/> states no count for a declaration of one of these names, and none at all
     /// while a module that has such a procedure has no names stated.
     /// </param>
+    /// <param name="byRefArguments">
+    /// What the calls of the module's code do with the arguments they take by reference (<see cref="DeclarationUsage.ArgumentsOf"/>);
+    /// <see langword="null"/> when that is not known. <see cref="AcrossProject"/> follows them from module to module into the procedures of the project's
+    /// standard modules as well (<see cref="ByRefArguments.Flow"/>).
+    /// </param>
     public void Store(
         ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate, ModuleDeclarationFacts? declarations = null,
         IReadOnlySet<string>? excludedBranchNames = null, ModulePlatforms? platforms = null, LateBoundNames? lateBound = null,
-        IReadOnlySet<string>? unanalyzedNames = null)
+        IReadOnlySet<string>? unanalyzedNames = null, ByRefArguments? byRefArguments = null)
     {
         lock (_storing)
         {
             var key = model.Module.AbsoluteUri;
-            _models = _models.SetItem(key, new Stored(model, declarations, excludedBranchNames, platforms, lateBound, unanalyzedNames));
+            _models = _models.SetItem(key, new Stored(model, declarations, excludedBranchNames, platforms, lateBound, unanalyzedNames, byRefArguments));
             Stop(key);
 
             if (evaluate is not null)
@@ -282,8 +287,11 @@ public sealed class SemanticModelStore
             .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.LateBound!, StringComparer.Ordinal);
         var unanalyzed = snapshot.Where(stored => stored.UnanalyzedNames is not null)
             .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.UnanalyzedNames!, StringComparer.Ordinal);
+        var byRefArguments = snapshot.Where(stored => stored.ByRefArguments is not null)
+            .ToImmutableDictionary(stored => stored.Model.Module.AbsoluteUri, stored => stored.ByRefArguments!, StringComparer.Ordinal);
         return DeclarationUsage.AcrossProject(
-            [.. snapshot.Select(stored => stored.Model)], declarations, project, excluded, entryPoint, isLibrary, lateBound, membersOf, unanalyzed);
+            [.. snapshot.Select(stored => stored.Model)], declarations, project, excluded, entryPoint, isLibrary, lateBound, membersOf, unanalyzed,
+            byRefArguments);
     }
 
     /// <summary>

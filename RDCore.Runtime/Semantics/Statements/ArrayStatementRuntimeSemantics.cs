@@ -376,14 +376,23 @@ public sealed record class ArrayStatementRuntimeSemantics(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, Target target, VBFixedSizeArrayValue array)
     {
         // what the elements held is let go of; each is given a cell of its own holding the default - the type's default value is one value every
-        // caller shares, and an element written in place through its handle would write the default of every other.
+        // caller shares, and an element written in place through its handle would write the default of every other. A record element is reset where
+        // it is, field by field: its fixed-size array fields keep the bounds its declaration gave them, and an element never made is made as a
+        // declared variable of the type starts (IVariableDefaults.ElementDefaultOf).
         var held = ObjectReferences.HeldBy(InvalidBindingHandle.Default, array);
-        var initial = array.ItemType.DefaultValue;
-        var elementCell = session.Symbols.Defaults?.ElementCellOf(array.ItemType);
-        foreach (var subscripts in Subscripts(array))
+        if (array.ItemType is VBUserDefinedType)
         {
-            array.TrySetElement(elementCell?.Invoke()
-                ?? (initial.Handle is ValueBindingHandle ? BindingKnowledge.NewCell(initial.RuntimeValue, isKnown: true) : initial.Handle), subscripts);
+            array.ResetElements();
+        }
+        else
+        {
+            var initial = array.ItemType.DefaultValue;
+            var elementCell = session.Symbols.Defaults?.ElementCellOf(array.ItemType);
+            foreach (var subscripts in Subscripts(array))
+            {
+                array.TrySetElement(elementCell?.Invoke()
+                    ?? (initial.Handle is ValueBindingHandle ? BindingKnowledge.NewCell(initial.RuntimeValue, isKnown: true) : initial.Handle), subscripts);
+            }
         }
 
         ObjectReferences.Release(session, held);

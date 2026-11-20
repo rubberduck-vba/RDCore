@@ -94,6 +94,123 @@ public sealed class LetAssignmentEvaluator(
         ExpressionNode target,
         ExpressionNode source,
         VBTypedValue value)
+        => IndexListsOfARecordPath(session, context, target) is { } lists
+            ? AssignRecordPath(session, context, statement, target, source, value, lists, isSet: false)
+            : AssignTarget(session, context, statement, target, source, value);
+
+    /// <summary>
+    /// Set-assigns <paramref name="value"/> to a member of an object, or to an element of an array a record holds (<strong>MS-VBAL §5.4.3.9</strong>):
+    /// what <see cref="AssignObjectMember(IRuntimeSession, RuntimeEvaluationContext, StatementNode, ExpressionNode, ExpressionNode, VBTypedValue, bool)"/>
+    /// does, the index lists of a path through records evaluated as a Let of it evaluates them.
+    /// </summary>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the assignment.</param>
+    /// <param name="statement">The statement doing the assigning.</param>
+    /// <param name="target">The member access, or the index expression on one.</param>
+    /// <param name="source">The expression the value came from, for the location of an error.</param>
+    /// <param name="value">The value to assign, already evaluated.</param>
+    public RuntimeExecutionOutcome SetMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value)
+        => IndexListsOfARecordPath(session, context, target) is { } lists
+            ? AssignRecordPath(session, context, statement, target, source, value, lists, isSet: true)
+            : AssignObjectMember(session, context, statement, target, source, value, isSet: true);
+
+    // MS-VBA evaluates the index lists of a target that is a path through records, `rs(i).Items(j) = v`, `r.Kids(k).Items(j) = v`, from the last back to
+    // the first, each left to right, after the value and before the path is navigated: `v j i`, `v j k` (observed in Excel). MS-VBAL §5.4.3.8 does not
+    // say. The path is then navigated as any other target is, each list given what it evaluated to.
+    private RuntimeExecutionOutcome AssignRecordPath(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value,
+        System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<ExpressionNode>> lists, bool isSet)
+    {
+        var evaluated = new List<RuntimeExpressionEvaluator.EvaluatedSubscripts>(lists.Length);
+        foreach (var list in lists)
+        {
+            if (expressions.EvaluateSubscripts(session, context, list, out var subscripts, out var isKnown) is { } failure)
+            {
+                return failure.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(failure.ErrorInfo!);
+            }
+
+            evaluated.Add(new(list, subscripts, isKnown));
+        }
+
+        return expressions.WithEvaluatedSubscripts(evaluated, () => isSet
+            ? AssignObjectMember(session, context, statement, target, source, value, isSet: true)
+            : AssignTarget(session, context, statement, target, source, value));
+    }
+
+    // the index lists of a target that is an element of an array a record holds, reached from a variable through elements of arrays of records and
+    // fields of records, the last list first: null for any other target, and for one written with a single list, which is evaluated where it is. A
+    // target reached through an object or a Variant is a call of what it is reached through, and is evaluated as one. A target's declared types do not
+    // change, so its lists are found once for each target.
+    private System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<ExpressionNode>>? IndexListsOfARecordPath(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target)
+    {
+        if (!IsWrittenWithMoreThanOneIndexList(target))
+        {
+            return null;
+        }
+
+        if (_recordPaths.TryGetValue(target, out var known))
+        {
+            return known.Lists;
+        }
+
+        var lists = System.Collections.Immutable.ImmutableArray.CreateBuilder<System.Collections.Immutable.ImmutableArray<ExpressionNode>>();
+        var node = target;
+        while (true)
+        {
+            if (node is IndexExpressionNode index && expressions.DeclaredTypeOf(session, index.Callee, context) is VBArrayType)
+            {
+                lists.Add(index.Arguments);
+                node = index.Callee;
+            }
+            else if (node is MemberAccessExpressionNode { Owner: { } owner } && expressions.DeclaredTypeOf(session, owner, context) is VBUserDefinedType)
+            {
+                node = owner;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        var path = new RecordPath(lists.Count > 1 && IsTheRootOfARecordPath(session, context, node) ? lists.ToImmutable() : null);
+        _recordPaths.AddOrUpdate(target, path);
+        return path.Lists;
+    }
+
+    // a variable, by its name or named through its module (`Module1.Records(i)`), or a field of the record a With block's target is (`.Kids(k)`).
+    private bool IsTheRootOfARecordPath(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode node) => node switch
+    {
+        SimpleNameExpressionNode => expressions.BoundVariableOf(session, node, context) is not null,
+        MemberAccessExpressionNode { Owner: null } => context.EnclosingWithTargetExpression is { } withTarget
+            && expressions.DeclaredTypeOf(session, withTarget, context) is VBUserDefinedType,
+        MemberAccessExpressionNode access => RuntimeExpressionEvaluator.IsAVariable(expressions.ResolveNamespaceQualified(session, context, access)),
+        _ => false,
+    };
+
+    private static bool IsWrittenWithMoreThanOneIndexList(ExpressionNode target)
+    {
+        var count = 0;
+        for (var node = target; node is not null;)
+        {
+            (node, count) = node switch
+            {
+                IndexExpressionNode index => (index.Callee, count + 1),
+                MemberAccessExpressionNode access => (access.Owner, count),
+                _ => (null, count),
+            };
+        }
+
+        return count > 1;
+    }
+
+    private sealed record class RecordPath(System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<ExpressionNode>>? Lists);
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ExpressionNode, RecordPath> _recordPaths = [];
+
+    private RuntimeExecutionOutcome AssignTarget(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value)
         // an array that is locked is not assigned another (MS-VBA, recorded in Excel): error 10, as a ReDim of it is.
         => IsALockedArray(session, context, target, value)
             ? RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ThisArrayIsFixedOrTemporarilyLocked, target.Location, $"{target} is locked"))
