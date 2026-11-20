@@ -216,8 +216,9 @@ public sealed class ProjectReferenceCountTests
         Assert.IsNull(main.References);
     }
 
+    // the interface and the event call them through no expression: what is counted is the code that calls them by their own name, here none.
     [TestMethod]
-    public async Task AProgramsEventHandlerAndImplementation_HaveNoCount_TheirCallerIsNoExpression()
+    public async Task AProgramsEventHandlerAndImplementation_AreCounted_ByTheCallsOfTheirOwnName()
     {
         (string, string) shape = ("IShape", ModuleWorkspace.ClassModule("IShape", "Public Sub Draw()", "End Sub"));
         (string, string) square = ("Square", ModuleWorkspace.ClassModule("Square",
@@ -228,9 +229,9 @@ public sealed class ProjectReferenceCountTests
         var model = await ModelOfAsync("Square", program, classes: [shape, square]);
 
         Assert.AreEqual(DeclarationRole.InterfaceImplementation, Declaration(model, "IShape_Draw").Role);
-        Assert.IsNull(Declaration(model, "IShape_Draw").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "IShape_Draw").References);
         Assert.AreEqual(DeclarationRole.EventHandler, Declaration(model, "Class_Initialize").Role);
-        Assert.IsNull(Declaration(model, "Class_Initialize").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Class_Initialize").References);
         Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(await ModelOfAsync("IShape", program, classes: [shape, square]), "Draw").References,
             "the interface's member is called through it");
     }

@@ -22,7 +22,7 @@ internal sealed class FunctionReturnValueAlwaysDiscardedAnalyzer : IModuleAnalyz
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.Semantics?.Declarations ?? [])
-            .Where(declaration => declaration.Kind == DeclarationKind.Procedure
+            .Where(declaration => declaration is { Kind: DeclarationKind.Procedure, Role: DeclarationRole.None }
                 && declaration.ReferencedFrom is { Length: > 0 } sites && sites.All(site => site.DiscardsResult))
             .OrderBy(declaration => declaration.Location.Range.Start)
             .Select(declaration => new AnalyzerFinding(
