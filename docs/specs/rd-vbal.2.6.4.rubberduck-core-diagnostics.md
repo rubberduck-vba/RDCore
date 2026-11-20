@@ -181,6 +181,11 @@ be of, with its access modifier, as the code of the access sees it (a `Friend` m
 assigns. An empty list means the access raises error 438. The candidates are not known for a parameter, a public variable, a variable that is never given an
 object, an object of a class that another class implements, or an extensible class that does not declare the member.
 
+A member that an extensible class does not declare is late-bound too, on a variable declared as the class
+([**MS-VBAL §5.6.12** Member Access Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/af3a4059-3059-4e79-8aa5-685324fb266a)).
+For a class of the VBA library (`c.Nope` of a `Collection`) the list is empty: the platform implements the class, and its objects have no members it does
+not declare. For a class of another library, or a class module with `Attribute VB_Extensible = True`, the candidates are not known.
+
 `MemberAccessOperationSemanticFlags.CallByNameAccess` is not stated yet: a `CallByName` call is a call of the library, which the sweep does not look into.
 
 ## Language Core Conditions and Analyzer Opinions

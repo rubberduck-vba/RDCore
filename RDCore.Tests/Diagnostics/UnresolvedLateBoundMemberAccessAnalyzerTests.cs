@@ -26,6 +26,9 @@ public sealed class UnresolvedLateBoundMemberAccessAnalyzerTests
     private static readonly (string, string) Square = ("Square", ModuleWorkspace.ClassModule("Square", "Option Explicit", "Implements IShape",
         "Private Function IShape_Area() As Double", "End Function"));
 
+    private static readonly (string, string) Open = ("Open", ModuleWorkspace.ClassModule("Open", "Attribute VB_Extensible = True", "Option Explicit",
+        "Public Tag As Long"));
+
     // the body's lines, separated by '|', follow the three lines that open the module and its procedure
     private const int FirstBodyLine = 3;
 
@@ -33,7 +36,7 @@ public sealed class UnresolvedLateBoundMemberAccessAnalyzerTests
     {
         var program = $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main({parameters})\r\n"
             + $"{string.Join("\r\n", body.Split('|'))}\r\nEnd Sub\r\n";
-        var payload = await ModuleWorkspace.SemanticsAsync([Holder, Other, Shape, Square], program);
+        var payload = await ModuleWorkspace.SemanticsAsync([Holder, Other, Shape, Square, Open], program);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
         return [.. new UnresolvedLateBoundMemberAccessAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model))];
@@ -67,8 +70,23 @@ public sealed class UnresolvedLateBoundMemberAccessAnalyzerTests
     public async Task AnAccessThatCanSucceedOrIsAlreadyReported_IsNotReported(string parameters, string body)
         => Assert.IsEmpty(await FindingsAsync(parameters, body));
 
+    // the standard library's classes are extensible, and the platform's: an object of one has the members its class declares and no other.
     [TestMethod]
-    [Ignore("The host does not flag a member that an extensible class does not declare as late-bound, so the members the access may reach are not stated.")]
-    public async Task AMemberThatAnExtensibleLibraryClassDoesNotDeclare_IsReported()
-        => Assert.ContainsSingle(await FindingsAsync(string.Empty, "Dim c As Collection|Dim x As Variant|Set c = New Collection|x = c.Nope"));
+    [DataRow("", "Dim c As Collection|Dim x As Variant|Set c = New Collection|x = c.Nope", DisplayName = "a variable of the class")]
+    [DataRow("", "Dim c As New Collection|c.Nope 1", DisplayName = "an auto-instantiated variable, in a call statement")]
+    [DataRow("", "Dim c As New Collection|Dim x As Variant|With c|x = .Nope|End With", DisplayName = "the object of a With block")]
+    [DataRow("ByVal c As Collection", "Dim x As Variant|x = c.Nope", DisplayName = "a parameter, which can only be of the class")]
+    public async Task AMemberThatAStandardLibraryClassDoesNotDeclare_IsError438(string parameters, string body)
+    {
+        var finding = Assert.ContainsSingle(await FindingsAsync(parameters, body));
+
+        StringAssert.Contains(finding.Message, "'Nope'");
+        StringAssert.Contains(finding.Message, "438");
+    }
+
+    [TestMethod]
+    [DataRow("Dim c As New Collection|Dim x As Variant|x = c.Count", DisplayName = "a member a class of the VBA library declares")]
+    [DataRow("Dim b As New Open|Dim x As Variant|x = b.Nope", DisplayName = "a member an extensible class module does not declare")]
+    public async Task AMemberThatAnExtensibleClassDeclaresOrCanHave_IsNotReported(string body)
+        => Assert.IsEmpty(await FindingsAsync(string.Empty, body));
 }

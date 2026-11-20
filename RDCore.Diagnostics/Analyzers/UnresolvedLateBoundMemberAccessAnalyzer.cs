@@ -12,8 +12,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// The host states the members the access may reach (<c>OperatorFactDto.LateBoundCandidates</c>): none, when the classes the object can be of are all known
-/// and none has such a member; not known, for an object given as an argument, returned by a function or read from a collection, which is not reported. An
-/// access whose run-time error the host already states is the run-time error's.
+/// and none has such a member, or when a class of the VBA library, whose objects have no other members, does not declare it; not known, for an object given
+/// as an argument, returned by a function or read from a collection, which is not reported. An access whose run-time error the host already states is the
+/// run-time error's.
 /// </remarks>
 internal sealed class UnresolvedLateBoundMemberAccessAnalyzer : IModuleAnalyzer
 {
