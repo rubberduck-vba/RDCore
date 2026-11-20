@@ -91,9 +91,10 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
         var first = code.Min(child => child.SourceLocation.Range.Start.Line);
         var last = code.Max(child => child.SourceLocation.Range.End.Line);
         var end = member.SourceLocation.Range.End.Line;
+        var lines = SyntaxEdits.LinesThrough(header, end);
         if (first <= header || last >= end
             || attributes.Any(attribute => attribute.SourceLocation.Range.Start.Line > last)
-            || parse.PrecompilerTrivia.Any(trivia => trivia.SourceLocation.Range.Start.Line <= end && trivia.SourceLocation.Range.End.Line >= header))
+            || parse.PrecompilerTrivia.Any(trivia => lines.Intersects(trivia.SourceLocation.Range)))
         {
             return null;
         }
