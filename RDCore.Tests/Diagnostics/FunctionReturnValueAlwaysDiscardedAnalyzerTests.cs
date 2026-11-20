@@ -9,8 +9,8 @@ using RDCore.Tests.Cli;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// <c>RDC00217</c>: a <c>Function</c> whose calls the host counts (a <c>Friend</c> one, a <c>Public</c> one of a program) that every call of the project
-/// calls as a statement, so that no caller uses the value it returns.
+/// <c>RDC00217</c>: a <c>Function</c> whose calls the host counts (a <c>Private</c> one, a <c>Friend</c> one, a <c>Public</c> one of a program) that every
+/// call of the project calls as a statement, so that no caller uses the value it returns.
 /// </summary>
 [TestClass]
 public sealed class FunctionReturnValueAlwaysDiscardedAnalyzerTests
@@ -100,10 +100,10 @@ public sealed class FunctionReturnValueAlwaysDiscardedAnalyzerTests
 
         // Save, a Private function that only its module calls, is found in either.
         CollectionAssert.AreEqual(new[] { ("Save", 10) }, await FoundInAsync("Journal", noEntryPoint, [], Journal),
-            "the host that runs the project can call it");
+            "not Note nor Flush, which the host that runs the project can call");
         CollectionAssert.AreEqual(new[] { ("Save", 10) },
             await FoundInAsync("Journal", NotesAndCounts, [], Journal, new ProjectBuild { OutputType = ProjectOutputType.Library }),
-            "a referencing project can call it");
+            "not Note nor Flush, which a referencing project can call");
     }
 
     [TestMethod]

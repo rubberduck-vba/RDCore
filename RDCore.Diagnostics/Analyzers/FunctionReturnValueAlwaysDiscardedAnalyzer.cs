@@ -13,8 +13,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// Only a procedure whose references the host counts over the project is found (<see cref="RDCore.SDK.Platform.Protocol.DeclarationFactDto.ReferencedFrom"/>):
 /// a <c>Friend</c> one, a <c>Public</c> one of a program, whose run starts at its entry point, and a <c>Private</c> one, which only its module calls.
 /// Another <c>Public</c> function can be called by another project or by the host that runs the project. A <c>Private</c> one is not counted when a string
-/// of the project writes its name, or when its module calls <c>CallByName</c> with a name that is not a string literal. A function no code calls is not
-/// found here.
+/// of the project writes its name, when its module calls <c>CallByName</c> with a name that is not a string literal, or when it implements a member of
+/// an interface. A function no code calls is not found here.
 /// </remarks>
 internal sealed class FunctionReturnValueAlwaysDiscardedAnalyzer : IModuleAnalyzer
 {

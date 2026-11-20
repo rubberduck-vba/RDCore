@@ -62,7 +62,7 @@ public enum RDCoreDiagnosticId
     ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
     SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
     FunctionReturnValueDiscarded = 216, // [RD2:FunctionReturnValueDiscardedInspection] a Function of the project called as a statement: the value it returns is discarded
-    FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Friend Function every call of the project calls as a statement: it can be a Sub
+    FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Function that every call of the project calls as a statement: it can be a Sub
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
 
     ObsoleteCallingConvention = 301,
