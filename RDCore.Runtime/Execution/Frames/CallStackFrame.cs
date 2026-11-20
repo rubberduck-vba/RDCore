@@ -1447,7 +1447,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     private VBType? ReadTypeOf(Symbol parameter)
         => TryGetReferencedType(parameter, out var referenced) ? referenced : (parameter as ITypedSymbol)?.ResolvedType;
 
-    // the same, of the parameter of the procedure the activation is of that has the identity (a ByRef parameter is one); none, when it has none.
+    // the same, by the parameter's identity: the parameter of the activation's procedure that has it (a ByRef parameter is one); null when none has it.
     private VBType? ReadTypeOf(SemanticId parameter)
     {
         if (_occasional?.ReferencedTypes is { } referencedTypes && referencedTypes.TryGetValue(parameter, out var referenced))
