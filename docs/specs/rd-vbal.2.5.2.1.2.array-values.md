@@ -47,12 +47,12 @@ fixed-size, and the bound expressions), with the element type as the descriptor'
 The host allocates the storage of a variable through `IVariableDefaults` (`ISessionSymbols.Defaults`), which the execution pipeline sets:
 a fixed-size array starts with the dimensions its bounds reduce to - an omitted lower bound being the `Option Base` of the module - and a resizable one
 starts uninitialized, as an array of its declared element type. A procedure's local is allocated with each activation, a field of a class with each object,
-and a module-level array when its module's code is loaded, which is when its constants can first be reduced. So is a module-level record with a fixed-size
-array field, allocated again then: the field's elements are in the record. A module loaded again at an edit keeps both as the program left them, where
-they were.
+and a module-level array when its module's code is loaded, which is when its constants can first be reduced. A module-level record with a fixed-size
+array field is allocated again at that load, because the field's elements are part of the record. A module loaded again at an edit keeps its arrays and
+records, with their values, at their addresses.
 
-> **Not implemented.** A bound that cannot be reduced (a non-constant expression, or an upper bound below the lower) is a compile error that nothing reports
-> yet; the array is left uninitialized. The fixed-size array field of a user-defined type carries no bounds.
+A bound that cannot be reduced (a non-constant expression, one past the range of a `Long`, or an upper bound below the lower) is a compile error of the
+module, which is then not loaded.
 
 ## Initialization
 
