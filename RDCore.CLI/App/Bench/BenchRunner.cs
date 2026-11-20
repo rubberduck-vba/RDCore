@@ -365,31 +365,8 @@ internal sealed class BenchRunner(
     {
         var problems = new List<string>();
         var stopwatch = Stopwatch.StartNew();
-        var parsed = new List<(BenchModule Module, Uri Uri, ModuleParseResult Parse)>();
-        foreach (var module in workspace.Modules)
-        {
-            // a module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a branch of a #If
-            // that is excluded, which only the host knows.
-            // the parser reads text alone: a form's designer is set on its parse from its text and its companion file, as the language server sets it.
-            var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
-            {
-                Designer = FormDesigner.Read(module.Source, module.Companion, out var designerProblem),
-            };
-            if ((module.CompanionProblem ?? designerProblem) is { } problem)
-            {
-                loggers.CreateLogger<BenchRunner>().LogWarning(problem, "⚠️ The designer of {module} cannot be read.", module.RelativePath);
-            }
-
-            if (parse.SyntaxTree is not null)
-            {
-                parsed.Add((module, SymbolUri.Module(root, module.Name), parse));
-            }
-            else
-            {
-                problems.Add($"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Description))}");
-            }
-        }
-
+        var benchModules = new Dictionary<ParsedModule, BenchModule>(ReferenceEqualityComparer.Instance);
+        var own = Parsed(workspace, root, problems, string.Empty, benchModules);
         var parseTime = stopwatch.Elapsed;
 
         // as the language server does: the names of every module bound among all of them and the libraries the project references, then each module's symbols
@@ -398,78 +375,65 @@ internal sealed class BenchRunner(
         stopwatch.Restart();
         var composed = provider.Session.Environment;
         var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, composed.Language);
-        IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, composed.Is64Bit).ProvideSymbols()];
         var scope = composed.Language.ImplicitDeclarationScope;
 
-        // what host document each document module is the code of, as the language server has it: its code names the members of its host's class, and
-        // they are not taken for variables it declares by naming them.
-        var hosts = new Dictionary<string, DocClassType>(StringComparer.OrdinalIgnoreCase);
-        foreach (var module in workspace.Modules)
+        // each project the project references is bound as its own analysis binds it: its modules, the libraries it references, and its own name. It gives the
+        // project its names at the precedence of the reference, after the libraries'.
+        var projects = workspace.ReferencedProjects.Select(each =>
         {
-            if (workspace.Project.Modules.FirstOrDefault(entry => string.Equals(entry.RelativeUri, module.RelativePath, StringComparison.OrdinalIgnoreCase))?.Super is { } super)
-            {
-                hosts.TryAdd(module.Name, super);
-            }
-        }
+            var projectRoot = each.Workspace.RootUri;
+            var modules = Parsed(each.Workspace, projectRoot, problems, $"{each.Name}.", parsed: null);
+            var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project.References, composed.Language);
+            var projectResolver = WorkspaceSymbolResolver.Compose(
+                projectRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit), each.Name,
+                scope, [.. new LibrarySymbolProvider(projectRoot, ownLibraries, composed.Is64Bit).ProvideSymbols()], HostsOf(each.Workspace));
+            return new ReferencedProjectModules(each.Name, referenced.Priorities.GetValueOrDefault(each.Name), projectRoot, modules, projectResolver);
+        }).ToArray();
+
+        IReadOnlyList<Symbol> librarySymbols =
+        [
+            .. new LibrarySymbolProvider(root, referenced, composed.Is64Bit).ProvideSymbols(),
+            .. projects.SelectMany(project => project.NamesFor(root, scope)),
+        ];
 
         var resolver = WorkspaceSymbolResolver.Compose(
-            root, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit),
-            workspace.Project.Name, scope, librarySymbols, hosts);
+            root, own.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit),
+            workspace.Project.Name, scope, librarySymbols, HostsOf(workspace));
 
-        // as the language server does, the types of every module are declared before the declarations of any are bound (DefineSymbolsParams.DeclareTypesOnly).
-        var define = new DefineSymbolsHandler(provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries), errorDetails, loggers.CreateLogger<DefineSymbolsHandler>());
-        Task<DefineSymbolsResult> Define(DefineSymbolsParams definition)
-        {
-            definitions?.Add(definition);
-            return define.Handle(definition, token);
-        }
-
-        foreach (var declareTypesOnly in new[] { true, false })
-        {
-            foreach (var (module, uri, parse) in parsed)
-            {
-                var symbols = new SyntaxTreeSymbolProvider(root, uri, module.Type, parse, resolver, withImplicitDeclarations: true, scope).ProvideSymbols();
-                await Define(new DefineSymbolsParams
-                {
-                    WorkspaceRoot = root,
-                    ModuleUri = uri,
-                    ModuleName = module.Name,
-                    Symbols = SymbolDescriptorProjector.Project(symbols, uri),
-                    Directives = ModuleKinds.DirectivesOf(module.Type, parse.SyntaxTree!.GetModuleDirectives()),
-                    ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
-                    PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse),
-                    Replace = true,
-                    DeclareTypesOnly = declareTypesOnly,
-                });
-            }
-        }
-
-        var symbolsTime = stopwatch.Elapsed;
-
-        stopwatch.Restart();
+        var define = new DefineSymbolsHandler(
+            provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries), errorDetails,
+            loggers.CreateLogger<DefineSymbolsHandler>());
+        var symbolsTime = TimeSpan.Zero;
         var loaded = new List<(BenchModule Module, Uri Uri)>();
-        foreach (var (module, uri, parse) in parsed)
+        foreach (var definition in SessionDefinitions.Of(root, own, resolver, scope, replace: true, projects))
         {
-            var defined = await Define(new DefineSymbolsParams
+            if (definition.ToRequest() is not { } request)
             {
-                WorkspaceRoot = root,
-                ModuleUri = uri,
-                ModuleName = module.Name,
-                Directives = ModuleKinds.DirectivesOf(module.Type, parse.SyntaxTree!.GetModuleDirectives()),
-                ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
-                ParseResultJson = PlatformJson.Serialize(parse),
-                CodeOnly = true,
-            });
+                continue;
+            }
 
+            if (definition.Phase is SessionDefinitionPhase.Code && symbolsTime == TimeSpan.Zero)
+            {
+                symbolsTime = stopwatch.Elapsed;
+                stopwatch.Restart();
+            }
+
+            definitions?.Add(request);
+            var defined = await define.Handle(request, token);
+            if (definition.Phase is not SessionDefinitionPhase.Code)
+            {
+                continue;
+            }
+
+            // what keeps a module of a referenced project from loading is named as of its project: it refuses the run as one of the project's own does.
+            var name = definition.Referenced is { } project ? $"{project.Name}.{definition.Module.Name}" : definition.Module.Name;
             if (defined.CodeErrors.Count > 0)
             {
-                problems.Add($"{module.Name}: {string.Join("; ", defined.CodeErrors)}");
+                problems.Add($"{name}: {string.Join("; ", defined.CodeErrors)}");
             }
-            else
+            else if (definition.Referenced is null)
             {
-                loaded.Add((module, uri));
+                loaded.Add((benchModules[definition.Module], definition.Module.Uri));
             }
         }
 
@@ -480,6 +444,57 @@ internal sealed class BenchRunner(
         var sweepTime = stopwatch.Elapsed;
 
         return new LoadedWorkspace(provider, loaded, parseTime, symbolsTime, loadTime, sweepTime, problems, referenced.Libraries);
+    }
+
+    // the modules of a workspace that parse, addressed under root; what keeps one from parsing is a problem, named with the prefix (its project's, for a
+    // referenced one). A module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a
+    // branch of a #If that is excluded, which only the host knows. The parser reads text alone: a form's designer is set on its parse from its text and its
+    // companion file, as the language server sets it.
+    private List<ParsedModule> Parsed(
+        BenchWorkspace workspace, Uri root, List<string> problems, string prefix, Dictionary<ParsedModule, BenchModule>? parsed)
+    {
+        var modules = new List<ParsedModule>();
+        foreach (var module in workspace.Modules)
+        {
+            var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
+            {
+                Designer = FormDesigner.Read(module.Source, module.Companion, out var designerProblem),
+            };
+            if ((module.CompanionProblem ?? designerProblem) is { } problem)
+            {
+                loggers.CreateLogger<BenchRunner>().LogWarning(problem, "⚠️ The designer of {module} cannot be read.", module.RelativePath);
+            }
+
+            if (parse.SyntaxTree is null)
+            {
+                problems.Add($"{prefix}{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Description))}");
+                continue;
+            }
+
+            var each = new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Type, parse);
+            modules.Add(each);
+            parsed?.Add(each, module);
+        }
+
+        return modules;
+    }
+
+    // what host document each document module is the code of, as the language server has it: its code names the members of its host's class, and they are
+    // not taken for variables it declares by naming them.
+    private static Dictionary<string, DocClassType> HostsOf(BenchWorkspace workspace)
+    {
+        var hosts = new Dictionary<string, DocClassType>(StringComparer.OrdinalIgnoreCase);
+        foreach (var module in workspace.Modules)
+        {
+            var listed = workspace.Project.Modules
+                .FirstOrDefault(entry => string.Equals(entry.RelativeUri, module.RelativePath, StringComparison.OrdinalIgnoreCase));
+            if (listed?.Super is { } super)
+            {
+                hosts.TryAdd(module.Name, super);
+            }
+        }
+
+        return hosts;
     }
 
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);

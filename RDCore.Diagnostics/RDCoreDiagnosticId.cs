@@ -45,6 +45,8 @@ public enum RDCoreDiagnosticId
     BangNotation = 123, // b!key: the default member of a known class given the name as a String
     UnboundBangNotation = 124, // v!key of an Object: its default member is known only at run time
     SuspiciousLetAssignment = 125, // an object assigned to an object without Set: default member to default member, where Set was likelier meant
+    IndexedRecursiveDefaultMemberAccess = 126, // an argument list given to an object of a known class that goes through more than one default member
+    RecursiveBangNotation = 127, // b!key of a known class that goes through more than one default member
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,
@@ -113,6 +115,8 @@ public enum RDCoreDiagnosticId
     LineLabelNotUsed = 1016, // a line label nothing jumps to
     WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
     KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
+    Win64IsABitnessTest = 1019, // #If Win64 Then: 1 on a 64-bit Mac too, as in Excel for Mac; Is64BitEnv tests the bitness
+    UndefinedConditionalConstant = 1020, // #If DEV Then, DEV defined nowhere: 0, so False; a retired predefined one (Linux64) names its replacement
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,
