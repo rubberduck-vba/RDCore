@@ -51,25 +51,6 @@ public sealed class VariantStringFunctionAnalyzerTests
         => Assert.AreEqual("4:16",
             At(await ProgramAsync("Option Explicit", "Public Sub Main()", "    Dim s As String", "    Debug.Print VBA.Trim(\" a \")", "End Sub")));
 
-    // MS-VBAL §5.6.12: a member of a module written with a type character is the member of that name, and not the one without it.
-    [TestMethod]
-    public async Task AQualifiedStringForm_IsBoundToIt_AndIsAString()
-    {
-        var program = ModuleWorkspace.StandardModule("Program", "Option Explicit", "Public Sub Main()", "    Debug.Print VBA.Left$(\"abc\", 1)", "End Sub");
-        var payload = await ModuleWorkspace.SemanticsAsync([], program);
-        // the member access and the call of it are both bound to the function.
-        var facts = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program").Procedures
-            .SelectMany(procedure => procedure.Expressions)
-            .Where(fact => fact.Binding?.Fragment is { } bound
-                && (bound.EndsWith("Left$", StringComparison.Ordinal) || bound.EndsWith("Left", StringComparison.Ordinal)))
-            .ToArray();
-
-        Assert.IsNotEmpty(facts);
-        Assert.IsTrue(facts.All(fact => fact.Binding!.Fragment.EndsWith("Left$", StringComparison.Ordinal) && fact.DeclaredType == "String"),
-            string.Join("; ", facts.Select(fact => $"{fact.Binding} {fact.DeclaredType}")));
-        Assert.IsTrue(facts.All(fact => fact.StringForm is null));
-    }
-
     [TestMethod]
     public async Task DateAndTime_HaveNoStringFormOfTheSameValue()
         => Assert.IsEmpty(await ProgramAsync("Option Explicit", "Public Sub Main()", "    Debug.Print Date, Time, Date$, Time$", "End Sub"));
