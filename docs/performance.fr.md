@@ -157,6 +157,11 @@ appelle Excel quatre fois par cellule, 40 000 fois en tout, alors qu'un bloc se 
   fusion, et celle de l'exécution de référence. Le temps de RD-VBA pour un cas est celui de l'exécution de référence, multiplié par le rapport entre les
   deux compilations sur cette machine. Comparer les deux compilations sur une même machine écarte la vitesse propre de cette machine. Le fichier des
   chiffres (`bench.json`, sur la branche `badges`) nomme le processeur de cette machine.
+- **Préchauffage.** Avant ses exécutions chronométrées, `rdc bench` exécute chaque cas sans chronomètre jusqu'à ce que .NET ait fini d'optimiser le code
+  qu'il appelle, et `rdc bench-msvba` exécute chaque cas du corpus deux fois sans chronomètre dans MS-VBA ([Bancs d'essai](benchmarks/index.fr.md)). À
+  chaque fusion, les deux compilations se réchauffent quand les deux le peuvent. Quand la compilation de référence est antérieure au préchauffage, comme
+  celle de l'exécution de référence actuelle, aucune ne se réchauffe, et chaque cas s'exécute 40 fois par ronde au lieu de sept : la plupart des cas
+  atteignent leur code optimisé au fil de ces exécutions.
 - **Chaque exécution part d'un tas récupéré.** Avant chaque exécution chronométrée, `rdc bench` lance une récupération de mémoire sur tout le tas :
   qu'une récupération de mémoire tombe pendant une exécution ne dépend alors que de ce que cette exécution alloue et garde. Le temps d'une récupération
   pendant une exécution fait partie du chiffre.
