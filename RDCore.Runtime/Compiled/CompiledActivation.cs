@@ -2045,6 +2045,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     internal void CountInvokerActivationMade() => Interlocked.Increment(ref _invokerActivationsMade);
 
+    // the activation of the body each invoker last returned from a call it made of it, which its next call is made in (RuntimeProcedureInvoker.Run). Keyed
+    // weakly by the invoker, which the activation holds: an entry goes with its invoker once the run its pipeline was composed for is over, and every entry
+    // goes with the body when an edit replaces it.
+    internal ConditionalWeakTable<RuntimeProcedureInvoker, StrongBox<CompiledActivation?>> Spares { get; } = [];
+
     internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
 
     private long _supportCallsMade;
