@@ -104,7 +104,8 @@ public static class DeclarationUsage
 
     /// <summary>
     /// What the calls of a module's code do with the arguments they take by reference, where the procedure called is one of the module's own: those each
-    /// call is known to assign, whatever the rest of the module is, and those it only reads, once every procedure of the module was fully analyzed.
+    /// call is known to assign, whatever the rest of the module is, and those it only reads, once every procedure of the module was fully analyzed. What
+    /// the module's code does with its parameters and passes on goes with them, for a count across the project to follow (<see cref="ByRefFlow"/>).
     /// </summary>
     /// <param name="declared">What the module declares, its procedures' parameters included (<see cref="DeclaredBy"/>).</param>
     /// <param name="procedures">The models of the module's procedures.</param>
@@ -120,58 +121,47 @@ public static class DeclarationUsage
             .ToHashSet();
         var parameters = declared.OfType<VBParameterSymbol>().Select(parameter => parameter.SemanticId).Where(id => !bodiless.Contains(id)).ToHashSet();
         var bound = Bound(models.SelectMany(procedure => procedure.Expressions.Values)).ToList();
-        var (known, possible) = AssignedParameters(bound, arguments, parameters);
-        var everyProcedureIsAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
+        var given = models.SelectMany(procedure => procedure.Arguments)
+            .Where(argument => argument is { IsExternal: false, IsLibrary: false, IsParamArray: false })
+            .DistinctBy(argument => argument.Argument)
+            .ToDictionary(argument => argument.Argument, argument => new SemanticId(argument.Parameter));
 
-        var assigned = new HashSet<SourceRange>();
-        var read = new HashSet<SourceRange>();
+        var passed = new List<ByRefArgument>();
         foreach (var fact in bound.Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument)))
         {
-            if (!arguments.TryGet(fact.Node, out var parameter) || !parameters.Contains(parameter))
-            {
-                continue;
-            }
-
-            if (known.Contains(parameter))
-            {
-                assigned.Add(fact.Location.Range);
-            }
-            else if (everyProcedureIsAnalyzed && !possible.Contains(parameter))
-            {
-                read.Add(fact.Location.Range);
-            }
+            var own = arguments.TryGet(fact.Node, out var parameter) && parameters.Contains(parameter);
+            passed.Add(new ByRefArgument(
+                fact.Location.Range, fact.Binding!.Value, own ? parameter : given.TryGetValue(fact.Node, out var other) ? other : null, own));
         }
 
-        return new ByRefArguments(assigned, read);
+        var assigned = bound.Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) && parameters.Contains(fact.Binding!.Value))
+            .Select(fact => fact.Binding!.Value)
+            .ToHashSet();
+        var flow = new ByRefFlow(parameters, assigned, passed, models.All(procedure => procedure.IsFullyAnalyzed));
+        return Followed([flow], argument => argument.CallsItsOwnProcedure)[0] with { Flow = flow };
     }
 
     // MS-VBAL §5.3.1.11: an argument passed by reference is assigned when the procedure writes to its parameter, or passes the parameter on by reference to
-    // one that does. The parameters of the module's own procedures are followed to a fixed point, which a procedure that calls itself does not change. A
-    // parameter passed on where no parameter of the module is known to be given it (a procedure of another module or of a library, a Declare, a call bound
-    // late) may be assigned: it is a possible assignment, and not a known one.
-    private static (HashSet<SemanticId> Known, HashSet<SemanticId> Possible) AssignedParameters(
-        List<ExpressionFact> bound, ArgumentParameters arguments, HashSet<SemanticId> parameters)
+    // one that does. The parameters that the calls followed give arguments to are followed to a fixed point, which a procedure that calls itself does not
+    // change. A parameter passed on to a call that is not followed (through a variable of a class, to a library, a Declare, a call bound late, or one of a
+    // module that has no flow), or one of a module whose code was not fully analyzed, may be assigned: it is a possible assignment, and not a known one.
+    private static List<ByRefArguments> Followed(IReadOnlyList<ByRefFlow> flows, Func<ByRefArgument, bool> follows)
     {
-        var known = new HashSet<SemanticId>();
-        var possible = new HashSet<SemanticId>();
+        var parameters = flows.SelectMany(flow => flow.Parameters).ToHashSet();
+        var known = flows.SelectMany(flow => flow.Assigned).ToHashSet();
+        var possible = flows.SelectMany(flow => flow.IsFullyAnalyzed ? flow.Assigned : flow.Parameters).ToHashSet();
+        bool IsFollowed(ByRefArgument argument) => argument.Parameter is { } to && parameters.Contains(to) && follows(argument);
+
         var passedOn = new List<(SemanticId From, SemanticId To)>();
-        foreach (var fact in bound.Where(fact => parameters.Contains(fact.Binding!.Value)))
+        foreach (var argument in flows.SelectMany(flow => flow.Arguments.Where(argument => flow.Parameters.Contains(argument.Binding))))
         {
-            if (fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget))
+            if (IsFollowed(argument))
             {
-                known.Add(fact.Binding!.Value);
-                possible.Add(fact.Binding!.Value);
+                passedOn.Add((argument.Binding, argument.Parameter!.Value));
             }
-            else if (fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument))
+            else
             {
-                if (arguments.TryGet(fact.Node, out var to) && parameters.Contains(to))
-                {
-                    passedOn.Add((fact.Binding!.Value, to));
-                }
-                else
-                {
-                    possible.Add(fact.Binding!.Value);
-                }
+                possible.Add(argument.Binding);
             }
         }
 
@@ -185,7 +175,11 @@ public static class DeclarationUsage
             }
         }
 
-        return (known, possible);
+        return [.. flows.Select(flow => new ByRefArguments(
+            flow.Arguments.Where(argument => IsFollowed(argument) && known.Contains(argument.Parameter!.Value))
+                .Select(argument => argument.Range).ToHashSet(),
+            flow.Arguments.Where(argument => IsFollowed(argument) && !possible.Contains(argument.Parameter!.Value))
+                .Select(argument => argument.Range).ToHashSet()))];
     }
 
     // MS-VBAL §5.3.1.1, §5.2.1.4: a Friend procedure, and a Public variable or constant of a procedural module that is Option Private Module, are accessible
@@ -202,8 +196,10 @@ public static class DeclarationUsage
     // A program (a project that is not a library, whose entry point is found) is run from its entry point, and no other project nor any host calls into it:
     // a Public member of any of its modules is counted as a Friend one is (PublicMembersOfAProgram), with what each module's code accesses late (lateBound,
     // by the module's address). A library's members that a referencing project can use count as used by one (isLibrary,
-    // DeclarationFact.IsUsedByReferencingProjects), and are not counted. An argument a call takes by reference is counted as it is in its module's own count
-    // (byRefArguments, by the module's address).
+    // DeclarationFact.IsUsedByReferencingProjects), and are not counted. An argument a call takes by reference is followed into the procedure called where
+    // the module's own count follows it, and into a procedure of a standard module of the project, which is the one a call of its name runs from any module
+    // of the project (byRefArguments, by the module's address, ByRefFlow): for the declarations each module's own count counted as well, once every module
+    // has a model. A member of a class called through a variable may run another class's that implements it, and is not followed.
     public static IReadOnlyCollection<ModuleSemanticModel> AcrossProject(
         IReadOnlyCollection<ModuleSemanticModel> models, IReadOnlyDictionary<string, ModuleDeclarationFacts> declarations, IEnumerable<VBModuleSymbol> project,
         IReadOnlyDictionary<string, IReadOnlySet<string>>? excludedBranchNames = null, SemanticId? entryPoint = null, bool isLibrary = false,
@@ -257,6 +253,19 @@ public static class DeclarationUsage
             return models;
         }
 
+        var flows = projectModules.Select(module => (Module: module, Flow: byRefArguments?.GetValueOrDefault(module.Uri.AbsoluteUri)?.Flow))
+            .Where(entry => entry.Flow is not null)
+            .ToList();
+        var standard = flows.Where(entry => entry.Module is VBStandardModuleSymbol).SelectMany(entry => entry.Flow!.Parameters).ToHashSet();
+        var followed = Followed(
+                [.. flows.Select(entry => entry.Flow!)], argument => argument.CallsItsOwnProcedure || standard.Contains(argument.Parameter!.Value))
+            .Zip(flows, (arguments, entry) => (Arguments: arguments, entry.Module))
+            .ToDictionary(entry => entry.Module.Uri.AbsoluteUri, entry => entry.Arguments, StringComparer.Ordinal);
+        models = [.. models.Select(model => followed.TryGetValue(model.Module.AbsoluteUri, out var byRef)
+            ? model with { Declarations = [.. model.Declarations.Select(fact => Followed(fact, byRef))] }
+            : model)];
+        inProject = [.. models.Where(model => modules.Contains(model.Module.AbsoluteUri))];
+
         var unanalyzed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var model in inProject.Where(model => !model.Procedures.All(procedure => procedure.IsFullyAnalyzed)))
         {
@@ -269,8 +278,8 @@ public static class DeclarationUsage
         }
 
         var constantsAreFullyAnalyzed = modules.All(module => declarations.TryGetValue(module, out var facts) && facts.IsFullyAnalyzed);
-        var references = Tally(inProject.SelectMany(model => CodeOf(
-            model.Procedures, declarations.GetValueOrDefault(model.Module.AbsoluteUri), byRefArguments?.GetValueOrDefault(model.Module.AbsoluteUri))));
+        var references = Tally(inProject.SelectMany(model => CodeOf(model.Procedures, declarations.GetValueOrDefault(model.Module.AbsoluteUri),
+            followed.GetValueOrDefault(model.Module.AbsoluteUri) ?? byRefArguments?.GetValueOrDefault(model.Module.AbsoluteUri))));
         var excluded = modules.SelectMany(module => excludedBranchNames?.GetValueOrDefault(module) ?? Enumerable.Empty<string>())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var program = !isLibrary && entryPoint is not null ? PublicMembersOfAProgram(projectModules, inProject, lateBound, membersOf) : null;
@@ -345,6 +354,28 @@ public static class DeclarationUsage
 
     private static DeclarationFact Counted(DeclarationFact fact, References references)
         => fact with { References = references.Count, ReferencedFrom = references.Sites.ToImmutable() };
+
+    // a declaration that its module's own count counted, as a count across the project follows its arguments (ByRefArguments): one that the call only reads
+    // is read, and one that the call is known to assign is assigned through it.
+    private static DeclarationFact Followed(DeclarationFact fact, ByRefArguments byRef)
+    {
+        if (fact is not { References: { } count, ReferencedFrom: { IsDefault: false } sites }
+            || !sites.Any(site => site.Kind is DeclarationReferenceKind.PassedAsArgument
+                && (byRef.Read.Contains(site.Location.Range) || !site.AssignedThroughCall && byRef.Assigned.Contains(site.Location.Range))))
+        {
+            return fact;
+        }
+
+        var read = sites.Count(site => site.Kind is DeclarationReferenceKind.PassedAsArgument && byRef.Read.Contains(site.Location.Range));
+        return fact with
+        {
+            References = count with { Reads = count.Reads + read, PassedAsArguments = count.PassedAsArguments - read },
+            ReferencedFrom = [.. sites.Select(site => site.Kind is not DeclarationReferenceKind.PassedAsArgument ? site
+                : byRef.Read.Contains(site.Location.Range) ? site with { Kind = DeclarationReferenceKind.Read }
+                : byRef.Assigned.Contains(site.Location.Range) ? site with { AssignedThroughCall = true }
+                : site)],
+        };
+    }
 
     // what refers to each declaration, by its key: the expressions of the procedures that are bound to it, counted by what they do.
     private sealed class References
