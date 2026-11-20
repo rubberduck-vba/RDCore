@@ -223,11 +223,16 @@ public static class DeclarationUsage
         var excluded = modules.SelectMany(module => excludedBranchNames?.GetValueOrDefault(module) ?? Enumerable.Empty<string>())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var program = !isLibrary && entryPoint is not null ? PublicMembersOfAProgram(projectModules, inProject, lateBound, membersOf) : null;
+        var late = projectModules.Select(module => lateBound?.GetValueOrDefault(module.Uri.AbsoluteUri)).ToList();
+        var namedInStrings = late.All(names => names is not null)
+            ? late.SelectMany(names => names!.NamedInStrings).Select(Normalized).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : null;
         return [.. models.Select(model => !modules.Contains(model.Module.AbsoluteUri) ? model : model with
         {
             Declarations = [.. model.Declarations.Select(fact => fact.References is null
                 && (IsAccessibleOnlyWithinTheProject(fact, privateModules.Contains(model.Module.AbsoluteUri), constantsAreFullyAnalyzed)
-                    || program?.Contains(fact.Symbol) == true && (fact.Kind is not DeclarationKind.Constant || constantsAreFullyAnalyzed))
+                    || program?.Contains(fact.Symbol) == true && (fact.Kind is not DeclarationKind.Constant || constantsAreFullyAnalyzed)
+                    || IsCalledOnlyByItsModule(fact, model, lateBound?.GetValueOrDefault(model.Module.AbsoluteUri), namedInStrings))
                 && !excluded.Contains(fact.Name)
                     ? Counted(fact, references.GetValueOrDefault(Key(fact.Symbol)) ?? new References())
                     : fact)],
@@ -242,6 +247,18 @@ public static class DeclarationUsage
         { Kind: DeclarationKind.Constant, Access: AccessModifier.Public or AccessModifier.Global } => inPrivateModule && constantsAreFullyAnalyzed,
         _ => false,
     };
+
+    // MS-VBAL §5.3.1.1: a Private procedure or property is accessible within its module and from nowhere else, and is not reached late: every call of one
+    // is an expression of its module. One with a role (a handler, an implementation) is called by no expression, nor is one of a module that calls
+    // CallByName with a name no string literal gives (LateBoundNames.CallsByName), nor one of a document module whose host's class is not known, whose events
+    // are not either. A host can call back a procedure by the name a string gives it (Application.Run, OnAction, OnTime), and a project's code says
+    // nothing of the host's members that do: a Private procedure whose name a string literal of the project writes (LateBoundNames.NamedInStrings) is not
+    // counted. namedInStrings holds those names, when the strings of every module of the project are known.
+    private static bool IsCalledOnlyByItsModule(DeclarationFact fact, ModuleSemanticModel model, LateBoundNames? late, IReadOnlySet<string>? namedInStrings)
+        => fact is { Role: DeclarationRole.None, Kind: DeclarationKind.Procedure or DeclarationKind.Property, Access: AccessModifier.Private }
+            && late is { CallsByName: false }
+            && namedInStrings is not null && !namedInStrings.Contains(Normalized(fact.Name))
+            && model.Document is not { HostClassUri: null };
 
     // the Public procedures, properties, variables and constants of a program's modules (a procedure or a property with no access modifier is Public,
     // MS-VBAL §5.3.1.1), that only the program's own code can call: none plays a role (the entry point, a handler, an implementation), whose caller is not
