@@ -12,7 +12,7 @@ namespace RDCore.LanguageServer.Diagnostics;
 internal interface IProjectDiagnosticsProviders
 {
     /// <summary>
-    /// What every provider finds of the project, of ranges of its <c>.rdproj</c>; none when no extension has project analyzers.
+    /// What every provider finds of the project, at ranges of its <c>.rdproj</c>; none when no extension has project analyzers.
     /// </summary>
     /// <param name="payload">The project, where its project file writes its name, and the codes that are disabled.</param>
     /// <param name="token">A token that cancels the requests.</param>

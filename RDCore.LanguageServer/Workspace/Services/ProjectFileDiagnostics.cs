@@ -106,7 +106,7 @@ internal sealed class ProjectFileDiagnostics(
         }
     }
 
-    // where the project file writes the project's name, which an analyzer reports a finding of the name at; none when the file is not there to be read.
+    // where the project file writes the project's name, for an analyzer's finding of the name; none when the file cannot be read.
     private static SourceRange? NameRangeOf(string file)
     {
         try
