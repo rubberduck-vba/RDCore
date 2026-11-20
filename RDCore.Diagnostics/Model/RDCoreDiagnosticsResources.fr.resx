@@ -598,13 +598,13 @@
     <value>Copier &apos;{0}&apos; dans une variable locale &apos;{1}&apos;, et l&apos;utiliser à la place du paramètre</value>
   </data>
   <data name="UnassignedVariableUsage_Message" xml:space="preserve">
-    <value>La variable &apos;{0}&apos; est lue avant que rien ne l&apos;affecte : elle a toujours ici la valeur par défaut de son type.</value>
+    <value>La variable &apos;{0}&apos; est lue avant d&apos;avoir reçu une valeur : elle a toujours ici la valeur par défaut de son type.</value>
   </data>
   <data name="AssignmentNotUsed_Message" xml:space="preserve">
     <value>La valeur affectée ici à &apos;{0}&apos; n&apos;est jamais lue.</value>
   </data>
   <data name="ParameterCanBeByVal_Message" xml:space="preserve">
-    <value>Le paramètre &apos;{0}&apos; est passé par référence, et sa procédure ne l&apos;affecte pas ni ne le passe par référence : il peut être passé par valeur.</value>
+    <value>Le paramètre &apos;{0}&apos; est passé par référence, et sa procédure ne l&apos;affecte ni ne le passe par référence : il peut être passé par valeur.</value>
   </data>
   <data name="ParameterCanBeByVal_Fix" xml:space="preserve">
     <value>Passer &apos;{0}&apos; par valeur</value>

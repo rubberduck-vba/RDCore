@@ -115,9 +115,9 @@ internal sealed class AssignmentNotUsedAnalyzer : IModuleAnalyzer
 /// <c>Let</c> or <c>Set</c>, which is passed by value whatever it states.
 /// </para>
 /// <para>
-/// A procedure whose signature is another's (an implementation, a handler, a <c>Declare</c>) is not reported. A parameter of an interface member or of an event
-/// is reported when the host states that no member bound to it writes its own (<see cref="DeclarationFactDto.IsWrittenByABoundMember"/>). The fix writes
-/// <c>ByVal</c> in place of <c>ByRef</c>, or before the name.
+/// A procedure whose signature is another's (an implementation, a handler, a <c>Declare</c>) is not reported. A parameter of an interface member or of an
+/// event is reported when the host states that no member bound to it writes its own (<see cref="DeclarationFactDto.IsWrittenByABoundMember"/>). The fix
+/// writes <c>ByVal</c> in place of <c>ByRef</c>, or before the name.
 /// </para>
 /// </remarks>
 internal sealed class ParameterCanBeByValAnalyzer : IModuleAnalyzer
