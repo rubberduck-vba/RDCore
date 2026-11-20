@@ -120,13 +120,16 @@ RD-VBA reads:
 A `VBC00001` the grammar reports says what **MS-VBA** says when it compiles the module, at the range **MS-VBA** marks (recorded in Excel).
 
 In the body of a procedure, it is `Syntax error`, over the whole line: from its first column, its indentation, label or line number and a statement
-before it on the line included, to its last character, its comment and the lines it continues on included.
+before it on the line included, to its last character, its comment and the lines it continues on included. It is the same in the header of a procedure
+written after another: **MS-VBA** reads the module line by line from its first procedure on.
 
-In a procedure's header, or in a declaration of the module, it is what **MS-VBA** expected, at the token where it is missing, or right where the line ends:
+In a declaration of the module, or in the header of its first procedure, it is what **MS-VBA** expected, at the token where it is missing, or right where
+the line ends:
 
 |Written|Message|At|
 |---|---|---|
 |`Sub ()`, `Sub S(x, )`, `Private Type`, `Private Enum`|Expected: identifier|`)`, the end of the line|
+|`Sub [Foo]()`, `Function [Foo]()`, `Property Get [Foo]()`: a procedure is named with an identifier, not a name in brackets (**MS-VBAL §5.3.1.3**)|Expected: identifier|`[Foo]`|
 |`Sub S(x As)`, `Function F() As`|Expected: type name|`)`, the end of the line|
 |`Private x As`|Expected: New or type name|the end of the line|
 |`Friend x As Long`, `Friend Const K = 1`, `Friend WithEvents w As Workbook`: `Friend` declares a procedure only (**MS-VBAL §5.3.1**)|Expected: Sub or Function or Property|`x`, `Const`, `WithEvents`|
