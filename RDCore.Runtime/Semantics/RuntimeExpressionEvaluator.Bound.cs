@@ -361,7 +361,7 @@ public sealed partial class RuntimeExpressionEvaluator
     // session has no instance of, a member the class does not have - is what the late-bound evaluation does with the owner it was given.
     private RuntimeSemanticsEvaluationResult EvaluateBoundMember(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context)
     {
-        // the target of a member call is evaluated after its arguments; the target of the enclosing With block, which is no owner, is evaluated already.
+        // the target of a member call is evaluated after its arguments; the target of the enclosing With block, which is no owner, was evaluated when the block began.
         if (bound is not { Owner: { } target, Arguments: { } written })
         {
             return EvaluateBoundMemberOf(session, bound, context);
