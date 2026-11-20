@@ -690,21 +690,23 @@ When the module has other `Public` fields, Encapsulate Field also asks which of 
 The range is on the declaration of a variable or on a use of it. The declaration moves to a line of its own before the statement that first uses the variable, indented as that statement is, in the innermost block that holds every use of it. A use in the condition of an `If` or the bounds of a loop keeps it before that statement. A declaration is not executed ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)), so a variable of a procedure is the same wherever it is declared before its first use.
 
 - A variable of a procedure keeps its keyword, `Dim` or `Static`.
-- A `Private` variable of a module that a single procedure uses moves into that procedure. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
+- A variable of a module that a single procedure uses moves into that procedure: a `Private` one of its module, and a `Public` or `Global` one of a standard module, which a procedure of another module of the project can use. The uses are the names bound to the variable in every module of the project; a use qualified with the name of its module (`Globals.gCount`) loses the qualifier. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
 
 |A variable of a module, declared|Changes|Code|
 |---|---|---|
 |`Static`|Nothing: it keeps its value between calls. In a class module, each object keeps its own, as it does of the variable of the class ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|None.|
+|`Static`, a variable of a standard module, in a member of a class module|Its extent: the variable had one value for the program, and the local has one for each object of the class.|`moveCloserToUsage.oneForEachObject`|
 |`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
 
 `rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
 
 |Refused|Code|
 |---|---|
-|A variable of a module that is `Public`, `Global` or `Friend`|`moveCloserToUsage.notPrivate`|
+|A variable of a class module that is `Public`, `Global` or `Friend`: a member of each object of the class|`moveCloserToUsage.notPrivate`|
 |A variable declared `WithEvents`|`moveCloserToUsage.withEvents`|
 |A variable that nothing uses|`moveCloserToUsage.notUsed`|
-|A variable of a module used by more than one procedure|`moveCloserToUsage.severalProcedures`|
+|A variable of a module used by more than one procedure, of its module or of others|`moveCloserToUsage.severalProcedures`|
+|A variable of a module whose procedure names, unqualified, something else of its name, which the local would hide|`moveCloserToUsage.hidesAName`|
 |A declaration, or a first use, in a branch of an `#If` block|`moveCloserToUsage.conditional`|
 |A variable of a procedure declared before its first use with nothing but declarations between them|`moveCloserToUsage.alreadyClose`|
 |A declaration that is the only one of a statement sharing its line with another statement|`moveCloserToUsage.sharesItsLine`|

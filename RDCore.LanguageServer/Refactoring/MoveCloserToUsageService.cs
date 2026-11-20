@@ -131,25 +131,30 @@ internal sealed class MoveCloserToUsageService(IRenameService rename) : IMoveClo
             return new(null, CloserToUsageNotice.Format("MoveCloserToUsage_NotAccepted", null, change.ToMessage()));
         }
 
-        var module = planned.Module;
-        var (edits, refused) = CloserToUsage.Plan(module.Source, module.Parse, planned.Target, keyword);
+        var (edits, refused) = CloserToUsage.Plan(planned.Target, keyword);
         if (edits is null)
         {
             return new(null, refused!.ToMessage());
         }
 
-        return new(new RefactorWorkspaceEdit
+        // the edits of each module go to the document of the module.
+        var documents = new List<RefactorDocumentEdit>();
+        foreach (var each in edits)
         {
-            Documents =
-            [
-                new RefactorDocumentEdit
-                {
-                    Uri = module.Document.Id.Uri.ToUri(),
-                    Version = module.Document.Version,
-                    Edits = [.. edits.Select(edit => new RefactorTextEdit { Range = SourceRangeOf(module.ToTextRange(edit.Range)), NewText = edit.NewText })],
-                },
-            ],
-        }, null);
+            if (planned.Part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == each.Module.AbsoluteUri) is not { } module)
+            {
+                return new(null, new CloserToUsageNotice(CloserToUsageRefusalKind.NotAVariable, string.Empty).ToMessage());
+            }
+
+            documents.Add(new RefactorDocumentEdit
+            {
+                Uri = module.Document.Id.Uri.ToUri(),
+                Version = module.Document.Version,
+                Edits = [.. each.Edits.Select(edit => new RefactorTextEdit { Range = SourceRangeOf(module.ToTextRange(edit.Range)), NewText = edit.NewText })],
+            });
+        }
+
+        return new(new RefactorWorkspaceEdit { Documents = documents }, null);
     }
 
     public async Task<(string Title, string? Refusal, bool Changes)?> OfferAsync(Uri documentUri, SourcePosition position, CancellationToken token)
@@ -160,12 +165,11 @@ internal sealed class MoveCloserToUsageService(IRenameService rename) : IMoveClo
             return refusal is { FindsNothing: false } ? (CloserToUsageNotice.Title(refusal.Name), refusal.ToMessage(), false) : null;
         }
 
-        var module = planned.Module;
-        var (_, refused) = CloserToUsage.Plan(module.Source, module.Parse, planned.Target, CloserToUsageKeyword.Static);
+        var (_, refused) = CloserToUsage.Plan(planned.Target, CloserToUsageKeyword.Static);
         return (CloserToUsageNotice.Title(planned.Target.Variable.Name), refused?.ToMessage(), CloserToUsage.ChangeOf(planned.Target, CloserToUsageKeyword.Static) is not null);
     }
 
-    private sealed record class Planned(RenameWorkspace.DocumentModule Module, CloserToUsageTarget Target);
+    private sealed record class Planned(RenameWorkspace.ProjectPart Part, CloserToUsageTarget Target);
 
     private async Task<(Planned? Planned, CloserToUsageNotice? Refusal)> PlannedAsync(Uri documentUri, SourcePosition position, CancellationToken token)
     {
@@ -175,8 +179,9 @@ internal sealed class MoveCloserToUsageService(IRenameService rename) : IMoveClo
             return (null, new(CloserToUsageRefusalKind.NotAVariable, string.Empty));
         }
 
-        var (target, refusal) = CloserToUsage.Prepare(part.Context, source, module.Parse, module.ToModulePosition(new Position(position.Line, position.Character)));
-        return target is null ? (null, refusal) : (new Planned(module, target), null);
+        var (target, refusal) = CloserToUsage.Prepare(part.Context, source, module.Parse, module.ToModulePosition(new Position(position.Line, position.Character)),
+            uri => part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == uri.AbsoluteUri)?.Parse);
+        return target is null ? (null, refusal) : (new Planned(part, target), null);
     }
 
     private static CloserToUsageKeyword? KeywordOf(string? answer) => answer switch
