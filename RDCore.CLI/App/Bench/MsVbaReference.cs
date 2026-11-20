@@ -281,8 +281,8 @@ internal static class ReferenceData
     /// <param name="excelRounds">The first rounds that run the Excel automation cases as well; none when 0.</param>
     /// <param name="runs">The runs of a case of the corpus, per round.</param>
     /// <param name="excelRuns">The runs of an Excel automation case, per round.</param>
-    /// <param name="warmUp">How RD-VBA warms up each case of the corpus; MS-VBA then makes <see cref="MsVbaHarness.WarmUpRuns"/> untimed runs of it. Neither
-    /// side warms up when <see langword="null"/>.</param>
+    /// <param name="warmUp">How RD-VBA warms up each case of the corpus; MS-VBA then makes <see cref="MsVbaHarness.WarmUpRuns"/> untimed runs of it. The text
+    /// says nothing of a warm-up when <see langword="null"/>, although the harness makes those runs all the same.</param>
     public static string Method(int rounds, int excelRounds, int runs, int excelRuns, BenchWarmUp? warmUp = null)
     {
         var text = new StringBuilder(string.Create(CultureInfo.InvariantCulture, $"alternated rounds on one machine: {rounds} for the corpus"));

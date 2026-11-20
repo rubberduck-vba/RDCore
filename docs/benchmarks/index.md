@@ -40,7 +40,7 @@ rdc bench
 
 Before its timed runs, each case is run untimed until .NET has finished optimizing the code it calls: at least 31 times, then until the JIT compiler
 has compiled nothing for 250 ms, for 5 seconds at the most. Until then a run can take several times as long as the runs after it. The report's
-`warm-up` line gives how many untimed runs were made.
+`warm-up` line gives how many untimed runs were made over all the cases, or `none` with `--no-warm-up`.
 
 For each case, the report gives its fastest and its median run, what its fastest run allocated, and the garbage collections of each generation made
 while it ran. Before the cases, it gives how long the corpus took to parse, load and analyze.

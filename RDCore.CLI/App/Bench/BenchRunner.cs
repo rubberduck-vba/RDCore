@@ -40,7 +40,7 @@ internal sealed record class BenchOptions(
 
 /// <summary>
 /// How a case is warmed up before its timed runs: untimed runs, at least <paramref name="Runs"/> of them, until the JIT has compiled nothing for
-/// <paramref name="Quiet"/>; or one run at least, until <paramref name="Limit"/> has passed.
+/// <paramref name="Quiet"/>. The warm-up ends once <paramref name="Limit"/> has passed, after one run at least, whatever the JIT does.
 /// </summary>
 /// <remarks>
 /// Tiered compilation recompiles a method at its optimized tier, with dynamic PGO, in the background, once it has been called 30 times and the JIT has been

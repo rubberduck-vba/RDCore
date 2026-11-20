@@ -40,7 +40,8 @@ rdc bench
 
 Avant ses exécutions chronométrées, chaque cas est exécuté sans chronomètre jusqu'à ce que .NET ait fini d'optimiser le code qu'il appelle : au moins
 31 fois, puis jusqu'à ce que le compilateur JIT n'ait rien compilé pendant 250 ms, pendant 5 secondes au plus. D'ici là, une exécution peut prendre
-plusieurs fois plus de temps que les suivantes. La ligne `warm-up` du rapport donne le nombre d'exécutions non chronométrées.
+plusieurs fois plus de temps que les suivantes. La ligne `warm-up` du rapport donne le nombre
+d'exécutions non chronométrées de l'ensemble des cas, ou `none` avec `--no-warm-up`.
 
 Pour chaque cas, le rapport donne son exécution la plus rapide et sa médiane, ce qu'a alloué son exécution la plus rapide, et les collectes de
 mémoire de chaque génération faites pendant qu'elle s'exécutait. Avant les cas, il donne le temps qu'a pris le corpus pour être analysé
