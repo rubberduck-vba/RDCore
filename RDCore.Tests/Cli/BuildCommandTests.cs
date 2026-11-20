@@ -1145,8 +1145,10 @@ public sealed class BuildCommandTests
 
             Assert.AreEqual(native, image.NativeDialogs, "the settings are kept");
             Assert.AreEqual(kind == ConsoleApp, ProgramDialogs.IsConsole(image.Project.Build), "the project's build section is kept");
-            Assert.AreEqual(Expected(kind, native, windows: true), ProgramDialogs.SourceOf(image.Project.Build, image.NativeDialogs, windows: true), "on Windows");
-            Assert.AreEqual(Expected(kind, native, windows: false), ProgramDialogs.SourceOf(image.Project.Build, image.NativeDialogs, windows: false), "elsewhere");
+            Assert.AreEqual(Expected(kind, native, windows: true), ProgramDialogs.SourceOf(image.Project.Build, image.NativeDialogs, windows: true),
+                "on Windows");
+            Assert.AreEqual(Expected(kind, native, windows: false), ProgramDialogs.SourceOf(image.Project.Build, image.NativeDialogs, windows: false),
+                "elsewhere");
         }
         finally
         {

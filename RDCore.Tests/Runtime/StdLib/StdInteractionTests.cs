@@ -272,7 +272,8 @@ public sealed class StdInteractionTests
 
         Run(With(interaction), "MsgBox \"x\"", "Debug.Print InputBox(\"Name?\")");
 
-        interaction.Received().ShowMessage(Arg.Is<MessageBoxRequest>(request => request.HelpFile == null && request.Context == null), Arg.Any<CancellationToken>());
+        interaction.Received().ShowMessage(
+            Arg.Is<MessageBoxRequest>(request => request.HelpFile == null && request.Context == null), Arg.Any<CancellationToken>());
         interaction.Received().Prompt(Arg.Is<InputBoxRequest>(request => !request.HasHelp), Arg.Any<CancellationToken>());
     }
 

@@ -78,8 +78,8 @@ public sealed class ConsoleUserInteraction(IConsoleKeys keys, TextWriter output,
         var labels = choices.Select(LabelOf).ToArray();
         var menu = new ConsoleMenu(labels, VBMsgBoxButtons.DefaultChoiceOf(request.Style), canDismiss: escape is not null);
         var buttons = menu.Render();
-        var box = new ConsoleDialogBox(request.Title, GlyphOf(VBMsgBoxButtons.IconOf(request.Style)), request.Prompt, ConsoleText.WidthOf(buttons), ConsoleWidth,
-            ConsoleBorder.For(output), separated: true, ansi);
+        var box = new ConsoleDialogBox(request.Title, GlyphOf(VBMsgBoxButtons.IconOf(request.Style)), request.Prompt,
+            ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true, ansi);
         var (before, after) = box.Centring(buttons);
 
         if (!keys.IsInteractive)
