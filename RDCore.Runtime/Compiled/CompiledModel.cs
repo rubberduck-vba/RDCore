@@ -714,6 +714,12 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
 
     /// <summary>
+    /// The order the arguments are evaluated in, as the interpreter evaluates them (<see cref="LanguageCore.Binding.ArgumentOrder"/>): the calls first, left
+    /// to right, then the others, right to left. An argument that is no call is evaluated whole with the calls when no call is made after it.
+    /// </summary>
+    public LanguageCore.Binding.ArgumentOrder Order { get; init; }
+
+    /// <summary>
     /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default
     /// <see cref="Procedure"/> declares for it, and a <c>Variant</c> one, whose <see cref="Parameters"/> kind is <see langword="null"/>, what the
     /// interpreter gives the parameter of the member the call invokes (<see cref="OmittedArgumentNode"/>). Empty when the call leaves out none.

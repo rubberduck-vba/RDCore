@@ -67,10 +67,8 @@ A procedure invocation runs these steps:
 2. The argument-evaluation loop of `RuntimeExpressionEvaluator` produces one argument per parameter: a
    `ParamArray` collection, an `Optional` parameter's default, a `ByRef` reference, or a Let-coerced copy (see
    [Optional Parameters](#optional-parameters), [ParamArray](#paramarray) and
-   [ByVal and ByRef Binding](#byval-and-byref-binding)). The arguments are evaluated left to right, except a
-   variable given to a `ByVal` parameter, left of an argument that makes a call: it is read after the other
-   arguments, as MS-VBA reads it. With `Bump` adding 1 to the variable it is given by reference, and `a` at `1`,
-   `Sum2(a, Bump(a))` gives `Sum2` the values `2` and `2`.
+   [ByVal and ByRef Binding](#byval-and-byref-binding)). The arguments are evaluated in the order MS-VBA evaluates
+   them (see [Order of Evaluation](#order-of-evaluation)).
 3. `RuntimeProcedureInvoker` looks up the callee's own lowered body by symbol.
 4. `RuntimeProcedureInvoker` pushes a fresh [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)
    for the callee. Exceeding the call-depth limit raises run-time error 28.
@@ -83,10 +81,38 @@ A procedure invocation runs these steps:
    procedure's own `Uri`.
 9. `RuntimeProcedureInvoker` reports the callee's outcome back to the caller (see [Return Value](#return-value)).
 
-> [!NOTE]
-> **Not implemented.** MS-VBA also evaluates an argument that makes no call, such as `a + 0` or `(a)`, after the
-> arguments that make calls: `Sum2(a + 0, Bump(a))` gives `Sum2` the values `2` and `2`. RD-VBA evaluates it in
-> its place and gives `1` and `2`.
+### Order of Evaluation
+
+**MS-VBAL §5.3.1.11** binds the parameters left to right and does not say when the expression of each argument is evaluated.
+RD-VBA evaluates the arguments of a call in the order MS-VBA does (observed in Excel). The arguments are counted by the parameters
+they are given to, named arguments included, and the last argument is the last one given.
+
+1. The arguments that are calls are made first, left to right, except the last argument. The calls inside an argument that is an
+   expression are made with them, and the rest of that argument is evaluated in step 3.
+2. In a call statement, the calls inside the arguments of the target's member calls are made next: the member the target calls,
+   then its owner, while each is a member of an object bound early. The walk stops at a function, an element of an array, a member
+   bound late, and the owner of a function call.
+3. The other arguments are evaluated right to left, the last one first. The last argument is evaluated in its place, even when it
+   is a call.
+4. The rest of the target of a member call is evaluated last, after what the arguments read.
+5. When the statement is over, the objects the arguments made are freed in the order of the parameters, then those of the target.
+
+A call is a `Function`, `Sub` or `Property Get` called, a member of an object (a public variable of an object included), or a
+function of the standard library. `New` is not a call. The standard library evaluates `Len`, `LenB`, `InStr`, `StrComp`, `Abs`,
+`Sgn`, `Int`, `Fix`, `CBool`, `CByte`, `CCur`, `CDate`, `CDbl`, `CInt`, `CLng`, `CLngLng`, `CLngPtr`, `CSng`, `CStr` and `CVar`
+inline, as MS-VBA compiles them: none of them is a call. `UCase$`, `Mid$`, `Format$`, `Sqr` and `CDec` are calls.
+
+With `Bump` adding 10 to the variable it is given by reference, and `a` at `1`:
+
+|Code|Evaluated|Given|
+|---|---|---|
+|`Sum2(a, Bump(a))`|`Bump(a)`, then `a`|`11`, `11`|
+|`Sum2(a + 0, Bump(a))`, `Sum2((a), Bump(a))`, `Sum2(CLng(a), Bump(a))`|`Bump(a)`, then the first argument|`11`, `11`|
+|`Sum2(Sqr(a), Bump(a))`|`Sqr(a)`, then `Bump(a)`|`1`, `11`|
+|`Sum2(Bump(a), Bump(a))`|left to right|`11`, `21`|
+
+In a call statement, `B.KidS(i).KidS(m).Take2 j, v`, where `i`, `m`, `j` and `v` are calls and `i` and `m` return `1` and `2`,
+evaluates `j`, `m`, `i` and `v` in that order, then the target's `KidS(1)` and `KidS(2)`, then calls `Take2`.
 
 ### Argument Mapping
 
@@ -427,6 +453,9 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 |`IProcedureInvoker`, `CallableBindingHandle`|The call contract (**RDCore.SDK**).|
 |`RDCore.Runtime.Execution.RuntimeProcedureInvoker`|The `IProcedureInvoker` implementation (**RDCore.Runtime**).|
 |`RuntimeExpressionEvaluator.MapArguments`|Argument mapping; errors 448, 449 and 450.|
+|`ArgumentOrder`|The order the arguments of a call are evaluated in, and the target's member calls a call statement makes ahead of its last argument (`TargetCallsIn`).|
+|`StdLibInlineAttribute`|Marks a standard-library function MS-VBA evaluates inline, which is not a call.|
+|`ObjectReferences.SettleCall`|Puts the objects a call's arguments and target made in the order they are freed.|
 |`RuntimeExpressionEvaluator.CollectParamArrayArguments`|`ParamArray` collection.|
 |`RuntimeExpressionEvaluator.OmittedArgument`|The value an unmapped `Optional` parameter takes, wherever an omitted argument is filled in.|
 |`RuntimeExpressionEvaluator.ProcedureInvoker`, `RuntimeExpressionEvaluator.LetCoercionProvider`|Settable properties, not constructor parameters.|
