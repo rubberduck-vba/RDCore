@@ -90,7 +90,8 @@ public sealed class SemanticModelStore
     /// </param>
     /// <param name="byRefArguments">
     /// What the calls of the module's code do with the arguments they take by reference (<see cref="DeclarationUsage.ArgumentsOf"/>);
-    /// <see langword="null"/> when that is not known. <see cref="AcrossProject"/> counts those arguments as the module's own count does.
+    /// <see langword="null"/> when that is not known. <see cref="AcrossProject"/> follows them from module to module into the procedures of the project's
+    /// standard modules as well (<see cref="ByRefArguments.Flow"/>).
     /// </param>
     public void Store(
         ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate, ModuleDeclarationFacts? declarations = null,
