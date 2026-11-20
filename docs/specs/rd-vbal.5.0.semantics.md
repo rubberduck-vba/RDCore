@@ -271,7 +271,8 @@ access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:
 
 - one bound as a handler or an implementation (`DeclarationRole.EventHandler`, `InterfaceImplementation`);
 - every one of a module that calls `CallByName` with a name that is not a string literal;
-- every one of a document module whose host's class is not known, nor the events it raises;
+- every one of a document module whose host's class is not known: the events of that class are not known either, so neither
+  are the handlers among its procedures;
 - one whose name a string literal of the project writes (`"Module1.Helper"` writes `Module1` and `Helper`): a host can call
   back a procedure by the name a string gives it (Excel's `Application.Run`, `OnAction`, `OnTime`).
 
