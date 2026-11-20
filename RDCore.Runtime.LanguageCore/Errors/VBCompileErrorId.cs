@@ -225,9 +225,9 @@ public enum VBCompileErrorId
     NoHostApplicationToEvaluateExpression = 9383,
     // MS-VBAL §5.3.1.1 Procedure Scope: Friend declares a procedure of a class module only.
     OnlyValidInObjectModule = 9384,
-    // MS-VBAL §4.2 Module Structure: a module's name is a quoted-identifier, and an IDENTIFIER is not a reserved-identifier (§3.3.5.2).
+    // MS-VBAL §4.2 Modules: a module's name is a quoted-identifier, and an IDENTIFIER is not a reserved-identifier (§3.3.5.2).
     NotALegalObjectName = 9385,
-    // MS-VBAL §4.2 Module Structure: a module's name is not the project name of a project its project references, a library among them (§4.1).
+    // MS-VBAL §4.2 Modules: a module's name is not the project name of a project its project references, a library among them (§4.1).
     NameConflictsWithModuleProjectOrLibrary = 9386,
 
 
