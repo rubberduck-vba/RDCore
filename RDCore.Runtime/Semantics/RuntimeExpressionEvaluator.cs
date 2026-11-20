@@ -3451,8 +3451,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         // a Declare's As Any parameter is given the field where it is in the record (MS-VBA, observed in Excel: RtlMoveMemory r.A, src, 8 writes r.A and the
-        // field after it), which the binding over the field tells the call: the function is given a copy of the record, so the binding has an address of its
-        // own rather than the field's.
+        // field after it). The binding over the field tells the call which field it is, and the call gives the function the field's address in a copy of
+        // the record (DeclaredProcedureProvider), so the binding has an address of its own, even for a record that has one in storage.
         var asAny = external && parameter.ResolvedType is VBUnknownType;
         var overTheField = fieldType is VBUserDefinedType or VBVariantType || asAny;
         var cell = overTheField ? null : record.GetFieldHandle(access.Member.IdentifierName);
