@@ -180,14 +180,58 @@ public sealed class ProjectReferenceCountTests
         Assert.IsNull(Declaration(model, "Helper").References);
     }
 
+    // a procedure not fully analyzed refers to a declaration by writing its name (MS-VBAL §5.6.10): one that writes no name of a declaration leaves its
+    // count whole.
     [TestMethod]
-    public async Task AProjectWithAProcedureNotFullyAnalyzed_CountsNothingAcrossItsModules()
+    public async Task AProcedureNotFullyAnalyzed_ThatWritesNoNameOfADeclaration_LeavesItsCountWhole()
     {
         var model = await ModelOfAsync("Counter", Program(UsesCounter),
             modules: [("Broken", ModuleWorkspace.StandardModule("Broken", "Option Explicit", "Public Sub Bad()", "undeclared = 1", "End Sub"))]);
 
-        Assert.IsNull(Declaration(model, "Add").References);
+        Assert.AreEqual(new DeclarationReferences(2, 0, 0), Declaration(model, "Add").References);
+        Assert.HasCount(2, Declaration(model, "Add").ReferencedFrom!.Value);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unused").References);
+    }
+
+    [TestMethod]
+    public async Task AProcedureNotFullyAnalyzed_WithholdsTheCountOfEachNameItWrites_AndOfNoOther()
+    {
+        var model = await ModelOfAsync("Counter", Program(UsesCounter),
+            modules: [("Broken", ModuleWorkspace.StandardModule("Broken",
+                "Option Explicit", "Public Sub Bad()", "undeclared = 1", "Dim c As New Counter", "c.Add", "End Sub"))]);
+
+        Assert.IsNull(Declaration(model, "Add").References, "the procedure not fully analyzed writes Add");
         Assert.IsNull(Declaration(model, "Add").ReferencedFrom);
+        Assert.AreEqual(new DeclarationReferences(1, 1, 0), Declaration(model, "Value").References, "nor Value");
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unused").References, "nor Unused");
+    }
+
+    [TestMethod]
+    public async Task APublicVariableOfAPrivateModule_ThatAProcedureNotFullyAnalyzedWrites_HasNoCount()
+    {
+        var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Total = 1", "Debug.Print Total", "End Sub"),
+            modules:
+            [
+                ("Common", ModuleWorkspace.StandardModule("Common", "Option Private Module", "Public Total As Long", "Public Unread As Long")),
+                ("Broken", ModuleWorkspace.StandardModule("Broken", "Option Explicit", "Public Sub Bad()", "undeclared = Total", "End Sub")),
+            ]);
+
+        Assert.IsNull(Declaration(model, "Total").References);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(model, "Unread").References);
+    }
+
+    [TestMethod]
+    public async Task ANameWrittenInAnotherCase_OrWithATypeHint_IsWithheldAsWell()
+    {
+        var model = await ModelOfAsync("Common", Program("Public Sub Main()", "Total = 1", "End Sub"),
+            modules:
+            [
+                ("Common", ModuleWorkspace.StandardModule("Common", "Option Private Module", "Public Total As Long", "Public Label As String")),
+                ("Broken", ModuleWorkspace.StandardModule("Broken", "Option Explicit", "Public Sub Bad()", "undeclared = TOTAL + Len(Label$)", "End Sub")),
+            ]);
+
+        Assert.IsNull(Declaration(model, "Total").References);
+        Assert.IsNull(Declaration(model, "Label").References);
     }
 
     [TestMethod]
