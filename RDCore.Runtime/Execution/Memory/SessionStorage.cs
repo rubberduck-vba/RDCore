@@ -18,9 +18,14 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
     private readonly Dictionary<MemoryAddress, byte[]> _bytesByAddress = [];
 
     // the blocks the elements of arrays are laid out in (ArrayBlock), by the address each starts at, and by the array: an array that is gone is not kept
-    // alive by its block, which is freed the next time a block is made.
+    // alive by its block, which is freed once a block is made (FreeBlocksOfArraysThatAreGone).
     private readonly Dictionary<MemoryAddress, ArrayBlock> _arrayBlocks = [];
     private readonly System.Runtime.CompilerServices.ConditionalWeakTable<SDK.Model.Values.Intrinsic.VBArrayValue, System.Runtime.CompilerServices.StrongBox<MemoryAddress>> _blockOfArray = new();
+
+    // how many blocks there are when the blocks of the arrays that are gone are looked for next: twice as many as were left the last time, so that a block
+    // made at each call of a procedure, for a local array of it, costs no look at every other block.
+    private const int FewestBlocksLookedAt = 16;
+    private int _blocksLookedAtNext = FewestBlocksLookedAt;
 
     /// <summary>
     /// The address of the element at <paramref name="flatIndex"/> of <paramref name="array"/>, in the order <see cref="SDK.Model.Values.Intrinsic.VBArrayValue.IndexOf"/>
@@ -39,14 +44,19 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         if (!_blockOfArray.TryGetValue(array, out var start))
         {
             var made = new ArrayBlock(array, pointerSize);
-            if (!allocator.TryAllocate(made.Size, out var at))
+
+            // the blocks of the arrays that are gone are freed once this one is made, so that it is never where one of them was: an array ReDim'd is
+            // elsewhere (observed in Excel), whenever the one it was is collected. With no room for it, they are freed first.
+            if (!allocator.TryAllocate(made.Size, out var at) && !(FreeBlocksOfArraysThatAreGone() && allocator.TryAllocate(made.Size, out at)))
             {
                 return false;
             }
 
-            // the blocks of the arrays that are gone are freed once this one is made, so that it is never where one of them was: an array ReDim'd is
-            // elsewhere (observed in Excel), whenever the one it was is collected.
-            FreeBlocksOfArraysThatAreGone();
+            if (_arrayBlocks.Count >= _blocksLookedAtNext)
+            {
+                FreeBlocksOfArraysThatAreGone();
+            }
+
             _arrayBlocks[at] = made;
             _blockOfArray.Add(array, start = new System.Runtime.CompilerServices.StrongBox<MemoryAddress>(at));
             Generation++;
@@ -56,9 +66,11 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         return true;
     }
 
-    private void FreeBlocksOfArraysThatAreGone()
+    // whether any was freed.
+    private bool FreeBlocksOfArraysThatAreGone()
     {
-        foreach (var (at, block) in _arrayBlocks.Where(block => !block.Value.TryGetArray(out _)).ToList())
+        var gone = _arrayBlocks.Where(block => !block.Value.TryGetArray(out _)).ToList();
+        foreach (var (at, block) in gone)
         {
             FreeStringBlocksIn(at, block.Size);
             FreeDescriptorsIn(at, block.Size);
@@ -66,6 +78,9 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             allocator.TryDeallocate(at, out _);
             Generation++;
         }
+
+        _blocksLookedAtNext = Math.Max(FewestBlocksLookedAt, 2 * _arrayBlocks.Count);
+        return gone.Count > 0;
     }
 
     private static SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue? RecordOf(IBindingHandle handle)
