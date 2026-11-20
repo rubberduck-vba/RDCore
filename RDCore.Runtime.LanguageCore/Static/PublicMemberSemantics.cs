@@ -11,6 +11,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
@@ -26,6 +27,16 @@ public static class PublicMemberSemantics
 
         foreach (var member in members)
         {
+            // MS-VBAL §5.3.1.1: Friend declares a procedure of a class module, which a procedural module has no access level for.
+            if (!isObjectModule && member.AccessModifier is AccessModifier.Friend
+                && member is (VBProcedureMemberSymbol or VBFunctionMemberSymbol or IVBPropertyMemberSymbol)
+                    and not (VBExternalSubMemberSymbol or VBExternalFunctionMemberSymbol))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.OnlyValidInObjectModule, LocationOf(member),
+                    string.Format(Exceptions.VBCompileError_OnlyValidInObjectModule_Verbose, member.Name)));
+                continue;
+            }
+
             if (member is VBEnumConstMemberSymbol or VBUserDefinedTypeFieldSymbol || !IsPublic(member))
             {
                 continue;
@@ -120,6 +131,7 @@ public static class PublicMemberSemantics
     {
         var split = name.LastIndexOf('.');
         var (qualifier, typeName) = split < 0 ? ((string?)null, name) : (name[..split], name[(split + 1)..]);
-        return VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, module.Uri) is { IsResolved: true, Symbol: var symbol } ? symbol : null;
+        return VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, module.Uri, ProjectVisibility.Instance, module.WorkspaceRoot)
+            is { IsResolved: true, Symbol: var symbol } ? symbol : null;
     }
 }

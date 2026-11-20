@@ -17,8 +17,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>RDC01011</c>: a variable whose value nothing reads: nothing refers to it, or only to assign it.
 /// </summary>
 /// <remarks>
-/// The host counts the references of a local and of a <c>Private</c> variable of the module (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>);
-/// another variable may be read by code the pass does not see, and is not reported. A <c>WithEvents</c> variable is read by the events it handles, and the
+/// The host counts the references of a local, of a <c>Private</c> variable of the module, and of a <c>Public</c> one that only the project's code can refer
+/// to: of an <c>Option Private Module</c> module, or of a program (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>). Another variable
+/// may be read by code the pass does not see, and is not reported. A <c>WithEvents</c> variable is read by the events it handles, and the
 /// control variable of a <c>For</c> loop by the loop. A variable nothing refers to comes with the fix that removes its declaration, unless a <c>ReDim</c> names
 /// it: without the declaration, the <c>ReDim</c> would declare an array of its own.
 /// </remarks>
@@ -67,10 +68,12 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
 /// its declared type (<strong>MS-VBAL §5.2.3.1.4</strong>).
 /// </summary>
 /// <remarks>
-/// A dynamic array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a class or a user-defined type are left out: such a variable is
-/// given what it holds otherwise than by an assignment (<c>As New</c>, its members). A variable declared <c>As Object</c> is judged: it is <c>Nothing</c> until
-/// a <c>Set</c> assigns it. A fixed-size array is judged: an assignment of one of its elements is a write of the array. The host counts the references of a
-/// local and of a <c>Private</c> variable of the module.
+/// The variable is judged by the kind of its declared type (<see cref="DeclarationFactDto.TypeKind"/>). A dynamic array, a <c>ReDim</c> of the variable, a
+/// <c>WithEvents</c> variable, a variable declared <c>As New</c>, a variable of a user-defined type and one whose type does not resolve are left out: such a
+/// variable is given what it holds otherwise than by an assignment (<c>As New</c>, its members), or is not known. A variable of a class or declared
+/// <c>As Object</c> is judged: it is <c>Nothing</c> until a <c>Set</c> assigns it. So is one of an <c>Enum</c>, a <c>Long</c> that is <c>0</c>
+/// (<strong>MS-VBAL §5.2.3.4</strong>). A fixed-size array is judged by its elements' type: an assignment of one of its elements is a write of the array. The
+/// host counts the references of the variables that <see cref="VariableNotUsedAnalyzer"/> reads.
 /// </remarks>
 internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
 {
@@ -106,7 +109,8 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
         {
             if (UnusedDeclarations.DeclarationOf<VariableDeclarationNode>(module, fact, node => node.NameRange ?? node.SourceLocation.Range) is not { IsWithEvents: false } declaration
                 || declaration.Children.OfType<ArrayBoundsNode>().Any(bounds => bounds.IsResizable)
-                || !IsOfAnIntrinsicType(declaration))
+                || declaration.Children.OfType<AsTypeExpressionNode>().Any(asType => asType.IsArrayDef)
+                || !IsGivenItsValueByAnAssignment(fact))
             {
                 continue;
             }
@@ -174,11 +178,9 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
         };
     }
 
-    // no As clause, or one that names an intrinsic type, Object included, unqualified or of the VBA library: no user-defined type has such a name. A class
-    // cannot be told from a user-defined type by its name alone, so neither is judged.
-    private static bool IsOfAnIntrinsicType(VariableDeclarationNode declaration)
-        => declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is not { } asType
-            || !asType.IsArrayDef
-                && (asType.QualifierName is null || string.Equals(asType.QualifierName, "VBA", StringComparison.OrdinalIgnoreCase))
-                && IntrinsicVBTypes.IsIntrinsic(asType.TypeName);
+    // a variable, or the elements of an array, that only an assignment gives a value: of an intrinsic type, Variant, Object, an Enum, or a class it is not
+    // declared As New of (MS-VBAL §5.2.3.1.4). A user-defined type is written through its members, and a type that did not resolve is not known.
+    private static bool IsGivenItsValueByAnAssignment(DeclarationFactDto fact)
+        => fact.TypeKind is DeclaredTypeKind.Intrinsic or DeclaredTypeKind.Variant or DeclaredTypeKind.Object or DeclaredTypeKind.Enum
+            || fact.TypeKind is DeclaredTypeKind.Class && fact.AutoInstantiates is null;
 }

@@ -24,7 +24,7 @@ namespace RDCore.Runtime.Execution.Frames;
 /// is written again: <see cref="TryRead"/> says so.
 /// </para>
 /// </remarks>
-internal sealed class ScalarCell : ICopyableBinding
+internal sealed class ScalarCell : ICopyableBinding, IAddressedCell
 {
     private IRuntimeValue? _boxed;
     private ScalarPayload _payload;
@@ -188,7 +188,13 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
     /// <summary>
     /// The payload as a <c>Variant</c> holds it: of the type <see cref="AliasOf"/> gives of its type, the type a <c>LongPtr</c> is an alias of.
     /// </summary>
-    public ScalarPayload HeldByAVariant() => this with { Type = AliasOf(Type) };
+    /// <remarks>
+    /// Only a payload of a <c>Long</c> or a <c>LongLong</c> kind can be of a <c>LongPtr</c>: any other is held as it is, and is not tested against either
+    /// <c>LongPtr</c> type, which is not sealed (<see cref="ScalarKinds.Of"/>).
+    /// </remarks>
+    public ScalarPayload HeldByAVariant() => Kind is ScalarKind.Long or ScalarKind.LongLong && Type is not (VBLongType or VBLongLongType)
+        ? this with { Type = AliasOf(Type) }
+        : this;
 
     /// <summary>Whether the value is held in <see cref="Integral"/>: one of the integer types, a <c>Boolean</c> or a <c>Currency</c>.</summary>
     public bool IsIntegral => Type is not (VBSingleType or VBDoubleType or VBDateType);

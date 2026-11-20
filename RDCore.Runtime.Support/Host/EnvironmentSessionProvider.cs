@@ -254,7 +254,8 @@ public sealed class EnvironmentSessionProvider(
     public ProgramExecution Execution { get; private set; } = default!;
 
     public IReadOnlyList<VBModuleSymbol> ModulesOf(RDCoreProject project, Uri workspaceRoot)
-        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem).ProvideSymbols().OfType<VBModuleSymbol>()];
+        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem, ansiCodePage: _environment.AnsiCodePage)
+            .ProvideSymbols().OfType<VBModuleSymbol>()];
 
     /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot) => Compose(project, workspaceRoot, known: null);
@@ -303,8 +304,9 @@ public sealed class EnvironmentSessionProvider(
         EnterWorkspaceRoot(workspaceRoot);
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
-        // makes no such call, and nothing is started for it.
-        if (_environment.AllowAutomation && !referenced.Libraries.IsEmpty)
+        // makes no such call, and nothing is started for it. A console application's user interface is its console: what makes the call, which hosts its forms
+        // too, is started when the program first makes one.
+        if (_environment.AllowAutomation && !referenced.Libraries.IsEmpty && !RDCore.Runtime.Support.Build.ProgramDialogs.IsConsole(project.Build))
         {
             Outside.Automation.Prepare();
         }
@@ -337,7 +339,7 @@ public sealed class EnvironmentSessionProvider(
         RuntimeOutputRouter output, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
-        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known);
+        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known, environment.AnsiCodePage);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);
@@ -353,8 +355,10 @@ public sealed class EnvironmentSessionProvider(
 
         var libraries = new LibrarySymbolProvider(workspaceRoot, referenced, environment.Is64Bit);
 
-        // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
-        var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], output, libraries: source);
+        // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else. The
+        // project's build section names the procedure a run of the project starts with.
+        var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language),
+            [configuration, stdLib, libraries, modules], output, libraries: source, build: project.Build);
         // a predefined constant the project defines has the project's value on every platform a #If is evaluated for, and not that platform's.
         RDCore.Runtime.Semantics.Precompiler.ProjectConditionalConstants.Set(session, project.PrecompilerConstants.Select(constant => constant.Key));
         // an error raised with no source is the project's (Err.Source).
@@ -397,6 +401,7 @@ public sealed class EnvironmentSessionProvider(
 
     // a program starts in the folder of its workspace, as opening a project in VB6 makes its folder current: a relative path is a file of the workspace. The
     // directory is the session's, which ChDir moves too; End leaves it where the program put it. The shell's scratch workspace is no folder of the user's.
+    // A project that a .rdworkspace lists is in that workspace, whose root is the file's folder (RD-VBAL §2.2.2); App.Path stays the project's own folder.
     private void EnterWorkspaceRoot(Uri workspaceRoot)
     {
         if (!workspaceRoot.IsFile)
@@ -414,12 +419,32 @@ public sealed class EnvironmentSessionProvider(
                 return;
             }
 
+            root = WorkspaceRootOf(root);
             error = _session!.Files.TryChangeDirectory(root);
         }
 
         if (error is not null && logger.IsEnabled(LogLevel.Warning))
         {
             logger.LogWarning("📂 The workspace root {root} could not be made the current directory ({error}): it is left where it was.", root, error);
+        }
+    }
+
+    // the folder of the .rdworkspace that lists the project's folder, or is in it; the project's folder when none does, or when the file cannot be read.
+    private string WorkspaceRootOf(string projectFolder)
+    {
+        try
+        {
+            return WorkspaceFolderList.Read(fileSystem, projectFolder)?.Root ?? projectFolder;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+            {
+                logger.LogWarning("📂 The workspace file above {folder} could not be read ({error}): the program starts in the project's folder.",
+                    projectFolder, exception.Message);
+            }
+
+            return projectFolder;
         }
     }
 

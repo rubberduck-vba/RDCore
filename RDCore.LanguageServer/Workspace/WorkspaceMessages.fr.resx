@@ -30,4 +30,19 @@
   <data name="PullDeclinedWhileADialogIsOpen" xml:space="preserve">
     <value>Le programme attend qu'on réponde à une boîte de dialogue : ses diagnostics sont donnés une fois la boîte fermée.</value>
   </data>
+  <data name="CircularProjectReference" xml:space="preserve">
+    <value>Le projet {0} fait partie d'une référence circulaire entre projets : {1}. Retirez l'une des références de ce chemin.</value>
+  </data>
+  <data name="ProjectFileFormatOlder" xml:space="preserve">
+    <value>Le fichier de projet est au format {0}, plus ancien que le format {1} de cette plateforme : il est écrit au format {1} lors de son prochain enregistrement.</value>
+  </data>
+  <data name="ProjectFileFormatNewerMinor" xml:space="preserve">
+    <value>Le fichier de projet est au format {0}, plus récent que le format {1} de cette plateforme : ce que cette plateforme n'en connaît pas est conservé tel quel.</value>
+  </data>
+  <data name="ProjectFileFormatNewerMajor" xml:space="preserve">
+    <value>Le fichier de projet est au format {0}, d'une version majeure plus récente que le format {1} de cette plateforme : il a été lu au format {1}, et une partie de ce qu'il contient peut ne pas avoir été lue.</value>
+  </data>
+  <data name="ProjectFileFormatUnparseable" xml:space="preserve">
+    <value>Le fichier de projet indique le format « {0} », qui n'est la version d'aucun format : il a été lu au format {1}.</value>
+  </data>
 </root>

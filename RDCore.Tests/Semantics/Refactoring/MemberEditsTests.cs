@@ -78,7 +78,7 @@ public sealed class MemberEditsTests
     {
         var (_, second, _) = Extents(Module);
 
-        var removed = Applied(Module, [MemberEdits.Remove(Module, second)]);
+        var removed = DeclarationEdits.ApplyTo(Module, [MemberEdits.Remove(Module, second)]);
 
         Assert.AreEqual(
             "Option Explicit\r\n' the declarations\r\n\r\nPublic Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First\r\n\r\n" +
@@ -94,7 +94,7 @@ public sealed class MemberEditsTests
         var text = endsLine ? Module : Module.TrimEnd('\r', '\n');
         var (_, _, third) = Extents(text);
 
-        var removed = Applied(text, [MemberEdits.Remove(text, third)]);
+        var removed = DeclarationEdits.ApplyTo(text, [MemberEdits.Remove(text, third)]);
 
         var expected = "Option Explicit\r\n' the declarations\r\n\r\nPublic Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First\r\n\r\n" +
             "'@Description(\"Second\")\r\n' the second one\r\nPublic Sub Second()\r\nAttribute Second.VB_Description = \"Second\"\r\n    Debug.Print 2\r\nEnd Sub";
@@ -106,7 +106,7 @@ public sealed class MemberEditsTests
     {
         var (first, second, _) = Extents(Module);
 
-        var moved = Applied(Module, MemberEdits.Move(Module, first, second, after: true));
+        var moved = DeclarationEdits.ApplyTo(Module, MemberEdits.Move(Module, first, second, after: true));
 
         Assert.AreEqual(
             "Option Explicit\r\n' the declarations\r\n\r\n" +
@@ -124,7 +124,7 @@ public sealed class MemberEditsTests
         var text = endsLine ? Module : Module.TrimEnd('\r', '\n');
         var (_, second, third) = Extents(text);
 
-        var moved = Applied(text, MemberEdits.Move(text, third, second, after: false));
+        var moved = DeclarationEdits.ApplyTo(text, MemberEdits.Move(text, third, second, after: false));
 
         var expected = "Option Explicit\r\n' the declarations\r\n\r\nPublic Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First\r\n\r\n" +
             "Public Sub Third()\r\n    Debug.Print 3\r\nEnd Sub\r\n\r\n" +
@@ -138,7 +138,7 @@ public sealed class MemberEditsTests
         var text = Module.TrimEnd('\r', '\n');
         var (first, _, third) = Extents(text);
 
-        var moved = Applied(text, MemberEdits.Move(text, first, third, after: true));
+        var moved = DeclarationEdits.ApplyTo(text, MemberEdits.Move(text, first, third, after: true));
 
         Assert.EndsWith("End Sub\r\n\r\nPublic Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First", moved);
         Assert.StartsWith("Option Explicit\r\n' the declarations\r\n\r\n'@Description", moved);
@@ -159,7 +159,7 @@ public sealed class MemberEditsTests
         var text = Module.Replace("\r\n", "\n", StringComparison.Ordinal);
         var (first, second, _) = Extents(text);
 
-        var moved = Applied(text, MemberEdits.Move(text, first, second, after: true));
+        var moved = DeclarationEdits.ApplyTo(text, MemberEdits.Move(text, first, second, after: true));
 
         Assert.DoesNotContain("\r", moved);
         StringAssert.Contains(moved, "End Sub\n\nPublic Sub First()\n");
@@ -183,7 +183,7 @@ public sealed class MemberEditsTests
             "Public Sub Third()\r\n    Debug.Print 3\r\nEnd Sub\r\n\r\n" +
             "'@Description(\"Second\")\r\n' the second one\r\nPublic Sub Second()\r\nAttribute Second.VB_Description = \"Second\"\r\n    Debug.Print 2\r\nEnd Sub\r\n\r\n" +
             "Public Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First";
-        Assert.AreEqual(endsLine ? expected + "\r\n" : expected, Applied(text, edits));
+        Assert.AreEqual(endsLine ? expected + "\r\n" : expected, DeclarationEdits.ApplyTo(text, edits));
     }
 
     [TestMethod]
@@ -192,7 +192,7 @@ public sealed class MemberEditsTests
         var text = Module.Replace("End Sub ' after First\r\n\r\n", "End Sub ' after First\r\n\r\n' on its own\r\n\r\n", StringComparison.Ordinal);
         var (first, second, third) = Extents(text);
 
-        var reordered = Applied(text, MemberEdits.Reorder(text, [first, second, third], NameDescending));
+        var reordered = DeclarationEdits.ApplyTo(text, MemberEdits.Reorder(text, [first, second, third], NameDescending));
 
         StringAssert.StartsWith(reordered, "Option Explicit\r\n' the declarations\r\n\r\nPublic Sub First()\r\n    Debug.Print 1\r\nEnd Sub ' after First\r\n\r\n' on its own\r\n\r\nPublic Sub Third()");
         StringAssert.EndsWith(reordered, "Public Sub Second()\r\nAttribute Second.VB_Description = \"Second\"\r\n    Debug.Print 2\r\nEnd Sub\r\n");
@@ -212,26 +212,5 @@ public sealed class MemberEditsTests
         var (first, second, _) = Extents(Module);
 
         Assert.ThrowsExactly<ArgumentException>(() => MemberEdits.Reorder(Module, [second, first], NameDescending));
-    }
-
-    // the text with the edits made, each of the text as it was before any of them.
-    private static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
-    {
-        var starts = new List<int> { 0 };
-        for (var index = 0; index < text.Length; index++)
-        {
-            if (text[index] == '\n')
-            {
-                starts.Add(index + 1);
-            }
-        }
-
-        int Offset(SourcePosition position) => starts[position.Line] + position.Character;
-        foreach (var edit in edits.OrderByDescending(edit => Offset(edit.Range.Start)))
-        {
-            text = string.Concat(text.AsSpan(0, Offset(edit.Range.Start)), edit.NewText, text.AsSpan(Offset(edit.Range.End)));
-        }
-
-        return text;
     }
 }

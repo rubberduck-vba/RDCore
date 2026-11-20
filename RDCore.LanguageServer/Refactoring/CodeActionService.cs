@@ -929,12 +929,7 @@ internal sealed class CodeActions(
             Title = title,
             Kind = kind,
             Diagnostics = diagnostic is null ? null : new Container<Diagnostic>(diagnostic),
-            Command = new Command
-            {
-                Name = RefactoringCommands.Rename,
-                Title = title,
-                Arguments = new JArray(document.ToString(), JToken.FromObject(new { line = position.Line, character = position.Character })),
-            },
+            Command = new RenameCommandArguments(document.ToString(), position.ToSourcePosition()).ToCommand(title),
         };
     }
 

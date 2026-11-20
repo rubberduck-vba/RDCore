@@ -14,6 +14,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
+using LspModels = OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -179,9 +180,11 @@ public sealed class WorkspaceLoaderTests
     }
 
     // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
-    // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and only there.
+    // 0.1 platform refused as a later platform's. What is not this platform's format is said in the log, and to the client: an older format as
+    // information, and a newer one, or no format's version, as a warning.
     [TestMethod]
-    [DataRow("\"1.2\"", null, DisplayName = "1.2, this platform's format")]
+    [DataRow("\"1.3\"", null, DisplayName = "1.3, this platform's format")]
+    [DataRow("\"1.2\"", LogLevel.Information, DisplayName = "1.2, the format before references to projects: an older one")]
     [DataRow("\"1.1\"", LogLevel.Information, DisplayName = "1.1, the format before KeepSystemTheme: an older one")]
     [DataRow("\"1.0.0\"", LogLevel.Information, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0, an older one")]
     [DataRow("\"1.0\"", LogLevel.Information, DisplayName = "1.0, the format before the build section")]
@@ -208,6 +211,76 @@ public sealed class WorkspaceLoaderTests
         Assert.ContainsSingle(documents.GetAllDocuments(), "the project's module is loaded");
         var said = logger.Entries.Where(entry => entry.Message.Contains("format", StringComparison.Ordinal)).Select(entry => entry.Level).ToArray();
         CollectionAssert.AreEqual(logged is { } level ? new[] { level } : Array.Empty<LogLevel>(), said);
+        Assert.AreEqual(logged switch
+        {
+            null => (LspModels.MessageType?)null,
+            LogLevel.Information => LspModels.MessageType.Info,
+            _ => LspModels.MessageType.Warning,
+        }, sut.FormatNote?.Type);
+        if (logged is not null)
+        {
+            StringAssert.Contains(sut.FormatNote!.Message, ProjectFile.SchemaVersion);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("en", "The project file is in the format 1.0, older than this platform's ")]
+    [DataRow("fr", "Le fichier de projet est au format 1.0, plus ancien que le format ")]
+    public async Task WorkspaceService_LoadAsync_AProjectFileInAnotherFormat_IsSaidInTheUsersLanguage(string culture, string said)
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData("""{ "Version": "1.0", "ProjectInfo": { "Name": "Written", "Modules": [] } }"""),
+        });
+        var sut = WorkspaceService(fs);
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+        try
+        {
+            await sut.LoadAsync(Root);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+
+        StringAssert.StartsWith(sut.FormatNote?.Message, said);
+    }
+
+    // the note goes over the wire before initialize is answered, as window/logMessage, as the language server sends it once it has loaded the
+    // workspace.
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    public async Task AProjectFileInAnotherFormat_IsSaidToTheClient_DuringInitialize()
+    {
+        using var timeout = new CancellationTokenSource(SafetyCap);
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData("""{ "Version": "2.0", "ProjectInfo": { "Name": "Written", "Modules": [] } }"""),
+        });
+        var sut = WorkspaceService(fs);
+        var toServer = new System.IO.Pipelines.Pipe();
+        var toClient = new System.IO.Pipelines.Pipe();
+        var told = new TaskCompletionSource<LspModels.LogMessageParams>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serving = OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
+            .WithInput(toServer.Reader).WithOutput(toClient.Writer)
+            .OnInitialize(async (server, request, token) =>
+            {
+                await sut.LoadAsync(Root, [Root], ask: null, token);
+                RDCore.LanguageServer.CoreLanguageServerApp.TellFormatOf(server, sut);
+            }), timeout.Token);
+        var connecting = OmniSharp.Extensions.LanguageServer.Client.LanguageClient.From(client => client
+            .WithInput(toClient.Reader).WithOutput(toServer.Writer)
+            .OnLogMessage(message => told.TrySetResult(message)), timeout.Token);
+
+        await Task.WhenAll(serving, connecting).WaitAsync(SafetyCap);
+        using var server = await serving;
+        using var client = await connecting;
+
+        // not a timing: a note the client is never sent fails the test here.
+        var note = await told.Task.WaitAsync(SafetyCap);
+        Assert.AreEqual(LspModels.MessageType.Warning, note.Type);
+        StringAssert.Contains(note.Message, "2.0");
     }
 
     private const string Unreadable = "{ \"Version\": \"1.0\", \"ProjectInfo\": { \"Name\": \"Broken\", \"Modules\": 5 } }";
