@@ -71,8 +71,9 @@ public static class SymbolNavigation
     public static SymbolNavigationTarget? OccurrencesAt(RenameContext context, Uri module, SourcePosition position)
         => NamesOf(context, module, position, includeDeclaration: true, byAccess: false);
 
-    private static SymbolNavigationTarget? NamesOf(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess,
-        bool throughInterfaces = true)
+    // a call through an interface binds to the interface's member (MS-VBAL §5.2.4.2): it is a reference of that member, and of none of the procedures that
+    // implement it, which Go to Implementation finds.
+    private static SymbolNavigationTarget? NamesOf(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
@@ -161,36 +162,7 @@ public static class SymbolNavigation
         // a name written as the symbol's whose meaning is not known, where the symbol could be what it means, as a rename refuses it.
         var unresolved = found.Unknown
             .Where(unknown => unknown.Kind == OccurrenceKind.Member || together.Any(defined => RenameBinding.ChainIndex(unknown.Scope, defined) < int.MaxValue))
-            .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range))
-            .ToList();
-
-        // a call through an interface runs the procedure of the object's class that implements the member it calls (MS-VBAL §5.2.4.2), which may be any of
-        // them: a procedure that implements a member is referred to by the calls of that member, and a member by the procedures that implement it.
-        if (byAccess && throughInterfaces && symbol is VBTypeMemberSymbol)
-        {
-            var referred = called is null ? together : together.Where(defined => defined.SemanticId == accessor);
-            foreach (var member in referred.OfType<VBTypeMemberSymbol>())
-            {
-                foreach (var implemented in InterfaceMembersImplementedBy(context, member))
-                {
-                    if (Definitions(implemented) is [var first, ..]
-                        && NamesOf(context, first.Module, first.SelectionRange.Start, includeDeclaration: false, byAccess: true, throughInterfaces: false)
-                            is { } calls)
-                    {
-                        sites.AddRange(calls.Sites);
-                        unresolved.AddRange(calls.Unresolved);
-                    }
-                }
-
-                if (includeDeclaration)
-                {
-                    sites.AddRange(ImplementationsOf(context, member)
-                        .SelectMany(Definitions)
-                        .Select(site => new SymbolSite(site.Module, site.SelectionRange, site.SelectionRange)));
-                }
-            }
-        }
-
+            .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range));
         return new SymbolNavigationTarget(origin, symbol, Ordered(sites)) { Unresolved = Ordered(unresolved) };
     }
 
@@ -256,6 +228,22 @@ public static class SymbolNavigation
             .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(site => site.Range.Start)]);
     }
+
+    // whether the member named at a position is a member of a class that a class of the workspace implements as an interface.
+    internal static bool IsInterfaceMemberAt(RenameContext context, Uri module, SourcePosition position)
+        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBTypeMemberSymbol member }
+            && NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(member.Uri))) is VBClassModuleSymbol owner
+            && ImplementersOf(context, owner).Any();
+
+    // the members of interfaces that the procedure named at a position implements (MS-VBAL §5.3.1.9), each with where it is declared.
+    internal static IReadOnlyList<ImplementedMember> ImplementedAt(RenameContext context, Uri module, SourcePosition position)
+        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBTypeMemberSymbol procedure }
+            ? [.. InterfaceMembersImplementedBy(context, procedure)
+                .Select(member => (Member: member, Sites: Definitions(member)))
+                .Where(found => found.Sites.Count > 0)
+                .Select(found => new ImplementedMember(SymbolUri.ModuleNameOf(NameOccurrences.ModuleOf(found.Member.Uri)), found.Member.Name,
+                    found.Sites[0]))]
+            : [];
 
     // the classes of the workspace that implement a class as an interface.
     internal static IEnumerable<VBClassModuleSymbol> ImplementersOf(RenameContext context, VBClassModuleSymbol implemented)
