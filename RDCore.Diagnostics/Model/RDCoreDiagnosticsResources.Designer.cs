@@ -1609,6 +1609,38 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
+        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;.
+        /// </summary>
+        public static string ImplicitDefaultMemberAccess_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitDefaultMemberAccess_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;.
+        /// </summary>
+        public static string IndexedDefaultMemberAccess_Fix {
+            get {
+                return ResourceManager.GetString("IndexedDefaultMemberAccess_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name the default member &apos;{0}&apos;, passing it the name as a String.
+        /// </summary>
+        public static string BangNotation_Fix {
+            get {
+                return ResourceManager.GetString("BangNotation_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Name both default members, which keeps the Let of the values.
+        /// </summary>
+        public static string SuspiciousLetAssignment_Fix {
+            get {
+                return ResourceManager.GetString("SuspiciousLetAssignment_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
         ///   Looks up a localized string similar to On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on..
         /// </summary>
         public static string OnErrorGoToMinusOne_Message {

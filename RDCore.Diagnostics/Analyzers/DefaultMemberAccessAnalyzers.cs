@@ -10,6 +10,8 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
 using DeclaredTypeKind = RDCore.SDK.Semantics.DeclaredTypeKind;
+using DefaultMemberFact = RDCore.SDK.Semantics.DefaultMemberFact;
+using VBIdentifier = RDCore.SDK.Model.VBIdentifier;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -174,6 +176,31 @@ internal static class DefaultMemberAccesses
 
     private static bool HoldsAnObject(string? declaredType)
         => declaredType is { Length: > 0 } type && (IsUnbound(type) || !IntrinsicVBTypes.IsIntrinsic(type) && !string.Equals(type, "Unknown", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The fix that names a default member after an expression: <c>.</c> and the member's name, which calls the member the code called without naming it,
+    /// with the same arguments (<strong>MS-VBAL §5.6.12</strong>). None for a name that brackets cannot hold (<see cref="Written"/>).
+    /// </summary>
+    /// <param name="after">Where the member's name is written: the end of the expression.</param>
+    /// <param name="member">The name of the default member.</param>
+    /// <param name="title">What the fix is called, with the member's name in it.</param>
+    public static DiagnosticFixes? NameAfter(SourcePosition after, string? member, string title)
+        => Written(member) is { } written
+            ? new DiagnosticFixes { Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(title, member!), SyntaxEdits.Insert(after, $".{written}"))] }
+            : null;
+
+    /// <summary>
+    /// A member's name as the code writes it after a period: as it is when it is an identifier and no keyword (a letter, then letters, digits and
+    /// underscores, <strong>MS-VBAL §3.3.5</strong>), and in brackets otherwise, as a <c>FOREIGN-NAME</c> (<strong>MS-VBAL §3.3.5.3</strong>): a library's
+    /// <c>_Default</c> is written <c>[_Default]</c>. <see langword="null"/> for no name, and for one that brackets cannot hold: with a <c>]</c> or a line
+    /// break in it.
+    /// </summary>
+    /// <param name="member">The name of the member.</param>
+    public static string? Written(string? member)
+        => member is not { Length: > 0 } name ? null
+            : char.IsLetter(name[0]) && name.All(character => char.IsLetterOrDigit(character) || character == '_') && !VBIdentifier.IsReserved(name) ? name
+            : name.IndexOfAny([']', '\r', '\n']) < 0 ? $"[{name}]"
+            : null;
 }
 
 /// <summary>
@@ -196,13 +223,20 @@ internal sealed class ImplicitDefaultMemberAccessAnalyzer : IModuleAnalyzer
             return [];
         }
 
+        // the member a value is read through is named only when a read of it needs no argument: one that requires one makes the read a compile error.
         var reads = DefaultMemberAccesses.ObjectsReadAsValues(semantics, module)
             .Where(operand => !DefaultMemberAccesses.IsUnbound(operand.DeclaredType))
             .Select(operand => new AnalyzerFinding(
                 RDCoreDiagnosticId.ImplicitDefaultMemberAccess.ToCode(),
                 operand.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitDefaultMemberAccess_Message, operand.DeclaredType ?? string.Empty)));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitDefaultMemberAccess_Message, operand.DeclaredType ?? string.Empty))
+            {
+                Fixes = operand.DefaultMember is { RequiredParameters: 0 } member
+                    ? DefaultMemberAccesses.NameAfter(operand.Location.Range.End, member.Name, RDCoreDiagnosticsResources.ImplicitDefaultMemberAccess_Fix)
+                    : null,
+            });
+        // a target that is Nothing, a parameter, or what a function or a property returns is assigned through the same member once it is named.
         var writes = DefaultMemberAccesses.AssignmentsToObjects(semantics, module)
             .Where(assignment => assignment is { ValueIsAnObject: false, DefaultMember: not null })
             .Select(assignment => new AnalyzerFinding(
@@ -212,7 +246,11 @@ internal sealed class ImplicitDefaultMemberAccessAnalyzer : IModuleAnalyzer
                 AnalyzerMessages.Format(
                     RDCoreDiagnosticsResources.ImplicitDefaultMemberAccess_Assigned_Message,
                     assignment.DefaultMember!,
-                    assignment.Target.DeclaredType ?? string.Empty)));
+                    assignment.Target.DeclaredType ?? string.Empty))
+            {
+                Fixes = DefaultMemberAccesses.NameAfter(
+                    assignment.Statement.Target.SourceLocation.Range.End, assignment.DefaultMember, RDCoreDiagnosticsResources.ImplicitDefaultMemberAccess_Fix),
+            });
         return reads.Concat(writes);
     }
 }
@@ -262,12 +300,28 @@ internal sealed class IndexedDefaultMemberAccessAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: false, unbound: false)
+    {
+        if (context.Semantics is not { } semantics)
+        {
+            return [];
+        }
+
+        // the member is named between the object and its argument list: c(1) is c.Item(1), and t() is t.Item().
+        var indexes = (context.ParseResult.SyntaxTree?.Descendants().OfType<IndexExpressionNode>() ?? [])
+            .ToLookup(index => index.SourceLocation.Range);
+        return DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: false, unbound: false)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.IndexedDefaultMemberAccess.ToCode(),
                 access.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.IndexedDefaultMemberAccess_Message, access.Member ?? string.Empty)));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.IndexedDefaultMemberAccess_Message, access.Member ?? string.Empty))
+            {
+                Fixes = indexes[access.Location.Range].FirstOrDefault() is { } index
+                    ? DefaultMemberAccesses.NameAfter(
+                        index.Callee.SourceLocation.Range.End, access.Member, RDCoreDiagnosticsResources.IndexedDefaultMemberAccess_Fix)
+                    : null,
+            });
+    }
 }
 
 /// <summary>
@@ -299,12 +353,45 @@ internal sealed class BangNotationAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: true, unbound: false)
+    {
+        if (context.Semantics is not { } semantics)
+        {
+            return [];
+        }
+
+        var accesses = (context.ParseResult.SyntaxTree?.Descendants().OfType<DictionaryAccessExpressionNode>() ?? [])
+            .ToLookup(access => access.SourceLocation.Range);
+        return DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: true, unbound: false)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.BangNotation.ToCode(),
                 access.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.BangNotation_Message, access.Member ?? string.Empty)));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.BangNotation_Message, access.Member ?? string.Empty))
+            {
+                Fixes = accesses[access.Location.Range].FirstOrDefault() is { Member.IdentifierName: { } key } bang
+                    ? FixOf(bang, key, access.Member)
+                    : null,
+            });
+    }
+
+    // MS-VBAL §5.6.14: the name after the ! is given to the default member as a String literal. b!key is b.Item("key"); in a With block, !key is
+    // .Item("key"). A name in brackets (b![a key]) is the name inside them.
+    private static DiagnosticFixes? FixOf(DictionaryAccessExpressionNode bang, string key, string? member)
+    {
+        if (DefaultMemberAccesses.Written(member) is not { } written)
+        {
+            return null;
+        }
+
+        var from = bang.Owner?.SourceLocation.Range.End ?? bang.SourceLocation.Range.Start;
+        var literal = key.Replace("\"", "\"\"", StringComparison.Ordinal);
+        return new DiagnosticFixes
+        {
+            Edits = [SyntaxEdits.Fix(
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.BangNotation_Fix, member!),
+                SyntaxEdits.Replace(new SourceRange(from, bang.SourceLocation.Range.End), $".{written}(\"{literal}\")"))],
+        };
+    }
 }
 
 /// <summary>
@@ -375,11 +462,40 @@ internal sealed class SuspiciousLetAssignmentAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? [] : DefaultMemberAccesses.AssignmentsToObjects(semantics, module)
+    {
+        if (context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics })
+        {
+            return [];
+        }
+
+        // the default member of the value's class, by where the value is: what the Let reads.
+        var values = semantics.Procedures.SelectMany(procedure => procedure.Expressions)
+            .Where(fact => fact.DefaultMember is not null)
+            .ToLookup(fact => fact.Location.Range, fact => fact.DefaultMember!);
+        return DefaultMemberAccesses.AssignmentsToObjects(semantics, module)
             .Where(assignment => assignment.ValueIsAnObject)
             .Select(assignment => new AnalyzerFinding(
                 RDCoreDiagnosticId.SuspiciousLetAssignment.ToCode(),
                 assignment.Statement.SourceLocation.Range,
                 DiagnosticSeverity.Warning,
-                RDCoreDiagnosticsResources.SuspiciousLetAssignment_Message));
+                RDCoreDiagnosticsResources.SuspiciousLetAssignment_Message)
+            {
+                Fixes = FixOf(assignment.Statement, assignment.DefaultMember, values[assignment.Statement.Value.SourceLocation.Range].FirstOrDefault()),
+            });
+    }
+
+    // the Let as it is, with both default members named: h = h2 is h.Value = h2.Value. It keeps what the code does; Set, which assigns the object, would
+    // change it. None for a target declared Object, whose default member is known only at run time, nor for a value whose default member requires an
+    // argument.
+    private static DiagnosticFixes? FixOf(AssignmentStatementNode statement, string? target, DefaultMemberFact? value)
+        => DefaultMemberAccesses.Written(target) is { } writtenTarget && value is { RequiredParameters: 0 }
+            && DefaultMemberAccesses.Written(value.Name) is { } writtenValue
+            ? new DiagnosticFixes
+            {
+                Edits = [SyntaxEdits.Fix(
+                    RDCoreDiagnosticsResources.SuspiciousLetAssignment_Fix,
+                    SyntaxEdits.Insert(statement.Target.SourceLocation.Range.End, $".{writtenTarget}"),
+                    SyntaxEdits.Insert(statement.Value.SourceLocation.Range.End, $".{writtenValue}"))],
+            }
+            : null;
 }

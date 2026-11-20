@@ -627,6 +627,18 @@
   <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
     <value>An object is assigned to an object without Set: the value of one default member is assigned to the other&apos;s. Write Set to assign the object itself.</value>
   </data>
+  <data name="ImplicitDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Name the default member &apos;{0}&apos;</value>
+  </data>
+  <data name="IndexedDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Name the default member &apos;{0}&apos;</value>
+  </data>
+  <data name="BangNotation_Fix" xml:space="preserve">
+    <value>Name the default member &apos;{0}&apos;, passing it the name as a String</value>
+  </data>
+  <data name="SuspiciousLetAssignment_Fix" xml:space="preserve">
+    <value>Name both default members, which keeps the Let of the values</value>
+  </data>
   <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
     <value>On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on.</value>
   </data>
