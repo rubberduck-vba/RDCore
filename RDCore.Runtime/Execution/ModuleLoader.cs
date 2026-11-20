@@ -185,6 +185,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
             .AddRange(ModuleNameStaticSemantics.Check(syntaxTree, module.Name))
+            .AddRange(ModuleNameStaticSemantics.CheckReferences(syntaxTree, module, session.Symbols.Scopes.Global))
             .AddRange(headerErrors)
             .AddRange(constantErrors)
             .AddRange(sizeErrors)
@@ -219,7 +220,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails, syntaxTree, module.Uri);
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms,
-            LateBoundNames.Of(syntaxTree, moduleModel.Procedures));
+            LateBoundNames.Of(syntaxTree, moduleModel.Procedures), unanalyzedNames);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an

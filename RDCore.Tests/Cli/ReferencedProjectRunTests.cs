@@ -160,4 +160,41 @@ public sealed class ReferencedProjectRunTests
         Assert.IsEmpty(output);
         StringAssert.Contains(error, "NavalLib.Broken: ");
     }
+
+    // MS-VBAL §4.2: a module's name is not the project name of a project its project references.
+    [TestMethod]
+    public async Task AModuleNamedAsAReferencedProject_DoesNotLoad_AndRefusesTheRun()
+    {
+        var named = ModuleWorkspace.StandardModule("NavalLib", "Option Explicit", "Public Sub Go()", "End Sub");
+        var fileSystem = new MockFileSystem();
+        WriteWorkspace(fileSystem, Root, ["NavalConsole", "NavalLib"],
+            ("NavalConsole", "NavalConsole", ["NavalLib"], [("Program.bas", Program), ("NavalLib.bas", named)]),
+            ("NavalLib", "NavalLib", [], [("Greetings.bas", Greetings), ("GridCoord.cls", GridCoord)]));
+
+        var (exit, output, error) = await RunAsync(fileSystem);
+
+        Assert.AreEqual(ProgramRunner.Refused, exit);
+        Assert.IsEmpty(output);
+        StringAssert.Contains(error, NameConflicts);
+    }
+
+    // the standard library is referenced by every project, a referenced one too.
+    [TestMethod]
+    public async Task AModuleOfAReferencedProject_NamedAsTheStandardLibrary_RefusesTheRun_NamedAsOfItsProject()
+    {
+        var named = ModuleWorkspace.StandardModule("VBA", "Option Explicit", "Public Sub Go()", "End Sub");
+        var fileSystem = new MockFileSystem();
+        WriteWorkspace(fileSystem, Root, ["NavalConsole", "NavalLib"],
+            ("NavalConsole", "NavalConsole", ["NavalLib"], [("Program.bas", Program)]),
+            ("NavalLib", "NavalLib", [], [("Greetings.bas", Greetings), ("GridCoord.cls", GridCoord), ("VBA.bas", named)]));
+
+        var (exit, output, error) = await RunAsync(fileSystem);
+
+        Assert.AreEqual(ProgramRunner.Refused, exit);
+        Assert.IsEmpty(output);
+        StringAssert.Contains(error, "NavalLib.VBA: ");
+        StringAssert.Contains(error, NameConflicts);
+    }
+
+    private const string NameConflicts = "Name conflicts with existing module, project, or object library";
 }

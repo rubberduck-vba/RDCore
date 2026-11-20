@@ -107,6 +107,18 @@ internal static class ModuleWorkspace
         RDCore.External.ExternalWorld? Outside = null);
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, IReadOnlyList{ValueTuple{string, string}}, string)"/>,
+    /// for a project that references libraries.
+    /// </summary>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="libraries">The libraries the project references.</param>
+    public static Task<string[]> LoadErrorsAsync(
+        IReadOnlyList<(string Name, string Source)> classes, IReadOnlyList<(string Name, string Source)> modules, string program, WorkspaceLibraries libraries)
+        => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries, modules: modules);
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, for a project that references libraries.
     /// </summary>
     public static Task<string[]> LoadErrorsAsync(

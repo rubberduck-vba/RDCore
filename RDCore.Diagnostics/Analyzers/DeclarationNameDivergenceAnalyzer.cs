@@ -16,7 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>VB_Name</c>, <strong>MS-VBAL §4.2</strong>), <c>Me</c> as a member of a user-defined type, <c>Name</c> as an Enum member.
 /// </summary>
 /// <remarks>
-/// RD-VBA compiles each of them. A name written in brackets is a foreign name (<strong>MS-VBAL §3.3.5.3</strong>), which both compile, and is not reported.
+/// RD-VBA compiles each of them. A name written in brackets is a foreign name (<strong>MS-VBAL §3.3.5.3</strong>), which both compile, and is not reported;
+/// a procedure named in brackets is a syntax error in both (<strong>MS-VBAL §5.3.1.3</strong>).
 /// </remarks>
 internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
 {
