@@ -1484,9 +1484,9 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
 
     // an object variable of the activation, or an object field it reaches (ProcedureAnalysis.Fields.cs): one declared As New is made when it is read
-    // (MS-VBAL §5.2.3.1.4), which is the interpreter's. As the object a member is called on (receiver), it has its slot: compiled code makes the call
-    // only when the variable holds an object (CompiledActivation.CanCallMember), and while it holds Nothing the interpreter makes the call, and the
-    // object with it.
+    // (MS-VBAL §5.2.3.1.4), which is the interpreter's. Where the variable is not read (receiver), it has its slot: as the object a member is called on,
+    // compiled code makes the call only when the variable holds an object (CompiledActivation.CanCallMember), and while it holds Nothing the interpreter
+    // makes the call, and the object with it; as what a Set assigns, it is given what the Set is given, and makes no object (SetOf).
     private int? ObjectSlotOf(BoundVariable variable, bool receiver = false)
         => variable is { Slot: { } slot } && (receiver || !variable.IsAutoInstantiated) && ReferenceEquals(slot.Layout, _layout)
             && _objectSlots.Contains(slot.Index)
