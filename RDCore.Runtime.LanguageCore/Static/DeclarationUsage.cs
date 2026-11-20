@@ -265,6 +265,8 @@ public static class DeclarationUsage
         models = [.. models.Select(model => followed.TryGetValue(model.Module.AbsoluteUri, out var byRef)
             ? model with { Declarations = [.. model.Declarations.Select(fact => Followed(fact, byRef))] }
             : model)];
+        // every module of the project is there: what the members bound to an interface member or an event refer to is said of its parameters.
+        models = BoundParameters.Stated(models, projectModules, membersOf, isLibrary);
         inProject = [.. models.Where(model => modules.Contains(model.Module.AbsoluteUri))];
 
         var unanalyzed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

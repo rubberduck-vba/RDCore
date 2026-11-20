@@ -591,6 +591,12 @@
   <data name="ParameterNotUsed_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is never used.</value>
   </data>
+  <data name="ParameterNotUsed_Implementations_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is used by no implementation of &apos;{1}&apos;.</value>
+  </data>
+  <data name="ParameterNotUsed_Handlers_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is used by no handler of event &apos;{1}&apos;.</value>
+  </data>
   <data name="AssignedByValParameter_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change.</value>
   </data>
