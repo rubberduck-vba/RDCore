@@ -183,11 +183,11 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         return true;
     }
 
-    // a cell knows the address it is bound at, so that a second name for its variable - a ByRef parameter given the cell (Frames.CellReference) - finds the
-    // address the variable has, whichever of them was asked for it first.
+    // a cell knows the address it is bound at, so that a second name for its variable - a ByRef parameter given the cell (Frames.CellReference, the cell of
+    // a String a call compiled code makes directly is given) - finds the address the variable has, whichever of them was asked for it first.
     private static void Bind(IBindingHandle handle, MemoryAddress address)
     {
-        if (handle is Frames.ScalarCell cell)
+        if (handle is Frames.IAddressedCell cell)
         {
             cell.Address = address;
         }
@@ -195,7 +195,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
 
     private void Unbind(MemoryAddress address)
     {
-        if (_handleByAddress.TryGetValue(address, out var handle) && handle is Frames.ScalarCell { Address: { } bound } cell && bound == address)
+        if (_handleByAddress.TryGetValue(address, out var handle) && handle is Frames.IAddressedCell { Address: { } bound } cell && bound == address)
         {
             cell.Address = null;
         }

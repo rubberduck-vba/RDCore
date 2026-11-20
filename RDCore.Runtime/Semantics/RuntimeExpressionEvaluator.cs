@@ -371,6 +371,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         VBTypeMemberSymbol? member = null;
+        ImmutableArray<LateBoundCandidate>? candidates = null;
         if (declared is VBVariantType or VBObjectType)
         {
             flags |= MemberAccessOperationSemanticFlags.LateBound;
@@ -387,11 +388,32 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             {
                 flags |= MemberAccessOperationSemanticFlags.DefaultMember;
             }
+
+            // a member an extensible class does not declare is bound where the code runs, to a member of the object's class that has the name (MS-VBAL
+            // §5.6.12), as an Object's is. The standard library's classes are the platform's, whose objects have the members their classes declare and no
+            // other: none can answer the access, and it raises 438. A host's object can have members its library does not declare, which are not known.
+            if (member is null && memberName is not null && declared is VBClassType { Symbol: var declaredModule }
+                && (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, declaredModule) ?? declaredModule) is var extensible
+                && extensible.GetProperty(SymbolProperties.Extensible))
+            {
+                flags |= MemberAccessOperationSemanticFlags.LateBound;
+                candidates = extensible.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StandardLibrary.LibraryName ? [] : null;
+            }
         }
 
         // the error is the access's when the object it is accessed on is known, and nothing it took to access the member was assumed.
         var isKnown = owner is { IsIndeterminate: false };
         var error = isKnown && observation.Assumptions == assumedBefore ? StatedErrors.Of(result.ErrorInfo) : null;
+
+        // the default members an argument list or the name of a dictionary access given to the object goes through, of the class it is declared as
+        // (MS-VBAL §5.6.13, §5.6.14). A dictionary access is the index of what the owner's default member returns, when that takes no parameters.
+        const MemberAccessOperationSemanticFlags implied = MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember;
+        var defaultMembers = memberName is null && (kind & implied) == implied
+            && (kind & (MemberAccessOperationSemanticFlags.ArgumentList | MemberAccessOperationSemanticFlags.DictionaryAccess)) != 0
+            ? DefaultMemberChain.Of(session.Symbols.Resolver, declared, kind.HasFlag(MemberAccessOperationSemanticFlags.DictionaryAccess)
+                || access is DictionaryAccessExpressionNode
+                || access is IndexExpressionNode { Arguments: var arguments } && !IndexExpressionNode.IsEmptyArgumentList(arguments))
+            : null;
 
         observation.OnOperation(new MemberAccessFact(
             access.Identity,
@@ -401,7 +423,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             isKnown,
             error,
             memberName ?? member?.Name,
-            flags));
+            flags)
+        {
+            LateBoundCandidates = candidates,
+            DefaultMembers = defaultMembers,
+        });
     }
 
     /// <summary>
@@ -464,7 +490,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         _ => false,
     };
 
-    private static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
+    internal static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
 
     private static bool IsRecord(VBTypedValue? value) => value is VBUserDefinedTypeValue or VBVariantValue { TypedValue: VBUserDefinedTypeValue };
 
@@ -1882,6 +1908,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     public RuntimeSemanticsEvaluationResult? EvaluateSubscripts(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> arguments, out int[] subscripts, out bool isKnown)
     {
+        if (_evaluatedSubscripts is { } evaluatedFirst && evaluatedFirst.FindIndex(list => list.Arguments == arguments) is var at and >= 0)
+        {
+            (_, subscripts, isKnown) = evaluatedFirst[at];
+            evaluatedFirst.RemoveAt(at);
+            return null;
+        }
+
         subscripts = [];
         isKnown = true;
         var evaluated = new int[arguments.Length];
@@ -1936,6 +1969,39 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         subscripts = evaluated;
         return null;
+    }
+
+    /// <summary>
+    /// The subscripts of one index list, evaluated: what <see cref="EvaluateSubscripts(IRuntimeSession, RuntimeEvaluationContext,
+    /// ImmutableArray{ExpressionNode}, out int[], out bool)"/> gives for <paramref name="Arguments"/>.
+    /// </summary>
+    /// <param name="Arguments">The subscript expressions of the list.</param>
+    /// <param name="Subscripts">What they evaluated to.</param>
+    /// <param name="IsKnown">Whether every subscript is known.</param>
+    internal readonly record struct EvaluatedSubscripts(ImmutableArray<ExpressionNode> Arguments, int[] Subscripts, bool IsKnown);
+
+    // index lists evaluated before the expression they are written in (WithEvaluatedSubscripts): each is taken, once, in place of evaluating it again.
+    private List<EvaluatedSubscripts>? _evaluatedSubscripts;
+
+    /// <summary>
+    /// Runs <paramref name="evaluate"/> with index lists already evaluated: an index expression whose arguments are one of them is given its subscripts
+    /// instead of evaluating its arguments, once. An assignment to a path through records evaluates its index lists in another order than it navigates
+    /// the path in (<see cref="Statements.LetAssignmentEvaluator"/>).
+    /// </summary>
+    /// <param name="evaluated">The lists, evaluated.</param>
+    /// <param name="evaluate">What navigates the expression they are written in.</param>
+    internal T WithEvaluatedSubscripts<T>(List<EvaluatedSubscripts> evaluated, Func<T> evaluate)
+    {
+        var before = _evaluatedSubscripts;
+        _evaluatedSubscripts = evaluated;
+        try
+        {
+            return evaluate();
+        }
+        finally
+        {
+            _evaluatedSubscripts = before;
+        }
     }
 
     private static VBTypeMemberSymbol? TryResolveCallableSub(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee)

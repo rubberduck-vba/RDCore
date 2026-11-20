@@ -95,9 +95,11 @@ argument is a `String` it reads, as above, or a whole number where the function 
 - `Val`.
 - `Replace` of three `String`s, in a module that compares `Binary` (below).
 - `Chr$` of a whole number (below).
+- `Format` and `Format$` of a `Double`, a `Long` or a `Date` and a format, with `FirstDayOfWeek` and `FirstWeekOfYear` left out, in the session's
+  regional settings and calendar.
 
 An argument the function refuses (a start below 1, a negative length, the zero-length text of `Asc`, a `Val` that overflows), a non-ASCII first character
-of `Asc`, and `InStr` or `Replace` in a module that compares `Text` are the interpreter's at that statement.
+of `Asc`, a zero-length format, and `InStr` or `Replace` in a module that compares `Text` are the interpreter's at that statement.
 
 A `Byte`, an `Integer`, a `Long` or a `LongLong` joined to a `String`, or assigned to one, is its digits, after a minus sign when it is negative
 (MS-VBAL §5.5.1.2.4): `"(" & X & "," & Y & ")"`. Regional settings do not change how a whole number is written. A `Currency`, a `Single`, a `Double`, a

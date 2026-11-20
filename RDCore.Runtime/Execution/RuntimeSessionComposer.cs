@@ -6,6 +6,7 @@ using RDCore.Runtime.Execution.Memory;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Runtime.Execution;
 
@@ -44,15 +45,17 @@ public static class RuntimeSessionComposer
     /// <param name="libraries">
     /// The descriptions of the libraries the environment has, referenced or not (<see cref="IRuntimeSession.Libraries"/>). Omitted, none.
     /// </param>
+    /// <param name="build">The <c>build</c> section of the project the session is composed of (<see cref="IRuntimeSession.Build"/>). Omitted, none.</param>
     public static IRuntimeSession Compose(
         IRuntimeEnvironmentProfile environment,
         IReadOnlyList<ReferencePriorityInfo> references,
         IEnumerable<ISymbolProvider> providers,
         IRuntimeOutput? output = null,
         IFileSystem? fileSystem = null,
-        ILibrarySource? libraries = null)
+        ILibrarySource? libraries = null,
+        ProjectBuild? build = null)
     {
-        var session = Compose(environment, references, new SymbolTable(), output, fileSystem, libraries);
+        var session = Compose(environment, references, new SymbolTable(), output, fileSystem, libraries, build);
 
         foreach (var provider in providers)
         {
@@ -95,7 +98,8 @@ public static class RuntimeSessionComposer
 
         return Compose(
             staticContext.Environment, staticContext.References, declared.Table.Snapshot(), NullRuntimeOutput.Instance,
-            fileSystem ?? new MockFileSystem(new Dictionary<string, MockFileData>(), OperatingSystem.IsWindows() ? @"C:\" : "/"), staticContext.Libraries);
+            fileSystem ?? new MockFileSystem(new Dictionary<string, MockFileData>(), OperatingSystem.IsWindows() ? @"C:\" : "/"), staticContext.Libraries,
+            staticContext.Build);
     }
 
     private static RuntimeSession Compose(
@@ -104,7 +108,8 @@ public static class RuntimeSessionComposer
         SymbolTable declared,
         IRuntimeOutput? output,
         IFileSystem? fileSystem,
-        ILibrarySource? libraries)
+        ILibrarySource? libraries,
+        ProjectBuild? build)
     {
         var memory = new SessionMemory(new FreeListManager(), environment.Is64Bit ? PointerSize.x64 : PointerSize.x86, SessionMemory.FirstAddress);
         var callStack = new RuntimeCallStack();
@@ -127,6 +132,7 @@ public static class RuntimeSessionComposer
         var session = new RuntimeSession(environment, memory, storage, symbols, objects, errors, files, callStack, new SessionHalt(), references, output ?? NullRuntimeOutput.Instance)
         {
             Libraries = libraries,
+            Build = build,
         };
 
         // a variable replaced by a definition lets go of the objects it held, which the session counts the references of.

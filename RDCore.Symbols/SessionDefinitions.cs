@@ -41,8 +41,10 @@ public sealed record class SessionDefinition(
     SessionDefinitionPhase Phase, Uri SessionRoot, ParsedModule Module, ISymbolResolver Resolver, ImplicitDeclarationScope Scope, bool Replace,
     ReferencedProjectModules? Referenced = null)
 {
-    // the request; null for a module that declares no type, which has nothing to declare in the first phase. The code goes as the JSON of its parse (json;
-    // PlatformJson.Serialize when it is not given).
+    // the request; null for a module that declares no type, which has nothing to declare in the first phase. A module of a referenced project that is not a
+    // standard module is a type itself, which the first phase declares: the session's own project's are composed before any module is defined, and a
+    // referenced project's are not. Declared in the first phase, it is a type before any declaration that names it is bound, whatever the order of the
+    // modules. The code goes as the JSON of its parse (json; PlatformJson.Serialize when it is not given).
     public DefineSymbolsParams? ToRequest(Func<ModuleParseResult, string>? json = null)
     {
         var tree = Module.Parse.SyntaxTree;
@@ -66,7 +68,9 @@ public sealed record class SessionDefinition(
 
         var descriptors = SymbolDescriptorProjector.Project(SymbolsOf(Referenced?.Root ?? SessionRoot, Module, Resolver, Scope), Module.Uri);
         var declareTypesOnly = Phase is SessionDefinitionPhase.DeclareTypes;
-        if (declareTypesOnly && !descriptors.Any(descriptor => descriptor.Kind is SymbolDescriptorKind.UserDefinedType or SymbolDescriptorKind.Enum))
+        var isAType = Referenced is not null && Module.Kind is not ModuleType.StdModule;
+        var declaresAType = descriptors.Any(descriptor => descriptor.Kind is SymbolDescriptorKind.UserDefinedType or SymbolDescriptorKind.Enum);
+        if (declareTypesOnly && !isAType && !declaresAType)
         {
             return null;
         }

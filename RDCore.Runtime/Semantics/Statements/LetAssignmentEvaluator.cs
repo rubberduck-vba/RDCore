@@ -94,6 +94,123 @@ public sealed class LetAssignmentEvaluator(
         ExpressionNode target,
         ExpressionNode source,
         VBTypedValue value)
+        => IndexListsOfARecordPath(session, context, target) is { } lists
+            ? AssignRecordPath(session, context, statement, target, source, value, lists, isSet: false)
+            : AssignTarget(session, context, statement, target, source, value);
+
+    /// <summary>
+    /// Set-assigns <paramref name="value"/> to a member of an object, or to an element of an array a record holds (<strong>MS-VBAL §5.4.3.9</strong>):
+    /// what <see cref="AssignObjectMember(IRuntimeSession, RuntimeEvaluationContext, StatementNode, ExpressionNode, ExpressionNode, VBTypedValue, bool)"/>
+    /// does, the index lists of a path through records evaluated as a Let of it evaluates them.
+    /// </summary>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the assignment.</param>
+    /// <param name="statement">The statement doing the assigning.</param>
+    /// <param name="target">The member access, or the index expression on one.</param>
+    /// <param name="source">The expression the value came from, for the location of an error.</param>
+    /// <param name="value">The value to assign, already evaluated.</param>
+    public RuntimeExecutionOutcome SetMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value)
+        => IndexListsOfARecordPath(session, context, target) is { } lists
+            ? AssignRecordPath(session, context, statement, target, source, value, lists, isSet: true)
+            : AssignObjectMember(session, context, statement, target, source, value, isSet: true);
+
+    // MS-VBA evaluates the index lists of a target that is a path through records, `rs(i).Items(j) = v`, `r.Kids(k).Items(j) = v`, from the last back to
+    // the first, each left to right, after the value and before the path is navigated: `v j i`, `v j k` (observed in Excel). MS-VBAL §5.4.3.8 does not
+    // say. The path is then navigated as any other target is, each list given what it evaluated to.
+    private RuntimeExecutionOutcome AssignRecordPath(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value,
+        System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<ExpressionNode>> lists, bool isSet)
+    {
+        var evaluated = new List<RuntimeExpressionEvaluator.EvaluatedSubscripts>(lists.Length);
+        foreach (var list in lists)
+        {
+            if (expressions.EvaluateSubscripts(session, context, list, out var subscripts, out var isKnown) is { } failure)
+            {
+                return failure.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(failure.ErrorInfo!);
+            }
+
+            evaluated.Add(new(list, subscripts, isKnown));
+        }
+
+        return expressions.WithEvaluatedSubscripts(evaluated, () => isSet
+            ? AssignObjectMember(session, context, statement, target, source, value, isSet: true)
+            : AssignTarget(session, context, statement, target, source, value));
+    }
+
+    // the index lists of a target that is an element of an array a record holds, reached from a variable through elements of arrays of records and
+    // fields of records, the last list first: null for any other target, and for one written with a single list, which is evaluated where it is. A
+    // target reached through an object or a Variant is a call of what it is reached through, and is evaluated as one. A target's declared types do not
+    // change, so its lists are found once for each target.
+    private System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<ExpressionNode>>? IndexListsOfARecordPath(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target)
+    {
+        if (!IsWrittenWithMoreThanOneIndexList(target))
+        {
+            return null;
+        }
+
+        if (_recordPaths.TryGetValue(target, out var known))
+        {
+            return known.Lists;
+        }
+
+        var lists = System.Collections.Immutable.ImmutableArray.CreateBuilder<System.Collections.Immutable.ImmutableArray<ExpressionNode>>();
+        var node = target;
+        while (true)
+        {
+            if (node is IndexExpressionNode index && expressions.DeclaredTypeOf(session, index.Callee, context) is VBArrayType)
+            {
+                lists.Add(index.Arguments);
+                node = index.Callee;
+            }
+            else if (node is MemberAccessExpressionNode { Owner: { } owner } && expressions.DeclaredTypeOf(session, owner, context) is VBUserDefinedType)
+            {
+                node = owner;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        var path = new RecordPath(lists.Count > 1 && IsTheRootOfARecordPath(session, context, node) ? lists.ToImmutable() : null);
+        _recordPaths.AddOrUpdate(target, path);
+        return path.Lists;
+    }
+
+    // a variable, by its name or named through its module (`Module1.Records(i)`), or a field of the record a With block's target is (`.Kids(k)`).
+    private bool IsTheRootOfARecordPath(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode node) => node switch
+    {
+        SimpleNameExpressionNode => expressions.BoundVariableOf(session, node, context) is not null,
+        MemberAccessExpressionNode { Owner: null } => context.EnclosingWithTargetExpression is { } withTarget
+            && expressions.DeclaredTypeOf(session, withTarget, context) is VBUserDefinedType,
+        MemberAccessExpressionNode access => RuntimeExpressionEvaluator.IsAVariable(expressions.ResolveNamespaceQualified(session, context, access)),
+        _ => false,
+    };
+
+    private static bool IsWrittenWithMoreThanOneIndexList(ExpressionNode target)
+    {
+        var count = 0;
+        for (var node = target; node is not null;)
+        {
+            (node, count) = node switch
+            {
+                IndexExpressionNode index => (index.Callee, count + 1),
+                MemberAccessExpressionNode access => (access.Owner, count),
+                _ => (null, count),
+            };
+        }
+
+        return count > 1;
+    }
+
+    private sealed record class RecordPath(System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<ExpressionNode>>? Lists);
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ExpressionNode, RecordPath> _recordPaths = [];
+
+    private RuntimeExecutionOutcome AssignTarget(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value)
         // an array that is locked is not assigned another (MS-VBA, recorded in Excel): error 10, as a ReDim of it is.
         => IsALockedArray(session, context, target, value)
             ? RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ThisArrayIsFixedOrTemporarilyLocked, target.Location, $"{target} is locked"))
@@ -748,7 +865,7 @@ public sealed class LetAssignmentEvaluator(
 
         var held = Held(returned.Result);
         return held is VBObjectValue result
-            ? AssignDefaultMemberOf(session, context, statement, memberAccess, result, source, value, observed: false)
+            ? AssignDefaultMemberOf(session, context, statement, memberAccess, result, source, value)
             : RuntimeExecutionOutcome.Error(indexArguments.IsEmpty
                 ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, memberAccess.Location,
                     string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, name))
@@ -806,7 +923,13 @@ public sealed class LetAssignmentEvaluator(
         switch (Held(returned.Result))
         {
             case VBObjectValue returnedObject:
-                return AssignThroughDefaultMember(session, context, statement, memberAccess, indexArguments, returnedObject, source, value, isSet);
+                // the arguments go to the default member of what the member returns, an implicit access stated where the code writes it, as that of `c(1) = 5`
+                // is: given the empty list of `o.Inner() = 5`, the access takes no argument.
+                var assumedBefore = expressions.AssumedSoFar;
+                var outcome = AssignThroughDefaultMember(session, context, statement, memberAccess, indexArguments, returnedObject, source, value, isSet);
+                return ObservedAccess(session, context, ElementOf(statement, memberAccess, indexArguments), memberAccess, returnedObject, memberName: null,
+                    assumedBefore, outcome, MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember
+                        | (IndexExpressionNode.IsEmptyArgumentList(indexArguments) ? 0 : MemberAccessOperationSemanticFlags.ArgumentList));
             case VBArrayValue array:
                 if (expressions.EvaluateSubscripts(session, context, indexArguments, out var subscripts) is { } failure)
                 {
@@ -821,7 +944,7 @@ public sealed class LetAssignmentEvaluator(
 
                 if (Held(element.Result) is VBObjectValue held)
                 {
-                    return AssignDefaultMemberOf(session, context, statement, memberAccess, held, source, value, observed: false, isSet);
+                    return AssignDefaultMemberOf(session, context, statement, memberAccess, held, source, value, isSet);
                 }
 
                 break;
@@ -860,7 +983,7 @@ public sealed class LetAssignmentEvaluator(
         => !held.IsSuccess
             ? held.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(held.ErrorInfo!)
             : held.Result is VBObjectValue owner
-                ? AssignDefaultMemberOf(session, context, statement, target, owner, source, value, observed: true)
+                ? AssignDefaultMemberOf(session, context, statement, target, owner, source, value)
                 : RuntimeExecutionOutcome.InternalError;
 
     // whether the class of the object has a Property Get of the name - for a Let, one declared as a type that holds no object: one that does is the default
@@ -1222,16 +1345,27 @@ public sealed class LetAssignmentEvaluator(
                 VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, target.Location, "The property has no Property Let, and its Property Get returned no object."));
         }
 
-        return AssignDefaultMemberOf(session, context, statement, target, owner, source, value, observed: true);
+        return AssignDefaultMemberOf(session, context, statement, target, owner, source, value);
     }
 
     // the object is assigned the way `reachedThrough.Default = value` would be, where reachedThrough is the expression the object is the value of: one that is
-    // Nothing is error 91, and an object of a class with no default member is error 438. An object no expression of the code's is the value of - what a member
-    // returned - is no access of the code's, and is not stated as one (observed).
+    // Nothing is error 91, and an object of a class with no default member is error 438. The default member assigned is an access the code makes without
+    // naming it, and is stated as an implicit access at reachedThrough, whatever holds the object: a variable, a field, an element, or what a member returns.
     private RuntimeExecutionOutcome AssignDefaultMemberOf(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode reachedThrough, VBObjectValue owner,
-        ExpressionNode source, VBTypedValue value, bool observed, bool isSet = false)
+        ExpressionNode source, VBTypedValue value, bool isSet = false)
     {
+        // an object the analysis assumed (what a call it does not make returns) is not an object the session has: what the code accesses of it is the
+        // default member of the class it is declared as, and nothing is assigned.
+        if (owner.IsIndeterminate && !session.Symbols.TryGetInstance(owner.Value, out _))
+        {
+            return expressions.DeclaredTypeOf(session, reachedThrough, context) is VBClassType { Symbol: { } declared }
+                && VBClassType.FromClassModule(declared).DefaultMember is { } assumed && (isSet || assumed is not VBFunctionMemberSymbol)
+                    ? ObservedAccess(session, context, DefaultMemberAccess(reachedThrough, assumed.Name), owner, expressions.AssumedSoFar,
+                        RuntimeExecutionOutcome.Next, MemberAccessOperationSemanticFlags.Implicit)
+                    : RuntimeExecutionOutcome.Next;
+        }
+
         if (owner.IsNothing())
         {
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
@@ -1261,9 +1395,7 @@ public sealed class LetAssignmentEvaluator(
         }
 
         var access = DefaultMemberAccess(reachedThrough, defaultMember.Name);
-        return observed
-            ? AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet, MemberAccessOperationSemanticFlags.Implicit)
-            : AssignMemberOf(session, context, statement, access, [], owner, source, value, isSet);
+        return AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet, MemberAccessOperationSemanticFlags.Implicit);
     }
 
     /// <summary>
@@ -1298,7 +1430,7 @@ public sealed class LetAssignmentEvaluator(
         }
 
         return returned is VBObjectValue owner
-            ? AssignDefaultMemberOf(session, context, statement, target, owner, source, value, observed: false, isSet)
+            ? AssignDefaultMemberOf(session, context, statement, target, owner, source, value, isSet)
             : RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, target.Location,
                 "The function returned no object to assign through."));
     }

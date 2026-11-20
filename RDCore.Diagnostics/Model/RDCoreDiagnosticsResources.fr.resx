@@ -166,10 +166,16 @@
     <value>Expression constante possiblement non-intentionnelle; cette opération n'affecte pas la valeur.</value>
   </data>
   <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
-    <value>Appel à liaison tardive non résolu : il semble que cet appel pourrait soulever l'erreur d'exécution 438 (VBR00438).</value>
+    <value>Aucune des classes que l&apos;objet peut avoir n&apos;a de membre &apos;{0}&apos; que ce code peut atteindre : l&apos;accès soulève l&apos;erreur d&apos;exécution 438 quand il s&apos;exécute.</value>
   </data>
   <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
     <value>Option Explicit n'est pas spécifiée; un nom non déclaré n'est pas une erreur, et une variable est créée où il est utilisé. Un nom mal écrit passe inaperçu.</value>
+  </data>
+  <data name="UndeclaredVariable_Message" xml:space="preserve">
+    <value>'{0}' n'est pas déclaré : c'est une variable qui naît là où elle est d'abord utilisée. Déclarez-la, ou corrigez le nom s'il est mal orthographié.</value>
+  </data>
+  <data name="UndeclaredVariable_Fix" xml:space="preserve">
+    <value>Déclarer '{0}' As {1}, le type qu'elle a</value>
   </data>
   <data name="ObsoleteCallStatement_Message" xml:space="preserve">
     <value>Le mot-clé Call est obsolète; l'appel est le même sans lui.</value>
@@ -299,6 +305,12 @@
   </data>
   <data name="FunctionReturnValueDiscarded_Message" xml:space="preserve">
     <value>La fonction &apos;{0}&apos; est appelée comme une instruction : la valeur qu&apos;elle renvoie est perdue.</value>
+  </data>
+  <data name="FunctionReturnValueAlwaysDiscarded_Message" xml:space="preserve">
+    <value>Chaque appel de la fonction &apos;{0}&apos; perd la valeur qu&apos;elle renvoie : elle peut être une Sub.</value>
+  </data>
+  <data name="MoveFieldCloserToUsage_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; du module n&apos;est utilisée que dans &apos;{1}&apos; : elle peut y être déclarée.</value>
   </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>Le mot-clé Rem est obsolète : un commentaire commence par une apostrophe (').</value>
@@ -513,6 +525,9 @@
   <data name="LetToADefaultMemberWithNoPropertyLet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est assigné par son membre par défaut, qui n&apos;a pas de Property Let. MS-VBA ne compile pas cette assignation. Nommez le membre auquel la valeur est assignée.</value>
   </data>
+  <data name="LetToAnObjectWithNoDefaultMember_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est de la classe &apos;{1}&apos;, qui n&apos;a pas de membre par défaut auquel assigner la valeur : erreur d&apos;exécution 438 (91 quand il vaut Nothing) chaque fois que ce code s&apos;exécute. Nommez le membre auquel la valeur est assignée.</value>
+  </data>
   <data name="LetThroughAVariantGet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est une Property Get déclarée Variant, sans Property Let. MS-VBAL prévoit ici l&apos;erreur 451. RD-VBA, comme MS-VBA, assigne la valeur au membre par défaut de l&apos;objet que &apos;{0}&apos; retourne, et lève l&apos;erreur 424 si elle ne retourne aucun objet. Assignez ce membre de l&apos;objet par son nom.</value>
   </data>
@@ -521,6 +536,12 @@
   </data>
   <data name="ObjectLetToVariantProperty_Message" xml:space="preserve">
     <value>La propriété &apos;{0}&apos; reçoit l&apos;objet lui-même, comme dans MS-VBA, là où MS-VBAL §5.4.3.8 passe la valeur de son membre par défaut. Nommez le membre par défaut pour passer sa valeur.</value>
+  </data>
+  <data name="ObjectLetToVariantProperty_DefaultMember_Fix" xml:space="preserve">
+    <value>Passer la valeur du membre par défaut &apos;{0}&apos;</value>
+  </data>
+  <data name="ObjectLetToVariantProperty_Set_Fix" xml:space="preserve">
+    <value>Passer l&apos;objet lui-même, avec Set</value>
   </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
@@ -539,6 +560,9 @@
   </data>
   <data name="EncapsulatePublicField_Message" xml:space="preserve">
     <value>Le champ &apos;{0}&apos; est Public : tout code qui détient l&apos;objet peut l&apos;affecter. Une propriété peut vérifier la valeur.</value>
+  </data>
+  <data name="EncapsulatePublicField_ModuleVariable_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; est Public : tout code du projet peut l&apos;affecter. Une propriété peut vérifier la valeur.</value>
   </data>
   <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
     <value>&apos;{0}&apos; désigne l&apos;instance par défaut de la classe, et l&apos;objet qui exécute ce code (Me) n&apos;est pas toujours cette instance.</value>
@@ -585,6 +609,9 @@
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Aucun saut ne mène à l&apos;étiquette de ligne &apos;{0}&apos;.</value>
   </data>
+  <data name="LineLabelNotUsed_Fix" xml:space="preserve">
+    <value>Retirer l&apos;étiquette de ligne &apos;{0}&apos;</value>
+  </data>
   <data name="KeywordUsedAsMemberName_Message" xml:space="preserve">
     <value>Le membre &apos;{0}&apos; porte le nom d&apos;un mot clé du langage : le code qui l&apos;utilise se lit comme le mot clé. Donnez-lui un nom qui n&apos;en est pas un.</value>
   </data>
@@ -627,6 +654,24 @@
   <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
     <value>Un objet est assigné à un objet sans Set : la valeur d&apos;un membre par défaut est assignée à celui de l&apos;autre. Écrivez Set pour assigner l&apos;objet lui-même.</value>
   </data>
+  <data name="ImplicitDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Nommer le membre par défaut &apos;{0}&apos;</value>
+  </data>
+  <data name="IndexedDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Nommer le membre par défaut &apos;{0}&apos;</value>
+  </data>
+  <data name="BangNotation_Fix" xml:space="preserve">
+    <value>Nommer le membre par défaut &apos;{0}&apos;, en lui passant le nom en String</value>
+  </data>
+  <data name="IndexedRecursiveDefaultMemberAccess_Fix" xml:space="preserve">
+    <value>Nommer les membres par défaut &apos;{0}&apos;</value>
+  </data>
+  <data name="RecursiveBangNotation_Fix" xml:space="preserve">
+    <value>Nommer les membres par défaut &apos;{0}&apos;, en passant le nom en String au dernier</value>
+  </data>
+  <data name="SuspiciousLetAssignment_Fix" xml:space="preserve">
+    <value>Nommer les deux membres par défaut, ce qui garde le Let des valeurs</value>
+  </data>
   <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
     <value>On Error GoTo -1 met fin à l&apos;erreur en cours de traitement, et MS-VBAL ne le documente pas : un Resume met fin au gestionnaire et dit où la procédure continue.</value>
   </data>
@@ -644,6 +689,9 @@
   </data>
   <data name="NameRefusedByMSVBA_Message" xml:space="preserve">
     <value>MS-VBA refuse &apos;{0}&apos; comme nom de cette déclaration, ce que MS-VBAL §3.3.5.2 permet : RD-VBA le compile, et MS-VBA ne compile pas le module. Donnez-lui un autre nom pour garder le module compatible avec MS-VBA.</value>
+  </data>
+  <data name="NameRefusedByMSVBA_ModuleMessage" xml:space="preserve">
+    <value>MS-VBA refuse &apos;{0}&apos; comme nom de module, ce que MS-VBAL §3.3.5.2 permet : RD-VBA le compile, et MS-VBA n&apos;importe pas le module. Donnez un autre nom au module pour le garder compatible avec MS-VBA.</value>
   </data>
   <data name="LSetOfARecordWithAString_Message" xml:space="preserve">
     <value>LSet copie un enregistrement qui contient un champ String de longueur variable : MS-VBAL §5.4.3.6 le permet, et MS-VBA le refuse (erreur de compilation : incompatibilité de type).</value>

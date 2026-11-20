@@ -208,6 +208,10 @@
   href: vbc09383.md
 - name: "VBC09384: Only valid in object module"
   href: vbc09384.md
+- name: "VBC09385: Not a legal object name"
+  href: vbc09385.md
+- name: "VBC09386: Name conflicts with existing module, project, or object library"
+  href: vbc09386.md
 - name: "VBR-0001: Application-defined or object-defined error"
   href: vbr-0001.md
 - name: "VBR00003: Return without GoSub"
@@ -442,6 +446,8 @@
   href: rdc00126.md
 - name: "RDC00127: Recursive bang notation"
   href: rdc00127.md
+- name: "RDC00128: Undeclared variable"
+  href: rdc00128.md
 - name: "RDC00201: Integer data type declaration"
   href: rdc00201.md
 - name: "RDC00202: Module-scope Dim declaration"
@@ -474,6 +480,8 @@
   href: rdc00215.md
 - name: "RDC00216: Function result discarded"
   href: rdc00216.md
+- name: "RDC00217: Function result always discarded"
+  href: rdc00217.md
 - name: "RDC00218: IsMissing of a Variant that is not Optional"
   href: rdc00218.md
 - name: "RDC00302: Obsolete Call statement"
@@ -516,6 +524,8 @@
   href: rdc00410.md
 - name: "RDC00411: Code in a class implemented as an interface"
   href: rdc00411.md
+- name: "RDC00413: Module variable used in one procedure"
+  href: rdc00413.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
@@ -560,6 +570,8 @@
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"
   href: rdc11006.md
+- name: "RDC11010: Unresolved late-bound member access"
+  href: rdc11010.md
 - name: "RDC11011: Variant number compared with a Variant String"
   href: rdc11011.md
 - name: "RDC11012: Set of a call that always fails"
@@ -632,6 +644,8 @@
   href: rdc11047.md
 - name: "RDC11049: Single-line If with no statement"
   href: rdc11049.md
+- name: "RDC11050: Let to an object with no default member"
+  href: rdc11050.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md
 - name: "RDC30001: No entry point"
