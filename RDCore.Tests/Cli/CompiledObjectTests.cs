@@ -206,9 +206,11 @@ public sealed class CompiledObjectTests
             "End Function"), "Made", recoveries: 0, classes: Things);
 
     // a variable declared As New is made when it is read (MS-VBAL §5.2.3.1.4): its Is Nothing is the interpreter's, which makes it, and so is never True.
+    // The comparison is the row's subject: what else Made does is compiled code's or the interpreter's, and the row does not say which.
     [TestMethod]
     public async Task AnAutoInstantiatedVariable_IsMadeByTheInterpreter_WhenItIsCompared()
-        => await AssertAlikeAsync(Program(
+    {
+        var program = Program(
             "Public Sub Main()",
             "    Debug.Print Made()",
             "End Sub",
@@ -219,7 +221,19 @@ public sealed class CompiledObjectTests
             "        If T Is Nothing Then Made = Made + 1 Else Made = Made + 10",
             "        Set T = Nothing",
             "    Next",
-            "End Function"), "Made", recoveries: 3, classes: Things);
+            "End Function");
+        var compared = Array.FindIndex(program.Split("\r\n"), line => line.Contains("T Is Nothing", StringComparison.Ordinal));
+        Assert.IsGreaterThanOrEqualTo(0, compared, "the program has no Is Nothing of T: the row tests nothing");
+        var compiled = await AssertAlikeAsync(program, Things, expected: " 30 ");
+        Assert.IsTrue(compiled.TryGetValue("Made", out var result), "Made was not called");
+        Assert.IsNotNull(result.Body,
+            "Made is no longer compiled, so its comparison is not tested: "
+                + string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        Assert.IsTrue(result.Stepped.Any(reason => reason.Location?.Range.Start.Line == compared),
+            $"line {compared}, the Is Nothing of the variable declared As New, is no longer stepped: if compiled code compares it now, rewrite the row to "
+                + "assert that it makes the object as the interpreter does. Stepped: "
+                + string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail} {reason.Location}")));
+    }
 
     // a Variant that holds an object is compared by the interpreter: it is no object variable.
     [TestMethod]
