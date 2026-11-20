@@ -557,9 +557,9 @@ public sealed class LetAssignmentEvaluator(
             // returns, or let a value when it is declared a class, Object or Variant), is called, and what it returns is assigned through its default
             // member: error 424 when it is no object (MS-VBA, Excel-verified: `c(1) = 5` of a Collection holding a number, `Set c.Item(1) = …`, `o.V = 5`
             // of a Variant function of a class).
-            if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments, isSet))
+            if (IsCalledToBeAssignedThrough(session, context, owner, memberAccess.Member.IdentifierName, indexArguments, isSet))
             {
-                if (!indexArguments.IsEmpty && ParameterlessReaderOf(session, owner, memberAccess.Member.IdentifierName) is { } reader)
+                if (!indexArguments.IsEmpty && ParameterlessReaderOf(session, context, owner, memberAccess.Member.IdentifierName) is { } reader)
                 {
                     return AssignThroughWhatItReturns(session, context, statement, memberAccess, reader, indexArguments, owner, source, value, isSet);
                 }
@@ -572,10 +572,10 @@ public sealed class LetAssignmentEvaluator(
             // object, and 450 for a Set; no member of the name at all is 438 (MS-VBA, Excel-verified).
             var name = memberAccess.Member.IdentifierName;
             return RuntimeExecutionOutcome.Error(
-                isSet && HasPropertyGet(session, owner, name, returningAValueOnly: false)
+                isSet && HasPropertyGet(session, context, owner, name, returningAValueOnly: false)
                     ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, memberAccess.Location,
                         string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, name))
-                : !isSet && HasPropertyGet(session, owner, name, returningAValueOnly: true)
+                : !isSet && HasPropertyGet(session, context, owner, name, returningAValueOnly: true)
                     ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, memberAccess.Location,
                         string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, name))
                 : VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, memberAccess.Location, Exceptions.VBMemberAssignment_NotAssignable_Verbose));
@@ -760,10 +760,11 @@ public sealed class LetAssignmentEvaluator(
     // parameter and is given arguments, which index what it returns; and, for a Let, a Property Get declared a class, Object or Variant, which is invoked with
     // the arguments it is given (MS-VBAL §5.4.3.8: `c.Item(1) = 5`, where Item(i) returns an object, assigns that object's default member; MS-VBA, recorded
     // in Excel).
-    private static bool IsCalledToBeAssignedThrough(
-        IRuntimeSession session, VBObjectValue owner, string name, System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments, bool isSet)
+    private static bool IsCalledToBeAssignedThrough(IRuntimeSession session, RuntimeEvaluationContext context, VBObjectValue owner, string name,
+        System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments, bool isSet)
         => session.Symbols.TryGetInstance(owner.Value, out var instance)
-            && instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)) switch
+            && RuntimeExpressionEvaluator.InterfaceSeenFrom(session, context, instance.ClassModule)
+                .FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)) switch
             {
                 VBFunctionMemberSymbol => true,
                 VBPropertyGetMemberSymbol get => !isSet && get.ResolvedType is VBClassType or VBObjectType or VBVariantType
@@ -772,9 +773,10 @@ public sealed class LetAssignmentEvaluator(
             };
 
     // the Function or Property Get of the name that declares no parameter, which arguments given to it do not call (MS-VBAL §5.6.13).
-    private static VBTypeMemberSymbol? ParameterlessReaderOf(IRuntimeSession session, VBObjectValue owner, string name)
+    private static VBTypeMemberSymbol? ParameterlessReaderOf(IRuntimeSession session, RuntimeEvaluationContext context, VBObjectValue owner, string name)
         => session.Symbols.TryGetInstance(owner.Value, out var instance)
-            && instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)
+            && RuntimeExpressionEvaluator.InterfaceSeenFrom(session, context, instance.ClassModule)
+                .FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)
                 && member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) is { } reader
             && RuntimeProcedureInvoker.GetParameters(reader) is [] or [{ Name: Tokens.Me }]
                 ? reader
@@ -863,9 +865,10 @@ public sealed class LetAssignmentEvaluator(
 
     // whether the class of the object has a Property Get of the name - for a Let, one declared as a type that holds no object: one that does is the default
     // member of the object it returns that MS-VBAL §5.4.3.8 assigns, which is not this.
-    private static bool HasPropertyGet(IRuntimeSession session, VBObjectValue owner, string name, bool returningAValueOnly)
+    private static bool HasPropertyGet(IRuntimeSession session, RuntimeEvaluationContext context, VBObjectValue owner, string name, bool returningAValueOnly)
         => session.Symbols.TryGetInstance(owner.Value, out var instance)
-            && instance.ClassModule.DefaultInterfaceMembers.Any(member => member is VBPropertyGetMemberSymbol { ResolvedType: var type }
+            && RuntimeExpressionEvaluator.InterfaceSeenFrom(session, context, instance.ClassModule)
+                .Any(member => member is VBPropertyGetMemberSymbol { ResolvedType: var type }
                 && (!returningAValueOnly || type is not (VBClassType or VBObjectType or VBVariantType))
                 && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase));
 
