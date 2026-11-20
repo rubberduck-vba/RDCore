@@ -151,7 +151,7 @@ public sealed class MoveMemberServiceTests
         var answer = await Sut().MoveAsync(Document, range, direction, CancellationToken.None);
         Assert.IsNull(answer.Refusal, answer.Refusal);
         Assert.AreEqual(Version, answer.Version);
-        return MemberMoves.Applied(Module, answer.Edits!);
+        return DeclarationEdits.ApplyTo(Module, answer.Edits!);
     }
 
     [TestMethod]
@@ -225,7 +225,7 @@ public sealed class MoveMemberServiceTests
     {
         var parse = new ModuleParser().Parse(Document, Module);
         var plan = MemberMoves.Plan(parse, Module, At(5, 4), MemberMoveDirection.Down)!;
-        var moved = MemberMoves.Applied(Module, MemberMoves.Edits(Module, plan));
+        var moved = DeclarationEdits.ApplyTo(Module, MemberMoves.Edits(Module, plan));
         var intoTheBlock = Declarations + ValueText + "\r\n#If VBA7 Then\r\n" + FirstText + "\r\nPublic Sub Second()\r\nEnd Sub\r\n\r\nPublic Sub Third()\r\nEnd Sub\r\n#End If\r\n\r\nPublic Sub Last()\r\nEnd Sub\r\n";
 
         Assert.IsTrue(MemberMoves.Verify(plan, new ModuleParser().Parse(Document, moved)));
@@ -333,7 +333,7 @@ public sealed class MoveMemberServiceTests
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
         Assert.AreEqual(Version, answer.Version);
-        Assert.AreEqual(Sorted, MemberMoves.Applied(Unsorted, answer.Edits!));
+        Assert.AreEqual(Sorted, DeclarationEdits.ApplyTo(Unsorted, answer.Edits!));
     }
 
     [TestMethod]

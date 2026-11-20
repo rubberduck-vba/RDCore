@@ -261,13 +261,13 @@ public sealed class DeclaredTypeErrorTests
     private static readonly (string, string) Holder = ("Holder", ModuleWorkspace.ClassModule(
         "Holder", "Private Type TSecret", "X As Long", "End Type", "Private Hidden As Holder.TSecret"));
 
-    private static readonly (string, string) Shared = ("Shared", ModuleWorkspace.StandardModule("Shared", "Public Type TPublic", "X As Long", "End Type"));
+    private static readonly (string, string) Common = ("Common", ModuleWorkspace.StandardModule("Common", "Public Type TPublic", "X As Long", "End Type"));
 
     [TestMethod]
     public async Task AModuleQualifiesTheTypesItDeclares_FromWithinAndFromWithout_WhenTheyArePublic()
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync(
-            [Holder], [Shared], Program("Private Type TLocal", "X As Long", "End Type", "Public A As Program.TLocal", "Public B As Shared.TPublic"));
+            [Holder], [Common], Program("Private Type TLocal", "X As Long", "End Type", "Public A As Program.TLocal", "Public B As Common.TPublic"));
 
         Assert.IsEmpty(errors, string.Join("; ", errors));
     }
@@ -278,8 +278,8 @@ public sealed class DeclaredTypeErrorTests
     [DataRow("Public S As Program.TPublic", "Program.TPublic")]
     public async Task ATypeThatTheQualifyingModuleDoesNotDeclareForTheModule_IsNotFound(string declaration, string name)
     {
-        // TSecret is Private to Holder; TMissing is nowhere; and TPublic is Shared's, which does not make it Program's.
-        var errors = await ModuleWorkspace.LoadErrorsAsync([Holder], [Shared], Program(declaration));
+        // TSecret is Private to Holder; TMissing is nowhere; and TPublic is Common's, which does not make it Program's.
+        var errors = await ModuleWorkspace.LoadErrorsAsync([Holder], [Common], Program(declaration));
 
         Assert.HasCount(1, errors);
         StringAssert.Contains(errors[0], $"'{name}'");

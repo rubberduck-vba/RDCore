@@ -16,6 +16,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
@@ -554,7 +555,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     // (MS-VBAL 5.6.4); an unresolved name stays Unknown, and remembers the name (VBUnresolvedType). A resolved user-defined type, enum or class
     // module is a symbol carrying no VBType of its own, so build one.
     private VBType ResolveTypeName(string typeName, Uri handle, string? qualifier = null)
-        => VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle).Symbol switch
+        => VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle, ProjectVisibility.Instance, workspaceRoot).Symbol switch
         {
             VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
             VBEnumMemberSymbol enumType => new VBEnumType(enumType, members: null),

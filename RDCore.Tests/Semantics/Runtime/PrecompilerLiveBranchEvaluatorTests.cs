@@ -314,11 +314,11 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
     [TestMethod]
     public void APredefinedConstantTheSessionDefinesAndTheProjectDoesNot_HasThePlatformsValue()
     {
-        // the session's own constants are those of the one platform it runs on.
+        // the session's own constants are those of the one platform it runs on. Win64 is 1 on a 64-bit Mac too, as in Excel for Mac.
         var lines = PlatformsOfLines(ComposeSession(new PrecompilerConstantSymbol("Win64", new VBIntegerValue(1))),
             "Sub Foo()\r\n#If Win64 Then\r\nx = 1\r\n#End If\r\nEnd Sub\r\n");
 
-        Assert.AreEqual(CompiledPlatforms.Windows64, lines[2]);
+        Assert.AreEqual(CompiledPlatforms.Windows64 | CompiledPlatforms.MacOS, lines[2]);
     }
 
     [TestMethod]
@@ -338,6 +338,25 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
         Assert.IsNull(lines[4]);
         Assert.AreEqual(CompiledPlatforms.All, lines[6], "after the block");
     }
+
+    // MS-VBAL §3.4.1: a #Const of the module declares its constant wherever it is written; a constant of the session (the project's, the predefined
+    // ones) is defined too. Each name nothing defines is listed once, as the first read writes it.
+    [TestMethod]
+    public void TheUndefinedConstants_AreTheNamesNothingDefines_EachOnce()
+    {
+        var parse = ParseSub(
+            "Sub Foo()\r\n#If DEV And FEATURE Then\r\nx = 1\r\n#ElseIf Not dev Or LOCAL Then\r\nx = 2\r\n#End If\r\n#Const LOCAL = OTHER\r\nEnd Sub\r\n");
+
+        var undefined = PrecompilerLiveBranchEvaluator.UndefinedConstantsOf(
+            ComposeSession(new PrecompilerConstantSymbol("FEATURE", new VBIntegerValue(1))), parse.PrecompilerTrivia);
+
+        CollectionAssert.AreEqual(new[] { "DEV", "OTHER" }, undefined.ToArray());
+    }
+
+    [TestMethod]
+    public void AModuleWithNoDirective_ReadsNoUndefinedConstant()
+        => Assert.IsEmpty(
+            PrecompilerLiveBranchEvaluator.UndefinedConstantsOf(ComposeSession(), ParseSub("Sub Foo()\r\nx = 1\r\nEnd Sub\r\n").PrecompilerTrivia));
 
     [TestMethod]
     public void AModuleWithNoIfBlock_IsCompiledOnEveryPlatform()

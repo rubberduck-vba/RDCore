@@ -144,6 +144,7 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
         {
             if (ioFile.Exists(path))
             {
+                // in its own encoding (ModuleFileText): an accented name is read as it is written.
                 source = ModuleFileText.Decode(ioFile.ReadAllBytes(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage).Text;
             }
         }

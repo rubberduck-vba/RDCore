@@ -35,7 +35,8 @@ internal sealed class ReplShell(
     IConsoleKeys? keys = null,
     IOptions<AppOptions>? options = null,
     ReplBlocks? blocks = null,
-    ReplSessionStops? stops = null)
+    ReplSessionStops? stops = null,
+    IOptions<SDK.Server.Configuration.SdkAppOptions>? platformOptions = null)
 {
     // the progress of the language server's work is drawn while the shell runs: its display is the shell's for as long.
     private readonly ReplProgressDisplay? _progress = progress;
@@ -67,6 +68,7 @@ internal sealed class ReplShell(
         var context = new ReplCommandContext(program, console, platform, document, dispatcher.Commands)
         {
             BreakListingLines = options?.Value.BreakListingLines ?? AppOptions.DefaultBreakListingLines,
+            AnsiCodePage = platformOptions?.Value.Environment.AnsiCodePage ?? SDK.Workspace.ModuleFileText.DefaultAnsiCodePage,
         };
         _debugger = context.Debugger;
 

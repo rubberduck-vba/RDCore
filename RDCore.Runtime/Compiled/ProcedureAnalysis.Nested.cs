@@ -285,7 +285,7 @@ internal sealed partial class ProcedureAnalysis
             _ => null,
         };
 
-        return function is not null && function.GetProperty(SymbolProperties.Library) is null && function.GetProperty(SymbolProperties.ExternalTarget) is null
+        return function is not null && !SymbolProperties.IsOfALibraryProject(function) && function.GetProperty(SymbolProperties.ExternalTarget) is null
             && IsText(ReturnedType(function))
                 ? function
                 : null;
@@ -363,7 +363,7 @@ internal sealed partial class ProcedureAnalysis
         bool returnsText = false, bool returnsValue = false)
     {
         var read = kind is not null || assigns || returnsObject || returnsText || returnsValue;
-        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null || IsDeclared(function))
+        if (SymbolProperties.IsOfALibraryProject(function) || function.GetProperty(SymbolProperties.ExternalTarget) is not null || IsDeclared(function))
         {
             return null;
         }
