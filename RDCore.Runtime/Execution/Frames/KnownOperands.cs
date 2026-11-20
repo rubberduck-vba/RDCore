@@ -1,12 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
 /// What compiled code had evaluated of an instruction when it handed the activation to the interpreter in the middle of it: the value of each expression it
-/// had evaluated (a call it made, a variable it read before the call), which the interpreter takes as it is, and does not evaluate again.
+/// had evaluated (a call it made, a variable it read before the call), which the interpreter takes as it is, and does not evaluate again. The interpreter
+/// knows so the calls among the arguments of a call it made ahead of the rest of them, too (<see cref="Hoist"/>).
 /// </summary>
 /// <remarks>
 /// An expression is named by where it is in its instruction's statement: its index in the statement's nodes, in the order they are written
@@ -22,10 +24,47 @@ internal sealed class KnownOperands
     // the objects calls returned (a member of what a call returns, `S.Pos.Y`): each held by the statement's temporaries, and by nothing of these: an
     // object is known only for as long as its temporary holds it, which the activation lets go of when it lets go of these (CallStackFrame.Forget). The
     // Strings calls returned inside a text are known here too, as they are.
-    private readonly Dictionary<SyntaxNode, VBTypedValue>? _objects;
+    private Dictionary<SyntaxNode, VBTypedValue>? _objects;
 
     private KnownOperands(Dictionary<SyntaxNode, ScalarPayload> values, Dictionary<SyntaxNode, VBTypedValue>? objects)
         => (_values, _objects) = (values, objects);
+
+    /// <summary>
+    /// Known operands of none of the instruction's expressions yet: what the interpreter is to know of the calls among the arguments of a call it makes
+    /// ahead of the rest of them (<see cref="Hoist"/>).
+    /// </summary>
+    public static KnownOperands None() => new(new(ReferenceEqualityComparer.Instance), null);
+
+    /// <summary>
+    /// Knows <paramref name="value"/> as what <paramref name="call"/> evaluated to: a call made ahead of the rest of the argument it is written in
+    /// (<see cref="LanguageCore.Binding.ArgumentOrder"/>), which is not made again when the rest is evaluated.
+    /// </summary>
+    /// <param name="call">The call expression.</param>
+    /// <param name="value">What it returned, which the statement's temporaries hold when it holds an object: a copy, which shares no cell with it.</param>
+    public void Hoist(SyntaxNode call, VBTypedValue value)
+    {
+        // a number is known as its payload, which evaluating on payloads finds too.
+        if (value is not VBVariantValue && ScalarPayload.IsScalar(value.TypeInfo)
+            && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out var payload))
+        {
+            _values[call] = payload;
+            return;
+        }
+
+        (_objects ??= new(ReferenceEqualityComparer.Instance))[call] = value;
+    }
+
+    /// <summary>
+    /// Lets go of what <see cref="Hoist"/> knew of <paramref name="call"/>: the call the argument it is written in is given to was made.
+    /// </summary>
+    /// <param name="call">The call expression.</param>
+    /// <returns>Whether nothing is known any more.</returns>
+    public bool Unhoist(SyntaxNode call)
+    {
+        _values.Remove(call);
+        _objects?.Remove(call);
+        return _values.Count == 0 && _objects is null or { Count: 0 };
+    }
 
     /// <summary>
     /// Whether any activation holds known operands.

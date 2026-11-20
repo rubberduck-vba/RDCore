@@ -921,17 +921,28 @@ internal sealed partial class ProcedureEmitter
     // the call made, what it returned in integral or floating, by its kind.
     private (LocalBuilder Integral, LocalBuilder Floating) EmitCallOf(CallStep call, Label failure)
     {
-        // a member of what a call returns: that call made first, as the interpreter evaluates the owner of a member before its arguments.
-        var returnedTo = call.ReceiverCall is { } receiverCall ? EmitObjectCall(receiverCall, failure) : null;
-
         // the arguments, each held where it is - a variable, a constant - or in a local of its own; one that fails fails the instruction before anything is called.
         // A String compiled code reads nothing of - one that ends with a lone byte, or is held in no cell of its own - is the interpreter's: the instruction
-        // is run by it alone, as a Let of one is.
+        // is run by it alone, as a Let of one is. They are evaluated in the order the interpreter evaluates them (CompiledCallee.Order): the calls first, left
+        // to right, then the others, right to left; an argument that is no call, whose calls no call follows, is evaluated whole with the calls.
         var arguments = new Operand[call.Arguments.Count];
-        for (var i = 0; i < arguments.Length; i++)
+        var order = _analysis.Callees[call.Callee].Order;
+        if (order.Count != arguments.Length)
         {
-            arguments[i] = EmitArgument(call.Arguments[i], call.Arguments[i] is TextArgumentNode or TextReferenceNode ? RecoverAt(call.Offset) : failure);
+            order = LanguageCore.Binding.ArgumentOrder.InPlace(arguments.Length);
         }
+
+        foreach (var step in order)
+        {
+            if (step.CallsOnly || !order.Hoists(step.Index))
+            {
+                arguments[step.Index] = EmitArgument(call.Arguments[step.Index],
+                    call.Arguments[step.Index] is TextArgumentNode or TextReferenceNode ? Fail(RecoverAt(call.Offset)) : failure);
+            }
+        }
+
+        // a member of what a call returns: that call made after the arguments, as the interpreter evaluates the target of a member call.
+        var returnedTo = call.ReceiverCall is { } receiverCall ? EmitObjectCall(receiverCall, failure) : null;
 
         // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
         if (call.Receiver is { } receiver)
