@@ -12,7 +12,7 @@ public class FreeListManagerTests
     {
         var sut = new FreeListManager();
 
-        var result = sut.TryGetFreeListBlock(4, out var freeBlock, out var freeBlockSegment);
+        var result = sut.TryGetFreeListBlock(4, 1, out var freeBlock, out _, out var freeBlockSegment);
 
         Assert.IsFalse(result);
     }
@@ -26,7 +26,7 @@ public class FreeListManagerTests
         var block = new SessionMemoryBlock(new MemoryAddress(0), 4); // <= 8
         sut.Add(block, segment);
 
-        var result = sut.TryGetFreeListBlock(4, out var freeBlock, out var freeBlockSegment);
+        var result = sut.TryGetFreeListBlock(4, 1, out var freeBlock, out _, out var freeBlockSegment);
 
         Assert.IsTrue(result);
         Assert.IsNotNull(freeBlock);
@@ -47,7 +47,7 @@ public class FreeListManagerTests
         var segment = new SessionMemorySegment(new MemoryAddress(0), 2048, PointerSize.x86);
         sut.Add(new SessionMemoryBlock(new MemoryAddress(0), 24), segment);
 
-        Assert.IsTrue(sut.TryGetFreeListBlock(4, out var freeBlock, out var freeBlockSegment));
+        Assert.IsTrue(sut.TryGetFreeListBlock(4, 1, out var freeBlock, out _, out var freeBlockSegment));
 
         Assert.AreEqual(4, freeBlock!.Value.Size);
         Assert.AreEqual(new MemoryAddress(0), freeBlock!.Value.Address);
@@ -65,7 +65,7 @@ public class FreeListManagerTests
         sut.Add(new SessionMemoryBlock(new MemoryAddress(0), 24), segment);
         sut.Add(new SessionMemoryBlock(new MemoryAddress(64), 8), segment);
 
-        Assert.IsTrue(sut.TryGetFreeListBlock(4, out var freeBlock, out _));
+        Assert.IsTrue(sut.TryGetFreeListBlock(4, 1, out var freeBlock, out _, out _));
 
         Assert.AreEqual(new MemoryAddress(64), freeBlock!.Value.Address);
         // the 24-byte block was left whole.
@@ -81,7 +81,7 @@ public class FreeListManagerTests
         var block = new SessionMemoryBlock(new MemoryAddress(0), 24); // > 8 
         sut.Add(block, segment);
 
-        var result = sut.TryGetFreeListBlock(14, out var freeBlock, out var freeBlockSegment);
+        var result = sut.TryGetFreeListBlock(14, 1, out var freeBlock, out _, out var freeBlockSegment);
 
         Assert.IsTrue(result);
         Assert.AreEqual(block.Address, freeBlock!.Value.Address);

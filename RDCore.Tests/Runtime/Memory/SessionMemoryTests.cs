@@ -19,11 +19,86 @@ public class SessionMemoryTests
         Assert.IsTrue(result1);
         Assert.AreEqual(0, address1.Value);
 
+        // 24 bytes (a Variant) are on an 8-byte boundary, after 4 bytes of padding.
         Assert.IsTrue(result2);
-        Assert.AreEqual(4, address2.Value);
+        Assert.AreEqual(8, address2.Value);
 
         Assert.IsTrue(result3);
-        Assert.AreEqual(28, address3.Value);
+        Assert.AreEqual(32, address3.Value);
+    }
+
+    [TestMethod]
+    public void TryAllocate_StartsABlockOnTheLargestPowerOfTwoItsSizeIsAMultipleOf_UpTo8()
+    {
+        var sut = new SessionMemory(new(), PointerSize.x64);
+
+        int[] sizes = [1, 2, 1, 4, 24, 3, 16, 1, 12, 6];
+        var addresses = sizes.Select(size => sut.TryAllocate(size, out var address) ? address.Value : -1).ToArray();
+
+        // Byte, Integer, Byte, Long, Variant, a record of 3 Bytes, a record of 16 bytes, Byte, a record of 3 Longs, a record of 3 Integers.
+        CollectionAssert.AreEqual(new[] { 0, 2, 4, 8, 16, 40, 48, 64, 68, 80 }, addresses);
+    }
+
+    [TestMethod]
+    public void ThePaddingBeforeABlock_IsAllocatedAndFreedWithIt_AndNothingElseIsPlacedInIt()
+    {
+        var sut = new SessionMemory(new(), PointerSize.x64);
+        _ = sut.TryAllocate(1, out _);
+        _ = sut.TryAllocate(8, out var aligned);
+        _ = sut.TryAllocate(1, out var after);
+
+        Assert.AreEqual(8, aligned.Value);
+        Assert.AreEqual(16, after.Value, "the 7 bytes before the 8-byte block are its padding, and a Byte is not placed in them");
+        Assert.AreEqual(17, sut.Info.AllocatedBytes);
+        Assert.AreEqual(0, sut.Info.FreeBytes);
+
+        Assert.IsTrue(sut.TryDeallocate(aligned, out var freed));
+        Assert.AreEqual(aligned, freed.Address);
+        Assert.AreEqual(8, freed.Size);
+        Assert.AreEqual(15, sut.Info.FreeBytes, "the block and its padding");
+        Assert.AreEqual(15, sut.Info.LargestFreeBlock);
+
+        _ = sut.TryAllocate(1, out var reused);
+        Assert.AreEqual(1, reused.Value);
+        Assert.AreEqual(sut.Info.CommittedBytes - sut.Info.AllocatedBytes, sut.Info.FreeBytes);
+    }
+
+    [TestMethod]
+    public void AFreeBlockReusedOnABoundary_TakesTheBytesBeforeTheBoundary_AsItsPadding()
+    {
+        var sut = new SessionMemory(new(), PointerSize.x64);
+        _ = sut.TryAllocate(2, out _);
+        _ = sut.TryAllocate(2, out var hole);
+        _ = sut.TryAllocate(4, out var next);
+        _ = sut.TryAllocate(8, out _);
+        sut.TryDeallocate(hole, out _);
+        sut.TryDeallocate(next, out _);
+
+        // the free bytes 2 to 8 hold a 4-byte block at 4, with 2 bytes of padding.
+        Assert.IsTrue(sut.TryAllocate(4, out var reused));
+
+        Assert.AreEqual(4, reused.Value);
+        Assert.AreEqual(0, sut.Info.FreeBytes);
+        Assert.AreEqual(16, sut.Info.AllocatedBytes);
+        Assert.AreEqual(16, sut.Info.CommittedBytes);
+
+        Assert.IsTrue(sut.TryDeallocate(reused, out _));
+        Assert.AreEqual(6, sut.Info.FreeBytes);
+    }
+
+    [TestMethod]
+    public void ASegmentReservedForABigBlock_EndsOnAn8ByteBoundary_WhereTheNextOneStarts()
+    {
+        var sut = new SessionMemory(new(), PointerSize.x86);
+        Assert.IsTrue(sut.TryAllocate(SessionMemorySegment.SegmentSize32 + 42, out var big));
+        Assert.IsTrue(sut.TryAllocate(SessionMemorySegment.SegmentSize32, out _));
+
+        Assert.IsTrue(sut.TryAllocate(8, out var next));
+
+        var bigSegment = sut.Segments.Single(segment => segment.Address == big);
+        Assert.AreEqual(SessionMemorySegment.SegmentSize32 + 48, bigSegment.Size);
+        Assert.AreEqual(bigSegment.NextSegment, next);
+        Assert.AreEqual(0, next.Value % 8);
     }
 
     [TestMethod]
@@ -178,10 +253,11 @@ public class SessionMemoryTests
     [TestMethod]
     public void NewSegment_DoesNotOverlapExisting()
     {
+        // sizes that are multiples of 8, so that no block is padded (see ASegmentReservedForABigBlock_EndsOnAn8ByteBoundary_WhereTheNextOneStarts).
         var sut = new SessionMemory(new(), PointerSize.x86, offset: 0);
-        var allocSmall = 4;
+        var allocSmall = 8;
 
-        var didAllocateDynamicSegment = sut.TryAllocate(SessionMemorySegment.SegmentSize32 + 42, out var largeAlloc);
+        var didAllocateDynamicSegment = sut.TryAllocate(SessionMemorySegment.SegmentSize32 + 40, out var largeAlloc);
         var didAllocateSmallSegment = sut.TryAllocate(allocSmall, out var alloc);
 
         Assert.IsTrue(didAllocateDynamicSegment && didAllocateSmallSegment);
