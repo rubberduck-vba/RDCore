@@ -286,7 +286,7 @@ Once every module of the project has a model, an argument taken by reference is 
 standard module of the project, from any module: a call of its name runs that procedure. The counts of each module and
 those over the project follow it alike. A call through a variable of a class is not followed: the object may be of another
 class that implements it. While a procedure of a module was not analyzed completely, a parameter of any procedure of that
-module may be assigned; one that a procedure of it assigns is known all the same.
+module may be assigned; an assignment that one of its analyzed procedures makes is known all the same.
 
 A `Private` procedure or property is counted in every kind of project: only the code of its module can call it, and no
 access bound late reaches it (**MS-VBAL §5.3.1.1**). These are not counted:
