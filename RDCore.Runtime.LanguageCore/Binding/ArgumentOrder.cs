@@ -124,7 +124,8 @@ public readonly struct ArgumentOrder
     }
 
     // whether evaluating the node is a call: a procedure called, a member of an object, what is bound late. A record's field, an element of an array, a
-    // variable, New, an argument left out (the one `A()` is written with), and what the standard library evaluates inline are not, whatever their operands are.
+    // variable, New, an argument left out (the one `A()` is written with), and what the standard library evaluates inline are not, whatever their
+    // operands are.
     public static bool IsCall(BoundNode node) => node switch
     {
         BoundCall call => !StdLibInline.IsInline(call.Procedure),
