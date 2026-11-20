@@ -18,9 +18,14 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
     private readonly Dictionary<MemoryAddress, byte[]> _bytesByAddress = [];
 
     // the blocks the elements of arrays are laid out in (ArrayBlock), by the address each starts at, and by the array: an array that is gone is not kept
-    // alive by its block, which is freed the next time a block is made.
+    // alive by its block, which is freed once a block is made (FreeBlocksOfArraysThatAreGone).
     private readonly Dictionary<MemoryAddress, ArrayBlock> _arrayBlocks = [];
     private readonly System.Runtime.CompilerServices.ConditionalWeakTable<SDK.Model.Values.Intrinsic.VBArrayValue, System.Runtime.CompilerServices.StrongBox<MemoryAddress>> _blockOfArray = new();
+
+    // how many blocks there are when the blocks of the arrays that are gone are looked for next: twice as many as were left the last time, so that a block
+    // made at each call of a procedure, for a local array of it, costs no look at every other block.
+    private const int FewestBlocksLookedAt = 16;
+    private int _blocksLookedAtNext = FewestBlocksLookedAt;
 
     /// <summary>
     /// The address of the element at <paramref name="flatIndex"/> of <paramref name="array"/>, in the order <see cref="SDK.Model.Values.Intrinsic.VBArrayValue.IndexOf"/>
@@ -39,14 +44,19 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         if (!_blockOfArray.TryGetValue(array, out var start))
         {
             var made = new ArrayBlock(array, pointerSize);
-            if (!allocator.TryAllocate(made.Size, out var at))
+
+            // the blocks of the arrays that are gone are freed once this one is made, so that it is never where one of them was: an array ReDim'd is
+            // elsewhere (observed in Excel), whenever the one it was is collected. With no room for it, they are freed first.
+            if (!allocator.TryAllocate(made.Size, out var at) && !(FreeBlocksOfArraysThatAreGone() && allocator.TryAllocate(made.Size, out at)))
             {
                 return false;
             }
 
-            // the blocks of the arrays that are gone are freed once this one is made, so that it is never where one of them was: an array ReDim'd is
-            // elsewhere (observed in Excel), whenever the one it was is collected.
-            FreeBlocksOfArraysThatAreGone();
+            if (_arrayBlocks.Count >= _blocksLookedAtNext)
+            {
+                FreeBlocksOfArraysThatAreGone();
+            }
+
             _arrayBlocks[at] = made;
             _blockOfArray.Add(array, start = new System.Runtime.CompilerServices.StrongBox<MemoryAddress>(at));
             Generation++;
@@ -56,9 +66,59 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         return true;
     }
 
-    private void FreeBlocksOfArraysThatAreGone()
+    // the arrays an element of which is passed by reference, by the address the element was lent at: each is held, once for each call it is lent to, until
+    // the address is given back.
+    private readonly Dictionary<MemoryAddress, (SDK.Model.Values.Intrinsic.VBArrayValue Array, int Calls)> _lentElements = [];
+
+    /// <summary>
+    /// The address of the element at <paramref name="flatIndex"/> of <paramref name="array"/> (<see cref="TryAddressOfElement"/>), lent to a call the element
+    /// is passed to by reference: a parameter bound there reads and writes the element (<see cref="TryRead"/>), and the array is held until the address is
+    /// given back (<see cref="TryGiveBackElement"/>), whatever the variable that held it is assigned meanwhile.
+    /// </summary>
+    /// <param name="array">The array.</param>
+    /// <param name="flatIndex">The element's index, as <see cref="SDK.Model.Values.Intrinsic.VBArrayValue.IndexOf"/> numbers it.</param>
+    /// <param name="address">Where the element is.</param>
+    /// <returns><see langword="false"/> when there is no element at the index, or no room for the array's block.</returns>
+    public bool TryLendElement(SDK.Model.Values.Intrinsic.VBArrayValue array, int flatIndex, out MemoryAddress address)
     {
-        foreach (var (at, block) in _arrayBlocks.Where(block => !block.Value.TryGetArray(out _)).ToList())
+        if (!TryAddressOfElement(array, flatIndex, out address))
+        {
+            return false;
+        }
+
+        _lentElements[address] = (array, _lentElements.TryGetValue(address, out var lent) ? lent.Calls + 1 : 1);
+        return true;
+    }
+
+    /// <summary>
+    /// Gives back an address an element was lent at (<see cref="TryLendElement"/>): the call it was lent to is over. The element stays where it is.
+    /// </summary>
+    /// <param name="address">The address.</param>
+    /// <returns><see langword="false"/> when no element was lent at the address.</returns>
+    public bool TryGiveBackElement(MemoryAddress address)
+    {
+        if (!_lentElements.TryGetValue(address, out var lent))
+        {
+            return false;
+        }
+
+        if (lent.Calls > 1)
+        {
+            _lentElements[address] = lent with { Calls = lent.Calls - 1 };
+        }
+        else
+        {
+            _lentElements.Remove(address);
+        }
+
+        return true;
+    }
+
+    // whether any was freed.
+    private bool FreeBlocksOfArraysThatAreGone()
+    {
+        var gone = _arrayBlocks.Where(block => !block.Value.TryGetArray(out _)).ToList();
+        foreach (var (at, block) in gone)
         {
             FreeStringBlocksIn(at, block.Size);
             FreeDescriptorsIn(at, block.Size);
@@ -66,6 +126,9 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             allocator.TryDeallocate(at, out _);
             Generation++;
         }
+
+        _blocksLookedAtNext = Math.Max(FewestBlocksLookedAt, 2 * _arrayBlocks.Count);
+        return gone.Count > 0;
     }
 
     private static SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue? RecordOf(IBindingHandle handle)

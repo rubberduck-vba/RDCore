@@ -307,6 +307,62 @@ public sealed class CompiledByRefCallTests
         Assert.IsGreaterThanOrEqualTo(1L, walkedBack, "Increment is compiled, and handed to the interpreter");
     }
 
+    // P is given an element, or a field, by reference, and prints how far its parameter is from it (VarPtr), what it holds once P assigned the parameter, and
+    // the parameter once P assigned it: the parameter is bound where the element is, a second name for it (MS-VBAL §5.3.1.11), and MS-VBA gives the two one
+    // address.
+    private static string ElementPassed(string declarations, string setUp, string element, string type, string member, string first, string second)
+        => Program(
+            declarations,
+            "Public Sub Main()",
+            setUp,
+            $"    P {element}",
+            "End Sub",
+            $"Private Sub P(ByRef T As {type})",
+            $"    Debug.Print VarPtr(T) - VarPtr({element})",
+            $"    T{member} = {first}",
+            $"    Debug.Print {element}{member}",
+            $"    {element}{member} = {second}",
+            $"    Debug.Print T{member}",
+            "End Sub");
+
+    private const string Record = "Private Type Rec\r\n    X As Long\r\n    S As String\r\nEnd Type";
+
+    [TestMethod]
+    [DataRow("Private A(1 To 2) As String", "", "A(1)", "String", "", "\"t\"", "\"a\"", "0 ; t ; a", DisplayName = "a String element")]
+    [DataRow("Private A(1 To 2) As Long", "", "A(1)", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "a Long element")]
+    [DataRow("Private A(1 To 2) As Variant", "", "A(1)", "Variant", "", "\"t\"", "3", "0 ; t ; 3", DisplayName = "a Variant element")]
+    [DataRow(Record + "\r\nPrivate A(1 To 2) As Rec", "", "A(2)", "Rec", ".S", "\"t\"", "\"a\"", "0 ; t ; a", DisplayName = "a record element")]
+    [DataRow("Private A(1 To 2, 1 To 3) As Long", "", "A(2, 3)", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "an element of a 2D array")]
+    [DataRow("Private A() As String", "    ReDim A(0 To 4)", "A(3)", "String", "", "\"t\"", "\"a\"", "0 ; t ; a",
+        DisplayName = "an element of a dynamic array")]
+    [DataRow("Private V As Variant", "    V = Array(1, 2)", "V(1)", "Variant", "", "\"t\"", "3", "0 ; t ; 3",
+        DisplayName = "an element of an array a Variant holds")]
+    public async Task AnElementPassedByReference_IsBoundWhereTheElementIs(
+        string declarations, string setUp, string element, string type, string member, string first, string second, string expected)
+    {
+        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, member, first, second));
+
+        StringAssert.Contains(observed, $"| {expected} |");
+    }
+
+    // a field of a record, and an element of a fixed-size array field of one, is where the record is: the record's address plus its offset (VarPtr), which
+    // the parameter is not bound at. Main takes the record's address first, so that the field is where the record is whichever is asked for first.
+    [TestMethod]
+    [Ignore("a field of a record passed by reference is bound at an address of its own: storage resolves no address inside a record to the field there, and a "
+        + "record's first field is at the record's own address")]
+    [DataRow(Record + "\r\nPrivate A(1 To 2) As Rec", "", "A(2).X", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "a field of a record element")]
+    [DataRow("Private Type Holder\r\n    N As Long\r\n    Arr(1 To 3) As Long\r\nEnd Type\r\nPrivate R As Holder", "    Dim Q As LongPtr: Q = VarPtr(R)",
+        "R.Arr(2)", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "an element of a fixed-size array field")]
+    [DataRow(Record + "\r\nPrivate R As Rec", "    Dim Q As LongPtr: Q = VarPtr(R)", "R.S", "String", "", "\"t\"", "\"a\"", "0 ; t ; a",
+        DisplayName = "a field of a record")]
+    public async Task AFieldPassedByReference_IsBoundWhereTheFieldIs(
+        string declarations, string setUp, string element, string type, string member, string first, string second, string expected)
+    {
+        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, member, first, second));
+
+        StringAssert.Contains(observed, $"| {expected} |");
+    }
+
     // Go passes Touch a value by reference twice, and its variable once, in each of count turns; Touch takes the address of its parameter, after the
     // statements given, if any.
     private static string Touching(string kept) => Program(
