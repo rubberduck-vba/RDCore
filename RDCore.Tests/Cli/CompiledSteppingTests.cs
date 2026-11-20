@@ -220,7 +220,7 @@ public sealed class CompiledSteppingTests
         CollectionAssert.AreEqual(new[] { 5, 5 }, stepped.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(), "the For, counted from 0");
     }
 
-    // an error the interpreter raises in a statement it runs alone (an operator compiled code does not do, ^), with no handler: the caller's handler
+    // an error the interpreter raises in a statement it runs alone (an operator compiled code does not do, Like), with no handler: the caller's handler
     // catches it, as it does the interpreter's.
     [TestMethod]
     public async Task AnErrorInAStatementTheInterpreterRuns_GoesToTheCaller()
@@ -237,7 +237,7 @@ public sealed class CompiledSteppingTests
             "    For I = 1 To 2",
             "        Failing = Failing + I",
             "    Next",
-            "    Failing = Failing + CLng(S) ^ 1",
+            "    Failing = Failing + CLng(S) + (S Like \"y\")",
             "End Function"), "Failing", recoveries: 0);
 
     [TestMethod]
