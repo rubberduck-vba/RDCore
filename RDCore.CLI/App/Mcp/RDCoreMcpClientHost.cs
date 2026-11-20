@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK;
 using RDCore.SDK.Assistant;
 using RDCore.SDK.Client;
@@ -72,15 +73,29 @@ internal sealed class RDCoreMcpClientApp(IOptions<SdkAppOptions> options, IChild
         },
     };
 
-    protected override void ConfigureServices(IServiceCollection services)
-    {
-    }
+    // the edits the language server makes are written to the files on disk, in their own encoding.
+    private readonly WorkspaceEditFiles _files = new(new System.IO.Abstractions.FileSystem(), options.Value.Environment.AnsiCodePage);
 
-    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities) => capabilities;
+    protected override void ConfigureServices(IServiceCollection services)
+        => services.AddSingleton(_files);
+
+    // edits of text only (no file is created, renamed or deleted), as document changes, and none applied after one fails; the documents stay closed, so the
+    // server reads what another editor saves, and watches the files itself.
+    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
+    {
+        capabilities.Workspace ??= new();
+        capabilities.Workspace.ApplyEdit = true;
+        capabilities.Workspace.WorkspaceEdit = new WorkspaceEditCapability
+        {
+            DocumentChanges = true,
+            ResourceOperations = new Container<ResourceOperationKind>(),
+            FailureHandling = FailureHandlingKind.Abort,
+        };
+        return capabilities;
+    }
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
-    {
-    }
+        => builder.WithHandler<McpApplyEditHandler>();
 
     protected override void Dispose(bool disposing)
     {

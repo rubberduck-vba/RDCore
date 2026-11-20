@@ -190,8 +190,10 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     RDCore.SDK.Server.StagedFiles? staged = null) : IWorkspaceDocumentService
 {
     // a module file is read in its own encoding (ModuleFileText): a file VBA exported is in the environment's ANSI code page.
-    private async Task<string> ReadModuleTextAsync(string path)
-        => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage).Text;
+    private async Task<ModuleFileText> DecodeModuleAsync(string path)
+        => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage);
+
+    private async Task<string> ReadModuleTextAsync(string path) => (await DecodeModuleAsync(path)).Text;
 
     // a concurrent dictionary: the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync) while requests the server answers in parallel
     // look them up, and a plain dictionary must not be read while it is written.
@@ -625,7 +627,17 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                         logger.LogTrace("Saving file: '{path}'...", path);
                     }
 
-                    await ioFile.WriteAllTextAsync(path, document.Text);
+                    // the file keeps its encoding and its byte order mark, and a text the encoding cannot write is not saved. A file that is not there yet is
+                    // written in UTF-8.
+                    if (ioFile.Exists(path))
+                    {
+                        var file = (await DecodeModuleAsync(path)).WithText(document.Text);
+                        await file.WriteAsync(ioFile.FileSystem, path, CancellationToken.None);
+                    }
+                    else
+                    {
+                        await ioFile.WriteAllTextAsync(path, document.Text);
+                    }
 
                     // what was written is what is saved: a document that changed - or moved - while it was written is not.
                     using (Locked())

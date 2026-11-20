@@ -70,6 +70,9 @@ internal sealed class CoreLanguageServerApp(
 
     protected override TextDocumentSelector DocumentSelector => SupportedLanguages.DocumentSelector;
 
+    // the files the client says changed are read as the notification arrives (ProjectFileWatchHandler), and a request about a document waits for them.
+    protected override bool ServesFileChanges => true;
+
     /// <summary>
     /// Cancels in-flight core-component bring-up when the server is shutting down.
     /// </summary>
