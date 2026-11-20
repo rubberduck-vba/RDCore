@@ -68,7 +68,8 @@ internal interface IRenameService
     /// The edits, of every document whose text changes, or why there are none. A UserForm's control is renamed in the form's .frx too: the new file is
     /// staged beside it (<see cref="StagedFiles"/>), and the edit puts it in place before it edits any text.
     /// </returns>
-    Task<RenameAnswer<WorkspaceEdit>> RenameAsync(Uri documentUri, Position position, string newName, CancellationToken token, ClientCapabilities? client = null);
+    Task<RenameAnswer<WorkspaceEdit>> RenameAsync(
+        Uri documentUri, Position position, string newName, CancellationToken token, ClientCapabilities? client = null);
 }
 
 /// <summary>
@@ -133,7 +134,8 @@ internal sealed class RenameService(
     // the workspace as it was composed last, for as long as no document changed: a prepared rename, the rename and the code actions of a line are of one.
     private readonly WorkspaceCompositionCache _compositions = compositions ?? new();
 
-    public async Task<RenameAnswer<PlaceholderRange>> PrepareAsync(Uri documentUri, Position position, CancellationToken token, ClientCapabilities? client = null)
+    public async Task<RenameAnswer<PlaceholderRange>> PrepareAsync(
+        Uri documentUri, Position position, CancellationToken token, ClientCapabilities? client = null)
         => await ComposeAsync(token) is { } workspace
             ? workspace.Prepare(documentUri, position, client.TakesFileReplacement())
             : RenameWorkspace.NoName<PlaceholderRange>();
@@ -167,7 +169,10 @@ internal sealed class RenameService(
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }
 
-        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf, Stage = stagedFiles is null ? null : stagedFiles.Stage };
+        return new RenameWorkspace(parts)
+        {
+            IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf, Stage = stagedFiles is null ? null : stagedFiles.Stage,
+        };
     }
 
     // the edit that renames the workspace's project of a name in its project file, where the text writes the name; none when the file cannot be read, or

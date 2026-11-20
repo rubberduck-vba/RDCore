@@ -254,7 +254,10 @@ public sealed class RenameServiceTests
     private const string OkCode = "Private Sub OkButton_Click()\r\n    OkButton.Caption = \"Done\"\r\nEnd Sub\r\n";
 
     // a client that applies an edit's renames and deletes, and undoes it whole when one fails.
-    private static readonly ClientCapabilities Undoing = new() { Workspace = new WorkspaceClientCapabilities { WorkspaceEdit = WorkspaceEditFiles.Capability } };
+    private static readonly ClientCapabilities Undoing = new()
+    {
+        Workspace = new WorkspaceClientCapabilities { WorkspaceEdit = WorkspaceEditFiles.Capability },
+    };
 
     private static string[] ControlNames(byte[] frx) => [.. MSFormsReader.Read(frx).Form.DescendantsAndSelf().Skip(1).Select(control => control.Name)];
 
@@ -272,12 +275,14 @@ public sealed class RenameServiceTests
         Assert.AreEqual(Document("Dialog.frx").AbsoluteUri, putInPlace.NewUri.ToUri().AbsoluteUri, "then the staged file is put in its place");
         Assert.AreEqual(setAside.NewUri, removed.Uri, "and what was set aside is deleted last");
         Assert.IsTrue(changes.Skip(2).SkipLast(1).All(change => change.IsTextDocumentEdit), "the code is edited in between");
-        Assert.IsTrue(new[] { setAside, putInPlace }.All(each => each.Options is { Overwrite: false, IgnoreIfExists: false }), "no file is renamed over another");
+        Assert.IsTrue(
+            new[] { setAside, putInPlace }.All(each => each.Options is { Overwrite: false, IgnoreIfExists: false }), "no file is renamed over another");
 
         var staged = files.File.ReadAllBytes(putInPlace.OldUri.GetFileSystemPath());
         CollectionAssert.Contains(ControlNames(staged), "Accept");
         CollectionAssert.DoesNotContain(ControlNames(staged), "OkButton");
-        CollectionAssert.AreEqual(UnattendedRunTests.Fixture("ExampleView.frx"), files.File.ReadAllBytes(frx), "the .frx is as it was until the edit is applied");
+        CollectionAssert.AreEqual(
+            UnattendedRunTests.Fixture("ExampleView.frx"), files.File.ReadAllBytes(frx), "the .frx is as it was until the edit is applied");
         var code = changes.Where(change => change.IsTextDocumentEdit).SelectMany(change => change.TextDocumentEdit!.Edits)
             .Select(edit => (edit.Range.Start.Line, edit.NewText));
         CollectionAssert.AreEquivalent(new[] { (7, "Accept"), (8, "Accept") }, code.ToArray(), "the handler and the code that names the control");
