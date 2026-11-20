@@ -1203,8 +1203,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 instance.ClassModule, Execution.External.Automation.LateBinding.DefaultMemberName, RDCore.External.Automation.AutomationInvocation.Get));
         }
 
-        // MS-VBAL §5.6.13: the index expression references the default member of the class the expression is declared as, which an object of a class
-        // that implements that class invokes the implementation of.
+        // the index expression (MS-VBAL §5.6.13), or the dictionary access (§5.6.14), references the default member of the class the expression is declared
+        // as; an object of a class that implements that class as an interface invokes the member implementing it.
         if (DeclaredInterfaceOf(session, context, reachedThrough, instance.ClassModule) is { } implementedInterface)
         {
             return DefaultMemberIn(implementedInterface) is { } interfaceMember

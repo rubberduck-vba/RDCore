@@ -6,7 +6,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// The default member of an object of a class of the workspace, called by an index expression on an object variable (<c>F(K)</c>,
 /// <strong>MS-VBAL §5.6.13</strong>): compiled code calls the member the class marks <c>VB_UserMemId = 0</c> on the object, as the interpreter calls it.
-/// An object of a class that implements the declared class as an interface is called the member implementing the default member (MS-VBAL §5.3.1.9).
+/// On an object of a class that implements the declared class as an interface, it calls the member implementing the default member
+/// (<strong>MS-VBAL §5.3.1.9</strong>).
 /// </summary>
 [TestClass]
 public sealed class CompiledDefaultMemberCallTests
