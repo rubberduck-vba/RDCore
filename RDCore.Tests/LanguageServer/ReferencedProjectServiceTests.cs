@@ -1,4 +1,7 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Completion;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
@@ -66,6 +69,16 @@ public sealed class ReferencedProjectServiceTests
 
     private ReferencedProjectService Sut()
     {
+        var (documents, parsing) = Services();
+        return Sut(documents, parsing);
+    }
+
+    private ReferencedProjectService Sut(IWorkspaceDocumentService documents, IParsingClientService parsing)
+        => new(_libraries, _projects, documents, parsing, new IntrinsicSymbolResolver(), Microsoft.Extensions.Options.Options.Create(new SdkAppOptions()));
+
+    // the documents of the workspace, and their parses.
+    private (IWorkspaceDocumentService Documents, IParsingClientService Parsing) Services()
+    {
         var documents = Substitute.For<IWorkspaceDocumentService>();
         documents.WorkspaceRoot.Returns(ConsoleRoot);
         documents.GetAllDocuments().Returns(_ => _modules.Select(module => module.Document).ToList());
@@ -78,9 +91,10 @@ public sealed class ReferencedProjectServiceTests
             call[1] = parse;
             return parse is not null;
         });
+        parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
 
-        return new ReferencedProjectService(_libraries, _projects, documents, parsing, new IntrinsicSymbolResolver(),
-            Microsoft.Extensions.Options.Options.Create(new SdkAppOptions()));
+        return (documents, parsing);
     }
 
     private static string[] NamesOf(IEnumerable<Symbol> symbols, string library)
@@ -165,5 +179,29 @@ public sealed class ReferencedProjectServiceTests
 
         CollectionAssert.AreEquivalent(new[] { "NavalLib", "Grid", "PlaceShip" }, NamesOf(symbols, "NavalLib"));
         Assert.IsEmpty(NamesOf(symbols, "NavalConsole"));
+    }
+
+    // MS-VBAL §5.3.1.1: a Friend member is accessible within its project only. After the dot, an object of a class of the project referenced offers its
+    // Public members, and neither its Friend members nor its Private ones.
+    [TestMethod]
+    public async Task AnObjectOfAReferencedProjectsClass_AfterItsDot_OffersNoFriendMember()
+    {
+        Add(Lib, "Crew.cls", "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Crew\"\r\n"
+            + "Attribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = False\r\nAttribute VB_PredeclaredId = False\r\n"
+            + "Attribute VB_Exposed = True\r\nFriend Sub Promote()\r\nEnd Sub\r\nFriend Property Get Rank() As Long\r\nEnd Property\r\n"
+            + "Public Sub Muster()\r\nEnd Sub\r\nPrivate Sub Hide()\r\nEnd Sub\r\n");
+        var (documents, parsing) = Services();
+        var options = Microsoft.Extensions.Options.Options.Create(new SdkAppOptions
+        {
+            Workspace = new SdkWorkspaceOptions { WorkspaceUri = ConsoleRoot, Language = "vba" },
+        });
+        var completion = new CompletionService(documents, parsing, new IntrinsicSymbolResolver(), _libraries, Substitute.For<ILibrarySource>(),
+            new ClientVerbRegistry(), options, NullLogger<CompletionService>.Instance, _projects, referencedProjects: Sut(documents, parsing));
+        const string Source = "Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    Dim c As Crew\r\n    Debug.Print c.\r\nEnd Sub\r\n";
+
+        var list = await completion.CompleteFragmentAsync("Main", Source, new Position(3, 18), CancellationToken.None);
+
+        var labels = list.Items.Select(item => item.Label).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "Muster" }, labels, string.Join(", ", labels));
     }
 }

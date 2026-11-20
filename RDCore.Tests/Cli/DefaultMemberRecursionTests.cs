@@ -53,6 +53,24 @@ public sealed class DefaultMemberRecursionTests
         }
     }
 
+    // MS-VBAL §5.6.14: a dictionary access is the index expression of its object given the name as a String, so `o!k` reads what `o("k")` reads.
+    [TestMethod]
+    [DataRow("v = o!k", "0 7", DisplayName = "early-bound")]
+    [DataRow("v = x!k", "0 7", DisplayName = "late-bound")]
+    [DataRow("v = ch!k", "0 7", DisplayName = "early-bound, two levels")]
+    [DataRow("v = xc!k", "0 7", DisplayName = "late-bound, two levels")]
+    [DataRow("v = f!k", "0 7", DisplayName = "early-bound, a default function")]
+    [DataRow("v = o!nope", "5", DisplayName = "early-bound, a key the collection does not have")]
+    [DataRow("v = xa!k", "451", DisplayName = "late-bound, the default member returns an array")]
+    public async Task ADictionaryAccessOfAParameterlessDefaultMember_AppliesToWhatItReturns(string statement, string expected)
+    {
+        foreach (var engine in new[] { VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled })
+        {
+            var output = await RunAsync(Classes, Program(statement), engine);
+            Assert.AreEqual(expected, string.Join(" | ", output), engine.ToString());
+        }
+    }
+
     // Bag's default Item has a Property Get, a Property Let and a Property Set, and says which one was last called; Outer2's default member returns its Bag,
     // and Chain2's returns its Outer2.
     private static readonly (string Name, string Source)[] AssignedClasses =
