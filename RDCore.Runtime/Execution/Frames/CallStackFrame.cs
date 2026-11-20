@@ -155,9 +155,48 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         if (Known is not null)
         {
             Known = null;
+            _knowsHoistsOnly = false;
             KnownOperands.Count(held: false);
         }
     }
+
+    // whether what the activation knows is only what Hoist knew, which Unhoist lets go of.
+    private bool _knowsHoistsOnly;
+
+    /// <summary>
+    /// Knows what a call among the arguments of a call the interpreter makes returned, made ahead of the rest of the argument it is written in
+    /// (<see cref="KnownOperands.Hoist"/>), until <see cref="Unhoist"/>.
+    /// </summary>
+    /// <param name="call">The call expression.</param>
+    /// <param name="value">What it returned.</param>
+    internal void Hoist(SyntaxNode call, VBTypedValue value)
+    {
+        if (Known is null)
+        {
+            Know(KnownOperands.None());
+            _knowsHoistsOnly = true;
+        }
+
+        Known!.Hoist(call, value);
+    }
+
+    /// <summary>
+    /// Lets go of what <see cref="Hoist"/> knew of <paramref name="call"/>.
+    /// </summary>
+    /// <param name="call">The call expression.</param>
+    internal void Unhoist(SyntaxNode call)
+    {
+        if (Known?.Unhoist(call) is true && _knowsHoistsOnly)
+        {
+            Forget();
+        }
+    }
+
+    /// <summary>
+    /// How many of the temporaries of the statement the activation runs are let go of in the order the calls that made them say
+    /// (<see cref="ObjectReferences.SettleCall"/>), and how many times that count was set: the temporaries a call claims are those made after it.
+    /// </summary>
+    internal (int Count, int Times) SettledTemporaries { get; set; }
 
     private bool _moved;
 

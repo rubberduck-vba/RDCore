@@ -72,7 +72,8 @@ The executor dispatches a Let-assignment statement to its statement runtime sema
 the statement kinds the `Simple` statement provider handles
 ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
-1. `StatementRuntimeSemanticsProvider.ExecuteLetAssignment` evaluates the value expression.
+1. `StatementRuntimeSemanticsProvider.ExecuteLetAssignment` evaluates the value expression. A target that is a call has its arguments and the value
+   evaluated first ([Order of evaluation](#order-of-evaluation)).
 2. `ExecuteLetAssignment` passes the value to `LetAssignmentEvaluator`, which assigns it to the target:
 
 |Target|Assignment|
@@ -97,9 +98,14 @@ The Set statement does not use the operator pipeline; see
 A path through records is one reached from a variable, a variable named through its module, or the record of a `With` block, through fields of records
 and elements of arrays of records (`LetAssignmentEvaluator.IndexListsOfARecordPath`).
 
-> [!NOTE]
-> **Not implemented.** A target that is a call (a property, a public variable of an object, a default member given arguments, an element of an
-> array a `Variant` holds) evaluates its object and its arguments after the value. MS-VBA evaluates its arguments as the call statement of its accessor does.
+A target that is a call (a property, a public variable of an object, a default member given arguments, an element of an array a `Variant` holds)
+is assigned as the call statement of its accessor, the value its last argument. Its arguments and the value are evaluated as the arguments of a call
+statement are ([**RD-VBAL §5.3.1.11** Order of Evaluation](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md#order-of-evaluation)),
+and the target's object after them (`LetAssignmentEvaluator.IsAnAccessorCall`).
+
+- `b.Item(i) = v` evaluates `i v`, then `b`; `Tg(t).Item(i) = v` evaluates `i v t`; `o(i).Item(j) = v` evaluates `j v i`.
+- `b.Kid(i).Item(j) = v` evaluates `j i v`, then `b.Kid(i)`: the calls in the arguments of a property the object is reached through come before the value.
+- An object that is `Nothing` raises error 91 once the arguments and the value are evaluated.
 
 ### Targets of a class
 
@@ -266,6 +272,7 @@ floating-point operation, and RD-VBA follows MS-VBA. As text, an infinity is `in
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider.ExecuteLetAssignment`|Evaluates the value expression and passes it to `LetAssignmentEvaluator`.|
 |`RDCore.Runtime.Semantics.Statements.LetAssignmentEvaluator.Assign`|Assigns an evaluated value to the target: the function result variable, a UDT field, or a variable through `"__let_op"`.|
 |`LetAssignmentEvaluator.IndexListsOfARecordPath`|The index lists of a target that is a path through records, the last first: evaluated before the path is navigated.|
+|`LetAssignmentEvaluator.IsAnAccessorCall`|Whether a target is a call of an accessor, whose arguments and value are evaluated before its object (`RuntimeExpressionEvaluator.WithAccessorArgumentsFirst`).|
 |`LetAssignmentEvaluator.TryResolveTarget`|Resolves the symbol a target names; shared with `Input #`, `Line Input #` and `Get`.|
 |[OperatorSymbolNames](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Operators.OperatorSymbolNames.html)`.BinaryAssignmentValueOp`|The name of the `"__let_op"` Let-assignment operator (**RDCore.SDK**).|
 |[ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`|The function result variable.|

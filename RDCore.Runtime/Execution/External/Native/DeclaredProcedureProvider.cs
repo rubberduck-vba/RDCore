@@ -146,11 +146,13 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         IBindingHandle? variable = null;
         VBType? referenced = null;
         VBArrayElementLocation? element = null;
+        RecordFieldBinding? field = null;
         while (argument is VBRuntimeReference reference && resolver.TryRead(reference, parameter.ResolvedType, out var cell))
         {
             variable = cell;
             referenced ??= reference.DeclaredType;
             element ??= reference.Element;
+            field ??= cell as RecordFieldBinding;
             argument = cell.Value;
         }
 
@@ -184,6 +186,16 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         {
             described = new NativeArgument { Slot = NativeSlot.Record, ByReference = true, Record = data, Offset = offset, WritesBack = true };
             takeBack = takeData;
+            return true;
+        }
+
+        // a field of a record given to As Any is passed where it is in the record: the function is given its address in a copy of the record, and what it
+        // writes there and after it is the record's fields afterwards (MS-VBA, observed in Excel: RtlMoveMemory r.A, src, 8 writes r.A and r.X).
+        if (field is { } place && byReference && declared is VBUnknownType
+            && NativeRecords.TryDescribeField(place.Record, place.Index, pointerWidth, out var fields, out var fieldOffset, out var takeFields))
+        {
+            described = new NativeArgument { Slot = NativeSlot.Record, ByReference = true, Record = fields, Offset = fieldOffset, WritesBack = true };
+            takeBack = takeFields;
             return true;
         }
 

@@ -227,7 +227,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Ldc_I4, statement.Offset);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RunArrayStatement))!);
-                _il.Emit(OpCodes.Brfalse, CallFailedAt(statement.Offset));
+                _il.Emit(OpCodes.Brfalse, CallFailedAfterSpillAt(statement.Offset));
                 if (statement.Releases)
                 {
                     EmitReadBackAfterStatement(statement.Offset);
