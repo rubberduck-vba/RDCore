@@ -15,6 +15,8 @@ namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
 /// <c>RDC01003</c>: a branch of an <c>If</c> statement that has no statement (<strong>MS-VBAL §5.4.2.8</strong>, <strong>§5.4.2.9</strong>).
+/// <c>RDC11049</c>: a single-line <c>If</c> with nothing after <c>Then</c> and its colons, and no <c>Else</c>, which MS-VBAL gives no reading
+/// (<strong>RD-VBAL §5.4.2.9</strong>).
 /// </summary>
 /// <remarks>
 /// The <c>If</c> or <c>ElseIf</c> branch of a block <c>If</c>, or the <c>Then</c> of a single-line <c>If</c> that has only an <c>Else</c>. A comment, a line label and a
@@ -28,7 +30,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
 {
-    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EmptyIfBlock.ToCode()];
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EmptyIfBlock.ToCode(), RDCoreDiagnosticId.SingleLineIfWithNoStatement.ToCode()];
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
@@ -47,6 +49,14 @@ internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
                     break;
                 case ElseIfBlockStatementNode branch when branch.Body.HasNoStatement():
                     yield return Finding(EmptyBlocks.Header(branch, branch.ConditionExpression), "ElseIf", null);
+                    break;
+                // MS-VBAL gives `If x Then:` no reading when nothing follows the colon and there is no Else; VB6 runs it as an If with no statement.
+                case InlineIfStatementNode { ElseBody: null } inline when inline.ThenBody.Children.IsDefaultOrEmpty:
+                    yield return new AnalyzerFinding(
+                        RDCoreDiagnosticId.SingleLineIfWithNoStatement.ToCode(),
+                        EmptyBlocks.Header(inline, inline.ConditionExpression),
+                        DiagnosticSeverity.Warning,
+                        RDCoreDiagnosticsResources.SingleLineIfWithNoStatement_Message);
                     break;
                 case InlineIfStatementNode inline when inline.ThenBody.HasNoStatement():
                     yield return Finding(EmptyBlocks.Header(inline, inline.ConditionExpression), "If", null);
@@ -69,13 +79,13 @@ internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
     {
         var range = block.SourceLocation.Range;
         if (!block.Body.Children.IsDefaultOrEmpty || !block.ElseIfBlocks.IsDefaultOrEmpty || block.ElseBlock is not null
-            || module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => Encloses(member.SourceLocation.Range, range)) is not { } procedure)
+            || module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.SourceLocation.Range.Contains(range)) is not { } procedure)
         {
             return null;
         }
 
         // a comment in the If is the user's, and is not removed with it.
-        if (parse.Trivia.Any(trivia => Encloses(range, trivia.SourceLocation.Range)) || LineEdits.WholeLinesOf(parse, block) is not { } lines)
+        if (parse.Trivia.Any(trivia => range.Contains(trivia.SourceLocation.Range)) || LineEdits.WholeLinesOf(parse, block) is not { } lines)
         {
             return null;
         }
@@ -84,8 +94,6 @@ internal sealed class EmptyIfBlockAnalyzer : IModuleAnalyzer
             ? SyntaxEdits.Fix(RDCoreDiagnosticsResources.EmptyIfBlock_Fix, SyntaxEdits.Remove(lines))
             : null;
     }
-
-    private static bool Encloses(SourceRange outer, SourceRange inner) => outer.Start <= inner.Start && outer.End >= inner.End;
 
     // what reading a name or an operation gives, when it neither calls nor raises: a Boolean (or Null), another Value (a number, a Date, Empty), or an Object
     // reference.

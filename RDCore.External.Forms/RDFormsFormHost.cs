@@ -94,7 +94,10 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
             // a VB6 form's code reads a control's position and size in its container's scale (twips in a Frame), and the form's own in twips; an RDForms
             // form's code reads them in pixels, as its document holds them.
             var visualBasic = form.Kind == FormDesignerKind.VisualBasic6;
-            var hosted = new RDFormsForm(new Model.FormDefinition(root), visualBasic ? CodeUnit.VB6 : CodeUnit.Pixel) { IsVisualBasic = visualBasic };
+            var hosted = new RDFormsForm(new Model.FormDefinition(root), visualBasic ? CodeUnit.VB6 : CodeUnit.Pixel, Server.Program)
+            {
+                IsVisualBasic = visualBasic,
+            };
             // in the program's theme before anything shows it.
             hosted.Window.KeepSystemTheme = _keepSystemTheme;
             Server.Forms.Add(hosted);

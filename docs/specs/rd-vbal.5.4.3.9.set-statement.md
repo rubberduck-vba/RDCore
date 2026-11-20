@@ -60,6 +60,10 @@ statement kinds the `Simple` statement provider handles
    [**RD-VBAL §5.5.2.2** Runtime semantics](rd-vbal.5.5.2.2.runtime-semantics.md)).
 3. The Set-coerced value is assigned to the target.
 
+The parts of the target are evaluated in the order a `Let` evaluates them
+([**RD-VBAL §5.4.3.8** Order of evaluation](rd-vbal.5.4.3.8.let-statement.md#order-of-evaluation)): `Set rs(i).Objs(j) = obj` evaluates `obj j i`,
+and `Set b.Kid(i) = obj`, a call of the `Property Set`, evaluates `i obj`, then `b`.
+
 Two things happen around the assignment of an object to a variable.
 
 - **References.** The variable holds a reference to the object it is given, and the object it held loses one. An object that loses its last reference is destroyed, and its `Class_Terminate` handler runs

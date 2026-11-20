@@ -87,6 +87,8 @@ public static class RDFormsHosting
 
         public string? ClassNameOf(object target) => ServerOf(target).ClassNameOf(target);
 
+        public bool IsFormHostObject(object target) => ServerOf(target).IsFormHostObject(target);
+
         public bool? IsInstanceOf(object target, string library, string className) => ServerOf(target).IsInstanceOf(target, library, className);
 
         public bool MoveNext(object enumerator, out object? current) => ServerOf(enumerator).MoveNext(enumerator, out current);

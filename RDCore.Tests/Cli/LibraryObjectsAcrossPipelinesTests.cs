@@ -31,7 +31,9 @@ public sealed class LibraryObjectsAcrossPipelinesTests
         "Attribute VB_Name = \"Program\"",
         "Public Col As Collection",
         "Public Re As Object",
+        "Public E As Object",
         "Public Sub Main()",
+        "    Set E = Err",
         "    Set Col = New Collection",
         "    Col.Add New Widget",
         "    Col.Add \"two\"",
@@ -51,6 +53,9 @@ public sealed class LibraryObjectsAcrossPipelinesTests
         "End Sub",
         "Public Sub Pattern()",
         "    Debug.Print Re.Pattern",
+        "End Sub",
+        "Public Sub SameErr()",
+        "    Debug.Print E Is Err",
         "End Sub") + "\r\n";
 
     private static Task DebugAsync(Func<EnvironmentSessionProvider, Task> test)
@@ -114,5 +119,30 @@ public sealed class LibraryObjectsAcrossPipelinesTests
             }
 
             Assert.AreEqual(before, objects.DestroyingHandlerCount, "the session lets go of what a destroyed object holds with the handlers it was composed with");
+        });
+
+    [TestMethod]
+    public async Task PipelinesComposedOnASession_MakeNoObjectOfTheirOwn()
+        => await DebugAsync(async provider =>
+        {
+            var objects = (SessionObjects)provider.Session.Objects;
+            var before = objects.ObjectCount;
+
+            for (var run = 0; run < 5; run++)
+            {
+                Assert.AreEqual(ExecutionOutcome.Completed, (await Alongside(provider, "Count")).Outcome);
+            }
+
+            Assert.AreEqual(before, objects.ObjectCount, "a pipeline's standard library makes no object until the program asks for one");
+        });
+
+    [TestMethod]
+    public async Task TheErrorObjectTheProgramTook_IsTheErrorObject_OfAStatementRunWhileTheProgramWaits()
+        => await DebugAsync(async provider =>
+        {
+            var compared = await Alongside(provider, "SameErr");
+
+            Assert.AreEqual(ExecutionOutcome.Completed, compared.Outcome, compared.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "True" }, Lines(compared));
         });
 }

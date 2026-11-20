@@ -65,7 +65,7 @@ public static class SymbolHierarchy
         {
             foreach (var occurrence in NameOccurrences.Find(context, name, [source]).Occurrences)
             {
-                if (occurrence.Kind is not (OccurrenceKind.Name or OccurrenceKind.Member) || !Contains(item.Range, occurrence.Range)
+                if (occurrence.Kind is not (OccurrenceKind.Name or OccurrenceKind.Member) || !item.Range.Contains(occurrence.Range)
                     || occurrence.Binding is not { } binding || binding == item.Symbol.SemanticId
                     || NameOccurrences.SymbolOf(context, binding) is not { } callee || !IsCallable(context, callee))
                 {
@@ -120,6 +120,4 @@ public static class SymbolHierarchy
             .Select(group => new HierarchyCall(group.First().Item, [.. group.Select(call => call.Range).Distinct().OrderBy(range => range.Start)]))
             .OrderBy(call => call.Item.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(call => call.Item.Range.Start)];
-
-    private static bool Contains(SourceRange outer, SourceRange inner) => outer.Start <= inner.Start && inner.End <= outer.End;
 }

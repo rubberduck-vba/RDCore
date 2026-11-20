@@ -2,6 +2,7 @@
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform.Protocol;
+using System.Globalization;
 
 namespace RDCore.Tests.Model.Errors;
 
@@ -39,6 +40,27 @@ public sealed class LanguageErrorFactoryTests
 
         Assert.AreEqual(new RDCoreDiagnosticCode(RDCoreDiagnosticCode.CompilePrefix, (int)VBCompileErrorId.DuplicateDeclaration), travelled.Code);
         Assert.AreEqual(error, travelled.ToInfo());
+    }
+
+    [TestMethod]
+    public void ACompileErrorMessage_IsInTheLanguageOfTheUserInterface_AtEachCall()
+    {
+        var previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            var first = VBCompileErrorInfo.GetErrorString(VBCompileErrorId.NextWithoutFor);
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-CA");
+            var second = VBCompileErrorInfo.GetErrorString(VBCompileErrorId.NextWithoutFor);
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            var third = VBCompileErrorInfo.GetErrorString(VBCompileErrorId.NextWithoutFor);
+
+            CollectionAssert.AreEqual(new[] { "Next without For", "Next sans For", "Next without For" }, new[] { first, second, third });
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
     }
 
     [TestMethod]

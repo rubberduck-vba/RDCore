@@ -196,16 +196,17 @@ The mechanism behind the ordered lookup is a [ScopeTree](https://rubberduck-vba.
 |`LexicalScopeKind`|Scopes|Position in the tree|
 |---|---|---|
 |`Global`|The global scope.|The root.|
-|`Project`|The project scope.|Beneath the global scope.|
-|`Module`|One scope per module.|Beneath the project scope.|
+|`Project`|One scope per project, for each workspace root the modules are under (`ScopeTree.Projects`): each project is a namespace of its own (**MS-VBAL §5.6.10**).|Beneath the global scope.|
+|`Module`|One scope per module.|Beneath the scope of its project.|
 |`Procedure`|One scope per procedure body.|Beneath its module's scope.|
 
-The project scope is an ancestor of a module's own scope and of nothing else.
+A project scope is an ancestor of its own modules' scopes and of nothing else.
 
 ### Placement
 
-Each symbol is placed structurally in the `ScopeTree`, from its `ParentUri`, its concrete type, and its access
-modifier.
+Each symbol is placed structurally in the `ScopeTree`, from its `ParentUri`, its concrete type, and what the language's
+[IProjectVisibility](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.IProjectVisibility.html) says of it. RD-VBA's
+(`ProjectVisibility`) follows the access modifier, as below.
 
 A standard module's non-`Private` members (an explicit `Public` / `Global` / `Friend`, or an implicit
 procedure-like member,
@@ -364,7 +365,8 @@ declare the name, are reported as **VBC09301** _Ambiguous name_ (see
 ### ScopeTreeSymbolResolver
 
 The compile-time implementation of `ISymbolResolver` is `ScopeTreeSymbolResolver`. It walks the `ScopeTree` and
-binds names only.
+binds names only. A lookup's project tier is the scope of its own project. The names a referenced project gives are in that project's
+scope, and the resolver reads them at the library tier, with the type libraries' names, by the reference's precedence.
 
 `ScopeTreeSymbolResolver.GetValue` throws, and `ScopeTreeSymbolResolver.TryRead` returns `false`: a
 `ScopeTreeSymbolResolver` holds no run-time bindings.

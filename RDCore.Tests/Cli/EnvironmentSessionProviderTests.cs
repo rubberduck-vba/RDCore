@@ -1,10 +1,15 @@
+using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using RDCore.External;
+using RDCore.External.Automation;
 using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Workspace;
@@ -216,5 +221,28 @@ public sealed class EnvironmentSessionProviderTests
 
         Assert.IsTrue(token.IsCancellationRequested, "the code of the session that was replaced is not there any more");
         release.Set();
+    }
+
+    [TestMethod]
+    [DataRow(ProjectOutputType.Application, 1, DisplayName = "an RDForms application")]
+    [DataRow(ProjectOutputType.ConsoleApplication, 0, DisplayName = "a console application")]
+    public void WhatHostsTheObjectsOfALibraryAndTheForms_IsStartedWithTheSession_UnlessTheProgramIsAConsoleApplication(ProjectOutputType output, int prepared)
+    {
+        var automation = Substitute.For<IAutomationServer>();
+        using var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new MockFileSystem(), NullLogger<EnvironmentSessionProvider>.Instance,
+            new DirectoryLibrarySource(new FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols),
+            ExternalWorld.None with { Automation = automation });
+
+        provider.Compose(
+            new RDCoreProject
+            {
+                Name = "NavalConsole",
+                References = [new RDCoreReference { Name = "Scripting" }],
+                Build = new ProjectBuild { OutputType = output },
+            },
+            WorkspaceRoot);
+
+        automation.Received(prepared).Prepare();
     }
 }

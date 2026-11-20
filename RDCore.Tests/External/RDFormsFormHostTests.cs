@@ -315,6 +315,57 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    // two programs in one process, whose forms share its one UI thread: as in VB6, each program has its own active form, and the second program's form taking
+    // the activation and the focus raises nothing on the first's (no Deactivate, no LostFocus). It runs alone: another test's window shown meanwhile is of no
+    // program of this test, and would take the activation from both.
+    [TestMethod]
+    [DoNotParallelize]
+    public void AnotherProgramsFormTakingTheActivation_RaisesNothingOnThisProgramsForm()
+    {
+        var first = Host();
+        var second = Host();
+        var mine = first.Create(VisualBasicForm());
+        var theirs = second.Create(VisualBasicForm());
+        try
+        {
+            using var myFocus = new ManualResetEventSlim();
+            using var theirFocus = new ManualResetEventSlim();
+            var myText = Get(first, mine, "Text1")!;
+            var theirText = Get(second, theirs, "Text1")!;
+            var myForm = new Recorder();
+            var myTextEvents = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { myFocus.Set(); } } };
+            var theirTextEvents = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { theirFocus.Set(); } } };
+            first.Server.Advise(mine, myForm);
+            first.Server.Advise(myText, myTextEvents);
+            second.Server.Advise(theirText, theirTextEvents);
+            first.Show(mine, modal: false);
+            Assert.IsTrue(myFocus.Wait(TimeSpan.FromMinutes(1)), $"my Text1 did not take the focus; heard: {myTextEvents}");
+            first.DoEvents();
+            lock (myForm.Raised)
+            {
+                myForm.Raised.Clear();
+            }
+
+            lock (myTextEvents.Raised)
+            {
+                myTextEvents.Raised.Clear();
+            }
+
+            second.Show(theirs, modal: false);
+            Assert.IsTrue(theirFocus.Wait(TimeSpan.FromMinutes(1)), $"their Text1 did not take the focus; heard: {theirTextEvents}");
+            first.DoEvents();
+            second.DoEvents();
+
+            Assert.IsEmpty(myForm.Raised, $"my form heard: {myForm}");
+            Assert.IsEmpty(myTextEvents.Raised, $"my Text1 heard: {myTextEvents}");
+        }
+        finally
+        {
+            first.Destroy(mine);
+            second.Destroy(theirs);
+        }
+    }
+
     [TestMethod]
     public void AValueAPropertyCannotTake_IsError380_AndOneOfTheWrongType_Error13()
     {

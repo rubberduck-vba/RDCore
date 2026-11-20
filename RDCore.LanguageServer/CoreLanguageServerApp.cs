@@ -62,7 +62,8 @@ internal sealed class CoreLanguageServerApp(
     ISessionStopRelay stops,
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
-    ILogger<CoreLanguageServerApp> logger)
+    ILogger<CoreLanguageServerApp> logger,
+    IProjectFileDiagnostics? projectFiles = null)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
@@ -288,6 +289,17 @@ internal sealed class CoreLanguageServerApp(
 
         // a project that lists a file no workspace folder holds does not have it: the client is told which, and why.
         WorkspaceFolderChanges.TellRefused(server, projects.Refused);
+        TellFormatOf(server, workspace);
+    }
+
+    // a project file in a format that is not this platform's is said to the client as it is to the log: window/logMessage, which LSP allows before initialize
+    // is answered.
+    internal static void TellFormatOf(ILanguageServerFacade server, IWorkspaceService workspace)
+    {
+        if (workspace.FormatNote is { } note)
+        {
+            server.Window.Log(note);
+        }
     }
 
     // the language a client names in its initializationOptions is already the server's, and wins; one that names none leaves it to the project file. The
@@ -413,6 +425,7 @@ internal sealed class CoreLanguageServerApp(
     {
         // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
         await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, _workspaceExpected, token);
+        projectFiles?.Publish();
 
         using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
         await RunDiagnosticsBringUpAsync(token, analyzingWork);

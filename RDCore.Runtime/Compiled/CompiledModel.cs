@@ -232,6 +232,10 @@ internal sealed record class VariantSlotNode(int Slot) : VariantNode;
 // argument is evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
 internal sealed record class VariantValueNode(int Slot) : VariantNode;
 
+// an element of an array of Variants given by value to a Variant parameter of a function of the standard library: what it holds when the argument is
+// evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
+internal sealed record class VariantElementValueNode(VariantElementNode Element) : VariantNode;
+
 // an expression of Strings given by value to a Variant parameter of a function of the standard library: a Variant holding the String, as the interpreter
 // gives it (CompiledActivation.TextArgument). Only a library call's argument is one.
 internal sealed record class VariantTextNode(TextNode Text) : VariantNode;
@@ -305,6 +309,10 @@ internal sealed record class VariantSlotTextNode(int Slot) : TextNode;
 // regional setting changes (StringOperations.OfWhole).
 internal sealed record class WholeTextNode(PayloadNode Value) : TextNode;
 
+// a Single or a Double let-coerced to String (MS-VBAL §5.5.1.2.4): written as the interpreter's let-coercion writes it, with the decimal symbol of the
+// session's regional settings (CompiledActivation.FloatingText).
+internal sealed record class FloatingTextNode(PayloadNode Value) : TextNode;
+
 // Chr$ of a Byte, an Integer, a Long or a LongLong (MS-VBAL §6.1.2.11.1.4): the character the code names, as the library's Chr$ makes it
 // (CompiledActivation.TryChr); a code it names none for is the interpreter's, which raises the error.
 internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
@@ -356,8 +364,9 @@ internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNo
 // Kind is not read.
 internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(default(ScalarKind));
 
-// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11): the variable's address, which
-// the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11), which the parameter is a second
+// name for: the variable's cell, for a call made directly (CompiledActivation.TakeTextReference), or its address, as the interpreter gives it. Only an
+// argument of a call; its Kind is not read.
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
@@ -371,6 +380,18 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 // the argument of an object parameter passed by reference that is an object variable of the activation of the parameter's very type (MS-VBAL §5.3.1.11):
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+
+// the argument of a Variant parameter passed by reference that is a Variant variable or parameter of the activation, or a String variable or parameter of
+// it (MS-VBAL §5.3.1.11): the variable's address, which the parameter is a second name for, as the interpreter gives it
+// (CompiledActivation.SetVariantReference). A String's appender is written into its cell first (OfText), so the callee reads the String as compiled code
+// left it, and compiled code reads what the callee assigned from the cell. Only an argument of a call; its Kind is not read.
+internal sealed record class VariantReferenceNode(int Slot) : PayloadNode(default(ScalarKind))
+{
+    /// <summary>
+    /// Whether the variable is a <c>String</c> of the activation, whose appender is written into its cell before the call.
+    /// </summary>
+    public bool OfText { get; init; }
+}
 
 // the argument of an optional Variant parameter the call leaves out (CompiledCallee.Parameters, null): what the interpreter gives it
 // (RuntimeExpressionEvaluator.OmittedArgument), the default the parameter declares or Missing, of the parameter of the procedure the call invokes, given as
@@ -409,7 +430,7 @@ internal sealed record class VariantForNextStep(int Offset, int Opener, int Body
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
 
 // a Mid statement of a String variable of the activation, in characters (MS-VBAL §5.4.3.5): its start and its length (none when the statement gives none)
-// let-coerced to Long, and the text of the value, given to CompiledActivation.TryMid.
+// let-coerced to Long, and the text of the value, given to CompiledActivation.TryMid (TryMidInCell for a parameter by reference).
 internal sealed record class MidStep(int Offset, int Slot, PayloadNode Start, PayloadNode? Length, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a String variable of the activation that appends to it (S = S & ...): the texts appended, evaluated before anything is appended, then appended
@@ -555,6 +576,26 @@ internal sealed record class LibraryMemberNode(int Library, int? Receiver, IRead
     public FieldPath? ReceiverField { get; init; }
 }
 
+// a call of a function of the workspace that returns a String or a Variant (CompiledCallee.ReturnsValue), inside an expression: the argument of a Variant
+// parameter of a function or a member of the standard library, which takes it by value, or a Variant read as a payload. Made as a CallNode is, what it
+// returns held by the statement's temporaries and given to the parameter as the interpreter gives it what an argument evaluated to
+// (CompiledActivation.TakeReturnedValue), or read as the payload of its own subtype (CompiledActivation.TakeReturnedPayload), and known by where it is in
+// its statement (Syntax) once it is made, as a call that returns an object is.
+internal sealed record class CallValueNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, int Syntax) : VariantNode
+{
+    public int? WithAt { get; init; }
+
+    public FieldPath? ReceiverField { get; init; }
+
+    public ObjectCallNode? ReceiverCall { get; init; }
+}
+
+// a Let of a Variant variable of the activation (Slot), or of the function result variable of a function of the Variant type (Slot is null), whose whole
+// value is a call of a member of a class of the standard library (LibraryMemberNode): what the member returns written as a VariantLetStep or a
+// VariantResultLetStep writes a payload, when it is a value of a scalar type; an array, a String, Empty or Null assigned as the interpreter assigns the value
+// of the statement's expression (CompiledActivation.CallLibraryMemberForLet); an object is the interpreter's.
+internal sealed record class LibraryMemberLetStep(int Offset, int? Slot, LibraryMemberNode Call) : CompiledStep(Offset);
+
 /// <summary>
 /// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>, <see cref="LibraryVariantNode"/>,
 /// <see cref="LibraryMemberNode"/>, <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>, <see cref="LibraryVariantTextNode"/>).
@@ -582,8 +623,9 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
 /// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
-/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), and for an optional <c>Variant</c> the call leaves out
-/// (<see cref="OmittedArgumentNode"/>).
+/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), for an optional <c>Variant</c> the call leaves out
+/// (<see cref="OmittedArgumentNode"/>), and for a <c>Variant</c> given the address of a variable (<see cref="VariantReferenceNode"/>) or the cell of a
+/// variable of a scalar type (<see cref="ReferenceNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -625,10 +667,57 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public bool ReturnsText { get; init; }
 
     /// <summary>
+    /// Whether the call is of a function or a <c>Property Get</c> that returns a <c>String</c> or a <c>Variant</c>, given to a function or a member of the
+    /// standard library (<see cref="CallValueNode"/>): the call is made through the invoker, and what it returns held as a temporary of the statement, as
+    /// <see cref="ReturnsObject"/> holds an object. <see cref="Result"/> is then <see langword="null"/>.
+    /// </summary>
+    public bool ReturnsValue { get; init; }
+
+    /// <summary>
+    /// For each parameter, whether it is a <c>Variant</c> passed by reference, given a variable of the activation: the address of a <c>Variant</c> or a
+    /// <c>String</c> (<see cref="VariantReferenceNode"/>), or the cell of a variable of a scalar type (<see cref="ReferenceNode"/>), whose
+    /// <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
+    /// </summary>
+    public IReadOnlyList<bool> VariantReferences { get; init; } = [];
+
+    /// <summary>
+    /// For each parameter, the slot of the callee's layout a <c>String</c> parameter of variable length is held in, whose <see cref="Parameters"/> kind is
+    /// <see langword="null"/> (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>); -1 for any other. Empty when the call has no
+    /// <c>String</c> parameter. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeText"/>,
+    /// <see cref="CompiledActivation.TakeTextReference"/>).
+    /// </summary>
+    public IReadOnlyList<int> TextSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether every parameter is a scalar or a <c>String</c> of variable length: what a call made through the callee's typed entry gives.
+    /// </summary>
+    public bool GivesScalarsAndTexts
+    {
+        get
+        {
+            for (var i = 0; i < Parameters.Count; i++)
+            {
+                if (Parameters[i] is null && (i >= TextSlots.Count || TextSlots[i] < 0))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
     /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.
     /// Empty when the call has no object parameter.
     /// </summary>
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
+
+    /// <summary>
+    /// The order the arguments are evaluated in, as the interpreter evaluates them (<see cref="LanguageCore.Binding.ArgumentOrder"/>): the calls first, left
+    /// to right, then the others, right to left. An argument that is no call is evaluated whole with the calls when no call is made after it.
+    /// </summary>
+    public LanguageCore.Binding.ArgumentOrder Order { get; init; }
 
     /// <summary>
     /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default
@@ -642,6 +731,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
     /// </summary>
     public LanguageCore.Binding.BoundMember? Site { get; init; }
+
+    /// <summary>
+    /// The class an object is declared as, of a call of its default member that an index expression makes (MS-VBAL §5.6.13): <see cref="Procedure"/> is
+    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class only; an object of another class is the interpreter's.
+    /// <see cref="Site"/> is then <see langword="null"/>.
+    /// </summary>
+    public SDK.Model.Symbols.VBClassModuleSymbol? DefaultOf { get; init; }
 
     /// <summary>
     /// Whether the call is of a member of the class whose code runs, named bare (MS-VBAL §5.6.10). The call is of <see cref="Procedure"/> itself, made on

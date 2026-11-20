@@ -30,11 +30,12 @@ internal sealed class RDFormsForm : IComponentEventSink
     private readonly Dictionary<object, IAutomationEventSink> _arraySinks = new(ReferenceEqualityComparer.Instance);
     private DispatcherFrame? _modal;
 
-    public RDFormsForm(Model.FormDefinition model, CodeUnit unit)
+    // `program` is the RDForms program of the form's own program: another program's window taking the activation raises nothing on this one.
+    public RDFormsForm(Model.FormDefinition model, CodeUnit unit, RDFormsProgram program)
     {
         Model = model;
         Unit = unit;
-        Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload };
+        Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload, Program = program };
         RDFormsControl.SetEventSink(Window, this);
         Handle = HandleOf(model.Root);
         Controls = new RDFormsControls(this);

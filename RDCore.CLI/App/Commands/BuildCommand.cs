@@ -60,7 +60,8 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         BenchWorkspace workspace;
         try
         {
-            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token);
+            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
+                ansiCodePage: runner.Environment.AnsiCodePage);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
@@ -104,7 +105,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         builder.DefineEntryPoint(typeof(BuiltProgram).GetMethod(nameof(BuiltProgram.Run))!);
         var image = new BuiltProgramImage(workspace.Project, workspace.RootUri, BuiltEnvironment.Of(built.Environment), entryPoint.Module,
             entryPoint.Procedure.Name, built.Definitions, [.. workspace.Modules.Select(module => new BuiltModule(module.RelativePath, module.Name, module.Type))],
-            NativeDialogs: settings?.Value.NativeDialogs ?? false);
+            NativeDialogs: ProgramDialogs.WantsNative(workspace.Project.Build, settings?.Value.NativeDialogs ?? false));
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));
 
         using var assembly = new MemoryStream();

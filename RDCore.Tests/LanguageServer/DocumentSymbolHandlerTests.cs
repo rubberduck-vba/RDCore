@@ -89,6 +89,34 @@ public sealed class DocumentSymbolHandlerTests
     }
 
     [TestMethod]
+    public async Task TheAccessorsOfAProperty_ShareItsName_AndTheirDetailIsTheirKeywords()
+    {
+        var classDocument = Document.WithText("VERSION 1.0 CLASS\r\nAttribute VB_Name = \"Mod1\"\r\n");
+        WorkspaceContains(classDocument);
+        _parsing.ParseDocumentAsync(DocUri, Arg.Any<CancellationToken>())
+            .Returns(Parse(
+                "Attribute VB_Name = \"Mod1\"",
+                "Private mValue As Variant",
+                "Public Property Get Value() As Variant",
+                "End Property",
+                "Public Property Let Value(ByVal RHS As Variant)",
+                "End Property",
+                "Public Property Set Value(ByVal RHS As Object)",
+                "End Property",
+                "Public Function Compute() As Long",
+                "End Function"));
+
+        var result = await Sut().Handle(Request(), CancellationToken.None);
+
+        var members = AsDocumentSymbol(result!.Single()).Children!.ToArray();
+        var accessors = members.Where(member => member.Kind == SymbolKind.Property).ToArray();
+        CollectionAssert.AreEqual(new[] { "Value", "Value", "Value" }, accessors.Select(accessor => accessor.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Property Get", "Property Let", "Property Set" }, accessors.Select(accessor => accessor.Detail).ToArray());
+        // the kind of any other member tells it apart: it has no detail.
+        Assert.IsTrue(members.Where(member => member.Kind != SymbolKind.Property).All(member => member.Detail is null), "a field or a function has no detail");
+    }
+
+    [TestMethod]
     public async Task ADocumentOutsideTheWorkspace_AnswersEmptyWithoutParsing()
     {
         // Parsing an unknown document would put its result into the shared cache under a uri the

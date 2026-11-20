@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using System.Text.Json;
 
@@ -40,7 +42,8 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
     System.IO.Abstractions.IPath ioPath,
     System.IO.Abstractions.IFile ioFile,
     IProjectFileLoader projectFileLoader,
-    Func<SupportedLanguage> language) : IProjectFileService
+    Func<SupportedLanguage> language,
+    IOptions<SdkAppOptions>? options = null) : IProjectFileService
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
@@ -141,7 +144,8 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
         {
             if (ioFile.Exists(path))
             {
-                source = ioFile.ReadAllText(path);
+                // in its own encoding (ModuleFileText): an accented name is read as it is written.
+                source = ModuleFileText.Decode(ioFile.ReadAllBytes(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage).Text;
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

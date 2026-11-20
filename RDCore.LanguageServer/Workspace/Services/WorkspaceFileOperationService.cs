@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Services.Workspace;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Workspace.Services;
@@ -69,7 +71,8 @@ internal sealed class WorkspaceFileOperationService(
     IProjectFileWriter projectFileWriter,
     IWorkspaceDocumentService documents,
     States.IDocumentStateProvider documentStates,
-    ILogger<WorkspaceFileOperationService> logger) : IWorkspaceFileOperationService
+    ILogger<WorkspaceFileOperationService> logger,
+    IOptions<SdkAppOptions>? options = null) : IWorkspaceFileOperationService
 {
     private static StringComparison PathComparison => WorkspacePaths.Comparison;
 
@@ -195,7 +198,7 @@ internal sealed class WorkspaceFileOperationService(
             {
                 modules.Add(module);
             }
-            else if (IsSourceFile(target.Relative))
+            else if (IsModuleFile(target.Relative))
             {
                 modules.Add(module with { RelativeUri = target.Relative });
                 moved.Add((target.Old, target.Now));
@@ -297,7 +300,7 @@ internal sealed class WorkspaceFileOperationService(
 
     private ProjectFile AddModule(ProjectFile project, string path, List<(string, string)> notAdded)
     {
-        if (!IsSourceFile(path) || project.ProjectInfo.Modules.Any(module => IsPath(module.RelativeUri, path)))
+        if (!IsModuleFile(path) || project.ProjectInfo.Modules.Any(module => IsPath(module.RelativeUri, path)))
         {
             return project;
         }
@@ -339,7 +342,7 @@ internal sealed class WorkspaceFileOperationService(
             {
                 Modules = [.. info.Modules
                     .Select(module => IsUnder(module.RelativeUri, oldPath) ? module with { RelativeUri = Moved(module.RelativeUri, oldPath, newPath) } : module)
-                    .Where(module => IsSourceFile(module.RelativeUri))],
+                    .Where(module => IsModuleFile(module.RelativeUri))],
                 OtherFiles = [.. info.OtherFiles
                     .Select(file => IsUnder(file.RelativeUri, oldPath) ? file with { RelativeUri = Moved(file.RelativeUri, oldPath, newPath) } : file)],
                 Folders = [.. info.Folders.Select(folder => IsUnder(folder, oldPath) ? Moved(folder, oldPath, newPath) : folder)],
@@ -407,10 +410,11 @@ internal sealed class WorkspaceFileOperationService(
 
     private static bool IsUnderADotFolder(string relativePath) => relativePath.Split('/').Any(segment => segment.StartsWith('.'));
 
-    private bool IsSourceFile(string path)
+    // a module of the workspace is a file of one of its language's module types: a BASIC workspace's are .bas, .cls, .frm and .doccls files, not the
+    // shell's programs.
+    private bool IsModuleFile(string path)
     {
-        var extension = ioPath.GetExtension(path);
-        return language().FileTypes.Any(fileType => string.Equals(fileType.TrimStart('*'), extension, StringComparison.OrdinalIgnoreCase));
+        return language().IsModuleFile(path);
     }
 
     private string NameOf(ProjectFile project, RDCoreModule module)
@@ -420,7 +424,9 @@ internal sealed class WorkspaceFileOperationService(
     {
         try
         {
-            return ioFile.Exists(path) ? ioFile.ReadAllText(path) : null;
+            return ioFile.Exists(path)
+                ? ModuleFileText.Decode(ioFile.ReadAllBytes(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage).Text
+                : null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

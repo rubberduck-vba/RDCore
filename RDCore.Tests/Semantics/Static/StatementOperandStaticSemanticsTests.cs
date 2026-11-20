@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -91,7 +92,7 @@ public sealed class StatementOperandStaticSemanticsTests
 
         var constant = new VBConstantMemberSymbol(Root, module.Uri, "Limit", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
 
-        var tree = ScopeTreeBuilder.Build([module with { Members = [.. fields, constant] }, .. fields, constant]);
+        var tree = ProjectVisibility.ScopeTreeOf([module with { Members = [.. fields, constant] }, .. fields, constant]);
         return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
     }
 

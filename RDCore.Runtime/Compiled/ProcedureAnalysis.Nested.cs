@@ -78,7 +78,9 @@ internal sealed partial class ProcedureAnalysis
                 when IsTextTarget(Bind(assignment.Target))
                 => CallsInsideText(Bind(assignment.Value)),
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment }
-                => IsNestedTarget(assignment.Target) && (CallsInside(Bind(assignment.Value)) || SubscriptsCall(assignment.Target)),
+                => IsNestedTarget(assignment.Target)
+                && (CallsInside(Bind(assignment.Value)) || SubscriptsCall(assignment.Target)
+                    || CallsForAnotherKind(Bind(assignment.Target), Bind(assignment.Value))),
             // a Debug.Print of an item that calls a function of the workspace.
             { Kind: InstructionKind.Simple, Node: DebugPrintStatementNode print }
                 => print.Items.Any(item => item.Value is { } value and not (PrintSpcClauseNode or PrintTabClauseNode) && CallsWorkspace(Bind(value))),
@@ -138,14 +140,43 @@ internal sealed partial class ProcedureAnalysis
     private bool SubscriptsCall(ExpressionNode target)
         => target is IndexExpressionNode && (FieldElementOf(Bind(target)) ?? Bind(target)) is BoundIndex index && index.Arguments.Any(Calls);
 
-    // a scalar variable of the activation or the scalar result variable, and a Variant variable of the activation, assigned what was evaluated of it once:
-    // its Let made of the payload the evaluation gives (VariantLetStep), never speculated, which would evaluate the value again where the speculation fails.
+    // a scalar variable of the activation or the scalar result variable, and a Variant variable of the activation or the Variant result variable, assigned
+    // what was evaluated of it once: its Let made of the payload the evaluation gives (VariantLetStep, VariantResultLetStep), or of what a member of a class
+    // of the standard library returns (LibraryMemberLetStep), never speculated, which would evaluate the value again where the speculation fails.
     private bool IsScalarTarget(BoundNode target) => target switch
     {
-        BoundName { Symbol: var function } => ResultKind is not null && IsOwnFunction(function),
+        BoundName { Symbol: var function } => (ResultKind is not null || ResultIsVariant) && IsOwnFunction(function),
         BoundVariable variable => SlotOf(variable) is not null || VariantSlotOf(variable) is not null,
         _ => false,
     };
+
+    // the function of the workspace a Let calls for the whole value it assigns: a function of a standard module, or a function or Property Get member of an
+    // object. None of the standard library, which compiled code calls otherwise.
+    private VBTypeMemberSymbol? WholeCallOf(BoundNode value) => value switch
+    {
+        BoundCall { Procedure: VBTypeMemberSymbol called } when !IsCompiledLibrary(called) && !IsVariantLibrary(called) => called,
+        BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol called } member
+            when ErrNumberOf(member) is null && LibraryMemberCallOf(member) is null => called,
+        _ => null,
+    };
+
+    // whether a function returns kind, or what is not a scalar: one that returns another scalar kind is called inside the value, as NestedCall calls one,
+    // and what it returns is let-coerced to kind (MS-VBAL §5.4.3.8).
+    private static bool ReturnsKind(VBTypeMemberSymbol function, ScalarKind kind)
+        => ScalarKinds.Of(ReturnedType(function)) is not { } returned || returned == kind;
+
+    // a Let of a scalar variable of the activation, or of the scalar result variable, of what a function returns of another scalar kind.
+    private bool CallsForAnotherKind(BoundNode target, BoundNode value)
+    {
+        var kind = target switch
+        {
+            BoundName { Symbol: var function } when IsOwnFunction(function) => ResultKind,
+            BoundVariable variable when SlotOf(variable) is { } slot => _slots[slot],
+            _ => null,
+        };
+
+        return kind is { } assigned && WholeCallOf(value) is { } called && !ReturnsKind(called, assigned);
+    }
 
     private bool IsTextTarget(BoundNode target) => target switch
     {
@@ -203,6 +234,8 @@ internal sealed partial class ProcedureAnalysis
         // a pure member of a class of the standard library compiled code calls on an object calls nothing of the workspace: only what its arguments call.
         // The interpreter makes it again when the instruction is handed to it (ProcedureAnalysis.LibraryMembers.cs).
         (BoundMember or BoundIndex) and var library when LibraryMemberCallOf(library) is { Arguments: var given } => given.Any(argument => Calls(argument.Value)),
+        // the default member of an object of a class of the workspace is a call (ProcedureAnalysis.DefaultMembers.cs).
+        BoundMember or BoundIndex when DefaultCallOf(node) is not null => true,
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
         // an element of an array field of a record, which calls what its subscripts call.
         BoundMember member when FieldElementOf(member) is { } element => Calls(element),
@@ -227,6 +260,7 @@ internal sealed partial class ProcedureAnalysis
 
         var made = node switch
         {
+            BoundIndex or BoundMember when DefaultCallOf(node) is not null => DefaultMemberCallOf(node, CallStep.NoResult, -1, kind),
             BoundCall call => CallOf(call, CallStep.NoResult, -1, kind),
             BoundMember member => MemberCallOf(member, CallStep.NoResult, -1, kind),
             _ => BareCallOf(function, -1, kind, node.Expression),
@@ -251,7 +285,7 @@ internal sealed partial class ProcedureAnalysis
             _ => null,
         };
 
-        return function is not null && function.GetProperty(SymbolProperties.Library) is null && function.GetProperty(SymbolProperties.ExternalTarget) is null
+        return function is not null && !SymbolProperties.IsOfALibraryProject(function) && function.GetProperty(SymbolProperties.ExternalTarget) is null
             && IsText(ReturnedType(function))
                 ? function
                 : null;
@@ -281,15 +315,55 @@ internal sealed partial class ProcedureAnalysis
         };
     }
 
+    // a function of the workspace that returns a String or a Variant, called inside an expression for the argument of a Variant parameter of the standard
+    // library, which takes it by value, or, of a Variant, for what it holds read as a payload (Dynamic): called as NestedCall calls one, by where it is in its
+    // statement, what it returns given to the parameter as the interpreter gives it (CallValueNode). Only in an instruction that calls inside an
+    // expression, and not when the instruction is translated with the interpreter making its calls for objects (AnalyzeInstruction), whose temporaries
+    // these are held by too.
+    private CallValueNode? ValueCallOf(BoundNode node)
+    {
+        if (_nesting is null || _withoutObjectCalls
+            || node is not (BoundCall or BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } or BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol })
+                && DefaultCallOf(node) is null
+            || KnownOperands.IndexOf(_nesting, node.Expression) is not (>= 0 and var syntax))
+        {
+            return null;
+        }
+
+        // a call compiled code cannot make is the interpreter's: the reasons found making it are not the statement's.
+        var before = _reasons.Count;
+        var made = node switch
+        {
+            BoundIndex or BoundMember when DefaultCallOf(node) is not null
+                => DefaultMemberCallOf(node, CallStep.NoResult, -1, resultKind: null, returnsValue: true),
+            BoundCall call => CallOf(call, CallStep.NoResult, -1, resultKind: null, returnsValue: true),
+            BoundMember member when LibraryMemberCallOf(member) is null => MemberCallOf(member, CallStep.NoResult, -1, resultKind: null, returnsValue: true),
+            // a function, or a member of the class whose code runs, named by itself (BareCallOf); not the function's own result variable.
+            BoundName { Symbol: VBTypeMemberSymbol named } when !IsOwnFunction(named) => BareCallOf(named, -1, kind: null, node.Expression, returnsValue: true),
+            _ => null,
+        };
+
+        if (made is null)
+        {
+            _reasons.RemoveRange(before, _reasons.Count - before);
+            return null;
+        }
+
+        return new CallValueNode(made.Callee, made.Arguments, made.Receiver, syntax)
+        {
+            WithAt = made.WithAt, ReceiverField = made.ReceiverField, ReceiverCall = made.ReceiverCall,
+        };
+    }
+
     // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10); and a member of the class whose code runs
     // named so, called on Me (OwnMemberReceiver): a Function or a Property Get for what it returns, whose result the statement assigns (AssignedCallOf), for
-    // the object it returns (ObjectCallOf), or for the String it returns inside a text (TextCallOf), and a Sub or a Function as a statement, whose kind is
-    // null.
+    // the object it returns (ObjectCallOf), for the String it returns inside a text (TextCallOf), or for what it returns to the standard library
+    // (ValueCallOf), and a Sub or a Function as a statement, whose kind is null.
     private CallStep? BareCallOf(VBTypeMemberSymbol function, int offset, ScalarKind? kind, ExpressionNode named, bool assigns = false, bool returnsObject = false,
-        bool returnsText = false)
+        bool returnsText = false, bool returnsValue = false)
     {
-        var read = kind is not null || assigns || returnsObject || returnsText;
-        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null || IsDeclared(function))
+        var read = kind is not null || assigns || returnsObject || returnsText || returnsValue;
+        if (SymbolProperties.IsOfALibraryProject(function) || function.GetProperty(SymbolProperties.ExternalTarget) is not null || IsDeclared(function))
         {
             return null;
         }
@@ -316,7 +390,7 @@ internal sealed partial class ProcedureAnalysis
             = parameters.IsEmpty ? [] : ArgumentMapping.Bind([.. parameters], [], static _ => null, static _ => null) ?? default;
         return !arguments.IsDefault && arguments.Length == parameters.Length
             ? CallWith(function, parameters, arguments, CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation, returnsObject,
-                returnsText)
+                returnsText, returnsValue)
             : null;
     }
 
@@ -342,6 +416,8 @@ internal sealed partial class ProcedureAnalysis
         VariantLetStep let => Admits(let.Value),
         FieldLetStep let => Admits(let.Value),
         VariantFieldLetStep let => Admits(let.Value),
+        VariantResultLetStep let => Admits(let.Value),
+        LibraryMemberLetStep let => Admits(let.Call),
         MemberFieldLetStep let => Admits(let.Value),
         MemberLetStep let => Admits(let.Value),
         ElementLetStep let => Admits(let.Value) && let.Element.Subscripts.All(Admits),
@@ -400,6 +476,9 @@ internal sealed partial class ProcedureAnalysis
             case WholeTextNode { Value: var whole }:
                 return Admits(whole, ref calledAfter);
 
+            case FloatingTextNode { Value: var floating }:
+                return Admits(floating, ref calledAfter);
+
             case ChrTextNode { Code: var code }:
                 return Admits(code, ref calledAfter);
 
@@ -431,7 +510,7 @@ internal sealed partial class ProcedureAnalysis
 
     private static bool Admits(PayloadNode payload, ref bool calledAfter)
     {
-        calledAfter |= Within(payload).Any(each => each is CallNode || ReceiverCallsOf(each).Any());
+        calledAfter |= Within(payload).Any(each => each is CallNode || ReceiverCallsOf(each).Any() || ValueCallsOf(each).Any());
         return Admits(payload);
     }
 
@@ -443,9 +522,9 @@ internal sealed partial class ProcedureAnalysis
         KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
         // the selector of a Select Case is what its Select evaluated, which no call changes.
-        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode or SelectorNode or OmittedArgumentNode => true,
+        KnownNode or ConstantNode or ReferenceNode or VariantReferenceNode or ObjectArgumentNode or ObjectReferenceNode or SelectorNode or OmittedArgumentNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
-        LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
+        LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value) || argument is CallValueNode && Admits(argument)),
         ConvertNode convert => Admits(convert.Operand),
         IntegralNode integral => Admits(integral.Left) && Admits(integral.Right),
         LogicalNode logical => Admits(logical.Left) && Admits(logical.Right),
@@ -469,14 +548,16 @@ internal sealed partial class ProcedureAnalysis
         _ => false,
     };
 
-    // a Variant computed of what is admitted, and what a function of the standard library returns of it; a Variant read (of a variable, a field, an
-    // element) is not known, and would be read again.
+    // a Variant computed of what is admitted, what a function or a member of a class of the standard library returns of it, and what a function of the
+    // workspace returns, which is known once it is made; a Variant read (of a variable, a field, an element) is not known, and would be read again.
     private static bool Admits(VariantNode node) => node switch
     {
         VariantOfNode of => Admits(of.Value),
         VariantBinaryNode binary => Admits(binary.Left) && Admits(binary.Right),
         VariantUnaryNode unary => Admits(unary.Operand),
         LibraryVariantNode library => library.Arguments.All(Admits),
+        LibraryMemberNode member => member.Arguments.All(Admits),
+        CallValueNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         _ => false,
     };
 
@@ -511,6 +592,8 @@ internal sealed partial class ProcedureAnalysis
             given.AddRange(ObjectCallsOf(call.ReceiverCall).Select(made => made.Arguments));
         }
 
+        given.AddRange(ValueCallsOf(step).Select(call => call.Arguments));
+        given.AddRange(ValueCallsOf(step).SelectMany(call => ObjectCallsOf(call.ReceiverCall)).Select(call => call.Arguments));
         if (step is CallStep statement)
         {
             given.Add(statement.Arguments);
@@ -522,7 +605,8 @@ internal sealed partial class ProcedureAnalysis
             given.AddRange(ObjectCallsOf(source).Select(call => call.Arguments));
         }
 
-        var passed = given.SelectMany(list => list.OfType<ReferenceNode>()).Select(reference => reference.Slot).ToHashSet();
+        var passed = given.SelectMany(list => list.OfType<ReferenceNode>().Select(reference => reference.Slot)
+            .Concat(list.OfType<VariantReferenceNode>().Select(reference => reference.Slot))).ToHashSet();
         var arguments = new HashSet<KnownNode>(given.SelectMany(list => list.SelectMany(Within)).OfType<KnownNode>(), ReferenceEqualityComparer.Instance);
         // a whole number joined to a String is an operand of an operation of the String type, which is read when it is computed.
         var early = step is not (TextLetStep or TextResultLetStep or PrintStep) && nodes.All(node => IsReadWhereWritten(node.Kind));
@@ -573,6 +657,9 @@ internal sealed partial class ProcedureAnalysis
                 case WholeTextNode { Value: var whole }:
                     CollectPayload(whole);
                     return;
+                case FloatingTextNode { Value: var floating }:
+                    CollectPayload(floating);
+                    return;
                 case ChrTextNode { Code: var code }:
                     CollectPayload(code);
                     return;
@@ -618,6 +705,8 @@ internal sealed partial class ProcedureAnalysis
         VariantLetStep let => OperandsOf(let.Value),
         FieldLetStep let => [let.Value],
         VariantFieldLetStep let => OperandsOf(let.Value),
+        VariantResultLetStep let => OperandsOf(let.Value),
+        LibraryMemberLetStep let => OperandsOf(let.Call),
         MemberFieldLetStep let => [let.Value],
         MemberLetStep let => OperandsOf(let.Value),
         // the subscripts of the element assigned too, read after the value's calls, and before their own.
@@ -637,12 +726,13 @@ internal sealed partial class ProcedureAnalysis
         _ => [],
     };
 
-    // the payloads a text is made of: the whole numbers joined to it, the codes of Chr$, the arguments of TypeName of a value, and what the calls that
+    // the payloads a text is made of: the numbers joined to it, the codes of Chr$, the arguments of TypeName of a value, and what the calls that
     // return a String are given.
     private static IEnumerable<PayloadNode> PayloadsOf(TextNode node) => node switch
     {
         ConcatNode concat => [.. PayloadsOf(concat.Left), .. PayloadsOf(concat.Right)],
         WholeTextNode whole => [whole.Value],
+        FloatingTextNode floating => [floating.Value],
         ChrTextNode chr => [chr.Code],
         LibraryVariantTextNode library => library.Arguments.SelectMany(OperandsOf),
         TextCallNode call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
@@ -673,7 +763,7 @@ internal sealed partial class ProcedureAnalysis
         {
             CallNode call => [.. call.Arguments, .. ReceiverCallsOf(call).SelectMany(made => made.Arguments)],
             MemberFieldNode or ObjectArgumentNode or ElementIsNode => ReceiverCallsOf(node).SelectMany(made => made.Arguments),
-            LibraryCallNode library => library.Arguments.OfType<VariantOfNode>().Select(argument => argument.Value),
+            LibraryCallNode library => library.Arguments.Where(argument => argument is VariantOfNode or CallValueNode).SelectMany(OperandsOf),
             KnownNode known => [known.Value],
             ElementNode element => element.Subscripts,
             ConvertNode convert => [convert.Operand],
@@ -704,6 +794,56 @@ internal sealed partial class ProcedureAnalysis
         VariantUnaryNode unary => OperandsOf(unary.Operand),
         LibraryVariantNode library => library.Arguments.SelectMany(OperandsOf),
         LibraryMemberNode member => member.Arguments.SelectMany(OperandsOf),
+        CallValueNode call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
+        _ => [],
+    };
+
+    // the calls of the workspace that return a String or a Variant (CallValueNode) a step makes, each once.
+    private static IEnumerable<CallValueNode> ValueCallsOf(CompiledStep step)
+    {
+        var variants = step switch
+        {
+            VariantLetStep let => [let.Value],
+            VariantFieldLetStep let => [let.Value],
+            VariantResultLetStep let => [let.Value],
+            LibraryMemberLetStep let => [let.Call],
+            MemberLetStep let => [let.Value],
+            VariantElementLetStep let => [let.Value],
+            _ => (IEnumerable<VariantNode>)[],
+        };
+
+        // a text's too, in a String Let or an item of a Debug.Print: the Variant arguments of a function of the standard library that returns a String
+        // (TypeName, CStr), through every part of a concatenation.
+        var texts = step switch
+        {
+            TextLetStep let => [let.Value],
+            TextResultLetStep let => [let.Value],
+            PrintStep print => print.Items,
+            _ => (IEnumerable<TextNode>)[],
+        };
+
+        return variants.SelectMany(ValueCallsOf).Concat(texts.SelectMany(ValueCallsOf)).Concat(PayloadsOf(step).SelectMany(Within).SelectMany(ValueCallsOf))
+            .Distinct<CallValueNode>(ReferenceEqualityComparer.Instance);
+    }
+
+    private static IEnumerable<CallValueNode> ValueCallsOf(TextNode node) => node switch
+    {
+        ConcatNode concat => [.. ValueCallsOf(concat.Left), .. ValueCallsOf(concat.Right)],
+        LibraryVariantTextNode library => library.Arguments.SelectMany(ValueCallsOf),
+        _ => [],
+    };
+
+    // the calls of the workspace that return a String or a Variant given to a function of the standard library a payload is what it returns of.
+    private static IEnumerable<CallValueNode> ValueCallsOf(PayloadNode node)
+        => node is LibraryCallNode library ? library.Arguments.SelectMany(ValueCallsOf) : [];
+
+    private static IEnumerable<CallValueNode> ValueCallsOf(VariantNode node) => node switch
+    {
+        CallValueNode call => [call],
+        VariantBinaryNode binary => [.. ValueCallsOf(binary.Left), .. ValueCallsOf(binary.Right)],
+        VariantUnaryNode unary => ValueCallsOf(unary.Operand),
+        LibraryVariantNode library => library.Arguments.SelectMany(ValueCallsOf),
+        LibraryMemberNode member => member.Arguments.SelectMany(ValueCallsOf),
         _ => [],
     };
 

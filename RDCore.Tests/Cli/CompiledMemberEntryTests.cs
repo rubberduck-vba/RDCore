@@ -199,6 +199,42 @@ public sealed class CompiledMemberEntryTests
         AssertEntered(compiled, "Through", direct: 1, "Drop", framesMade: 1);
     }
 
+    // Through's object is a new Keeper each pass, which Drop lets go of: each activation of Drop runs on its own live object, which terminates as Drop
+    // returns, before the next pass makes another.
+    [TestMethod]
+    public async Task AnObjectWhoseLastReferenceGoesInAMember_EachPass_TerminatesWhenTheMemberReturns()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Program(
+            "Public Keeper As Kept",
+            "Public Sub Main()",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        Set Keeper = New Kept",
+            "        Keeper.Id = I",
+            "        Through Keeper",
+            "    Next",
+            "    Debug.Print \"after\"",
+            "End Sub",
+            "Private Sub Through(ByRef T As Kept)",
+            "    T.Drop 3",
+            "    Debug.Print \"returned\"; T Is Nothing",
+            "End Sub"), [("Kept", ModuleWorkspace.ClassModule("Kept", "Option Explicit",
+                "Public Id As Long",
+                "Public Sub Drop(ByVal N As Long)",
+                "    Id = Id * 10 + N",
+                "    Set Keeper = Nothing",
+                "    Id = Id * 10 + 1",
+                "    Debug.Print \"still here\"; Id",
+                "End Sub",
+                "Private Sub Class_Terminate()",
+                "    Debug.Print \"gone\"; Id",
+                "End Sub"))]);
+
+        AssertInOrder(observed, "still here 131", "gone 131", "returned", "still here 231", "gone 231", "returned", "still here 331", "gone 331", "returned",
+            "after");
+        AssertEntered(compiled, "Through", direct: 3, "Drop", framesMade: 3);
+    }
+
     // each pass makes a new object, and the one before terminates - its fields freed - as it is made: the new one's fields are its own, and start empty.
     [TestMethod]
     public async Task ANewObject_MadeAsTheOneBeforeTerminates_HasFieldsOfItsOwn()
@@ -250,6 +286,53 @@ public sealed class CompiledMemberEntryTests
             "End Function"), Tallies);
 
         AssertEntered(compiled, "InTurn", direct: 16, "Add", framesMade: 0);
+    }
+
+    // Same says whether Me is the module's Other; Inner calls Same on Other, then on Me, while its own activation runs. Each activation of Same, one after
+    // another on the two objects, and one inside a call of Inner on either, compares the object it is on.
+    [TestMethod]
+    public async Task MeIs_TheObjectEachActivationIsOn_OneAfterAnotherAndInsideAnother()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Program(
+            "Public Other As Pair",
+            "Public Sub Main()",
+            "    Debug.Print Compared()",
+            "End Sub",
+            "Private Function Compared() As Long",
+            "    Dim A As Pair",
+            "    Dim B As Pair",
+            "    Dim I As Long",
+            "    Dim V As Long",
+            "    Set A = New Pair",
+            "    A.Id = 1",
+            "    Set B = New Pair",
+            "    B.Id = 2",
+            "    For I = 1 To 4",
+            "        If I Mod 2 = 0 Then Set Other = A Else Set Other = B",
+            "        V = A.Same()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "        V = B.Same()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "        V = A.Inner()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "        V = B.Inner()",
+            "        Compared = (Compared * 7 + V) Mod 1000003",
+            "    Next",
+            "End Function"), [("Pair", ModuleWorkspace.ClassModule("Pair", "Option Explicit",
+                "Public Id As Long",
+                "Public Function Same() As Long",
+                "    Same = Id * 2",
+                "    If Me Is Other Then Same = Same + 1",
+                "End Function",
+                "Public Function Inner() As Long",
+                "    Dim V As Long",
+                "    V = Other.Same()",
+                "    Inner = V * 10 + Same()",
+                "    If Me Is Other Then Inner = Inner + 500",
+                "End Function"))]);
+
+        StringAssert.Contains(observed, "| 220455 |");
+        AssertEntered(compiled, "Compared", direct: 16, "Same", framesMade: 0);
     }
 
     // what the caller called through a binding, the object given as Me (CompiledActivation.CallMember) - each a call of the member named, which is not
@@ -599,6 +682,7 @@ public sealed class CompiledMemberEntryTests
     [DataRow(null, null, 4L, DisplayName = "the program resumed")]
     [DataRow("mTotal = 100", null, 4L, DisplayName = "a field of Me assigned in the member's frame")]
     [DataRow(null, "Private mExtra As Long", 2L, DisplayName = "a field added to the class")]
+    [DataRow("If Me Is Nothing Then mTotal = -1 Else mTotal = Me.Total() + 100", null, 4L, DisplayName = "Me read in the member's frame")]
     public async Task AMemberWaitedInUnderADebugger_IsWhatTheInterpreterHas(string? statement, string? field, long direct)
     {
         CompiledExecutionTests.RequirePayloads();
