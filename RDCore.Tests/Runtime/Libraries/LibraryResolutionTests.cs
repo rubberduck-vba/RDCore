@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.SDK.Model.Symbols;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Libraries;
@@ -30,7 +31,7 @@ public sealed class LibraryResolutionTests
             .. new LibrarySymbolReader(Root).Read(libraries),
         ];
 
-        return new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(symbols));
+        return new ScopeTreeSymbolResolver(ProjectVisibility.ScopeTreeOf(symbols));
     }
 
     [TestMethod]
@@ -93,7 +94,7 @@ public sealed class LibraryResolutionTests
             .. new LibrarySymbolProvider(Root, libraries).ProvideSymbols(),
         ];
 
-        return new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(symbols));
+        return new ScopeTreeSymbolResolver(ProjectVisibility.ScopeTreeOf(symbols));
     }
 
     private static string? LibraryOf(SymbolResolutionResult result) => result.Symbol?.GetProperty(SymbolProperties.Library);

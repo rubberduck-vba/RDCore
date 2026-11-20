@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
@@ -57,10 +58,13 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
 
         // a declaration that only the modules of the project can refer to is counted over all of them, whichever modules are asked for.
         var named = asked.Select(module => module.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
-        var project = session.Symbols.ScopeOf(StaticSymbol.GlobalUri)?.Declarations.OfType<VBModuleSymbol>()
-            .Where(module => module.GetProperty(SymbolProperties.Library) is null) ?? [];
-        var models = store.AcrossProject(project)
+        List<VBModuleSymbol> project = [.. session.Symbols.ScopeOf(StaticSymbol.GlobalUri)?.Declarations.OfType<VBModuleSymbol>()
+            .Where(module => module.GetProperty(SymbolProperties.Library) is null) ?? []];
+        // a program's Public members are counted, and a library's count as used by the projects that reference it.
+        var entryPoint = MemberRoles.EntryPointOf(session, project);
+        var models = store.AcrossProject(project, entryPoint, session.Build?.IsLibrary == true, module => session.Symbols.MembersOf(module.Uri))
             .Where(model => named.Contains(model.Module.AbsoluteUri))
+            .Select(store.WithNativeCalls)
             .Select(ModuleSemanticsDto.From);
 
         return new HostSemanticsResult { Json = PlatformJson.Serialize(new SemanticsPayload([.. models])) };

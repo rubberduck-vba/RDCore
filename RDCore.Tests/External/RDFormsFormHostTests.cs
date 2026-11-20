@@ -50,6 +50,15 @@ public sealed class RDFormsFormHostTests
 
             Handler?.Invoke(raised);
         }
+
+        // the events heard, in order, each synchronous (raised while the UI thread made a call) or posted: what a failed assertion names.
+        public override string ToString()
+        {
+            lock (Raised)
+            {
+                return string.Join(", ", Raised.Select(@event => $"{@event.Name} ({(@event.IsSynchronous ? "synchronous" : "posted")})"));
+            }
+        }
     }
 
     private static RDFormsFormHost Host() => new(new RDFormsAutomationServer(RDFormsPlatform.Headless));
@@ -188,40 +197,39 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    // the program's active form is the UI thread's, which every RDForms window shares: another test's form activated meanwhile would deactivate this one, and
+    // Text1 would raise its LostFocus to the sink. The test runs alone.
     [TestMethod]
+    [DoNotParallelize]
     public void AssigningAControlsProperty_RaisesItsEvent_InsideTheCall()
     {
         var host = Host();
         var form = host.Create(VisualBasicForm());
         try
         {
-            host.Show(form, modal: false);
-
-            // the window system activates a form shown modeless after Show returns, on the UI thread, and Text1 takes the focus there (GotFocus): that is
-            // done before the sink is advised, so that the sink hears only what the program's call raises.
-            host.DoEvents();
+            // the window system activates a form shown modeless after Show returns, on the UI thread, and Text1 takes the focus there: its GotFocus is heard
+            // before the call is made, so that the sink then hears only what the call raises.
+            using var focused = new ManualResetEventSlim();
             var text = Get(host, form, "Text1")!;
-            var sink = new Recorder();
+            var sink = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { focused.Set(); } } };
             host.Server.Advise(text, sink);
+            host.Show(form, modal: false);
+            Assert.IsTrue(focused.Wait(TimeSpan.FromMinutes(1)), $"Text1 did not take the focus; heard: {sink}");
+            lock (sink.Raised)
+            {
+                sink.Raised.Clear();
+            }
 
             Let(host, text, "Text", "typed");
 
             // what the UI thread has left to do is done too, so that an event the call did not raise reaches the sink before it is read.
             host.DoEvents();
             Assert.AreEqual("typed", Get(host, text, "Text"));
-            Assert.AreEqual(("Change", true), Assert.ContainsSingle(sink.Raised), "raised by the program's own call, the event is its answer");
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(sink.Raised, $"heard: {sink}"), "raised by the program's own call, the event is its answer");
         }
         finally
         {
             host.Destroy(form);
-        }
-    }
-
-    private static string Heard(Recorder recorder)
-    {
-        lock (recorder.Raised)
-        {
-            return string.Join(", ", recorder.Raised);
         }
     }
 
@@ -249,7 +257,7 @@ public sealed class RDFormsFormHostTests
             first.Server.Advise(myText, myEvents);
             second.Server.Advise(theirText, theirEvents);
 
-            RDFormsUI.Run(first.Server, () =>
+            RDFormsUI.Run(first.Server.Program, () =>
             {
                 RDFormsAutomationServer.HandleOf(theirText).Component.Set(RDCore.Forms.Model.Properties.Text, "theirs");
                 RDFormsAutomationServer.HandleOf(myText).Component.Set(RDCore.Forms.Model.Properties.Text, "mine");
@@ -257,10 +265,61 @@ public sealed class RDFormsFormHostTests
 
             first.DoEvents();
             second.DoEvents();
-            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised, $"heard: {Heard(myEvents)}"),
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised, $"heard: {myEvents}"),
                 "raised during its own program's call, the event is its answer");
-            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised, $"heard: {Heard(theirEvents)}"),
+            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised, $"heard: {theirEvents}"),
                 "raised during another program's call, the event is no answer");
+        }
+        finally
+        {
+            first.Destroy(mine);
+            second.Destroy(theirs);
+        }
+    }
+
+    // two programs in one process, whose forms share its one UI thread: as in VB6, each program has its own active form, and the second program's form taking
+    // the activation and the focus raises nothing on the first's (no Deactivate, no LostFocus). It runs alone: another test's window shown meanwhile is of no
+    // program of this test, and would take the activation from both.
+    [TestMethod]
+    [DoNotParallelize]
+    public void AnotherProgramsFormTakingTheActivation_RaisesNothingOnThisProgramsForm()
+    {
+        var first = Host();
+        var second = Host();
+        var mine = first.Create(VisualBasicForm());
+        var theirs = second.Create(VisualBasicForm());
+        try
+        {
+            using var myFocus = new ManualResetEventSlim();
+            using var theirFocus = new ManualResetEventSlim();
+            var myText = Get(first, mine, "Text1")!;
+            var theirText = Get(second, theirs, "Text1")!;
+            var myForm = new Recorder();
+            var myTextEvents = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { myFocus.Set(); } } };
+            var theirTextEvents = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { theirFocus.Set(); } } };
+            first.Server.Advise(mine, myForm);
+            first.Server.Advise(myText, myTextEvents);
+            second.Server.Advise(theirText, theirTextEvents);
+            first.Show(mine, modal: false);
+            Assert.IsTrue(myFocus.Wait(TimeSpan.FromMinutes(1)), $"my Text1 did not take the focus; heard: {myTextEvents}");
+            first.DoEvents();
+            lock (myForm.Raised)
+            {
+                myForm.Raised.Clear();
+            }
+
+            lock (myTextEvents.Raised)
+            {
+                myTextEvents.Raised.Clear();
+            }
+
+            second.Show(theirs, modal: false);
+            Assert.IsTrue(theirFocus.Wait(TimeSpan.FromMinutes(1)), $"their Text1 did not take the focus; heard: {theirTextEvents}");
+            first.DoEvents();
+            second.DoEvents();
+
+            Assert.IsEmpty(myForm.Raised, $"my form heard: {myForm}");
+            Assert.IsEmpty(myTextEvents.Raised, $"my Text1 heard: {myTextEvents}");
         }
         finally
         {
@@ -356,7 +415,7 @@ public sealed class RDFormsFormHostTests
             // focus, as the user's click would after it.
             var control = RDFormsAutomationServer.HandleOf(text);
             var window = control.Form.Window;
-            var focused = RDFormsUI.Run(host.Server, () =>
+            var focused = RDFormsUI.Run(host.Server.Program, () =>
             {
                 window.Activate();
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -406,7 +465,7 @@ public sealed class RDFormsFormHostTests
             host.Show(form, modal: false, owner);
 
             var ownerWindow = RDFormsAutomationServer.HandleOf(owner).Form.Window;
-            var actual = RDFormsUI.Run(host.Server, () => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
+            var actual = RDFormsUI.Run(host.Server.Program, () => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
             Assert.AreEqual(owned, ReferenceEquals(ownerWindow, actual));
             Assert.IsTrue(owned || actual is null, "a form not owned has no owner");
         }
@@ -689,6 +748,101 @@ public sealed class RDFormsFormHostTests
         var failure = Assert.ThrowsExactly<AutomationException>(() => forms.Create(VisualBasicForm()));
 
         Assert.AreEqual(unchecked((int)0x80040154), failure.HResult);
+    }
+
+    // whether the window of a form of the host follows the application's theme, as the window says on the UI thread.
+    private static bool KeepsSystemTheme(object form)
+    {
+        var hosted = ((RDFormsObject)form).Form;
+        return RDFormsUI.Run(hosted.Program, () => hosted.Window.KeepSystemTheme);
+    }
+
+    // the value said before the host makes its first form is that form's window's before anything shows it, and one said after is every window's.
+    [TestMethod]
+    public void KeepSystemTheme_SaidBeforeAFormIsMade_IsItsWindows_AndSaidAfter_IsEveryWindows()
+    {
+        var host = Host();
+        host.KeepSystemTheme = true;
+        var first = host.Create(VisualBasicForm());
+        var second = host.Create(VisualBasicForm());
+        try
+        {
+            Assert.IsTrue(KeepsSystemTheme(first));
+            Assert.IsTrue(KeepsSystemTheme(second));
+
+            host.KeepSystemTheme = false;
+
+            Assert.IsFalse(host.KeepSystemTheme);
+            Assert.IsFalse(KeepsSystemTheme(first));
+            Assert.IsFalse(KeepsSystemTheme(second));
+        }
+        finally
+        {
+            host.Destroy(first);
+            host.Destroy(second);
+        }
+    }
+
+    // an external host's forms: RDForms' follow the value, and a UserForm's host, whose forms have no theme, is never told it.
+    [TestMethod]
+    public void AnExternalHost_GivesKeepSystemTheme_ToTheRDFormsWindows_AndNotToTheUserFormsHost()
+    {
+        var userForms = NSubstitute.Substitute.For<IFormHost>();
+        var (_, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, userForms, new FormsOptions { Headless = true });
+
+        forms.KeepSystemTheme = true;
+        var form = forms.Create(VisualBasicForm());
+        try
+        {
+            Assert.IsTrue(forms.KeepSystemTheme);
+            Assert.IsTrue(KeepsSystemTheme(form));
+            Assert.IsFalse(NSubstitute.SubstituteExtensions.ReceivedCalls(userForms)
+                .Any(call => call.GetMethodInfo().Name.EndsWith(nameof(IFormHost.KeepSystemTheme), StringComparison.Ordinal)));
+        }
+        finally
+        {
+            forms.Destroy(form);
+        }
+    }
+
+    // with RDForms turned off, an external host hosts no form that has a theme: the value is not kept, and nothing fails.
+    [TestMethod]
+    public void AnExternalHost_WithRDFormsTurnedOff_KeepsNoTheme()
+    {
+        var (_, forms) = RDFormsHosting.Compose(
+            UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { VB = VisualBasicFormsHost.Off });
+
+        forms.KeepSystemTheme = true;
+
+        Assert.IsFalse(forms.KeepSystemTheme);
+    }
+
+    // what the environment host asks over the wire is what the external host's forms are given.
+    [TestMethod]
+    [DataRow(true, DisplayName = "follow the application's theme")]
+    [DataRow(false, DisplayName = "stay light")]
+    public void AnExternalHost_AskedToKeepTheSystemTheme_GivesItToItsForms(bool keep)
+    {
+        var forms = NSubstitute.Substitute.For<IFormHost>();
+
+        var answered = new ExternalAutomationService(UnavailableAutomationServer.Instance, forms)
+            .KeepSystemTheme(new FormKeepSystemThemeParams { KeepSystemTheme = keep });
+
+        Assert.IsNotNull(answered);
+        Assert.AreEqual(keep, forms.KeepSystemTheme);
+    }
+
+    // the environment host's client of an external host keeps the value, and an external host that is not running is not started to be told it.
+    [TestMethod]
+    public void TheClientOfAnExternalHost_KeepsKeepSystemTheme_WithoutStartingIt()
+    {
+        using var host = ExternalHosts.New(canStart: () => false);
+        IFormHost forms = new RDCore.External.Client.RemoteAutomationServer(host);
+
+        forms.KeepSystemTheme = true;
+
+        Assert.IsTrue(forms.KeepSystemTheme);
+        Assert.IsNull(host.Running);
     }
 
     // what an external host tells its environment host, which raises 429 at the New of a Visual Basic 6.0 form's class where nothing hosts its form.

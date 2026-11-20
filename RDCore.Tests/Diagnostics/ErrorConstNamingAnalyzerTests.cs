@@ -111,6 +111,11 @@ public sealed class ErrorConstNamingAnalyzerTests
         StringAssert.Contains(findings[1].Message, "'local'");
     }
 
+    // Rubberduck's implicitly typed Const inspection reads constants only, and an Enum's members are none.
+    [TestMethod]
+    public void TheMembersOfAnEnum_AreNotReported()
+        => Assert.IsEmpty(Run(new ImplicitConstantTypeAnalyzer(), Module("Public Enum Colour\n    Red\n    Green = 2\nEnd Enum\nPrivate Enum Size\n    Small = 1\nEnd Enum")));
+
     #endregion
 
     #region RDC00408 an underscore in a member of the interface of a class

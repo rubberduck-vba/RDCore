@@ -1127,6 +1127,36 @@ End Sub
         Assert.HasCount(1, ifStmt.ElseBody!.Children);
     }
 
+    // RD-VBAL §5.4.2.9: `If x Then:` with nothing after the colons is a single-line If with no statement, as vb6.exe and MS-VBA read it; the next line
+    // is a statement of the procedure.
+    [TestMethod]
+    [DataRow("If x Then:", DisplayName = "a colon")]
+    [DataRow("If x Then :", DisplayName = "a space and a colon")]
+    [DataRow("If x Then::", DisplayName = "two colons")]
+    public void SingleLineIf_ThenAndAColonAtTheEndOfTheLine_IsAnIfWithNoStatement(string header)
+    {
+        var result = ParseInProcedure($"{header}\r\n    Debug.Print \"A\"");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.IsEmpty(ifStmt.ThenBody.Children);
+        Assert.IsNull(ifStmt.ElseBody);
+        Assert.IsEmpty(member.Children.OfType<IfBlockStatementNode>());
+    }
+
+    [TestMethod]
+    public void SingleLineIf_ThenAndAColon_InABlockIf_IsTheOneTheBlocksEndIfDoesNotClose()
+    {
+        var result = ParseInProcedure("If a Then\r\n    If b Then:\r\n    Debug.Print \"A\"\r\n    End If");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var outer = member.Children.OfType<IfBlockStatementNode>().Single();
+
+        Assert.IsInstanceOfType<InlineIfStatementNode>(outer.Body.Children[0]);
+        Assert.HasCount(2, outer.Body.Children);
+    }
+
     [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {

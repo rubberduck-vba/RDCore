@@ -42,9 +42,40 @@ internal static class NativeRecords
     /// <param name="takeBack">Takes back what the function left in each field, in the order of the copy's fields.</param>
     /// <returns><see langword="false"/> when the type holds a field that cannot be passed yet.</returns>
     public static bool TryDescribe(VBUserDefinedTypeValue value, int pointerWidth, out NativeRecord record, out Action<ExternalValue> takeBack)
+        => TryDescribe(value, pointerWidth, null, out record, out takeBack);
+
+    /// <summary>
+    /// Describes the copy of a record passed for one of its fields given to an <c>As Any</c> parameter. MS-VBA passes the record where it is in memory,
+    /// at the address of the field, so a function that writes past the field (<c>RtlMoveMemory r.A, …, 8</c>) writes the fields after it too. The copy
+    /// is laid out as the record is, the function is given the field's address in it, and <paramref name="takeBack"/> writes what it left to the fields.
+    /// </summary>
+    /// <param name="value">The record whose field is given, whose fields are written to.</param>
+    /// <param name="field">The field's position in declaration order.</param>
+    /// <param name="pointerWidth">The width of a pointer in the environment the function runs in.</param>
+    /// <param name="record">The copy, as it is passed.</param>
+    /// <param name="offset">How many bytes from the start of the copy the field is: the address the function is given.</param>
+    /// <param name="takeBack">Takes back what the function left in each field, in the order of the copy's fields.</param>
+    /// <returns><see langword="false"/> when the type holds a field that cannot be passed, or the field is laid out as nothing.</returns>
+    public static bool TryDescribeField(VBUserDefinedTypeValue value, int field, int pointerWidth, out NativeRecord record, out int offset,
+        out Action<ExternalValue> takeBack)
+    {
+        var firsts = new List<int>();
+        offset = 0;
+        if (!TryDescribe(value, pointerWidth, firsts, out record, out takeBack) || field >= firsts.Count || firsts[field] >= record.Fields.Length)
+        {
+            return false;
+        }
+
+        offset = record.Fields[firsts[field]].Offset;
+        return true;
+    }
+
+    // firsts: the index of the first leaf of each field, in declaration order.
+    private static bool TryDescribe(VBUserDefinedTypeValue value, int pointerWidth, List<int>? firsts, out NativeRecord record,
+        out Action<ExternalValue> takeBack)
     {
         var leaves = new List<Leaf>();
-        if (!TryLay(value, 0, pointerWidth, leaves, out var size, out _))
+        if (!TryLay(value, 0, pointerWidth, leaves, out var size, out _, firsts))
         {
             record = new NativeRecord();
             takeBack = _ => { };
@@ -140,12 +171,14 @@ internal static class NativeRecords
     }
 
     // lays a type out from the offset it starts at: its size, and the boundary it is aligned to, are what a field of it takes.
-    private static bool TryLay(VBUserDefinedTypeValue value, int start, int pointerWidth, List<Leaf> leaves, out int size, out int alignment)
+    private static bool TryLay(VBUserDefinedTypeValue value, int start, int pointerWidth, List<Leaf> leaves, out int size, out int alignment,
+        List<int>? firsts = null)
     {
         var offset = 0;
         alignment = 1;
         for (var index = 0; index < value.Fields.Length; index++)
         {
+            firsts?.Add(leaves.Count);
             var field = index;
             var type = value.Fields[index].ResolvedType;
             if (type is null || !TryLayField(value.FieldAt(index), type, start, offset, pointerWidth, leaves,

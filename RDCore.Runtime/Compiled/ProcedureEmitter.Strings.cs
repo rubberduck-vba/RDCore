@@ -7,7 +7,7 @@ internal sealed partial class ProcedureEmitter
     // the String slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _texts = [];
 
-    // the Strings a Let appends to, each by the local its appender is held in: null until its first append.
+    // the Strings a Let appends to or a Mid statement changes, each by the local its appender is held in: null until its first append or Mid statement.
     private readonly Dictionary<int, LocalBuilder> _appenders = [];
     private static readonly Type Strings = typeof(StringOperations);
 
@@ -105,6 +105,40 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
+    // the Mid statement of a variable in its appender, made of its cell when it does not hold it (CompiledActivation.TryMid); of a parameter by reference,
+    // in its cell (TryMidInCell). The start, the length and the value are evaluated before it is changed; one the statement declines is the
+    // interpreter's, given what the appender holds (EmitSpill).
+    private void EmitMid(MidStep mid)
+    {
+        var failure = RecoverAt(mid.Offset);
+        var start = EmitPayload(mid.Start, failure);
+        var length = mid.Length is { } given ? EmitPayload(given, failure) : default(Operand?);
+        var value = EmitTextInto(mid.Value, failure);
+        var buffered = _appenders.TryGetValue(mid.Slot, out var appender);
+        _il.Emit(OpCodes.Ldarg_0);
+        if (buffered)
+        {
+            _il.Emit(OpCodes.Ldloca, appender!);
+        }
+
+        _il.Emit(OpCodes.Ldloc, _texts[mid.Slot]);
+        Load(start, mid.Start.Kind);
+        if (length is { } counted)
+        {
+            Load(counted, mid.Length!.Kind);
+            _il.Emit(OpCodes.Ldc_I4_1);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldc_I8, 0L);
+            _il.Emit(OpCodes.Ldc_I4_0);
+        }
+
+        _il.Emit(OpCodes.Ldloc, value);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(buffered ? nameof(CompiledActivation.TryMid) : nameof(CompiledActivation.TryMidInCell))!);
+        _il.Emit(OpCodes.Brfalse, Fail(failure));
+    }
+
     // the text assigned to the function result variable where its frame holds it (CompiledActivation.TryAssignResultText).
     private void EmitTextResultLet(TextResultLetStep resultLet)
     {
@@ -153,6 +187,33 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
 
+            case TextResultNode:
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReadResultText))!);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                break;
+
+            // a Variant the frame holds in no Variant's cell (a parameter passed a String, an error, an object or nothing) is read from the frame.
+            case VariantSlotTextNode variant:
+                var uncelled = _il.DefineLabel();
+                var read = _il.DefineLabel();
+                _il.Emit(OpCodes.Ldloc, _variants[variant.Slot]);
+                _il.Emit(OpCodes.Brfalse, uncelled);
+                _il.Emit(OpCodes.Ldloc, _variants[variant.Slot]);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.ReadText))!);
+                _il.Emit(OpCodes.Br, read);
+                _il.MarkLabel(uncelled);
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, variant.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.VariantValueOf))!);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.TextOf))!);
+                _il.MarkLabel(read);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
+                break;
+
             case FieldTextNode field:
                 EmitFieldText(field, text, failure);
                 break;
@@ -198,8 +259,36 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Stloc, text);
                 break;
 
+            case FloatingTextNode floating:
+                var number = EmitPayload(floating.Value, failure);
+                _il.Emit(OpCodes.Ldarg_0);
+                Load(number, floating.Value.Kind);
+                _il.Emit(floating.Value.Kind is ScalarKind.Single ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.FloatingText))!);
+                _il.Emit(OpCodes.Stloc, text);
+                break;
+
             case TypeNameTextNode typeName:
-                EmitTypeName(typeName, text);
+                EmitTypeName(typeName.Library, typeName.Slot is { } held ? _objects[held] : null, text);
+                break;
+
+            case FieldTypeNameTextNode fieldTypeName:
+                EmitTypeName(fieldTypeName.Library, EmitObjectFieldCell(new ObjectFieldNode(fieldTypeName.Field)), text);
+                break;
+
+            // TypeName of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls.
+            case VariantTypeNameTextNode variantTypeName:
+                var named = _il.DefineLabel();
+                _il.Emit(OpCodes.Ldloc, EmitVariantCellOf(variantTypeName.Variant, failure));
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.TypeName))!);
+                _il.Emit(OpCodes.Brtrue, named);
+                EmitLibraryVariantText(variantTypeName.Library, text, failure);
+                _il.MarkLabel(named);
+                break;
+
+            case IntrinsicTextNode typed:
+                EmitIntrinsicText(typed, text, failure);
                 break;
 
             case LibraryTextNode library:
@@ -208,6 +297,10 @@ internal sealed partial class ProcedureEmitter
 
             case LibraryVariantTextNode converting:
                 EmitLibraryVariantText(converting, text, failure);
+                break;
+
+            case TextCallNode call:
+                EmitTextCall(call, text, failure);
                 break;
         }
 
@@ -244,16 +337,16 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brtrue, WalkBackAt(print.Offset + 1));
     }
 
-    // TypeName of the object an object slot holds, or of Nothing (CompiledActivation.TryTypeNameOf); a call the function fails, or a cell that holds no
-    // object compiled code reads, gives the interpreter the call.
-    private void EmitTypeName(TypeNameTextNode node, LocalBuilder text)
+    // TypeName of the object a cell holds (of an object slot, or of an object field of a record), or of Nothing when there is no cell
+    // (CompiledActivation.TryTypeNameOf); a call the function fails, or a cell that holds no object compiled code reads, gives the interpreter the call.
+    private void EmitTypeName(int library, LocalBuilder? cell, LocalBuilder text)
     {
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldc_I4, _knowingAt);
-        _il.Emit(OpCodes.Ldc_I4, node.Library);
-        if (node.Slot is { } slot)
+        _il.Emit(OpCodes.Ldc_I4, library);
+        if (cell is not null)
         {
-            _il.Emit(OpCodes.Ldloc, _objects[slot]);
+            _il.Emit(OpCodes.Ldloc, cell);
             _il.Emit(OpCodes.Ldc_I4_0);
         }
         else
@@ -304,7 +397,7 @@ internal sealed partial class ProcedureEmitter
     private void EmitLibraryVariantText(LibraryVariantTextNode node, LocalBuilder text, Label failure)
     {
         var offset = _knowingAt;
-        var (payloads, values) = EmitLibraryArguments(node.Arguments, failure);
+        var (payloads, values) = EmitLibraryArguments(node.Library, node.Arguments, failure);
         LoadLibraryArguments(offset, node.Library, payloads, values);
         _il.Emit(OpCodes.Ldloca, text);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryCallLibraryVariantText))!);

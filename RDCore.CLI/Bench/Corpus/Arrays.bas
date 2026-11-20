@@ -3,8 +3,11 @@ Option Explicit
 ' Writing every element of an array, then reading every element back.
 ' 30000 elements: the size the recorded baselines were measured with.
 
+' <Declarations>
 Private Const Size As Long = 30000
+' </Declarations>
 
+' <BenchArrayFillAndSum>
 Public Sub BenchArrayFillAndSum()
     Dim Values(1 To Size) As Long
     Dim I As Long
@@ -16,7 +19,9 @@ Public Sub BenchArrayFillAndSum()
         S = S + Values(I)
     Next
 End Sub
+' </BenchArrayFillAndSum>
 
+' <BenchVariantArray2D>
 ' What a macro does with the values of a range: a 2-D Variant array, every element read and written back doubled. Here the array is a variable of its own.
 Public Sub BenchVariantArray2D()
     Dim Values() As Variant
@@ -34,7 +39,9 @@ Public Sub BenchVariantArray2D()
         Next
     Next
 End Sub
+' </BenchVariantArray2D>
 
+' <BenchVariantHeldArray2D>
 ' The same, with the array held in a Variant: what V = Range(...).Value gives.
 Public Sub BenchVariantHeldArray2D()
     Dim Values() As Variant
@@ -53,4 +60,5 @@ Public Sub BenchVariantHeldArray2D()
             V(R, C) = V(R, C) * 2
         Next
     Next
-End Sub
+End Sub
+' </BenchVariantHeldArray2D>

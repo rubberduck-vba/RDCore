@@ -318,7 +318,7 @@ getStmt : GET whiteSpace fileNumber whiteSpace? COMMA whiteSpace? recordNumber? 
 variable : expression;
 
 
-constStmt : (visibility whiteSpace)? CONST whiteSpace constSubStmt (whiteSpace? COMMA whiteSpace? constSubStmt)*;
+constStmt : (variableVisibility whiteSpace)? CONST whiteSpace constSubStmt (whiteSpace? COMMA whiteSpace? constSubStmt)*;
 constSubStmt : identifier (whiteSpace asTypeClause)? whiteSpace? EQ whiteSpace? expression;
 
 declareStmt : (visibility whiteSpace)? DECLARE whiteSpace (PTRSAFE whiteSpace)? (FUNCTION | SUB) whiteSpace identifier whiteSpace (CDECL whiteSpace)? LIB whiteSpace STRINGLITERAL (whiteSpace ALIAS whiteSpace STRINGLITERAL)? (whiteSpace? argList)? (whiteSpace asTypeClause)? (endOfLine attributeStmt)*;
@@ -420,14 +420,18 @@ goSubStmt : GOSUB whiteSpace expression;
 goToStmt : GOTO whiteSpace expression;
 
 // 5.4.2.8 If Statement
+// the line ends right after Then (MS-VBAL's EOL, which a ':' is not): `If x Then:` is a single-line If, and an End If after it closes no block.
 ifStmt :
-    IF whiteSpace booleanExpression whiteSpace THEN endOfStatement
+    IF whiteSpace booleanExpression whiteSpace THEN endOfIfHeader
     block
     (statementLabelDefinition? whiteSpace? elseIfBlock)*
     (statementLabelDefinition? whiteSpace? elseBlock?)
     statementLabelDefinition? whiteSpace? END_IF
 ;
-elseIfBlock : 
+// the end of the line after Then, and the blank lines and separators before the first statement of the block. A rule of its own, which can end after the
+// line: a token no statement begins with is the block's to read past (StatementBoundErrorStrategy.Sync), and not an error of the If's.
+endOfIfHeader : endOfLine whiteSpace? endOfStatement?;
+elseIfBlock :
     ELSEIF whiteSpace booleanExpression whiteSpace THEN endOfStatement block
     | ELSEIF whiteSpace booleanExpression whiteSpace THEN whiteSpace? block
 ;
@@ -438,7 +442,8 @@ elseBlock :
 // 5.4.2.9 Single-line If Statement
 singleLineIfStmt : ifWithNonEmptyThen | ifWithEmptyThen;
 ifWithNonEmptyThen : IF whiteSpace? booleanExpression whiteSpace? THEN whiteSpace? listOrLabel (whiteSpace singleLineElseClause)?;
-ifWithEmptyThen : IF whiteSpace? booleanExpression whiteSpace? THEN whiteSpace? emptyThenStatement? singleLineElseClause;
+// `If x Then:` with nothing after its colons and no Else is a single-line If with no statement, as VB6 and MS-VBA read it (RD-VBAL §5.4.2.9).
+ifWithEmptyThen : IF whiteSpace? booleanExpression whiteSpace? THEN whiteSpace? (emptyThenStatement? singleLineElseClause | emptyThenStatement);
 singleLineElseClause : ELSE whiteSpace? listOrLabel?;
 
 // lineNumberLabel should actually be "statement-label" according to MS VBAL but they only allow lineNumberLabels:
@@ -521,10 +526,11 @@ modeSpecifier :	(MID | MIDB) DOLLAR? ;
 
 integerExpression : expression;
 
-// a name and a colon at the start of a line are a label, never a call: see IsLabelAhead.
+// a name and a colon at the start of a line are a label, never a call: see IsLabelAhead. Blanks begin the argument list only before an argument: see
+// IsArgumentListAhead.
 callStmt :
     CALL whiteSpace lExpression
-    | {!IsLabelAhead()}? lExpression (whiteSpace argumentList)?
+    | {!IsLabelAhead()}? lExpression ({IsArgumentListAhead()}? whiteSpace argumentList)?
 ;
 
 resumeStmt : RESUME (whiteSpace (NEXT | expression))?;
@@ -587,7 +593,7 @@ upperBound : constantExpression;
 
 constantExpression : expression;
 
-variableStmt : (DIM | STATIC | visibility) whiteSpace variableListStmt;
+variableStmt : (DIM | STATIC | variableVisibility) whiteSpace variableListStmt;
 variableListStmt : variableSubStmt (whiteSpace? COMMA whiteSpace? variableSubStmt)*;
 variableSubStmt : (WITHEVENTS whiteSpace)? identifier (whiteSpace? arrayDim)? (whiteSpace asTypeClause)?;
 
@@ -687,6 +693,9 @@ typeHint : PERCENT | AMPERSAND | POW | EXCLAMATIONPOINT | HASH | AT | DOLLAR;
 
 visibility : PRIVATE | PUBLIC | FRIEND | GLOBAL;
 
+// MS-VBAL §5.2.3.1, §5.2.3.2: a variable or a constant is declared Public, Global or Private, never Friend.
+variableVisibility : PRIVATE | PUBLIC | GLOBAL;
+
 // 5.6 Expressions
 expression :
     // Literal Expression has to come before lExpression, otherwise it'll be classified as simple name expression instead.
@@ -731,7 +740,7 @@ objectLiteralIdentifier : NOTHING;
 variantLiteralIdentifier : EMPTY | NULL;
 
 lExpression :
-    lExpression LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                                 # indexExpr
+    lExpression LPAREN whiteSpace? argumentList whiteSpace? RPAREN                                                  # indexExpr
     | lExpression mandatoryLineContinuation? DOT mandatoryLineContinuation? printMethod (whiteSpace outputList)?    # objectPrintExpr
     | lExpression mandatoryLineContinuation? DOT mandatoryLineContinuation? unrestrictedIdentifier                  # memberAccessExpr
     | lExpression mandatoryLineContinuation? dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier     # dictionaryAccessExpr
@@ -739,10 +748,10 @@ lExpression :
     | identifier                                                                                                    # simpleNameExpr
     | DOT mandatoryLineContinuation? unrestrictedIdentifier                                                         # withMemberAccessExpr
     | dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier                                            # withDictionaryAccessExpr
-    | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList? whiteSpace? RPAREN         # whitespaceIndexExpr
+    | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList whiteSpace? RPAREN          # whitespaceIndexExpr
     // blanks before the argument list (MS-VBAL 3.3: a token takes the white space before it), so `x = F (2)` calls F with 2. The last alternative, of
     // the lowest precedence: VBABaseParser enters lExpression above it as the callee of a call statement, where `F (2)` is F called with (2). Keep it last.
-    | lExpression whiteSpace LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                     # whitespaceIndexExpr
+    | lExpression whiteSpace LPAREN whiteSpace? argumentList whiteSpace? RPAREN                                      # whitespaceIndexExpr
 ;
 
 //This is a hack to allow attaching identifier references for default members to the exclaramtion mark.
@@ -757,7 +766,9 @@ builtInType :
 ;
 
 // 5.6.13.1 Argument Lists
-argumentList : whiteSpace? (argument (whiteSpace? COMMA whiteSpace? argument)*)? whiteSpace?
+// an argument can be missing, so a list always has at least one: empty parentheses are a list of one missing argument, and a list is never left out where
+// it is written.
+argumentList : whiteSpace? argument (whiteSpace? COMMA whiteSpace? argument)* whiteSpace?
 ;
 
 requiredArgument : argument;

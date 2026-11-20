@@ -9,6 +9,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Components;
@@ -67,7 +68,7 @@ public sealed class OtherProjectSyncTests
 
     private void ProjectsAre(params WorkspaceProject[] projects) => _projects.Projects.Returns(projects);
 
-    private SymbolSyncService Sut()
+    private SymbolSyncService Sut(IReferencedProjectService? referencedProjects = null)
     {
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.RuntimeEnvironment.Returns(_host);
@@ -91,7 +92,8 @@ public sealed class OtherProjectSyncTests
         libraries.SymbolsOf(default!, default!).ReturnsForAnyArgs(Array.Empty<Symbol>());
 
         return new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(),
-            Microsoft.Extensions.Options.Options.Create(new SdkAppOptions()), NullLogger<SymbolSyncService>.Instance, libraries, _projects);
+            Microsoft.Extensions.Options.Options.Create(new SdkAppOptions()), NullLogger<SymbolSyncService>.Instance, libraries, _projects,
+            referencedProjects: referencedProjects);
     }
 
     private bool Cached(NSubstitute.Core.CallInfo call, int parseAt)
@@ -102,9 +104,10 @@ public sealed class OtherProjectSyncTests
         return parse is not null;
     }
 
-    // the modules defined under a root, and the phase they were defined in: the code is loaded by a request of its own.
+    // the modules of a project's own defined under a root, and the phase they were defined in: the code is loaded by a request of its own.
     private string[] CodeLoadedUnder(string root)
-        => [.. _defined.Where(request => request.CodeOnly && request.WorkspaceRoot?.AbsoluteUri == SymbolUri.Root(root).AbsoluteUri)
+        => [.. _defined.Where(request => request.CodeOnly && request.Library is null
+                && request.WorkspaceRoot?.AbsoluteUri == SymbolUri.Root(root).AbsoluteUri)
             .Select(request => request.ModuleUri!.AbsoluteUri).Order(StringComparer.Ordinal)];
 
     private static string[] Addresses(string root, params string[] modules)
@@ -182,5 +185,87 @@ public sealed class OtherProjectSyncTests
 
         CollectionAssert.AreEqual(Addresses(Tools, "Common"), CodeLoadedUnder(Tools));
         CollectionAssert.AreEqual(Addresses(App, "Common"), CodeLoadedUnder(App));
+    }
+
+    // the primary project's session has the names of the projects it references: their modules are defined in it as that project's, under that project's
+    // root, before its own modules are, and their code is sent after the project's own. A Common of the referenced project stands beside the project's own.
+    [TestMethod]
+    public async Task TheModulesOfAProjectTheProjectReferences_AreDefinedInItsSession_AsThatProjects()
+    {
+        var tools = Project(Tools, "Tools");
+        ProjectsAre(Project(App, "App"), tools);
+        var referencedProjects = Substitute.For<IReferencedProjectService>();
+        referencedProjects.LibrariesOf(default!, default!, default).ReturnsForAnyArgs(Array.Empty<Symbol>());
+        referencedProjects.ProjectsReferencedBy(App).Returns([new ReferencedProject(tools, "Tools", 1)]);
+
+        await Sut(referencedProjects).SyncWorkspaceAsync(CancellationToken.None);
+
+        var library = _defined.Where(request => request.Library is not null && !request.CodeOnly).ToList();
+        CollectionAssert.AreEqual(
+            Addresses(Tools, "Common", "Helpers"), library.Select(request => request.ModuleUri!.AbsoluteUri).Order(StringComparer.Ordinal).ToArray());
+        Assert.IsTrue(library.All(request => request is
+        {
+            Library: "Tools", LibraryPriority: 1, ModuleType: ModuleType.StdModule, ParseResultJson.Length: 0,
+        }));
+        Assert.IsTrue(library.All(request => request.WorkspaceRoot!.AbsoluteUri == SymbolUri.Root(App).AbsoluteUri),
+            "defined in the primary project's session");
+
+        var firstOwn = _defined.FindIndex(request => request.Library is null && request.WorkspaceRoot!.AbsoluteUri == SymbolUri.Root(App).AbsoluteUri);
+        Assert.IsTrue(_defined.FindLastIndex(request => request.Library is not null && !request.CodeOnly) < firstOwn, "before the project's own modules");
+        CollectionAssert.AreEqual(Addresses(App, "Common", "Program"), CodeLoadedUnder(App));
+
+        var code = _defined.Where(request => request.Library is not null && request.CodeOnly).ToList();
+        CollectionAssert.AreEqual(
+            Addresses(Tools, "Common", "Helpers"), code.Select(request => request.ModuleUri!.AbsoluteUri).Order(StringComparer.Ordinal).ToArray());
+        Assert.IsTrue(code.All(request => request is { Library: "Tools", LibraryPriority: 1, ModuleType: ModuleType.StdModule, ParseResultJson.Length: > 0 }
+            && request.WorkspaceRoot!.AbsoluteUri == SymbolUri.Root(App).AbsoluteUri));
+        var lastOwnCode = _defined.FindLastIndex(request => request.Library is null && request.CodeOnly
+            && request.WorkspaceRoot!.AbsoluteUri == SymbolUri.Root(App).AbsoluteUri);
+        Assert.IsTrue(_defined.FindIndex(request => request.Library is not null && request.CodeOnly) > lastOwnCode, "after the project's own code");
+    }
+
+    // an edited module of a project the primary project references is defined again in the primary project's session as that project's, with its code.
+    [TestMethod]
+    [Ignore("An edited module is defined again in its own project's session only: the primary session keeps the referenced module as it was loaded.")]
+    public async Task AnEditedModuleOfAReferencedProject_IsDefinedAgainInTheSession_WithItsCode()
+    {
+        var tools = Project(Tools, "Tools");
+        ProjectsAre(Project(App, "App"), tools);
+        var referencedProjects = Substitute.For<IReferencedProjectService>();
+        referencedProjects.LibrariesOf(default!, default!, default).ReturnsForAnyArgs(Array.Empty<Symbol>());
+        referencedProjects.ProjectsReferencedBy(App).Returns([new ReferencedProject(tools, "Tools", 1)]);
+        var sut = Sut(referencedProjects);
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+        _defined.Clear();
+
+        await sut.SyncDocumentAsync(_modules.Single(module => module.Document.Name == "Helpers").Document.Id.Uri.ToUri(), CancellationToken.None);
+
+        var again = _defined
+            .Where(request => request is { Library: "Tools" } && request.WorkspaceRoot!.AbsoluteUri == SymbolUri.Root(App).AbsoluteUri)
+            .ToList();
+        CollectionAssert.AreEqual(new[] { false, true }, again.Select(request => request.CodeOnly).ToArray(), "its names, then its code");
+        Assert.IsTrue(again.All(request => request.ModuleUri!.AbsoluteUri == Addresses(Tools, "Helpers").Single()));
+    }
+
+    // MS-VBAL §4.1: the code of a referenced project runs against the projects it references. App references Tools, and Tools references Charts: Charts's
+    // modules are defined in the session, with their code, for Tools's code to call.
+    [TestMethod]
+    [Ignore("Project references are not followed transitively: the session has the modules of the projects the primary project references only.")]
+    public async Task TheModulesOfAProjectAReferencedProjectReferences_AreDefinedInTheSession_WithTheirCode()
+    {
+        var chartsFolder = Path.Combine(Path.GetTempPath(), "rdcore-other-projects", "Charts");
+        Add(chartsFolder, "Plots.bas", "Plots");
+        var tools = Project(Tools, "Tools");
+        var charts = Project(chartsFolder, "Charts");
+        ProjectsAre(Project(App, "App"), tools, charts);
+        var referencedProjects = Substitute.For<IReferencedProjectService>();
+        referencedProjects.LibrariesOf(default!, default!, default).ReturnsForAnyArgs(Array.Empty<Symbol>());
+        referencedProjects.ProjectsReferencedBy(App).Returns([new ReferencedProject(tools, "Tools", 1)]);
+        referencedProjects.ProjectsReferencedBy(Tools).Returns([new ReferencedProject(charts, "Charts", 1)]);
+
+        await Sut(referencedProjects).SyncWorkspaceAsync(CancellationToken.None);
+
+        var code = _defined.Where(request => request.Library == "Charts" && request.CodeOnly).Select(request => request.ModuleUri!.AbsoluteUri).ToArray();
+        CollectionAssert.AreEqual(Addresses(chartsFolder, "Plots"), code);
     }
 }

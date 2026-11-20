@@ -91,7 +91,7 @@ internal sealed class MoveMemberService(IRenameService rename, IParsingClientSer
         }
 
         var edits = MemberMoves.Edits(module.Source, plan);
-        var moved = await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), MemberMoves.Applied(module.Source, edits), token);
+        var moved = await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), DeclarationEdits.ApplyTo(module.Source, edits), token);
         return MemberMoves.Verify(plan, moved)
             ? new MemberMoveAnswer(documentUri, version, edits, null)
             : new MemberMoveAnswer(documentUri, version, null, Format("MoveMember_VerificationFailed", plan.Units[plan.Moved].Name));
@@ -108,7 +108,7 @@ internal sealed class MoveMemberService(IRenameService rename, IParsingClientSer
         }
 
         var version = module.Document.Version;
-        var text = MemberMoves.Applied(module.Source, edits);
+        var text = DeclarationEdits.ApplyTo(module.Source, edits);
         var sorted = await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token);
         return MemberMoves.VerifySort(module.Parse, sorted, text)
             ? new MemberMoveAnswer(documentUri, version, edits, null)

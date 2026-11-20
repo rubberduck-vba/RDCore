@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Threading;
 using RDCore.External.Automation;
 using RDCore.Forms.Avalonia;
+using RDCore.Forms.Avalonia.Rendering;
 
 namespace RDCore.External.Forms.RDForms;
 
@@ -32,10 +33,14 @@ internal static class RDFormsUI
     private static Dispatcher? _dispatcher;
     private static RDFormsPlatform _platform;
 
+    // why the windows could not be started, which every later start of the process is answered with. Avalonia's setup is made once per process
+    // (AppBuilder.Setup marks it made before it begins), so one that failed cannot be made again, whatever changed since. Touched under Gate.
+    private static string? _failure;
+
     // the programs whose calls the UI thread is making, the innermost last: an event a form raises while it makes a call of the form's own program is the
     // answer to that call, and one of another program's form is not, since that program waits for no call of it. Every program of the process shares the
     // thread. Touched on the UI thread only.
-    private static readonly List<object?> Callers = [];
+    private static readonly List<RDFormsProgram> Callers = [];
 
     // how many form hosts hold the windows' messages because a program of theirs runs. While one does, the UI thread makes the programs' calls and dispatches
     // nothing else, as a VB6 program's own thread does: what a window posts, such as the focus SetFocus moves, waits until the program waits for it (DoEvents, a
@@ -51,15 +56,33 @@ internal static class RDFormsUI
     private static bool _holdAfterCall;
 
     // whether the UI thread is making a call of `program`, which is what makes an event of that program's forms synchronous.
-    public static bool IsInCallOf(object program) => Callers.Contains(program);
+    public static bool IsInCallOf(RDFormsProgram program) => Callers.Contains(program);
 
     public static Dispatcher Dispatcher => _dispatcher ?? throw new InvalidOperationException("The RDForms UI thread is not started.");
 
+    // whether the UI thread is started: before it is, the process has no RDForms window. Read under the gate Start writes it under.
+    public static bool IsStarted
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _dispatcher is not null;
+            }
+        }
+    }
+
     // starts the UI thread on the platform asked for, once per process: the first start says which, and a later one that asks for the other cannot have it.
+    // A start after one that failed fails as it did, on either platform.
     public static void Start(RDFormsPlatform platform)
     {
         lock (Gate)
         {
+            if (_failure is not null)
+            {
+                throw new AutomationException(Failed, _failure);
+            }
+
             if (_dispatcher is not null)
             {
                 if (platform != _platform)
@@ -114,7 +137,8 @@ internal static class RDFormsUI
             ready.Wait();
             if (failure is not null)
             {
-                throw new AutomationException(Failed, $"The RDForms windows cannot be started: {failure.Message}");
+                _failure = $"The RDForms windows cannot be started: {failure.Message}";
+                throw new AutomationException(Failed, _failure);
             }
 
             _platform = platform;
@@ -126,6 +150,19 @@ internal static class RDFormsUI
         }
     }
 
+    // starts the UI thread for a program run unattended, which shows no window: the windows the process has, whichever they are, or headless ones, which need
+    // no screen, when it has none yet.
+    public static void StartUnattended()
+    {
+        lock (Gate)
+        {
+            if (_dispatcher is null)
+            {
+                Start(RDFormsPlatform.Headless);
+            }
+        }
+    }
+
     // RDForms' own application, which its controls' look is made for, on the platform asked for.
     private static AppBuilder BuilderFor(RDFormsPlatform platform) => platform switch
     {
@@ -133,9 +170,9 @@ internal static class RDFormsUI
         _ => RDFormsApplication.Configure().UsePlatformDetect(),
     };
 
-    // makes a call of `program` on the UI thread, and answers what it returned: the program is the server the call is made of, whose forms' events are the
+    // makes a call of `program` on the UI thread, and answers what it returned: the program is the one the call is made of, whose forms' events are the
     // answer to it. What fails there fails the call, as a server's failure does.
-    public static T Run<T>(object program, Func<T> call)
+    public static T Run<T>(RDFormsProgram program, Func<T> call)
     {
         var dispatcher = Dispatcher;
         if (dispatcher.CheckAccess())
@@ -155,13 +192,13 @@ internal static class RDFormsUI
 #pragma warning restore VSTHRD002
     }
 
-    public static void Run(object program, Action call) => Run(program, () =>
+    public static void Run(RDFormsProgram program, Action call) => Run(program, () =>
     {
         call();
         return true;
     });
 
-    private static T Make<T>(object program, Func<T> call)
+    private static T Make<T>(RDFormsProgram program, Func<T> call)
     {
         Callers.Add(program);
         try

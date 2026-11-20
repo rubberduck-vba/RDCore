@@ -164,17 +164,16 @@ public sealed class FormHostingTests
         using var _ = apartment;
         var caption = $"ExampleView {Guid.NewGuid():N}";
 
-        var running = RunAsync(world,
+        // the form says when it is closed: the line after Show comes after it, as Show waits for a modal form, as the designer's ShowModal says it is.
+        string[] code = ["Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)", "    Debug.Print \"closing\"", "End Sub"];
+        var running = RunWithCodeAsync(world, code,
             $"ExampleView.Caption = \"{caption}\"",
             "ExampleView.Show",
             "Debug.Print \"shown, and closed\"");
 
         var window = await WindowOfAsync(caption);
-        await Task.Delay(200);
-        Assert.IsFalse(running.IsCompleted, "Show waits for a modal form, as the designer's ShowModal says it is");
-
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        CollectionAssert.AreEqual(new[] { "shown, and closed" }, await running.WaitAsync(SafetyCap));
+        CollectionAssert.AreEqual(new[] { "closing", "shown, and closed" }, await running.WaitAsync(SafetyCap));
     }
 
     [TestMethod]
@@ -329,12 +328,10 @@ public sealed class FormHostingTests
 
         var running = RunWithCodeAsync(external ? ExternalHosts.WorldOf(host) : world, code, $"ExampleView.Caption = \"{caption}\"", "ExampleView.Show", "Debug.Print \"after\"");
 
+        // the close button clicked twice: the window takes the clicks in the order they came. The first QueryClose cancels, so the form stays and Show still
+        // waits, and the second is asked of it; had the first unloaded the form, the second would have gone with its window, and the program said so sooner.
         var window = await WindowOfAsync(caption);
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        await Task.Delay(500);
-        Assert.IsFalse(running.IsCompleted, "the first QueryClose cancels: the form stays, and Show still waits");
-        Assert.AreNotEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption));
-
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
         CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(SafetyCap));
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
@@ -800,21 +797,8 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "438" }, printed);
     }
 
-    private static async Task<IntPtr> WindowOfAsync(string caption)
-    {
-        var started = DateTime.UtcNow;
-        while (FindWindow("RDCore.UserForm", caption) is var window && window == IntPtr.Zero)
-        {
-            if (DateTime.UtcNow - started > SafetyCap)
-            {
-                Assert.Fail("The form was not shown in time.");
-            }
-
-            await Task.Delay(50);
-        }
-
-        return FindWindow("RDCore.UserForm", caption);
-    }
+    // the host's window of the form, once Windows says it is shown: the cap only keeps a form that is never shown from hanging the run.
+    private static Task<IntPtr> WindowOfAsync(string caption) => WindowShown.WaitAsync("RDCore.UserForm", caption).WaitAsync(SafetyCap);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr FindWindow(string className, string title);

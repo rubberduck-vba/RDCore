@@ -129,7 +129,10 @@ public static class ArgumentMapping
             return null;
         }
 
-        BoundNode NodeOf(ExpressionNode argument) => nodeOf(argument) ?? new BoundLate(argument);
+        // an argument written ByVal evaluates to its operand (MS-VBAL §5.6.13.1), which is what is bound; how it is passed is the argument's.
+        BoundNode NodeOf(ExpressionNode argument)
+            => nodeOf(argument)
+                ?? (argument is ByValArgumentExpressionNode byVal ? nodeOf(byVal.Operand) ?? new BoundLate(byVal.Operand) : new BoundLate(argument));
 
         var bound = ImmutableArray.CreateBuilder<BoundArgument>(parameters.Length);
         for (var i = 0; i < parameters.Length; i++)

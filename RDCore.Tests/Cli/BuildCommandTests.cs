@@ -27,6 +27,7 @@ namespace RDCore.Tests.Cli;
 /// <c>rdc build</c>: a workspace built into a program (its assembly, its debugging information, its runtime configuration, its executable and the runtime it
 /// runs on), and the program run from its assembly as the interpreter runs the workspace.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class BuildCommandTests
 {
@@ -452,6 +453,36 @@ public sealed class BuildCommandTests
 
             Assert.AreEqual(0, exit, error.ToString());
             CollectionAssert.AreEqual(new[] { "42", "5050" }, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray());
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    // RD-VBAL §2.2.3.2: the built program runs what rdc run runs, the code of the project the project references with it, from the definitions it replays.
+    [TestMethod]
+    public async Task TheBuiltProgramOfAProjectThatReferencesAProject_RunsTheReferencedProjectsCode()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files();
+        ReferencedProjectRunTests.WriteNavalWorkspace(fileSystem, Root);
+        var (command, messages) = Command(fileSystem);
+        Assert.AreEqual(0, await command.ExecuteAsync([Path.Combine(Root, "NavalConsole"), "--name", "Naval", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Naval.dll"))));
+            var output = new StringWriter();
+            var error = new StringWriter();
+
+            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None);
+
+            Assert.AreEqual(0, exit, error.ToString());
+            CollectionAssert.AreEqual(ReferencedProjectRunTests.Printed,
+                output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray());
         }
         finally
         {
@@ -1023,14 +1054,22 @@ public sealed class BuildCommandTests
         "    Debug.Print \"again: \" & MsgBox(\"Play again?\", vbYesNo)",
         "End Sub");
 
-    // the dialogs of a run are asked at the console, as the shell asks them, on every operating system: the text typed is the InputBox's, and the button
-    // named the MsgBox's.
+    // a console application: its project's build section says so (format 1.2), and its console is its user interface.
+    private static MockFileSystem ConsoleApplication(MockFileSystem fileSystem)
+    {
+        fileSystem.File.WriteAllText(Path.Combine(Root, ProjectFile.FileName),
+            """{ "Version": "1.2", "ProjectInfo": { "Name": "P", "Modules": [ "Program.bas" ], "build": { "outputType": "ConsoleApplication" } } }""");
+        return fileSystem;
+    }
+
+    // the dialogs of a console application's run are asked at the console, as the shell asks them, on every operating system: the text typed is the
+    // InputBox's, and the button named the MsgBox's.
     [TestMethod]
-    public async Task Run_AsksItsDialogsAtTheConsole()
+    public async Task Run_OfAConsoleApplication_AsksItsDialogsAtTheConsole()
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
-        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, Root);
+        var run = await RunAsync(ConsoleApplication(Files(("Program.bas", AsksAndAsksAgain))), keys, Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         Assert.IsTrue(run.Output.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
@@ -1039,10 +1078,10 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // a machine with no dialogs of its own asks at the console, whatever the settings ask for.
+    // a machine with no dialogs of its own asks at the console, whatever the settings ask for, for an RDForms application too: RDForms has no dialogs.
     [TestMethod]
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    public async Task Run_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
+    public async Task Run_OfAnRDFormsApplication_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
@@ -1055,14 +1094,21 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // the program keeps what the settings said of the machine's own dialogs when it was built: none unless they asked for them.
+    // the program keeps what its project and the settings said of the machine's own dialogs when it was built: an RDForms application's are the machine's,
+    // and a console application's only when the settings asked for them.
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task TheBuiltProgram_ShowsNativeDialogsOnlyWhenTheSettingsAskedForThem(bool native)
+    [DataRow(true, false, false, DisplayName = "a console application")]
+    [DataRow(true, true, true, DisplayName = "a console application whose settings ask for them")]
+    [DataRow(false, false, true, DisplayName = "an RDForms application")]
+    public async Task TheBuiltProgram_ShowsNativeDialogs_AsItsProjectAndTheSettingsSay(bool console, bool native, bool expected)
     {
         CompiledExecutionTests.RequirePayloads();
         var fileSystem = Files(("Program.bas", AsksAndAsksAgain));
+        if (console)
+        {
+            ConsoleApplication(fileSystem);
+        }
+
         var (command, messages) = Command(fileSystem, new AppOptions { NativeDialogs = native });
         Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
@@ -1072,7 +1118,7 @@ public sealed class BuildCommandTests
         {
             var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
 
-            Assert.AreEqual(native, BuiltProgram.ImageOf(assembly).NativeDialogs);
+            Assert.AreEqual(expected, BuiltProgram.ImageOf(assembly).NativeDialogs);
         }
         finally
         {
@@ -1097,12 +1143,33 @@ public sealed class BuildCommandTests
         Assert.IsFalse(ProgramDialogs.ShowsNative(native: false));
     }
 
-    // a program rdc builds asks its dialogs as rdc run does: at the console, on every operating system.
+    // the project says what its user interface is: a console application's is its console, and any other program is an RDForms application.
     [TestMethod]
-    public async Task TheBuiltProgram_AsksItsDialogsAtTheConsole()
+    [DataRow(ProjectOutputType.ConsoleApplication, false, true, false, DisplayName = "a console application")]
+    [DataRow(ProjectOutputType.ConsoleApplication, true, true, true, DisplayName = "a console application whose settings ask for them")]
+    [DataRow(ProjectOutputType.Application, false, false, true, DisplayName = "an RDForms application")]
+    public void TheMachinesOwnDialogs_AreWanted_ByAnRDFormsApplication_OrWhenTheSettingsAskForThem(
+        ProjectOutputType output, bool native, bool console, bool wanted)
+    {
+        var section = new ProjectBuild { OutputType = output };
+
+        Assert.AreEqual(console, ProgramDialogs.IsConsole(section));
+        Assert.AreEqual(wanted, ProgramDialogs.WantsNative(section, native));
+    }
+
+    [TestMethod]
+    public void AProjectWithNoBuildSection_IsAnRDFormsApplication()
+    {
+        Assert.IsFalse(ProgramDialogs.IsConsole(null));
+        Assert.IsTrue(ProgramDialogs.WantsNative(null, native: false));
+    }
+
+    // a program rdc builds of a console application asks its dialogs as rdc run does: at the console, on every operating system.
+    [TestMethod]
+    public async Task TheBuiltProgram_OfAConsoleApplication_AsksItsDialogsAtTheConsole()
     {
         CompiledExecutionTests.RequirePayloads();
-        var fileSystem = Files(("Program.bas", AsksAndAsksAgain));
+        var fileSystem = ConsoleApplication(Files(("Program.bas", AsksAndAsksAgain)));
         var (command, messages) = Command(fileSystem);
         Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
@@ -1458,6 +1525,7 @@ public sealed class BuildCommandTests
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
+                // the test's assertions are made before it cleans up, and a folder that stays fails nothing: the wait changes only whether one is left behind.
                 await Task.Delay(250);
             }
         }

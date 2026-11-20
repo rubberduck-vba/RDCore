@@ -40,8 +40,8 @@ namespace RDCore.Runtime.Semantics;
 /// <param name="session">The session the variables are allocated in, which resolves what the bounds name.</param>
 /// <param name="bounds">Reduces a bound to an integer.</param>
 /// <param name="stop">
-/// Stops the making of a fixed-size array between two of its elements, which can be millions: an analysis that is told to stop does not first make the
-/// rest of an array it never reads. <see cref="OperationCanceledException"/> is what a stopped array throws.
+/// Stops an analysis that is told to stop when it next makes an element of a fixed-size array: an element is made the first time it is used
+/// (<see cref="VBArrayValue.MadeCells"/>), and one made after the analysis is told to stop throws <see cref="OperationCanceledException"/>.
 /// </param>
 public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBoundEvaluator bounds, CancellationToken stop = default) : IVariableDefaults
 {
@@ -72,7 +72,7 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
         {
             // each field starts as a variable declared as it is: a fixed-size array field with the dimensions its declaration gives it. The fields are the
             // type's as the session has it now, not as it was when the variable was bound (CurrentTypes): a nested record's own fields come the same way.
-            return new VBUserDefinedTypeValue(CurrentTypes.Of(session.Symbols.Resolver, declaredRecord), this);
+            return new VBUserDefinedTypeValue(CurrentRecordOf(declaredRecord), this);
         }
 
         if (type is not VBArrayType array || array is VBResizableByteArrayType)
@@ -91,6 +91,30 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
             : new VBFixedSizeArrayValue([], array.ItemType);
     }
 
+    // the record type as the session has it now (CurrentTypes), looked up by its name once for each version of the session's table (SymbolTable.Version),
+    // which a type defined, removed or defined again changes, and for each resolver: every record made until then (a variable, an object's field, a value a
+    // function returns) is given the same one. A session whose table is not known looks it up each time.
+    internal VBUserDefinedType CurrentRecordOf(VBUserDefinedType declared)
+    {
+        var resolver = session.Symbols.Resolver;
+        if ((session.Symbols as Execution.SessionSymbols)?.Table is not { } table)
+        {
+            return CurrentTypes.Of(resolver, declared);
+        }
+
+        if (_currentRecords.TryGetValue(declared, out var known) && known.Version == table.Version && ReferenceEquals(known.Resolver, resolver))
+        {
+            return known.Current;
+        }
+
+        var current = CurrentTypes.Of(resolver, declared);
+        _currentRecords[declared] = (table.Version, resolver, current);
+        return current;
+    }
+
+    private readonly Dictionary<VBUserDefinedType, (int Version, ISymbolResolver? Resolver, VBUserDefinedType Current)> _currentRecords
+        = new(ReferenceEqualityComparer.Instance);
+
     /// <inheritdoc/>
     /// <remarks>
     /// The cells of <see cref="ElementCells"/>, which the copy an assignment makes of an array is given too.
@@ -98,7 +122,7 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     public Func<IBindingHandle>? ElementCellOf(VBType itemType) => ElementCells.Of(itemType);
 
     // what makes each element of a declared array, asking first whether to stop. An element kept in the cell VBArrayValue makes of its default value (a
-    // String's, an Object's, any element of an array when values are boxed) is made with nothing asked: it stops once the array is made.
+    // String's, an Object's, any element of an array when values are boxed) is made with nothing asked: the analysis stops at its next instruction.
     private Func<T>? Stopping<T>(Func<T>? make) => make is null || !stop.CanBeCanceled ? make : () =>
     {
         stop.ThrowIfCancellationRequested();

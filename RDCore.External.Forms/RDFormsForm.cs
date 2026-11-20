@@ -30,12 +30,13 @@ internal sealed class RDFormsForm : IComponentEventSink
     private readonly Dictionary<object, IAutomationEventSink> _arraySinks = new(ReferenceEqualityComparer.Instance);
     private DispatcherFrame? _modal;
 
-    public RDFormsForm(Model.FormDefinition model, CodeUnit unit, object program)
+    // `program` is the RDForms program of the form's own program: another program's window taking the activation raises nothing on this one.
+    public RDFormsForm(Model.FormDefinition model, CodeUnit unit, RDFormsProgram program)
     {
         Model = model;
         Unit = unit;
         Program = program;
-        Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload };
+        Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload, Program = program };
         RDFormsControl.SetEventSink(Window, this);
         Handle = HandleOf(model.Root);
         Controls = new RDFormsControls(this);
@@ -46,8 +47,8 @@ internal sealed class RDFormsForm : IComponentEventSink
     // the unit the form's program reads and writes its components' positions and sizes in; the model holds them in pixels.
     public CodeUnit Unit { get; }
 
-    // the server of the program the form is an object of, whose calls the form's events are the answer to (RDFormsUI.IsInCallOf).
-    public object Program { get; }
+    // the program the form is an object of, whose calls the form's events are the answer to (RDFormsUI.IsInCallOf).
+    public RDFormsProgram Program { get; }
 
     public RDFormsFormWindow Window { get; }
 

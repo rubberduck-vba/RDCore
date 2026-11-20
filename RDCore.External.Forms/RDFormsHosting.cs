@@ -32,7 +32,9 @@ public sealed class FormsOptions
     public VisualBasicFormsHost VB { get; set; } = VisualBasicFormsHost.RDForms;
 
     /// <summary>
-    /// Whether the RDForms windows are headless, shown on no screen (<c>Forms:Headless</c>). <see langword="false"/> unless said otherwise.
+    /// Whether the RDForms windows are headless, shown on no screen (<c>Forms:Headless</c>). <see langword="false"/> unless said otherwise. A program run
+    /// unattended (<c>--unattended</c>) shows no form, and the windows its forms are loaded in are headless whatever this says, unless the process has
+    /// windows already.
     /// </summary>
     public bool Headless { get; set; }
 }
@@ -85,6 +87,8 @@ public static class RDFormsHosting
 
         public string? ClassNameOf(object target) => ServerOf(target).ClassNameOf(target);
 
+        public bool IsFormHostObject(object target) => ServerOf(target).IsFormHostObject(target);
+
         public bool? IsInstanceOf(object target, string library, string className) => ServerOf(target).IsInstanceOf(target, library, className);
 
         public bool MoveNext(object enumerator, out object? current) => ServerOf(enumerator).MoveNext(enumerator, out current);
@@ -107,6 +111,19 @@ public static class RDFormsHosting
         public bool IsAvailable => visualBasic is not null || microsoftForms.IsAvailable;
 
         public bool HostsVisualBasic6Forms => visualBasic is not null;
+
+        // RDForms' windows follow it; a UserForm's do not, as Microsoft Forms has no theme of its own.
+        public bool KeepSystemTheme
+        {
+            get => visualBasic?.KeepSystemTheme ?? false;
+            set
+            {
+                if (visualBasic is not null)
+                {
+                    visualBasic.KeepSystemTheme = value;
+                }
+            }
+        }
 
         public object Create(FormDefinition form) => form.Kind == FormDesignerKind.VisualBasic6
             ? ((IFormHost?)visualBasic ?? UnavailableFormHost.Instance).Create(form)

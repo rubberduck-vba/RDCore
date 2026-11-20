@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using RDCore.External.Automation;
+using RDCore.Forms.Avalonia.Rendering;
 using RDCore.Forms.Menus;
 using RDCore.Forms.Model;
 using RDCore.Forms.Porting;
@@ -83,7 +84,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     {
         if (target is RDFormsControls collection)
         {
-            return RDFormsUI.Run(this, () =>
+            return RDFormsUI.Run(Program, () =>
             {
                 Alive(collection.Form.Handle);
                 return RDFormsControlsMembers.Invoke(collection, member, invocation, arguments, culture);
@@ -92,7 +93,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
 
         if (target is RDFormsArray array)
         {
-            return RDFormsUI.Run(this, () =>
+            return RDFormsUI.Run(Program, () =>
             {
                 Alive(array.Form.Handle);
                 return RDFormsArrayMembers.Invoke(array, member, invocation, arguments, culture);
@@ -102,11 +103,11 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         // a font is read after its control's form is gone, as VB6 reads it.
         if (target is RDFormsFont font)
         {
-            return RDFormsUI.Run(this, () => RDFormsFontMembers.Invoke(font, member, invocation, arguments, culture));
+            return RDFormsUI.Run(Program, () => RDFormsFontMembers.Invoke(font, member, invocation, arguments, culture));
         }
 
         var handle = HandleOf(target);
-        return RDFormsUI.Run(this, () =>
+        return RDFormsUI.Run(Program, () =>
         {
             Alive(handle);
             var component = handle.Component;
@@ -458,6 +459,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 : HandleOf(target).Component.Class.TypeName;
 
     /// <inheritdoc/>
+    public bool IsFormHostObject(object target) => Owns(target);
+
+    /// <inheritdoc/>
     public bool? IsInstanceOf(object target, string library, string className)
         => target is RDFormsFont ? IsFontClass(library, className)
             : target is RDFormsControls or RDFormsArray
@@ -490,12 +494,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         // an array raises the events of its elements, each with the element's index first.
         if (source is RDFormsArray array)
         {
-            RDFormsUI.Run(this, () => array.Form.Advise(array, sink));
+            RDFormsUI.Run(Program, () => array.Form.Advise(array, sink));
             return;
         }
 
         var handle = source is RDFormsControls ? throw new AutomationException(NotImplemented, "A form's Controls collection raises no events.") : HandleOf(source);
-        RDFormsUI.Run(this, () => handle.Form.Advise(handle.Component, sink));
+        RDFormsUI.Run(Program, () => handle.Form.Advise(handle.Component, sink));
     }
 
     /// <inheritdoc/>
@@ -503,7 +507,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     {
         if (source is RDFormsArray array)
         {
-            RDFormsUI.Run(this, () => array.Form.Unadvise(array));
+            RDFormsUI.Run(Program, () => array.Form.Unadvise(array));
             return;
         }
 
@@ -513,7 +517,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         }
 
         var handle = HandleOf(source);
-        RDFormsUI.Run(this, () => handle.Form.Unadvise(handle.Component));
+        RDFormsUI.Run(Program, () => handle.Form.Unadvise(handle.Component));
     }
 
     /// <inheritdoc/>
@@ -529,7 +533,11 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     // the forms that are not destroyed, which a modal one keeps from being used. Touched on the UI thread only.
     internal List<RDFormsForm> Forms { get; } = [];
 
-    internal void Destroy(RDFormsForm form) => RDFormsUI.Run(this, () =>
+    // the program the forms are of, as RDForms sees it: its windows share one active form, which another program's window taking the activation leaves alone,
+    // and the calls the UI thread makes for it are the ones its forms' events answer (RDFormsUI.IsInCallOf).
+    internal RDFormsProgram Program { get; } = new();
+
+    internal void Destroy(RDFormsForm form) => RDFormsUI.Run(Program, () =>
     {
         form.Destroy();
         _ = Forms.Remove(form);

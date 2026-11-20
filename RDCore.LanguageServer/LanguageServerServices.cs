@@ -88,18 +88,22 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveMemberService, RDCore.LanguageServer.Refactoring.MoveMemberService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IEncapsulateFieldService, RDCore.LanguageServer.Refactoring.EncapsulateFieldService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IImplementInterfaceService, RDCore.LanguageServer.Refactoring.ImplementInterfaceService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveCloserToUsageService, RDCore.LanguageServer.Refactoring.MoveCloserToUsageService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IParameterReorderService, RDCore.LanguageServer.Refactoring.ParameterReorderService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             // the codes disabled for the workspace's documents: the user's, which change while the server runs, and the workspace's.
             .AddSingleton<IDisabledDiagnostics>(provider => new DisabledDiagnostics(
                 provider.GetRequiredService<IOptions<SdkAppOptions>>(), provider.GetRequiredService<ILiveSettings>(), provider.GetRequiredService<IWorkspaceRefresh>(),
                 () => provider.GetRequiredService<IWorkspaceDocumentService>().WorkspaceRoot, provider.GetService<IWorkspaceSettings>()))
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
+            .AddSingleton<IProjectFileDiagnostics, ProjectFileDiagnostics>()
             .AddSingleton<IWorkspaceRefresh>(_ => new WorkspaceRefresh(WorkspaceRefresh.Burst))
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()
             // intrinsic-only type resolution until project/library symbols can be composed.
             .AddSingleton<RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver>(provider => new IntrinsicSymbolResolver(
                 provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RDCore.SDK.Server.Configuration.SdkAppOptions>>().Value.Environment.Is64Bit))
             .AddSingleton<IReferencedLibraryService, ReferencedLibraryService>()
+            .AddSingleton<IReferencedProjectService, ReferencedProjectService>()
             .AddSingleton<ISymbolSyncService, SymbolSyncService>()
             .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
             .AddSingleton<IWorkspaceFileOperationService, WorkspaceFileOperationService>()

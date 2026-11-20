@@ -18,7 +18,10 @@ The token that follows the `!` operator in a dictionary access expression repres
 
 `owner!member` is a call of the default member of `owner` with the name of the member as its string argument
 ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)): `d!Foo` is `d.Item("Foo")` where `Item`
-is the default member of the class of `d`. A `Variant` holding the object is unwrapped first.
+is the default member of the class of `d`. A `Variant` holding the object is unwrapped first. A default member that takes no parameters is called with
+none, and the name goes to what it returns, as for an argument list
+([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md#a-default-member-that-takes-no-parameters)): `rs!Name` is
+`rs.Fields.Item("Name")`.
 
 |Condition|Run-time error|
 |---|---|

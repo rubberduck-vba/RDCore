@@ -34,7 +34,7 @@ public sealed class DefaultMemberLetTargetTests
         foreach (var engine in new[] { VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled })
         {
             using var pinned = RDCore.Runtime.Compiled.CompiledExecution.Running(engine);
-            var output = await RunAsync([Defaulted, Holder], [("Shared", StandardModule("Shared", "Option Explicit", "Public S As New Defaulted"))], program);
+            var output = await RunAsync([Defaulted, Holder], [("Common", StandardModule("Common", "Option Explicit", "Public S As New Defaulted"))], program);
             CollectionAssert.AreEqual(expected, output, $"{engine}: {string.Join(" | ", output)}");
         }
     }
@@ -44,7 +44,7 @@ public sealed class DefaultMemberLetTargetTests
     [DataRow("Q.Held", DisplayName = "a property with a Get and no Let")]
     [DataRow("T.D", DisplayName = "a field of a record")]
     [DataRow("A(1)", DisplayName = "an element of an array")]
-    [DataRow("Shared.S", DisplayName = "a variable of another module, named through it")]
+    [DataRow("Common.S", DisplayName = "a variable of another module, named through it")]
     [DataRow("S", DisplayName = "a variable of another module")]
     public async Task ALetOfAValueToAnObjectTarget_AssignsItsDefaultProperty(string target)
         => await AssertInBothEnginesAsync(Program($"{target} = 5", $"Debug.Print {target}.Value"), "5");
