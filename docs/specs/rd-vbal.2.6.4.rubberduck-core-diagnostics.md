@@ -85,7 +85,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00313`](../diagnostics/rdc00313.md)|Redundant Step 1|Information|the syntax tree: a `StepExpression` that is the Integer literal `1`, when `DiagnosticsOptions.ForStep` is `Implicit`|
 |[`RDC00314`](../diagnostics/rdc00314.md)|Redundant ByRef modifier|Information|the syntax tree: `ParameterKind.ExplicitByRef`, when `DiagnosticsOptions.ByRefModifier` is `Implicit`; `DeclarationFact.Role` leaves out implementations and event handlers|
 |[`RDC00315`](../diagnostics/rdc00315.md)|Redundant module option|Information|the syntax tree: a `ModuleOptionDirectiveNode` of `Option Base 0` or `Option Compare Binary`|
-|[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`|
+|[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`; the fix, `DeclarationFact.ReferencedFrom`|
 |[`RDC00407`](../diagnostics/rdc00407.md)|Unmatched event handler|Hint|`DeclarationFact.Role` (`DeclarationRole.UnmatchedEventHandler`) and `DeclarationFact.References`|
 |[`RDC00408`](../diagnostics/rdc00408.md)|Underscore in a public class member|Warning|`ModuleSemanticModel.Declarations` of a class module: a public procedure, property or variable of the module named with `_`, whose `DeclarationFact.Role` is `None`, and that the syntax tree declares|
 |[`RDC00409`](../diagnostics/rdc00409.md)|Public field|Information|the syntax tree: a module-level variable declared `Public` or `Global`; `ModuleSemanticsDto.Class` (whether the module is a class module, which the message says)|

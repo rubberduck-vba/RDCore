@@ -372,6 +372,9 @@
   <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
     <value>'{0}' implémente un membre d'une interface, et est Public : il expose ce membre sur l'interface par défaut de cette classe, où il n'a pas sa place. Rendez-le Private.</value>
   </data>
+  <data name="ImplementationsShouldBePrivate_Fix" xml:space="preserve">
+    <value>Rendre '{0}' Private, ce qui le retire de l'interface par défaut de la classe</value>
+  </data>
   <data name="ImplementationsShouldBePrivate_EventHandler_Message" xml:space="preserve">
     <value>'{0}' gère un événement, et est Public : on peut l'appeler de l'extérieur, ce qu'un gestionnaire d'événement ne devrait jamais permettre. Rendez-le Private.</value>
   </data>
