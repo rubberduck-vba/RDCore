@@ -115,6 +115,7 @@ This specification follows the technical prose style of its inspirational Open S
     - 6.1.3 [Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md)
   - 6.2 [VBScript Regular Expressions](rd-vbal.6.2.vbscript-regexp.md)
   - 6.3 [Visual Basic 6.0 App Object](rd-vbal.6.3.vb-app-object.md)
+  - 6.4 [OLE Automation Library](rd-vbal.6.4.ole-automation-library.md)
 
 ---
 ## Conventions
@@ -123,8 +124,8 @@ This specification follows the technical prose style of its inspirational Open S
 
 |Sections|Numbering|
 |---|---|
-|Chapters 1–4; the overview sections 5.0 and 6.0; sections 6.2 and 6.3|RD-VBAL's own numbering.|
-|Chapters 5 and 6, except 5.0, 6.0, 6.2 and 6.3|Mirrors MS-VBAL: RD-VBAL §N is about MS-VBAL §N.|
+|Chapters 1–4; the overview sections 5.0 and 6.0; sections 6.2 to 6.4|RD-VBAL's own numbering.|
+|Chapters 5 and 6, except 5.0, 6.0 and 6.2 to 6.4|Mirrors MS-VBAL: RD-VBAL §N is about MS-VBAL §N.|
 |An RD-VBA addition that is a variant of an MS-VBAL member|A child number of that member. `GetAllJsonSettings` is [§6.1.2.8.1.7.1](rd-vbal.6.1.2.8.interaction.md), a variant of `GetAllSettings` (§6.1.2.8.1.7).|
 |An RD-VBA addition with no MS-VBAL counterpart|The next number after the last MS-VBAL sibling. Several such additions are numbered in alphabetical order. `Erl` is [§6.1.2.7.1.14](rd-vbal.6.1.2.7.information.md) and the `Err` function is §6.1.2.7.1.15 (Information module); `ErrObject.StackTrace` is [§6.1.3.2.2.7](rd-vbal.6.1.3.2.err-class.md) (Err class properties).|
 |A section number without a prefix|An RD-VBAL section. An MS-VBAL section is always written with the `MS-VBAL` prefix, as in **MS-VBAL §5.4.2.3**.|

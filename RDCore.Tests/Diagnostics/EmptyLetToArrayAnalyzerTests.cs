@@ -24,9 +24,9 @@ public sealed class EmptyLetToArrayAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("Function FE() As Integer() ;; FE = Empty ;; End Function", "Dim r ;; r = FE()", DisplayName = "F17a the result of a function")]
-    [DataRow("", "Dim a() As Integer ;; a = Empty", DisplayName = "F17b a variable")]
-    [DataRow("", "Dim a() As Integer ;; a = Null", DisplayName = "s48 J01 Null")]
+    [DataRow("Function FE() As Integer() ;; FE = Empty ;; End Function", "Dim r ;; r = FE()", DisplayName = "the result of a function")]
+    [DataRow("", "Dim a() As Integer ;; a = Empty", DisplayName = "a variable")]
+    [DataRow("", "Dim a() As Integer ;; a = Null", DisplayName = "Null to a variable")]
     [DataRow("Sub Take(a() As Integer) ;; End Sub", "Take Empty", DisplayName = "an argument given to a parameter declared as an array")]
     public async Task EmptyLetToAnArray_IsReported(string declarations, string body)
     {

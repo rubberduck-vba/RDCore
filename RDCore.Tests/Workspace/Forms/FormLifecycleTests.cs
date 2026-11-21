@@ -53,18 +53,23 @@ public sealed class FormLifecycleTests
     private static Task<string[]> RunAsync(params string[] body) => RunWithFormAsync(LifeForm(), body);
 
     [TestMethod]
-    [DataRow(new[] { "LifeForm.Touch", "Debug.Print LifeForm.Counter" }, new[] { "Initialize", "1" }, DisplayName = "L03 a member of its code loads the default instance")]
-    [DataRow(new[] { "Dim f As LifeForm", "Debug.Print TypeName(f)" }, new[] { "Nothing" }, DisplayName = "L05 a variable of its class loads nothing")]
+    [DataRow(new[] { "LifeForm.Touch", "Debug.Print LifeForm.Counter" }, new[] { "Initialize", "1" },
+        DisplayName = "a member of its code loads the default instance")]
+    [DataRow(new[] { "Dim f As LifeForm", "Debug.Print TypeName(f)" }, new[] { "Nothing" }, DisplayName = "a variable of its class loads nothing")]
     [DataRow(new[] { "Dim f As LifeForm", "Set f = New LifeForm", "Debug.Print \"made\"" }, new[] { "Initialize", "made", "Terminate" },
-        DisplayName = "L06 New loads it at once (and the variable going out of scope lets it go)")]
+        DisplayName = "New loads it at once (and the variable going out of scope lets it go)")]
     public async Task WhatLoadsAForm_IsWhatMakesItsInstance(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
 
     [TestMethod]
-    [DataRow(new[] { "Load LifeForm", "Unload LifeForm" }, new[] { "Initialize", "QueryClose1", "Terminate" }, DisplayName = "L10 Unload: QueryClose with vbFormCode, then Terminate")]
-    [DataRow(new[] { "Unload LifeForm" }, new[] { "Initialize", "QueryClose1", "Terminate" }, DisplayName = "L11 a default instance that is not loaded is loaded to be unloaded")]
-    [DataRow(new[] { "LifeForm.CloseMe" }, new[] { "Initialize", "QueryClose1", "Terminate", "AfterUnloadMe" }, DisplayName = "L16 Unload Me, and the code after it")]
-    [DataRow(new[] { "Dim f As LifeForm", "Set f = New LifeForm", "Set f = Nothing" }, new[] { "Initialize", "Terminate" }, DisplayName = "L14 let go of without Unload: no QueryClose")]
+    [DataRow(new[] { "Load LifeForm", "Unload LifeForm" }, new[] { "Initialize", "QueryClose1", "Terminate" },
+        DisplayName = "Unload: QueryClose with vbFormCode, then Terminate")]
+    [DataRow(new[] { "Unload LifeForm" }, new[] { "Initialize", "QueryClose1", "Terminate" },
+        DisplayName = "a default instance that is not loaded is loaded to be unloaded")]
+    [DataRow(new[] { "LifeForm.CloseMe" }, new[] { "Initialize", "QueryClose1", "Terminate", "AfterUnloadMe" },
+        DisplayName = "Unload Me, and the code after it")]
+    [DataRow(new[] { "Dim f As LifeForm", "Set f = New LifeForm", "Set f = Nothing" }, new[] { "Initialize", "Terminate" },
+        DisplayName = "let go of without Unload: no QueryClose")]
     public async Task Unload_AsksTheForm_ThenTerminatesIt(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
 
@@ -100,31 +105,34 @@ public sealed class FormLifecycleTests
 
     [TestMethod]
     [DataRow(new[] { "Debug.Print TypeName(UserForms); VarType(UserForms); TypeOf UserForms Is Collection" }, new[] { "Object 9 False" },
-        DisplayName = "U01 an object of no class a program can name")]
+        DisplayName = "an object of no class a program can name")]
     [DataRow(new[] { "Dim a As Object, b As Object", "Set a = UserForms", "Set b = UserForms", "Debug.Print a Is b; a Is UserForms" }, new[] { "TrueTrue" },
-        DisplayName = "U02 the same object every time")]
+        DisplayName = "the same object every time")]
     [DataRow(new[] { "Dim g As LifeForm", "Load LifeForm", "Set g = New LifeForm", "Debug.Print UserForms.Count; UserForms(0) Is LifeForm; UserForms.Item(1) Is g; UserForms(1).Name" },
-        new[] { "Initialize", "Initialize", "2 TrueTrueLifeForm", "Terminate" }, DisplayName = "U03 the loaded forms, in order, from 0")]
-    [DataRow(new[] { "On Error Resume Next", "Debug.Print UserForms(0).Name", "Debug.Print Err.Number" }, new[] { "9" }, DisplayName = "U04 a position that is no form's")]
+        new[] { "Initialize", "Initialize", "2 TrueTrueLifeForm", "Terminate" }, DisplayName = "the loaded forms, in order, from 0")]
+    [DataRow(new[] { "On Error Resume Next", "Debug.Print UserForms(0).Name", "Debug.Print Err.Number" }, new[] { "9" },
+        DisplayName = "a position that is no form's")]
     [DataRow(new[] { "On Error Resume Next", "Load LifeForm", "Debug.Print UserForms(-1).Name", "Debug.Print Err.Number", "Err.Clear", "Debug.Print UserForms(1).Name", "Debug.Print Err.Number" },
-        new[] { "Initialize", "9", "9" }, DisplayName = "U17 before the first, after the last")]
+        new[] { "Initialize", "9", "9" }, DisplayName = "before the first, after the last")]
     [DataRow(new[] { "On Error Resume Next", "Load LifeForm", "Debug.Print UserForms(\"LifeForm\").Name", "Debug.Print Err.Number" }, new[] { "Initialize", "13" },
-        DisplayName = "U09 a name is no position")]
-    [DataRow(new[] { "Load LifeForm", "Unload LifeForm", "Debug.Print UserForms.Count" }, new[] { "Initialize", "QueryClose1", "Terminate", "0" }, DisplayName = "U10 an unloaded form is not")]
-    [DataRow(new[] { "Dim x As Variant", "For Each x In UserForms", "Debug.Print \"item\"", "Next", "Debug.Print \"done\"" }, new[] { "done" }, DisplayName = "U11 For Each, of none")]
+        DisplayName = "a name is no position")]
+    [DataRow(new[] { "Load LifeForm", "Unload LifeForm", "Debug.Print UserForms.Count" }, new[] { "Initialize", "QueryClose1", "Terminate", "0" },
+        DisplayName = "an unloaded form is not")]
+    [DataRow(new[] { "Dim x As Variant", "For Each x In UserForms", "Debug.Print \"item\"", "Next", "Debug.Print \"done\"" }, new[] { "done" },
+        DisplayName = "For Each, of none")]
     [DataRow(new[] { "Dim f As LifeForm, x As Variant", "Load LifeForm", "Set f = New LifeForm", "For Each x In UserForms", "Debug.Print x Is f", "Next" },
-        new[] { "Initialize", "Initialize", "False", "True", "Terminate" }, DisplayName = "U18 For Each, in order")]
+        new[] { "Initialize", "Initialize", "False", "True", "Terminate" }, DisplayName = "For Each, in order")]
     [DataRow(new[] { "Dim f As LifeForm, g As LifeForm", "Set f = New LifeForm", "Set g = New LifeForm", "Unload f", "Debug.Print UserForms.Count; UserForms(0) Is g" },
-        new[] { "Initialize", "Initialize", "QueryClose1", "Terminate", "1 True", "Terminate" }, DisplayName = "U16 an unloaded form leaves the others")]
+        new[] { "Initialize", "Initialize", "QueryClose1", "Terminate", "1 True", "Terminate" }, DisplayName = "an unloaded form leaves the others")]
     public async Task UserForms_IsTheLoadedForms(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body), string.Join(" | ", await RunAsync(body)));
 
     [TestMethod]
-    [DataRow("UserForms.Remove 0", "438", DisplayName = "U08 a member it does not have")]
-    [DataRow("UserForms.Foo", "438", DisplayName = "U12 late-bound, as any member is")]
-    [DataRow("Debug.Print UserForms", "450", DisplayName = "U13 its default member takes a position")]
-    [DataRow("Dim c As Collection: Set c = UserForms", "13", DisplayName = "U14 no Collection")]
-    [DataRow("UserForms.Add \"NoSuchForm\"", "424", DisplayName = "U06 Add of a name that is no form's")]
+    [DataRow("UserForms.Remove 0", "438", DisplayName = "a member it does not have")]
+    [DataRow("UserForms.Foo", "438", DisplayName = "late-bound, as any member is")]
+    [DataRow("Debug.Print UserForms", "450", DisplayName = "its default member takes a position")]
+    [DataRow("Dim c As Collection: Set c = UserForms", "13", DisplayName = "no Collection")]
+    [DataRow("UserForms.Add \"NoSuchForm\"", "424", DisplayName = "Add of a name that is no form's")]
     public async Task UserForms_IsWhatItIs_AndNothingElse(string statement, string number)
         => CollectionAssert.AreEqual(new[] { number }, await RunAsync("On Error Resume Next", statement, "Debug.Print Err.Number"));
 
@@ -144,8 +152,8 @@ public sealed class FormLifecycleTests
 
     // L18, L19: Load and Unload of an object that is no form is error 361.
     [TestMethod]
-    [DataRow("Unload New Collection", DisplayName = "L18 Unload")]
-    [DataRow("Load New Collection", DisplayName = "L19 Load")]
+    [DataRow("Unload New Collection", DisplayName = "Unload")]
+    [DataRow("Load New Collection", DisplayName = "Load")]
     public async Task LoadingOrUnloadingAnObjectThatIsNoForm_Is361(string statement)
         => CollectionAssert.AreEqual(new[] { "361" }, await RunAsync("On Error Resume Next", statement, "Debug.Print Err.Number"));
 }

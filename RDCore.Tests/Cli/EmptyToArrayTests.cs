@@ -10,10 +10,10 @@ namespace RDCore.Tests.Cli;
 public sealed class EmptyToArrayTests
 {
     [TestMethod]
-    [DataRow("Function FE() As Integer() ;; FE = Empty ;; End Function", "Dim r ;; r = FE()", DisplayName = "F17a the result of a function")]
-    [DataRow("", "Dim a() As Integer ;; a = Empty", DisplayName = "F17b a variable")]
-    [DataRow("", "Dim a() As Integer ;; a = Null", DisplayName = "s48 J01 Null to a variable")]
-    [DataRow("Function FN() As Integer() ;; FN = Null ;; End Function", "Dim r ;; r = FN()", DisplayName = "s48 J02 Null to the result of a function")]
+    [DataRow("Function FE() As Integer() ;; FE = Empty ;; End Function", "Dim r ;; r = FE()", DisplayName = "the result of a function")]
+    [DataRow("", "Dim a() As Integer ;; a = Empty", DisplayName = "a variable")]
+    [DataRow("", "Dim a() As Integer ;; a = Null", DisplayName = "Null to a variable")]
+    [DataRow("Function FN() As Integer() ;; FN = Null ;; End Function", "Dim r ;; r = FN()", DisplayName = "Null to the result of a function")]
     public async Task EmptyAssignedToAnArray_Compiles_AndRaises13(string declarations, string body)
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n" + declarations.Replace(" ;; ", "\r\n")

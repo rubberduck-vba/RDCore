@@ -25,13 +25,13 @@ public sealed class IsMissingAlwaysFalseAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("Optional p As Long", "not a Variant", DisplayName = "I01 an Optional Long")]
-    [DataRow("Optional p As Long = 2", "not a Variant", DisplayName = "I09 an Optional Long with a default")]
-    [DataRow("Optional p As String", "not a Variant", DisplayName = "I06 an Optional String")]
-    [DataRow("Optional p As Object", "not a Variant", DisplayName = "I06 an Optional Object")]
+    [DataRow("Optional p As Long", "not a Variant", DisplayName = "an Optional Long")]
+    [DataRow("Optional p As Long = 2", "not a Variant", DisplayName = "an Optional Long with a default")]
+    [DataRow("Optional p As String", "not a Variant", DisplayName = "an Optional String")]
+    [DataRow("Optional p As Object", "not a Variant", DisplayName = "an Optional Object")]
     [DataRow("p As Long", "not a Variant", DisplayName = "a required Long")]
     [DataRow("p() As Variant", "not a Variant", DisplayName = "an array")]
-    [DataRow("Optional p As Variant = 5", "given a default value", DisplayName = "I02 an Optional Variant with a default")]
+    [DataRow("Optional p As Variant = 5", "given a default value", DisplayName = "an Optional Variant with a default")]
     [DataRow("Optional p = 5", "given a default value", DisplayName = "an Optional with a default and no As clause")]
     public async Task IsMissingOfAParameterThatCannotBeMissing_IsAWarning(string signature, string reason)
     {
@@ -44,11 +44,11 @@ public sealed class IsMissingAlwaysFalseAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("Optional p As Variant", DisplayName = "I03 an Optional Variant")]
-    [DataRow("Optional p", DisplayName = "I08 an Optional with no As clause")]
-    [DataRow("p As Variant", DisplayName = "I04 a required Variant")]
-    [DataRow("ByVal p As Variant", DisplayName = "I08 a ByVal Variant")]
-    [DataRow("ParamArray p() As Variant", DisplayName = "I05 a ParamArray")]
+    [DataRow("Optional p As Variant", DisplayName = "an Optional Variant")]
+    [DataRow("Optional p", DisplayName = "an Optional with no As clause")]
+    [DataRow("p As Variant", DisplayName = "a required Variant")]
+    [DataRow("ByVal p As Variant", DisplayName = "a ByVal Variant")]
+    [DataRow("ParamArray p() As Variant", DisplayName = "a ParamArray")]
     public async Task IsMissingOfAParameterThatCanBeMissing_IsNotReported(string signature)
         => Assert.IsEmpty(await FindingsAsync(signature));
 

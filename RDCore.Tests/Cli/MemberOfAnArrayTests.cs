@@ -23,20 +23,20 @@ public sealed class MemberOfAnArrayTests
             ]) + "\r\n";
 
     [TestMethod]
-    [DataRow("v = Array(1, 2)", "v.Foo = 1", DisplayName = "an array, assigned (I01)")]
-    [DataRow("v = Array(1, 2)", "x = v.Foo", DisplayName = "an array, read (C03)")]
-    [DataRow("v = 5", "v.Foo = 1", DisplayName = "a number, assigned (C04)")]
-    [DataRow("v = Array(1, 2)", "v.Foo(1) = 1", DisplayName = "an array, indexed and assigned (D09)")]
-    [DataRow("v = Array(1, 2)", "Set v.Foo = Nothing", DisplayName = "an array, Set (D10)")]
+    [DataRow("v = Array(1, 2)", "v.Foo = 1", DisplayName = "an array, assigned")]
+    [DataRow("v = Array(1, 2)", "x = v.Foo", DisplayName = "an array, read")]
+    [DataRow("v = 5", "v.Foo = 1", DisplayName = "a number, assigned")]
+    [DataRow("v = Array(1, 2)", "v.Foo(1) = 1", DisplayName = "an array, indexed and assigned")]
+    [DataRow("v = Array(1, 2)", "Set v.Foo = Nothing", DisplayName = "an array, Set")]
     public async Task AMemberOfAVariantHoldingNoObject_IsObjectRequired(string held, string statement)
         => CollectionAssert.AreEqual(new[] { "424" },
             await RunAsync([], Program("Dim v As Variant, x As Variant", held, statement, "Debug.Print Err.Number")));
 
     [TestMethod]
-    [DataRow("Dim v(2) As Long", "v.Foo = 1", DisplayName = "fixed-size, assigned (I02)")]
-    [DataRow("Dim v() As Long", "v.Foo = 1", DisplayName = "resizable, assigned (C01)")]
-    [DataRow("Dim v(2) As Long", "x = v.Foo", DisplayName = "fixed-size, read (C02)")]
-    [DataRow("Dim v() As Long", "x = v.Foo", DisplayName = "resizable, read (C13)")]
+    [DataRow("Dim v(2) As Long", "v.Foo = 1", DisplayName = "fixed-size, assigned")]
+    [DataRow("Dim v() As Long", "v.Foo = 1", DisplayName = "resizable, assigned")]
+    [DataRow("Dim v(2) As Long", "x = v.Foo", DisplayName = "fixed-size, read")]
+    [DataRow("Dim v() As Long", "x = v.Foo", DisplayName = "resizable, read")]
     public async Task AMemberOfAVariableDeclaredAsAnArray_IsInvalidQualifier(string declaration, string statement)
     {
         var errors = await LoadErrorsAsync([], Program(declaration, "Dim x As Variant", statement));

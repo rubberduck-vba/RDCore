@@ -28,7 +28,7 @@ public sealed class LateBoundResultTypeTests
         string.Empty))).Last();
 
     [TestMethod]
-    [DataRow("Variant", "vo.P * 7000", DisplayName = "F11 a property, through a Variant")]
+    [DataRow("Variant", "vo.P * 7000", DisplayName = "a property, through a Variant")]
     [DataRow("Object", "vo.P * 7000", DisplayName = "a property, through an Object")]
     [DataRow("Variant", "vo.F * 7000", DisplayName = "a function, through a Variant")]
     public async Task AnIntegerAMemberReturnsLateBound_IsAVariant_WhichWidens(string declared, string expression)

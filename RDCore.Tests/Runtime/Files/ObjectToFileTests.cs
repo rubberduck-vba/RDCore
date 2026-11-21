@@ -30,14 +30,14 @@ public sealed class ObjectToFileTests
     }
 
     [TestMethod]
-    [DataRow("Set v = New Collection", DisplayName = "U02 an object")]
-    [DataRow("Set v = Nothing", DisplayName = "U06 Nothing")]
+    [DataRow("Set v = New Collection", DisplayName = "an object")]
+    [DataRow("Set v = Nothing", DisplayName = "Nothing")]
     public void Put_OfAVariantThatHoldsAnObject_IsATypeMismatch_OnceItsDescriptorIsWritten(string set)
     {
         var (printed, files) = Run($"Dim v As Variant ;; {set} ;; Open \"{Path}\" For Binary As #1 ;; Err.Clear ;; Put #1, , v ;; P Err.Number ;; Close #1");
 
         Assert.AreEqual("13|", printed);
-        CollectionAssert.AreEqual(new byte[] { 9, 0 }, files.File.ReadAllBytes(Path), "vbObject, the descriptor of the Variant (B11, B12)");
+        CollectionAssert.AreEqual(new byte[] { 9, 0 }, files.File.ReadAllBytes(Path), "vbObject, the descriptor of the Variant");
     }
 
     // U05: a Random record is not written at all.

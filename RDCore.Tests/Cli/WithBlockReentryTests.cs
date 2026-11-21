@@ -21,31 +21,31 @@ public sealed class WithBlockReentryTests
 
     [TestMethod]
     [DataRow("Dim c As New Collection ;; On Error GoTo H ;; With c ;; .Add 1 ;; Err.Raise 5 ;; .Add 2 ;; End With ;; P c.Count ;; GoTo Done ;; H: ;; P \"h\" & Err.Number ;; Resume Next ;; Done:",
-        "h5|2|", DisplayName = "W01 resumed into the block from a handler")]
+        "h5|2|", DisplayName = "resumed into the block from a handler")]
     [DataRow("On Error GoTo H ;; With New Collection ;; .Add 1 ;; Err.Raise 5 ;; .Add 2 ;; P .Count ;; End With ;; GoTo Done ;; H: ;; P \"h\" & Err.Number ;; Resume Next ;; Done:",
-        "h5|2|", DisplayName = "W08 resumed into a block of an object nothing else holds")]
+        "h5|2|", DisplayName = "resumed into a block of an object nothing else holds")]
     [DataRow("Dim c As New Collection ;; With c ;; .Add 1 ;; GoTo Away ;; Back: ;; .Add 2 ;; End With ;; P c.Count & \"|\" & Err.Number ;; GoTo Done ;; Away: ;; GoTo Back ;; Done:",
-        "2|0|", DisplayName = "W05 out of the block and back in")]
+        "2|0|", DisplayName = "out of the block and back in")]
     public async Task AWithBlockJumpedOutOfAndBackInto_StillHoldsItsObject(string body, string printed)
         => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     [DataRow("Dim c As New Collection ;; GoTo Inside ;; With c ;; .Add 1 ;; Inside: ;; .Add 2 ;; P \"in\" & Err.Number ;; End With ;; P \"out\" & Err.Number ;; P c.Count",
-        "in91|out91|0|", DisplayName = "W04 jumped into, past its With statement")]
+        "in91|out91|0|", DisplayName = "jumped into, past its With statement")]
     [DataRow("Dim o As Object ;; With o.Foo ;; P \"in\" ;; .Add 1 ;; P \"after\" & Err.Number ;; End With ;; P \"out\" & Err.Number",
-        "in|after91|out91|", DisplayName = "W02 its With statement in error, resumed next")]
+        "in|after91|out91|", DisplayName = "its With statement in error, resumed next")]
     [DataRow("Dim c As New Collection, i As Long ;; With c ;; Inside: ;; .Add i ;; End With ;; i = i + 1 ;; If i < 3 Then GoTo Inside ;; P c.Count & \"|\" & Err.Number",
-        "1|91|", DisplayName = "W06 jumped back into, past its End With")]
+        "1|91|", DisplayName = "jumped back into, past its End With")]
     [DataRow("Dim i As Long ;; With New Collection ;; Inside: ;; .Add i ;; P .Count & \"|\" & Err.Number ;; End With ;; i = i + 1 ;; If i < 3 Then GoTo Inside ;; P \"end\" & Err.Number",
-        "1|0|end91|", DisplayName = "W07 an object nothing else holds, past its End With")]
+        "1|0|end91|", DisplayName = "an object nothing else holds, past its End With")]
     public async Task AWithBlockWithNoObject_RaisesNinetyOneForAMember(string body, string printed)
         => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     [DataRow("Dim c As New Collection ;; On Error GoTo H ;; With c ;; .Add 1 ;; Err.Raise 5 ;; .Add 2 ;; End With ;; P c.Count ;; GoTo Done ;; H: ;; P \"h\" & Err.Number ;; Set c = New Collection ;; Resume Next ;; Done:",
-        "h5|0|", DisplayName = "W09 the variable Set in a handler")]
+        "h5|0|", DisplayName = "the variable Set in a handler")]
     [DataRow("Dim c As New Collection, d As New Collection ;; With c ;; .Add 1 ;; Set c = d ;; .Add 2 ;; End With ;; P c.Count & \"|\" & d.Count",
-        "0|0|", DisplayName = "W10 the variable Set in the block")]
+        "0|0|", DisplayName = "the variable Set in the block")]
     public async Task AWithBlockOnAVariable_HoldsTheObjectTheVariableHeld(string body, string printed)
         => Assert.AreEqual(printed, await Run(body));
 

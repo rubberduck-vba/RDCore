@@ -32,24 +32,24 @@ public sealed class RecordPlaceWithBlockTests
     [TestMethod]
     [Ignore("VarPtr of a field named through a With block is an address of its own: storage resolves no address inside a record to the place there. "
         + "What is written through a parameter given the field reaches it (AFieldNamedThroughWith_GivenByReference_IsTheFieldWhileTheCallRuns)")]
-    [DataRow("With G ;; P VarPtr(.X) - VarPtr(G) ;; End With", "4|", DisplayName = "W01 the address of a field, from the record's")]
-    [DataRow("With G ;; P VarPtr(.X) = VarPtr(G.X) ;; End With", "True|", DisplayName = "W02 the address of the field named in full")]
-    [DataRow("With GA(2) ;; P VarPtr(.X) - VarPtr(GA(1)) ;; End With", "12|", DisplayName = "W06 a field of a record element")]
-    [DataRow("Dim R As TP ;; With R ;; P VarPtr(.X) - VarPtr(R) ;; End With", "4|", DisplayName = "W07 a field of a local record")]
-    [DataRow("With GO ;; P VarPtr(.I.X) - VarPtr(GO) ;; End With", "8|", DisplayName = "W08 a field of a record field")]
-    [DataRow("With GO.I ;; P VarPtr(.X) - VarPtr(GO) ;; End With", "8|", DisplayName = "W09 a field of the record field the block names")]
+    [DataRow("With G ;; P VarPtr(.X) - VarPtr(G) ;; End With", "4|", DisplayName = "the address of a field, from the record's")]
+    [DataRow("With G ;; P VarPtr(.X) = VarPtr(G.X) ;; End With", "True|", DisplayName = "the address of the field named in full")]
+    [DataRow("With GA(2) ;; P VarPtr(.X) - VarPtr(GA(1)) ;; End With", "12|", DisplayName = "a field of a record element")]
+    [DataRow("Dim R As TP ;; With R ;; P VarPtr(.X) - VarPtr(R) ;; End With", "4|", DisplayName = "a field of a local record")]
+    [DataRow("With GO ;; P VarPtr(.I.X) - VarPtr(GO) ;; End With", "8|", DisplayName = "a field of a record field")]
+    [DataRow("With GO.I ;; P VarPtr(.X) - VarPtr(GO) ;; End With", "8|", DisplayName = "a field of the record field the block names")]
     public async Task AFieldNamedThroughWith_IsWhereTheRecordIs(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 
     [TestMethod]
-    [DataRow("G.X = 1 ;; Trail = \"\" ;; With G ;; BumpG .X ;; End With ;; P Trail ;; P G.X", "2 |2|", DisplayName = "W03 a field of a record")]
-    [DataRow("G.X = 1 ;; Trail = \"\" ;; BumpG G.X ;; P Trail ;; P G.X", "2 |2|", DisplayName = "W04 the field named in full")]
+    [DataRow("G.X = 1 ;; Trail = \"\" ;; With G ;; BumpG .X ;; End With ;; P Trail ;; P G.X", "2 |2|", DisplayName = "a field of a record")]
+    [DataRow("G.X = 1 ;; Trail = \"\" ;; BumpG G.X ;; P Trail ;; P G.X", "2 |2|", DisplayName = "the field named in full")]
     [DataRow("GA(2).X = 1 ;; Trail = \"\" ;; With GA(2) ;; BumpGA .X ;; End With ;; P Trail ;; P GA(2).X", "2 |2|",
-        DisplayName = "W05 a field of a record element")]
+        DisplayName = "a field of a record element")]
     [DataRow("GO.I.X = 1 ;; Trail = \"\" ;; With GO.I ;; BumpGO .X ;; End With ;; P Trail ;; P GO.I.X", "2 |2|",
-        DisplayName = "W10 a field of a record field")]
+        DisplayName = "a field of a record field")]
     [DataRow("GH.Arr(2) = 1 ;; Trail = \"\" ;; With GH ;; BumpGH .Arr(2) ;; End With ;; P Trail ;; P GH.Arr(2)", "2 |2|",
-        DisplayName = "W11 an element of a fixed-size array field")]
+        DisplayName = "an element of a fixed-size array field")]
     public async Task AFieldNamedThroughWith_GivenByReference_IsTheFieldWhileTheCallRuns(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 }
@@ -74,20 +74,20 @@ public sealed class RecordPlaceDeclareTests
 
     [TestMethod]
     [DataRow(Source + "GH.Arr(2) = 0 ;; GH.Arr(3) = 0 ;; CopyMemory GH.Arr(2), S(1), 8 ;; P GH.Arr(2) ;; P GH.Arr(3)", "3|4|",
-        DisplayName = "D01 an element of a fixed-size array field")]
-    [DataRow("P VarPtr(GH.Arr(2)) - VarPtr(GH)", "8|", DisplayName = "D02 its address, from the record's")]
-    [DataRow("Dim V As Long ;; V = 5 ;; GH.Arr(2) = 0 ;; CopyMemory GH.Arr(2), V, 4 ;; P GH.Arr(2)", "5|", DisplayName = "D03 one element written")]
+        DisplayName = "an element of a fixed-size array field")]
+    [DataRow("P VarPtr(GH.Arr(2)) - VarPtr(GH)", "8|", DisplayName = "its address, from the record's")]
+    [DataRow("Dim V As Long ;; V = 5 ;; GH.Arr(2) = 0 ;; CopyMemory GH.Arr(2), V, 4 ;; P GH.Arr(2)", "5|", DisplayName = "one element written")]
     [DataRow(Source + "GH.Arr(2) = 0 ;; GH.Arr(3) = 0 ;; With GH ;; CopyMemory .Arr(2), S(1), 8 ;; End With ;; P GH.Arr(2) ;; P GH.Arr(3)", "3|4|",
-        DisplayName = "D04 an element of a fixed-size array field named through With")]
-    [DataRow("Dim R As TP ;; " + Source + "CopyMemory R.A, S(1), 8 ;; P R.A ;; P R.X", "3|4|", DisplayName = "D05 a field of a local record")]
+        DisplayName = "an element of a fixed-size array field named through With")]
+    [DataRow("Dim R As TP ;; " + Source + "CopyMemory R.A, S(1), 8 ;; P R.A ;; P R.X", "3|4|", DisplayName = "a field of a local record")]
     [DataRow(Source + "G.A = 0 ;; G.X = 0 ;; With G ;; CopyMemory .A, S(1), 8 ;; End With ;; P G.A ;; P G.X", "3|4|",
-        DisplayName = "D06 a field named through With")]
+        DisplayName = "a field named through With")]
     [DataRow("Dim T(1 To 2) As TP ;; " + Source + "CopyMemory T(2).A, S(1), 8 ;; P T(2).A ;; P T(2).X", "3|4|",
-        DisplayName = "D07 a field of a record element")]
+        DisplayName = "a field of a record element")]
     [DataRow("Dim H As TH ;; " + Source + "CopyMemory H.Arr(2), S(1), 8 ;; P H.Arr(2) ;; P H.Arr(3)", "3|4|",
-        DisplayName = "D08 an element of a fixed-size array field of a local record")]
+        DisplayName = "an element of a fixed-size array field of a local record")]
     [DataRow("Dim H As TH ;; Dim V As Long ;; V = 6 ;; P VarPtr(H.Arr(2)) - VarPtr(H) ;; CopyMemory H.Arr(2), V, 4 ;; P H.Arr(2)", "8|6|",
-        DisplayName = "D09 its address, then one element written")]
+        DisplayName = "its address, then one element written")]
     public async Task APlaceInARecordGivenToADeclare_IsWhereItIs(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 }

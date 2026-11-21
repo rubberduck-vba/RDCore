@@ -20,25 +20,25 @@ public sealed class ObjectArrayLetCoercionTests
 
     [TestMethod]
     [DataRow("Dim d(1) As Object ;; Set d(0) = New Collection ;; Dim v As Variant ;; v = d ;; Dim bx() As Box ;; bx = AsBoxes(v) ;; P UBound(bx) ;; P TypeName(bx(0))",
-        "1|Collection|e0|", DisplayName = "A06 Object() into Box(), a Collection in it")]
+        "1|Collection|e0|", DisplayName = "Object() into Box(), a Collection in it")]
     [DataRow("Dim d(1) As Object ;; Set d(0) = New Collection ;; Dim v As Variant ;; v = d ;; Dim w() As Collection ;; w = v ;; P TypeName(w(0))",
-        "Collection|e0|", DisplayName = "A06 Object() into Collection()")]
+        "Collection|e0|", DisplayName = "Object() into Collection()")]
     [DataRow("Dim d(1) As Object ;; Set d(0) = New Box ;; Dim v As Variant ;; v = d ;; Dim bx() As Box ;; bx = AsBoxes(v) ;; P TypeName(bx(0))",
-        "Box|e0|", DisplayName = "A06 Object() into Box(), a Box in it")]
+        "Box|e0|", DisplayName = "Object() into Box(), a Box in it")]
     [DataRow("Dim c(1) As Collection ;; Set c(0) = New Collection ;; Dim v As Variant ;; v = c ;; Dim o() As Object ;; o = v ;; Set o(1) = New Box ;; P TypeName(c(1)) ;; P TypeName(o(0)) ;; P (o(0) Is c(0))",
-        "Nothing|Collection|True|e0|", DisplayName = "A07 Collection() into Object(), shallow")]
+        "Nothing|Collection|True|e0|", DisplayName = "Collection() into Object(), shallow")]
     [DataRow("Dim c(1) As Collection ;; Set c(0) = New Collection ;; Dim v As Variant ;; v = c ;; Dim bx() As Box ;; bx = AsBoxes(v) ;; P UBound(bx) ;; P TypeName(bx(0))",
-        "1|Collection|e0|", DisplayName = "A09 Collection() into Box()")]
+        "1|Collection|e0|", DisplayName = "Collection() into Box()")]
     [DataRow("Dim b(1) As Box ;; Dim v As Variant ;; v = b ;; Dim w() As Collection ;; w = v ;; P UBound(w)",
-        "1|e0|", DisplayName = "A09 Box() into Collection()")]
+        "1|e0|", DisplayName = "Box() into Collection()")]
     public async Task AnArrayOfObjects_IsCopiedIntoAnArrayOfObjectsOfAnotherType(string body, string printed)
         => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
-    [DataRow("Dim c(1) As Collection ;; Dim v As Variant ;; v = c ;; Dim vv() As Variant ;; vv = v", DisplayName = "A07 Collection() into Variant()")]
-    [DataRow("Dim n() As Long ;; ReDim n(1) ;; Dim v As Variant ;; v = n ;; Dim o() As Object ;; o = v", DisplayName = "A08 Long() into Object()")]
-    [DataRow("Dim v As Variant ;; v = Array(New Collection) ;; Dim o() As Object ;; o = v", DisplayName = "A08 Variant() into Object()")]
-    [DataRow("Dim n(1) As Long ;; Dim v As Variant ;; v = n ;; Dim bx() As Box ;; bx = AsBoxes(v)", DisplayName = "A03 Long() into Box()")]
+    [DataRow("Dim c(1) As Collection ;; Dim v As Variant ;; v = c ;; Dim vv() As Variant ;; vv = v", DisplayName = "Collection() into Variant()")]
+    [DataRow("Dim n() As Long ;; ReDim n(1) ;; Dim v As Variant ;; v = n ;; Dim o() As Object ;; o = v", DisplayName = "Long() into Object()")]
+    [DataRow("Dim v As Variant ;; v = Array(New Collection) ;; Dim o() As Object ;; o = v", DisplayName = "Variant() into Object()")]
+    [DataRow("Dim n(1) As Long ;; Dim v As Variant ;; v = n ;; Dim bx() As Box ;; bx = AsBoxes(v)", DisplayName = "Long() into Box()")]
     public async Task AnArrayOfAnythingElse_IsError13(string body)
         => Assert.AreEqual("e13|", await Run(body));
 }
