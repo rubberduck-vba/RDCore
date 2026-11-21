@@ -175,6 +175,9 @@ as observed in Excel (64-bit, en-US):
 - A `Resume` to a label in the body does what a `GoTo` does.
 - A `Variant` counter raises 92 at the `Next`, after the body has run.
 
+[**RDC11030**](../diagnostics/rdc11030.md), a warning, reports each `GoTo` and `Resume` that jumps into a `For` or a
+`For Each` loop from outside it.
+
 ## Implementation
 
 - `ProcedureExecutor` dispatches `ForOpener` and `ForNext`.
