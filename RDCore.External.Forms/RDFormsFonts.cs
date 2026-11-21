@@ -17,7 +17,29 @@ internal sealed class RDFormsFont
         font.Changed += (_, _) => Draw();
     }
 
-    public StdFontObject Font { get; }
+    // a font of the program's (New StdFont), which is the session's: its members are the session font's (RDFormsFontMembers.Invoke), and the components
+    // draw the values it crossed with, and those it holds once it changed (Update).
+    private RDFormsFont(SessionObjectReference program, SessionFont values)
+    {
+        Program = program;
+        Font = values.ToStdFont();
+    }
+
+    public static RDFormsFont OfProgram(SessionObjectReference program, SessionFont values) => new(program, values);
+
+    public StdFontObject Font { get; private set; }
+
+    // the program's font this one draws; null for a font of the form's own.
+    public SessionObjectReference? Program { get; }
+
+    public bool IsHeld => _holders.Count > 0;
+
+    // the program's font changed: the components draw what it holds now.
+    public void Update(SessionFont values)
+    {
+        Font = values.ToStdFont();
+        Draw();
+    }
 
     public void Hold(ComponentInstance component, PropertyDefinition property)
     {
@@ -45,6 +67,9 @@ internal sealed class RDFormsFont
 internal sealed class RDFormsFonts
 {
     private readonly Dictionary<(ComponentInstance Component, string Property), RDFormsFont> _fonts = [];
+
+    // the program's fonts that the form's components hold, by their identity in the session: one each, which accounts for one crossing of it.
+    private readonly Dictionary<string, RDFormsFont> _programs = [];
 
     public static bool IsFont(PropertyDefinition property) => property.ValueType == typeof(FormFont);
 
@@ -79,10 +104,57 @@ internal sealed class RDFormsFonts
             }
 
             held.Release(component, property);
+            LetGo(held);
         }
 
         font.Hold(component, property);
         _fonts[key] = font;
+    }
+
+    // Set of a font of the program's to a component's Font: the component draws it, with each component of the form that holds it already, and a change
+    // through any reference is seen through all of them. Each crossing after the form's first is accounted for at once.
+    public void Share(ComponentInstance component, PropertyDefinition property, SessionObjectReference program, SessionFont values)
+    {
+        if (_programs.TryGetValue(program.SessionObject, out var font))
+        {
+            program.Host.Release(program.SessionObject, 1);
+        }
+        else
+        {
+            font = RDFormsFont.OfProgram(program, values);
+            _programs[program.SessionObject] = font;
+        }
+
+        Share(component, property, font);
+    }
+
+    // a font of the program's changed: the components that hold it draw what it holds now.
+    public void Changed(SessionObjectReference changed)
+    {
+        if (changed.Font is { } values && _programs.TryGetValue(changed.SessionObject, out var font))
+        {
+            font.Update(values);
+        }
+    }
+
+    // the form is gone: the program's fonts its components held are let go of.
+    public void ReleaseAll()
+    {
+        foreach (var program in _programs.Values.Select(font => font.Program!))
+        {
+            program.Host.Release(program.SessionObject, 1);
+        }
+
+        _programs.Clear();
+    }
+
+    // a font of the program's that no component of the form holds any more is let go of: its crossing is accounted for.
+    private void LetGo(RDFormsFont font)
+    {
+        if (font is { Program: { } program, IsHeld: false } && _programs.Remove(program.SessionObject))
+        {
+            program.Host.Release(program.SessionObject, 1);
+        }
     }
 }
 
@@ -93,6 +165,9 @@ internal static class RDFormsFontMembers
     private const int UnknownName = unchecked((int)0x80020006);
     private const int BadParameterCount = unchecked((int)0x8002000E);
     private const int VisualBasicError = unchecked((int)0x800A0000);
+
+    // the dispatch identifier of a member called by its name (DISPID_UNKNOWN).
+    private const int ByName = -1;
 
     // VB6's own properties of a control's font, each one a member of the control's Font: FontBold is Font.Bold.
     private static readonly Dictionary<string, string> Shorthands = new(StringComparer.OrdinalIgnoreCase)
@@ -115,6 +190,15 @@ internal static class RDFormsFontMembers
         if (assigns ? arguments.Length != 1 : arguments.Length != 0)
         {
             throw new AutomationException(BadParameterCount, $"Font.{name} takes {(assigns ? "one value" : "no argument")}.");
+        }
+
+        // a font of the program's is the session's, which reads and changes it, and tells the form what it holds once it changed (RDFormsFonts.Changed). The
+        // member is called for a call of the program's, which waits for it. A Size comes back as the session gives a server a Currency, and is returned as a
+        // server returns one.
+        if (handle.Program is { } program)
+        {
+            return RDFormsValues.Unwrapped(program.Host.Invoke(
+                new SessionObjectCall(program.SessionObject, name, ByName, invocation, arguments, IsSynchronous: true, _ => RDFormsUI.Serve())));
         }
 
         if (!assigns)

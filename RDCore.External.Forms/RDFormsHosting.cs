@@ -113,6 +113,13 @@ public static class RDFormsHosting
 
         public void Release(object handle) => ServerOf(handle).Release(handle);
 
+        // either server can hold an object of the session.
+        public void SessionObjectChanged(SessionObjectReference changed)
+        {
+            forms.SessionObjectChanged(changed);
+            platform.SessionObjectChanged(changed);
+        }
+
         private IAutomationServer ServerOf(object handle) => forms.Owns(handle) ? forms : platform;
     }
 

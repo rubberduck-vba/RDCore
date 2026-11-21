@@ -39,6 +39,10 @@ public sealed class ExternalAutomationServiceTests
     {
         public List<object> Released { get; } = [];
 
+        public List<SessionObjectReference> Changed { get; } = [];
+
+        public void SessionObjectChanged(SessionObjectReference changed) => Changed.Add(changed);
+
         public bool IsAvailable => true;
 
         public object CreateObject(string progId) => progId == "Rig.Valve"
@@ -200,5 +204,28 @@ public sealed class ExternalAutomationServiceTests
         service.RaiseOnClient = _ => throw new AssertFailedException("an event of an object nobody listens to was raised");
 
         Assert.AreEqual("6 cancelled=False", Invoke(service, valve, "Tap", Wire(6)).Returned.Text);
+    }
+
+    [TestMethod]
+    public void AChangeOfAnObjectOfTheSessions_ReachesThePlatformsServer_WithWhatItHolds_AsAStandInOfTheSessions()
+    {
+        var platform = new FakePlatform();
+        var service = new ExternalAutomationService(platform);
+        var font = new SessionFont("Arial", IsNamed: true, 12m, 700, 0, Italic: true, Underline: false, Strikethrough: false);
+
+        SessionReleaseParams? released = null;
+        service.ReleaseOnClient = told =>
+        {
+            released = told;
+            return Task.FromResult(new ExternalDoneResult());
+        };
+
+        var done = service.SessionChanged(new SessionChangedParams { SessionObject = "font 3", Font = font });
+        var changed = Assert.ContainsSingle(platform.Changed);
+        changed.Host.Release(changed.SessionObject, 1);
+
+        Assert.IsNull(done.Failure);
+        Assert.AreEqual(("font 3", font), (changed.SessionObject, changed.Font));
+        Assert.AreEqual(("font 3", 1), (released?.SessionObject, released?.Crossings), "the server's side lets go of it through the environment host");
     }
 }

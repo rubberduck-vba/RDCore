@@ -385,9 +385,11 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     // the model holds a component's position and size in pixels: the program reads and writes them in its form's unit.
     private static object? Read(RDFormsForm form, ComponentInstance component, PropertyDefinition property)
     {
+        // a font of the program's that the component holds is the program's object again: `Label1.Font Is f`.
         if (RDFormsFonts.IsFont(property))
         {
-            return form.Fonts.FontOf(component, property);
+            var font = form.Fonts.FontOf(component, property);
+            return font.Program ?? (object)font;
         }
 
         var stored = component.GetBoxed(property);
@@ -445,8 +447,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     }
 
     // Set of a font shares it: the control draws it, and a change through any reference is the control's (measured in VB6). A font of the program's
-    // (New StdFont) is the session's, and only its values cross: the control holds a font made from them, which the program's font does not change. Nothing
-    // is 380, and the font stays. A String or a number, which a Let of a font gives as its default member, sets the font's name.
+    // (New StdFont) is the session's, which the control holds and reads back, and whose values it draws. Nothing is 380, and the font stays. A String or a
+    // number, which a Let of a font gives as its default member, sets the font's name.
     private static void AssignFont(RDFormsForm form, ComponentInstance component, PropertyDefinition property, object? value, CultureInfo culture)
     {
         switch (value)
@@ -456,9 +458,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return;
 
             case SessionObjectReference { Font: { } values } program:
-                form.Fonts.Share(component, property, new RDFormsFont(values.ToStdFont()));
-                // the control keeps no reference to the program's font: its crossing is accounted for at once.
-                program.Host.Release(program.SessionObject, 1);
+                form.Fonts.Share(component, property, program, values);
                 return;
 
             // CA1416: a wrapper of no object asks nothing of COM, whatever the platform.
@@ -573,6 +573,24 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         {
             Destroy(form.Form);
         }
+    }
+
+    // a font of the program's changed: each form whose components hold it draws it again. A process with no RDForms window holds none.
+    /// <inheritdoc/>
+    public void SessionObjectChanged(SessionObjectReference changed)
+    {
+        if (changed.Font is null || !RDFormsUI.IsStarted)
+        {
+            return;
+        }
+
+        RDFormsUI.Run(Program, () =>
+        {
+            foreach (var form in Forms)
+            {
+                form.Fonts.Changed(changed);
+            }
+        });
     }
 
     // the forms that are not destroyed, which a modal one keeps from being used. Touched on the UI thread only.
