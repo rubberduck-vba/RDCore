@@ -300,7 +300,7 @@ public sealed class CompiledMemberChainTests
     }
 
     // a callee that hands its own statement to the interpreter in the middle of it, while its caller holds an object of the caller's statement: the callee's
-    // object is destroyed when the callee's statement is over, the caller's when the caller's is.
+    // object is destroyed when the callee's statement is over, the caller's when the caller's is, the first made first.
     [TestMethod]
     public async Task ACalleesStatementHandedOver_LetsGoOfItsObject_TheCallersKeptToItsStatementsEnd()
     {
@@ -322,7 +322,7 @@ public sealed class CompiledMemberChainTests
             "    Mark \"m\"",
             "    Set Make = S",
             "End Function",
-            .. Shared]), "Total", recoveries: 0, classes: Ships, expected: "3;P1 P2 T2 m P2 T2 T1 | ;3");
+            .. Shared]), "Total", recoveries: 0, classes: Ships, expected: "3;P1 P2 T2 m P2 T1 T2 | ;3");
         AssertNoneStepped(result);
     }
 }

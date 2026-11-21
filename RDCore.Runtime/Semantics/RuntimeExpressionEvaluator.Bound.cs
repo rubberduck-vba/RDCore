@@ -396,7 +396,12 @@ public sealed partial class RuntimeExpressionEvaluator
     {
         // no owner: the object is the target of the enclosing With block.
         var ownerResult = bound.Owner is { } ownerNode ? EvaluateBoundNode(session, ownerNode, context) : EvaluateOwner(session, context, bound.Access);
-        first?.Settle();
+        if (first is not null)
+        {
+            first.Gives(ownerResult.Result);
+            first.Settle();
+        }
+
         if (!ownerResult.IsSuccess)
         {
             return ownerResult;

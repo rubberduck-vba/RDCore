@@ -1121,12 +1121,12 @@ internal sealed partial class ProcedureAnalysis
             }
         }
 
-        // MS-VBA makes the calls among the arguments first, left to right, then evaluates the others, right to left, the target last (ArgumentOrder); the
-        // objects the calls returned are let go of in the order of the parameters, then the target's (ObjectReferences.SettleCall). Compiled code
-        // evaluates them in that order, and lets go of them in the opposite order, the last made first: an argument, or the target, that holds what its
-        // calls returned is let go of in MS-VBA's order only when no other does. A call that makes a call inside an argument that is not a call ahead of a
-        // call after it, more than one of whose arguments and target hold objects, or whose target's member calls make calls among their arguments, is the
-        // interpreter's.
+        // MS-VBA makes the calls among the arguments first, left to right, then evaluates the others, right to left, the target last (ArgumentOrder); what
+        // the call is given itself, an object a call returned, is let go of after what the calls and the members inside the arguments and the target were
+        // given, in the order of the parameters, then the target's (ObjectReferences.SettleCall). Compiled code lets go of them in the order they were made
+        // in (ObjectReferences.ReleaseTemporaries): MS-VBA's order when no more than one of the arguments and the target holds objects. A call that makes a
+        // call inside an argument that is not a call ahead of a call after it, more than one of whose arguments and target hold objects, or whose target's
+        // member calls make calls among their arguments, is the interpreter's.
         var order = ArgumentOrder.Of(arguments);
         var returnedObjects = values.Count(static value => value is ObjectArgumentNode { Call: not null });
         var holdingObjects = values.Count(static value => Within(value).Any(static node => ReceiverCallsOf(node).Any()));

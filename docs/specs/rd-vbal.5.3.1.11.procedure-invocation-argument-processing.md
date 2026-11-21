@@ -95,7 +95,15 @@ they are given to, named arguments included, and the last argument is the last o
 3. The other arguments are evaluated right to left, the last one first. The last argument is evaluated in its place, even when it
    is a call.
 4. The rest of the target of a member call is evaluated last, after what the arguments read.
-5. When the statement is over, the objects the arguments made are freed in the order of the parameters, then those of the target.
+5. When the statement is over, what its calls returned is freed: first the objects (an object a call returned as an object, or
+   one `New` made), then the `Variant`s that hold objects. Each group is freed in the order it is held in: the order it was made
+   in, except that a call puts what it is given whole after what was given to the calls and members inside its arguments and its
+   target. What a call is given whole is an object or a `Variant` a call returned, or an object `New` made, given as an argument
+   or as the target; it is held in the order of the parameters, then the target's. An array or a record that holds objects is
+   freed with the `Variant`s.
+
+   With `Tagged` returning a new object and `Pick` returning its first argument,
+   `Pick(Tagged("a"), Tagged("b")).Pair(Tagged("c"), Tagged("d"))` frees `b`, then `c` and `d`, then `a`, which `Pick` returned.
 
 A call is a `Function`, `Sub` or `Property Get` called, a member of an object (a public variable of an object included), or a
 function of the standard library. `New` is not a call. The standard library evaluates `Len`, `LenB`, `InStr`, `StrComp`, `Abs`,
