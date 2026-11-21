@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Semantics.Refactoring;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Resources;
@@ -230,7 +231,7 @@ internal static class ExtractionName
             return $"Get{Capitalized(output.Name)}";
         }
 
-        var text = new ExtractionText(source.Text);
+        var text = TextLines.Of(source.Text);
         var call = plan.Selection.Statements
             .SelectMany(statement => (IEnumerable<SyntaxNode>)[statement, .. statement.Descendants()])
             .OfType<CallStatementNode>()

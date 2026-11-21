@@ -122,7 +122,7 @@ internal static partial class InterfaceImplementation
             return null;
         }
 
-        var text = new ExtractionText(module.Source);
+        var text = TextLines.Of(module.Source);
         var writer = new Writer(context, text.NewLine, todo, handlerTodo);
         ImplementationTarget target;
         IReadOnlyList<ImplementationStub> stubs;
@@ -316,7 +316,7 @@ internal static partial class InterfaceImplementation
         private static string ValueName(VBTypeMemberSymbol variable) => string.Equals(variable.Name, "value", StringComparison.OrdinalIgnoreCase) ? "newValue" : "value";
 
         // the declaration of a member of a module of the workspace, and the text of that module.
-        private (SyntaxNode Node, ExtractionText Text)? DeclarationOf(VBTypeMemberSymbol member, MemberKind kind)
+        private (SyntaxNode Node, TextLines Text)? DeclarationOf(VBTypeMemberSymbol member, MemberKind kind)
         {
             var moduleUri = NameOccurrences.ModuleOf(member.Uri).AbsoluteUri;
             if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == moduleUri) is not { } module)
@@ -329,11 +329,11 @@ internal static partial class InterfaceImplementation
                 .Where(node => node.MemberKind == declaredKind && string.Equals(node.Name, member.Name, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
             var node = candidates.FirstOrDefault(candidate => candidate.NameRange?.Start == member.SelectionRange.Start) ?? candidates.FirstOrDefault();
-            return node is null ? null : (node, new ExtractionText(module.Source));
+            return node is null ? null : (node, TextLines.Of(module.Source));
         }
 
         // the parameters and the type as the member's declaration writes them, each parameter's passing written out.
-        private static Signature FromSource(VBTypeMemberSymbol member, SyntaxNode declaration, ExtractionText text)
+        private static Signature FromSource(VBTypeMemberSymbol member, SyntaxNode declaration, TextLines text)
         {
             var parameters = declaration.Children.OfType<ParameterDeclarationNode>().Select(parameter =>
             {

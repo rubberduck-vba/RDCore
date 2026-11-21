@@ -9,7 +9,9 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Semantics.Refactoring;
 using System.Collections.Immutable;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
@@ -75,7 +77,11 @@ internal enum ExtractionAccessibility
 /// <param name="Kind">What it writes.</param>
 /// <param name="CallStart">Where the call starts in <paramref name="NewText"/>, for a <see cref="ExtractionTextEditKind.Site"/> that writes more than the call.</param>
 /// <param name="CallLength">How long the call is from <paramref name="CallStart"/>; -1 when the call is all of <paramref name="NewText"/>.</param>
-internal readonly record struct ExtractionTextEdit(SourceRange Range, string NewText, ExtractionTextEditKind Kind, int CallStart = 0, int CallLength = -1);
+internal readonly record struct ExtractionTextEdit(SourceRange Range, string NewText, ExtractionTextEditKind Kind, int CallStart = 0, int CallLength = -1)
+{
+    // the edit as the text it writes, which TextLines makes.
+    public RefactorTextEdit TextEdit => new() { Range = Range, NewText = NewText };
+}
 
 /// <summary>
 /// The module a selection is extracted from: its syntax, its text, and what the procedure the selection is in is.
@@ -167,7 +173,10 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
     /// The module's text with the edits made.
     /// </summary>
     /// <param name="text">The module's text, which the edits are of.</param>
-    public string ApplyTo(string text) => ExtractionText.Apply(text, Edits).Text;
+    public string ApplyTo(string text) => TextLines.Apply(text, TextEdits).Text;
+
+    // the edits as the texts they write, in the same order.
+    internal RefactorTextEdit[] TextEdits => [.. Edits.Select(edit => edit.TextEdit)];
 
     /// <summary>
     /// The extraction with the lines it writes indented by the code formatter, as the module's other lines are: the lines it leaves as they were stay so.
@@ -182,20 +191,20 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
             return this;
         }
 
-        var (module, written) = ExtractionText.Apply(text, Edits);
-        var lines = new ExtractionText(module);
+        var (module, written) = TextLines.Apply(text, TextEdits);
+        var lines = TextLines.Of(module);
 
         // a line the edit writes from its start is indented; the first line of an edit that starts after other code keeps that code's indentation.
         var indentation = Enumerable.Range(0, Edits.Length)
             .Where(index => Edits[index].NewText.Length > 0)
-            .SelectMany(index => ModuleIndenter.Indent(edited, module, options, lines.LineOf(written[index].Start), lines.LineOf(written[index].End)))
+            .SelectMany(index => ModuleIndenter.Indent(edited, module, options, written[index].Start.Line, written[index].End.Line))
             .Distinct()
-            .Select(indent => (Start: lines.OffsetOf(new SourcePosition(indent.Line, indent.Character)), End: lines.OffsetOf(new SourcePosition(indent.EndLine, indent.EndCharacter)), indent.NewText))
+            .Select(indent => (Start: lines.Offset(new SourcePosition(indent.Line, indent.Character)), End: lines.Offset(new SourcePosition(indent.EndLine, indent.EndCharacter)), indent.NewText))
             .ToArray();
 
         var edits = Edits.Select((edit, index) =>
         {
-            var (start, end) = written[index];
+            var (start, end) = (lines.Offset(written[index].Start), lines.Offset(written[index].End));
             var formatted = edit.NewText;
             var (callStart, callLength) = (edit.CallStart, edit.CallLength);
             // the line that follows an edit ending with a line break is not the edit's.
@@ -305,13 +314,13 @@ internal static class ExtractMethodEdit
             }
         }
 
-        return new Writer(plan, source, choices, new ExtractionText(source.Text)).Write();
+        return new Writer(plan, source, choices, TextLines.Of(source.Text)).Write();
     }
 
     // the names the extraction declares in the module: the new procedure's, and the enumeration of its exit codes with its members when it has several.
     internal static IEnumerable<string> ModuleNamesOf(ExtractionPlan plan, ExtractionSource source, string name)
     {
-        var exits = new Writer(plan, source, new ExtractionChoices(name), new ExtractionText(source.Text)).ExitCodes();
+        var exits = new Writer(plan, source, new ExtractionChoices(name), TextLines.Of(source.Text)).ExitCodes();
         return exits.Count > 1 ? [name, $"{name}Exit", $"{name}ExitNone", .. exits.Select(exit => exit.Code)] : [name];
     }
 
@@ -319,7 +328,7 @@ internal static class ExtractMethodEdit
     // the object of a With block.
     internal static IEnumerable<string> NewProcedureNamesOf(ExtractionPlan plan, ExtractionSource source, string name)
     {
-        var writer = new Writer(plan, source, new ExtractionChoices(name), new ExtractionText(source.Text));
+        var writer = new Writer(plan, source, new ExtractionChoices(name), TextLines.Of(source.Text));
         return ModuleNamesOf(plan, source, name)
             .Concat(plan.Locals.Select(local => local.Name))
             .Concat(plan.WithTarget is { } target ? [target.Name] : [])
@@ -328,18 +337,18 @@ internal static class ExtractMethodEdit
 
     // a parameter of the plan as the new procedure's signature writes it (ByRef total As Long).
     internal static string ParameterTextOf(ExtractionPlan plan, ExtractionSource source, ExtractionParameter parameter)
-        => new Writer(plan, source, new ExtractionChoices(string.Empty), new ExtractionText(source.Text)).ParameterText(parameter);
+        => new Writer(plan, source, new ExtractionChoices(string.Empty), TextLines.Of(source.Text)).ParameterText(parameter);
 
     // what a variable, a parameter or a constant of the source procedure is declared as, after its name: its type-declaration character, its bounds, its As
     // clause, its value (& for `n&`, `(1 To 3) As Long`, ` As Long = 5`); the name of the type it has when nothing declares it.
     internal static string DeclaredTypeOf(ExtractionPlan plan, ExtractionSource source, SemanticId variable)
-        => new Writer(plan, source, new ExtractionChoices(string.Empty), new ExtractionText(source.Text)).DeclaredType(variable);
+        => new Writer(plan, source, new ExtractionChoices(string.Empty), TextLines.Of(source.Text)).DeclaredType(variable);
 
     // the exit codes the new procedure returns, each with what the call site does for it.
     internal static IEnumerable<(string Code, string Dispatch)> ExitCodesOf(ExtractionPlan plan, ExtractionSource source, string name)
-        => new Writer(plan, source, new ExtractionChoices(name), new ExtractionText(source.Text)).ExitCodes().Select(exit => (exit.Code, exit.Dispatch));
+        => new Writer(plan, source, new ExtractionChoices(name), TextLines.Of(source.Text)).ExitCodes().Select(exit => (exit.Code, exit.Dispatch));
 
-    private sealed class Writer(ExtractionPlan plan, ExtractionSource source, ExtractionChoices choices, ExtractionText text)
+    private sealed class Writer(ExtractionPlan plan, ExtractionSource source, ExtractionChoices choices, TextLines text)
     {
         private readonly string _name = choices.Name;
         private readonly string _newLine = text.NewLine;
@@ -367,9 +376,9 @@ internal static class ExtractMethodEdit
         public ExtractionEdit Write()
         {
             var selection = plan.Selection;
-            var start = text.OnlyIndentationBefore(selection.Range.Start) ? new SourcePosition(selection.Range.Start.Line, 0) : selection.Range.Start;
+            var start = text.IsBlankBefore(selection.Range.Start) ? new SourcePosition(selection.Range.Start.Line, 0) : selection.Range.Start;
             var moved = new SourceRange(start, selection.Range.End);
-            var indentation = text.IndentationOf(selection.Range.Start.Line);
+            var indentation = text.IndentOf(selection.Range.Start.Line);
 
             var resultCopy = plan.AssignsResult || plan.ReadsResult ? ResultCopyName() : null;
             var exits = ExitCodes();
@@ -389,7 +398,7 @@ internal static class ExtractMethodEdit
                 edits.Add(RoutineRemoval(moved, indentation));
                 foreach (var site in routine.Sites.Select(site => site.SourceLocation.Range))
                 {
-                    call = CallText(text.IndentationOf(site.Start.Line), resultCopy, exits, fromLineStart: false, followed: text.StatementFollows(site.End));
+                    call = CallText(text.IndentOf(site.Start.Line), resultCopy, exits, fromLineStart: false, followed: text.StatementFollows(site.End));
                     edits.Add(new ExtractionTextEdit(site, call, ExtractionTextEditKind.Site));
                 }
 
@@ -550,7 +559,7 @@ internal static class ExtractMethodEdit
                 .SelectMany(choice => choice.Names.Select(range => new ExtractionTextEdit(range, choice.Name, ExtractionTextEditKind.Call)))
                 .Where(rename => !removed.Any(range => range.Start <= rename.Range.Start && rename.Range.End <= range.End)));
 
-            var lines = text.Of(moved, edits).Split(["\r\n", "\n"], StringSplitOptions.None).ToList();
+            var lines = text.Of(moved, edits.Select(edit => edit.TextEdit)).Split(["\r\n", "\n"], StringSplitOptions.None).ToList();
             lines[0] = lineIndentation + lines[0];
             var dedent = lines.Where(line => line.Trim().Length > 0).Select(line => line.Length - line.TrimStart().Length).DefaultIfEmpty(0).Min();
             List<string> body = [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
@@ -588,7 +597,7 @@ internal static class ExtractMethodEdit
         private ExtractionTextEdit TableText(GoSubRoutine routine, OnGoSubStatementNode table, string? resultCopy, IReadOnlyList<Exit> exits)
         {
             var range = table.SourceLocation.Range;
-            var indentation = text.IndentationOf(range.Start.Line);
+            var indentation = text.IndentOf(range.Start.Line);
             var inner = indentation + Indent + Indent;
             var call = CallText(inner, resultCopy, exits, fromLineStart: false, followed: false);
             var lines = new List<string> { $"Select Case CInt({text.Of(table.Selector.SourceLocation.Range).Trim()})" };
@@ -624,9 +633,9 @@ internal static class ExtractMethodEdit
         private ExtractionTextEdit RoutineRemoval(SourceRange moved, string indentation)
         {
             var stays = StayingDeclarations().ToArray();
-            if (moved.Start.Character == 0 && text.OnlySpaceAfter(moved.End))
+            if (moved.Start.Character == 0 && text.IsBlankAfter(moved.End))
             {
-                return new ExtractionTextEdit(new SourceRange(moved.Start, text.StartOfNextLine(moved.End)), string.Concat(stays.Select(line => indentation + line + _newLine)),
+                return new ExtractionTextEdit(new SourceRange(moved.Start, text.StartOfLineAfter(moved.End.Line)), string.Concat(stays.Select(line => indentation + line + _newLine)),
                     ExtractionTextEditKind.Call);
             }
 
@@ -806,10 +815,10 @@ internal static class ExtractMethodEdit
                 {
                     yield return new ExtractionTextEdit(range, $"{KeywordOf(statement[0])}{string.Join(", ", kept)}", kind);
                 }
-                else if (text.OnlyIndentationBefore(range.Start) && text.OnlySpaceAfter(range.End))
+                else if (text.IsBlankBefore(range.Start) && text.IsBlankAfter(range.End))
                 {
                     // the line holds the statement alone, and goes with it.
-                    yield return new ExtractionTextEdit(new SourceRange(new SourcePosition(range.Start.Line, 0), text.StartOfNextLine(range.End)), string.Empty, kind);
+                    yield return new ExtractionTextEdit(new SourceRange(new SourcePosition(range.Start.Line, 0), text.StartOfLineAfter(range.End.Line)), string.Empty, kind);
                 }
                 else
                 {
