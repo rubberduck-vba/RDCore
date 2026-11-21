@@ -13,7 +13,7 @@ namespace RDCore.Tests.External;
 
 /// <summary>
 /// What an external host is told before it makes a program's first window, the program having said it while the host was not running: whether the program
-/// runs, and the theme of its windows, before the first form or the first dialog.
+/// runs, the theme of its windows, and its name, before the first form or the first dialog.
 /// </summary>
 [TestClass]
 [TestCategory("External host")]
