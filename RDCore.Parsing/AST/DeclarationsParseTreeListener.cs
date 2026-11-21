@@ -2126,7 +2126,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void VisitTerminal([NotNull] ITerminalNode node)
     {
         if (node.Symbol is not { TokenIndex: >= 0, Text: { Length: > 0 } text } token || node.Parent is not VBABaseParserRuleContext context
-            || context is VBAParser.CommentBodyContext || !text.Contains('\n') || !_lineContinuations.Add(token.TokenIndex))
+            || context is VBAParser.CommentBodyContext || text.AsSpan().IndexOfAny("\n\u2028\u2029") < 0 || !_lineContinuations.Add(token.TokenIndex))
         {
             return;
         }
@@ -2153,7 +2153,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     // a line continuation as the lexer reads one (LINE_CONTINUATION), with the blanks that begin the next line, except the blank that starts another continuation
     // on that line. A keyword across lines is its words, with blanks and line continuations between them.
-    private const string Continuation = @"[ \t]_[ \t]*\r?\n[ \t]*?(?=[ \t]_[ \t]*\r?\n|[^ \t\r\n])";
+    private const string Continuation = @"[ \t]_[ \t]*(?:\r?\n|[\u2028\u2029])[ \t]*?(?=[ \t]_[ \t]*(?:\r?\n|[\u2028\u2029])|[^ \t\r\n\u2028\u2029])";
     private static readonly Regex ContinuationInAKeyword = new(Continuation, RegexOptions.CultureInvariant);
     private static readonly Regex BlanksOfAKeyword = new($@"(?:{Continuation}|[ \t])+", RegexOptions.CultureInvariant);
     private static readonly Regex KeywordAcrossLines = new($@"^[A-Za-z]+(?:(?:{Continuation}|[ \t])+[A-Za-z]+)+$", RegexOptions.CultureInvariant);

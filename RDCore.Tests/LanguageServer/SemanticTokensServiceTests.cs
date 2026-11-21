@@ -63,10 +63,14 @@ public sealed class SemanticTokensServiceTests
     public async Task ADocumentTheServerDoesNotHold_HasNoTokens()
         => Assert.IsEmpty(await _sut.GetAsync(Mod1, CancellationToken.None));
 
+    // a line ends where LSP 3.17 ends one: at a CR, an LF or a CRLF.
     [TestMethod]
-    public async Task AKeyword_AStringAndAComment_AreTheTokenTypesOfTheLegend()
+    [DataRow("\r\n", DisplayName = "CRLF")]
+    [DataRow("\n", DisplayName = "LF")]
+    [DataRow("\r", DisplayName = "CR")]
+    public async Task AKeyword_AStringAndAComment_AreTheTokenTypesOfTheLegend(string lineEnd)
     {
-        _documents.Open(Mod1, Source, 1);
+        _documents.Open(Mod1, Source.ReplaceLineEndings(lineEnd), 1);
 
         Assert.AreEqual(TypeIndex("keyword"), (await TokenAtAsync(5, 4)).Type);
         Assert.AreEqual(TypeIndex("comment"), (await TokenAtAsync(7, 14)).Type);

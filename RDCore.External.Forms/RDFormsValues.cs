@@ -123,7 +123,7 @@ internal static class RDFormsValues
 
     // CS0618: a CurrencyWrapper is how the automation servers' values tell a Currency from a Decimal.
 #pragma warning disable CS0618
-    private static object? Unwrapped(object? value) => value is CurrencyWrapper currency ? currency.WrappedObject : value;
+    public static object? Unwrapped(object? value) => value is CurrencyWrapper currency ? currency.WrappedObject : value;
 
     private static object CurrencyOf(decimal value) => new CurrencyWrapper(value);
 #pragma warning restore CS0618

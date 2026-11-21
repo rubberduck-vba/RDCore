@@ -232,7 +232,7 @@ internal static class EncapsulateField
             return (null, new(EncapsulationRefusalKind.NotAField, Field: fields[0].Field));
         }
 
-        var newLine = new ExtractionText(source.Source).NewLine;
+        var newLine = TextLines.Of(source.Source).NewLine;
         var holder = byBackingField ? null : HolderOf(context, source, tree);
         var holderType = $"T{SymbolUri.ModuleNameOf(fields[0].Field.Uri)}";
         if (!byBackingField && holder is null && new[] { holderType, "this" }.FirstOrDefault(name => IsTaken(context, source, name)) is { } taken)

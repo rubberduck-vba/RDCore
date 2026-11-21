@@ -331,7 +331,7 @@ internal static class CloserToUsage
             new RefactorTextEdit
             {
                 Range = new SourceRange(at, at),
-                NewText = $"{DeclarationEdits.IndentOf(into, line)}{written} {declarator}{new ExtractionText(into).NewLine}",
+                NewText = $"{DeclarationEdits.IndentOf(into, line)}{written} {declarator}{TextLines.Of(into).NewLine}",
             },
             .. target.Unqualified.Select(range => new RefactorTextEdit { Range = range, NewText = string.Empty }),
         ];

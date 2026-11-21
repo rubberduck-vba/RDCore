@@ -238,7 +238,8 @@ internal sealed class CoreLanguageServerApp(
             provider.GetRequiredService<IExtractMethodService>(), provider.GetRequiredService<IMoveMemberService>(), provider.GetRequiredService<IPlatformClientCapabilitiesService>(),
             provider.GetRequiredService<OmniSharp.Extensions.JsonRpc.ISerializer>(), ExternalServices.GetService<IProjectFileService>(),
             ExternalServices.GetService<RDCore.SDK.Runtime.Libraries.ILibrarySource>(), ExternalServices.GetService<IEncapsulateFieldService>(),
-            ExternalServices.GetService<IImplementInterfaceService>(), ExternalServices.GetService<IMoveCloserToUsageService>(), ExternalServices.GetService<IParameterReorderService>()));
+            ExternalServices.GetService<IImplementInterfaceService>(), ExternalServices.GetService<IMoveCloserToUsageService>(),
+            ExternalServices.GetService<IParameterReorderService>(), ExternalServices.GetService<IInlineMemberService>()));
         services.AddSingleton(provider => new Assistant.FixToolEdits(ExternalServices.GetRequiredService<Assistant.AssistantDocuments>(),
             ExternalServices.GetRequiredService<IDocumentDiagnosticsService>(), ExternalServices.GetRequiredService<IDocumentLifecycleService>(),
             provider.GetRequiredService<ICodeActionService>(), ExternalServices.GetRequiredService<IWorkspaceDocumentService>(),

@@ -42,9 +42,13 @@ internal static class CodeActionFixture
         var payload = await ModuleWorkspace.SemanticsAsync(classes ?? [], program, libraries: libraries);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
-        var context = new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model);
-        return [.. Analyzers.SelectMany(analyzer => analyzer.Analyze(context))];
+        return FindingsOf(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model));
     }
+
+    /// <summary>
+    /// What every analyzer finds in the module of the context.
+    /// </summary>
+    public static AnalyzerFinding[] FindingsOf(ModuleAnalysisContext context) => [.. Analyzers.SelectMany(analyzer => analyzer.Analyze(context))];
 
     /// <summary>
     /// The fix of the first finding of the code in the module of <paramref name="before"/>, made: the module is <paramref name="after"/>, and analyzed

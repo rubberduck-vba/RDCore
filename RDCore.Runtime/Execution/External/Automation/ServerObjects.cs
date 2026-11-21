@@ -47,6 +47,29 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
             : session.Symbols.TryGetInstance(identity, out _) ? SessionObjectHost.Of(session).Export(identity, server) : null;
 
     /// <summary>
+    /// Tells the server that holds a font of the session's, if one does, that the font changed: what its side draws of it is made again from its values.
+    /// </summary>
+    /// <remarks>
+    /// It is told as a call is made, the program waiting with its turn given up, so that what the server does meanwhile can call back into the session.
+    /// </remarks>
+    /// <param name="session">The session whose font it is.</param>
+    /// <param name="identity">The font.</param>
+    /// <param name="font">What it holds now.</param>
+    public static void Changed(IRuntimeSession session, VBRuntimeObjectId identity, RDCore.SDK.Runtime.Stdole.StdFontObject font)
+    {
+        var host = SessionObjectHost.Of(session);
+        if (host.HolderOf(identity) is not { } holder)
+        {
+            return;
+        }
+
+        using (session.Turn.Yield())
+        {
+            holder.SessionObjectChanged(new SessionObjectReference(identity.ToString(), host) { Font = SessionFont.Of(font) });
+        }
+    }
+
+    /// <summary>
     /// The object the language holds for an object a server returned.
     /// </summary>
     /// <param name="value">The handle of the object.</param>

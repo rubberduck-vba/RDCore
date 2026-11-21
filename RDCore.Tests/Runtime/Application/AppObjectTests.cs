@@ -56,6 +56,12 @@ public sealed class AppObjectTests
             .Where(call => call.GetMethodInfo().Name == "set_" + nameof(IFormHost.KeepSystemTheme))
             .Select(call => (bool)call.GetArguments()[0]!)];
 
+    // each name the form host was told for the application of its windows, in order.
+    private static string[] ToldNames(IFormHost forms)
+        => [.. forms.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == "set_" + nameof(IFormHost.ApplicationName))
+            .Select(call => (string)call.GetArguments()[0]!)];
+
     private static string Source(string[] lines) => string.Join("\r\n",
     [
         "Attribute VB_Name = \"Program\"",
@@ -193,6 +199,20 @@ public sealed class AppObjectTests
         Assert.AreEqual(keep, SessionApplication.Of(session).KeepSystemTheme);
         CollectionAssert.AreEqual(new[] { keep }, ToldTheme(forms));
         Assert.IsFalse(forms.ReceivedCalls().Any(call => call.GetMethodInfo().Name == nameof(IFormHost.Create)), "no form is made as a session is composed");
+    }
+
+    // App.Title, the project's name until the program assigns another, names the application of the forms' windows: the form host is told it as the session
+    // is composed, before any form is made, and told each name the program assigns.
+    [TestMethod]
+    public async Task App_Title_NamesTheApplicationOfTheForms_TheFormHostToldEachName()
+    {
+        var forms = Substitute.For<IFormHost>();
+
+        var printed = await RunAsync(unattended: false, forms, "Debug.Print App.Title", "App.Title = \"Payroll\"", "Debug.Print App.Title");
+
+        Assert.IsFalse(string.IsNullOrEmpty(printed[0]), "App.Title starts as the project's name, which this test needs to tell the first name from none.");
+        Printed([printed[0], "Payroll"], printed);
+        CollectionAssert.AreEqual(new[] { printed[0], "Payroll" }, ToldNames(forms));
     }
 
     [TestMethod]

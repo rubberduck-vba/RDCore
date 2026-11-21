@@ -560,6 +560,28 @@ public sealed class VisualBasicFormLanguageTests
         CollectionAssert.DoesNotContain(labels, "ControlTipText", "MSForms.Control's, which the project references and a VB6 form does not wrap its controls in");
     }
 
+    [TestMethod]
+    public async Task MeDot_InAUserControl_OffersItsOwnMembers_AndNoneOfItsBaseClass()
+    {
+        var labels = await CompletionAtAsync(
+            Designed("VB.UserControl", "Public Property Get Answer() As Long", "End Property", "Private Sub Fill()", "    Me.|", "End Sub"));
+
+        CollectionAssert.Contains(labels, "Answer");
+        foreach (var member in new[] { "BackColor", "hWnd", "Extender", "Refresh", "CanGetFocus", "Left" })
+        {
+            CollectionAssert.DoesNotContain(labels, member, "VB.UserControl's members are no members of the control's class");
+        }
+    }
+
+    [TestMethod]
+    public async Task ANameInAUserControl_OffersItsBaseClasssMembers_AndNoSetting()
+    {
+        var labels = await CompletionAtAsync(Designed("VB.UserControl", "Private Sub Fill()", "    |", "End Sub"));
+
+        CollectionAssert.IsSubsetOf(new[] { "BackColor", "hWnd", "Extender", "Refresh" }, labels);
+        CollectionAssert.DoesNotContain(labels, "CanGetFocus", "a designer setting is no member of VB.UserControl");
+    }
+
     // ---- what RD-VBA adds to the VB library ----
 
     // Form() with a Label1 and a List1 besides, whose classes have members VB6.OLB does not declare.

@@ -1,11 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using RDCore.External.Native;
 using RDCore.External.Protocol;
-using RDCore.SDK.Client;
-using RDCore.SDK.Client.Connection;
-using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Channels;
-using System.IO.Pipes;
 
 namespace RDCore.External.Client;
 
@@ -24,8 +20,7 @@ namespace RDCore.External.Client;
 /// </remarks>
 public sealed class ExternalHost : IDisposable
 {
-    private readonly Func<ChildConnection> _connections;
-    private readonly string _executable;
+    private readonly Func<IExternalHostProcess> _processes;
     private readonly ILogger _logger;
     private readonly object _gate = new();
     private Incarnation? _current;
@@ -36,13 +31,11 @@ public sealed class ExternalHost : IDisposable
     /// <summary>
     /// Creates the external host of an environment host; nothing is started until a call needs it.
     /// </summary>
-    /// <param name="connections">Creates the connection to a process, and the process.</param>
-    /// <param name="executable">The executable the external host is: <c>rdc</c> (<see cref="DefaultExecutable"/>).</param>
+    /// <param name="processes">Creates a process of the external host, not started yet: an <see cref="ExternalHostProcess"/> of <c>rdc</c>.</param>
     /// <param name="logger">A standard logger.</param>
-    public ExternalHost(Func<ChildConnection> connections, string executable, ILogger logger)
+    public ExternalHost(Func<IExternalHostProcess> processes, ILogger logger)
     {
-        _connections = connections;
-        _executable = executable;
+        _processes = processes;
         _logger = logger;
     }
 
@@ -95,11 +88,11 @@ public sealed class ExternalHost : IDisposable
                 return running;
             }
 
-            // a connection that cannot be made is a host that could not be started, as one that fails to come up is.
-            ChildConnection connection;
+            // a process that cannot be made is a host that could not be started, as one that fails to come up is.
+            IExternalHostProcess process;
             try
             {
-                connection = _connections();
+                process = _processes();
             }
             catch (Exception exception) when (exception is not ExternalHostUnavailableException)
             {
@@ -107,29 +100,10 @@ public sealed class ExternalHost : IDisposable
                 throw new ExternalHostUnavailableException(exception);
             }
 
-            var incarnation = new Incarnation(++_incarnations, connection);
-            var pipeName = PlatformPipeName.New(CoreServerComponent.ExternalHost);
+            var incarnation = new Incarnation(++_incarnations, process);
             try
             {
-                // a call of the program into a server waits for the host to come up, as it waits for the server: the connection completes on the thread pool, and
-                // never needs the thread that waits for it.
-#pragma warning disable VSTHRD002
-                connection.ConnectAsync(new ChildConnectionRequest
-                {
-                    ServerExecutablePath = _executable,
-                    PipeName = pipeName,
-                    Mode = RDCoreServerProcess.ExternalMode,
-                    ExpectedComponent = CoreServerComponent.ExternalHost,
-                    // a process that stopped is not started again behind the program's back: what it held is gone, and the next call starts a new one.
-                    MaxRestartAttempts = 0,
-                    ConfigureClient = _ => { },
-                    OnPeerExited = incarnation.MarkLost,
-                }, CancellationToken.None).GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002
-
-                // the calls go over a pipe of their own, which the process opened before it said it was up.
-                var calls = new NamedPipeClientStream(".", ExternalProtocol.CallsPipeName(pipeName), PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
-                calls.Connect(TimeSpan.FromSeconds(30));
+                var calls = process.Start(incarnation.MarkLost);
                 incarnation.Attach(
                     new CallChannel(calls),
                     raised => AutomationEvent is { } handle ? handle(incarnation, raised) : new AutomationEventResult { Arguments = raised.Arguments },
@@ -152,7 +126,7 @@ public sealed class ExternalHost : IDisposable
             {
                 _logger.LogWarning(exception, "🔌 The external host could not be started.");
                 incarnation.MarkLost();
-                connection.Dispose();
+                process.Dispose();
                 throw new ExternalHostUnavailableException(exception);
             }
 
@@ -229,11 +203,8 @@ public sealed class ExternalHost : IDisposable
         {
             stopping.MarkLost();
             stopping.Calls?.Dispose();
-            // disposing is synchronous: the wait is bounded, and the shutdown never needs the thread that waits for it.
-#pragma warning disable VSTHRD002
-            _ = stopping.Connection.ShutdownAsync().Wait(TimeSpan.FromSeconds(5));
-#pragma warning restore VSTHRD002
-            stopping.Connection.Dispose();
+            stopping.Process.Stop(TimeSpan.FromSeconds(5));
+            stopping.Process.Dispose();
         }
     }
 }
@@ -242,8 +213,8 @@ public sealed class ExternalHost : IDisposable
 /// One process of an external host, from when it was started to when it stopped.
 /// </summary>
 /// <param name="number">Which incarnation it is: the first is <c>1</c>.</param>
-/// <param name="connection">The connection to the process.</param>
-internal sealed class Incarnation(int number, ChildConnection connection)
+/// <param name="process">The process.</param>
+internal sealed class Incarnation(int number, IExternalHostProcess process)
 {
     private readonly TaskCompletionSource _lost = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -253,9 +224,9 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     public int Number { get; } = number;
 
     /// <summary>
-    /// The connection to the process: what started it, and says when it stops.
+    /// The process of this incarnation, through which it was started and is stopped.
     /// </summary>
-    public ChildConnection Connection { get; } = connection;
+    public IExternalHostProcess Process { get; } = process;
 
     /// <summary>
     /// The channel the calls go over, once it is attached.

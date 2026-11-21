@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Inline Member: {0} is the member, or what a refusal is about (a statement, a parameter, a name); {1} where. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="InlineMember_Title" xml:space="preserve">
+    <value>Inline '{0}'</value>
+  </data>
+  <data name="InlineMember_TitleAll" xml:space="preserve">
+    <value>Inline every call of '{0}'</value>
+  </data>
+  <data name="InlineMember_Sites" xml:space="preserve">
+    <value>Calls</value>
+  </data>
+  <data name="InlineMember_SitesDescription" xml:space="preserve">
+    <value>The calls of '{0}' that are replaced by its body.</value>
+  </data>
+  <data name="InlineMember_Site" xml:space="preserve">
+    <value>Inline this call</value>
+  </data>
+  <data name="InlineMember_Statement" xml:space="preserve">
+    <value>The body replaces the call.</value>
+  </data>
+  <data name="InlineMember_Hoisted" xml:space="preserve">
+    <value>The body is written before the statement, and its result where the call was.</value>
+  </data>
+  <data name="InlineMember_Expression" xml:space="preserve">
+    <value>The call is replaced by its value.</value>
+  </data>
+  <data name="InlineMember_Remove" xml:space="preserve">
+    <value>Remove '{0}'</value>
+  </data>
+  <data name="InlineMember_RemoveDescription" xml:space="preserve">
+    <value>Every reference to '{0}' is a call that is inlined.</value>
+  </data>
+  <data name="InlineMember_Removal_Unticked" xml:space="preserve">
+    <value>'{0}' is Public: a project that references this one, or a host macro, can call it.</value>
+  </data>
+  <data name="InlineMember_Removal_ReferenceLeft" xml:space="preserve">
+    <value>'{0}' is kept: it is referred to {1} by more than a call that is inlined.</value>
+  </data>
+  <data name="InlineMember_Removal_Unresolved" xml:space="preserve">
+    <value>'{0}' is kept: a name that does not resolve {1} could mean it.</value>
+  </data>
+  <data name="InlineMember_Removal_CalledByName" xml:space="preserve">
+    <value>'{0}' is kept: it is called by name {1}.</value>
+  </data>
+  <data name="InlineMember_Removal_LateBound" xml:space="preserve">
+    <value>'{0}' is kept: a late-bound call {1} could reach it.</value>
+  </data>
+  <data name="InlineMember_UnknownAnswer" xml:space="preserve">
+    <value>The answer '{0}' matches no choice of Inline Member.</value>
+  </data>
+  <data name="InlineMember_NothingInlined" xml:space="preserve">
+    <value>No call of '{0}' is inlined.</value>
+  </data>
+  <data name="InlineMember_NotAProcedure" xml:space="preserve">
+    <value>'{0}' is not a procedure with a body that the workspace declares.</value>
+  </data>
+  <data name="InlineMember_PropertyAssignment" xml:space="preserve">
+    <value>'{0}' is a Property Let or Property Set, whose call is an assignment.</value>
+  </data>
+  <data name="InlineMember_CalledByTheRuntime" xml:space="preserve">
+    <value>'{0}' is called by the runtime or the host: an event handler, an implemented member or an entry point.</value>
+  </data>
+  <data name="InlineMember_Static" xml:space="preserve">
+    <value>'{0}' keeps values from one call to the next: it is Static, or declares a Static local.</value>
+  </data>
+  <data name="InlineMember_Recursive" xml:space="preserve">
+    <value>'{0}' calls itself, directly or through the procedures it calls.</value>
+  </data>
+  <data name="InlineMember_GoSub" xml:space="preserve">
+    <value>The body of '{0}' has a GoSub or a Return {1}. Convert the GoSub to a procedure first.</value>
+  </data>
+  <data name="InlineMember_ErrorHandling" xml:space="preserve">
+    <value>The body of '{0}' has an On Error or a Resume statement {1}, which would apply to the caller.</value>
+  </data>
+  <data name="InlineMember_RaisesAnEvent" xml:space="preserve">
+    <value>'{0}' raises an event {1}, which only its own class can raise.</value>
+  </data>
+  <data name="InlineMember_UnsupportedConstruct" xml:space="preserve">
+    <value>'{0}' holds a value that cannot be reset or released at the call.</value>
+  </data>
+  <data name="InlineMember_UnsupportedParameter" xml:space="preserve">
+    <value>The parameter '{0}' cannot be given its argument at the call {1}.</value>
+  </data>
+  <data name="InlineMember_UnsupportedSite" xml:space="preserve">
+    <value>The call {1} is where the body cannot be written: on a line with another statement, in a loop or Case condition, or in an ElseIf.</value>
+  </data>
+  <data name="InlineMember_ArgumentsDoNotMap" xml:space="preserve">
+    <value>The arguments of the call {1} do not match the parameters of '{0}'.</value>
+  </data>
+  <data name="InlineMember_ByRefElement" xml:space="preserve">
+    <value>The ByRef parameter '{0}' is given an element or a field {1}, which no variable at the call stands for.</value>
+  </data>
+  <data name="InlineMember_OtherProject" xml:space="preserve">
+    <value>The call is in a project other than that of '{0}'.</value>
+  </data>
+  <data name="InlineMember_PrivateToItsModule" xml:space="preserve">
+    <value>'{0}' {1} is Private to the module of the member, and the call is in another module.</value>
+  </data>
+  <data name="InlineMember_OptionCompare" xml:space="preserve">
+    <value>The call {1} is in a module whose Option Compare differs from the module of '{0}'.</value>
+  </data>
+  <data name="InlineMember_OptionBase" xml:space="preserve">
+    <value>The call {1} is in a module whose Option Base differs, and '{0}' declares an array without a lower bound or calls Array.</value>
+  </data>
+  <data name="InlineMember_ConditionalConstants" xml:space="preserve">
+    <value>The call {1} is in a module whose #Const directives differ, and the body of '{0}' has an #If block.</value>
+  </data>
+  <data name="InlineMember_HeldThroughAnError" xml:space="preserve">
+    <value>'{0}' may hold an object when an error leaves the body {1}: its Class_Terminate would run later.</value>
+  </data>
+  <data name="InlineMember_CallerResumesNext" xml:space="preserve">
+    <value>The call {1} is under On Error Resume Next, and the body of '{0}' can raise an error: the rest of the body would run after it.</value>
+  </data>
+  <data name="InlineMember_Captured" xml:space="preserve">
+    <value>'{0}' {1} would refer to the caller's declaration of that name.</value>
+  </data>
+  <data name="InlineMember_Rebound" xml:space="preserve">
+    <value>Inlined at the call {1}, '{0}' would refer to a declaration other than the one it refers to where it is written.</value>
+  </data>
+  <data name="InlineMember_EvaluationOrder" xml:space="preserve">
+    <value>The statement of the call evaluates something else {1} that the body could change, or that has an effect: the body would run first.</value>
+  </data>
+  <data name="InlineMember_CallerHandlerResumes" xml:space="preserve">
+    <value>An error of the body of '{0}' is caught by a handler of the caller that resumes {1}: it would resume inside the body.</value>
+  </data>
+  <data name="InlineMember_ReleaseOrder" xml:space="preserve">
+    <value>Several locals of '{0}' may hold an object when the body ends, and the order their Class_Terminate run in is not known.</value>
+  </data>
+  <data name="InlineMember_NotVerified" xml:space="preserve">
+    <value>Inlined, the call {1} would not do what it did: {0}</value>
+  </data>
+  <data name="InlineMember_Verification_DoesNotParse" xml:space="preserve">
+    <value>the edited module does not parse.</value>
+  </data>
+  <data name="InlineMember_Verification_Retargeted" xml:space="preserve">
+    <value>'{0}' {1} would refer to something else.</value>
+  </data>
+  <data name="InlineMember_Verification_Problem" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+</root>

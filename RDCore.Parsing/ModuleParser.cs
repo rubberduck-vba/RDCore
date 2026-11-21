@@ -309,6 +309,13 @@ public partial class ModuleParser(
     // the segments of the module, or none - counted by why - when it must be parsed whole.
     private static IReadOnlyList<ModuleSegmentScanner.Segment>? Segments(string sanitized, SegmentationStatistics? statistics)
     {
+        // a segment is whole lines, which a U+2028 or a U+2029 does not end.
+        if (HasUnicodeLineSeparator(sanitized))
+        {
+            statistics?.Count(SegmentationStatistics.Path.UnicodeLineSeparator);
+            return null;
+        }
+
         var segments = ModuleSegmentScanner.Scan(sanitized, out var giveUp);
         if (segments is { Count: > 1 })
         {
@@ -399,19 +406,45 @@ public partial class ModuleParser(
             && members.Any(member => member.Start.CompareTo(error.Location.Range.Start) <= 0 && error.Location.Range.Start.CompareTo(member.End) <= 0));
     }
 
-    // the source with the lines of the alternatives' branches blank, as a directive is: every position stays where it is.
+    // the source with the physical lines of the alternatives' branches blank, as a directive is: every position stays where it is.
     private static string WithoutBranches(string sanitized, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives)
     {
-        var lines = sanitized.Split('\n');
+        var starts = PhysicalLineStarts(sanitized);
+        var blanked = sanitized.ToCharArray();
         foreach (var alternative in alternatives)
         {
-            for (var line = alternative.StartLine; line < alternative.EndLine && line < lines.Length; line++)
+            for (var line = alternative.StartLine; line < alternative.EndLine && line < starts.Count; line++)
             {
-                lines[line] = new string(' ', lines[line].Length);
+                Array.Fill(blanked, ' ', starts[line], PhysicalLineEnd(sanitized, starts, line) - starts[line]);
             }
         }
 
-        return string.Join('\n', lines);
+        return new string(blanked);
+    }
+
+    // where each physical line of the source starts (PhysicalLineEnds), in the order of the lines.
+    private static List<int> PhysicalLineStarts(string source)
+    {
+        var starts = new List<int> { 0 };
+        for (var index = 0; index < source.Length; index++)
+        {
+            if (PhysicalLineEnds.Contains(source[index]))
+            {
+                starts.Add(index + 1);
+            }
+        }
+
+        return starts;
+    }
+
+    // where a physical line's text ends: at the line end after it, or at the end of the source.
+    private static int PhysicalLineEnd(string source, List<int> starts, int line) => line + 1 < starts.Count ? starts[line + 1] - 1 : source.Length;
+
+    // the position of an offset of the source the parse reads (NormalizeSource): its line counted where LSP 3.17 counts one, at a \n alone.
+    private static SourcePosition PositionOf(string source, int offset)
+    {
+        var before = source.AsSpan(0, offset);
+        return new SourcePosition(before.Count('\n'), offset - (before.LastIndexOf('\n') + 1));
     }
 
     // each alternative's branch parsed on its own, closed by the statement its header opens, where it stands in the module. The header - the procedure the
@@ -422,14 +455,18 @@ public partial class ModuleParser(
     private ModuleNode WithHeaderAlternatives(Uri uri, string content, ModuleNode ast, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives,
         SourcePosition anchorOffset, ImmutableArray<int> rootLineage, ErrorListener errorListener, ref ImmutableArray<SyntaxNode> trivia, CancellationToken token)
     {
-        var lines = content.Split('\n');
+        // the scanner counts physical lines, which a U+2028 or a U+2029 ends too: a branch starts where its physical line does, on the line a position counts.
+        var starts = PhysicalLineStarts(content);
+        SourcePosition LineStart(int line) => PositionOf(content, starts[Math.Min(line, starts.Count - 1)]).AnchoredAt(anchorOffset);
         var children = ast.Children.ToList();
         var ofBranches = new HashSet<SyntaxNodeId>();
         for (var index = 0; index < alternatives.Count; index++)
         {
             var alternative = alternatives[index];
-            var branch = string.Join('\n', lines[alternative.StartLine..Math.Min(alternative.EndLine, lines.Length)]);
-            var start = new SourcePosition(alternative.StartLine, 0).AnchoredAt(anchorOffset);
+            var from = starts[Math.Min(alternative.StartLine, starts.Count - 1)];
+            var to = alternative.EndLine > alternative.StartLine ? PhysicalLineEnd(content, starts, Math.Min(alternative.EndLine, starts.Count) - 1) : from;
+            var branch = content[from..Math.Max(from, to)];
+            var start = LineStart(alternative.StartLine);
             var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index), statistics: null, token);
             errorListener.AddRange(parsed.SyntaxErrors);
             trivia = trivia.AddRange(parsed.Trivia);
@@ -450,8 +487,8 @@ public partial class ModuleParser(
 
             // the procedure the block opens is the one the main pass read in the branch it read: the last that starts in it, the main branch too holding
             // whatever it holds before its header.
-            var mainStart = new SourcePosition(alternative.MainStartLine, 0).AnchoredAt(anchorOffset);
-            var mainEnd = new SourcePosition(alternative.MainEndLine, 0).AnchoredAt(anchorOffset);
+            var mainStart = LineStart(alternative.MainStartLine);
+            var mainEnd = LineStart(alternative.MainEndLine);
             var found = children.FindLastIndex(child => IsProcedure(child) && !ofBranches.Contains(child.Identity)
                 && child.SourceLocation.Range.Start.CompareTo(mainStart) >= 0 && child.SourceLocation.Range.Start.CompareTo(mainEnd) < 0);
             // the main pass did not read the procedure, which only a syntax error of its own keeps it from doing: that error is the module's already.
@@ -483,10 +520,9 @@ public partial class ModuleParser(
     private static ModuleNode EmptyModule(Uri uri, SourceRange wholeText)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, wholeText), []);
 
-    // ANTLR's input stream and the precompiler-line regexes (RegexOptions.Multiline) only treat \n as
-    // a line boundary, and a leading BOM would land in column 0 of the first token. Fold every line
-    // ending to \n and drop one leading BOM so locations and #-directive detection hold regardless of
-    // how the client saved the file.
+    // a line ends where LSP 3.17 ends one, at a CR, a LF or a CRLF, and the parse reads each as a \n: ANTLR counts a line only at a \n, so the positions of
+    // the tree are the ones a client counts. A U+2028 or a U+2029 ends a physical line too (MS-VBAL §3.2.1) and is left as it is: the lexer reads it as a
+    // line terminator, and ANTLR counts it as a character of its line, as LSP does. A leading BOM is dropped, so that the first token is in column 0.
     private static string NormalizeSource(string content)
     {
         if (string.IsNullOrEmpty(content))
@@ -501,10 +537,14 @@ public partial class ModuleParser(
 
         return content
             .Replace("\r\n", "\n")
-            .Replace('\r', '\n')
-            .Replace('\u2028', '\n')
-            .Replace('\u2029', '\n');
+            .Replace('\r', '\n');
     }
+
+    // the physical line ends of the source the parse reads (NormalizeSource): a \n, which ends a position's line too, and a U+2028 or a U+2029, which do not.
+    internal const string PhysicalLineEnds = "\n\u2028\u2029";
+
+    // whether the source has a physical line end that does not end the line a position counts.
+    private static bool HasUnicodeLineSeparator(string source) => source.AsSpan().IndexOfAny('\u2028', '\u2029') >= 0;
 
     private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ISyntaxNodeProvider[] listeners, SourcePosition anchorOffset, CancellationToken token)
     {
@@ -883,7 +923,7 @@ public partial class ModuleParser(
         {
             for (var i = index; i < index + length; i++)
             {
-                if (text[i] != '\n')
+                if (!PhysicalLineEnds.Contains(text[i]))
                 {
                     text[i] = ' ';
                 }
@@ -893,23 +933,23 @@ public partial class ModuleParser(
         return new string(text);
     }
 
-    // the text with every character but the line breaks a space, so that what is left of it is where it was.
+    // the text with every character but the physical line ends a space, so that what is left of it is where it was.
     private static string Blanked(string text)
         => string.Create(text.Length, text, (blanked, source) =>
         {
             for (var i = 0; i < source.Length; i++)
             {
-                blanked[i] = source[i] == '\n' ? '\n' : ' ';
+                blanked[i] = PhysicalLineEnds.Contains(source[i]) ? source[i] : ' ';
             }
         });
 
     // a directive is a logical line that starts with '#': the physical lines a line-continuation joins to it are its own (MS-VBAL 3.2.2, 3.4), and a '#' that
-    // starts the continuation of another line is not one (`d = _` / `#1/2/2000#`).
-    [GeneratedRegex(@"(?<![ \t]_[ \t]*\n)^[ \t]*#(?:[^\n]*[ \t]_[ \t]*\n)*[^\n]*", RegexOptions.Multiline)]
+    // starts the continuation of another line is not one (`d = _` / `#1/2/2000#`). A physical line starts the source, or follows a \n, a U+2028 or a U+2029.
+    [GeneratedRegex(@"(?<![ \t]_[ \t]*[\n\u2028\u2029])(?<![^\n\u2028\u2029])[ \t]*#(?:[^\n\u2028\u2029]*[ \t]_[ \t]*[\n\u2028\u2029])*[^\n\u2028\u2029]*")]
     private static partial Regex PrecompilerNodePattern();
 
     // a #If directive, whose branches are both in the source the grammar reads.
-    [GeneratedRegex(@"^[ \t]*#If\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<![^\n\u2028\u2029])[ \t]*#If\b", RegexOptions.IgnoreCase)]
     private static partial Regex ConditionalBlockPattern();
 
     // MS-VBA joins at most 25 physical lines into one logical line: 24 line-continuations in a row, and the 25th is a syntax error, "Too many line continuations"
@@ -920,22 +960,30 @@ public partial class ModuleParser(
     private static void ReportTooManyLineContinuations(string content, Uri uri, SourcePosition anchorOffset, ErrorListener errors)
     {
         var run = 0;
-        var line = 0;
-        foreach (var physical in content.AsSpan().EnumerateLines())
+        var (line, lineStart) = (0, 0);
+        for (var physicalStart = 0; physicalStart <= content.Length;)
         {
-            // a line-continuation is an underscore at the end of the line, after a space or a tab.
-            var trimmed = physical.TrimEnd(" \t");
+            var length = content.AsSpan(physicalStart).IndexOfAny(PhysicalLineEnds) is var ending and >= 0 ? ending : content.Length - physicalStart;
+
+            // a line-continuation is an underscore at the end of the physical line, after a space or a tab.
+            var trimmed = content.AsSpan(physicalStart, length).TrimEnd(" \t");
             var continuation = trimmed.Length >= 2 && trimmed[^1] == '_' && trimmed[^2] is ' ' or '\t';
             run = continuation ? run + 1 : 0;
             if (run == MaxLineContinuations + 1)
             {
-                var at = trimmed.Length - 1;
+                var at = physicalStart - lineStart + trimmed.Length - 1;
                 var start = new SourcePosition(line, at).AnchoredAt(anchorOffset);
                 var end = new SourcePosition(line, at + 1).AnchoredAt(anchorOffset);
                 errors.Report(new SourceLocation(uri, new(start, end)), VBCompileErrorId.SyntaxError, Exceptions.VBCompileError_TooManyLineContinuations_Verbose);
             }
 
-            line++;
+            // the line a position counts goes on past a U+2028 or a U+2029.
+            if (physicalStart + length < content.Length && content[physicalStart + length] == '\n')
+            {
+                (line, lineStart) = (line + 1, physicalStart + length + 1);
+            }
+
+            physicalStart += length + 1;
         }
     }
 

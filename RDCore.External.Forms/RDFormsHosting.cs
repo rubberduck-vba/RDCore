@@ -113,6 +113,13 @@ public static class RDFormsHosting
 
         public void Release(object handle) => ServerOf(handle).Release(handle);
 
+        // either server can hold an object of the session.
+        public void SessionObjectChanged(SessionObjectReference changed)
+        {
+            forms.SessionObjectChanged(changed);
+            platform.SessionObjectChanged(changed);
+        }
+
         private IAutomationServer ServerOf(object handle) => forms.Owns(handle) ? forms : platform;
     }
 
@@ -135,6 +142,19 @@ public static class RDFormsHosting
                 if (visualBasic is not null)
                 {
                     visualBasic.KeepSystemTheme = value;
+                }
+            }
+        }
+
+        // RDForms' windows are an application the platform names; a UserForm's are the Microsoft Forms host's own.
+        public string ApplicationName
+        {
+            get => visualBasic?.ApplicationName ?? string.Empty;
+            set
+            {
+                if (visualBasic is not null)
+                {
+                    visualBasic.ApplicationName = value;
                 }
             }
         }

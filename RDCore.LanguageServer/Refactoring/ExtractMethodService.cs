@@ -612,7 +612,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             end++;
         }
 
-        var text = new ExtractionText(before);
+        var text = TextLines.Of(before);
         return new RefactorTextEdit
         {
             Range = new SourceRange(text.PositionOf(start), text.PositionOf(before.Length - end)),
@@ -700,7 +700,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var source = new ExtractionSource(tree, procedure.Declaration, procedure.Model.Procedure, module.Source, analysis.Scopes);
         if (kind == RefactoringKinds.ConvertGoSub)
         {
-            var label = LabelAt(procedure.Declaration, range.Start, new ExtractionText(module.Source))
+            var label = LabelAt(procedure.Declaration, range.Start, TextLines.Of(module.Source))
                 ?? ReturningLabelAt(procedure.Declaration, range.Start, candidate => GoSubRoutine.TryFind(
                     procedure.Declaration, procedure.Instructions, procedure.Graph, analysis.Directives, candidate, out var found, out _) ? found!.Routine : null);
             ExtractionSelection? routine = null;
@@ -732,7 +732,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
 
     // the label of the GoSub routine a position is on: a label on the position's line, or the one a GoSub there names; null when it is on neither.
-    private static string? LabelAt(MemberDeclarationNode procedure, SourcePosition position, ExtractionText text)
+    private static string? LabelAt(MemberDeclarationNode procedure, SourcePosition position, TextLines text)
     {
         var nodes = procedure.Descendants().ToArray();
         if (nodes.OfType<LineLabelNode>().FirstOrDefault(label => label.SourceLocation.Range.Start.Line == position.Line) is { } written)
@@ -891,7 +891,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         public string Where(ExtractionDuplicate duplicate)
         {
             var range = duplicate.Plan.Selection.Range;
-            var first = new ExtractionText(duplicate.Source.Text).Of(range).Split('\n')[0].Trim();
+            var first = TextLines.Of(duplicate.Source.Text).Of(range).Split('\n')[0].Trim();
             return $"{RenameWorkspace.Locator(Part)(duplicate.Module, range.Start)}: {first}";
         }
 

@@ -34,11 +34,12 @@ internal static class MachineExternal
     {
         var options = Options.Create(new SdkAppOptions());
         var host = _host = new ExternalHost(
-            () => new ChildConnection(
-                new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, NullLogger<RDCoreServerProcess>.Instance),
-                new RDCorePlatformDefaultTransportLayer(options),
-                NullLogger<ChildConnection>.Instance),
-            Executable,
+            () => new ExternalHostProcess(
+                new ChildConnection(
+                    new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, NullLogger<RDCoreServerProcess>.Instance),
+                    new RDCorePlatformDefaultTransportLayer(options),
+                    NullLogger<ChildConnection>.Instance),
+                Executable),
             NullLogger<ExternalHost>.Instance);
         var servers = _servers = new RemoteAutomationServer(host);
         return new ExternalWorld(servers, new RemoteNativeLibraryHost(host))

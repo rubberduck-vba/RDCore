@@ -217,6 +217,15 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     /// </summary>
     /// <param name="source">The handle of the object that raises the events.</param>
     void Unadvise(object source);
+
+    /// <summary>
+    /// An object of the session that the server holds changed: what the server's side draws of it is made again from what <paramref name="changed"/> carries,
+    /// a font's values (<see cref="SessionObjectReference.Font"/>). A server that holds no such object, or draws none, does nothing.
+    /// </summary>
+    /// <param name="changed">The object, with what it holds now.</param>
+    void SessionObjectChanged(SessionObjectReference changed)
+    {
+    }
 }
 
 /// <summary>

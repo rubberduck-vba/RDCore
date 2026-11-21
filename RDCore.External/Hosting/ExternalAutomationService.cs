@@ -63,6 +63,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<AutomationAdviseParams, ExternalDoneResult>(ExternalProtocol.AutomationAdvise, Advise);
         channel.Handle<AutomationUnadviseParams, ExternalDoneResult>(ExternalProtocol.AutomationUnadvise, Unadvise);
         channel.Handle<AutomationReleaseParams, ExternalDoneResult>(ExternalProtocol.AutomationRelease, Release);
+        channel.Handle<SessionChangedParams, ExternalDoneResult>(ExternalProtocol.SessionChanged, SessionChanged);
         channel.Handle<FormCreateParams, AutomationObjectResult>(ExternalProtocol.FormCreate, CreateForm);
         channel.Handle<FormShowParams, ExternalDoneResult>(ExternalProtocol.FormShow, ShowForm);
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormHide, HideForm);
@@ -76,6 +77,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormInputBoxParams, FormInputBoxResult>(ExternalProtocol.FormInputBox, InputBox);
         channel.Handle<FormCloseDialogParams, ExternalDoneResult>(ExternalProtocol.FormCloseDialog, CloseDialog);
         channel.Handle<FormKeepSystemThemeParams, ExternalDoneResult>(ExternalProtocol.FormKeepSystemTheme, KeepSystemTheme);
+        channel.Handle<FormApplicationNameParams, ExternalDoneResult>(ExternalProtocol.FormApplicationName, ApplicationName);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
         InvokeOnClient = call => channel.CallAsync<SessionInvokeParams, SessionInvokeResult>(ExternalProtocol.SessionInvoke, call);
         ReleaseOnClient = released => channel.CallAsync<SessionReleaseParams, ExternalDoneResult>(ExternalProtocol.SessionRelease, released);
@@ -92,7 +94,8 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     public Func<SessionReleaseParams, Task<ExternalDoneResult>>? ReleaseOnClient { get; set; }
 
     // an object of the environment host's session, as this end gives it to a server: the server's side makes the stand-in, whose calls go back over the channel.
-    private object SessionObjectOf(string sessionObject) => new SessionObjectReference(sessionObject, _sessionObjects ??= new ForwardingSessionObjectHost(this));
+    private SessionObjectReference SessionObjectOf(string sessionObject)
+        => new(sessionObject, _sessionObjects ??= new ForwardingSessionObjectHost(this));
 
     private ISessionObjectHost? _sessionObjects;
 
@@ -291,6 +294,16 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormApplicationName"/>.
+    /// </summary>
+    /// <param name="request">The request, which names the program whose forms the windows show.</param>
+    public ExternalDoneResult ApplicationName(FormApplicationNameParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.ApplicationName = request.Name;
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
     /// <summary>Answers <see cref="ExternalProtocol.FormIsShown"/>.</summary>
     public FormIsShownResult IsFormShown(FormParams request)
         => Answer(request.HandlingEvent, () => new FormIsShownResult { IsShown = _forms.IsShown(_handles.ObjectOf(request.Target)) }, Failed<FormIsShownResult>);
@@ -400,6 +413,16 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
             platform.Release(released!);
         }
 
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.SessionChanged"/>.
+    /// </summary>
+    /// <param name="request">The object of the session, with what it holds now.</param>
+    public ExternalDoneResult SessionChanged(SessionChangedParams request) => Answer(request.HandlingEvent, () =>
+    {
+        platform.SessionObjectChanged(SessionObjectOf(request.SessionObject) with { Font = request.Font });
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 

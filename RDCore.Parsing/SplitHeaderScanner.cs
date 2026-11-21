@@ -27,24 +27,26 @@ namespace RDCore.Parsing;
 internal static partial class SplitHeaderScanner
 {
     /// <summary>
-    /// A branch that is an alternative of another: its lines, from the first after its directive to the next directive, and the statement that closes the
-    /// procedure its header opens.
+    /// A branch that is an alternative of another: its physical lines (MS-VBAL §3.2.1), from the first after its directive to the next directive, and the
+    /// statement that closes the procedure its header opens.
     /// </summary>
-    /// <param name="StartLine">The first line of the branch, after its directive.</param>
-    /// <param name="EndLine">The line of the next directive of its block, which is not the branch's.</param>
+    /// <param name="StartLine">The first physical line of the branch, after its directive.</param>
+    /// <param name="EndLine">The physical line of the next directive of its block, which is not the branch's.</param>
     /// <param name="Closer">The statement that closes the procedure the branch leaves open: <c>End Sub</c>, <c>End Function</c>, <c>End Property</c>.</param>
-    /// <param name="MainStartLine">The first line of the branch the main parse reads, whose header this one is an alternative of.</param>
-    /// <param name="MainEndLine">The line of the directive after the branch the main parse reads.</param>
+    /// <param name="MainStartLine">The first physical line of the branch the main parse reads, whose header this one is an alternative of.</param>
+    /// <param name="MainEndLine">The physical line of the directive after the branch the main parse reads.</param>
     public readonly record struct Alternative(int StartLine, int EndLine, string Closer, int MainStartLine, int MainEndLine);
 
     /// <summary>
     /// The branches of <paramref name="content"/> that are alternatives of a procedure header the main parse reads, in source order.
     /// </summary>
-    /// <param name="content">The module's source, its line endings <c>\n</c>.</param>
+    /// <param name="content">
+    /// The module's source, its physical lines ended by a <c>\n</c>, a U+2028 or a U+2029 (<see cref="ModuleParser.PhysicalLineEnds"/>).
+    /// </param>
     /// <returns>None when no block's branches each open a procedure, or when its directives do not nest.</returns>
     public static IReadOnlyList<Alternative> Find(string content)
     {
-        var lines = content.Split('\n');
+        var lines = content.Split(ModuleParser.PhysicalLineEnds.ToCharArray());
         var module = new Branch(0, lines.Length);
         var open = new Stack<(Block Block, Branch Branch)>();
         var current = module;

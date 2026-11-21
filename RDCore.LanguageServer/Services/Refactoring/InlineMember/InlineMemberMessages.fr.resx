@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Inline Member : {0} est le membre, ou ce dont parle un refus (une instruction, un paramètre, un nom) ; {1}, où. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="InlineMember_Title" xml:space="preserve">
+    <value>Incorporer « {0} »</value>
+  </data>
+  <data name="InlineMember_TitleAll" xml:space="preserve">
+    <value>Incorporer chaque appel de « {0} »</value>
+  </data>
+  <data name="InlineMember_Sites" xml:space="preserve">
+    <value>Appels</value>
+  </data>
+  <data name="InlineMember_SitesDescription" xml:space="preserve">
+    <value>Les appels de « {0} » que son corps remplace.</value>
+  </data>
+  <data name="InlineMember_Site" xml:space="preserve">
+    <value>Incorporer cet appel</value>
+  </data>
+  <data name="InlineMember_Statement" xml:space="preserve">
+    <value>Le corps remplace l'appel.</value>
+  </data>
+  <data name="InlineMember_Hoisted" xml:space="preserve">
+    <value>Le corps est écrit avant l'instruction, et son résultat à la place de l'appel.</value>
+  </data>
+  <data name="InlineMember_Expression" xml:space="preserve">
+    <value>L'appel est remplacé par sa valeur.</value>
+  </data>
+  <data name="InlineMember_Remove" xml:space="preserve">
+    <value>Supprimer « {0} »</value>
+  </data>
+  <data name="InlineMember_RemoveDescription" xml:space="preserve">
+    <value>Chaque référence à « {0} » est un appel incorporé.</value>
+  </data>
+  <data name="InlineMember_Removal_Unticked" xml:space="preserve">
+    <value>« {0} » est Public : un projet qui référence celui-ci, ou une macro de l'hôte, peut l'appeler.</value>
+  </data>
+  <data name="InlineMember_Removal_ReferenceLeft" xml:space="preserve">
+    <value>« {0} » est conservé : il est référencé {1} autrement que par un appel incorporé.</value>
+  </data>
+  <data name="InlineMember_Removal_Unresolved" xml:space="preserve">
+    <value>« {0} » est conservé : un nom non résolu {1} pourrait le désigner.</value>
+  </data>
+  <data name="InlineMember_Removal_CalledByName" xml:space="preserve">
+    <value>« {0} » est conservé : il est appelé par son nom {1}.</value>
+  </data>
+  <data name="InlineMember_Removal_LateBound" xml:space="preserve">
+    <value>« {0} » est conservé : un appel à liaison tardive {1} pourrait l'atteindre.</value>
+  </data>
+  <data name="InlineMember_UnknownAnswer" xml:space="preserve">
+    <value>La réponse « {0} » ne correspond à aucun choix d'Inline Member.</value>
+  </data>
+  <data name="InlineMember_NothingInlined" xml:space="preserve">
+    <value>Aucun appel de « {0} » n'est incorporé.</value>
+  </data>
+  <data name="InlineMember_NotAProcedure" xml:space="preserve">
+    <value>« {0} » n'est pas une procédure avec un corps que l'espace de travail déclare.</value>
+  </data>
+  <data name="InlineMember_PropertyAssignment" xml:space="preserve">
+    <value>« {0} » est un Property Let ou un Property Set, dont l'appel est une affectation.</value>
+  </data>
+  <data name="InlineMember_CalledByTheRuntime" xml:space="preserve">
+    <value>« {0} » est appelé par l'environnement d'exécution ou l'hôte : un gestionnaire d'événement, un membre implémenté ou un point d'entrée.</value>
+  </data>
+  <data name="InlineMember_Static" xml:space="preserve">
+    <value>« {0} » garde des valeurs d'un appel à l'autre : il est Static, ou déclare une variable locale Static.</value>
+  </data>
+  <data name="InlineMember_Recursive" xml:space="preserve">
+    <value>« {0} » s'appelle lui-même, directement ou par les procédures qu'il appelle.</value>
+  </data>
+  <data name="InlineMember_GoSub" xml:space="preserve">
+    <value>Le corps de « {0} » contient un GoSub ou un Return {1}. Convertissez d'abord le GoSub en procédure.</value>
+  </data>
+  <data name="InlineMember_ErrorHandling" xml:space="preserve">
+    <value>Le corps de « {0} » contient une instruction On Error ou Resume {1}, qui s'appliquerait à l'appelant.</value>
+  </data>
+  <data name="InlineMember_RaisesAnEvent" xml:space="preserve">
+    <value>« {0} » déclenche un événement {1}, que seule sa propre classe peut déclencher.</value>
+  </data>
+  <data name="InlineMember_UnsupportedConstruct" xml:space="preserve">
+    <value>« {0} » contient une valeur qui ne peut être réinitialisée ni libérée à l'appel.</value>
+  </data>
+  <data name="InlineMember_UnsupportedParameter" xml:space="preserve">
+    <value>Le paramètre « {0} » ne peut recevoir son argument à l'appel {1}.</value>
+  </data>
+  <data name="InlineMember_UnsupportedSite" xml:space="preserve">
+    <value>L'appel {1} est là où le corps ne peut être écrit : sur une ligne avec une autre instruction, dans une condition de boucle ou de Case, ou dans un ElseIf.</value>
+  </data>
+  <data name="InlineMember_ArgumentsDoNotMap" xml:space="preserve">
+    <value>Les arguments de l'appel {1} ne correspondent pas aux paramètres de « {0} ».</value>
+  </data>
+  <data name="InlineMember_ByRefElement" xml:space="preserve">
+    <value>Le paramètre ByRef « {0} » reçoit un élément ou un champ {1}, qu'aucune variable de l'appel ne représente.</value>
+  </data>
+  <data name="InlineMember_OtherProject" xml:space="preserve">
+    <value>L'appel est dans un autre projet que celui de « {0} ».</value>
+  </data>
+  <data name="InlineMember_PrivateToItsModule" xml:space="preserve">
+    <value>« {0} » {1} est Private dans le module du membre, et l'appel est dans un autre module.</value>
+  </data>
+  <data name="InlineMember_OptionCompare" xml:space="preserve">
+    <value>L'appel {1} est dans un module dont l'Option Compare diffère de celle du module de « {0} ».</value>
+  </data>
+  <data name="InlineMember_OptionBase" xml:space="preserve">
+    <value>L'appel {1} est dans un module dont l'Option Base diffère, et « {0} » déclare un tableau sans borne inférieure ou appelle Array.</value>
+  </data>
+  <data name="InlineMember_ConditionalConstants" xml:space="preserve">
+    <value>L'appel {1} est dans un module dont les directives #Const diffèrent, et le corps de « {0} » contient un bloc #If.</value>
+  </data>
+  <data name="InlineMember_HeldThroughAnError" xml:space="preserve">
+    <value>« {0} » peut contenir un objet quand une erreur quitte le corps {1} : son Class_Terminate s'exécuterait plus tard.</value>
+  </data>
+  <data name="InlineMember_CallerResumesNext" xml:space="preserve">
+    <value>L'appel {1} est sous On Error Resume Next, et le corps de « {0} » peut lever une erreur : le reste du corps s'exécuterait après elle.</value>
+  </data>
+  <data name="InlineMember_Captured" xml:space="preserve">
+    <value>« {0} » {1} désignerait la déclaration de ce nom de l'appelant.</value>
+  </data>
+  <data name="InlineMember_Rebound" xml:space="preserve">
+    <value>Incorporé à l'appel {1}, « {0} » désignerait une autre déclaration que celle qu'il désigne là où il est écrit.</value>
+  </data>
+  <data name="InlineMember_EvaluationOrder" xml:space="preserve">
+    <value>L'instruction de l'appel évalue autre chose {1} que le corps pourrait modifier, ou qui a un effet : le corps s'exécuterait d'abord.</value>
+  </data>
+  <data name="InlineMember_CallerHandlerResumes" xml:space="preserve">
+    <value>Une erreur du corps de « {0} » est interceptée par un gestionnaire de l'appelant qui reprend {1} : il reprendrait dans le corps.</value>
+  </data>
+  <data name="InlineMember_ReleaseOrder" xml:space="preserve">
+    <value>Plusieurs variables locales de « {0} » peuvent contenir un objet à la fin du corps, et l'ordre d'exécution de leurs Class_Terminate n'est pas connu.</value>
+  </data>
+  <data name="InlineMember_NotVerified" xml:space="preserve">
+    <value>Incorporé, l'appel {1} ne ferait pas ce qu'il faisait : {0}</value>
+  </data>
+  <data name="InlineMember_Verification_DoesNotParse" xml:space="preserve">
+    <value>le module modifié ne s'analyse pas.</value>
+  </data>
+  <data name="InlineMember_Verification_Retargeted" xml:space="preserve">
+    <value>« {0} » {1} désignerait autre chose.</value>
+  </data>
+  <data name="InlineMember_Verification_Problem" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+</root>
