@@ -952,14 +952,16 @@ public sealed class RDFormsFormHostTests
 
             Assert.AreEqual("Ledger", host.ApplicationName);
             Assert.AreEqual("Ledger", ApplicationNameOf(form));
+
+            host.ApplicationName = string.Empty;
+
+            Assert.AreEqual(RDCore.Forms.Avalonia.RDFormsApplication.DefaultName, ApplicationNameOf(form));
         }
         finally
         {
             host.ApplicationName = string.Empty;
             host.Destroy(form);
         }
-
-        Assert.AreEqual(RDCore.Forms.Avalonia.RDFormsApplication.DefaultName, RDFormsUI.Run(new RDFormsProgram(), () => RDFormsUI.ApplicationName));
     }
 
     // an external host's forms: RDForms' windows are named, and a UserForm's host, whose windows are Microsoft Forms' own, is never told the name.
