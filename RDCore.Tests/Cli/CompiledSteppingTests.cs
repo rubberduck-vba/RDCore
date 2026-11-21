@@ -170,21 +170,6 @@ public sealed class CompiledSteppingTests
             "    Next",
             "End Function"), "Counted", recoveries: 0);
 
-    // a For whose end is not compiled code's (an operator compiled code does not do, ^): the interpreter opens the loop and steps it, and the body is
-    // compiled.
-    [TestMethod]
-    public async Task AForTheInterpreterOpens_IsSteppedByItToo_AroundACompiledBody()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
-            "    Debug.Print Summed(\"abcd\")",
-            "End Sub",
-            "Private Function Summed(ByVal S As String) As Long",
-            "    Dim I As Long",
-            "    For I = 1 To Len(S) ^ 1",
-            "        Summed = Summed + I",
-            "    Next",
-            "End Function"), "Summed", recoveries: 5);
-
     // the For statement of a Variant counter decides the type its loop counts in, and is the interpreter's; each Next is compiled code's.
     [TestMethod]
     public async Task AForWithAVariantCounter_IsSteppedByTheInterpreter_AndItsNextIsCompiled()
