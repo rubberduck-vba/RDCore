@@ -160,6 +160,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("HungarianNotation_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Allow the name &apos;{0}&apos;.
+        /// </summary>
+        public static string AllowName_Fix {
+            get {
+                return ResourceManager.GetString("AllowName_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; handles an event, and is Public: it can be called from outside, which an event handler never should be. Make it Private..

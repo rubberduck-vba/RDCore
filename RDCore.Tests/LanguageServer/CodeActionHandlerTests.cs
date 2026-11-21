@@ -195,6 +195,39 @@ public sealed class CodeActionHandlerTests
         Assert.IsEmpty(await ActionsAsync(new Range(0, 7, 0, 14), [CodeActionKind.QuickFix], Coded(code, new Range(0, 7, 0, 14))));
     }
 
+    // a diagnostic of a name, whose fix adds the name to the names a rule allows. The code is one that cannot be disabled, so that its only action is the
+    // fix's.
+    private static Diagnostic Allowing(string name, Range range) => Coded("VBC00013", range) with
+    {
+        Data = new RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes
+        {
+            Setting = new RDCore.SDK.Extensibility.Diagnostics.SettingFix { Title = $"Allow {name}", Key = "Diagnostics.Rule.AllowedNames", Value = name },
+        }.ToData(),
+    };
+
+    [TestMethod]
+    public async Task AFixThatAddsAnItemToASetting_IsOfferedAsTheCommandThatAsksTheClientToAddItToTheUsersList()
+    {
+        ClientTakesListChanges();
+        var diagnostic = Allowing("x", new Range(1, 7, 1, 8));
+
+        var action = Assert.ContainsSingle(await ActionsAsync(new Range(1, 7, 1, 8), [CodeActionKind.QuickFix], diagnostic));
+
+        Assert.AreEqual("Allow x", action.Title);
+        Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
+        CollectionAssert.AreEqual(new[] { diagnostic }, action.Diagnostics!.ToArray());
+        Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
+        var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
+        Assert.AreEqual("Diagnostics.Rule.AllowedNames", (string?)change["key"]);
+        Assert.AreEqual("x", (string?)change["value"]);
+        Assert.AreEqual((int)RDCore.SDK.Platform.Protocol.SettingScope.Platform, (int?)change["scope"]);
+        Assert.IsFalse((bool?)change["remove"]);
+    }
+
+    [TestMethod]
+    public async Task AClientThatDoesNotTakeAChangeOfItsSettings_IsNotOfferedAFixThatAddsAnItemToASetting()
+        => Assert.IsEmpty(await ActionsAsync(new Range(1, 7, 1, 8), [CodeActionKind.QuickFix], Allowing("x", new Range(1, 7, 1, 8))));
+
     [TestMethod]
     public async Task AClientThatDoesNotTakeAChangeOfItsSettings_IsNotOfferedTheActionThatDisablesACode()
         => Assert.IsEmpty(await ActionsAsync(new Range(0, 7, 0, 14), [CodeActionKind.QuickFix], Coded("RDC01002", new Range(0, 7, 0, 14))));
