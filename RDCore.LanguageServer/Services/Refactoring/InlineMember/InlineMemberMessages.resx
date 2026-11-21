@@ -127,6 +127,9 @@
   <data name="InlineMember_Captured" xml:space="preserve">
     <value>'{0}' {1} would refer to the caller's declaration of that name.</value>
   </data>
+  <data name="InlineMember_Rebound" xml:space="preserve">
+    <value>Inlined at the call {1}, '{0}' would refer to another declaration than it does in the member.</value>
+  </data>
   <data name="InlineMember_EvaluationOrder" xml:space="preserve">
     <value>The statement of the call evaluates something else {1} that the body could change, or that has an effect: the body would run first.</value>
   </data>

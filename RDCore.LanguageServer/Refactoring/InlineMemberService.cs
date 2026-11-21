@@ -9,8 +9,11 @@ using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Refactoring;
@@ -78,7 +81,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
 
     public async Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourcePosition position, CancellationToken token)
     {
-        var (target, refusal) = await TargetAsync(documentUri, position, token);
+        var (target, refusal) = await TargetAsync(documentUri, position, token, tried: true);
         if (target is null)
         {
             return new RefactorPrepareResult { Notices = [Refused(null, refusal!, null)] };
@@ -167,7 +170,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             return new(null, InlineRefusal.Format("InlineMember_UnknownAnswer", null, unknown.Id));
         }
 
-        var (target, refusal) = await TargetAsync(documentUri, position, token);
+        var (target, refusal) = await TargetAsync(documentUri, position, token, tried: true);
         if (target is null)
         {
             return new(null, refusal!.ToMessage());
@@ -213,14 +216,23 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             }
 
             var key = site.Module.AbsoluteUri;
-            if (await EditedAsync(part, key, texts[key].Text, inlined.Edits, token) is not { } written)
+            var original = texts[key].Text;
+            if (await EditedAsync(part, key, original, inlined.Edits, token) is not { } written)
             {
                 return new(null, NotVerified(site, InlineRefusal.Format("InlineMember_Verification_DoesNotParse", null), locate));
             }
 
             texts[key] = written;
             edited.Add(key);
-            context = Recomposed(part, texts, edited) ?? context;
+            if (Recomposed(part, texts, edited) is { } recomposed)
+            {
+                if (Rebound(context, recomposed, site, original, written.Text, inlined) is { } rebound)
+                {
+                    return new(null, rebound.ToMessage(locate));
+                }
+
+                context = recomposed;
+            }
         }
 
         var calleeKey = target.Analysis.Module.AbsoluteUri;
@@ -291,7 +303,9 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
         RenameWorkspace.ProjectPart Part, RenameWorkspace.DocumentModule Document, Symbol Callee, MemberDeclarationNode Declaration,
         ExtractionModuleAnalysis Analysis, bool IsAll, SourceRange Range, IReadOnlyList<Site> Sites);
 
-    private async Task<(Target? Target, InlineRefusal? Refusal)> TargetAsync(Uri documentUri, SourcePosition position, CancellationToken token)
+    // with tried, each call is also inlined alone into its module, and refused when a name it writes would refer to another declaration there.
+    private async Task<(Target? Target, InlineRefusal? Refusal)> TargetAsync(
+        Uri documentUri, SourcePosition position, CancellationToken token, bool tried = false)
     {
         if (await rename.ComposeAsync(token) is not { } workspace || workspace.DocumentOf(documentUri) is not ({ } part, { } document))
         {
@@ -340,7 +354,77 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             var (inlined, refusal) = InlineCall.At(context, analysisOf, occurrence.Module, occurrence.Range.Start);
             return new Site($"{index}", occurrence.Module, occurrence.Range, inlined, refusal);
         }).ToList();
+        if (tried)
+        {
+            sites = await TriedAsync(part, sites, token);
+        }
+
         return (new Target(part, document, callee, procedure.Declaration, analysis, isAll, here.Range, sites), null);
+    }
+
+    // each call inlined alone into its module as it is; refused when a name it writes would refer to another declaration there. A call whose module does
+    // not parse once edited is left to the edit's own verification.
+    private async Task<List<Site>> TriedAsync(RenameWorkspace.ProjectPart part, IReadOnlyList<Site> sites, CancellationToken token)
+    {
+        var texts = part.Modules.ToDictionary(module => module.Module.AbsoluteUri, module => (Text: module.Source, module.Parse));
+        var tried = new List<Site>();
+        foreach (var site in sites)
+        {
+            var key = site.Module.AbsoluteUri;
+            if (site.Inlined is not { } inlined || await EditedAsync(part, key, texts[key].Text, inlined.Edits, token) is not { } written
+                || Recomposed(part, new Dictionary<string, (string Text, ModuleParseResult Parse)>(texts) { [key] = written }, new HashSet<string> { key })
+                    is not { } after)
+            {
+                tried.Add(site);
+                continue;
+            }
+
+            tried.Add(Rebound(part.Context, after, site, texts[key].Text, written.Text, inlined) is { } rebound
+                ? site with { Inlined = null, Refusal = rebound }
+                : site);
+        }
+
+        return tried;
+    }
+
+    // the simple names the call wrote into its module, bound again there: each refers to what it referred to in the member or at the call, or to a
+    // declaration the edit wrote. Within one procedure a simple name finds one declaration (MS-VBAL §5.6.10), so every declaration a name referred to must
+    // be that one. The refusal of the call otherwise.
+    private static InlineRefusal? Rebound(RenameContext before, RenameContext after, Site site, string original, string edited, InlinedCall inlined)
+    {
+        if (inlined.Names is not { } names || after.Modules.FirstOrDefault(module => module.Module.AbsoluteUri == site.Module.AbsoluteUri) is not { } module)
+        {
+            return null;
+        }
+
+        var difference = Difference(original, edited);
+        var lines = TextLines.Of(edited);
+        var start = difference.Range.Start;
+        var end = lines.PositionOf(lines.Offset(start) + difference.NewText.Length);
+        var expected = names.ToLookup(name => name.Name, name => name.Binding, StringComparer.OrdinalIgnoreCase);
+        var bindings = NameOccurrences.BindingsOf(after, module);
+        var members = module.Syntax.Descendants().OfType<MemberAccessExpressionNode>().Select(access => (SyntaxNode)access.Member)
+            .ToHashSet(ReferenceEqualityComparer.Instance);
+        foreach (var name in module.Syntax.Descendants().OfType<SimpleNameExpressionNode>())
+        {
+            var range = name.SourceLocation.Range;
+            if (members.Contains(name) || range.Start < start || end < range.End)
+            {
+                continue;
+            }
+
+            var bound = bindings(name);
+            var isWritten = bound is { } id && NameOccurrences.SymbolOf(after, id) is not null && NameOccurrences.SymbolOf(before, id) is null;
+            var was = expected[name.IdentifierName].Distinct().ToList();
+            if (isWritten || (was.Count > 0 ? was.All(binding => binding == bound) : bound is null))
+            {
+                continue;
+            }
+
+            return new(InlineRefusalKind.Rebound, name.IdentifierName, new SourceLocation(site.Module, site.Name));
+        }
+
+        return null;
     }
 
     private static InlineRemoval RemovalOf(Target target, IEnumerable<Site> inlined)

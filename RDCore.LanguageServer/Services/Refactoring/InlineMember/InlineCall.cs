@@ -32,7 +32,14 @@ namespace RDCore.LanguageServer.Services.Refactoring.InlineMember;
 /// <param name="Callee">The member.</param>
 /// <param name="Edits">The edits of <paramref name="Module"/>, unindented: the lines they write are indented by the module's formatting.</param>
 /// <param name="Form">How the call is written.</param>
-internal sealed record class InlinedCall(Uri Module, Symbol Callee, IReadOnlyList<RefactorTextEdit> Edits, InlineForm Form = InlineForm.Statement);
+/// <param name="Names">
+/// The simple names the edits write that are not the body's parameters and locals, nor the member's own name, with what each refers to: in the member for a
+/// name of the body, at the call for a name of the call's statement, the module for a qualification. Bound again in the edited module, each must refer to
+/// the same declaration.
+/// </param>
+internal sealed record class InlinedCall(
+    Uri Module, Symbol Callee, IReadOnlyList<RefactorTextEdit> Edits, InlineForm Form = InlineForm.Statement,
+    IReadOnlyList<(string Name, SemanticId? Binding)>? Names = null);
 
 /// <summary>
 /// How an inlined call is written.
@@ -485,6 +492,7 @@ internal static class InlineCall
         private readonly Func<ExpressionNode, SemanticId?> _bodyBindings = NameOccurrences.BindingsOf(context, source);
         private readonly LexicalScope _callerScope = NameOccurrences.ScopeOf(context, syntax, site.Statement.SourceLocation.Range.Start);
         private readonly List<(SourceRange Range, string NewText)> _qualified = [];
+        private readonly List<(string Name, SemanticId? Binding)> _qualifiers = [];
         private readonly List<string> _result = [];
         private readonly HashSet<string> _taken = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<SemanticId, string> _replacements = [];
@@ -523,11 +531,51 @@ internal static class InlineCall
                 [
                     new RefactorTextEdit { Range = new SourceRange(line, line), NewText = hoisted },
                     new RefactorTextEdit { Range = site.Call!.SourceLocation.Range, NewText = _replacements[callee.SemanticId] },
-                ], InlineForm.Hoisted), null);
+                ], InlineForm.Hoisted, Names(body)), null);
             }
 
             var inlined = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after, .. _result]);
-            return (new InlinedCall(syntax.Module, callee, [new RefactorTextEdit { Range = call.SourceLocation.Range, NewText = inlined }]), null);
+            var edit = new RefactorTextEdit { Range = call.SourceLocation.Range, NewText = inlined };
+            return (new InlinedCall(syntax.Module, callee, [edit], InlineForm.Statement, Names(body)), null);
+        }
+
+        // the simple names written from the body's range and the parameters' defaults, and from the call's statement, with what each refers to there; the
+        // body's parameters and locals, and the member's own name, are written under other names.
+        private List<(string Name, SemanticId? Binding)> Names(SourceRange written)
+        {
+            var names = new List<(string Name, SemanticId? Binding)>();
+            var parameters = procedure.Declaration.ParameterListRange;
+            foreach (var name in SimpleNamesOf(procedure.Declaration))
+            {
+                var range = name.SourceLocation.Range;
+                var bound = _bodyBindings(name);
+                if (!Within(range, written) && !(parameters is { } list && Within(range, list))
+                    || bound is { } id && (_replacements.ContainsKey(id) || id == callee.SemanticId) || _folds.Any(fold => Within(range, fold.Range)))
+                {
+                    continue;
+                }
+
+                names.Add((name.IdentifierName, bound));
+            }
+
+            foreach (var name in SimpleNamesOf(call))
+            {
+                if (_bindings(name) is var bound && bound != callee.SemanticId)
+                {
+                    names.Add((name.IdentifierName, bound));
+                }
+            }
+
+            names.AddRange(_qualifiers);
+            return names;
+        }
+
+        // the simple names under a node, without the member names of its member accesses.
+        private static IEnumerable<SimpleNameExpressionNode> SimpleNamesOf(SyntaxNode node)
+        {
+            var members = node.Descendants().OfType<MemberAccessExpressionNode>().Select(access => (SyntaxNode)access.Member)
+                .ToHashSet(ReferenceEqualityComparer.Instance);
+            return node.Descendants().OfType<SimpleNameExpressionNode>().Where(name => !members.Contains(name));
         }
 
         // the expression form (the call replaced by its value, in parentheses), when the body is one Let of the result of a value of the function's type, and
@@ -615,7 +663,7 @@ internal static class InlineCall
             }
 
             var edit = new RefactorTextEdit { Range = called.SourceLocation.Range, NewText = $"({written})" };
-            return (new InlinedCall(syntax.Module, callee, [edit], InlineForm.Expression), null);
+            return (new InlinedCall(syntax.Module, callee, [edit], InlineForm.Expression, Names(value.SourceLocation.Range)), null);
         }
 
         // a decimal literal written as a literal of a numeric type, by its type character, when its value is one of that type (MS-VBAL §3.3.2).
@@ -1094,6 +1142,7 @@ internal static class InlineCall
         private InlineRefusal? Qualified()
         {
             _qualified.Clear();
+            _qualifiers.Clear();
             if (source == syntax)
             {
                 return null;
@@ -1134,6 +1183,7 @@ internal static class InlineCall
                 }
 
                 _qualified.Add((name.SourceLocation.Range, $"{module.Name}.{sourceText.Of(name.SourceLocation.Range).Trim()}"));
+                _qualifiers.Add((module.Name, module.SemanticId));
             }
 
             return null;

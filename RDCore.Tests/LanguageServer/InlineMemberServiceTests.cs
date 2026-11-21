@@ -61,6 +61,35 @@ public sealed class InlineMemberServiceTests
         "    Debug.Print x\r\n" +
         "End Sub\r\n";
 
+    private const string Counters =
+        "Option Explicit\r\n" +
+        "Public Counter As Long\r\n" +
+        "Private Tally As Long\r\n" +
+        "\r\n" +
+        "Public Sub Tick()\r\n" +
+        "    Counter = Counter + 1\r\n" +
+        "End Sub\r\n" +
+        "\r\n" +
+        "Private Sub AddOne()\r\n" +
+        "    Tally = Tally + 1\r\n" +
+        "End Sub\r\n" +
+        "\r\n" +
+        "Public Sub ShowTally()\r\n" +
+        "    Dim Tally As Long\r\n" +
+        "    AddOne\r\n" +
+        "    Debug.Print Tally\r\n" +
+        "End Sub\r\n";
+
+    // a module whose own Counter shadows the Public one of Counters.
+    private const string Shadow =
+        "Option Explicit\r\n" +
+        "Private Counter As Long\r\n" +
+        "\r\n" +
+        "Public Sub Start()\r\n" +
+        "    Tick\r\n" +
+        "    Debug.Print Counter\r\n" +
+        "End Sub\r\n";
+
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly InlineMemberService _service;
@@ -68,7 +97,11 @@ public sealed class InlineMemberServiceTests
     public InlineMemberServiceTests()
     {
         _documents.WorkspaceRoot.Returns(Root);
-        var documents = new[] { new WorkspaceDocument("Main.bas", Root, Main, version: 4), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 2) };
+        var documents = new[]
+        {
+            new WorkspaceDocument("Main.bas", Root, Main, version: 4), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 2),
+            new WorkspaceDocument("Counters.bas", Root, Counters, version: 1), new WorkspaceDocument("Shadow.bas", Root, Shadow, version: 1),
+        };
         _documents.GetAllDocuments().Returns(documents);
         foreach (var document in documents)
         {
@@ -168,5 +201,26 @@ public sealed class InlineMemberServiceTests
         Assert.AreEqual(1, items.Count(item => item.Choices.Any(choice => choice.Id == InlineMemberService.InlineChoice)));
         Assert.IsFalse(prepared.Choices.Any(choice => choice.Id == InlineMemberService.RemoveChoice));
         Assert.AreEqual("inlineMember.removalReferenceLeft", prepared.Notices.Single(notice => notice.Kind is RefactorNoticeKind.Note).Code);
+    }
+
+    [TestMethod]
+    public async Task ANameOfTheBody_ThatTheCallersModuleShadows_IsQualified()
+    {
+        var answer = await _service.ApplyAsync(Document("Shadow.bas"), new SourcePosition(4, 5), [], [], CancellationToken.None);
+
+        var text = Edited(answer, "Shadow.bas", Shadow);
+        StringAssert.Contains(text, "    Counters.Counter = Counters.Counter + 1\r\n    Debug.Print Counter\r\n");
+    }
+
+    [TestMethod]
+    public async Task ANameOfTheBody_ThatALocalAtTheCallShadows_IsRefused()
+    {
+        var prepared = await _service.PrepareAsync(Document("Counters.bas"), new SourcePosition(14, 5), CancellationToken.None);
+        var answer = await _service.ApplyAsync(Document("Counters.bas"), new SourcePosition(14, 5), [], [], CancellationToken.None);
+
+        var refusal = prepared.Notices.Single(notice => notice.Kind is RefactorNoticeKind.Refusal);
+        StringAssert.Contains(refusal.Message, "Tally");
+        Assert.IsNull(answer.Edit);
+        Assert.IsNotNull(answer.Refusal);
     }
 }

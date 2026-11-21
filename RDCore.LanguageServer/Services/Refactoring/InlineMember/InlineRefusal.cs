@@ -129,6 +129,12 @@ internal enum InlineRefusalKind
     Captured,
 
     /// <summary>
+    /// Bound again in the edited module, a name the body or the call writes refers to another declaration than it does in the member or at the call, or
+    /// to one where it referred to none (MS-VBAL §5.6.10).
+    /// </summary>
+    Rebound,
+
+    /// <summary>
     /// The call is in a larger statement, which evaluates something else that has an effect or reads what the body can write. The body written before the
     /// statement would run before it, where MS-VBAL leaves the order of an operator's operands open.
     /// </summary>
