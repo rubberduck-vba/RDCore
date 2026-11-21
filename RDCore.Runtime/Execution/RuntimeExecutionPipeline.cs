@@ -3,6 +3,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.External.Application;
 using RDCore.Runtime.Execution.External.Automation;
+using RDCore.Runtime.Execution.External.Fonts;
 using RDCore.External;
 using RDCore.Runtime.Execution.External.Forms;
 using RDCore.Runtime.Execution.External.Native;
@@ -252,6 +253,7 @@ public sealed class RuntimeExecutionPipeline
         var servers = new AutomationCallProvider(session, world.Automation);
         var forms = new FormCallProvider(session, world, servers, bodies is ProgramImage image ? image.Forms : NoForms);
         var pictures = new PictureCallProvider(session);
+        var fonts = new FontCallProvider(session);
         var app = new AppCallProvider(session) { Forms = world.Forms };
         var external = analysis
             ? new ExternalCallPipeline(session, observation is null ? [] : [new AssumedCallInterceptor(observation)], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
@@ -262,8 +264,9 @@ public sealed class RuntimeExecutionPipeline
                 [
                     // the image keeps what the designers of its forms declare; bodies that are only bodies have no forms.
                     forms,
-                    // stdole's pictures are the platform's own, which no server holds.
+                    // stdole's pictures and fonts are the platform's own, which no server holds.
                     pictures,
+                    fonts,
                     // and Visual Basic 6.0's App, which says what the session knows of its program.
                     app,
                     servers,
@@ -272,8 +275,9 @@ public sealed class RuntimeExecutionPipeline
                     new ConnectionPointCallProvider(session, world.Automation),
                     new DeclaredProcedureProvider(session, world.Libraries),
                 ],
-                // a library the platform implements does not count as automation: an environment that allows none still has stdole's pictures, and App.
-                implementations: [pictures, app]);
+                // a library the platform implements does not count as automation: an environment that allows none still has stdole's pictures
+                // and fonts, and App.
+                implementations: [pictures, fonts, app]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         // Unload runs a form's QueryClose and Terminate, which are code the bindings call: the last edge of that cycle too.
         forms.Bindings = bindings;

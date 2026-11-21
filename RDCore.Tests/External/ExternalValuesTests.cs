@@ -120,4 +120,18 @@ public sealed class ExternalValuesTests
         var back = Assert.IsInstanceOfType<string[]>(RoundTrip(Array.Empty<string>()));
         Assert.IsEmpty(back);
     }
+
+    [TestMethod]
+    public void AFontOfTheSessions_CrossesWithItsValues()
+    {
+        var host = NSubstitute.Substitute.For<RDCore.External.Automation.ISessionObjectHost>();
+        var font = new RDCore.External.Automation.SessionFont("Arial", IsNamed: true, 12.75m, 700, 2, Italic: true, Underline: false, Strikethrough: true);
+
+        var wire = ExternalValues.ToWire(new RDCore.External.Automation.SessionObjectReference("7", host) { Font = font }, _ => 0);
+        var back = ExternalValues.FromWire(wire, _ => new object(), name => new RDCore.External.Automation.SessionObjectReference(name, host));
+
+        var reference = Assert.IsInstanceOfType<RDCore.External.Automation.SessionObjectReference>(back);
+        Assert.AreEqual("7", reference.SessionObject);
+        Assert.AreEqual(font, reference.Font);
+    }
 }
