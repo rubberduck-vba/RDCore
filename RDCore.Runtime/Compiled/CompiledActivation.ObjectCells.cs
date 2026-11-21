@@ -112,8 +112,8 @@ public sealed partial class CompiledActivation
             return;
         }
 
-        // a result the activation let go of as it returned (LetGoOfResult) is held by the caller's temporary: the frame a Class_Terminate run as its objects
-        // were let go of gives it is told what the function returns, and holds nothing of it.
+        // a result the activation let go of as it returned (LetGoOfResult) is held by the caller's temporary. A frame made after that, for a Class_Terminate
+        // that runs as its objects are let go of, is told what the function returns, and holds nothing of it.
         var value = OwnResult();
         if (_resultLetGo)
         {
@@ -284,11 +284,14 @@ public sealed partial class CompiledActivation
     internal bool HoldsObjects => _body.ObjectSlots.Length > 0 || _body.ResultIsObject;
 
     /// <summary>
-    /// The end of an activation the invoker made without a frame (<see cref="EnterThroughInvoker"/>), which returned without one: what its function result
-    /// and its object variables hold let go of, as the frame of any call lets go of them (MS-VBAL §5.3.1.10), the result held as a temporary of the
-    /// caller's statement first. A <c>Class_Terminate</c> that runs then may give the activation its frame, as any call does.
+    /// Ends an activation the invoker made without a frame (<see cref="EnterThroughInvoker"/>), which returned without one. The object its function
+    /// returns is held as a temporary of the caller's statement first; then what its result and its object parameters and variables hold is let go of, as
+    /// the frame of any call lets go of it (MS-VBAL §5.3.1.10). A <c>Class_Terminate</c> that runs then may give the activation its frame, as any call does.
     /// </summary>
-    /// <returns>What the function returns; <see langword="null"/> when it returns a scalar it was never assigned, or the procedure is not a function.</returns>
+    /// <returns>
+    /// What the function returns: the object it was <c>Set</c> to (<c>Nothing</c> when it never was), or the payload its result variable holds;
+    /// <see langword="null"/> when that variable holds no payload, or the procedure is not a function.
+    /// </returns>
     internal VBTypedValue? EndWithoutFrame()
     {
         var returned = _body.ResultIsObject ? OwnResult() : TryReadResult(out var payload) ? payload.Typed() : null;

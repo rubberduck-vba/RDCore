@@ -580,9 +580,10 @@ compiled and what keeps it in the interpreter, and, for a compiled procedure, wh
 A compiled procedure whose frame would hold nothing compiled code does not hold runs without a frame however it is called: by the interpreter, by an
 event, or by the compiled code of a caller that calls it through the interpreter's call. Each argument must be what compiled code holds the parameter
 as: a value of the parameter's scalar type, a `String`, or, for a `ByRef` parameter, the cell of the caller's variable. Any other argument is given as
-the interpreter gives it, with the frame. The objects its variables hold, and the one a function returns, are let go of when it returns, in the order
-the frame would let go of them (MS-VBAL §5.3.1.10). The activation gets the frame the interpreter would have made as soon as anything needs it: an
-error, a break or a `Stop`, a statement the interpreter runs, an edit made while a call waits, or the call stack an error's trace or a debugger reads.
+the interpreter gives it, with the frame. The objects its parameters and variables hold are let go of when it returns, in the order the frame would
+let go of them (MS-VBAL §5.3.1.10), and the object a function returns is held until the caller's statement is over. The activation gets the frame
+the interpreter would have made as soon as anything needs it: an error, a break or a `Stop`, a statement the interpreter runs, an edit made while a
+call waits, or the call stack an error's trace or a debugger reads.
 
 No procedure runs compiled during an analysis. Under a debugger, every procedure gets its frame when it is called, and compiled code writes its
 variables into its frame before each call, so the debugger sees every activation while the program waits.
