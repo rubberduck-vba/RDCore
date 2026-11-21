@@ -78,12 +78,12 @@ public sealed class NamesakeDeclarationsTests
 
     [TestMethod]
     // MS-VBA stops at the first error, `V = 5` where the variable is assigned: each use of the name is reported here.
-    [DataRow("Public V As Long", true, "    V = 5\r\n    Debug.Print V", DisplayName = "E14: a variable after the Enum")]
-    [DataRow("Public V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "E20: a variable before the Enum")]
-    [DataRow("Private V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "E23: a Private variable")]
-    [DataRow("Public Const V As Long = 3", false, "    Debug.Print V", DisplayName = "E22: a constant")]
-    [DataRow("Public V As Long", true, "    Debug.Print V", DisplayName = "s66 E14R: a variable after the Enum, read alone")]
-    [DataRow("Private V As Long", false, "    Debug.Print V", DisplayName = "s66 E23R: a Private variable, read alone")]
+    [DataRow("Public V As Long", true, "    V = 5\r\n    Debug.Print V", DisplayName = "a variable after the Enum")]
+    [DataRow("Public V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "a variable before the Enum")]
+    [DataRow("Private V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "a Private variable")]
+    [DataRow("Public Const V As Long = 3", false, "    Debug.Print V", DisplayName = "a constant")]
+    [DataRow("Public V As Long", true, "    Debug.Print V", DisplayName = "a variable after the Enum, read alone")]
+    [DataRow("Private V As Long", false, "    Debug.Print V", DisplayName = "a Private variable, read alone")]
     public async Task InAStandardModule_AVariableOrConstantAndAnEnumOfOneName_TheNameIsTheEnum(string variable, bool enumFirst, string main)
     {
         const string enumV = "Public Enum V\r\n    Zero\r\n    One\r\nEnd Enum";
@@ -124,8 +124,8 @@ public sealed class NamesakeDeclarationsTests
             StandardProgram(string.Empty, string.Empty, "    Debug.Print F(4)\r\n    Dim t As F\r\n    t = Zero\r\n    Debug.Print t"))));
 
     [TestMethod]
-    [DataRow("    V = 5\r\n    Debug.Print V", DisplayName = "s66 X02: assigned and read")]
-    [DataRow("    Debug.Print V", DisplayName = "s66 X03: read")]
+    [DataRow("    V = 5\r\n    Debug.Print V", DisplayName = "assigned and read")]
+    [DataRow("    Debug.Print V", DisplayName = "read")]
     public async Task FromAnotherModule_AnEnumAndAVariableOfOneModule_TheNameIsTheEnum(string main)
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules($"{EnumV}\r\nPublic V As Long"), StandardProgram(string.Empty, string.Empty, main));
@@ -144,10 +144,10 @@ public sealed class NamesakeDeclarationsTests
     }
 
     [TestMethod]
-    [DataRow(EnumF, FunctionF, "    Debug.Print F(4)", DisplayName = "s66 X04: an Enum and a Function")]
-    [DataRow(EnumF, FunctionFOfNoArgument, "    Debug.Print F", DisplayName = "s66 X09: an Enum and a Function of no argument")]
-    [DataRow(EnumV, "Public V As Long", "    V = 5", DisplayName = "s66 X05: an Enum and a variable, assigned")]
-    [DataRow(EnumV, "Public V As Long", "    Debug.Print V", DisplayName = "s66 X06: an Enum and a variable, read")]
+    [DataRow(EnumF, FunctionF, "    Debug.Print F(4)", DisplayName = "an Enum and a Function")]
+    [DataRow(EnumF, FunctionFOfNoArgument, "    Debug.Print F", DisplayName = "an Enum and a Function of no argument")]
+    [DataRow(EnumV, "Public V As Long", "    V = 5", DisplayName = "an Enum and a variable, assigned")]
+    [DataRow(EnumV, "Public V As Long", "    Debug.Print V", DisplayName = "an Enum and a variable, read")]
     public async Task FromAnotherModule_AnEnumAndANamesakeOfTwoOtherModules_IsAnAmbiguousName(string second, string globals, string main)
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules(second, globals), StandardProgram(string.Empty, string.Empty, main));
@@ -233,8 +233,8 @@ public sealed class NamesakeDeclarationsTests
             "    Debug.Print s.Other"));
 
     [TestMethod]
-    [DataRow("    Changed", DisplayName = "E06: the bare name")]
-    [DataRow("    Call Changed", DisplayName = "E07: Call")]
+    [DataRow("    Changed", DisplayName = "the bare name")]
+    [DataRow("    Call Changed", DisplayName = "Call")]
     public async Task AnEventAndASubOfOneName_TheNameInAnotherProcedure_CallsTheSub(string call)
         => Assert.AreEqual("1", await RunAsync([.. Changed, "Public Sub Fire()", call, "End Sub"], "    s.Fire\r\n    Debug.Print s.Count"));
 

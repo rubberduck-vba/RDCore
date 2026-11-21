@@ -41,25 +41,25 @@ public sealed class ObjectMemberTargetTests
         string.Empty);
 
     [TestMethod]
-    [DataRow("Dim c As New Collection ;; c.Add 1 ;; c(1) = 5", "424", DisplayName = "E01: the default member of a Collection, given an argument")]
-    [DataRow("Dim c As New Collection ;; c.Add 1 ;; c.Item(1) = 5", "424", DisplayName = "E02: named")]
-    [DataRow("Dim c As New Collection ;; c.Add 1 ;; Set c(1) = New Collection", "424", DisplayName = "E07: a Set")]
-    [DataRow("Dim c As New Collection ;; c.Add \"a\" ;; c(\"zz\") = 5", "5", DisplayName = "E15: the call raises first")]
-    [DataRow("Dim o As New Opt ;; o.V(1) = 5", "424", DisplayName = "E11: a Variant function of a class")]
-    [DataRow("Dim o As New Opt ;; o.V = 5", "424", DisplayName = "E13: with no argument")]
-    [DataRow("Dim o As New Opt ;; Set o.V(1) = New Collection", "424", DisplayName = "E18: a Set")]
-    [DataRow("Dim w As New Wrapper ;; w.Item.Add 1 ;; w.Item(1) = 5", "424", DisplayName = "E16: a Property Get that takes no argument, indexed")]
-    [DataRow("Dim c As New Collection, o As New Collection ;; c.Add o ;; c(1) = 5", "438", DisplayName = "E05: what it returns is an object whose default member takes an argument")]
-    [DataRow("Dim c As New Collection ;; c.Add New Collection ;; Set c(1) = New Collection", "438", DisplayName = "E08: a Set of one")]
-    [DataRow("Dim c As New Collection, w As New Wrapper ;; c.Add w ;; c(1) = 5", "438", DisplayName = "E17: through an object's own default member")]
+    [DataRow("Dim c As New Collection ;; c.Add 1 ;; c(1) = 5", "424", DisplayName = "the default member of a Collection, given an argument")]
+    [DataRow("Dim c As New Collection ;; c.Add 1 ;; c.Item(1) = 5", "424", DisplayName = "named")]
+    [DataRow("Dim c As New Collection ;; c.Add 1 ;; Set c(1) = New Collection", "424", DisplayName = "a Set of the default member")]
+    [DataRow("Dim c As New Collection ;; c.Add \"a\" ;; c(\"zz\") = 5", "5", DisplayName = "the call raises first")]
+    [DataRow("Dim o As New Opt ;; o.V(1) = 5", "424", DisplayName = "a Variant function of a class")]
+    [DataRow("Dim o As New Opt ;; o.V = 5", "424", DisplayName = "with no argument")]
+    [DataRow("Dim o As New Opt ;; Set o.V(1) = New Collection", "424", DisplayName = "a Set of the Variant function")]
+    [DataRow("Dim w As New Wrapper ;; w.Item.Add 1 ;; w.Item(1) = 5", "424", DisplayName = "a Property Get that takes no argument, indexed")]
+    [DataRow("Dim c As New Collection, o As New Collection ;; c.Add o ;; c(1) = 5", "438", DisplayName = "what it returns is an object whose default member takes an argument")]
+    [DataRow("Dim c As New Collection ;; c.Add New Collection ;; Set c(1) = New Collection", "438", DisplayName = "a Set of one")]
+    [DataRow("Dim c As New Collection, w As New Wrapper ;; c.Add w ;; c(1) = 5", "438", DisplayName = "through an object's own default member")]
     public async Task AFunctionOfAnObject_IsCalled_AndWhatItReturnsAssignedThrough(string body, string expected)
         => Assert.AreEqual(expected, (await RunAsync(Classes, Modules, Program(body))).Last());
 
     [TestMethod]
-    [DataRow("Dim c As New Collection ;; c.Count = 3", "Function call on left-hand side of assignment must return Variant or Object", DisplayName = "E03: a library's")]
-    [DataRow("Dim o As New Opt ;; o.F = 5", "Function call on left-hand side of assignment must return Variant or Object", DisplayName = "F01: a class's")]
-    [DataRow("Dim c As New Collection ;; Set c.Count = Nothing", "Invalid use of property", DisplayName = "F05: a Set")]
-    [DataRow("Dim o As New Opt ;; Set o.F(1) = Nothing", "Type mismatch", DisplayName = "F07: a Set, given an argument")]
+    [DataRow("Dim c As New Collection ;; c.Count = 3", "Function call on left-hand side of assignment must return Variant or Object", DisplayName = "a library's")]
+    [DataRow("Dim o As New Opt ;; o.F = 5", "Function call on left-hand side of assignment must return Variant or Object", DisplayName = "a class's")]
+    [DataRow("Dim c As New Collection ;; Set c.Count = Nothing", "Invalid use of property", DisplayName = "a Set")]
+    [DataRow("Dim o As New Opt ;; Set o.F(1) = Nothing", "Type mismatch", DisplayName = "a Set, given an argument")]
     public async Task AFunctionOfAnObjectThatReturnsNoObjectNorVariant_IsNoTarget(string body, string expected)
     {
         var errors = await LoadErrorsAsync(Classes, Modules, Program(body));
@@ -68,12 +68,12 @@ public sealed class ObjectMemberTargetTests
     }
 
     [TestMethod]
-    [DataRow("Dim c As New Collection ;; c.Remove(1) = 5", DisplayName = "E04: a library's, given an argument")]
-    [DataRow("Err.Raise(5) = 1", DisplayName = "E10: of the ErrObject")]
-    [DataRow("Err.Clear = 1", DisplayName = "F02: with no argument")]
-    [DataRow("Dim k As New Counter ;; k.Increment = 1", DisplayName = "F03: a class's")]
-    [DataRow("Dim c As New Collection ;; Set c.Remove(1) = Nothing", DisplayName = "F08: a Set")]
-    [DataRow("Globals.SomeSub = 1", DisplayName = "F09: of a module, through it")]
+    [DataRow("Dim c As New Collection ;; c.Remove(1) = 5", DisplayName = "a library's, given an argument")]
+    [DataRow("Err.Raise(5) = 1", DisplayName = "of the ErrObject")]
+    [DataRow("Err.Clear = 1", DisplayName = "with no argument")]
+    [DataRow("Dim k As New Counter ;; k.Increment = 1", DisplayName = "a class's")]
+    [DataRow("Dim c As New Collection ;; Set c.Remove(1) = Nothing", DisplayName = "a Set")]
+    [DataRow("Globals.SomeSub = 1", DisplayName = "of a module, through it")]
     public async Task ASubOfAnObjectOrAModule_IsNoTarget(string body)
     {
         var errors = await LoadErrorsAsync(Classes, Modules, Program(body));
