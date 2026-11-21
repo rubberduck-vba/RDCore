@@ -15,8 +15,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// The analyzer reads the expression facts: a value that is Let-coerced (the value of a <c>Let</c> assignment, an operand of an operator other than <c>Is</c>,
 /// an argument of a parameter declared with a value type), of a class, not an array, that has no default member. RD-VBA runs it as MS-VBA does (error 438,
 /// <em>Object doesn't support this property or method</em>, when it runs; 91 when the object is <c>Nothing</c>), and this warning stands in for the type mismatch the
-/// specification makes it at compile time. The value of a <c>Let</c> to a variable declared <c>Variant</c> is fixed by a <c>Set</c>
-/// (<see cref="SetAssignments"/>); a target of a class or <c>Object</c> is offered it by <c>RDC11050</c> or <c>RDC00125</c>.
+/// specification makes it at compile time. The value of a <c>Let</c> to a variable declared <c>Variant</c> comes with the fix that makes
+/// the <c>Let</c> a <c>Set</c> (<see cref="SetAssignments"/>); a target of a class or <c>Object</c> is offered it by <c>RDC11050</c> or <c>RDC00125</c>.
 /// </remarks>
 internal sealed class ValueOfObjectWithNoDefaultMemberAnalyzer : IModuleAnalyzer
 {
