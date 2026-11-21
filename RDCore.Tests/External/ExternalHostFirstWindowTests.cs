@@ -67,10 +67,10 @@ public sealed class ExternalHostFirstWindowTests
         Form,
     }
 
-    // what the external host's forms had been told when the program's first window was made: the theme, whether a program runs (none told), the name.
+    // what the external host's forms had been told when the program's first window was made: the theme, whether a program runs (null when not told), the name.
     private sealed record Told(bool Theme, bool? Held, string Name);
 
-    // the program says what say says to the environment host's client while the external host is not running, then opens its first window there.
+    // the program tells the environment host's client what `say` sets while the external host is not running, then opens its first window there.
     private static Told WhenTheFirstWindowIsMade(FirstWindow window, Action<IFormHost> say)
     {
         var forms = Substitute.For<IFormHost>();
