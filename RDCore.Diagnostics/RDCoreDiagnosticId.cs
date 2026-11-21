@@ -67,6 +67,7 @@ public enum RDCoreDiagnosticId
     FunctionReturnValueDiscarded = 216, // [RD2:FunctionReturnValueDiscardedInspection] a Function of the project called as a statement: the value it returns is discarded
     FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Function that every call of the project calls as a statement: it can be a Sub
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
+    UnreachableCase = 219, // [RD2:UnreachableCaseInspection] a Case block, or the Case Else, that the Cases before it leave no value of the selector for
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,

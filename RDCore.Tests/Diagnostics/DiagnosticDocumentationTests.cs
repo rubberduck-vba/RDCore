@@ -144,6 +144,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.SelfAssignedDeclaration, 215),
         (RDCoreDiagnosticId.FunctionReturnValueDiscarded, 216),
         (RDCoreDiagnosticId.IsMissingOfAVariantThatIsNotOptional, 218),
+        (RDCoreDiagnosticId.UnreachableCase, 219),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),
         (RDCoreDiagnosticId.ObsoleteCommentSyntax, 303),
         (RDCoreDiagnosticId.ObsoleteErrorSyntax, 304),

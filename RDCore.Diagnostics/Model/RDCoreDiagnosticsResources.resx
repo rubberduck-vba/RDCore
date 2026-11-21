@@ -741,6 +741,15 @@
   <data name="BooleanAssignedInIfElse_Message" xml:space="preserve">
     <value>Each branch assigns a Boolean literal to &apos;{0}&apos;: assigning it the condition, or Not the condition, says the same.</value>
   </data>
+  <data name="UnreachableCase_Message" xml:space="preserve">
+    <value>This Case is never reached: the Cases before it match every value it matches.</value>
+  </data>
+  <data name="UnreachableCase_Inverted_Message" xml:space="preserve">
+    <value>This Case is never reached: its range starts above where it ends.</value>
+  </data>
+  <data name="UnreachableCase_Else_Message" xml:space="preserve">
+    <value>This Case Else is never reached: the Cases before it match every value of the selector's type.</value>
+  </data>
   <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
     <value>Assign the condition to &apos;{0}&apos;</value>
   </data>

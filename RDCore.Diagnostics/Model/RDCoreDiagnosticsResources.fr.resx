@@ -741,6 +741,15 @@
   <data name="BooleanAssignedInIfElse_Message" xml:space="preserve">
     <value>Chaque branche affecte un littéral Boolean à &apos;{0}&apos; : lui affecter la condition, ou Not la condition, dit la même chose.</value>
   </data>
+  <data name="UnreachableCase_Message" xml:space="preserve">
+    <value>Ce Case n'est jamais atteint : les Case qui le précèdent couvrent toutes les valeurs qu'il couvre.</value>
+  </data>
+  <data name="UnreachableCase_Inverted_Message" xml:space="preserve">
+    <value>Ce Case n'est jamais atteint : sa plage commence au-delà de sa fin.</value>
+  </data>
+  <data name="UnreachableCase_Else_Message" xml:space="preserve">
+    <value>Ce Case Else n'est jamais atteint : les Case qui le précèdent couvrent toutes les valeurs du type du sélecteur.</value>
+  </data>
   <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
     <value>Affecter la condition à &apos;{0}&apos;</value>
   </data>
