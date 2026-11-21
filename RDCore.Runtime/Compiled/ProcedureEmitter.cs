@@ -1409,10 +1409,9 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.State);
         }
 
-        // each field's cell, found again (FieldCellOf): the body's cache gives the cell of the same object as it is, and finds it again on the object when a
-        // callee ran the body on another object meanwhile, and the cache is that object's; a field of the session's is found again in its storage when that
-        // bound anything since. An edit made while the program waited hands the activation to the interpreter, so no edit is read here. An object field's
-        // is found again with the other objects'.
+        // each field's cell, found again (FieldCellOf): a field of Me's on the object, which holds it in the same cell for as long as it lives; a field of the
+        // session's in its storage, when that bound anything since. An edit made while the program waited hands the activation to the interpreter, so no
+        // edit is read here. An object field's is found again with the other objects'.
         foreach (var slot in _analysis.FieldSlots)
         {
             if (_cells.ContainsKey(slot))
