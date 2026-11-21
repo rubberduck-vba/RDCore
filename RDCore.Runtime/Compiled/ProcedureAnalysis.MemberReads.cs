@@ -72,7 +72,8 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // the object a variable of an object is read of: the object of the enclosing With block, of an object variable of the activation or of the default
-    // instance of a class, or of an object field of one of its records.
+    // instance of a class, or of an object field of one of its records. An object variable declared As New is one too: while it holds Nothing, compiled
+    // code finds no object (CompiledActivation.MemberFieldIn, LibraryReceiverIn) and the interpreter reads it, which makes the object (MS-VBAL §5.2.3.1.4).
     private bool TryReceiverOf(BoundMember member, out int? receiver, out int? with, out FieldPath? held)
     {
         (receiver, with, held) = (null, null, null);
@@ -82,7 +83,8 @@ internal sealed partial class ProcedureAnalysis
                 with = opener;
                 return true;
 
-            case BoundVariable owner when (owner.Variable is VBPredeclaredInstanceSymbol ? FieldSlotOf(owner, receiver: true) : ObjectSlotOf(owner)) is { } slot:
+            case BoundVariable owner
+                when (owner.Variable is VBPredeclaredInstanceSymbol ? FieldSlotOf(owner, receiver: true) : ObjectSlotOf(owner, receiver: true)) is { } slot:
                 receiver = slot;
                 return true;
 
