@@ -157,12 +157,12 @@ public sealed class RedimThroughAParameterTests
     // BV: a ByVal Variant holds a copy, which is a Variant's. LA: a parameter declared as an array is the array's, which raises 9 and is erased. VW and W: a
     // Variant that holds a copy, given to a Variant parameter or re-dimensioned itself. And whichever it is, an array too big to hold raises 7 and is let go of.
     [TestMethod]
-    [DataRow("V", 1, DisplayName = "V01-V10 an untyped parameter given the array")]
-    [DataRow("VV", 11, DisplayName = "VV11-VV20 a ByRef v As Variant given the array")]
-    [DataRow("BV", 21, DisplayName = "BV21-BV30 a ByVal v given the array")]
-    [DataRow("LA", 31, DisplayName = "LA31-LA40 a v() As Long given the array")]
-    [DataRow("VW", 41, DisplayName = "VW41-VW50 an untyped parameter given a Variant that holds a copy")]
-    [DataRow("W", 51, DisplayName = "W51-W60 a Variant that holds a copy")]
+    [DataRow("V", 1, DisplayName = "an untyped parameter given the array")]
+    [DataRow("VV", 11, DisplayName = "a ByRef v As Variant given the array")]
+    [DataRow("BV", 21, DisplayName = "a ByVal v given the array")]
+    [DataRow("LA", 31, DisplayName = "a v() As Long given the array")]
+    [DataRow("VW", 41, DisplayName = "an untyped parameter given a Variant that holds a copy")]
+    [DataRow("W", 51, DisplayName = "a Variant that holds a copy")]
     public async Task AReDimOfAParameterOrAVariantThatSharesOrCopiesADeclaredArray_IsMSVBAs(string kind, int first)
     {
         var printed = (await RunAsync([], Program(kind))).TakeLast(Bounds.Length).Select(line => line.TrimEnd()).ToArray();
@@ -254,10 +254,10 @@ public sealed class RedimThroughAParameterTests
     // variable held, an element count past what a Long holds too, and a local array re-dimensioned in its own procedure. L: a caller's local array is shared
     // as the module's is, and a Variant parameter passed on to another is still the caller's array.
     [TestMethod]
-    [DataRow(new[] { "P01", "P02", "P03", "P04", "P05" }, DisplayName = "P01-P05 a ReDim Preserve too big")]
-    [DataRow(new[] { "T01", "T03", "T04", "T05" }, DisplayName = "T01, T03-T05 a ReDim too big, of other shapes and targets")]
-    [DataRow(new[] { "L01", "L02", "L03", "L04" }, DisplayName = "L01-L04 a Variant parameter given a local array")]
-    [DataRow(new[] { "L05", "L06", "L07", "L08", "L09" }, DisplayName = "L05-L09 a Variant parameter passed on to another")]
+    [DataRow(new[] { "P01", "P02", "P03", "P04", "P05" }, DisplayName = "a ReDim Preserve too big")]
+    [DataRow(new[] { "T01", "T03", "T04", "T05" }, DisplayName = "a ReDim too big, of other shapes and targets")]
+    [DataRow(new[] { "L01", "L02", "L03", "L04" }, DisplayName = "a Variant parameter given a local array")]
+    [DataRow(new[] { "L05", "L06", "L07", "L08", "L09" }, DisplayName = "a Variant parameter passed on to another")]
     public async Task AReDimTooBigOrThroughALocalOrTwoCalls_IsMSVBAs(string[] cases)
     {
         var printed = (await RunAsync([], Program68b(cases))).TakeLast(cases.Length).Select(line => line.TrimEnd());

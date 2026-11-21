@@ -38,45 +38,45 @@ public sealed class VariantTemporaryOrderTests
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.3.1.11 Procedure Invocation Argument Processing")]
-    [DataRow("P Two(TagOf(VOb(\"a\")), TagOf(VOb(\"b\"))) ;; P Trail", "a,b|a b ta tb |", DisplayName = "V01 two Variants, given to a function")]
-    [DataRow("P Two(TypeName(VOb(\"a\")), TypeName(VOb(\"b\"))) ;; P Trail", "Box,Box|a b ta tb |", DisplayName = "V02 two Variants, given to TypeName")]
-    [DataRow("P Two(TypeName(VOb(\"a\")), Ob(\"b\").Tag) ;; P Trail", "Box,b|a b tb ta |", DisplayName = "V03 a Variant, left of an object")]
-    [DataRow("P Two(Ob(\"a\").Tag, TypeName(VOb(\"b\"))) ;; P Trail", "a,Box|a b ta tb |", DisplayName = "V04 an object, left of a Variant")]
+    [DataRow("P Two(TagOf(VOb(\"a\")), TagOf(VOb(\"b\"))) ;; P Trail", "a,b|a b ta tb |", DisplayName = "two Variants, given to a function")]
+    [DataRow("P Two(TypeName(VOb(\"a\")), TypeName(VOb(\"b\"))) ;; P Trail", "Box,Box|a b ta tb |", DisplayName = "two Variants, given to TypeName")]
+    [DataRow("P Two(TypeName(VOb(\"a\")), Ob(\"b\").Tag) ;; P Trail", "Box,b|a b tb ta |", DisplayName = "a Variant, left of an object")]
+    [DataRow("P Two(Ob(\"a\").Tag, TypeName(VOb(\"b\"))) ;; P Trail", "a,Box|a b ta tb |", DisplayName = "an object, left of a Variant")]
     [DataRow("P Three(TypeName(VOb(\"a\")), Ob(\"b\").Tag, TypeName(VOb(\"c\"))) ;; P Trail", "Box,b,Box|a b c tb ta tc |",
-        DisplayName = "V05 an object between two Variants")]
+        DisplayName = "an object between two Variants")]
     [DataRow("P Ob(\"t\").Two(TypeName(VOb(\"a\")), TypeName(VOb(\"b\"))) ;; P Trail", "t:Box,Box|a b t tt ta tb |",
-        DisplayName = "V06 two Variants, and a target an object")]
+        DisplayName = "two Variants, and a target an object")]
     [DataRow("P Ob(\"t\").Two(Ob(\"a\").Tag, TypeName(VOb(\"b\"))) ;; P Trail", "t:a,Box|a b t ta tt tb |",
-        DisplayName = "V07 an object and a Variant, and a target an object")]
+        DisplayName = "an object and a Variant, and a target an object")]
     [DataRow("P VOb(\"t\").Two(Ob(\"a\").Tag, TypeName(VOb(\"b\"))) ;; P Trail", "t:a,Box|a b t ta tb tt |",
-        DisplayName = "V08 an object and a Variant, and a target a Variant")]
-    [DataRow("P Two(VOb(\"a\").Tag, VOb(\"b\").Tag) ;; P Trail", "a,b|a b ta tb |", DisplayName = "V09 members of two Variants")]
-    [DataRow("TakeTwo VOb(\"a\"), VOb(\"b\") ;; P Trail", "a b take ta tb |", DisplayName = "V10 two Variants given whole, in a call statement")]
-    [DataRow("TakeTwo TypeName(VOb(\"a\")), TypeName(VOb(\"b\")) ;; P Trail", "a b take ta tb |", DisplayName = "V11 two Variants, in a call statement")]
+        DisplayName = "an object and a Variant, and a target a Variant")]
+    [DataRow("P Two(VOb(\"a\").Tag, VOb(\"b\").Tag) ;; P Trail", "a,b|a b ta tb |", DisplayName = "members of two Variants")]
+    [DataRow("TakeTwo VOb(\"a\"), VOb(\"b\") ;; P Trail", "a b take ta tb |", DisplayName = "two Variants given whole, in a call statement")]
+    [DataRow("TakeTwo TypeName(VOb(\"a\")), TypeName(VOb(\"b\")) ;; P Trail", "a b take ta tb |", DisplayName = "two Variants, in a call statement")]
     [DataRow("P Two(TypeName(Ob(\"t\").Kept(VOb(\"a\"))), TypeName(VOb(\"b\"))) ;; P Trail", "Box,Box|a t b tt ta tb |",
-        DisplayName = "V12 an argument whose call is given a Variant")]
-    [DataRow("P Len(TypeName(VOb(\"a\"))) + Len(TypeName(VOb(\"b\"))) ;; P Trail", "6|a b ta tb |", DisplayName = "V13 operands of an expression")]
-    [DataRow("Dim S As String ;; S = TypeName(VOb(\"a\")) & TypeName(VOb(\"b\")) ;; P Trail", "a b ta tb |", DisplayName = "V14 operands of a String Let")]
-    [DataRow("P Len(Ob(\"a\").Tag) + Len(Ob(\"b\").Tag) ;; P Trail", "2|a b ta tb |", DisplayName = "O01 two objects, operands of an expression")]
+        DisplayName = "an argument whose call is given a Variant")]
+    [DataRow("P Len(TypeName(VOb(\"a\"))) + Len(TypeName(VOb(\"b\"))) ;; P Trail", "6|a b ta tb |", DisplayName = "operands of an expression")]
+    [DataRow("Dim S As String ;; S = TypeName(VOb(\"a\")) & TypeName(VOb(\"b\")) ;; P Trail", "a b ta tb |", DisplayName = "operands of a String Let")]
+    [DataRow("P Len(Ob(\"a\").Tag) + Len(Ob(\"b\").Tag) ;; P Trail", "2|a b ta tb |", DisplayName = "two objects, operands of an expression")]
     [DataRow("Dim S As String ;; S = Ob(\"a\").Tag & Ob(\"b\").Tag & Ob(\"c\").Tag ;; P Trail", "a b c ta tb tc |",
-        DisplayName = "O03 three objects, operands of a String Let")]
-    [DataRow("P Len(TypeName(VOb(\"a\"))) + Len(Ob(\"b\").Tag) ;; P Trail", "4|a b tb ta |", DisplayName = "O04 a Variant and an object, operands")]
-    [DataRow("P Len(Ob(\"a\").Tag) + Len(TypeName(VOb(\"b\"))) ;; P Trail", "4|a b ta tb |", DisplayName = "O05 an object and a Variant, operands")]
+        DisplayName = "three objects, operands of a String Let")]
+    [DataRow("P Len(TypeName(VOb(\"a\"))) + Len(Ob(\"b\").Tag) ;; P Trail", "4|a b tb ta |", DisplayName = "a Variant and an object, operands")]
+    [DataRow("P Len(Ob(\"a\").Tag) + Len(TypeName(VOb(\"b\"))) ;; P Trail", "4|a b ta tb |", DisplayName = "an object and a Variant, operands")]
     [DataRow("Dim S As String ;; S = TypeName(VOb(\"a\")) & Ob(\"b\").Tag & TypeName(VOb(\"c\")) ;; P Trail", "a b c tb ta tc |",
-        DisplayName = "O06 an object between two Variants, operands")]
-    [DataRow("P Three(Ob(\"a\").Tag, Ob(\"b\").Tag, Ob(\"c\").Tag) ;; P Trail", "a,b,c|a b c ta tb tc |", DisplayName = "O08 three objects, arguments")]
+        DisplayName = "an object between two Variants, operands")]
+    [DataRow("P Three(Ob(\"a\").Tag, Ob(\"b\").Tag, Ob(\"c\").Tag) ;; P Trail", "a,b,c|a b c ta tb tc |", DisplayName = "three objects, arguments")]
     [DataRow("P Two(Ob(\"a\").Tag, Ob(\"t\").Two(Ob(\"b\").Tag, Ob(\"c\").Tag)) ;; P Trail", "a,t:b,c|a b c t ta tb tc tt |",
-        DisplayName = "O09 an argument whose call holds objects of its own, right of an object")]
+        DisplayName = "an argument whose call holds objects of its own, right of an object")]
     [DataRow("P Two(Ob(\"t\").Two(Ob(\"b\").Tag, Ob(\"c\").Tag), Ob(\"a\").Tag) ;; P Trail", "t:b,c,a|b c t a tb tc tt ta |",
-        DisplayName = "O10 an argument whose call holds objects of its own, left of an object")]
+        DisplayName = "an argument whose call holds objects of its own, left of an object")]
     [DataRow("P Two(TypeName(VOb(\"a\")), Two(TypeName(VOb(\"b\")), Ob(\"c\").Tag)) ;; P Trail", "Box,Box,c|a b c tc ta tb |",
-        DisplayName = "O11 an argument whose call is given a Variant and an object, right of a Variant")]
+        DisplayName = "an argument whose call is given a Variant and an object, right of a Variant")]
     [DataRow("P Two(Two(TypeName(VOb(\"b\")), Ob(\"c\").Tag), TypeName(VOb(\"a\"))) ;; P Trail", "Box,c,Box|b c a tc tb ta |",
-        DisplayName = "O12 an argument whose call is given a Variant and an object, left of a Variant")]
+        DisplayName = "an argument whose call is given a Variant and an object, left of a Variant")]
     [DataRow("P Two(Ob(\"a\").Tag & TypeName(VOb(\"b\")), Ob(\"c\").Tag) ;; P Trail", "aBox,c|a b c ta tc tb |",
-        DisplayName = "O13 an object and a Variant in one argument, left of an object")]
+        DisplayName = "an object and a Variant in one argument, left of an object")]
     [DataRow("P Two(TypeName(VOb(\"a\")) & Ob(\"b\").Tag, TypeName(VOb(\"c\"))) ;; P Trail", "Boxb,Box|a b c tb ta tc |",
-        DisplayName = "O14 a Variant and an object in one argument, left of a Variant")]
+        DisplayName = "a Variant and an object in one argument, left of a Variant")]
     public async Task WhatAStatementsCallsReturned_IsLetGoOf_TheObjectsFirst_ThenTheVariants(string body, string expected)
     {
         Assert.AreEqual(expected, await RunAsync(body, VBExecutionEngine.Interpreter), "the interpreter");

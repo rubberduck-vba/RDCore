@@ -117,8 +117,8 @@ public sealed class FilterTests
 
     // MS-VBA checks Compare when an element is compared, and only then (observed in Excel).
     [TestMethod]
-    [DataRow("", "a", -1, DisplayName = "S05 a zero-length element")]
-    [DataRow("x", "", 0, DisplayName = "D04 a zero-length match")]
+    [DataRow("", "a", -1, DisplayName = "a zero-length element")]
+    [DataRow("x", "", 0, DisplayName = "a zero-length match")]
     public void Filter_WithACompareThatIsNoModeNorLocale_ThatComparesNothing_Filters(string element, string match, int upperBound)
     {
         var filtered = Module().Filter(StringArray(element), new VBStringValue(match), Include, (VBCompareMethod)2);

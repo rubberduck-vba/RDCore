@@ -206,14 +206,14 @@ public sealed class OperatorFactAnalyzerTests
 
     // RDC11027: MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles (observed in Excel).
     [TestMethod]
-    [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a Long (G01)")]
-    [DataRow("Dim a As String, b As Integer, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a String \"2.5\" and an Integer (G03)")]
+    [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a Long")]
+    [DataRow("Dim a As String, b As Integer, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a String \"2.5\" and an Integer")]
     [DataRow("Dim a As Variant, b As Byte, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a Byte")]
-    [DataRow("Dim a As Variant, b As Integer, r As Boolean", "a = \"40000\"", "b = 2", DisplayName = "a number the Integer does not hold (H01)")]
+    [DataRow("Dim a As Variant, b As Integer, r As Boolean", "a = \"40000\"", "b = 2", DisplayName = "a number the Integer does not hold")]
     [DataRow("Dim a As Variant, b As Byte, r As Boolean", "a = \"-1\"", "b = 2", DisplayName = "a number the Byte does not hold")]
-    [DataRow("Dim a As Variant, b As Single, r As Boolean", "a = \"0.1\"", "b = 0.1", DisplayName = "a Variant \"0.1\" and a Single (H02)")]
-    [DataRow("Dim a As Variant, b As LongLong, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a LongLong (H03)")]
-    [DataRow("Dim a As Variant, b As LongLong, r As Boolean", "a = \"9007199254740993\"", "b = 9007199254740992^", DisplayName = "a LongLong no Double holds (H04)")]
+    [DataRow("Dim a As Variant, b As Single, r As Boolean", "a = \"0.1\"", "b = 0.1", DisplayName = "a Variant \"0.1\" and a Single")]
+    [DataRow("Dim a As Variant, b As LongLong, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a LongLong")]
+    [DataRow("Dim a As Variant, b As LongLong, r As Boolean", "a = \"9007199254740993\"", "b = 9007199254740992^", DisplayName = "a LongLong no Double holds")]
     public async Task AStringComparedWithANumber_AsDoubles_IsReported(string declarations, string first, string second)
     {
         var finding = (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "", declarations, first, second, "r = a = b")).Single();
@@ -333,9 +333,9 @@ public sealed class OperatorFactAnalyzerTests
     [TestMethod]
     [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"2\"", "b = 2", DisplayName = "an integer's text, which the two compare alike")]
     [DataRow("Dim a As Variant, b As Double, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Double, the table's type")]
-    [DataRow("Dim a As Variant, b As Currency, r As Boolean", "a = \"2.00001\"", "b = 2", DisplayName = "a Currency, the table's type (I02)")]
+    [DataRow("Dim a As Variant, b As Currency, r As Boolean", "a = \"2.00001\"", "b = 2", DisplayName = "a Currency, the table's type")]
     [DataRow("Dim a As Variant, b As Boolean, r As Boolean", "a = \"2.5\"", "b = True", DisplayName = "a Boolean, the table's type")]
-    [DataRow("Dim a As String, b As Single, r As Boolean", "a = \"0.1\"", "b = 0.1", DisplayName = "a String declared as one and a Single, the table's type (H02)")]
+    [DataRow("Dim a As String, b As Single, r As Boolean", "a = \"0.1\"", "b = 0.1", DisplayName = "a String declared as one and a Single, the table's type")]
     [DataRow("Dim a As Variant, b As Variant, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "two Variants (RDC11011)")]
     [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"abc\"", "b = 2", DisplayName = "a Variant String that is no number (RDC11020)")]
     public async Task AComparisonOfAnotherKind_IsNotReportedAsDoubles(string declarations, string first, string second)

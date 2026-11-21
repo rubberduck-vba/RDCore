@@ -23,8 +23,8 @@ public sealed class ProcedureConstantLengthAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("Const K2 = Len(\"abc\")", "K2", DisplayName = "C03 of a literal")]
-    [DataRow("Const K = \"abcd\" ;; Const K3 = Len(K)", "K3", DisplayName = "C04 of a constant")]
+    [DataRow("Const K2 = Len(\"abc\")", "K2", DisplayName = "of a literal")]
+    [DataRow("Const K = \"abcd\" ;; Const K3 = Len(K)", "K3", DisplayName = "of a constant")]
     [DataRow("Const K = \"abcd\" ;; Const K5 = VBA.Len(K) + 1", "K5", DisplayName = "through its module, in an expression")]
     public async Task AConstOfAProcedureValuedWithLen_IsAWarning(string body, string name)
     {

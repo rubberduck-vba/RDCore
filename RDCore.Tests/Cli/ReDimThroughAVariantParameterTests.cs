@@ -44,10 +44,10 @@ public sealed class ReDimThroughAVariantParameterTests
                 "Dim arr(2) As Long", "Grow arr", "Debug.Print Err.Number", "Debug.Print UBound(arr)"));
 
     [TestMethod]
-    [DataRow("a As Variant", "ReDim a(5)", "Dim n As Long", "n = 3", "Debug.Print n: Debug.Print TypeName(n)", "13|3|Long", DisplayName = "a Long (D01)")]
-    [DataRow("a As Variant", "ReDim Preserve a(5)", "Dim n As Long", "n = 3", "Debug.Print n", "13|3", DisplayName = "a Long, Preserve (D02)")]
-    [DataRow("a", "ReDim a(5)", "Dim n As String", "n = \"x\"", "Debug.Print n: Debug.Print TypeName(n)", "13|x|String", DisplayName = "a String, untyped (D03)")]
-    [DataRow("a As Variant", "ReDim a(5)", "Dim n As Object", "Set n = Nothing", "Debug.Print TypeName(n)", "13|Nothing", DisplayName = "an Object (D04)")]
+    [DataRow("a As Variant", "ReDim a(5)", "Dim n As Long", "n = 3", "Debug.Print n: Debug.Print TypeName(n)", "13|3|Long", DisplayName = "a Long")]
+    [DataRow("a As Variant", "ReDim Preserve a(5)", "Dim n As Long", "n = 3", "Debug.Print n", "13|3", DisplayName = "a Long, Preserve")]
+    [DataRow("a", "ReDim a(5)", "Dim n As String", "n = \"x\"", "Debug.Print n: Debug.Print TypeName(n)", "13|x|String", DisplayName = "a String, untyped")]
+    [DataRow("a As Variant", "ReDim a(5)", "Dim n As Object", "Set n = Nothing", "Debug.Print TypeName(n)", "13|Nothing", DisplayName = "an Object")]
     public async Task AVariableThatIsNoArray_GivenToAVariantParameter_IsNotReDimensioned_Error13(
         string parameter, string redim, string declaration, string assignment, string reads, string expected)
         => CollectionAssert.AreEqual(expected.Split('|'),

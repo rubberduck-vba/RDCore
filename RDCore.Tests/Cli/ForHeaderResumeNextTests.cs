@@ -26,17 +26,17 @@ public sealed class ForHeaderResumeNextTests
     private const string Body = "k = k + 1 ;; Debug.Print \"i\" & i ;; If k > 2 Then Exit For ;; Next";
 
     [TestMethod]
-    [DataRow("For i = 10 \\ n To 2", "i0/after 11 i=1 k=1", DisplayName = "F01 the start")]
-    [DataRow("For i = 1 To 10 \\ n", "i0/after 11 i=1 k=1", DisplayName = "F02 the end")]
-    [DataRow("i = 7 ;; For i = 10 \\ n To 2", "i7/after 11 i=8 k=1", DisplayName = "F04 the start, the counter keeps its value")]
-    [DataRow("i = 7 ;; For i = 1 To 10 \\ n", "i7/after 11 i=8 k=1", DisplayName = "F05 the end, the counter not given the start")]
-    [DataRow("For i = -3 To 10 \\ n", "i0/after 11 i=1 k=1", DisplayName = "F07 the end, a start below it")]
+    [DataRow("For i = 10 \\ n To 2", "i0/after 11 i=1 k=1", DisplayName = "the start")]
+    [DataRow("For i = 1 To 10 \\ n", "i0/after 11 i=1 k=1", DisplayName = "the end")]
+    [DataRow("i = 7 ;; For i = 10 \\ n To 2", "i7/after 11 i=8 k=1", DisplayName = "the start, the counter keeps its value")]
+    [DataRow("i = 7 ;; For i = 1 To 10 \\ n", "i7/after 11 i=8 k=1", DisplayName = "the end, the counter not given the start")]
+    [DataRow("For i = -3 To 10 \\ n", "i0/after 11 i=1 k=1", DisplayName = "the end, a start below it")]
     public async Task AnErrorInTheHeader_OfALoopWithNoStep_RunsTheBodyOnce_AndNextStepsByOne(string header, string expected)
         => Assert.AreEqual(expected, await Run($"{header} ;; {Body}"));
 
     [TestMethod]
-    [DataRow("For i = 1 To 3 Step 10 \\ n", "i0/i0/i0/after 11 i=0 k=3", DisplayName = "F03 the step")]
-    [DataRow("For i = 5 To 1 Step 10 \\ n", "i0/i0/i0/after 11 i=0 k=3", DisplayName = "F06 the step, an end below the start")]
+    [DataRow("For i = 1 To 3 Step 10 \\ n", "i0/i0/i0/after 11 i=0 k=3", DisplayName = "the step")]
+    [DataRow("For i = 5 To 1 Step 10 \\ n", "i0/i0/i0/after 11 i=0 k=3", DisplayName = "the step, an end below the start")]
     public async Task AnErrorInTheStep_LeavesAStepOf0_AndTheCounterWhereItWas(string header, string expected)
         => Assert.AreEqual(expected, await Run($"{header} ;; {Body}"));
 
@@ -51,8 +51,8 @@ public sealed class ForHeaderResumeNextTests
         => Assert.AreEqual("i5/after 11 i=5 k=1", await Run($"i = 5 ;; For i = 10 \\ n To 1 Step -1 ;; {Body}"));
 
     [TestMethod]
-    [DataRow("For i = 1 To 10 \\ n", DisplayName = "X02 the end of the first pass")]
-    [DataRow("For i = 1 To 10 Step 10 \\ n", DisplayName = "X03 the step of the first pass")]
+    [DataRow("For i = 1 To 10 \\ n", DisplayName = "the end of the first pass")]
+    [DataRow("For i = 1 To 10 Step 10 \\ n", DisplayName = "the step of the first pass")]
     public async Task AnErrorInTheHeader_OfASecondPass_LeavesTheLoopWhatTheFirstPassGaveIt(string header)
         // the first pass runs with n = 1 (an end of 10, a step of 1) and leaves at i = 2; the second, with n = 0, keeps them.
         => Assert.AreEqual("p1i1/p1i2/p2i2/p2i3/p2i4/p2i5/p2i6/after 11 i=6 k=7", await Run(

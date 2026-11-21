@@ -17,9 +17,9 @@ public sealed class SelectCaseResumeNextTests
     }
 
     [TestMethod]
-    [DataRow("Select Case i + 1 ;; Case Else ;; Debug.Print \"else\" ;; End Select", DisplayName = "C01 Case Else")]
-    [DataRow("Select Case i + 1 ;; Case 1 ;; Debug.Print \"one\" ;; Case Else ;; Debug.Print \"else\" ;; End Select", DisplayName = "C02 a Case, then Case Else")]
-    [DataRow("Select Case i + 1 ;; Case 1 ;; Debug.Print \"one\" ;; End Select", DisplayName = "C03 a Case")]
+    [DataRow("Select Case i + 1 ;; Case Else ;; Debug.Print \"else\" ;; End Select", DisplayName = "Case Else")]
+    [DataRow("Select Case i + 1 ;; Case 1 ;; Debug.Print \"one\" ;; Case Else ;; Debug.Print \"else\" ;; End Select", DisplayName = "a Case, then Case Else")]
+    [DataRow("Select Case i + 1 ;; Case 1 ;; Debug.Print \"one\" ;; End Select", DisplayName = "a Case")]
     public async Task AnErrorInTheSelector_UnderOnErrorResumeNext_GoesOnPastEndSelect(string select)
         => Assert.AreEqual("6", await Run($"On Error Resume Next ;; Dim i As Integer ;; i = 32767 ;; {select} ;; Debug.Print Err.Number"));
 
