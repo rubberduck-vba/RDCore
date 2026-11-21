@@ -1,5 +1,6 @@
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -81,7 +82,7 @@ public sealed class ExtractionDuplicatesTests
     {
         var (duplicates, plan, choices, analyzed) = ExtractionFixture.Duplicates(Body, 1, 2, end: Twin("y = m * 2\nDebug.Print y"));
 
-        var replaced = ExtractionText.Apply(analyzed.Text, duplicates.Single().Replacement(plan, choices)).Text;
+        var replaced = TextLines.Apply(analyzed.Text, [.. duplicates.Single().Replacement(plan, choices).Select(edit => edit.TextEdit)]).Text;
 
         StringAssert.Contains(replaced, "Private Sub Twin(ByVal m As Long)\r\n    Extracted m\r\nEnd Sub");
     }

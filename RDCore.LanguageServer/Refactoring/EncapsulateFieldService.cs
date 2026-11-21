@@ -507,7 +507,7 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             return [];
         }
 
-        var text = new ExtractionText(module.Source);
+        var text = TextLines.Of(module.Source);
         return
         [
             .. tree.Children.OfType<VariableDeclarationNode>()

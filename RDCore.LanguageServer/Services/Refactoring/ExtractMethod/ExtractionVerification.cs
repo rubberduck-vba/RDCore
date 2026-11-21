@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
@@ -85,7 +86,7 @@ internal static class ExtractionVerification
         ExtractionPlan plan, ExtractionEdit edit, string name, string sourceProcedure, MemberKind sourceKind, ExtractionModuleAnalysis before,
         Func<string, ExtractionModuleAnalysis> analyze)
     {
-        var (text, written) = ExtractionText.Apply(before.Text, edit.Edits);
+        var (text, written) = TextLines.Apply(before.Text, edit.TextEdits);
         var after = analyze(text);
         if (!after.Parse.IsSuccess)
         {
@@ -120,15 +121,14 @@ internal static class ExtractionVerification
             return new(ExtractionVerificationFailureKind.NewCompileError, errorsAfter.First(error => error.ErrorId == newError).Description);
         }
 
-        var editedText = new ExtractionText(text);
         if (plan.Selection.Routine is not null)
         {
-            return SitesOf(plan, edit, editedText, written, after, original, edited, extracted, name);
+            return SitesOf(plan, edit, TextLines.Of(text), written, after, original, edited, extracted, name);
         }
 
         // the call, and what the call site does with what it returns, is where the selection was.
         var call = Enumerable.Range(0, edit.Edits.Length).Single(index => edit.Edits[index].Kind is ExtractionTextEditKind.Call);
-        return CallOf(plan, original, edited, extracted, name, after, text, written[call]);
+        return CallOf(plan, original, edited, extracted, name, after, written[call]);
     }
 
     /// <summary>
@@ -147,7 +147,7 @@ internal static class ExtractionVerification
         ExtractionDuplicate duplicate, ExtractionEdit edit, SourceRange call, string name, ExtractionModuleAnalysis before, ExtractionModuleAnalysis after,
         ExtractionProcedureAnalysis extracted)
     {
-        var (text, written) = ExtractionText.Apply(before.Text, edit.Edits);
+        var written = TextLines.Apply(before.Text, edit.TextEdits).Written;
         if (!after.Parse.IsSuccess)
         {
             return new(ExtractionVerificationFailureKind.DoesNotParse, after.Parse.SyntaxErrors.FirstOrDefault()?.Verbose);
@@ -173,17 +173,15 @@ internal static class ExtractionVerification
         }
 
         var index = Enumerable.Range(0, edit.Edits.Length).Single(each => edit.Edits[each].Kind is ExtractionTextEditKind.Replacement && edit.Edits[each].Range == call);
-        return CallOf(duplicate.Plan, original, edited, extracted, name, after, text, written[index]);
+        return CallOf(duplicate.Plan, original, edited, extracted, name, after, written[index]);
     }
 
-    // the call, written at the offsets given in the text the edits leave, does what the selection of the plan did.
+    // the call, written at the range given in the text the edits leave, does what the selection of the plan did.
     private static ExtractionVerificationFailure? CallOf(
         ExtractionPlan plan, ExtractionProcedureAnalysis original, ExtractionProcedureAnalysis edited, ExtractionProcedureAnalysis extracted, string name,
-        ExtractionModuleAnalysis after, string text, (int Start, int End) written)
+        ExtractionModuleAnalysis after, SourceRange written)
     {
-        var editedText = new ExtractionText(text);
-        var requested = new SourceRange(editedText.PositionOf(written.Start), editedText.PositionOf(written.End));
-        if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, requested, out var callSite, out _, out _))
+        if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, written, out var callSite, out _, out _))
         {
             return new(ExtractionVerificationFailureKind.DataFlowDiffers, null);
         }
@@ -195,7 +193,7 @@ internal static class ExtractionVerification
     // each call that replaces a GoSub of a routine takes in what the routine took in, writes nothing it did not, gives back what the code after it reads of what
     // it wrote, and leaves the source procedure where it did.
     private static ExtractionVerificationFailure? SitesOf(
-        ExtractionPlan plan, ExtractionEdit edit, ExtractionText editedText, IReadOnlyList<(int Start, int End)> written, ExtractionModuleAnalysis after,
+        ExtractionPlan plan, ExtractionEdit edit, TextLines editedText, IReadOnlyList<SourceRange> written, ExtractionModuleAnalysis after,
         ExtractionProcedureAnalysis original, ExtractionProcedureAnalysis edited, ExtractionProcedureAnalysis extracted, string name)
     {
         var known = original.Accesses.Variables.ToHashSet();
@@ -204,10 +202,11 @@ internal static class ExtractionVerification
         foreach (var site in Enumerable.Range(0, edit.Edits.Length).Where(index => edit.Edits[index].Kind is ExtractionTextEditKind.Site))
         {
             // the call alone, of the Select Case an On…GoSub becomes.
-            var (start, end) = edit.Edits[site] is { CallStart: >= 0, CallLength: >= 0 } table
-                ? (written[site].Start + table.CallStart, written[site].Start + table.CallStart + table.CallLength)
+            var requested = edit.Edits[site] is { CallStart: >= 0, CallLength: >= 0 } table
+                ? new SourceRange(
+                    editedText.PositionOf(editedText.Offset(written[site].Start) + table.CallStart),
+                    editedText.PositionOf(editedText.Offset(written[site].Start) + table.CallStart + table.CallLength))
                 : written[site];
-            var requested = new SourceRange(editedText.PositionOf(start), editedText.PositionOf(end));
             if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, requested, out var callSite, out _, out _))
             {
                 return new(ExtractionVerificationFailureKind.DataFlowDiffers, null);
