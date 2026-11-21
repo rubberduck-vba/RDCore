@@ -684,6 +684,9 @@
   <data name="SuspiciousLetAssignment_Fix" xml:space="preserve">
     <value>Nommer les deux membres par défaut, ce qui garde le Let des valeurs</value>
   </data>
+  <data name="SetAssignment_Fix" xml:space="preserve">
+    <value>Assigner l&apos;objet lui-même, avec Set</value>
+  </data>
   <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
     <value>On Error GoTo -1 met fin à l&apos;erreur en cours de traitement, et MS-VBAL ne le documente pas : un Resume met fin au gestionnaire et dit où la procédure continue.</value>
   </data>

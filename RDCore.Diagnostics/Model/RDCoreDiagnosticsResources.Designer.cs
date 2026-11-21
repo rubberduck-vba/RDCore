@@ -1801,6 +1801,14 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
+        ///   Looks up a localized string similar to Assign the object itself, with Set.
+        /// </summary>
+        public static string SetAssignment_Fix {
+            get {
+                return ResourceManager.GetString("SetAssignment_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
         ///   Looks up a localized string similar to On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on..
         /// </summary>
         public static string OnErrorGoToMinusOne_Message {

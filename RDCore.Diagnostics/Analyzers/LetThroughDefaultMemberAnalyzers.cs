@@ -83,15 +83,19 @@ internal sealed class LetToAnObjectWithNoDefaultMemberAnalyzer : IModuleAnalyzer
             (procedure, fact) => fact is { Error: null, TypeKind: DeclaredTypeKind.Class, IsArray: false, DefaultMember: null }
                 && !fact.Accessors.HasFlag(PropertyAccessors.Let)
                 && fact.Binding?.AbsoluteUri != procedure.Procedure.AbsoluteUri,
-            RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, _ => RDCoreDiagnosticsResources.LetToAnObjectWithNoDefaultMember_Message);
+            RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, _ => RDCoreDiagnosticsResources.LetToAnObjectWithNoDefaultMember_Message,
+            // the Let of an object, which has no default member to take it, made a Set.
+            (statement, target, procedure) => SetAssignments.Fix(statement, target, procedure.Expressions
+                .FirstOrDefault(fact => fact.Location.Range == statement.Value.SourceLocation.Range)) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null);
 }
 
 // a finding at the expression of each Let target that the facts say is assigned through a default member, named as the code writes it, with the declared type
-// of the target as a second argument of the message.
+// of the target as a second argument of the message, and the fixes of its statement.
 internal static class LetThroughDefaultMember
 {
     public static IEnumerable<AnalyzerFinding> Findings(ModuleAnalysisContext context, Func<ExpressionNode, ExpressionNode?> judged,
-        Func<ProcedureSemanticsDto, ExpressionFactDto, bool> isAssignedThrough, RDCoreDiagnosticId id, Func<ExpressionFactDto, string> message)
+        Func<ProcedureSemanticsDto, ExpressionFactDto, bool> isAssignedThrough, RDCoreDiagnosticId id, Func<ExpressionFactDto, string> message,
+        Func<AssignmentStatementNode, ExpressionFactDto, ProcedureSemanticsDto, DiagnosticFixes?>? fixes = null)
     {
         if (context.ParseResult.SyntaxTree is not { } module || context.Semantics is not { } semantics)
         {
@@ -100,17 +104,21 @@ internal static class LetThroughDefaultMember
 
         var expressions = module.Descendants().OfType<AssignmentStatementNode>()
             .Where(assignment => assignment.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet)
-            .Select(assignment => judged(assignment.Target))
-            .OfType<ExpressionNode>()
-            .DistinctBy(expression => expression.Identity)
-            .ToDictionary(expression => expression.Identity);
+            .Select(assignment => (Expression: judged(assignment.Target), Statement: assignment))
+            .Where(judgedOne => judgedOne.Expression is not null)
+            .DistinctBy(judgedOne => judgedOne.Expression!.Identity)
+            .ToDictionary(judgedOne => judgedOne.Expression!.Identity);
         foreach (var procedure in semantics.Procedures)
         {
             foreach (var fact in procedure.Expressions.Where(fact => expressions.ContainsKey(fact.Node) && isAssignedThrough(procedure, fact)))
             {
-                if (NameOf(expressions[fact.Node]) is { } name)
+                var (expression, statement) = expressions[fact.Node];
+                if (NameOf(expression!) is { } name)
                 {
-                    yield return new AnalyzerFinding(id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty));
+                    yield return new AnalyzerFinding(id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty))
+                    {
+                        Fixes = fixes?.Invoke(statement, fact, procedure),
+                    };
                 }
             }
         }
