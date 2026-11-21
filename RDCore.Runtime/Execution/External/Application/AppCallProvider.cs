@@ -29,7 +29,8 @@ namespace RDCore.Runtime.Execution.External.Application;
 /// <para>
 /// <c>Title</c> is the project's name and the version is 1.0.0, with the six version strings empty, as a new Visual Basic 6.0 project has them. The form
 /// host is told each <c>Title</c> the program assigns, which names the application of its windows. <c>StartMode</c> is <c>vbSModeStandalone</c>,
-/// <c>NonModalAllowed</c> is <c>True</c>, <c>RetainedProject</c> is <c>False</c>, and <c>UnattendedApp</c> is whether the program runs unattended (<see cref="IRuntimeSession.RunsUnattended"/>).
+/// <c>NonModalAllowed</c> is <c>True</c>, <c>RetainedProject</c> is <c>False</c>, and <c>UnattendedApp</c> is whether the program runs unattended
+/// (<see cref="IRuntimeSession.RunsUnattended"/>).
 /// </para>
 /// <para>
 /// <c>TaskVisible</c> and the <c>Ole*</c> properties keep what the program assigns, and change nothing. <c>ThreadID</c> is the operating system's identifier
