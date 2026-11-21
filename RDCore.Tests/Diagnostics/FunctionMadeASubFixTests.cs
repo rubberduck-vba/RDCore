@@ -3,8 +3,8 @@ using RDCore.Diagnostics;
 namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
-/// The fix that makes a <c>Function</c> a <c>Sub</c>, of <c>RDC00217</c> and <c>RDC00206</c>: offered for a function no caller uses the value of, it keeps what
-/// the program does.
+/// The fix that makes a <c>Function</c> a <c>Sub</c>, of <c>RDC00217</c> and <c>RDC00206</c>: offered for a function no caller uses the value of, it
+/// keeps what the program does.
 /// </summary>
 [TestClass]
 public sealed class FunctionMadeASubFixTests

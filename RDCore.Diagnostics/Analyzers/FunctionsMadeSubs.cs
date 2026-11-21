@@ -15,8 +15,8 @@ using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// A <c>Function</c> made a <c>Sub</c> (<strong>MS-VBAL §5.3.1</strong>), for a function no caller uses the value of: a call statement calls a <c>Sub</c> as it
-/// calls a <c>Function</c> (<strong>MS-VBAL §5.4.2.1</strong>).
+/// A <c>Function</c> made a <c>Sub</c> (<strong>MS-VBAL §5.3.1</strong>), for a function no caller uses the value of: a call statement calls a
+/// <c>Sub</c> as it calls a <c>Function</c> (<strong>MS-VBAL §5.4.2.1</strong>).
 /// </summary>
 internal static class FunctionsMadeSubs
 {
@@ -26,9 +26,9 @@ internal static class FunctionsMadeSubs
     /// </summary>
     /// <remarks>
     /// Offered when every reference the host counts discards the value (<see cref="DeclarationFactDto.ReferencedFrom"/>), and the body uses its return value
-    /// only as the target of a statement of its own line, given a literal or the value of a variable: none of them has an effect that removing it would
-    /// lose. Not offered for a function written with a type character, or with a header in each branch of a <c>#If</c> block, nor where the tree does not
-    /// say where a keyword is written.
+    /// only as the target of a statement on lines of its own, given a literal or the value of a variable (for a <c>Let</c>, one that is not of a class,
+    /// <c>Object</c> or <c>Variant</c>): none of them has an effect that removing it would lose. Not offered for a function written with a type
+    /// character, or with a header in each branch of a <c>#If</c> block, nor where the tree does not say where a keyword is written.
     /// </remarks>
     /// <param name="context">The module the function is declared in.</param>
     /// <param name="declaration">The fact of the function's declaration.</param>
