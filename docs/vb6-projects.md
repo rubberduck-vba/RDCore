@@ -87,10 +87,6 @@ and an assignment without `Set` raises 438.
 > **Not implemented.**
 > - A form or a PictureBox that is not shown draws nothing, and its `Point` reads -1, whatever its `AutoRedraw`. VB6 draws on one whose `AutoRedraw`
 >   is True.
-> - On a font of the program's that a control holds, a change of `Name` does not snap again a `Size` the program set before it:
->   `f.Name = "Courier": f.Size = 14: f.Name = "Arial"` leaves `f.Size` at 14. VB6 snaps 14 for Arial and gives 14.25, as RD-VBA does for a font
->   no control holds.
-
 ---
 ## Running a VB6 project
 

@@ -87,10 +87,6 @@ contrôles lèvent 425. Un Timer n'a pas de `Container` (438), et une affectatio
 > **Non implémenté.**
 > - Une feuille ou un PictureBox qui n'est pas affiché ne dessine rien, et son `Point` donne -1, quel que soit son `AutoRedraw`. VB6 dessine sur
 >   celui dont l'`AutoRedraw` est True.
-> - Sur une police du programme que détient un contrôle, un changement de `Name` n'ajuste pas de nouveau un `Size` que le programme a affecté
->   avant lui : `f.Name = "Courier": f.Size = 14: f.Name = "Arial"` laisse `f.Size` à 14. VB6 ajuste 14 pour Arial et donne 14.25, comme RD-VBA
->   le fait pour une police qu'aucun contrôle ne détient.
-
 ---
 ## Exécuter un projet VB6
 
