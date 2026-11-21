@@ -134,6 +134,11 @@ public sealed record class ExternalValue
     /// What a <see cref="ExternalValueKind.SessionObject"/> pictures, when it is a picture of the session's (<see cref="Automation.SessionObjectReference.Picture"/>).
     /// </summary>
     public Automation.SessionPicture? Picture { get; init; }
+
+    /// <summary>
+    /// What a <see cref="ExternalValueKind.SessionObject"/> holds, when it is a font of the session's (<see cref="Automation.SessionObjectReference.Font"/>).
+    /// </summary>
+    public Automation.SessionFont? Font { get; init; }
 }
 
 /// <summary>
@@ -186,6 +191,8 @@ public static class ExternalValues
         ErrorWrapper error => Scalar(ExternalValueKind.Error, error.ErrorCode.ToString(Invariant)),
         Automation.SessionObjectReference { Picture: { } picture } reference
             => new() { Kind = ExternalValueKind.SessionObject, Text = reference.SessionObject, Picture = picture },
+        Automation.SessionObjectReference { Font: { } font } reference
+            => new() { Kind = ExternalValueKind.SessionObject, Text = reference.SessionObject, Font = font },
         Automation.ISessionObjectStandIn standIn => Scalar(ExternalValueKind.SessionObject, standIn.SessionObject),
         Array array => ToWire(array, handleOf),
         _ => new() { Kind = ExternalValueKind.Object, Handle = handleOf(value) },
@@ -245,11 +252,12 @@ public static class ExternalValues
         ExternalValueKind.String => value.Text ?? string.Empty,
         ExternalValueKind.Error => new ErrorWrapper(int.Parse(value.Text!, Invariant)),
         ExternalValueKind.Object => objectOf(value.Handle),
-        ExternalValueKind.SessionObject => (sessionObjectOf?.Invoke(value.Text!), value.Picture) switch
+        ExternalValueKind.SessionObject => (sessionObjectOf?.Invoke(value.Text!), value.Picture, value.Font) switch
         {
-            // a picture of the session's is what the server's side draws: what it pictures crosses with it.
-            (Automation.SessionObjectReference reference, { } picture) => reference with { Picture = picture },
-            ({ } found, _) => found,
+            // a picture of the session's is what the server's side draws: what it pictures crosses with it. So does what a font of the session's holds.
+            (Automation.SessionObjectReference reference, { } picture, _) => reference with { Picture = picture },
+            (Automation.SessionObjectReference reference, _, { } font) => reference with { Font = font },
+            ({ } found, _, _) => found,
             _ => new Automation.SessionObjectIdentity(value.Text!),
         },
         ExternalValueKind.Array => ArrayFromWire(value, objectOf, sessionObjectOf),

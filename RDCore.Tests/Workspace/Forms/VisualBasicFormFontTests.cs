@@ -122,6 +122,27 @@ public sealed class VisualBasicFormFontTests
             "Debug.Print Form7.Text1.Font.Underline");
 
     [TestMethod]
+    public Task SetOfANewStdFont_GivesTheControlItsValues()
+        => AssertPrintsAsync(["Arial 12 True True", "MS Sans Serif 8.25 False"],
+            "Set f = New StdFont: f.Name = \"Arial\": f.Size = 12: f.Bold = True: f.Italic = True",
+            "Set Form7.Label1.Font = f",
+            "Debug.Print Form7.Label1.FontName & \" \" & Form7.Label1.FontSize & \" \" & Form7.Label1.FontBold & \" \" & Form7.Label1.Font.Italic",
+            "Set Form7.Text1.Font = New StdFont",
+            "Debug.Print Form7.Text1.FontName & \" \" & Form7.Text1.FontSize & \" \" & Form7.Text1.FontBold");
+
+    [TestMethod]
+    [Ignore("not implemented: a font of the program's that is Set to a control's Font is shared with it, as VB6 shares it; the control holds a copy")]
+    public Task SetOfANewStdFont_SharesIt()
+        => AssertPrintsAsync(["True", "True", "True"],
+            "Set f = New StdFont",
+            "Set Form7.Label1.Font = f",
+            "Debug.Print Form7.Label1.Font Is f",
+            "f.Bold = True",
+            "Debug.Print Form7.Label1.FontBold",
+            "Form7.Label1.FontItalic = True",
+            "Debug.Print f.Italic");
+
+    [TestMethod]
     public Task AFont_IsStillReadAfterItsFormIsUnloaded()
         => AssertPrintsAsync(["True"], "Set f = Form7.Label1.Font", "f.Bold = True", "Unload Form7", "Debug.Print f.Bold");
 
@@ -138,7 +159,6 @@ public sealed class VisualBasicFormFontTests
             "Debug.Print f.Name & \" \" & f.Size & \" \" & f.Weight & \" \" & f.Charset");
 
     [TestMethod]
-    [Ignore("not implemented: TypeName of a StdFont, which VB6 names Font")]
     public Task TypeName_OfAControlsFont_IsFont()
         => AssertPrintsAsync(["Font"], "Debug.Print TypeName(Form7.Label1.Font)");
 }
