@@ -62,11 +62,12 @@ public sealed record class SessionPicture(byte[] Bytes, int Width, int Height, b
 public sealed record class SessionFont(string Name, bool IsNamed, decimal Size, short Weight, short Charset, bool Italic, bool Underline, bool Strikethrough)
 {
     /// <summary>
-    /// The values of <paramref name="font"/>. Its size is read, which is what a size set and not read yet snaps on.
+    /// The values of <paramref name="font"/>. Its size is the one it is drawn at (<see cref="StdFontObject.SizeAsDrawn"/>), which the font does not keep:
+    /// a later name snaps from the size the program set, as it does on a font no server holds.
     /// </summary>
     /// <param name="font">The font.</param>
     public static SessionFont Of(StdFontObject font)
-        => new(font.Name, font.IsNamed, font.Size, font.Weight, font.Charset, font.Italic, font.Underline, font.Strikethrough);
+        => new(font.Name, font.IsNamed, font.SizeAsDrawn, font.Weight, font.Charset, font.Italic, font.Underline, font.Strikethrough);
 
     /// <summary>
     /// A new font that holds these values.

@@ -162,7 +162,6 @@ public sealed class VisualBasicFormFontTests
 
     // Courier 14, its size not read, snaps to Arial's 14.25, as a font no control holds does.
     [TestMethod]
-    [Ignore("not implemented: telling the forms' server what a shared font holds reads its size, which a later name then snaps from")]
     public Task ASharedFontsSize_SnapsToALaterName_AsTheProgramLastSetOrReadIt()
         => AssertPrintsAsync(["14.25"],
             "Set f = New StdFont",
