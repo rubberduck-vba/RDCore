@@ -248,7 +248,7 @@ L_SQUARE_BRACKET : '[';
 R_SQUARE_BRACKET : ']';
 L_BRACE : '{';
 R_BRACE : '}';
-STRINGLITERAL : '"' (~["\r\n] | '""')* '"';
+STRINGLITERAL : '"' (~["\r\n\u2028\u2029] | '""')* '"';
 OCTLITERAL : '&O' [0-7]+ INTEGERTYPESUFFIX?;
 HEXLITERAL : '&H' [0-9A-F]+ INTEGERTYPESUFFIX?;
 FLOATLITERAL :
@@ -304,13 +304,14 @@ SINGLEQUOTE : '\'';
 UNDERSCORE : '_';
 WS : [ \t];
 GUIDLITERAL : '{' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '}';
-IDENTIFIER :  ~[[\](){}\r\n\t.,'"|!@#$%^&*\-+:=; 0-9-/\\] ~[[\](){}\r\n\t.,'"|!@#$%^&*\-+:=; -]*;
+IDENTIFIER :  ~[[\](){}\r\n\u2028\u2029\t.,'"|!@#$%^&*\-+:=; 0-9-/\\] ~[[\](){}\r\n\u2028\u2029\t.,'"|!@#$%^&*\-+:=; -]*;
 // only the last blank before the underscore belongs to the continuation, and the blanks before it are WS of their own, so a run of blanks is read once: a
 // token that could start at any blank would re-read the rest of the run from each one.
-LINE_CONTINUATION : [ \t] UNDERSCORE [ \t]* '\r'? '\n' WS_NOT_FOLLOWED_BY_LINE_CONTINUATION*;
+LINE_CONTINUATION : [ \t] UNDERSCORE [ \t]* ('\r'? '\n' | '\r' | [\u2028\u2029]) WS_NOT_FOLLOWED_BY_LINE_CONTINUATION*;
 // The following rule is needed in order to capture hex literals without format prefixes which start with a digit. Needed for VBForm resources.
 BARE_HEX_LITERAL : [0-9] [0-9a-fA-F]*; 
-fragment WS_NOT_FOLLOWED_BY_LINE_CONTINUATION : [ \t] {!IsChar(CharAtRelativePosition(1),'_') || !IsChar(CharAtRelativePosition(2),'\r','\n','\t',' ')}?;
+fragment WS_NOT_FOLLOWED_BY_LINE_CONTINUATION : [ \t]
+    {!IsChar(CharAtRelativePosition(1),'_') || !IsChar(CharAtRelativePosition(2),'\r','\n','\u2028','\u2029','\t',' ')}?;
 fragment LETTER : [a-zA-Z_äöüÄÖÜ];
 fragment DIGIT : [0-9];
 fragment LETTERORDIGIT : [a-zA-Z0-9_äöüÄÖÜ];

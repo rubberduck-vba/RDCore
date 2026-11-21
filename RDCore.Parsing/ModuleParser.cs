@@ -152,7 +152,10 @@ public partial class ModuleParser(
 
             // a procedure header written once in each branch of a #If block is one procedure: the main pass reads one of its headers, and the branches of the
             // others are parsed on their own, as its alternatives (SplitHeaderScanner).
-            var alternatives = hasDirectives && ConditionalBlockPattern().IsMatch(content) ? SplitHeaderScanner.Find(content) : [];
+            // The scanner reads whole lines, which a U+2028 or a U+2029 does not end: a module that has one is read without alternatives.
+            var alternatives = hasDirectives && !HasUnicodeLineSeparator(content) && ConditionalBlockPattern().IsMatch(content)
+                ? SplitHeaderScanner.Find(content)
+                : [];
             if (alternatives.Count > 0)
             {
                 sanitized = WithoutBranches(sanitized, alternatives);
@@ -309,6 +312,13 @@ public partial class ModuleParser(
     // the segments of the module, or none - counted by why - when it must be parsed whole.
     private static IReadOnlyList<ModuleSegmentScanner.Segment>? Segments(string sanitized, SegmentationStatistics? statistics)
     {
+        // a segment is whole lines, which a U+2028 or a U+2029 does not end.
+        if (HasUnicodeLineSeparator(sanitized))
+        {
+            statistics?.Count(SegmentationStatistics.Path.UnicodeLineSeparator);
+            return null;
+        }
+
         var segments = ModuleSegmentScanner.Scan(sanitized, out var giveUp);
         if (segments is { Count: > 1 })
         {
@@ -483,10 +493,9 @@ public partial class ModuleParser(
     private static ModuleNode EmptyModule(Uri uri, SourceRange wholeText)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, wholeText), []);
 
-    // ANTLR's input stream and the precompiler-line regexes (RegexOptions.Multiline) only treat \n as
-    // a line boundary, and a leading BOM would land in column 0 of the first token. Fold every line
-    // ending to \n and drop one leading BOM so locations and #-directive detection hold regardless of
-    // how the client saved the file.
+    // a line ends where LSP 3.17 ends one, at a CR, a LF or a CRLF, and the parse reads each as a \n: ANTLR counts a line only at a \n, so the positions of
+    // the tree are the ones a client counts. A U+2028 or a U+2029 ends a physical line too (MS-VBAL §3.2.1) and is left as it is: the lexer reads it as a
+    // line terminator, and ANTLR counts it as a character of its line, as LSP does. A leading BOM is dropped, so that the first token is in column 0.
     private static string NormalizeSource(string content)
     {
         if (string.IsNullOrEmpty(content))
@@ -501,10 +510,14 @@ public partial class ModuleParser(
 
         return content
             .Replace("\r\n", "\n")
-            .Replace('\r', '\n')
-            .Replace('\u2028', '\n')
-            .Replace('\u2029', '\n');
+            .Replace('\r', '\n');
     }
+
+    // the physical line ends of the source the parse reads (NormalizeSource): a \n, which ends a position's line too, and a U+2028 or a U+2029, which do not.
+    private const string PhysicalLineEnds = "\n\u2028\u2029";
+
+    // whether the source has a physical line end that does not end the line a position counts.
+    private static bool HasUnicodeLineSeparator(string source) => source.AsSpan().IndexOfAny('\u2028', '\u2029') >= 0;
 
     private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ISyntaxNodeProvider[] listeners, SourcePosition anchorOffset, CancellationToken token)
     {
@@ -883,7 +896,7 @@ public partial class ModuleParser(
         {
             for (var i = index; i < index + length; i++)
             {
-                if (text[i] != '\n')
+                if (!PhysicalLineEnds.Contains(text[i]))
                 {
                     text[i] = ' ';
                 }
@@ -893,23 +906,23 @@ public partial class ModuleParser(
         return new string(text);
     }
 
-    // the text with every character but the line breaks a space, so that what is left of it is where it was.
+    // the text with every character but the physical line ends a space, so that what is left of it is where it was.
     private static string Blanked(string text)
         => string.Create(text.Length, text, (blanked, source) =>
         {
             for (var i = 0; i < source.Length; i++)
             {
-                blanked[i] = source[i] == '\n' ? '\n' : ' ';
+                blanked[i] = PhysicalLineEnds.Contains(source[i]) ? source[i] : ' ';
             }
         });
 
     // a directive is a logical line that starts with '#': the physical lines a line-continuation joins to it are its own (MS-VBAL 3.2.2, 3.4), and a '#' that
-    // starts the continuation of another line is not one (`d = _` / `#1/2/2000#`).
-    [GeneratedRegex(@"(?<![ \t]_[ \t]*\n)^[ \t]*#(?:[^\n]*[ \t]_[ \t]*\n)*[^\n]*", RegexOptions.Multiline)]
+    // starts the continuation of another line is not one (`d = _` / `#1/2/2000#`). A physical line starts the source, or follows a \n, a U+2028 or a U+2029.
+    [GeneratedRegex(@"(?<![ \t]_[ \t]*[\n\u2028\u2029])(?<![^\n\u2028\u2029])[ \t]*#(?:[^\n\u2028\u2029]*[ \t]_[ \t]*[\n\u2028\u2029])*[^\n\u2028\u2029]*")]
     private static partial Regex PrecompilerNodePattern();
 
     // a #If directive, whose branches are both in the source the grammar reads.
-    [GeneratedRegex(@"^[ \t]*#If\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<![^\n\u2028\u2029])[ \t]*#If\b", RegexOptions.IgnoreCase)]
     private static partial Regex ConditionalBlockPattern();
 
     // MS-VBA joins at most 25 physical lines into one logical line: 24 line-continuations in a row, and the 25th is a syntax error, "Too many line continuations"
@@ -920,22 +933,30 @@ public partial class ModuleParser(
     private static void ReportTooManyLineContinuations(string content, Uri uri, SourcePosition anchorOffset, ErrorListener errors)
     {
         var run = 0;
-        var line = 0;
-        foreach (var physical in content.AsSpan().EnumerateLines())
+        var (line, lineStart) = (0, 0);
+        for (var physicalStart = 0; physicalStart <= content.Length;)
         {
-            // a line-continuation is an underscore at the end of the line, after a space or a tab.
-            var trimmed = physical.TrimEnd(" \t");
+            var length = content.AsSpan(physicalStart).IndexOfAny(PhysicalLineEnds) is var ending and >= 0 ? ending : content.Length - physicalStart;
+
+            // a line-continuation is an underscore at the end of the physical line, after a space or a tab.
+            var trimmed = content.AsSpan(physicalStart, length).TrimEnd(" \t");
             var continuation = trimmed.Length >= 2 && trimmed[^1] == '_' && trimmed[^2] is ' ' or '\t';
             run = continuation ? run + 1 : 0;
             if (run == MaxLineContinuations + 1)
             {
-                var at = trimmed.Length - 1;
+                var at = physicalStart - lineStart + trimmed.Length - 1;
                 var start = new SourcePosition(line, at).AnchoredAt(anchorOffset);
                 var end = new SourcePosition(line, at + 1).AnchoredAt(anchorOffset);
                 errors.Report(new SourceLocation(uri, new(start, end)), VBCompileErrorId.SyntaxError, Exceptions.VBCompileError_TooManyLineContinuations_Verbose);
             }
 
-            line++;
+            // the line a position counts goes on past a U+2028 or a U+2029.
+            if (physicalStart + length < content.Length && content[physicalStart + length] == '\n')
+            {
+                (line, lineStart) = (line + 1, physicalStart + length + 1);
+            }
+
+            physicalStart += length + 1;
         }
     }
 

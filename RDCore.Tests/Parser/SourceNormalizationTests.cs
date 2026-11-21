@@ -1,6 +1,7 @@
 ﻿using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Source;
@@ -48,6 +49,67 @@ public sealed class SourceNormalizationTests
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         Assert.AreEqual(new SourcePosition(0, "Option Explicit".Length + 1), member.SourceLocation.Range.Start);
+    }
+
+    // a directive starts a physical line (MS-VBAL §3.4), which a U+2028 or a U+2029 starts too.
+    [TestMethod]
+    [DataRow("\u2028", DisplayName = "U+2028 line separator")]
+    [DataRow("\u2029", DisplayName = "U+2029 paragraph separator")]
+    public void ADirectiveAfterAUnicodeSeparator_IsADirective_OnTheSameLspLine(string separator)
+    {
+        var result = Parse($"Option Explicit{separator}#Const A = 1\r\nPublic Sub Foo()\r\nEnd Sub");
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var directives = result.PrecompilerTrivia.SelectMany(node => node.Descendants().Prepend(node));
+        var directive = Assert.ContainsSingle(directives.OfType<PrecompilerConstantDeclarationNode>());
+        Assert.AreEqual(new SourcePosition(0, "Option Explicit".Length + 1), directive.SourceLocation.Range.Start);
+    }
+
+    // a line continuation ends a physical line (MS-VBAL §3.2.2), which a U+2028 or a U+2029 ends too: the statement goes on, on the same LSP line.
+    [TestMethod]
+    [DataRow("\u2028", DisplayName = "U+2028 line separator")]
+    [DataRow("\u2029", DisplayName = "U+2029 paragraph separator")]
+    public void ALineContinuationAtAUnicodeSeparator_ContinuesTheStatement_OnTheSameLspLine(string separator)
+    {
+        var line = $"    Debug.Print 1, _{separator}2";
+
+        var result = Parse($"Public Sub Foo()\r\n{line}\r\nEnd Sub");
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var continuation = Assert.ContainsSingle(result.Trivia.OfType<LineContinuationTriviaNode>());
+        var at = line.IndexOf(" _", StringComparison.Ordinal);
+        var end = at + " _".Length + separator.Length;
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, at), new SourcePosition(1, end)), continuation.SourceLocation.Range);
+    }
+
+    // a segment is whole lines, which a U+2028 or a U+2029 does not end: a module that has one is read whole.
+    [TestMethod]
+    public void AModuleWithAUnicodeSeparator_IsNotReadASegmentAtATime()
+    {
+        var parser = new ModuleParser { ForceSegments = true };
+
+        var result = parser.Parse(Uri, "Public Sub A()\r\nEnd Sub\u2028Public Sub B()\r\nEnd Sub");
+
+        Assert.AreEqual(1L, parser.Statistics[SegmentationStatistics.Path.UnicodeLineSeparator]);
+        CollectionAssert.AreEqual(new[] { "A", "B" }, result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Select(member => member.Name).ToArray());
+    }
+
+    // MS-VBA joins at most 25 physical lines into a logical line: the 25th line continuation in a row is the error, on the LSP line it is on.
+    [TestMethod]
+    public void TheLineContinuationPastTheLimit_IsReportedOnTheLspLineItIsOn()
+    {
+        const int pastTheLimit = 25;
+        var line = "    x = 1" + string.Concat(Enumerable.Repeat(" _\u2028+ 1", pastTheLimit));
+        var underscore = -1;
+        for (var continuation = 0; continuation < pastTheLimit; continuation++)
+        {
+            underscore = line.IndexOf('_', underscore + 1);
+        }
+
+        var result = Parse($"Public Sub Foo()\r\n{line}\r\nEnd Sub");
+
+        var error = Assert.ContainsSingle(result.SyntaxErrors.Where(error => error.Verbose == Exceptions.VBCompileError_TooManyLineContinuations_Verbose));
+        Assert.AreEqual(new SourcePosition(1, underscore), error.Location.Range.Start);
     }
 
     [TestMethod]
