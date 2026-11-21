@@ -162,10 +162,7 @@ internal sealed class RuntimeSession(
 
         // the fields the object holds, which are those of its class as it was when the object was created: a field added to the class since has no storage
         // on it, and a field removed from it still holds what it was set to.
-        IEnumerable<Symbol> fields = live is ObjectInstance created
-            ? created.Fields
-            : live.ClassModule.Members.Where(member => member is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol);
-        foreach (var field in fields)
+        foreach (var field in live.Fields)
         {
             if (live.TryResolve(field, out var value))
             {

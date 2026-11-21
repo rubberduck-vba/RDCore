@@ -90,9 +90,8 @@ public sealed class ObjectInstance : IObjectInstance
     /// <inheritdoc/>
     public IReadOnlyCollection<Symbol> StaticLocals => (IReadOnlyCollection<Symbol>?)_staticLocals ?? [];
 
-    // the fields the object holds: those of its class as it was when the object was created, and those the class was given while the object lived
-    // (ISessionSymbols.ExtendLiveInstances). A field removed from the class still is one.
-    internal IReadOnlyList<Symbol> Fields => (IReadOnlyList<Symbol>?)_fields ?? _layout.Fields;
+    /// <inheritdoc/>
+    public IReadOnlyList<Symbol> Fields => (IReadOnlyList<Symbol>?)_fields ?? _layout.Fields;
 
     /// <summary>
     /// Holds <paramref name="value"/>, the initial value of the field of the layout numbered <paramref name="slot"/>, in that field's slot.
