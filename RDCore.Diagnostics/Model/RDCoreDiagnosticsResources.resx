@@ -627,6 +627,9 @@
   <data name="ConstantNotUsed_Fix" xml:space="preserve">
     <value>Remove the declaration of &apos;{0}&apos;</value>
   </data>
+  <data name="DefaultProjectName_Message" xml:space="preserve">
+    <value>The project is named &apos;{0}&apos;, the name MS-VBA gives a new project: give it a name of its own.</value>
+  </data>
   <data name="VariableNotUsed_Fix" xml:space="preserve">
     <value>Remove the declaration of &apos;{0}&apos;</value>
   </data>

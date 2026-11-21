@@ -627,6 +627,9 @@
   <data name="ConstantNotUsed_Fix" xml:space="preserve">
     <value>Supprimer la déclaration de &apos;{0}&apos;</value>
   </data>
+  <data name="DefaultProjectName_Message" xml:space="preserve">
+    <value>Le projet est nommé &apos;{0}&apos;, le nom que MS-VBA donne à un nouveau projet : donnez-lui un nom qui lui est propre.</value>
+  </data>
   <data name="VariableNotUsed_Fix" xml:space="preserve">
     <value>Supprimer la déclaration de &apos;{0}&apos;</value>
   </data>
