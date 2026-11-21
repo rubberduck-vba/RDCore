@@ -392,9 +392,9 @@ public sealed class ProcedureExecutorTests
 
     [TestMethod]
     public void ForNext_WithNoEnclosingForOpener_ReportsForLoopNotInitialized()
-        // MS-VBAL 5.4.2.3: a GoTo that lands inside the loop, past its For header, reaches the Next of a
-        // loop that never began: error 92 for a Variant counter. An Integer, Long or LongLong counter with no
-        // Step steps on instead, as MS-VBA does (ForLoopNotInitializedTests).
+        // a GoTo that lands inside the loop, past its For header, reaches the Next of a loop that never began: error 92 for a
+        // Variant counter, as MS-VBAL §5.4.2.3 has for every counter. As MS-VBA does, an Integer, Long or LongLong counter in a
+        // loop with no Step clause steps on instead (ForLoopNotInitializedTests).
     {
         var list = Lower("GoTo Inside", "For i = 1 To 3", "Inside:", "Next");
         var i = Local("i", VBVariantType.TypeInfo);
