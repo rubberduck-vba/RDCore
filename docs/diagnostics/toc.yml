@@ -486,6 +486,8 @@
   href: rdc00217.md
 - name: "RDC00218: IsMissing of a Variant that is not Optional"
   href: rdc00218.md
+- name: "RDC00219: Unreachable Case"
+  href: rdc00219.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"

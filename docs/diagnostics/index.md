@@ -290,6 +290,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00216](rdc00216.md)|Function result discarded|A `Function` of the project called as a statement|
 |[RDC00217](rdc00217.md)|Function result always discarded|A `Function` that every call of the project calls as a statement|
 |[RDC00218](rdc00218.md)|IsMissing of a Variant that is not Optional|IsMissing of a required Variant parameter, or of a Variant variable|
+|[RDC00219](rdc00219.md)|Unreachable Case|A `Case` or `Case Else` block that no value of the selector reaches|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
 |[RDC00303](rdc00303.md)|Obsolete comment syntax|A comment written with the Rem keyword|
 |[RDC00304](rdc00304.md)|Obsolete error syntax|An Error statement|

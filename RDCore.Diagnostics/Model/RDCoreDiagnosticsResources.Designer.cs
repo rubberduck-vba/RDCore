@@ -1992,6 +1992,33 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to This Case is never reached: the Cases before it match every value it matches..
+        /// </summary>
+        public static string UnreachableCase_Message {
+            get {
+                return ResourceManager.GetString("UnreachableCase_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This Case is never reached: its range starts above where it ends..
+        /// </summary>
+        public static string UnreachableCase_Inverted_Message {
+            get {
+                return ResourceManager.GetString("UnreachableCase_Inverted_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This Case Else is never reached: the Cases before it match every value of the selector&apos;s type..
+        /// </summary>
+        public static string UnreachableCase_Else_Message {
+            get {
+                return ResourceManager.GetString("UnreachableCase_Else_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Module &apos;{0}&apos; declares nothing..
         /// </summary>
         public static string EmptyModule_Message {
