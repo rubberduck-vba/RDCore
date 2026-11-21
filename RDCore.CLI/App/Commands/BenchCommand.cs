@@ -20,7 +20,7 @@ internal sealed class BenchCommandOptions
     [Option('r', "runs", Default = 3, HelpText = "How many times each case is run; the fastest and the median run are reported.")]
     public int Runs { get; set; } = 3;
 
-    [Option('f', "filter", HelpText = "Only the cases whose Module.Procedure name contains this text.")]
+    [Option('f', "filter", HelpText = "Only the cases whose Module.Procedure name contains this text; the indent row is Indent.Program.")]
     public string? Filter { get; set; }
 
     [Option('l', "list", HelpText = "Load and sweep the workspace, and list its cases without running them.")]
@@ -28,6 +28,9 @@ internal sealed class BenchCommandOptions
 
     [Option('e', "engine", HelpText = "What runs the cases: Interpreter or Compiled. The configured engine when omitted.")]
     public RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine? Engine { get; set; }
+
+    [Option("no-warm-up", HelpText = "Time each case from its first run, with no untimed runs before it while the JIT settles.")]
+    public bool NoWarmUp { get; set; }
 
     [Option("format", HelpText = "Time formatting every module instead: its parse, and its indentation from that parse, with the default settings and with every alignment on.")]
     public bool Format { get; set; }
@@ -41,7 +44,8 @@ internal sealed class BenchCommandOptions
 /// another, and a case that raises an error says so instead. With no path, the corpus built into <c>rdc</c> is run: arithmetic loops over <c>Long</c>,
 /// <c>Double</c> and <c>Variant</c>, strings, arrays, and calls to procedures, objects and the standard library. The <c>indent</c> row is the shell's: a program of
 /// <see cref="BenchRunner.ProgramLines"/> numbered lines indented as the shell indents it before it lists it (<see cref="BenchRunner.IndentProgram"/>), the same
-/// whatever the workspace: the fastest of as many runs as the cases have (<c>--runs</c>).
+/// whatever the workspace: the fastest of <see cref="BenchRunner.IndentRuns"/> runs, whatever <c>--runs</c> says. A filter selects it by its name,
+/// <see cref="BenchRunner.IndentName"/>, as it selects a case.
 /// </remarks>
 /// <param name="writer">Writes the platform's messages: what went wrong.</param>
 /// <param name="fileSystem">The file system the workspace is on.</param>
@@ -82,7 +86,8 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
             BenchWorkspace workspace;
             try
             {
-                workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? options.Path!, token);
+                workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? options.Path!, token,
+                    ansiCodePage: runner.Environment.AnsiCodePage);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
             {
@@ -97,9 +102,12 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
                 return 0;
             }
 
+            // tiered compilation settles a case's code over its first runs, for a number of them that differs from one process to the next.
+            var warmUp = options.NoWarmUp ? null : BenchWarmUp.UntilTheJitIsQuiet;
             var report = await runner.RunAsync(
-                workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine), name => Output.WriteLine($"  running {name}"), token);
-            WriteReport(report, options.List);
+                workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine, warmUp), name => Output.WriteLine($"  running {name}"),
+                token);
+            WriteReport(report, options.List, warmUp);
             return report.Problems.Count > 0 || report.Cases.Any(benchCase => benchCase.Error is not null) ? 1 : 0;
         }
         finally
@@ -117,17 +125,26 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
     /// Writes the corpus built into <c>rdc</c> to a folder of its own for a session to read, as any workspace is.
     /// </summary>
     /// <returns>The folder, which the caller deletes.</returns>
-    internal static string ExtractCorpus(IFileSystem fileSystem)
+    internal static string ExtractCorpus(IFileSystem fileSystem) => ExtractResources(fileSystem, CorpusResourcePrefix, "bench");
+
+    /// <summary>
+    /// Writes the files embedded in <c>rdc</c> under <paramref name="prefix"/> to a folder of their own, named for <paramref name="name"/> and this process.
+    /// </summary>
+    /// <param name="fileSystem">The file system the folder is made on.</param>
+    /// <param name="prefix">The prefix of the names of the embedded files; each file is written under its name without it.</param>
+    /// <param name="name">The folder's parent, under the <c>RDCore</c> folder of the temporary folder.</param>
+    /// <returns>The folder, which the caller deletes.</returns>
+    internal static string ExtractResources(IFileSystem fileSystem, string prefix, string name)
     {
-        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", name, Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
         fileSystem.Directory.CreateDirectory(folder);
 
         var assembly = typeof(BenchCommand).Assembly;
-        foreach (var resource in assembly.GetManifestResourceNames().Where(name => name.StartsWith(CorpusResourcePrefix, StringComparison.Ordinal)))
+        foreach (var resource in assembly.GetManifestResourceNames().Where(each => each.StartsWith(prefix, StringComparison.Ordinal)))
         {
             using var stream = assembly.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);
-            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[CorpusResourcePrefix.Length..]), reader.ReadToEnd());
+            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, resource[prefix.Length..]), reader.ReadToEnd());
         }
 
         return folder;
@@ -142,7 +159,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         Output.WriteLine($"workspace  {(builtIn ? Resources.Bench_BuiltInCorpus : workspace.Root)} ({workspace.Modules.Count} modules)");
     }
 
-    private void WriteReport(BenchReport report, bool listOnly)
+    private void WriteReport(BenchReport report, bool listOnly, BenchWarmUp? warmUp)
     {
         Output.WriteLine();
         Output.WriteLine($"{"parse",-10}{Milliseconds(report.Parse),12}");
@@ -159,6 +176,13 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         if (report.Indent is { } indent)
         {
             Output.WriteLine($"{"indent",-10}{Milliseconds(indent),12}  ({BenchRunner.ProgramLines.ToString("N0", CultureInfo.InvariantCulture)} lines)");
+        }
+
+        if (!listOnly)
+        {
+            // the untimed runs made before the timed ones, over every case: no figure of the cases' comes from them.
+            var warmUpRuns = report.Cases.Sum(benchCase => benchCase.WarmUpRuns).ToString("N0", CultureInfo.InvariantCulture);
+            Output.WriteLine(warmUp is null ? $"{"warm-up",-10}{"none",12}" : $"{"warm-up",-10}{warmUpRuns,12} runs: {warmUp.Describe()}");
         }
 
         foreach (var problem in report.Problems)
@@ -185,14 +209,19 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
             return;
         }
 
-        Output.WriteLine($"{"case".PadRight(width)}{"runs",6}{"min",14}{"median",14}");
+        // allocated and gc 0/1/2: what the fastest run allocated, and the collections of each generation made while it ran.
+        Output.WriteLine($"{"case".PadRight(width)}{"runs",6}{"min",14}{"median",14}{"allocated",14}{"gc 0/1/2",12}");
         foreach (var benchCase in report.Cases)
         {
             Output.WriteLine(benchCase.Error is { } error
                 ? $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}  {error}"
-                : $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}{Milliseconds(benchCase.Min!.Value),14}{Milliseconds(benchCase.Median!.Value),14}");
+                : $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}{Milliseconds(benchCase.Min!.Value),14}{Milliseconds(benchCase.Median!.Value),14}{Cost(benchCase.FastestCost)}");
         }
     }
+
+    private static string Cost(BenchRunCost? cost) => cost is { } each
+        ? $"{(each.Bytes / 1024.0).ToString("0", CultureInfo.InvariantCulture) + " KB",14}{$"{each.Gen0}/{each.Gen1}/{each.Gen2}",12}"
+        : string.Empty;
 
     // each module's parse, indentation and edits applied with the default settings, the slowest first; then the totals, and those with every alignment on. The
     // first time every module is formatted, before the code is compiled to its fastest, is the cold total; what is measured after it is a server's that is warm.

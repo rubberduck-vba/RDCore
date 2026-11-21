@@ -13,6 +13,7 @@ namespace RDCore.Tests.Cli;
 /// The compiled engine against the interpreter: a program runs the same either way - what it prints, the error it raises and
 /// where - and the procedures compiled code does are compiled, and the others say why they are not.
 /// </summary>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 public sealed class CompiledExecutionTests
 {

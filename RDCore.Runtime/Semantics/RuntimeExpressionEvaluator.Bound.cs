@@ -361,8 +361,47 @@ public sealed partial class RuntimeExpressionEvaluator
     // session has no instance of, a member the class does not have - is what the late-bound evaluation does with the owner it was given.
     private RuntimeSemanticsEvaluationResult EvaluateBoundMember(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context)
     {
+        // the target of a member call is evaluated after its arguments; the target of the enclosing With block, which is no owner, was evaluated when
+        // the block began.
+        if (bound is not { Owner: { } target, Arguments: { } written })
+        {
+            return EvaluateBoundMemberOf(session, bound, context);
+        }
+
+        var statement = _statementCallNodes.ContainsKey(written);
+        var first = EvaluateArgumentsFirst(session, context, target, bound.BoundArguments ?? default, written.Arguments, statement, out var error);
+        if (error is not null)
+        {
+            return error.Value;
+        }
+
+        if (first is null)
+        {
+            return EvaluateBoundMemberOf(session, bound, context);
+        }
+
+        try
+        {
+            return EvaluateBoundMemberOf(session, bound, context, first);
+        }
+        finally
+        {
+            first.End();
+        }
+    }
+
+    // first: what the arguments made, evaluated ahead of the target, which is settled once the target is evaluated.
+    private RuntimeSemanticsEvaluationResult EvaluateBoundMemberOf(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context,
+        ArgumentCalls? first = null)
+    {
         // no owner: the object is the target of the enclosing With block.
         var ownerResult = bound.Owner is { } ownerNode ? EvaluateBoundNode(session, ownerNode, context) : EvaluateOwner(session, context, bound.Access);
+        if (first is not null)
+        {
+            first.Gives(ownerResult.Result);
+            first.Settle();
+        }
+
         if (!ownerResult.IsSuccess)
         {
             return ownerResult;
@@ -441,12 +480,12 @@ public sealed partial class RuntimeExpressionEvaluator
     // late-bound. A late-bound object held by a variable of a library's class is reached through that class, as MS-VBA binds it early: the Set that put it
     // there found it is one.
     private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
-    {
-        if (_memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual))
-        {
-            return site.Member;
-        }
+        => _memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual) ? site.Member : ImplementationFound(bound, actual);
 
+    // the member found for the access, and kept for it. It is a method of its own so that ImplementationOf, where the member is kept already, captures
+    // nothing and allocates nothing.
+    private VBTypeMemberSymbol? ImplementationFound(BoundMember bound, VBClassModuleSymbol actual)
+    {
         // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
         var name = bound.Access.Member.IdentifierName;
         var declared = bound.DeclaredClass!.Uri.AbsoluteUri;
@@ -462,7 +501,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private static bool IsLateBoundAsLibraryClass(VBClassModuleSymbol actual, VBClassModuleSymbol declared)
         => Execution.External.Automation.LateBinding.IsLateBound(actual) && !Execution.External.Automation.LateBinding.IsLateBound(declared)
-            && declared.GetProperty(SymbolProperties.Library) is { Length: > 0 };
+            && SymbolProperties.IsOfALibraryProject(declared);
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundBinary(IRuntimeSession session, BoundBinary binary, RuntimeEvaluationContext context)
     {
@@ -571,7 +610,7 @@ public sealed partial class RuntimeExpressionEvaluator
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
         => IsWide(call) ? EvaluateStored(session, call, context)
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
-            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
+            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, call.Call.Arguments)
                 ? OfResultType(call, AbsOfTheLeast(session, call, context,
                     InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments, call: call.Call)))
                 : EvaluateLate(session, call.Expression, context);

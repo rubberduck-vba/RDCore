@@ -142,6 +142,42 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output..
+        /// </summary>
+        public static string Mcp_Summary {
+            get {
+                return ResourceManager.GetString("Mcp_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Usage: rdc mcp --workspace &lt;path&gt;. The workspace is a folder, with or without a .rdproj..
+        /// </summary>
+        public static string Mcp_Usage {
+            get {
+                return ResourceManager.GetString("Mcp_Usage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The workspace folder &quot;{0}&quot; does not exist..
+        /// </summary>
+        public static string Mcp_NoSuchWorkspace {
+            get {
+                return ResourceManager.GetString("Mcp_NoSuchWorkspace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The tools read and check the VBA code of the RDCore workspace at {0}. Paths are relative to that folder, or absolute; lines and columns are 1-based..
+        /// </summary>
+        public static string Mcp_Instructions {
+            get {
+                return ResourceManager.GetString("Mcp_Instructions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Runs a workspace&apos;s program, and exits with its exit code: 0 when it ends, 1 on a run-time error, 2 when it cannot start..
         /// </summary>
         public static string Run_Summary {
@@ -358,6 +394,15 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The file this replaces states facts of members the library no longer declares; those facts are lost: {0}..
+        /// </summary>
+        public static string ExportLibrary_Lost {
+            get {
+                return ResourceManager.GetString("ExportLibrary_Lost", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This machine has no type library &apos;{0}&apos;. A library is given as a file, as the identifier the machine gave it, or by its name. A file that holds more than one library is given with the number of the library&apos;s resource, as a .vbp references it (MSVBVM60.DLL\3)..
         /// </summary>
         public static string ExportLibrary_NotFound {
@@ -365,7 +410,7 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("ExportLibrary_NotFound", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Not described: {0}..
         /// </summary>
@@ -927,7 +972,25 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Frame_InModuleLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to from {0}.
+        /// </summary>
+        public static string Repl_Frame_FromGoSub {
+            get {
+                return ResourceManager.GetString("Repl_Frame_FromGoSub", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to in {0}.
+        /// </summary>
+        public static string Repl_Frame_InHandler {
+            get {
+                return ResourceManager.GetString("Repl_Frame_InHandler", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Lists the shell commands..
         /// </summary>
@@ -1869,6 +1932,195 @@ namespace RDCore.CLI {
         public static string Install_ProfileHasBlock {
             get {
                 return ResourceManager.GetString("Install_ProfileHasBlock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Runs the benchmark corpus and the Excel automation cases in MS-VBA and in RD-VBA, in alternated rounds on this machine, and writes the reference figures (msvba.json). Needs Windows and Excel..
+        /// </summary>
+        public static string BenchMsVba_Summary {
+            get {
+                return ResourceManager.GetString("BenchMsVba_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The file the reference figures are written to..
+        /// </summary>
+        public static string BenchMsVba_OutHelp {
+            get {
+                return ResourceManager.GetString("BenchMsVba_OutHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How many rounds: each runs the corpus once on each side, MS-VBA first in odd rounds and RD-VBA first in even rounds..
+        /// </summary>
+        public static string BenchMsVba_RoundsHelp {
+            get {
+                return ResourceManager.GetString("BenchMsVba_RoundsHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How many of the first rounds also run the Excel automation cases, on both sides; 0 runs none..
+        /// </summary>
+        public static string BenchMsVba_ExcelRoundsHelp {
+            get {
+                return ResourceManager.GetString("BenchMsVba_ExcelRoundsHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How many times each case of the corpus runs in a round; the fastest run of all the rounds is kept..
+        /// </summary>
+        public static string BenchMsVba_RunsHelp {
+            get {
+                return ResourceManager.GetString("BenchMsVba_RunsHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How many times each Excel automation case runs in a round..
+        /// </summary>
+        public static string BenchMsVba_ExcelRunsHelp {
+            get {
+                return ResourceManager.GetString("BenchMsVba_ExcelRunsHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to --rounds, --runs and --excel-runs must be at least 1, and --excel-rounds between 0 and --rounds..
+        /// </summary>
+        public static string BenchMsVba_BadCounts {
+            get {
+                return ResourceManager.GetString("BenchMsVba_BadCounts", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to rdc bench-msvba runs MS-VBA in Excel, and automating Excel needs Windows: nothing was run..
+        /// </summary>
+        public static string BenchMsVba_NeedsWindows {
+            get {
+                return ResourceManager.GetString("BenchMsVba_NeedsWindows", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Excel is not installed: there is no Excel.Application to start..
+        /// </summary>
+        public static string BenchMsVba_NoExcel {
+            get {
+                return ResourceManager.GetString("BenchMsVba_NoExcel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Excel does not let programs import modules into a workbook. Turn on &quot;Trust access to the VBA project object model&quot; (Excel Options, Trust Center, Trust Center Settings, Macro Settings), then run this again..
+        /// </summary>
+        public static string BenchMsVba_ProjectNotTrusted {
+            get {
+                return ResourceManager.GetString("BenchMsVba_ProjectNotTrusted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Excel showed a dialog, so the round was stopped: {0}.
+        /// </summary>
+        public static string BenchMsVba_Dialog {
+            get {
+                return ResourceManager.GetString("BenchMsVba_Dialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Excel did not answer within {0} minutes, so the round was stopped..
+        /// </summary>
+        public static string BenchMsVba_NoAnswer {
+            get {
+                return ResourceManager.GetString("BenchMsVba_NoAnswer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The Excel automation cases did not run across two processes (harness {0}, target {1}): no figures were kept..
+        /// </summary>
+        public static string BenchMsVba_OneProcess {
+            get {
+                return ResourceManager.GetString("BenchMsVba_OneProcess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to rdc bench --list listed no cases: {0}.
+        /// </summary>
+        public static string BenchMsVba_NoCaseList {
+            get {
+                return ResourceManager.GetString("BenchMsVba_NoCaseList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Round {0} of {1}.
+        /// </summary>
+        public static string BenchMsVba_Round {
+            get {
+                return ResourceManager.GetString("BenchMsVba_Round", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Round {0} of {1}, with the Excel automation cases.
+        /// </summary>
+        public static string BenchMsVba_RoundWithExcel {
+            get {
+                return ResourceManager.GetString("BenchMsVba_RoundWithExcel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to rdc {0} ended with exit code {1}..
+        /// </summary>
+        public static string BenchMsVba_ProcessFailed {
+            get {
+                return ResourceManager.GetString("BenchMsVba_ProcessFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to rdc {0} did not end within {1} minutes, and was stopped..
+        /// </summary>
+        public static string BenchMsVba_ProcessTimedOut {
+            get {
+                return ResourceManager.GetString("BenchMsVba_ProcessTimedOut", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No figure for {0} on the {1} side: nothing was written..
+        /// </summary>
+        public static string BenchMsVba_Missing {
+            get {
+                return ResourceManager.GetString("BenchMsVba_Missing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An Excel started during RD-VBA&apos;s round is still running (process {0}); it was left alone..
+        /// </summary>
+        public static string BenchMsVba_ExcelLeftRunning {
+            get {
+                return ResourceManager.GetString("BenchMsVba_ExcelLeftRunning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} corpus cases and {1} Excel automation figures written to {2}..
+        /// </summary>
+        public static string BenchMsVba_Written {
+            get {
+                return ResourceManager.GetString("BenchMsVba_Written", resourceCulture);
             }
         }
     }

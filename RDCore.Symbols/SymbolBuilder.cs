@@ -16,6 +16,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
@@ -222,23 +223,28 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// Microsoft Forms <c>UserForm</c>'s (<c>Caption</c>, <c>Controls</c>…), when the project references Microsoft Forms, and the VBA form object's
     /// (<see cref="FormObject"/>: <c>Show</c>, <c>Hide</c>, <c>Left</c>…). For a Visual Basic 6.0 form, the <c>VB.Form</c>'s (<c>Show</c>, <c>Caption</c>…).
     /// They are members of the form's class itself, part of its default interface: <c>Me.Caption</c> is a member of the form whose code it is in, and
-    /// <c>Caption</c>, there, is too. A UserControl's, a PropertyPage's or a UserDocument's are its base class's (<see cref="FormClasses.BaseClassNameOf"/>):
-    /// they are declared Private, names in scope in the root's code that are no members of its class, on Me or late-bound.
+    /// <c>Caption</c>, there, is too.
     /// </summary>
     /// <remarks>
     /// Each is declared as the member it is of its own class, with the form for its parent, and dispatched outside the workspace's code
     /// (<see cref="FormObject.TargetOf"/>). A name the form's code or one of its controls declares is not declared again: that one is the member of that name.
+    /// A UserControl's, a PropertyPage's and a UserDocument's class is given none of these members: the members of its base class are names of its code,
+    /// and not members of its class (<see cref="FormDescriptor.BaseClass"/>), so <c>Me.BackColor</c> is a member the UserControl declares or none.
     /// </remarks>
     /// <param name="designer">What the form's designer declares.</param>
     /// <param name="taken">The names the form's code and its controls declare.</param>
     public IEnumerable<Symbol> BuildFormMembers(FormDescriptor designer, IReadOnlySet<string> taken)
     {
-        var access = FormClasses.BaseClassNameOf(designer) is null ? AccessModifier.Public : AccessModifier.Private;
+        if (designer.BaseClass is not null)
+        {
+            yield break;
+        }
+
         var inherited = FormClasses.Of(designer, resolver, moduleUri, workspaceRoot).SelectMany(form => form.Members)
             .Where(member => member is not VBEventMemberSymbol && !taken.Contains(member.Name));
         foreach (var member in inherited)
         {
-            if (Rehome(member, access) is { } rehomed)
+            if (Rehome(member) is { } rehomed)
             {
                 yield return rehomed.With(SymbolProperties.ExternalTarget, FormObject.TargetOf(designer.Name, member.Name, KindOf(member)));
             }
@@ -255,20 +261,20 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
 
     // a library member declared again as a member of the module: the same kind of member, of the same type and parameters, whose parent is the module. A
     // symbol's identity is its parent's, made when it is constructed, so it is built anew; its default-member id and its flags (hidden) go with it.
-    private Symbol? Rehome(VBTypeMemberSymbol member, AccessModifier access)
+    private Symbol? Rehome(VBTypeMemberSymbol member)
     {
         Symbol? rehomed = member switch
         {
             VBPropertyGetMemberSymbol => new VBPropertyGetMemberSymbol(
-                workspaceRoot, moduleUri, memberScope, member.Name, SourceRange.Empty, SourceRange.Empty, access) { ResolvedType = member.ResolvedType },
+                workspaceRoot, moduleUri, memberScope, member.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { ResolvedType = member.ResolvedType },
             VBPropertyLetMemberSymbol => new VBPropertyLetMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, access),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
             VBPropertySetMemberSymbol => new VBPropertySetMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, access),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
             VBFunctionMemberSymbol => new VBFunctionMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Function, member.ResolvedType, SourceRange.Empty, SourceRange.Empty, access),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Function, member.ResolvedType, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
             VBProcedureMemberSymbol => new VBProcedureMemberSymbol(
-                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Procedure, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, access),
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Procedure, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
             _ => null,
         };
 
@@ -549,7 +555,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     // (MS-VBAL 5.6.4); an unresolved name stays Unknown, and remembers the name (VBUnresolvedType). A resolved user-defined type, enum or class
     // module is a symbol carrying no VBType of its own, so build one.
     private VBType ResolveTypeName(string typeName, Uri handle, string? qualifier = null)
-        => VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle).Symbol switch
+        => VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle, ProjectVisibility.Instance, workspaceRoot).Symbol switch
         {
             VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
             VBEnumMemberSymbol enumType => new VBEnumType(enumType, members: null),

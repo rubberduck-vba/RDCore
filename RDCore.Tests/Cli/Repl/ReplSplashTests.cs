@@ -13,7 +13,7 @@ namespace RDCore.Tests.Cli.Repl;
 public sealed class ReplSplashTests
 {
     [TestMethod]
-    public void TheShellsSplash_IsThePlatformsLogo_ThenTheShellsTitle_ThenThePlatformsSloganAndNotice()
+    public void TheShellsSplash_IsThePlatformsLogo_ThenTheShellsTitle_ThenThePlatformsSloganVersionsAndNotice()
     {
         var console = Substitute.For<IReplConsole>();
         var writer = Substitute.For<IConsoleMessageWriter>();
@@ -32,12 +32,13 @@ public sealed class ReplSplashTests
             .. logo.Select(line => $"{ReplTextStyle.SplashLogo}:{line}"),
             .. title.Select(line => $"{ReplTextStyle.SplashTitle}:{line}"),
             "slogan:36",
+            $"{ReplTextStyle.Plain}:{PlatformSplash.VersionLine()}",
             "notice",
         ];
         CollectionAssert.AreEqual(
             expected,
             shown,
-            "the logo over the shell's title, then the slogan centred under the title, then the notice");
+            "the logo over the shell's title, then the slogan centred under the title, then the versions and the notice");
         console.Received(2).WriteLine(Arg.Any<string>());
     }
 }

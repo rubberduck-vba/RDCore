@@ -11,6 +11,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -126,6 +127,32 @@ public sealed class ParsingClientServiceTests
 
         Assert.AreEqual(ModuleType.ClassModule, ParsingClientService.ModuleTypeOf(classWithoutClsExtension));
         Assert.AreEqual(ModuleType.StdModule, ParsingClientService.ModuleTypeOf(standardWithClsExtension));
+    }
+
+    // a form ported to RDForms: its .rdform has no VERSION header, and its controls are in the .xaml beside it, the document's companion.
+    private const string PortedCode = "Attribute VB_Name = \"Form1\"\r\nAttribute VB_PredeclaredId = True\r\nOption Explicit\r\n";
+
+    private const string PortedDocument =
+        "<Form xmlns=\"https://rubberduckvba.ca/schemas/rdforms\" FormatVersion=\"1\" Name=\"Form1\" Caption=\"Ported\">\n" +
+        "  <TextBox Name=\"Text1\" Text=\"Text1\" TabIndex=\"0\" />\n" +
+        "</Form>\n";
+
+    [TestMethod]
+    public void ModuleTypeOf_APortedForm_IsAClassModule_ByItsRDFormExtension()
+        => Assert.AreEqual(ModuleType.ClassModule, ParsingClientService.ModuleTypeOf(new WorkspaceDocument("Forms/Form1.rdform", Root, PortedCode)));
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfAPortedForm_SetsTheFormItsDocumentDeclares()
+    {
+        FormDesigner.Register(RDCore.Forms.Xaml.FormXamlDocumentReader.Instance);
+        var (sut, _, documents) = Build();
+        var uri = new Uri("file:///c:/ws/Forms/Form1.rdform");
+        StubDocument(documents, uri, new WorkspaceDocument("Forms/Form1.rdform", Root, PortedCode) { Companion = System.Text.Encoding.UTF8.GetBytes(PortedDocument) });
+
+        var designer = (await sut.ParseDocumentAsync(uri, CancellationToken.None)).Designer;
+
+        Assert.AreEqual(FormDesignerKind.RDForms, designer?.Kind);
+        Assert.AreEqual("Text1", designer!.DeclaredControls().Single().Name);
     }
 
     [TestMethod]
@@ -282,38 +309,65 @@ public sealed class ParsingClientServiceTests
     }
 
     // a parser whose answers are held until the test gives them, with the token each request was sent with.
-    private static List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> HeldAnswers(IRDCoreClientApp parser)
+    private static HeldRequests HeldAnswers(IRDCoreClientApp parser)
     {
-        var requests = new List<(TaskCompletionSource<PlatformJsonEnvelope>, CancellationToken)>();
-        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(call =>
-        {
-            var answer = new TaskCompletionSource<PlatformJsonEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (requests)
-            {
-                requests.Add((answer, call.ArgAt<CancellationToken>(1)));
-            }
-
-            return answer.Task;
-        });
+        var requests = new HeldRequests();
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(call => requests.Add(call.ArgAt<CancellationToken>(1)));
         return requests;
     }
 
-    private static async Task WhenAsked(List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> requests, int count)
+    // the cap only keeps a request that never comes from hanging the run: the wait ends when the fake parser is asked.
+    private static async Task WhenAsked(HeldRequests requests, int count)
+        => await requests.Asked(count).WaitAsync(SafetyCap);
+
+    // the requests the fake parser was sent, in the order it was sent them, each completing the signal of its number.
+    private sealed class HeldRequests
     {
-        // the fake parser is looked at until it has been asked: the deadline only keeps a request that never comes from hanging the run.
-        var deadline = DateTime.UtcNow + SafetyCap;
-        while (true)
+        private readonly List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> _requests = [];
+        private readonly List<TaskCompletionSource> _asked = [];
+
+        public (TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token) this[int index]
         {
-            lock (requests)
+            get
             {
-                if (requests.Count >= count)
+                lock (_requests)
                 {
-                    return;
+                    return _requests[index];
                 }
             }
+        }
 
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "the parser was not asked");
-            await Task.Delay(5);
+        public Task<PlatformJsonEnvelope> Add(CancellationToken token)
+        {
+            var answer = new TaskCompletionSource<PlatformJsonEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource asked;
+            lock (_requests)
+            {
+                _requests.Add((answer, token));
+                asked = SignalOf(_requests.Count);
+            }
+
+            asked.TrySetResult();
+            return answer.Task;
+        }
+
+        // completed once the parser has been sent count requests.
+        public Task Asked(int count)
+        {
+            lock (_requests)
+            {
+                return SignalOf(count).Task;
+            }
+        }
+
+        private TaskCompletionSource SignalOf(int count)
+        {
+            while (_asked.Count < count)
+            {
+                _asked.Add(new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+            }
+
+            return _asked[count - 1];
         }
     }
 

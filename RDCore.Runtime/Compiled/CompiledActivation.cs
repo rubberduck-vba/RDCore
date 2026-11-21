@@ -23,9 +23,10 @@ namespace RDCore.Runtime.Compiled;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The activation's frame is laid out, its parameters given and its variables declared, as for an activation the interpreter runs. Compiled code reads
-/// its parameters from their cells when it starts, and keeps its variables in its own locals from then on: the cells are written again only when the
-/// activation is handed to the interpreter.
+/// The activation's frame is laid out, its parameters given and its variables declared, as for an activation the interpreter runs, unless its body holds
+/// every variable of its own (<see cref="CompiledBody.NeedsFrame"/>). The activation is then on the stack without a frame, however the call was made, and
+/// is given the frame only when something is to see it. Compiled code reads its parameters from their cells, or from what the activation was given, when it
+/// starts, and keeps its variables in its own locals from then on: the cells are written again only when the activation is handed to the interpreter.
 /// </para>
 /// <para>
 /// It is handed to the interpreter - <em>walked back</em> - at an instruction boundary: when an operation declines or raises an error, which the
@@ -39,7 +40,7 @@ public sealed partial class CompiledActivation : ILightActivation
     private readonly IRuntimeSession _session;
     private readonly InstructionList _list;
     private readonly ProcedureExecutor _executor;
-    private readonly RuntimeEvaluationContext _context;
+    private RuntimeEvaluationContext _context;
     private readonly CompiledBody _body;
     private readonly ISessionHalt _halt;
 
@@ -73,6 +74,20 @@ public sealed partial class CompiledActivation : ILightActivation
     // whether each numbered cell is the activation's own although its slot is a parameter passed by reference: the cell of a value (TakeReference).
     private readonly bool[] _ownsCell;
 
+    // the cell of each String of the activation (CompiledBody.TextSlots), by its number, which its frame is given: when it is made (MakeFrame), or as the
+    // entry finds the cell (StringCellOf); and whether each is the caller's variable, which a parameter passed by reference is a second name for
+    // (TakeTextReference).
+    private readonly TextCell?[] _texts;
+    private readonly bool[] _textAliases;
+
+    // the cell of each object parameter and variable of an activation without a frame (CompiledBody.ObjectSlots), by its number: made as compiled code
+    // first finds it (ObjectCellOf), and given to the frame when it is made (MakeFrame). Cells no frame was given are the activation's alone: what they held
+    // is let go of when it returns (ReturnedDirectly), and they hold Nothing for its next call, made in it again (Begin).
+    private readonly ValueBindingHandle?[] _objects;
+
+    // whether a frame was given the cells of _objects: they are then the frame's too, and the next call is given cells of its own.
+    private bool _objectsGiven;
+
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
         CompiledBody body, RuntimeProcedureInvoker invoker)
         : this(session, list, executor, context, body, invoker, procedure: null)
@@ -87,23 +102,35 @@ public sealed partial class CompiledActivation : ILightActivation
     {
         (_session, _list, _executor, _context, _body, _invoker, _procedure) = (session, list, executor, context, body, invoker, procedure);
         _halt = session.Halt;
+        (_sessionHalt, _table) = (session.Halt as SessionHalt, (session.Symbols as SessionSymbols)?.Table);
         _stack = session.CallStack as RuntimeCallStack;
         _cells = body.CellSlots.Count == 0 ? [] : new object?[body.CellSlots.Count];
         _ownsCell = body.CellSlots.Count == 0 ? [] : new bool[body.CellSlots.Count];
+        _texts = body.TextSlots.Length == 0 ? [] : new TextCell?[body.TextSlots.Length];
+        _textAliases = body.TextSlots.Length == 0 ? [] : new bool[body.TextSlots.Length];
+        _objects = body.ObjectSlots.Length == 0 ? [] : new ValueBindingHandle?[body.ObjectSlots.Length];
+        _objectAliases = body.ObjectSlots.Length == 0 ? [] : new bool[body.ObjectSlots.Length];
         Begin();
     }
 
-    // what every activation begins with, one made again too (EnterDirectly).
-    private void Begin()
+    // what every activation begins with, one made again too (EnterDirectly): the session's symbols as they are now, which a call made directly is given by
+    // the activation that makes it, which found them unchanged (MayEnterDirectly).
+    private void Begin(ScopeTree? scopes = null)
     {
         Array.Clear(_cells);
         Array.Clear(_ownsCell);
+        Array.Clear(_texts);
+        Array.Clear(_textAliases);
+        BeginObjects();
         (_entered, _instance, _me) = (null, null, null);
-        _scopes = _session.Symbols.Scopes;
+        _scopes = scopes ?? _session.Symbols.Scopes;
+        _directAt = -1;
         (_pc, _call, _library, _hasResult, _failed, _unspilled) = (0, -1, -1, false, null, false);
+        _givenCount = 0;
         _errorHandler = ErrorHandlerState.Disabled;
         _knowns?.Clear();
         _untilPoll = PollInterval;
+        _handedOver = false;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
         if (CompiledExecution.WalksBackAtRandom)
@@ -112,6 +139,50 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         _untilFailedAccess = CompiledExecution.FailsReloadsAtRandom ? _body.NextRandomFailedAccess() : 0;
+    }
+
+    // whether the interpreter was given the activation's frame since it began (Interpret, AfterFailedCall, Recover). One it was not given ran its compiled
+    // code to the end, and holds what an activation that returned from a call made directly holds: the invoker may begin it again for its next call of the
+    // body (BeginAgain).
+    private bool _handedOver;
+
+    /// <summary>
+    /// Whether the activation, made by the invoker for a call through it, ran its compiled code to the end without handing its frame to the interpreter: the
+    /// invoker may then begin it again for its next call of the same body (<see cref="BeginAgain"/>).
+    /// </summary>
+    internal bool ReturnedInCompiledCode => !_handedOver;
+
+    /// <summary>
+    /// Whether the activation runs <paramref name="list"/>, the instructions <paramref name="body"/> was compiled from, for <paramref name="invoker"/>: an
+    /// activation the invoker keeps is begun again only for a call of the same code.
+    /// </summary>
+    /// <param name="body">The compiled body of the call.</param>
+    /// <param name="list">The instructions the body was compiled from.</param>
+    /// <param name="invoker">The invoker that makes the call.</param>
+    internal bool Runs(CompiledBody body, InstructionList list, RuntimeProcedureInvoker invoker)
+        => ReferenceEquals(_body, body) && ReferenceEquals(_list, list) && ReferenceEquals(_invoker, invoker);
+
+    /// <summary>
+    /// Begins the activation again for another call the invoker makes of the body, in <paramref name="frame"/>, the call's frame, as an activation made for
+    /// the call begins.
+    /// </summary>
+    /// <param name="frame">The call's frame.</param>
+    /// <param name="context">The context the body's code is evaluated in.</param>
+    internal void BeginAgain(CallStackFrame frame, RuntimeEvaluationContext context)
+    {
+        (_frame, _context) = (frame, context);
+        frame.RunsCompiled = true;
+        Begin();
+    }
+
+    /// <summary>
+    /// Lets go of the frame of the call the activation returned from, and of what it held, while the invoker keeps it for its next call of the body.
+    /// </summary>
+    internal void LetGoAfterCall()
+    {
+        _frame = null;
+        Array.Clear(_cells);
+        LetGoOfMe();
     }
 
     // how many accesses of the frame the activation makes before the one it fails, under the random failed accesses (CompiledExecution.FailsReloadsAtRandom):
@@ -146,7 +217,184 @@ public sealed partial class CompiledActivation : ILightActivation
             Hold(frame, number);
         }
 
+        for (var number = 0; number < _texts.Length; number++)
+        {
+            HoldText(frame, number);
+        }
+
+        GiveObjects(frame);
+        GiveResult(frame);
+
+        // a parameter the invoker gave a payload that compiled code has not read yet: the interpreter, given the activation before its entry ran, reads it
+        // in its cell. One compiled code read is in its locals, which it writes into the frame before the interpreter is given the activation (Spill).
+        for (var i = 0; i < _givenCount; i++)
+        {
+            if (_givenSlots[i] is var slot and >= 0 && !frame.IsSlotFilled(slot))
+            {
+                frame.PushPayload(_body.SlotSymbols[slot], _given[i], slot);
+            }
+        }
+
         return frame;
+    }
+
+    // the payload of each scalar parameter passed by value the invoker gave an activation it made without a frame (EnterThroughInvoker), and its slot - the
+    // complement of it once compiled code read it as it began (TryReadIntegral, TryReadFloating): from then on, the parameter is compiled code's, as one
+    // given through a typed entry is.
+    private int[] _givenSlots = [];
+    private ScalarPayload[] _given = [];
+    private int _givenCount;
+
+    /// <summary>
+    /// The activation of a call the invoker makes of <paramref name="procedure"/>, whose compiled code holds every variable of its own
+    /// (<see cref="CompiledBody.NeedsFrame"/>), on the stack without a frame, as a call compiled code makes directly is (<see cref="EnterDirectly"/>): in the
+    /// activation that last left its place of the stack, begun again, when that was an activation of the same body. The invoker then gives it its arguments
+    /// (<see cref="GivePayload"/>, <see cref="GiveReference"/>, <see cref="TakeText"/>, <see cref="TakeTextReference"/>), and runs its body.
+    /// </summary>
+    /// <param name="session">The session the call is made in.</param>
+    /// <param name="stack">The session's call stack.</param>
+    /// <param name="procedure">The procedure called.</param>
+    /// <param name="list">The procedure's lowered body.</param>
+    /// <param name="executor">The interpreter the activation is handed to.</param>
+    /// <param name="body">The procedure's compiled body.</param>
+    /// <param name="invoker">The invoker that makes the call.</param>
+    /// <param name="made">Whether the activation was made for the call, rather than begun again.</param>
+    /// <returns><see langword="null"/> when the call stack is full.</returns>
+    internal static CompiledActivation? EnterThroughInvoker(IRuntimeSession session, RuntimeCallStack stack, VBTypeMemberSymbol procedure, InstructionList list,
+        ProcedureExecutor executor, CompiledBody body, RuntimeProcedureInvoker invoker, out bool made)
+    {
+        CompiledActivation activation;
+        if (stack.TakeSpare() is CompiledActivation spare && ReferenceEquals(spare._procedure, procedure) && ReferenceEquals(spare._list, list)
+            && ReferenceEquals(spare._body, body) && ReferenceEquals(spare._invoker, invoker))
+        {
+            spare._frame = null;
+            spare.Begin();
+            (activation, made) = (spare, false);
+        }
+        else
+        {
+            (activation, made) = (new CompiledActivation(session, list, executor, new RuntimeEvaluationContext(procedure.Uri), body, invoker, procedure), true);
+        }
+
+        return stack.TryPushLight(activation) ? activation : null;
+    }
+
+    /// <summary>
+    /// Gives the scalar parameter passed by value in <paramref name="slot"/> of an activation the invoker made without a frame
+    /// (<see cref="EnterThroughInvoker"/>) its argument, a payload of the parameter's type, which compiled code reads as it begins.
+    /// </summary>
+    /// <param name="slot">The parameter's slot.</param>
+    /// <param name="payload">The argument.</param>
+    internal void GivePayload(int slot, ScalarPayload payload)
+    {
+        if (_givenCount == _given.Length)
+        {
+            Array.Resize(ref _given, Math.Max(4, _given.Length * 2));
+            Array.Resize(ref _givenSlots, _given.Length);
+        }
+
+        (_givenSlots[_givenCount], _given[_givenCount]) = (slot, payload);
+        _givenCount++;
+    }
+
+    /// <summary>
+    /// Gives the scalar parameter passed by reference in <paramref name="slot"/> of an activation the invoker made without a frame
+    /// (<see cref="EnterThroughInvoker"/>) the cell of its argument (<see cref="TakeReference"/>): the caller's variable, or a cell of a value
+    /// (<see cref="ScalarCell.IsGivenValue"/>).
+    /// </summary>
+    /// <param name="slot">The parameter's slot.</param>
+    /// <param name="cell">The argument's cell.</param>
+    internal void GiveReference(int slot, ScalarCell cell) => TakeReference(CellNumberOf(slot), cell);
+
+    // the number of the cell of the slot (CompiledBody.CellSlots); -1 when the slot is held in none.
+    private int CellNumberOf(int slot)
+    {
+        for (var number = 0; number < _body.CellSlots.Count; number++)
+        {
+            if (_body.CellSlots[number] == slot)
+            {
+                return number;
+            }
+        }
+
+        return -1;
+    }
+
+    // the payload the invoker gave the parameter in slot, when compiled code has not read it yet: it is read once, as the activation begins.
+    private bool TryTakeGiven(int slot, out ScalarPayload payload)
+    {
+        for (var i = 0; i < _givenCount; i++)
+        {
+            if (_givenSlots[i] == slot)
+            {
+                _givenSlots[i] = ~slot;
+                payload = _given[i];
+                return true;
+            }
+        }
+
+        payload = default;
+        return false;
+    }
+
+    /// <summary>
+    /// The activation's frame, when it has one; <see langword="null"/> when it is on the stack without one.
+    /// </summary>
+    internal CallStackFrame? HeldFrame => _frame;
+
+    // the frame given the String numbered number, when it has none in its slot: a parameter passed by reference given its caller's variable is a second name
+    // for it (PushAlias), as a scalar's is; any other is the activation's own (PushText).
+    private void HoldText(CallStackFrame frame, int number)
+    {
+        var slot = _body.TextSlots[number];
+        if (_texts[number] is not { } cell || frame.IsSlotFilled(slot))
+        {
+            return;
+        }
+
+        var symbol = _body.SlotSymbols[slot];
+        if (_textAliases[number])
+        {
+            frame.PushAlias(symbol, cell, slot);
+        }
+        else
+        {
+            frame.PushText(symbol, cell, slot);
+        }
+    }
+
+    /// <summary>
+    /// Gives the <c>String</c> parameter in <paramref name="slot"/> of a call compiled code makes directly (<see cref="EnterDirectly"/>) the text of its
+    /// argument (MS-VBAL §5.3.1.11): a cell of the activation's own holding it, as the interpreter's callee makes one of a <c>String</c> given by value, or
+    /// of a value given to a parameter passed by reference.
+    /// </summary>
+    /// <param name="slot">The parameter's slot (<see cref="CompiledCallee.TextSlots"/>).</param>
+    /// <param name="text">The text given; <see langword="null"/> for <c>vbNullString</c>.</param>
+    public void TakeText(int slot, string? text) => HoldGivenText(slot, new TextCell(new VBRuntimeValue<string>(text!)), alias: false);
+
+    /// <summary>
+    /// Gives the <c>String</c> parameter passed by reference in <paramref name="slot"/> of a call compiled code makes directly (<see cref="EnterDirectly"/>)
+    /// the cell of the caller's variable, a <see cref="TextCell"/>, which the parameter is a second name for (MS-VBAL §5.3.1.11): what it is assigned is
+    /// what the variable holds, and the variable has one address, whichever of its names is asked for it first.
+    /// </summary>
+    /// <param name="slot">The parameter's slot (<see cref="CompiledCallee.TextSlots"/>).</param>
+    /// <param name="cell">The cell of the caller's variable.</param>
+    public void TakeTextReference(int slot, object cell) => HoldGivenText(slot, (TextCell)cell, alias: true);
+
+    /// <summary>
+    /// Whether the cell of a <c>String</c> variable is one a call made directly gives a parameter passed by reference (<see cref="TakeTextReference"/>): a
+    /// <see cref="TextCell"/>, which knows the address the variable has. A parameter bound to another cell (an element of an array) is given the address,
+    /// through the invoker (<see cref="SetTextReference"/>).
+    /// </summary>
+    /// <param name="cell">The cell of the variable given.</param>
+    public static bool IsTextCell(object? cell) => cell is TextCell;
+
+    // the cell held for the parameter: a frame made as the call was made, under a debugger, is given it as the entry finds its Strings' cells, before
+    // anything can see the frame (StringCellOf); any other when it is made (MakeFrame).
+    private void HoldGivenText(int slot, TextCell cell, bool alias)
+    {
+        var number = Array.IndexOf(_body.TextSlots, slot);
+        (_texts[number], _textAliases[number]) = (cell, alias);
     }
 
     // the frame given the cell numbered number, when it has none for its slot: a parameter passed by reference's is its caller's variable, which the frame
@@ -223,11 +471,17 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The cell of the parameter passed by reference in <paramref name="slot"/>, as an interpreted caller gave it: its variable, or a cell its value was
-    /// copied into.
+    /// copied into: the frame's, or the one the invoker gave an activation without a frame (<see cref="GiveReference"/>).
     /// </summary>
     /// <returns><see langword="false"/> when the parameter is bound to an address - a field, an element - which is the interpreter's to read.</returns>
     public bool TryReadReference(int slot, out object? cell)
     {
+        if (_frame is null && CellNumberOf(slot) is var number and >= 0 && _cells[number] is ScalarCell given)
+        {
+            cell = given;
+            return true;
+        }
+
         cell = Frame.TryGetSlotCell(slot, out var held) && held is ScalarCell scalar ? scalar : null;
         return cell is not null;
     }
@@ -497,6 +751,12 @@ public sealed partial class CompiledActivation : ILightActivation
     public bool SpillsBeforeCalls => _halt.Gate is not null;
 
     /// <summary>
+    /// The session the activation runs in, which compiled code gives the typed form of a function of the standard library that reads it (its locale, its
+    /// comparison rules).
+    /// </summary>
+    public IRuntimeSession Session => _session;
+
+    /// <summary>
     /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>, <see cref="SetReference"/>), as
     /// the interpreter calls a procedure every parameter of which is a scalar passed by value - or, when any is passed by reference, with the cell of each
     /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>; the address of a <c>String</c> variable,
@@ -545,8 +805,8 @@ public sealed partial class CompiledActivation : ILightActivation
         (_member, _receiver, _memberInstance) = (null, null, null);
         var called = _body.Callees[callee];
         if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
-            || !_session.Symbols.TryGetInstance(instance, out var target)
-            || MemberOf(called, target.ClassModule) is not { } member || !Takes(called, member))
+            || !TryGetInstance(instance, out var target)
+            || MemberOf(called, target) is not { } member || !Takes(called, member))
         {
             return false;
         }
@@ -555,17 +815,43 @@ public sealed partial class CompiledActivation : ILightActivation
         return true;
     }
 
+    // the instance of the object a member is called on: the one the activation is on when it is called on Me, which the activation holds, as it holds Me.
+    private bool TryGetInstance(VBRuntimeObjectId instance, [NotNullWhen(true)] out IObjectInstance? target)
+    {
+        if (_instance is { } me && me.ObjectId.Equals(instance))
+        {
+            target = me;
+            return true;
+        }
+
+        return _session.Symbols.TryGetInstance(instance, out target);
+    }
+
     // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
     // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
     // one implementing it, of a class that implements that class as an interface. A member of the class whose code runs, named bare, has no site: it is
-    // called on Me, which is of that class. What an object of a class invokes is the same at every call, so the call keeps the last class's (Invoked).
-    private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
+    // called on Me, which is of that class, and whose class is not looked up. What an object of a class invokes is the same at every call, so the call keeps
+    // the last class's (Invoked).
+    private VBTypeMemberSymbol? MemberOf(CompiledCallee called, IObjectInstance target)
     {
+        // the default member of an object of the class it is declared as, and the member implementing it of an object of a class that implements that class
+        // as an interface (MS-VBAL §5.3.1.9), as the interpreter finds it (RuntimeExpressionEvaluator.TryResolveDefaultMember). One of any other class is the
+        // interpreter's to resolve.
+        if (called.DefaultOf is { } declared)
+        {
+            var implementing = target.ClassModule;
+            return ReferenceEquals(implementing, declared) ? called.Procedure
+                : implementing.ImplementedInterfaces.Any(implemented => implemented.Uri.AbsoluteUri == declared.Uri.AbsoluteUri)
+                    ? implementing.FindImplementation(declared, called.Procedure)
+                    : null;
+        }
+
         if (called.Site is null)
         {
             return called.Procedure;
         }
 
+        var actual = target.ClassModule;
         if (called.Invoked is { } invoked && ReferenceEquals(invoked.Class, actual))
         {
             return invoked.Member;
@@ -606,8 +892,11 @@ public sealed partial class CompiledActivation : ILightActivation
         var returned = ScalarKinds.Of(returnedType);
         if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
-            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject
+            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject && !called.ReturnsText
+                && !called.ReturnsValue
             || (called.ReturnsObject ? returnedType is not (SDK.Model.Types.VBObjectType or VBClassType)
+                : called.ReturnsText ? !ProcedureAnalysis.IsText(returnedType)
+                : called.ReturnsValue ? returnedType is not SDK.Model.Types.VBVariantType && !ProcedureAnalysis.IsText(returnedType)
                 : called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
                 : called.Result is { } read ? returned != read
                 : returnedType is { } discarded && returned is null && discarded is not SDK.Model.Types.VBVariantType))
@@ -620,14 +909,19 @@ public sealed partial class CompiledActivation : ILightActivation
             var parameter = parameters[i + 1];
             var omitted = i < called.Omitted.Count && called.Omitted[i];
             var passed = i < called.ObjectParameters.Count ? called.ObjectParameters[i] : null;
+            var variant = i < called.VariantReferences.Count && called.VariantReferences[i];
+            var text = i < called.TextSlots.Count && called.TextSlots[i] >= 0;
             // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject). A Variant the call
-            // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted). A scalar the call leaves out is given the
-            // default the member it was bound to declares, which is this member's: an implemented member declares the defaults of the interface member
-            // (MS-VBAL §5.3.1.9), and one that does not is refused before the program runs.
+            // leaves out is one of the member's too, given what the member's parameter is given (SetOmitted), and so is one given a variable's address, passed
+            // by reference as the call's is (SetVariantReference). A String of variable length is one of the member's too, given the text or the variable's
+            // address (SetText, SetTextReference). A scalar the call leaves out is given the default the member it was bound to declares, which is this
+            // member's: an implemented member declares the defaults of the interface member (MS-VBAL §5.3.1.9), and one that does not is refused before
+            // the program runs.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
                 || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
                 || called.Parameters[i] is null && (passed is not null ? !passed.Type.Equals(parameter.ResolvedType)
-                    : !omitted || parameter.ResolvedType is not SDK.Model.Types.VBVariantType))
+                    : text ? !ProcedureAnalysis.IsText(parameter.ResolvedType)
+                    : !(omitted || variant) || parameter.ResolvedType is not SDK.Model.Types.VBVariantType))
             {
                 return false;
             }
@@ -677,10 +971,19 @@ public sealed partial class CompiledActivation : ILightActivation
             return false;
         }
 
-        // an object, which the statement's temporaries hold (RuntimeProcedureInvoker.ReleaseLocals): compiled code takes it (TakeReturnedObject).
-        if (called.ReturnsObject)
+        // an object, a String or a Variant, which the statement's temporaries hold (RuntimeProcedureInvoker.ReleaseLocals): compiled code takes it
+        // (TakeReturnedObject, TakeReturnedValue).
+        if (called.ReturnsObject || called.ReturnsValue)
         {
             _returnedObject = result.Result;
+            _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
+            return result.Result is not null;
+        }
+
+        // a String, which compiled code takes whole (TakeReturnedText).
+        if (called.ReturnsText)
+        {
+            _returnedText = result.Result;
             _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
             return result.Result is not null;
         }
@@ -714,7 +1017,9 @@ public sealed partial class CompiledActivation : ILightActivation
 
     // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
     // of which the callee makes a cell of its own when the parameter is passed by reference. They come after the first ones, which are the caller's to give:
-    // the object a member is called on. A String is given the text (SetText), or the address of the String variable given (SetTextReference).
+    // the object a member is called on. A String is given the text (SetText), or the address of the String variable given (SetTextReference). A Variant
+    // passed by reference given a variable of a scalar type is given its cell and the type the variable is declared as: the parameter reads the variable
+    // as a Variant of that type, and what it is assigned is let-coerced to that type (MS-VBAL §5.3.1.11).
     private IRuntimeValue[] ArgumentsOf(CompiledCallee called, int first)
     {
         var arguments = new IRuntimeValue[first + called.Parameters.Count];
@@ -722,7 +1027,7 @@ public sealed partial class CompiledActivation : ILightActivation
         {
             if (called.Parameters[i] is not { } kind)
             {
-                arguments[first + i] = (IRuntimeValue)_references[i]!;
+                arguments[first + i] = _references[i] is ScalarCell scalar ? new CellReference(scalar, scalar.Type) : (IRuntimeValue)_references[i]!;
                 continue;
             }
 
@@ -756,10 +1061,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>The callee's activation, which its entry is called with; <see langword="null"/> when the call is to be made through the invoker.</returns>
     public CompiledActivation? EnterDirectly(int pc, int callee)
     {
-        if (_body.Directs[callee] is not { Body: { } body } direct || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _halt.WantsInterpreter
-            || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
-            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
-            || !ReferenceEquals(_invoker.BodyOf(direct.Procedure), direct.List))
+        if (_body.Directs[callee] is not { Body: { } body } direct || !MayEnterDirectly() || !IsCurrent(direct))
         {
             return null;
         }
@@ -787,7 +1089,7 @@ public sealed partial class CompiledActivation : ILightActivation
                 && ReferenceEquals(spare._body, body) && ReferenceEquals(spare._invoker, _invoker))
             {
                 spare._frame = null;
-                spare.Begin();
+                spare.Begin(_scopes);
                 activation = spare;
             }
             else
@@ -802,6 +1104,7 @@ public sealed partial class CompiledActivation : ILightActivation
             }
         }
 
+        activation.EnteredBy(this);
         _body.CountDirectCall();
         _suspensionsBeforeCall = Suspensions;
         return activation;
@@ -827,9 +1130,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>The member's activation, which its entry is called with; <see langword="null"/> when the call is to be made through its binding.</returns>
     public CompiledActivation? EnterMemberDirectly(int pc, int callee)
     {
-        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
-            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
-            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
+        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> || !MayEnterDirectly()
             || EntryOf(_body.Callees[callee], member) is not { } entry)
         {
             return null;
@@ -848,7 +1149,7 @@ public sealed partial class CompiledActivation : ILightActivation
                 && ReferenceEquals(spare._body, entry.Body) && ReferenceEquals(spare._invoker, _invoker))
             {
                 spare._frame = null;
-                spare.Begin();
+                spare.Begin(_scopes);
                 activation = spare;
             }
             else
@@ -862,10 +1163,19 @@ public sealed partial class CompiledActivation : ILightActivation
                 return null;
             }
 
-            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, new ValueBindingHandle(receiver));
-            ObjectReferences.Rebind(_session, activation._me, ObjectReferences.Held.None);
+            // the reference as the variable or the With block holds it, which the cell holds as it is: no copy of it is made. A spare holds it in the cell
+            // its last activation let go of, when nothing else can hold that cell (EndMember).
+            var me = activation._spareMe ?? new ValueBindingHandle(_receiver);
+            if (activation._spareMe is not null)
+            {
+                me.Store(_receiver, isKnown: true);
+                activation._spareMe = null;
+            }
+
+            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, me);
+            ObjectReferences.HoldIn(_session, me, _memberInstance!.ObjectId);
         }
-        else if (_invoker.PushMemberActivation(member, entry.List, receiver) is { } frame)
+        else if (_invoker.PushMemberActivation(member, entry.List, (VBRuntimeValue<VBRuntimeObjectId>)_receiver) is { } frame)
         {
             activation = new CompiledActivation(_session, frame, entry.List, _executor, entry.Context, entry.Body, _invoker) { _entered = member };
         }
@@ -874,6 +1184,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
+        activation.EnteredBy(this);
         (_member, _receiver, _memberInstance, _memberEntry) = (null, null, null, entry.Entry);
         _body.CountDirectCall();
         _suspensionsBeforeCall = Suspensions;
@@ -885,6 +1196,10 @@ public sealed partial class CompiledActivation : ILightActivation
     private IObjectInstance? _instance;
     private ValueBindingHandle? _me;
 
+    // the cell this activation held Me in the last time it ran a member, let go of when that member returned without a frame: no frame, and so nothing
+    // but the activation, ever held it, and no object is counted in it. The next member this activation runs holds Me in it (EnterMemberDirectly).
+    private ValueBindingHandle? _spareMe;
+
     /// <summary>
     /// The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.
     /// </summary>
@@ -894,7 +1209,7 @@ public sealed partial class CompiledActivation : ILightActivation
     // is the workspace's to run - its binding is this invoker's.
     private MemberEntry? EntryOf(CompiledCallee called, VBTypeMemberSymbol member)
     {
-        if (called.Entered is { } entered && ReferenceEquals(entered.Member, member) && ReferenceEquals(_invoker.BodyOf(member), entered.List))
+        if (called.Entered is { } entered && ReferenceEquals(entered.Member, member) && IsCurrent(entered))
         {
             return entered;
         }
@@ -909,7 +1224,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
-        entered = new MemberEntry(member, list, body, method.MethodHandle.GetFunctionPointer(), new RuntimeEvaluationContext(member.Uri));
+        entered = new MemberEntry(member, list, body, method.MethodHandle.GetFunctionPointer(), new RuntimeEvaluationContext(member.Uri)) { Image = _invoker.Image };
         called.Entered = entered;
         return entered;
     }
@@ -931,7 +1246,7 @@ public sealed partial class CompiledActivation : ILightActivation
     public bool ReturnedDirectly(int call, CompiledActivation callee, RuntimeExecutionOutcome outcome, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        outcome = callee._entered is not { } member ? _invoker.PopCompiledActivation(outcome, light: callee._frame is null)
+        outcome = callee._entered is not { } member ? EndProcedure(callee, outcome)
             : callee._me is { } me && callee._frame is null ? EndMember(callee, me, outcome)
             : _invoker.PopMemberActivation(callee._frame!, member, outcome);
         callee.LetGoOfMe();
@@ -944,8 +1259,31 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of, and one
-        // whose statement assigns what it returns is assigned it.
+        // whose statement assigns what it returns is assigned it. One that returns a String inside a text returns the frame's function result, which compiled
+        // code takes whole (TakeReturnedText).
         var called = _body.Callees[call];
+
+        // an object, which the statement's temporaries hold since the callee returned (LetGoOfResult, RuntimeProcedureInvoker.ReleaseLocals): compiled
+        // code takes it (TakeReturnedObject), as it takes what a call through the invoker returns.
+        if (called.ReturnsObject)
+        {
+            _returnedObject = ReturnedBy(callee);
+            _failed = _returnedObject is null ? RuntimeExecutionOutcome.InternalError : null;
+            return _returnedObject is not null;
+        }
+
+        if (called.ReturnsText)
+        {
+            _returnedText = ReturnedBy(callee);
+            if (_returnedText is null)
+            {
+                _failed = RuntimeExecutionOutcome.InternalError;
+                return false;
+            }
+
+            return true;
+        }
+
         if (called.Result is null)
         {
             return AssignReturned(called, called.AssignsResult ? ReturnedBy(callee) : null);
@@ -967,12 +1305,23 @@ public sealed partial class CompiledActivation : ILightActivation
     // runs then gives it its frame, as any call does; it is then taken off the stack with that frame, which holds Me in the same cell, let go of already.
     private RuntimeExecutionOutcome EndMember(CompiledActivation callee, ValueBindingHandle me, RuntimeExecutionOutcome outcome)
     {
-        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        // what its variables hold is let go of before Me, as the frame lets go of them (RuntimeProcedureInvoker.ReleaseLocals).
+        var released = outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break);
+        if (released)
         {
-            ObjectReferences.Release(_session, me);
+            callee.LetGoOfResult();
+            callee.LetGoOfObjects(me);
         }
 
-        return _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+        outcome = _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+
+        // a cell that was let go of and given to no frame, not even by a Class_Terminate run as it was let go of, is the next activation's (_spareMe).
+        if (released && callee._frame is null)
+        {
+            callee._spareMe = me;
+        }
+
+        return outcome;
     }
 
     // an activation off the stack is the spare of its place (RuntimeCallStack.TakeSpare) until it is begun again: it keeps no object alive meanwhile.
@@ -995,6 +1344,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         callee.LetGoOfMe();
+        callee._objectsGiven = true;
     }
 
     private int Suspensions => (_halt as SessionHalt)?.Suspensions ?? 0;
@@ -1031,6 +1381,84 @@ public sealed partial class CompiledActivation : ILightActivation
     // another call than the one compiled.
     private ScopeTree _scopes = null!;
 
+    // what says, as one number, whether anything a call made directly depends on changed: what the interpreter is wanted for, the session's symbols, and
+    // the engine (CompiledExecution.EngineEpoch).
+    private readonly SessionHalt? _sessionHalt;
+    private readonly SymbolTable? _table;
+
+    // the number (DirectEntryEpoch) at which the activation last found that it makes the calls compiled code makes directly, and goes on after them: its
+    // symbols not defined again since it began, the interpreter not wanted, no analysis made, and the session's engine the compiled one. -1 when it has not,
+    // or when the session's halt or symbols are not ones that number their changes. A call made directly is made at the same number (EnteredBy).
+    private long _directAt = -1;
+
+    // the numbers only grow, so their sum is the same only while none changed.
+    private long DirectEntryEpoch
+        => _sessionHalt is { } halt && _table is { } table ? (long)halt.Epoch + table.Version + CompiledExecution.EngineEpoch : -1;
+
+    // whether calls are made directly now (EnterDirectly, EnterMemberDirectly): an error that cannot be trapped, or the run cancelled, is looked at each
+    // time, since compiled code is to stop at once for either; the rest only when the number of what they depend on changed (DirectEntryEpoch), which it is
+    // read before, so a change made while they are looked at is looked at again.
+    private bool MayEnterDirectly()
+    {
+        if (_session.Errors.Untrappable is not null || _executor.IsCancellationPending)
+        {
+            return false;
+        }
+
+        var epoch = DirectEntryEpoch;
+        if (epoch >= 0 && epoch == _directAt)
+        {
+            return true;
+        }
+
+        if (!ReferenceEquals(_session.Symbols.Scopes, _scopes) || _halt.WantsInterpreter || _executor.Observation is not null
+            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled)
+        {
+            return false;
+        }
+
+        _directAt = epoch;
+        return true;
+    }
+
+    // an activation of a call this one made directly is made where this one found that it makes them: on the same session, by the same executor, at the
+    // same number, with the symbols this one began with (Begin).
+    private void EnteredBy(CompiledActivation caller) => _directAt = caller._directAt;
+
+    // whether the body a call made directly enters is the one the invoker runs: its procedures as they are now, which a module loaded again replaces
+    // (RuntimeProcedureInvoker.Image), are the ones it was found in.
+    private bool IsCurrent(DirectCall direct)
+    {
+        if (_invoker.Image is { } image && ReferenceEquals(direct.Image, image))
+        {
+            return true;
+        }
+
+        if (!ReferenceEquals(_invoker.BodyOf(direct.Procedure), direct.List))
+        {
+            return false;
+        }
+
+        direct.Image = _invoker.Image;
+        return true;
+    }
+
+    private bool IsCurrent(MemberEntry entered)
+    {
+        if (_invoker.Image is { } image && ReferenceEquals(entered.Image, image))
+        {
+            return true;
+        }
+
+        if (!ReferenceEquals(_invoker.BodyOf(entered.Member), entered.List))
+        {
+            return false;
+        }
+
+        entered.Image = _invoker.Image;
+        return true;
+    }
+
     /// <summary>
     /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
     /// the procedure was edited while the program waited in the callee, and the activation goes on in its edited body (<see cref="CallStackFrame.HasPendingRebase"/>);
@@ -1045,8 +1473,10 @@ public sealed partial class CompiledActivation : ILightActivation
     /// An activation without a frame has no edit to go on in: the program waited in none, since what looks at the stack while it waits gives every activation
     /// its frame (<see cref="RuntimeCallStack.MaterializeLights"/>).
     /// </remarks>
-    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _session.Errors.Untrappable is not null || _frame is { HasPendingRebase: true }
-        || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _executor.IsCancellationPending;
+    // the interpreter wanted and the symbols defined again are looked at only when the number of what they depend on changed since the activation last found
+    // neither (MayEnterDirectly).
+    public bool WantsInterpreterAfterCall => _session.Errors.Untrappable is not null || _frame is { HasPendingRebase: true } || _executor.IsCancellationPending
+        || (DirectEntryEpoch is var epoch && (epoch < 0 || epoch != _directAt) && (_halt.WantsInterpreter || !ReferenceEquals(_session.Symbols.Scopes, _scopes)));
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
@@ -1055,6 +1485,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     public RuntimeExecutionOutcome AfterFailedCall(int pc)
     {
+        _handedOver = true;
         var frame = Frame;
         frame.RunsCompiled = false;
 
@@ -1082,10 +1513,17 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The payload of the variable in <paramref name="slot"/>, of an integral kind, when its cell holds one it knows. When it does not, compiled code hands the
-    /// activation to the interpreter, which reads the variable where the frame has it.
+    /// activation to the interpreter, which reads the variable where the frame has it. A parameter of an activation the invoker made without a frame is
+    /// read, the first time, in the payload it was given (<see cref="GivePayload"/>).
     /// </summary>
     public bool TryReadIntegral(int slot, out long value)
     {
+        if (_frame is null && TryTakeGiven(slot, out var given))
+        {
+            value = given.Integral;
+            return true;
+        }
+
         value = 0;
         if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
@@ -1102,6 +1540,12 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     public bool TryReadFloating(int slot, out double value)
     {
+        if (_frame is null && TryTakeGiven(slot, out var given))
+        {
+            value = given.Floating;
+            return true;
+        }
+
         value = 0;
         if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
@@ -1175,9 +1619,9 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
-    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed a <c>String</c> by value, a variable of another type
-    /// passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
-    /// runs each statement that does.
+    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed an object, an array or a record by value, a variable of
+    /// another type passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and
+    /// the interpreter runs each statement that does.
     /// </returns>
     public object? VariantCellOf(int slot)
     {
@@ -1216,14 +1660,29 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </returns>
     public object? ObjectCellOf(int slot)
     {
-        // Me, of a member entered without a frame: the cell the activation holds it in, which its frame is given when it has one (EnterMemberDirectly).
-        if (_frame is null && _me is { } me && slot == _body.MeSlot)
+        // Me, of a member entered without a frame: the cell the activation holds it in, which its frame is given when it has one (EnterMemberDirectly). Any
+        // other object of an activation without a frame: the cell the activation holds it in (OwnObjectCell).
+        if (_frame is null)
         {
-            return me;
+            if (_me is { } me && slot == _body.MeSlot)
+            {
+                return me;
+            }
+
+            if (Array.IndexOf(_body.ObjectSlots, slot) is var own and >= 0)
+            {
+                return OwnObjectCell(own);
+            }
         }
 
         var frame = Frame;
-        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is ValueBindingHandle handle ? handle : null;
+        if (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell))
+        {
+            return cell is ValueBindingHandle handle ? handle : null;
+        }
+
+        // a frame made as the call was made, under a debugger, which holds none of the activation's variables: given the variable's cell now.
+        return Array.IndexOf(_body.ObjectSlots, slot) is var number and >= 0 ? GiveObject(frame, number) : null;
     }
 
     /// <summary>
@@ -1246,9 +1705,12 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell the frame holds the <c>String</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads the text
-    /// it holds from and writes the text it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation:
-    /// the cell the interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>).
+    /// The cell of the <c>String</c> parameter or variable in <paramref name="slot"/>: what compiled code reads the text it holds from and writes the text
+    /// it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation. The frame's, which the
+    /// interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>); without a frame, the activation's, which
+    /// its frame is given once it has one: the cell its caller gave a parameter (<see cref="TakeText"/>, <see cref="TakeTextReference"/>), or one made
+    /// for a variable, holding what the interpreter declares it with. A frame made as the call was made, under a debugger, is given the parameter's or
+    /// the variable's cell so.
     /// </summary>
     /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
@@ -1257,13 +1719,39 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </returns>
     public object? StringCellOf(int slot)
     {
-        var frame = Frame;
-        return frame.Procedure is { } procedure
-            && frame.TryReadSlot(new LanguageCore.Binding.FrameSlot(LanguageCore.Binding.FrameLayout.For(procedure), slot), _body.SlotSymbols[slot], out var cell, out var referenced)
-            && referenced is null && cell is ValueBindingHandle handle
-                ? handle
-                : null;
+        var number = Array.IndexOf(_body.TextSlots, slot);
+        if (_frame is not { } frame)
+        {
+            return _texts[number] ??= NewText(slot);
+        }
+
+        var symbol = _body.SlotSymbols[slot];
+        if (frame.Procedure is not { } procedure)
+        {
+            return null;
+        }
+
+        var held = new LanguageCore.Binding.FrameSlot(LanguageCore.Binding.FrameLayout.For(procedure), slot);
+        if (frame.TryReadSlot(held, symbol, out var cell, out var referenced))
+        {
+            return referenced is null && cell is ValueBindingHandle handle ? handle : null;
+        }
+
+        if (number < 0 || frame.TryResolve(symbol, out _))
+        {
+            return null;
+        }
+
+        var made = _texts[number] ??= NewText(slot);
+        HoldText(frame, number);
+        return made;
     }
+
+    // the cell of a String variable of the activation, holding what the interpreter declares it with (RuntimeProcedureInvoker.DefaultValueOf).
+    private TextCell NewText(int slot)
+        => new(_body.SlotSymbols[slot] is VBLocalVariableSymbol variable
+            ? RuntimeProcedureInvoker.DefaultValueOf(_session, variable).Handle.Value
+            : new VBRuntimeValue<string>(null!));
 
     /// <summary>
     /// The cell of the <c>String</c> in <paramref name="slot"/> (<see cref="StringCellOf"/>), found again after the interpreter ran an instruction or the
@@ -1286,7 +1774,8 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Two texts compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as the interpreter compares them
-    /// (<c>RuntimeExpressionEvaluator.TryCompareText</c>): the mode of the frame the activation is, which is the current one.
+    /// (<c>RuntimeExpressionEvaluator.TryCompareText</c>): the mode of the frame the activation is, which is the current one; without a frame, the one
+    /// its frame would have, of the module the procedure is declared in (<c>RuntimeProcedureInvoker.DirectivesOf</c>).
     /// </summary>
     /// <param name="comparison">The comparison operator.</param>
     /// <param name="left">The left text; <see langword="null"/> for <c>vbNullString</c>.</param>
@@ -1294,7 +1783,10 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>The comparison's result.</returns>
     public bool CompareText(ComparisonOperator comparison, string? left, string? right)
     {
-        var order = SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session).Compare(left.AsSpan(), right.AsSpan());
+        var rules = _frame is null && _procedure is { } procedure
+            ? SDK.Runtime.RuntimeSessionExtensions.StringComparisonIn(_session, _invoker.DirectivesOf(procedure).Compare)
+            : SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session);
+        var order = rules.Compare(left.AsSpan(), right.AsSpan());
         return comparison switch
         {
             ComparisonOperator.Equal => order == 0,
@@ -1437,6 +1929,7 @@ public sealed partial class CompiledActivation : ILightActivation
     {
         // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body - or, handed over in the
         // middle of an instruction after a call inside it, in that instruction, where it now is (HandKnowns).
+        _handedOver = true;
         var frame = Frame;
         (frame.Pc, frame.RunsCompiled) = (pc, false);
         var inside = HasKnowns;
@@ -1468,6 +1961,8 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </remarks>
     public int Recover(int pc)
     {
+        _handedOver = true;
+
         // a variable not written into the frame: the interpreter runs the activation from the instruction, as the frame has it.
         if (_unspilled)
         {
@@ -1728,6 +2223,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     internal void CountFrameMade() => Interlocked.Increment(ref _framesMade);
 
+    private long _textsCopied;
+
+    /// <summary>
+    /// How many times a <c>Mid</c> statement of an activation of the body copied the <c>String</c> it changes: of a variable, into the builder it changes the
+    /// characters in, once for each <c>String</c> the variable is given (<see cref="CompiledActivation.TryMid"/>); of a parameter by reference, once for
+    /// each statement, into the new String its cell is given (<see cref="CompiledActivation.TryMidInCell"/>).
+    /// </summary>
+    public long TextsCopied => Interlocked.Read(ref _textsCopied);
+
+    internal void CountTextCopied() => Interlocked.Increment(ref _textsCopied);
+
     private long _activationsMade;
 
     /// <summary>
@@ -1737,6 +2243,21 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long ActivationsMade => Interlocked.Read(ref _activationsMade);
 
     internal void CountActivationMade() => Interlocked.Increment(ref _activationsMade);
+
+    private long _invokerActivationsMade;
+
+    /// <summary>
+    /// How many activations of the body the invoker made for the calls made through it: each call is made in the activation that last returned from one,
+    /// when that one ran its compiled code to the end, so a loop of calls makes one.
+    /// </summary>
+    public long InvokerActivationsMade => Interlocked.Read(ref _invokerActivationsMade);
+
+    internal void CountInvokerActivationMade() => Interlocked.Increment(ref _invokerActivationsMade);
+
+    // the activation of the body each invoker last returned from a call it made of it, which its next call is made in (RuntimeProcedureInvoker.Run). Keyed
+    // weakly by the invoker, which the activation holds: an entry goes with its invoker once the run its pipeline was composed for is over, and every entry
+    // goes with the body when an edit replaces it.
+    internal ConditionalWeakTable<RuntimeProcedureInvoker, StrongBox<CompiledActivation?>> Spares { get; } = [];
 
     internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
 
@@ -1751,6 +2272,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     internal void CountSupportCall() => Interlocked.Increment(ref _supportCallsMade);
 
+    private long _libraryCallsMade;
+
+    /// <summary>
+    /// How many calls the body made of a function of the standard library, or of a member of one of its classes, that it calls inside an expression
+    /// (<see cref="Libraries"/>), through the binding or straight to the library. A typed form compiled code calls, or what it reads of a Variant's cell
+    /// in place of a call, is not one.
+    /// </summary>
+    public long LibraryCallsMade => Interlocked.Read(ref _libraryCallsMade);
+
+    internal void CountLibraryCall() => Interlocked.Increment(ref _libraryCallsMade);
+
     /// <summary>The typed entry of the body: its compiled activation, then each parameter. Set once the body's type is created.</summary>
     public System.Reflection.MethodInfo? Entry { get; init; }
 
@@ -1759,6 +2291,24 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// passed by reference, and each parameter or variable the body passes by reference.
     /// </summary>
     public IReadOnlyList<int> CellSlots { get; init; } = [];
+
+    /// <summary>
+    /// The slots of its <c>String</c> parameters and variables of variable length (<see cref="ProcedureAnalysis.TextSlots"/>), in order: an activation
+    /// without a frame holds the cell of each, by its number here (<see cref="CompiledActivation.StringCellOf"/>).
+    /// </summary>
+    public int[] TextSlots { get; init; } = [];
+
+    /// <summary>
+    /// The slots of its object parameters and variables, but <c>Me</c> (<see cref="ProcedureAnalysis.HeldObjectSlots"/>), in order: an activation without a
+    /// frame holds the cell of each, by its number here (<see cref="CompiledActivation.ObjectCellOf"/>).
+    /// </summary>
+    public int[] ObjectSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether the body is of a function that returns an object (<see cref="ProcedureAnalysis.ResultIsObject"/>): an activation without a frame holds its
+    /// result in a cell of its own.
+    /// </summary>
+    public bool ResultIsObject { get; init; }
 
     /// <summary>
     /// Whether an activation of the body holds in its frame what compiled code does not (<see cref="ProcedureAnalysis.NeedsFrame"/>): it is called through
@@ -1788,11 +2338,10 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public IReadOnlyList<CompiledField> Fields { get; init; } = [];
 
     /// <summary>
-    /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, which keeps
-    /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The cache keeps the object's
-    /// identity and holds no reference to it.
+    /// Where the fields of <c>Me</c> the body reaches are in the fields the object an activation of it was last on holds (<see cref="FieldIndices"/>):
+    /// the same for every object of its class laid out at the same version, found again for an object that holds another list.
     /// </summary>
-    internal FieldCells? ObjectFields { get; set; }
+    internal FieldIndices? ObjectFieldIndices { get; set; }
 
     /// <summary>
     /// The cells of the fields of the session the body found last: those of the storage an activation of it last ran in, for as long as
@@ -1800,6 +2349,12 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// (<c>SessionStorage.Generation</c>).
     /// </summary>
     internal SessionFieldCells? SessionFields { get; set; }
+
+    /// <summary>
+    /// The public variables of objects the body's member accesses found last, by the number compiled code knows each access by (<see cref="MemberFields"/>):
+    /// each kept for the object it was found of, while no module is defined again (<see cref="MemberFieldCell"/>).
+    /// </summary>
+    internal MemberFieldCell?[]? MemberFieldCells { get; set; }
 
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
@@ -1818,6 +2373,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// The public variables of objects the body reads, by the number compiled code knows each by (<see cref="ProcedureAnalysis.MemberFields"/>).
     /// </summary>
     public IReadOnlyList<CompiledMemberField> MemberFields { get; init; } = [];
+
+    /// <summary>
+    /// Where each integral operation of the body is written, by the number compiled code knows it by (<see cref="ProcedureAnalysis.ArithmeticSites"/>).
+    /// </summary>
+    public IReadOnlyList<SDK.Model.Source.SourceLocation> ArithmeticSites { get; init; } = [];
 
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -
@@ -1877,11 +2437,22 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>
     /// How many times an activation of the body had the interpreter run one instruction and went on compiled: an error its handler
-    /// caught, a <c>Resume</c>, an <c>On...GoTo</c> (<see cref="CompiledActivation.Recover"/>).
+    /// caught, a <c>Resume</c>, an <c>On...GoTo</c> (<see cref="CompiledActivation.Recover"/>). An error its <c>On Error Resume Next</c> was given where
+    /// compiled code is counts too (<see cref="CompiledActivation.TryResumeNext"/>).
     /// </summary>
     public long Recoveries => Interlocked.Read(ref _recovered);
 
     internal void CountRecovered() => Interlocked.Increment(ref _recovered);
+
+    private long _raised;
+
+    /// <summary>
+    /// How many errors an operation compiled code evaluated found and gave to the interpreter, which did not evaluate the instruction again to find them
+    /// (<see cref="CompiledActivation.RaiseArithmetic"/>).
+    /// </summary>
+    public long RaisedErrors => Interlocked.Read(ref _raised);
+
+    internal void CountRaised() => Interlocked.Increment(ref _raised);
 
     private readonly TaskCompletionSource _looked = new(TaskCreationOptions.RunContinuationsAsynchronously);
 

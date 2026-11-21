@@ -3,6 +3,7 @@ using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Navigation;
 using RDCore.LanguageServer.Parsing;
@@ -45,6 +46,8 @@ public sealed class FewCapabilitiesInitializeTests
             .AddHandler(new CallHierarchyPrepareHandler(workspace))
             .AddHandler(new TypeHierarchyPrepareHandler(workspace))
             .AddHandler(new InlayHintHandler(workspace, options))
+            .AddHandler(new InlineValueHandler(workspace))
+            .AddHandler(new LinkedEditingRangeHandler(workspace))
             .AddHandler(new CodeLensHandler(workspace))
             .AddHandler(new SelectionRangeHandler(documents, parsing))
             .AddHandler(new WorkspaceSymbolHandler(new WorkspaceSymbolSearch(documents, parsing, new IntrinsicSymbolResolver(), options)));
@@ -88,6 +91,8 @@ public sealed class FewCapabilitiesInitializeTests
         Assert.IsNotNull(advertised.CallHierarchyProvider, "callHierarchy");
         Assert.IsNotNull(advertised.TypeHierarchyProvider, "typeHierarchy");
         Assert.IsNotNull(advertised.InlayHintProvider, "inlayHint");
+        Assert.IsNotNull(advertised.InlineValueProvider, "inlineValue");
+        Assert.IsNotNull(advertised.LinkedEditingRangeProvider, "linkedEditingRange");
         Assert.IsNotNull(advertised.CodeLensProvider, "codeLens");
         Assert.IsNotNull(advertised.SelectionRangeProvider, "selectionRange");
         Assert.IsNotNull(advertised.WorkspaceSymbolProvider, "workspace/symbol");

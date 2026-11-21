@@ -106,6 +106,53 @@ public sealed class NumericStringTests
         Assert.AreEqual("err13", Converted("$1", VBDoubleType.TypeInfo, european));
     }
 
+    // IsNumeric of a String (ValueConversions.IsNumber), which reads no value: whether ToNumeric converts it to a Double, for random strings of the characters
+    // of numbers under three regional settings, and for numbers of up to 28 characters, and of more, past what a Decimal and then a Double holds, with and
+    // without an exponent.
+    [TestMethod]
+    public void IsNumber_IsWhetherTheStringLetCoercesToADouble()
+    {
+        RegionalSettings[] settings = [RegionalSettings.Default, new(",", ".", "€", 2049), new(",", " ", "€", 2049)];
+        var random = new Random(1116);
+        var (numbers, others) = (0, 0);
+        foreach (var text in NumberLikeStrings(random))
+        {
+            foreach (var regional in settings)
+            {
+                var expected = ValueConversions.ToNumeric(new VBStringValue(text), VBDoubleType.TypeInfo, regional).IsSuccess;
+                Assert.AreEqual(expected, ValueConversions.IsNumber(text, regional), $"\"{text}\" with the decimal symbol \"{regional.DecimalSymbol}\"");
+                _ = expected ? numbers++ : others++;
+            }
+        }
+
+        Assert.IsTrue(numbers > 1000 && others > 1000, $"{numbers} numbers, {others} others");
+    }
+
+    private static IEnumerable<string> NumberLikeStrings(Random random)
+    {
+        const string characters = "0123456789012345.,$€  ()+-eEdD&HhOoAF";
+        for (var i = 0; i < 20000; i++)
+        {
+            yield return new string([.. Enumerable.Range(0, random.Next(11)).Select(_ => characters[random.Next(characters.Length)])]);
+        }
+
+        string[] exponents = ["", "", "e5", "e-5", "e300", "e-300", "e400", "e-400", "d10"];
+        foreach (var digits in (int[])[1, 10, 26, 27, 28, 29, 30, 40, 305, 308, 309, 310, 320])
+        {
+            for (var i = 0; i < 40; i++)
+            {
+                var number = new string([.. Enumerable.Range(0, digits).Select(_ => (char)('0' + random.Next(10)))]);
+                if (random.Next(3) == 0)
+                {
+                    var point = random.Next(number.Length + 1);
+                    number = $"{number[..point]}.{number[point..]}";
+                }
+
+                yield return (random.Next(2) == 0 ? "-" : "") + number + exponents[random.Next(exponents.Length)];
+            }
+        }
+    }
+
     [TestMethod]
     public void TheRegionalSettingsOfThePlatform_AreENUSUnlessItIsToldOtherwise()
     {

@@ -273,7 +273,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         Append(body);
         Append(is64Bit ? "pointer:64" : "pointer:32");
-        Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.ResultIsText}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
+        Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.ResultIsText}|{analysis.ResultIsObject}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
         Append(string.Join(',', analysis.Parameters.Select(parameter => $"{parameter.Slot}:{parameter.Kind}:{parameter.ByReference}")));
         Append(string.Join(',', analysis.CellSlots));
         Append(string.Join(',', analysis.SlotSymbols.OrderBy(slot => slot.Key).Select(slot => $"{slot.Key}:{slot.Value.SemanticId}")));
@@ -286,7 +286,8 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         foreach (var callee in analysis.Callees)
         {
-            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}|{callee.CallsOwnMember}");
+            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}|{callee.CallsOwnMember}"
+                + $"|{callee.DefaultOf is not null}|{string.Join(',', callee.TextSlots)}");
         }
 
         foreach (var library in analysis.Libraries)
@@ -320,7 +321,8 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         {
             Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
             Classes = analysis.Classes, News = analysis.News, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
-            Libraries = analysis.Libraries,
+            Libraries = analysis.Libraries, ArithmeticSites = analysis.ArithmeticSites, TextSlots = [.. analysis.TextSlots],
+            ObjectSlots = [.. analysis.HeldObjectSlots], ResultIsObject = analysis.ResultIsObject,
         };
 
         // a call the body makes of itself is of the body just made.
@@ -339,12 +341,14 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
     // itself; through the invoker when it is not compiled, is not run by the invoker the body's own calls are, or is being compiled already (a procedure that
     // calls the one that calls it).
     // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame; so is
-    // one given a String, which its frame holds.
+    // one given anything but scalars, Strings of variable length and objects, whose cells its activation is given (CompiledCallee.GivesWhatTheEntryTakes).
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodInfo entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
-        // a member of an object, Me's own included, is called through its binding, the object given as Me (CompiledActivation.CallMember).
-        if (callee.Site is not null || callee.CallsOwnMember || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        // a member of an object, Me's own and a default member included, is called through its binding, the object given as Me
+        // (CompiledActivation.CallMember).
+        if (callee.Site is not null || callee.CallsOwnMember || callee.DefaultOf is not null
+            || !callee.GivesWhatTheEntryTakes || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }
@@ -374,9 +378,30 @@ internal static class CompiledExecution
     /// The engine every session runs its procedures with; <see langword="null"/> for the one its environment says. The test assembly sets it from the
     /// <c>RDCORE_ENGINE</c> environment variable; nothing else does.
     /// </summary>
-    public static VBExecutionEngine? Engine { get; set; }
+    public static VBExecutionEngine? Engine
+    {
+        get => _engine;
+        set
+        {
+            _engine = value;
+            EngineChanged();
+        }
+    }
+
+    private static VBExecutionEngine? _engine;
 
     private static readonly AsyncLocal<VBExecutionEngine?> _scoped = new();
+
+    // how many times the engine was changed, for every session or in a scope (Running), in any asynchronous flow.
+    private static int _engineChanges;
+
+    private static void EngineChanged() => Interlocked.Increment(ref _engineChanges);
+
+    /// <summary>
+    /// A number that is the same for as long as no engine was changed (<see cref="Engine"/>, <see cref="Running"/>), whichever flow changed it. Compiled code
+    /// that found its engine to be the compiled one compares this number at each call instead of asking again.
+    /// </summary>
+    public static int EngineEpoch => Volatile.Read(ref _engineChanges);
 
     /// <summary>
     /// The engine a session whose environment says <paramref name="configured"/> runs its procedures with: the one a scope says (<see cref="Running"/>), then
@@ -389,7 +414,12 @@ internal static class CompiledExecution
     {
         var previous = _scoped.Value;
         _scoped.Value = engine;
-        return new Scope(() => _scoped.Value = previous);
+        EngineChanged();
+        return new Scope(() =>
+        {
+            _scoped.Value = previous;
+            EngineChanged();
+        });
     }
 
     /// <summary>

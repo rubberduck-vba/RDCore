@@ -42,6 +42,9 @@ public sealed class ProgramDebugAdapterTests
         // on a clock that never moves: the lines a result says were streamed are waited for until they come, and never given up on.
         public HostOutputRelay Relay { get; } = new(new ManualClock());
 
+        // where the language server takes the stops of the handlers of events that run while no program runs.
+        public SessionStopRelay Stops { get; } = new();
+
         // what the program that waits does not have of the edits, as the host says it: nothing, unless a test says otherwise.
         public EditStatusMonitor EditStatus { get; }
         public ProgramDebugAdapter Adapter { get; }
@@ -72,7 +75,7 @@ public sealed class ProgramDebugAdapterTests
             Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
             Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
             EditStatus = new EditStatusMonitor(Debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
-            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, NullLogger<ProgramDebugAdapter>.Instance);
+            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, Stops, NullLogger<ProgramDebugAdapter>.Instance);
         }
 
         // OmniSharp 0.19.9's client does not send supportsInvalidatedEvent, whatever its options say: a client that takes the event is one that initializes
@@ -86,7 +89,7 @@ public sealed class ProgramDebugAdapterTests
             var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), new WireTap.Stream(toClient.Writer.AsStream(), _wire)), Adapter);
             Client = await DebugAdapterClient.From(options =>
             {
-                options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
+                options.WithInput(toClient.Reader.AsStream()).WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(toServer.Writer.AsStream())));
                 options.LinesStartAt1 = linesStartAt1;
                 options.ColumnsStartAt1 = linesStartAt1;
                 options.OnInvalidated(Arrived);
@@ -410,6 +413,33 @@ public sealed class ProgramDebugAdapterTests
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.LaunchAsync());
 
         StringAssert.Contains(refusal.Message, "no project");
+    }
+
+    // a platform with no manifest fails as its components are brought up, with an error that is not the workspace's: the launch is refused with what was
+    // missing and where, and the requests a client sends beside it, which wait for the launch, are answered.
+    [TestMethod]
+    public async Task ALaunch_OfAPlatformThatCannotBeBroughtUp_IsRefusedInOneLine_AndTheRequestsBesideItAreAnswered()
+    {
+        const string missing = "Could not find file 'C:\\Platform\\rdcore.json'.";
+        await using var session = new Session();
+        var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Workspace.OpenAsync(Arg.Any<CancellationToken>()).Returns(opening.Task);
+        await session.StartAsync();
+
+        var launch = session.LaunchAsync();
+        var breakpoints = session.SendAsync(new SetBreakpointsArguments
+        {
+            Source = new Source { Path = Path },
+            Breakpoints = new Container<SourceBreakpoint>(new SourceBreakpoint { Line = 12 }),
+        });
+        var configured = session.SendAsync(new ConfigurationDoneArguments());
+        opening.SetException(new FileNotFoundException(missing));
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => launch);
+        Assert.AreEqual(missing, refusal.Message, "the refusal is the one line that says what is missing, with no stack trace");
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => breakpoints);
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => configured);
+        await session.Workspace.DidNotReceive().StartAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     // ---- breakpoints ----
@@ -855,16 +885,33 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
+    // the title and the description are the environment host's, in its language; the form they are said in is the debug adapter's.
     [TestMethod]
-    public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas()
+    [DataRow("en-US", "Run-time error", "Division by zero", "Run-time error '11': Division by zero", DisplayName = "en-US")]
+    [DataRow("fr-CA", "Erreur d'exécution", "Division par zéro", "Erreur d'exécution '11' : Division par zéro", DisplayName = "fr-CA")]
+    public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas(string culture, string title, string description, string said)
+    {
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(culture);
+        try
+        {
+            await AProgramThatRaisesAnError_IsSaid(title, description, said);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+    }
+
+    private async Task AProgramThatRaisesAnError_IsSaid(string title, string description, string said)
     {
         await using var session = new Session();
         session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             ErrorNumber = 11,
-            ErrorMessage = "Division by zero",
-            ErrorTitle = "Run-time error",
+            ErrorMessage = description,
+            ErrorTitle = title,
             ErrorLine = 4,
         }));
         await session.StartAsync();
@@ -874,7 +921,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new ConfigurationDoneArguments());
 
         var output = await session.NextAsync<OutputEvent>();
-        StringAssert.Contains(output.Output, "Run-time error '11': Division by zero");
+        StringAssert.Contains(output.Output, said);
         Assert.AreEqual(OutputEventCategory.StandardError, output.Category);
         Assert.AreEqual(5, output.Line, "the line of the error, as the client numbers them");
         Assert.AreEqual(Path, output.Source!.Path);
@@ -1730,5 +1777,117 @@ public sealed class ProgramDebugAdapterTests
         {
             Assert.HasCount(2, order, "the second loads once the first is done with its own");
         }
+    }
+
+    // ---- a session attached to ----
+
+    private static HostDebugStoppedParams HandlerStopped(int line) => new() { Stop = new ExecuteResult { Outcome = ExecutionOutcome.Suspended, ErrorLine = line, ErrorModule = "Prog" } };
+
+    private static async Task AttachedAsync(Session session)
+    {
+        await session.StartAsync();
+        _ = await session.SendAsync(new AttachRequestArguments());
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+    }
+
+    [TestMethod]
+    public async Task AnAttach_RunsNoProgram()
+    {
+        await using var session = new Session();
+
+        await AttachedAsync(session);
+
+        await session.Workspace.Received(1).OpenAsync(Arg.Any<CancellationToken>());
+        await session.Workspace.DidNotReceiveWithAnyArgs().StartAsync(default!, default!, default);
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatStops_InASessionAttachedTo_IsTaken_AndIsAStoppedEvent()
+    {
+        await using var session = new Session();
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 3, procedure: "Clicked")));
+        await AttachedAsync(session);
+
+        var answer = await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None);
+
+        Assert.IsTrue(answer.Taken);
+        var stopped = await session.NextAsync<StoppedEvent>();
+        Assert.AreEqual(StoppedEventReason.Breakpoint, stopped.Reason);
+        Assert.AreEqual(1, stopped.ThreadId);
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatIsOver_InASessionAttachedTo_LeavesTheSession_ToTakeTheNextStop()
+    {
+        await using var session = new Session();
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 3, procedure: "Clicked")));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = ["clicked"] }));
+        await AttachedAsync(session);
+        _ = await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None);
+        _ = await session.NextAsync<StoppedEvent>();
+
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        Assert.AreEqual("clicked\n", (await session.NextAsync<OutputEvent>()).Output);
+
+        // the session goes on: the next click that stops is a stop of its own.
+        Assert.IsTrue((await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None)).Taken);
+        _ = await session.NextAsync<StoppedEvent>();
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatStops_InALaunchedSession_IsNotTaken()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+
+        Assert.IsFalse((await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None)).Taken);
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatStops_BeforeTheClientAttached_IsNotTaken()
+    {
+        await using var session = new Session();
+        await session.StartAsync();
+
+        Assert.IsFalse((await session.Stops.StoppedAsync(HandlerStopped(line: 3), CancellationToken.None)).Taken);
+    }
+
+    [TestMethod]
+    public async Task AStatementOfTheDebugConsole_InASessionAttachedTo_RunsAsAtAPrompt()
+    {
+        await using var session = new Session();
+        session.Workspace.RunStatementAsync("Form1.Show", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = ["shown"] }));
+        await AttachedAsync(session);
+
+        var response = await session.SendAsync(new EvaluateArguments { Expression = "Form1.Show", Context = EvaluateArgumentsContext.Repl });
+
+        Assert.AreEqual(string.Empty, response.Result);
+        Assert.AreEqual("shown\n", (await session.NextAsync<OutputEvent>()).Output);
+        await session.Debugging.DidNotReceiveWithAnyArgs().ExecuteAsync(default, default!, default);
+    }
+
+    [TestMethod]
+    public async Task AStatementOfTheDebugConsole_ThatFails_IsRefusedWithItsError()
+    {
+        await using var session = new Session();
+        session.Workspace.RunStatementAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.RuntimeError, ErrorNumber = 424, ErrorMessage = "Object required", ErrorTitle = "Run-time error" }));
+        await AttachedAsync(session);
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "Nothing.Show", Context = EvaluateArgumentsContext.Repl }));
+
+        StringAssert.Contains(refusal.Message, "Object required");
+    }
+
+    [TestMethod]
+    public async Task ALaunch_AfterAnAttach_IsRefused()
+    {
+        await using var session = new Session();
+        await AttachedAsync(session);
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.LaunchAsync());
     }
 }

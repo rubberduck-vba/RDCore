@@ -92,9 +92,14 @@ public record class VBObjectLetCoercionRuntimeSemantics(
 
         // MS-VBAL 5.5.1.2.13 only needs the member's declared parameter list "compatible with an argument list containing 0
         // parameters" - every declared parameter is Optional or a ParamArray, not that there are none at all.
+        // a default member that takes an argument is there, and the read gives it none: 450, as every read of an object's value has it
+        // (MS-VBAL 5.6.2.2, ObjectDefaultMember.NoValue); 438 is for an object that has no default member at all.
         if (!ObjectDefaultMember.TryFind(instance.ClassModule, out var defaultMember))
         {
-            return LetCoercionResult.Error(OnLetCoercionObjectDoesntSupportThisPropertyOrMethod(expression, frame));
+            return LetCoercionResult.Error(VBClassType.FromClassModule(instance.ClassModule).DefaultMember is not null
+                ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, expression.Location,
+                    "The object's default member takes an argument, which reading its value does not give it.")
+                : OnLetCoercionObjectDoesntSupportThisPropertyOrMethod(expression, frame));
         }
 
         if (ProcedureInvoker is not { } invoker)
@@ -109,7 +114,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
         // cannot be its parameter's value is the error a call that omits it raises, and the member is not called.
         if (ObjectDefaultMember.ArgumentsOf(defaultMember, value, parameter => OmittedArgumentOf(session, parameter), out var arguments) is { } omittedError)
         {
-            return LetCoercionResult.Error(omittedError.ErrorInfo!);
+            return Failed(session, omittedError, expression, defaultMember);
         }
 
         // the arguments already carry Me at index 0, so the binding is asked for with no receiver of its own.
@@ -118,8 +123,19 @@ public record class VBObjectLetCoercionRuntimeSemantics(
             : invoker.Invoke(defaultMember, resolver, arguments);
         return invocation.IsSuccess
             ? LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, frame with { SourceValue = invocation.Result! })
-            : LetCoercionResult.Error(invocation.ErrorInfo!);
+            : Failed(session, invocation, expression, defaultMember);
     }
+
+    // what the failed call raised. A call that failed without an error had no answer, which a coercion's result cannot carry as such: it is an
+    // internal error, which says whether the program was stopped while the member ran (an End or a Stop in it, which ends the statement as the session's
+    // halt says) or the platform failed.
+    private static LetCoercionResult Failed(
+        IRuntimeSession session, RuntimeSemanticsEvaluationResult call, ExpressionNode expression, VBReturningMemberSymbol member)
+        => LetCoercionResult.Error(call.ErrorInfo ?? VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, expression.Location, string.Format(
+            session.Halt.Pending is null
+                ? Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberGaveNoError
+                : Exceptions.VBRuntimeInternalError_LetCoercionDefaultMemberStopped,
+            member.Name)));
 
     // MS-VBAL 5.3.1.11: an omitted argument takes what it takes on any call - its default, reduced and Let-coerced to the
     // parameter's type unless it is Nothing - which is the evaluator's to say (RuntimeExpressionEvaluator.OmittedArgument).

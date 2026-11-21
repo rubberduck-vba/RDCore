@@ -107,6 +107,18 @@ internal static class ModuleWorkspace
         RDCore.External.ExternalWorld? Outside = null);
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, IReadOnlyList{ValueTuple{string, string}}, string)"/>,
+    /// for a project that references libraries.
+    /// </summary>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="libraries">The libraries the project references.</param>
+    public static Task<string[]> LoadErrorsAsync(
+        IReadOnlyList<(string Name, string Source)> classes, IReadOnlyList<(string Name, string Source)> modules, string program, WorkspaceLibraries libraries)
+        => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries, modules: modules);
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, for a project that references libraries.
     /// </summary>
     public static Task<string[]> LoadErrorsAsync(
@@ -129,6 +141,14 @@ internal static class ModuleWorkspace
     public static Task<string[]> RunWithDocumentsAsync(
         IReadOnlyList<(string Name, string Source, DocClassType? Super)> documents, string program, WorkspaceLibraries? libraries)
         => RunCoreAsync([], program, errorsOnly: false, libraries: libraries, documents: documents);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, for a project that references libraries, with <paramref name="engine"/>, whatever
+    /// engine the suite runs with.
+    /// </summary>
+    public static Task<string[]> RunAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries, VBExecutionEngine engine)
+        => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries, engine: engine);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, for a project that references libraries.
@@ -161,12 +181,13 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="libraries">The libraries the project references; only the standard library when omitted.</param>
     /// <param name="forms">The forms of the workspace, whose parse has what their designer declares.</param>
+    /// <param name="language">The language of the project; RD-VBA when omitted.</param>
     public static async Task<ExecuteResult> RunUnattendedAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries? libraries = null,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, SupportedLanguage? language = null)
     {
         ExecuteResult? ran = null;
-        await RunCoreAsync(classes, program, errorsOnly: false, inspect: (_, result, _) =>
+        await RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: (_, result, _) =>
         {
             ran = result;
             return Task.CompletedTask;
@@ -201,17 +222,23 @@ internal static class ModuleWorkspace
     /// <param name="libraries">The libraries the project references, and the source they and others are found in; only the standard library when omitted.</param>
     /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
     /// <param name="documents">The document modules of the workspace (<see cref="LoadDocumentsAsync"/>).</param>
+    /// <param name="environment">What the host's environment is, from the default profile; the default profile when omitted.</param>
+    /// <param name="constants">The conditional-compilation constants the project defines, by name; none when omitted.</param>
+    /// <param name="build">The project's build section; none when omitted.</param>
     public static async Task<SemanticsPayload> SemanticsAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "", SupportedLanguage? language = null,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null,
-        IReadOnlyList<(string Name, string Source)>? modules = null, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null)
+        IReadOnlyList<(string Name, string Source)>? modules = null, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null,
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IReadOnlyDictionary<string, string>? constants = null,
+        ProjectBuild? build = null)
     {
         SemanticsPayload? payload = null;
         await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
         {
             var result = await new HostSemanticsHandler(sessionProvider, NSubstitute.Substitute.For<RDCore.Runtime.Support.Host.IProjectAnalysisSessions>()).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
             payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
-        }, language: language, libraries: libraries, forms: forms, modules: modules, documents: documents);
+        }, language: language, libraries: libraries, forms: forms, modules: modules, documents: documents, environment: environment, constants: constants,
+            build: build);
 
         return payload!;
     }
@@ -373,6 +400,7 @@ internal static class ModuleWorkspace
     /// <param name="modules">The name and the source of each standard module beside <c>Program</c>; none when omitted.</param>
     /// <param name="environment">What else the environment says, given the profile the other arguments make; that profile when omitted.</param>
     /// <param name="forms">The name, the source and the designer of each form module of the workspace; none when omitted.</param>
+    /// <param name="unattended">Whether the program runs unattended, with nobody to answer a dialog; attended when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, Task>? cancelWhen = null,
@@ -380,10 +408,10 @@ internal static class ModuleWorkspace
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source)>? modules = null,
         Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IHostInteractionChannel? interaction = null,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool unattended = false)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules, environment: environment,
-            interaction: interaction, forms: forms);
+            interaction: interaction, forms: forms, unattended: unattended);
 
     /// <summary>
     /// A task that completes once the program runs, as the session's execution says when its state changes: for <c>cancelWhen</c>, a break of a program that runs.
@@ -444,7 +472,7 @@ internal static class ModuleWorkspace
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine? engine = null,
         bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false,
         bool syntaxErrors = false, Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null,
-        IHostInteractionChannel? interaction = null)
+        IHostInteractionChannel? interaction = null, IReadOnlyDictionary<string, string>? constants = null, ProjectBuild? build = null)
     {
         // the engine a test asks for is the one that runs its program, whichever the suite runs every other with: the program's runs, and what the test does
         // with the session while it waits, are in this flow.
@@ -458,7 +486,9 @@ internal static class ModuleWorkspace
         [
             .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
             .. (documents ?? []).Select(module => (module.Name, "doccls", ModuleKinds.Of(module.Super, module.Source), module.Source)),
-            .. (forms ?? []).Select(module => (module.Name, "frm", ModuleType.ClassModule, module.Source)),
+            // a form ported to RDForms is a .rdform, as its project has it.
+            .. (forms ?? []).Select(module => (module.Name,
+                module.Designer.Kind == FormDesignerKind.RDForms ? ProjectModuleKinds.RDFormsModuleExtension[1..] : "frm", ModuleType.ClassModule, module.Source)),
             .. (modules ?? []).Select(module => (module.Name, "bas", ModuleType.StdModule, module.Source)),
         ];
         (string Name, string Extension, ModuleType Type, string Source) programModule = ("Program", "bas", ModuleType.StdModule, program);
@@ -473,6 +503,8 @@ internal static class ModuleWorkspace
                 Super = supers.TryGetValue(module.Name, out var super) ? super : null,
             })],
             References = [.. (libraries?.References ?? []).Select(name => new RDCoreReference { Name = name })],
+            PrecompilerConstants = new((constants ?? new Dictionary<string, string>()).ToDictionary(), StringComparer.OrdinalIgnoreCase),
+            Build = build,
         });
         var files = new Dictionary<string, MockFileData> { [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)) };
         foreach (var module in allModules)
@@ -497,7 +529,7 @@ internal static class ModuleWorkspace
         var librarySymbols = libraries is null
             ? null
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
-                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References, language)).ProvideSymbols()];
+                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo, language)).ProvideSymbols()];
         var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
             [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers,
             syntaxErrors: syntaxErrors);

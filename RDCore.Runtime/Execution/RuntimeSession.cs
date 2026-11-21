@@ -60,10 +60,13 @@ internal sealed class RuntimeSession(
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
     public IRuntimeOutput Output { get; init; } = output;
     public RDCore.SDK.Runtime.Libraries.ILibrarySource? Libraries { get; init; }
+    public RDCore.SDK.Workspace.ProjectBuild? Build { get; init; }
 
     public IObjectLifecycle? Lifecycle { get; set; }
 
-    public ISessionExternalObjects ExternalObjects { get; } = new SessionExternalObjects();
+    public ISessionExternalObjects ExternalObjects => LazyInitializer.EnsureInitialized(ref _externalObjects, () => new SessionExternalObjects(Turn));
+
+    private SessionExternalObjects? _externalObjects;
 
     public IExternalDispatcher? External { get; set; }
 
@@ -157,14 +160,11 @@ internal sealed class RuntimeSession(
             return;
         }
 
-        // the fields the object holds, which are those of its class as it was when the object was created: a field added to the class since has no storage
-        // on it, and a field removed from it still holds what it was set to.
-        IEnumerable<Symbol> fields = live is ObjectInstance created
-            ? created.Fields
-            : live.ClassModule.Members.Where(member => member is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol);
-        foreach (var field in fields)
+        // the fields the object holds (IObjectInstance.Fields): a field removed from its class still holds what it was set to. A field whose binding nothing
+        // asked for holds its initial value, which holds no object.
+        foreach (var field in live.Fields)
         {
-            if (live.TryResolve(field, out var value))
+            if (live.TryGetBinding(field, out var value))
             {
                 ObjectReferences.Release(this, value);
             }
@@ -173,7 +173,10 @@ internal sealed class RuntimeSession(
         // the Static locals of its members are the object's too (MS-VBA).
         foreach (var local in live.StaticLocals)
         {
-            ObjectReferences.Release(this, live.GetValue(local));
+            if (live.TryGetBinding(local, out var value))
+            {
+                ObjectReferences.Release(this, value);
+            }
         }
 
         // what the object holds that is no variable of its class: the members of a collection.
@@ -211,20 +214,47 @@ internal sealed class SessionHalt : ISessionHalt
         Location = null;
         (_step, _stepping) = (null, false);
         _lastWaitedAt = null;
+        Changed();
     }
 
-    public IExecutionGate? Gate { get; set; }
+    public IExecutionGate? Gate
+    {
+        get => _gate;
+        set
+        {
+            _gate = value;
+            Changed();
+        }
+    }
+
+    private IExecutionGate? _gate;
+
+    // how many times what the interpreter is wanted for changed: a gate given or taken, a step asked for or taken. Read by the program's thread while the
+    // debugger's thread changes it.
+    private int _changes;
+
+    private void Changed() => Interlocked.Increment(ref _changes);
+
+    /// <summary>
+    /// A number that is the same for as long as the interpreter is wanted for the same things (<see cref="WantsInterpreter"/>): no gate given or taken, no
+    /// step asked for or taken, no breakpoint set or cleared. Compiled code that found it need not hand a call to the interpreter compares this number at
+    /// each call instead of asking again.
+    /// </summary>
+    internal int Epoch => Volatile.Read(ref _changes) + _breakpoints.Version;
 
     // under a debugger, compiled code runs on until something only the interpreter can do is asked for: a breakpoint, set anywhere, or a step - which a pause
     // is too, a step into whatever runs next.
     public bool WantsInterpreter => Gate is not null && (_stepping || Breakpoints.HasAny);
 
-    public IBreakpointTable Breakpoints { get; } = new BreakpointTable();
+    public IBreakpointTable Breakpoints => _breakpoints;
+
+    private readonly BreakpointTable _breakpoints = new();
 
     public void RequestStep(StepKind kind, int callDepth)
     {
         (_step, _stepDepth) = (kind, callDepth);
         _stepping = true;
+        Changed();
     }
 
     public bool TakeStep(int callDepth)
@@ -245,6 +275,7 @@ internal sealed class SessionHalt : ISessionHalt
         if (due)
         {
             (_step, _stepping) = (null, false);
+            Changed();
         }
 
         return due;
@@ -350,12 +381,23 @@ internal sealed class SessionObjects : ISessionObjects
 
     public void OnDestroying(Action<VBRuntimeObjectId> release) => _destroying.Add(release);
 
+    /// <summary>
+    /// How many handlers let go of what a destroyed object holds (<see cref="OnDestroying"/>).
+    /// </summary>
+    internal int DestroyingHandlerCount => _destroying.Count;
+
+    /// <summary>
+    /// How many objects the session has.
+    /// </summary>
+    internal int ObjectCount => _roots.Count;
+
     public void NotifyDestroying(VBRuntimeObjectId instance)
     {
-        // a copy: a handler that lets go of what the object holds can destroy another object, which notifies again.
-        foreach (var release in _destroying.ToArray())
+        // by their place, as many as there are now: a handler that lets go of what the object holds can destroy another object, which notifies again, and a
+        // handler is never taken off.
+        for (int i = 0, count = _destroying.Count; i < count; i++)
         {
-            release(instance);
+            _destroying[i](instance);
         }
     }
 
@@ -981,13 +1023,25 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     public bool TryComposeClassModule(
         string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
     {
-        var module = table.All().OfType<VBClassModuleSymbol>()
-            .FirstOrDefault(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase));
-        if (module is null)
-        {
-            return false;
-        }
+        // a class of the session's own project before a referenced project's of the same name.
+        var named = table.All().OfType<VBClassModuleSymbol>()
+            .Where(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase)).ToList();
+        var module = named.Find(candidate => candidate.GetProperty(SymbolProperties.Library) is null) ?? named.FirstOrDefault();
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+    }
 
+    public bool TryComposeClassModule(
+        Uri moduleUri, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
+    {
+        ArgumentNullException.ThrowIfNull(moduleUri);
+
+        var module = table.All().OfType<VBClassModuleSymbol>()
+            .FirstOrDefault(candidate => string.Equals(candidate.Uri.AbsoluteUri, moduleUri.AbsoluteUri, StringComparison.Ordinal));
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+    }
+
+    private bool Compose(VBClassModuleSymbol module, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges)
+    {
         // what the class declares: every member defined under its identity.
         var composed = module with { Members = [.. MembersOf(module.Uri)], ImplementedInterfaceNames = implementedInterfaceNames,
             ImplementedInterfaceRanges = implementedInterfaceRanges.IsDefault ? [] : implementedInterfaceRanges,
@@ -1041,6 +1095,8 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public bool TryGetModule(string moduleName, [NotNullWhen(true)] out VBModuleSymbol? module) => table.TryGetModule(moduleName, out module);
 
+    public bool TryGetModule(Uri moduleUri, [NotNullWhen(true)] out VBModuleSymbol? module) => table.TryGetModule(moduleUri, out module);
+
     public bool TryResolveValue(string name, Symbol scope, out Symbol? symbol)
     {
         symbol = Resolver.ResolveValue(name, ScopeKind.Unallocated, scope.Uri).Symbol;
@@ -1064,10 +1120,12 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public IObjectInstance CreateInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule)
     {
-        var instance = new ObjectInstance(objectId, classModule, storage, table);
-        foreach (var field in InstanceFieldsOf(classModule))
+        var layout = LayoutOf(classModule);
+        var instance = new ObjectInstance(objectId, classModule, storage, table, layout);
+        var fields = layout.Fields;
+        for (var i = 0; i < fields.Length; i++)
         {
-            instance.Push(field, DefaultValueOf(field));
+            instance.Hold(i, DefaultValueOf(fields[i]));
         }
 
         _instances[objectId] = instance;
@@ -1092,7 +1150,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         foreach (var instance in _instances.Values)
         {
             var held = instance.Fields.Concat(instance.StaticLocals).Select(field => field.SemanticId).ToHashSet();
-            foreach (var field in InstanceFieldsOf(instance.ClassModule).Where(field => !held.Contains(field.SemanticId)))
+            foreach (var field in LayoutOf(instance.ClassModule).Fields.Where(field => !held.Contains(field.SemanticId)))
             {
                 instance.Push(field, DefaultValueOf(field));
                 given++;
@@ -1102,12 +1160,25 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         return given;
     }
 
-    // the instance fields a class declares, as the session has them now.
-    private IEnumerable<Symbol> InstanceFieldsOf(VBClassModuleSymbol classModule)
-        => table.InstanceSymbols.Where(field =>
-            field.ParentUri.AbsoluteUri == classModule.Uri.AbsoluteUri
+    // the instance fields a class declares, as the session has them now, numbered (ObjectLayout): found among every instance field of the session, once for
+    // each version of the table (SymbolTable.Version), which a field defined or removed changes. Each object of the class is laid out the same until then.
+    private ObjectLayout LayoutOf(VBClassModuleSymbol classModule)
+    {
+        var key = classModule.Uri.AbsoluteUri;
+        if (_layouts.TryGetValue(key, out var known) && known.Version == table.Version)
+        {
+            return known.Layout;
+        }
+
+        var layout = new ObjectLayout([.. table.InstanceSymbols.Where(field =>
+            field.ParentUri.AbsoluteUri == key
             && field.Kind is SymbolKindExt.Field or SymbolKindExt.Variable
-            && field is ITypedSymbol { ResolvedType: var _ });
+            && field is ITypedSymbol { ResolvedType: var _ })]);
+        _layouts[key] = (table.Version, layout);
+        return layout;
+    }
+
+    private readonly Dictionary<string, (int Version, ObjectLayout Layout)> _layouts = new(StringComparer.Ordinal);
 
     public bool TryGetInstance(VBRuntimeObjectId objectId, [NotNullWhen(true)][MaybeNullWhen(false)] out IObjectInstance? instance)
     {

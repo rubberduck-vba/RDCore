@@ -63,8 +63,9 @@ public sealed class CompiledDirectCallTests
     }
 
     // how many calls a caller made directly, and through the invoker, out of all it makes: each of them while it ran compiled. Under the random walk-back its
-    // activation is handed to the interpreter at a safepoint of its own, which makes the calls after it, and neither count says how many.
-    internal static void AssertCalls(long all, (long Direct, long Indirect) made)
+    // activation is handed to the interpreter at a safepoint of its own, which makes the calls after it, and neither count says how many. Of all, indirect
+    // are made through the invoker: of a callee whose frame holds what compiled code does not (a String function of a standard module).
+    internal static void AssertCalls(long all, (long Direct, long Indirect) made, long indirect = 0)
     {
         if (CompiledExecution.HandsOverAtRandom)
         {
@@ -72,7 +73,7 @@ public sealed class CompiledDirectCallTests
             return;
         }
 
-        Assert.AreEqual((all, 0L), made);
+        Assert.AreEqual((all - indirect, indirect), made);
     }
 
     // the program run both ways: the compiled run is the interpreted one, and what the callers named called directly, and through the invoker.

@@ -158,7 +158,8 @@ A declaration is named with an `IDENTIFIER`, which is not a reserved identifier,
 A reserved identifier as the name of a variable, a constant, a parameter, a procedure, an `Enum`, an Enum member, a `Declare`, an `Event` or a
 user-defined type is a syntax error at the name. A member of a user-defined type can be named with a reserved name
 ([**MS-VBAL §5.2.3.3** User Defined Type Declarations](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a5fe374b-eddf-4808-9e73-477914940dba)),
-and a name in brackets is a foreign name (**MS-VBAL §3.3.5.3**).
+and a name in brackets is a foreign name (**MS-VBAL §3.3.5.3**). A procedure is named with an identifier (**MS-VBAL §5.3.1.3**): `Sub [Foo]()` is
+a syntax error at `[Foo]` ([§2.6.1](rd-vbal.2.6.1.syntax-errors.md#what-a-syntax-error-says)).
 
 MS-VBA departs from the specification in two directions, observed in Excel:
 

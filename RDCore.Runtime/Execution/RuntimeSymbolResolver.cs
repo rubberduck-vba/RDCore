@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -37,6 +38,9 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
     public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name) => names.ResolveProjectType(project, name);
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle) => names.ResolveProjectType(project, name, handle);
+
+    /// <inheritdoc/>
     public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle)
         => names.ResolveConditionalConstant(name, scope, handle);
 
@@ -49,6 +53,10 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
     /// <inheritdoc/>
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
         => storage.TryRead(address, out value);
+
+    /// <inheritdoc/>
+    public bool TryRead(MemoryAddress address, VBType? type, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
+        => storage.TryRead(address, type, out value);
 
     /// <inheritdoc/>
     public bool TryGetAddress(Symbol symbol, out MemoryAddress address) => _addresses.TryGetAddress(symbol, out address);

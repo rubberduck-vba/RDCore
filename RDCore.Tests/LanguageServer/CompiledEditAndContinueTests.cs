@@ -256,14 +256,15 @@ public sealed class CompiledEditAndContinueTests
 
     // the program, started by the test and waiting at Main's Stop, debugged through the adapter: continued until Work runs compiled; stopped at a breakpoint
     // set in Work's loop then, at line of workModule; edited there, Work's module saved as edit makes it (Edited when there is none); and continued to its end,
-    // having printed expected. Work, compiled at its first call, is compiled again - the edited body - at its first call after the edit, and runs compiled.
+    // having printed expected. Work, compiled at its first call, or before it with a compiled caller that calls it directly, is compiled again - the edited
+    // body - at its first call after the edit, and runs compiled.
     private static async Task BreakEditContinueAsync(EnvironmentSessionProvider provider, ExecuteResult first, Dictionary<string, string> modules,
         string workModule, int line, string[] expected, Func<Session, Task>? atBreak, Func<string, string>? edit = null)
     {
         // the program was started as the platform starts it, under a debugger, and waits at Main's Stop: Work is not called yet.
         Assert.AreEqual((ExecutionOutcome.Suspended, 1), (first.Outcome, first.ErrorLine), first.ErrorMessage);
 
-        var bodies = new ConcurrentQueue<CompiledBody>();
+        var bodies = new ConcurrentQueue<CompiledBody>(CompiledWork(provider));
         provider.Image.Compiler.Compiled += (procedure, result) =>
         {
             if (procedure.Name == "Work" && result.Body is { } body)
@@ -340,6 +341,11 @@ public sealed class CompiledEditAndContinueTests
     private static Task<CompiledBody> WorkLookedAsync(EnvironmentSessionProvider provider)
     {
         var looked = new TaskCompletionSource<CompiledBody>(TaskCreationOptions.RunContinuationsAsynchronously);
+        foreach (var body in CompiledWork(provider))
+        {
+            _ = body.Looked.ContinueWith(_ => looked.TrySetResult(body), TaskScheduler.Default);
+        }
+
         provider.Image.Compiler.Compiled += (procedure, result) =>
         {
             if (procedure.Name == "Work" && result.Body is { } body && !looked.Task.IsCompleted)
@@ -350,6 +356,10 @@ public sealed class CompiledEditAndContinueTests
 
         return looked.Task;
     }
+
+    // the body of Work compiled already, while the program waits at Main's Stop: one, when Main was compiled with a direct call of it, or none.
+    private static CompiledBody[] CompiledWork(EnvironmentSessionProvider provider)
+        => [.. provider.Image.Compiler.Results.Where(entry => entry.Procedure.Name == "Work").Select(entry => entry.Result.Body).OfType<CompiledBody>()];
 
     /// <summary>
     /// The workspace the adapter debugs: standard modules, a file each, run in the host's session the test was given, and the text saved in each file.
@@ -394,6 +404,9 @@ public sealed class CompiledEditAndContinueTests
 
         // the program was started in the host as the platform starts it, before the adapter was: what it answered is where it waits.
         public Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token) => Task.FromResult(Wire.RoundTrip(started));
+
+        // a launched program is all these sessions debug.
+        public Task<ExecuteResult> RunStatementAsync(string text, CancellationToken token) => throw new NotSupportedException();
 
         // as the platform's workspace does: a file whose text is what was loaded is nothing changed; the ones saved otherwise are loaded in the host, as the
         // language server loads an edit of a document, the names of every module bound among all of them as they now read.
@@ -440,7 +453,7 @@ public sealed class CompiledEditAndContinueTests
             orchestration.RuntimeEnvironment.Returns(host);
             var debugging = new ProgramDebugService(orchestration, Substitute.For<IParsingClientService>(), Options.Create(new SdkAppOptions()));
             var editStatus = new EditStatusMonitor(debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
-            _adapter = new ProgramDebugAdapter(Workspace, debugging, new HostOutputRelay(new ManualClock()), editStatus, NullLogger<ProgramDebugAdapter>.Instance);
+            _adapter = new ProgramDebugAdapter(Workspace, debugging, new HostOutputRelay(new ManualClock()), editStatus, new SessionStopRelay(), NullLogger<ProgramDebugAdapter>.Instance);
         }
 
         // the environment host, as the language server reaches it: each request it is sent is handled by the handler the host serves it with, as the other
@@ -474,7 +487,7 @@ public sealed class CompiledEditAndContinueTests
             var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream()), _adapter);
             _client = await DebugAdapterClient.From(options =>
             {
-                options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
+                options.WithInput(toClient.Reader.AsStream()).WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(toServer.Writer.AsStream())));
                 options.OnInvalidated(Arrived);
                 options.OnStopped(Arrived);
                 options.OnOutput(Arrived);

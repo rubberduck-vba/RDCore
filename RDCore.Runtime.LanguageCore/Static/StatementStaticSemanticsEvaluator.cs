@@ -18,6 +18,7 @@ using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
@@ -65,7 +66,19 @@ public static class StatementStaticSemanticsEvaluator
 
         EvaluateBlock(context, block, walk);
         ReportUndefinedLabels(walk);
-        return walk.Errors.ToImmutable();
+        return walk.BareFunctionReferences.Count == 0 ? walk.Errors.ToImmutable() : OnceAtEachBareFunctionReference(walk);
+    }
+
+    // a function named without its arguments is reported first, before its statement is evaluated: an Argument not optional at the same place after it,
+    // of what an object it returns would need to give a value, is the same error.
+    private static ImmutableArray<VBCompileErrorInfo> OnceAtEachBareFunctionReference(Walk walk)
+    {
+        var reported = new HashSet<SourceLocation>();
+        return
+        [
+            .. walk.Errors.Where(error => error.ErrorId != (int)VBCompileErrorId.ArgumentNotOptional || !walk.BareFunctionReferences.Contains(error.Location)
+                || reported.Add(error.Location)),
+        ];
     }
 
     private static void EvaluateBlock(StaticEvaluationContext context, StatementBlock block, Walk walk)
@@ -205,6 +218,16 @@ public static class StatementStaticSemanticsEvaluator
 
     private static void EvaluateStatement(StaticEvaluationContext context, StatementNode statement, Walk walk)
     {
+        // a function named without its arguments, where the statement takes its value, is refused before what the statement does with the value.
+        if (!walk.Structural)
+        {
+            foreach (var bare in BareFunctionReferenceStaticSemantics.Errors(context, statement))
+            {
+                walk.Errors.Add(bare);
+                walk.BareFunctionReferences.Add(bare.Location);
+            }
+        }
+
         // WithStatementNode is the one case whose own Inputs result changes the context its Body (and
         // everything the body recursively contains) evaluates against - handled before the generic
         // Inputs pass below so the resolved target type can be threaded straight into bodyContext.
@@ -226,22 +249,22 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
-        // a bare Print is a statement of some languages only.
+        // a bare Print is a statement of some languages only, and the form's own Print method in a Visual Basic 6.0 form's code.
         if (statement is PrintStatementNode print)
         {
-            if (BarePrintStaticSemantics.Evaluate(print, walk.Options.Language) is { } printError)
+            if (BarePrintStaticSemantics.Evaluate(print, walk.Options.Language, walk.Options.DrawsOnMe) is { } printError)
             {
                 walk.Errors.Add(printError);
                 return;
             }
         }
 
-        // RD-VBAL: the graphics statements draw on an object, and a statement with none has no surface to draw on. What the points and the arguments hold
-        // is evaluated all the same, so that a name written in one is a reference the pass knows of.
+        // the graphics statements draw on an object, and a statement with none draws on the Visual Basic 6.0 form whose code it is, and is undefined anywhere
+        // else. What the points and the arguments hold is evaluated all the same, so that a name written in one is a reference the pass knows of.
         // TODO the coordinates and the colors are numbers: a coordinate that cannot be one is an error the pass does not report yet.
         if (statement is GraphicsMethodStatementNode graphics)
         {
-            if (GraphicsStatementStaticSemantics.Evaluate(graphics) is { } graphicsError)
+            if (GraphicsStatementStaticSemantics.Evaluate(graphics, walk.Options.DrawsOnMe) is { } graphicsError)
             {
                 walk.Errors.Add(graphicsError);
                 return;
@@ -279,7 +302,7 @@ public static class StatementStaticSemanticsEvaluator
 
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
             CollectError(targetResult, walk);
-            MarkWritten(context, assignment.Target);
+            MarkWritten(context, assignment.Target, assignment.Kind is AssignmentKind.ExplicitLet or AssignmentKind.ImplicitLet);
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
 
             // what a Set statement assigns is an object, which a project, a module or an enumeration is not: a type mismatch (MS-VBA, observed in Excel),
@@ -343,6 +366,14 @@ public static class StatementStaticSemanticsEvaluator
                 var objectCoercion = valueResult.Result is VBClassType or VBObjectType ? SetCoercionStaticSemantics.Instance : LetCoercionStaticSemantics.Instance;
                 CollectError(objectCoercion.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, objectParameter), walk);
                 return;
+            }
+
+            // MS-VBAL §5.4.3.8: a Let of an object is a Let of its default member, which is given the value Let-coerced to what it takes, as the
+            // run-time pass coerces it. An Object's default member is found only when it runs; a class that has none raises 438 and takes no value.
+            if (letsADefaultMember && valueResult.IsSuccess && (targetResult.Result is VBObjectType
+                || targetResult.Result is VBClassType targetClass && CurrentTypes.Of(context.Resolver, targetClass).DefaultMember is not null))
+            {
+                ObjectValueStaticSemantics.MarkLetCoerced(context.Facts, assignment.Value);
             }
 
             if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
@@ -752,23 +783,37 @@ public static class StatementStaticSemanticsEvaluator
 
     // the variables a file statement reads into (MS-VBAL §5.4.5): every variable of an Input #, the variable of a Line Input # and of a Get #, which is its last
     // operand, after the file number and the record number, written or not.
-    private static IEnumerable<ExpressionNode> ReadIntoBy(StatementNode statement) => statement switch
+    internal static IEnumerable<ExpressionNode> ReadIntoBy(StatementNode statement) => statement switch
     {
         KeywordStatementNode { Token: Tokens.Input, Inputs: [_, .. var variables] } => variables.OfType<ExpressionNode>(),
         KeywordStatementNode { Token: Tokens.LineInput or Tokens.Get, Inputs: [_, .., ExpressionNode variable] } => [variable],
         _ => [],
     };
 
-    // an expression a statement writes to is a fact of it: the element of an array is written through the array it is an element of.
-    private static void MarkWritten(StaticEvaluationContext context, ExpressionNode target)
+    // an expression a statement writes to is a fact of it: the element of an array is written through the array it is an element of. MS-VBAL §5.4.3.8: a
+    // Let of a variable of a class or Object is a Let of the default property of the object it holds, and an argument list given to an object goes to its
+    // default member (§5.6.13): what holds the object is read for it, and not written.
+    private static void MarkWritten(StaticEvaluationContext context, ExpressionNode target, bool isLet = false)
     {
         if (context.Facts is not { } facts)
         {
             return;
         }
 
+        if (isLet && facts.TryGet(target.Identity, out var assigned)
+            && assigned.Classification is SDK.Semantics.ExpressionClassification.Variable or SDK.Semantics.ExpressionClassification.Value
+            && IsAnObject(assigned))
+        {
+            return;
+        }
+
         while (target is IndexExpressionNode index)
         {
+            if (isLet && facts.TryGet(index.Callee.Identity, out var callee) && IsAnObject(callee))
+            {
+                return;
+            }
+
             target = index.Callee;
         }
 
@@ -776,6 +821,8 @@ public static class StatementStaticSemanticsEvaluator
         {
             facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.AssignmentTarget });
         }
+
+        static bool IsAnObject(ExpressionFact fact) => fact.DeclaredType is VBClassType or VBObjectType;
     }
 
     // an Exit For or Exit Do is checked against the loops it is lexically inside, so a body is walked with the kind of loop it belongs to counted. A loop
@@ -1100,7 +1147,9 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         var name = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-        return DeclaredTypes.Resolve(context.Resolver, name, context.Scope.Uri, is64Bit: true) is { } type and not VBUnknownType ? type : null;
+        var resolved = DeclaredTypes.Resolve(
+            context.Resolver, name, context.Scope.Uri, is64Bit: true, ProjectVisibility.Instance, ProjectVisibility.ProjectOf(context.Scope));
+        return resolved is { } type and not VBUnknownType ? type : null;
     }
 
     // what a ReDim's target names: a name, or a member of a project or a procedural module (`Globals.Items`).
@@ -1170,7 +1219,7 @@ public static class StatementStaticSemanticsEvaluator
     private static VBCompileErrorInfo? NoTypeErrorOf(StaticEvaluationContext context, AsTypeExpressionNode asType)
     {
         var (bound, _) = TypeNameClassifier.Classify(asType.QualifierName is { Length: > 0 } ? asType.QualifierName : null, asType.TypeName,
-            context.Scope.Uri, context.Resolver);
+            context.Scope.Uri, context.Resolver, ProjectVisibility.ProjectOf(context.Scope));
         var written = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
         return DeclarationStaticSemanticsEvaluator.NoTypeError(bound, written, asType.Location);
     }
@@ -1369,7 +1418,10 @@ public static class StatementStaticSemanticsEvaluator
                 return null;
             }
 
-            members = [.. (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
+            // MS-VBAL §5.3.1.1, §5.4.3.8: the accessors the code's project can reach; a Friend Let of another project's class is inaccessible, as a
+            // Private one is.
+            var declared = VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot;
+            members = [.. ProjectVisibility.MembersSeenFrom(declared.DefaultInterfaceMembers, declared, context.Scope)
                 .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))];
         }
         else
@@ -1431,5 +1483,9 @@ public static class StatementStaticSemanticsEvaluator
 
         // the control variables of the For loops the statement being walked is inside, innermost last.
         public List<string> ControlVariables { get; } = [];
+
+        // where a function is named without its arguments (BareFunctionReferenceStaticSemantics): what the statement then reads of the value at the same place
+        // is the same error, reported once.
+        public HashSet<SourceLocation> BareFunctionReferences { get; } = [];
     }
 }

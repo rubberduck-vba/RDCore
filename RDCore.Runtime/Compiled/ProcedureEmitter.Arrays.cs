@@ -13,7 +13,7 @@ internal sealed partial class ProcedureEmitter
     // the array slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _arrays = [];
 
-    // the array each array slot, and each Variant that holds one, holds, as compiled code keeps it (ArrayOperations.KnownArray): none until an element is
+    // the array each array slot, and each Variant that holds one, holds, as compiled code keeps it with its shape (KeptArray): none until an element is
     // found in it, and none again after anything that may give the holder another array (KeepsArrays) and wherever every variable is read back. An array
     // field of a record is found through its record each time.
     private readonly Dictionary<int, LocalBuilder> _knownArrays = [];
@@ -23,14 +23,14 @@ internal sealed partial class ProcedureEmitter
         foreach (var array in _analysis.Arrays)
         {
             _arrays[array.Slot] = _il.DeclareLocal(typeof(object));
-            _knownArrays[array.Slot] = _il.DeclareLocal(typeof(object));
+            _knownArrays[array.Slot] = _il.DeclareLocal(typeof(KeptArray));
         }
 
         for (var i = 0; i < _analysis.HeldArrays.Count; i++)
         {
             if (_analysis.HeldArrays[i].Variant is not null)
             {
-                _knownArrays[~i] = _il.DeclareLocal(typeof(object));
+                _knownArrays[~i] = _il.DeclareLocal(typeof(KeptArray));
             }
         }
     }
@@ -38,24 +38,20 @@ internal sealed partial class ProcedureEmitter
     // whether the step being emitted keeps the arrays it finds (KeepsArrays).
     private bool _keepsArrays = true;
 
-    // the array an element is found in, onto the stack: the one compiled code keeps, or else the one the holder holds now, kept. A step that may give a
-    // holder another array finds each in its holder.
-    private void LoadKnownArray(int array)
+    // what an element is found in, onto the stack, for the operation of ArrayOperations named: the array compiled code keeps (by reference) and its holder,
+    // for the operation that finds it there, whose name is the operation's prefixed with Kept; or the holder alone. A step that may give a holder another
+    // array finds each in its holder. The name of the operation to call is returned.
+    private string LoadArrayFor(int array, string operation)
     {
         if (!_keepsArrays || !_knownArrays.TryGetValue(array, out var known))
         {
             LoadArrayHolder(array);
-            return;
+            return operation;
         }
 
-        var kept = _il.DefineLabel();
-        _il.Emit(OpCodes.Ldloc, known);
-        _il.Emit(OpCodes.Brtrue, kept);
+        _il.Emit(OpCodes.Ldloca, known);
         LoadArrayHolder(array);
-        _il.Emit(OpCodes.Call, ArraySupport.GetMethod(nameof(ArrayOperations.KnownArray))!);
-        _il.Emit(OpCodes.Stloc, known);
-        _il.MarkLabel(kept);
-        _il.Emit(OpCodes.Ldloc, known);
+        return "Kept" + operation;
     }
 
     // every array compiled code keeps, let go of: each is found in its holder again.
@@ -63,8 +59,8 @@ internal sealed partial class ProcedureEmitter
     {
         foreach (var known in _knownArrays.Values)
         {
-            _il.Emit(OpCodes.Ldnull);
-            _il.Emit(OpCodes.Stloc, known);
+            _il.Emit(OpCodes.Ldloca, known);
+            _il.Emit(OpCodes.Initobj, typeof(KeptArray));
         }
     }
 
@@ -195,7 +191,8 @@ internal sealed partial class ProcedureEmitter
 
             // what the Variant element holds decides what its Let is, as a Variant variable's does (VariantLetStep): one the evaluation on payloads declines
             // (of a String, over an object) the interpreter runs alone, and compiled code goes on after it. The value and the element are evaluated in the
-            // order of an element of a scalar type.
+            // order of an element of a scalar type. Of the array a Variant holds, a Let whose subscripts call, as its value does, is the interpreter's
+            // (ProcedureAnalysis.CallsAsAVariantAccessor).
             case VariantElementLetStep let:
             {
                 var failure = RecoverAt(let.Offset);
@@ -231,7 +228,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Ldc_I4, statement.Offset);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RunArrayStatement))!);
-                _il.Emit(OpCodes.Brfalse, CallFailedAt(statement.Offset));
+                _il.Emit(OpCodes.Brfalse, CallFailedAfterSpillAt(statement.Offset));
                 if (statement.Releases)
                 {
                     EmitReadBackAfterStatement(statement.Offset);
@@ -269,11 +266,11 @@ internal sealed partial class ProcedureEmitter
             {
                 var dimension = bound.Dimension is { } given ? EmitPayload(given, failure) : new Operand(null, 1, 0);
                 var result = _il.DeclareLocal(typeof(long));
-                LoadArrayHolder(bound.Array);
+                var operation = LoadArrayFor(bound.Array, nameof(ArrayOperations.Bound));
                 _il.Emit(bound.Upper ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 Load(dimension, ScalarKind.Long);
                 _il.Emit(OpCodes.Ldloca, result);
-                _il.Emit(OpCodes.Call, ArraySupport.GetMethod(nameof(ArrayOperations.Bound))!);
+                _il.Emit(OpCodes.Call, ArraySupport.GetMethod(operation)!);
                 _il.Emit(OpCodes.Brfalse, failure);
                 return new Operand(result, 0, 0);
             }
@@ -317,28 +314,36 @@ internal sealed partial class ProcedureEmitter
                 return AsBoolean();
             }
 
-            // IsEmpty of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls, or the interpreter.
-            case VariantIsEmptyNode isEmpty:
+            // IsEmpty, IsNull or VarType of a Variant, in its cell: what the cell does not say is the standard library's, which compiled code calls, or the
+            // interpreter.
+            case VariantInformationNode information:
             {
-                var empty = _il.DeclareLocal(typeof(bool));
+                var answer = _il.DeclareLocal(information.Function is VariantInformation.VarType ? typeof(long) : typeof(bool));
                 var result = _il.DeclareLocal(typeof(long));
                 var called = _il.DefineLabel();
                 var done = _il.DefineLabel();
-                _il.Emit(OpCodes.Ldloc, isEmpty.Variant is VariantElementNode element
-                    ? EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure)
-                    : _variants[((VariantSlotNode)isEmpty.Variant).Slot]);
-                _il.Emit(OpCodes.Ldloca, empty);
-                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.IsEmpty))!);
-                _il.Emit(OpCodes.Brfalse, isEmpty.Library is null ? failure : called);
-                _il.Emit(OpCodes.Ldloc, empty);
-                _il.Emit(OpCodes.Neg);
-                _il.Emit(OpCodes.Conv_I8);
+                _il.Emit(OpCodes.Ldloc, EmitVariantCellOf(information.Variant, failure));
+                _il.Emit(OpCodes.Ldloca, answer);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(information.Function switch
+                {
+                    VariantInformation.IsEmpty => nameof(VariantOperations.IsEmpty),
+                    VariantInformation.IsNull => nameof(VariantOperations.IsNull),
+                    _ => nameof(VariantOperations.VarType),
+                })!);
+                _il.Emit(OpCodes.Brfalse, information.Library is null ? failure : called);
+                _il.Emit(OpCodes.Ldloc, answer);
+                if (information.Function is not VariantInformation.VarType)
+                {
+                    _il.Emit(OpCodes.Neg);
+                    _il.Emit(OpCodes.Conv_I8);
+                }
+
                 _il.Emit(OpCodes.Stloc, result);
                 _il.Emit(OpCodes.Br, done);
                 _il.MarkLabel(called);
-                if (isEmpty.Library is { } library)
+                if (information.Library is { } library)
                 {
-                    Load(EmitLibraryCall(library, failure), ScalarKind.Boolean);
+                    Load(EmitLibraryCall(library, failure), information.Kind);
                     _il.Emit(OpCodes.Stloc, result);
                 }
 
@@ -364,6 +369,11 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
         _il.Emit(OpCodes.Brfalse, failure);
     }
+
+    // the cell a Variant compiled code reads in its cell is held in, in a local: a Variant's of the activation, or an element's of an array of Variants.
+    private LocalBuilder EmitVariantCellOf(VariantNode variant, Label failure) => variant is VariantElementNode element
+        ? EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure)
+        : _variants[((VariantSlotNode)variant).Slot];
 
     // the cell an object operand of Is or TypeOf is held in, in a local: an object variable's, a Variant's, or an element's, none when it is outside its
     // dimension, which ObjectOperations reads no reference in.
@@ -411,7 +421,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         var cell = _il.DeclareLocal(typeof(object));
-        LoadKnownArray(array);
+        var operation = LoadArrayFor(array, find);
         if (kind is { } scalar)
         {
             _il.Emit(OpCodes.Ldc_I4, (int)scalar);
@@ -430,7 +440,7 @@ internal sealed partial class ProcedureEmitter
             }
         }
 
-        _il.Emit(OpCodes.Call, ArraySupport.GetMethod(find)!);
+        _il.Emit(OpCodes.Call, ArraySupport.GetMethod(operation)!);
         _il.Emit(OpCodes.Stloc, cell);
         if (!orNone)
         {

@@ -5,7 +5,6 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Refactoring;
 using System.Collections.Immutable;
-using System.Text.RegularExpressions;
 
 namespace RDCore.LanguageServer.Services.Refactoring.MoveMember;
 
@@ -67,7 +66,7 @@ internal sealed record class MemberMovePlan(ImmutableArray<MemberUnit> Units, in
 /// an <c>#If</c> block, or out of one (<strong>MS-VBAL §3.4</strong>), which is refused. Procedures are written in the code section of the module, after its
 /// declaration section (<strong>MS-VBAL §5.2</strong>, <strong>§5.3</strong>): its first procedure is not moved up.
 /// </remarks>
-internal static partial class MemberMoves
+internal static class MemberMoves
 {
     /// <summary>
     /// The move of the procedure a range is in, past the one before it or the one after it; null when the range is in no procedure, spans more than one, or the
@@ -168,22 +167,6 @@ internal static partial class MemberMoves
         return Rank(first) != Rank(second) ? Rank(first).CompareTo(Rank(second)) : StringComparer.OrdinalIgnoreCase.Compare(first.Name, second.Name);
     }
 
-    /// <summary>
-    /// A text with edits made, each of the text as it was before any of them.
-    /// </summary>
-    public static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
-    {
-        var starts = new List<int> { 0 };
-        starts.AddRange(LineEnds().Matches(text).Select(end => end.Index + end.Length));
-        int Offset(SourcePosition position) => starts[position.Line] + position.Character;
-        foreach (var edit in edits.OrderByDescending(edit => Offset(edit.Range.Start)))
-        {
-            text = string.Concat(text.AsSpan(0, Offset(edit.Range.Start)), edit.NewText, text.AsSpan(Offset(edit.Range.End)));
-        }
-
-        return text;
-    }
-
     // the procedures of a module as they move: a Property Get, Let or Set goes with the one of its name before it, when they are in the same branches.
     private static ImmutableArray<MemberUnit> UnitsOf(ModuleParseResult parse, string text)
     {
@@ -226,7 +209,4 @@ internal static partial class MemberMoves
     // whether a range is in another: a position at the end of the other is in it only when the other ends on its last line, at the end of the text.
     private static bool Holds(SourceRange outer, SourceRange inner)
         => outer.Start <= inner.Start && inner.End <= outer.End && (inner.Start < outer.End || outer.End.Character != 0);
-
-    [GeneratedRegex(@"\r\n|\r|\n")]
-    private static partial Regex LineEnds();
 }

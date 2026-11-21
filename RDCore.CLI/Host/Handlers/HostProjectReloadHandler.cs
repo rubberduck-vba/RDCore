@@ -17,7 +17,9 @@ namespace RDCore.CLI.Host.Handlers;
 /// <remarks>
 /// The session is composed anew, as it is at start-up, and the language server defines the workspace in it again. A program that is running or waits keeps
 /// the session it runs in: nothing is composed, and the result says why. A module the project gained meanwhile is not of the program, which is not resumed
-/// while the project lists it, and is part of the session once the program is over.
+/// while the project lists it, and is part of the session once the program is over. The language the request names is the project's from then on, the
+/// session it keeps included once it is composed again. A request that names none, or names a language the platform does not serve, keeps the language
+/// the project was written in.
 /// </remarks>
 internal sealed class HostProjectReloadHandler(
     IEnvironmentSessionProvider sessionProvider,
@@ -32,8 +34,23 @@ internal sealed class HostProjectReloadHandler(
             return new HostProjectReloadResult();
         }
 
+        // the language server decides the project's language, as it does at start-up, when it hands this host its decision as a setting.
+        var workspace = options.Value.Workspace;
+        if (request.Language is { } id)
+        {
+            if (SupportedLanguages.TryGet(id, out var named))
+            {
+                workspace.Language = named.Id;
+            }
+            else
+            {
+                logger.LogWarning("⚠️ The project file was reloaded in a language the platform does not serve ('{id}'); the project keeps its language.", id);
+            }
+        }
+
+        var language = workspace.SupportedLanguage;
         var root = request.WorkspaceRoot.IsFile ? request.WorkspaceRoot.LocalPath : request.WorkspaceRoot.OriginalString;
-        var project = await projectFileLoader.LoadOrSynthesizeAsync(root, options.Value.Workspace.SupportedLanguage);
+        var project = await projectFileLoader.LoadOrSynthesizeAsync(root, language);
         if (sessionProvider.Execution.State is not ProgramState.Idle)
         {
             if (logger.IsEnabled(LogLevel.Information))
@@ -45,11 +62,11 @@ internal sealed class HostProjectReloadHandler(
             return new HostProjectReloadResult { IsProgramRunning = true };
         }
 
-        sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
+        sessionProvider.Compose(workspace.WithDefines(project.ProjectInfo), SymbolUri.Root(project.Uri), language);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("🔄 Runtime session composed again from the project file: {modules} module(s).", project.ProjectInfo.Modules.Length);
+            logger.LogInformation("🔄 Runtime session composed again from the project file: {modules} module(s), in {language}.", project.ProjectInfo.Modules.Length, language.Name);
         }
 
         return new HostProjectReloadResult { Composed = true, ModuleCount = project.ProjectInfo.Modules.Length };

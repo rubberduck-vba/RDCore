@@ -130,10 +130,10 @@
     <value>Les sélecteurs des règles sémantiques à l'exécution (run-time) de coercion de type se chevauchent et plus d'une règle correspond.</value>
   </data>
   <data name="VBRuntimeInternalError_WrongNumberOfOperands" xml:space="preserve">
-    <value>Un nombre inattendu d'arguments a été reçu par l'opérateur '{$OP}'; opérande(s): {$LENGTH}.</value>
+    <value>Un nombre inattendu d'arguments a été reçu par l'opérateur '{$OP}'; opérande(s) : {$LENGTH}.</value>
   </data>
   <data name="VBSyntaxError_CustomMessage" xml:space="preserve">
-    <value>Erreur de syntaxe (grammaire):</value>
+    <value>Erreur de syntaxe (grammaire) :</value>
   </data>
   <data name="VBSyntaxError_DefaultMessage" xml:space="preserve">
     <value>Erreur de syntaxe</value>
@@ -333,17 +333,20 @@
   <data name="VBCompileError_DefaultMemberTakesArguments_Verbose" xml:space="preserve">
     <value>Une valeur de {0} est ce que retourne son membre par défaut '{1}', qui prend un argument que la lecture d'une valeur de l'objet ne lui donne pas.</value>
   </data>
+  <data name="VBCompileError_NamedWithoutItsArguments_Verbose" xml:space="preserve">
+    <value>'{0}' est nommé sans liste d'arguments, ce qui l'appelle sans arguments; son paramètre '{1}' n'est pas facultatif.</value>
+  </data>
   <data name="VBCompileError_DefaultMemberReturnsAnObject_Verbose" xml:space="preserve">
     <value>Une valeur de {0} est ce que retourne son membre par défaut '{1}', qui est un objet et non une valeur d'un type déclaré.</value>
   </data>
   <data name="VBCompileError_LenOfAValue_Verbose" xml:space="preserve">
-    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22): ceci est une valeur de type {0}, qui n'est ni l'un ni l'autre. Assignez-la à une variable de ce type pour mesurer la variable, ou convertissez-la en String pour en compter les caractères.</value>
+    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22) : ceci est une valeur de type {0}, qui n'est ni l'un ni l'autre. Assignez-la à une variable de ce type pour mesurer la variable, ou convertissez-la en String pour en compter les caractères.</value>
   </data>
   <data name="VBCompileError_LenOfADefaultMemberValue_Verbose" xml:space="preserve">
-    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22): un objet de {0} vaut ce que retourne son membre par défaut {1}, une valeur de type {2}, qui n'est ni l'un ni l'autre.</value>
+    <value>Len et LenB prennent une expression String ou le nom d'une variable (MS-VBAL §6.1.2.11.1.22) : un objet de {0} vaut ce que retourne son membre par défaut {1}, une valeur de type {2}, qui n'est ni l'un ni l'autre.</value>
   </data>
   <data name="VBCompileError_InvalidParamArrayUse_ByRef_Verbose" xml:space="preserve">
-    <value>Le ParamArray {0} est passé au paramètre ByRef {1}: un ParamArray est un tableau des valeurs que l'appel a recueillies, pas une variable dont un paramètre par référence pourrait être un second nom (MS-VBAL §5.3.1.11). Passez-le ByVal, ou passez-en un élément.</value>
+    <value>Le ParamArray {0} est passé au paramètre ByRef {1} : un ParamArray est un tableau des valeurs que l'appel a recueillies, pas une variable dont un paramètre par référence pourrait être un second nom (MS-VBAL §5.3.1.11). Passez-le ByVal, ou passez-en un élément.</value>
   </data>
   <data name="VBCompileError_NothingIsNotAValue_Verbose" xml:space="preserve">
     <value>Nothing n'est aucun objet, et n'a donc aucune valeur : une valeur est attendue ici.</value>
@@ -507,6 +510,9 @@
   <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose" xml:space="preserve">
     <value>'{0}' est déclaré As New {1}, dont la bibliothèque {2} ne dit pas qu'il peut être créé : une interface, ou une classe que la bibliothèque crée elle-même.</value>
   </data>
+  <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatableFromAnotherProject_Verbose" xml:space="preserve">
+    <value>'{0}' est déclaré As New {1}, une classe du projet {2} que seul son propre projet crée (Attribute VB_Creatable = False).</value>
+  </data>
   <data name="VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose" xml:space="preserve">
     <value>New {0} : la bibliothèque {1} ne dit pas que {0} peut être créé : une interface, ou une classe que la bibliothèque crée elle-même.</value>
   </data>
@@ -597,6 +603,24 @@
   <data name="VBCompileError_NoHostApplicationToEvaluateExpression_Verbose" xml:space="preserve">
     <value>'[{0}]' ne nomme rien qui soit déclaré, ce qui en fait une expression qu&apos;une application hôte doit évaluer.</value>
   </data>
+  <data name="VBCompileError_OnlyValidInObjectModule" xml:space="preserve">
+    <value>Valide uniquement dans un module objet</value>
+  </data>
+  <data name="VBCompileError_OnlyValidInObjectModule_Verbose" xml:space="preserve">
+    <value>'{0}' est déclaré Friend, ce que seule une procédure d&apos;un module de classe peut être : déclarez-le Public ou Private.</value>
+  </data>
+  <data name="VBCompileError_NotALegalObjectName" xml:space="preserve">
+    <value>Nom d&apos;objet non valide</value>
+  </data>
+  <data name="VBCompileError_NotALegalObjectName_Verbose" xml:space="preserve">
+    <value>'{0}' est un mot clé du langage, qu&apos;aucun module ne peut porter comme nom : donnez un autre nom au module.</value>
+  </data>
+  <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary" xml:space="preserve">
+    <value>Ce nom est en conflit avec un module, un projet ou une bibliothèque d&apos;objets existant</value>
+  </data>
+  <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose" xml:space="preserve">
+    <value>'{0}' est une bibliothèque ou un projet auquel le projet fait référence : donnez un autre nom au module.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>
   </data>
@@ -616,13 +640,13 @@
     <value>'{0}' n'est pas un objet qu'une instruction Set peut assigner : {1}</value>
   </data>
   <data name="VBCompileError_WithObject_Verbose" xml:space="preserve">
-    <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant ; '{0}' est de type {1}.</value>
+    <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant; '{0}' est de type {1}.</value>
   </data>
   <data name="VBCompileError_WithName_Verbose" xml:space="preserve">
     <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant : {0}</value>
   </data>
   <data name="VBCompileError_ForEachSource_Verbose" xml:space="preserve">
-    <value>For Each parcourt les éléments d'un tableau ou d'un objet collection ; '{0}' est de type {1}.</value>
+    <value>For Each parcourt les éléments d'un tableau ou d'un objet collection; '{0}' est de type {1}.</value>
   </data>
   <data name="VBCompileError_ForEachName_Verbose" xml:space="preserve">
     <value>For Each parcourt les éléments d'un tableau ou d'un objet collection : {0}</value>
@@ -653,5 +677,293 @@
   </data>
   <data name="VBCompileError_BlockEndsInAnotherBranch_Verbose" xml:space="preserve">
     <value>Le début et la fin de ce bloc ne sont pas dans la même branche #If.</value>
+  </data>
+  <data name="RuntimeError_ApplicationDefinedOrObjectDefinedError" xml:space="preserve">
+    <value>Erreur définie par l&apos;application ou par l&apos;objet</value>
+  </data>
+  <data name="RuntimeError_ReturnWithoutGoSub" xml:space="preserve">
+    <value>Return sans GoSub</value>
+  </data>
+  <data name="RuntimeError_InvalidProcedureCallOrArgument" xml:space="preserve">
+    <value>Argument ou appel de procédure incorrect</value>
+  </data>
+  <data name="RuntimeError_Overflow" xml:space="preserve">
+    <value>Dépassement de capacité</value>
+  </data>
+  <data name="RuntimeError_OutOfMemory" xml:space="preserve">
+    <value>Mémoire insuffisante</value>
+  </data>
+  <data name="RuntimeError_SubscriptOutOfRange" xml:space="preserve">
+    <value>L&apos;indice n&apos;appartient pas à la sélection</value>
+  </data>
+  <data name="RuntimeError_ThisArrayIsFixedOrTemporarilyLocked" xml:space="preserve">
+    <value>Ce tableau est fixe ou temporairement verrouillé</value>
+  </data>
+  <data name="RuntimeError_DivisionByZero" xml:space="preserve">
+    <value>Division par zéro</value>
+  </data>
+  <data name="RuntimeError_TypeMismatch" xml:space="preserve">
+    <value>Incompatibilité de type</value>
+  </data>
+  <data name="RuntimeError_OutOfStringSpace" xml:space="preserve">
+    <value>Espace de chaîne insuffisant</value>
+  </data>
+  <data name="RuntimeError_ExpressionTooComplex" xml:space="preserve">
+    <value>Expression trop complexe</value>
+  </data>
+  <data name="RuntimeError_CantPerformRequestedOperation" xml:space="preserve">
+    <value>Impossible d&apos;exécuter l&apos;opération requise</value>
+  </data>
+  <data name="RuntimeError_UserInterruptOccurred" xml:space="preserve">
+    <value>Interruption par l&apos;utilisateur</value>
+  </data>
+  <data name="RuntimeError_ResumeWithoutError" xml:space="preserve">
+    <value>Resume sans erreur</value>
+  </data>
+  <data name="RuntimeError_OutOfStackSpace" xml:space="preserve">
+    <value>Espace pile insuffisant</value>
+  </data>
+  <data name="RuntimeError_SubOrFunctionNotDefined" xml:space="preserve">
+    <value>Sub ou Function non définie</value>
+  </data>
+  <data name="RuntimeError_TooManyDllApplicationClients" xml:space="preserve">
+    <value>Trop de clients d&apos;application pour la DLL</value>
+  </data>
+  <data name="RuntimeError_ErrorInLoadingDll" xml:space="preserve">
+    <value>Erreur de chargement de la DLL</value>
+  </data>
+  <data name="RuntimeError_BaddDllCallingConvention" xml:space="preserve">
+    <value>Convention d&apos;appel de DLL incorrecte</value>
+  </data>
+  <data name="RuntimeError_InternalError" xml:space="preserve">
+    <value>Erreur interne</value>
+  </data>
+  <data name="RuntimeError_BadFileNameOrNumber" xml:space="preserve">
+    <value>Nom ou numéro de fichier incorrect</value>
+  </data>
+  <data name="RuntimeError_FileNotFound" xml:space="preserve">
+    <value>Fichier introuvable</value>
+  </data>
+  <data name="RuntimeError_BadFileMode" xml:space="preserve">
+    <value>Mode d&apos;accès au fichier incorrect</value>
+  </data>
+  <data name="RuntimeError_FileAlreadyOpen" xml:space="preserve">
+    <value>Fichier déjà ouvert</value>
+  </data>
+  <data name="RuntimeError_DeviceIOError" xml:space="preserve">
+    <value>Erreur d&apos;entrée/sortie sur le périphérique</value>
+  </data>
+  <data name="RuntimeError_FileAlreadyExists" xml:space="preserve">
+    <value>Fichier déjà existant</value>
+  </data>
+  <data name="RuntimeError_BadRecordLength" xml:space="preserve">
+    <value>Longueur d&apos;enregistrement incorrecte</value>
+  </data>
+  <data name="RuntimeError_DiskFull" xml:space="preserve">
+    <value>Disque plein</value>
+  </data>
+  <data name="RuntimeError_InputPastEndOfFile" xml:space="preserve">
+    <value>Entrée au-delà de la fin du fichier</value>
+  </data>
+  <data name="RuntimeError_BadRecordNumber" xml:space="preserve">
+    <value>Numéro d&apos;enregistrement incorrect</value>
+  </data>
+  <data name="RuntimeError_TooManyFiles" xml:space="preserve">
+    <value>Trop de fichiers</value>
+  </data>
+  <data name="RuntimeError_DeviceUnavailable" xml:space="preserve">
+    <value>Périphérique non disponible</value>
+  </data>
+  <data name="RuntimeError_PermissionDenied" xml:space="preserve">
+    <value>Permission refusée</value>
+  </data>
+  <data name="RuntimeError_DiskNotReady" xml:space="preserve">
+    <value>Disque non prêt</value>
+  </data>
+  <data name="RuntimeError_CantRenameWithDifferentDrive" xml:space="preserve">
+    <value>Impossible de renommer avec un lecteur différent</value>
+  </data>
+  <data name="RuntimeError_PathOrFileAccessError" xml:space="preserve">
+    <value>Erreur d&apos;accès chemin/fichier</value>
+  </data>
+  <data name="RuntimeError_PathNotFound" xml:space="preserve">
+    <value>Chemin d&apos;accès introuvable</value>
+  </data>
+  <data name="RuntimeError_ObjectVariableOrWithBlockVariableNotSet" xml:space="preserve">
+    <value>Variable objet ou variable de bloc With non définie</value>
+  </data>
+  <data name="RuntimeError_ForLoopNotInitialized" xml:space="preserve">
+    <value>Boucle For non initialisée</value>
+  </data>
+  <data name="RuntimeError_InvalidPatternString" xml:space="preserve">
+    <value>Chaîne de modèle incorrecte</value>
+  </data>
+  <data name="RuntimeError_InvalidUseOfNull" xml:space="preserve">
+    <value>Utilisation incorrecte de Null</value>
+  </data>
+  <data name="RuntimeError_UnableToSinkEvents" xml:space="preserve">
+    <value>Impossible de recevoir les événements de l&apos;objet, car il déclenche déjà des événements pour le nombre maximal de récepteurs d&apos;événements qu&apos;il gère</value>
+  </data>
+  <data name="RuntimeError_CannotCallFriendFunction" xml:space="preserve">
+    <value>Impossible d&apos;appeler une fonction Friend sur un objet qui n&apos;est pas une instance de la classe qui la définit</value>
+  </data>
+  <data name="RuntimeError_PropertyOrMethodCallReferenceToPrivateObject" xml:space="preserve">
+    <value>Un appel de propriété ou de méthode ne peut pas inclure une référence à un objet privé, ni comme argument ni comme valeur renvoyée</value>
+  </data>
+  <data name="RuntimeError_InvalidFileFormat" xml:space="preserve">
+    <value>Format de fichier incorrect</value>
+  </data>
+  <data name="RuntimeError_CantCreateNecessaryTemporaryFile" xml:space="preserve">
+    <value>Impossible de créer le fichier temporaire nécessaire</value>
+  </data>
+  <data name="RuntimeError_InvalidFormatInResourceFile" xml:space="preserve">
+    <value>Format incorrect dans le fichier de ressources</value>
+  </data>
+  <data name="RuntimeError_CantLoadOrUnloadThisObject" xml:space="preserve">
+    <value>Impossible de charger ou de décharger cet objet</value>
+  </data>
+  <data name="RuntimeError_ObjectWasUnloaded" xml:space="preserve">
+    <value>L&apos;objet a été déchargé</value>
+  </data>
+  <data name="RuntimeError_InvalidPropertyValue" xml:space="preserve">
+    <value>Valeur de propriété incorrecte</value>
+  </data>
+  <data name="RuntimeError_InvalidPropertyArrayIndex" xml:space="preserve">
+    <value>Index de tableau de propriétés incorrect</value>
+  </data>
+  <data name="RuntimeError_SetNotSupportedAtRuntime" xml:space="preserve">
+    <value>Set non géré à l&apos;exécution</value>
+  </data>
+  <data name="RuntimeError_SetNotSupportedReadOnlyProperty" xml:space="preserve">
+    <value>Set non géré (propriété en lecture seule)</value>
+  </data>
+  <data name="RuntimeError_NeedPropertyArrayIndex" xml:space="preserve">
+    <value>Index de tableau de propriétés requis</value>
+  </data>
+  <data name="RuntimeError_SetNotPermitted" xml:space="preserve">
+    <value>Set non autorisé</value>
+  </data>
+  <data name="RuntimeError_GetNotSupportedAtRuntime" xml:space="preserve">
+    <value>Get non géré à l&apos;exécution</value>
+  </data>
+  <data name="RuntimeError_GetNotSupportedWriteOnlyProperty" xml:space="preserve">
+    <value>Get non géré (propriété en écriture seule)</value>
+  </data>
+  <data name="RuntimeError_CantShowNonModalFormWhenModalFormIsDisplayed" xml:space="preserve">
+    <value>Impossible d&apos;afficher une feuille non modale lorsqu&apos;une feuille modale est affichée</value>
+  </data>
+  <data name="RuntimeError_MustCloseOrHideTopmostModalFormFirst" xml:space="preserve">
+    <value>Vous devez d&apos;abord fermer ou masquer la feuille modale de premier plan</value>
+  </data>
+  <data name="RuntimeError_UnableToShowModalFormWithinThisContext" xml:space="preserve">
+    <value>Impossible d&apos;afficher une feuille modale dans ce contexte</value>
+  </data>
+  <data name="RuntimeError_PropertyNotFound" xml:space="preserve">
+    <value>Propriété introuvable</value>
+  </data>
+  <data name="RuntimeError_PropertyOrMethodNotFound" xml:space="preserve">
+    <value>Propriété ou méthode introuvable</value>
+  </data>
+  <data name="RuntimeError_ObjectRequired" xml:space="preserve">
+    <value>Objet requis</value>
+  </data>
+  <data name="RuntimeError_ActiveXComponentCantCreateObject" xml:space="preserve">
+    <value>Un composant ActiveX ne peut pas créer d&apos;objet</value>
+  </data>
+  <data name="RuntimeError_ClassDoesNotSupportAutomation" xml:space="preserve">
+    <value>Cette classe ne gère pas Automation ou l&apos;interface attendue</value>
+  </data>
+  <data name="RuntimeError_FileOrClassNameNotFoundAutomation" xml:space="preserve">
+    <value>Nom de fichier ou de classe introuvable pendant une opération Automation</value>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportThisPropertyOrMethod" xml:space="preserve">
+    <value>Propriété ou méthode non gérée par cet objet</value>
+  </data>
+  <data name="RuntimeError_AutomationError" xml:space="preserve">
+    <value>Erreur Automation</value>
+  </data>
+  <data name="RuntimeError_ConnectionToTypeLibraryLost" xml:space="preserve">
+    <value>La connexion à la bibliothèque de types ou d&apos;objets du processus distant a été perdue. Cliquez sur OK pour supprimer la référence.</value>
+  </data>
+  <data name="RuntimeError_AutomationObjectDoesNotHaveDefaultValue" xml:space="preserve">
+    <value>L&apos;objet Automation n&apos;a pas de valeur par défaut</value>
+  </data>
+  <data name="RuntimeError_MethodNotApplicableInThisContext" xml:space="preserve">
+    <value>Méthode non applicable dans ce contexte</value>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportThisAction" xml:space="preserve">
+    <value>Cet objet ne gère pas cette action</value>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportNamedArguments" xml:space="preserve">
+    <value>Cet objet ne gère pas les arguments nommés</value>
+  </data>
+  <data name="RuntimeError_ObjectDoesntSupportCurrentLocaleSettings" xml:space="preserve">
+    <value>Cet objet ne gère pas les paramètres régionaux actifs</value>
+  </data>
+  <data name="RuntimeError_NamedArgumentNotFound" xml:space="preserve">
+    <value>Argument nommé introuvable</value>
+  </data>
+  <data name="RuntimeError_ArgumentNotOptional" xml:space="preserve">
+    <value>Argument non facultatif</value>
+  </data>
+  <data name="RuntimeError_WrongNumberOfArgumentsOrInvalidPropertyAssignment" xml:space="preserve">
+    <value>Nombre d&apos;arguments incorrect ou affectation de propriété incorrecte</value>
+  </data>
+  <data name="RuntimeError_PropertyLetNotDefinedPropertyGetDidNotReturnObject" xml:space="preserve">
+    <value>Procédure Property Let non définie et procédure Property Get n&apos;ayant pas renvoyé d&apos;objet</value>
+  </data>
+  <data name="RuntimeError_InvalidOrdinal" xml:space="preserve">
+    <value>Ordinal incorrect</value>
+  </data>
+  <data name="RuntimeError_SpecifiedDllFunctionNotFound" xml:space="preserve">
+    <value>Fonction de DLL spécifiée introuvable</value>
+  </data>
+  <data name="RuntimeError_CodeResourceNotFound" xml:space="preserve">
+    <value>Ressource de code introuvable</value>
+  </data>
+  <data name="RuntimeError_CodeResourceLockError" xml:space="preserve">
+    <value>Erreur de verrouillage de la ressource de code</value>
+  </data>
+  <data name="RuntimeError_KeyAlreadyAssociatedWithAnElementOfCollection" xml:space="preserve">
+    <value>Cette clé est déjà associée à un élément de cette collection</value>
+  </data>
+  <data name="RuntimeError_VariableUsesAutomationTypeNotSupported" xml:space="preserve">
+    <value>La variable utilise un type Automation non géré par Visual Basic</value>
+  </data>
+  <data name="RuntimeError_ObjectOrClassDoesNotSupportSetOfEvents" xml:space="preserve">
+    <value>Cet objet ou cette classe ne gère pas le jeu d&apos;événements.</value>
+  </data>
+  <data name="RuntimeError_InvalidClipboardFormat" xml:space="preserve">
+    <value>Format de Presse-papiers incorrect</value>
+  </data>
+  <data name="RuntimeError_MethodOrDataMemberNotFound" xml:space="preserve">
+    <value>Méthode ou membre de données introuvable</value>
+  </data>
+  <data name="RuntimeError_RemoteMachineNotAvailable" xml:space="preserve">
+    <value>L&apos;ordinateur distant n&apos;existe pas ou n&apos;est pas disponible</value>
+  </data>
+  <data name="RuntimeError_ClassNotRegistered" xml:space="preserve">
+    <value>Classe non inscrite sur l&apos;ordinateur local</value>
+  </data>
+  <data name="RuntimeError_InvalidPicture" xml:space="preserve">
+    <value>Image incorrecte</value>
+  </data>
+  <data name="RuntimeError_PrinterError" xml:space="preserve">
+    <value>Erreur d&apos;imprimante</value>
+  </data>
+  <data name="RuntimeError_CantSaveFileToTemp" xml:space="preserve">
+    <value>Impossible d&apos;enregistrer le fichier dans TEMP</value>
+  </data>
+  <data name="RuntimeError_SearchTextNotFound" xml:space="preserve">
+    <value>Texte de recherche introuvable</value>
+  </data>
+  <data name="RuntimeError_ReplacementsTooLong" xml:space="preserve">
+    <value>Remplacements trop longs</value>
+  </data>
+  <data name="RuntimeError_NobodyToAnswer" xml:space="preserve">
+    <value>Personne pour répondre : le programme s&apos;exécute sans surveillance</value>
+  </data>
+  <data name="RuntimeError_UnusableDialogAnswer" xml:space="preserve">
+    <value>Réponse de dialogue inutilisable : la réponse du client n&apos;est aucune de celles de la boîte de dialogue</value>
   </data>
 </root>

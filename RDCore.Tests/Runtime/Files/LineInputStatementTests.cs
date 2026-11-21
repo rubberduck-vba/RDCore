@@ -22,6 +22,7 @@ namespace RDCore.Tests.Runtime.Files;
 /// terminator is still a line, and a read that starts where there is nothing left is error 62 rather than an
 /// empty line. Each has a test here.
 /// </remarks>
+[TestCategory(TestCategories.Wide)]
 [TestClass]
 [TestCategory("MS-VBAL 5.4.5.6 Line Input")]
 public sealed class LineInputStatementTests

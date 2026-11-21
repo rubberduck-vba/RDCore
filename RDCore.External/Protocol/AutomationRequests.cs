@@ -94,6 +94,36 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/forms/doEvents</c>: dispatches the messages that wait in the forms' windows (<see cref="Forms.IFormHost.DoEvents"/>).</summary>
     public const string FormDoEvents = "rdcore/external/forms/doEvents";
 
+    /// <summary>
+    /// <c>rdcore/external/forms/keepSystemTheme</c>: whether the forms' windows follow the application's theme
+    /// (<see cref="Forms.IFormHost.KeepSystemTheme"/>).
+    /// </summary>
+    public const string FormKeepSystemTheme = "rdcore/external/forms/keepSystemTheme";
+
+    /// <summary>
+    /// <c>rdcore/external/forms/messageBox</c>: shows a <c>MsgBox</c> beside the forms (<see cref="Interaction.IUserInteraction.ShowMessage"/>), answered once
+    /// it is closed.
+    /// </summary>
+    public const string FormMessageBox = "rdcore/external/forms/messageBox";
+
+    /// <summary>
+    /// <c>rdcore/external/forms/inputBox</c>: shows an <c>InputBox</c> beside the forms (<see cref="Interaction.IUserInteraction.Prompt"/>), answered once it
+    /// is closed.
+    /// </summary>
+    public const string FormInputBox = "rdcore/external/forms/inputBox";
+
+    /// <summary>
+    /// <c>rdcore/external/forms/closeDialog</c>: closes a dialog that <see cref="FormMessageBox"/> or <see cref="FormInputBox"/> shows, as its close button
+    /// does, once the program that waits for it is stopped.
+    /// </summary>
+    public const string FormCloseDialog = "rdcore/external/forms/closeDialog";
+
+    /// <summary>
+    /// The status code <see cref="FormMessageBox"/> and <see cref="FormInputBox"/> fail with when the external host cannot show the dialog at all: it has no
+    /// dialogs, or the windows it would show them in cannot be started. The environment host shows the dialog itself then.
+    /// </summary>
+    public const int NoDialogs = unchecked((int)0x80080005);
+
     /// <summary><c>rdcore/external/native/call</c>: calls a function of a native library, as a <c>Declare</c> names it.</summary>
     public const string NativeCall = "rdcore/external/native/call";
 
@@ -171,6 +201,17 @@ public sealed record class AutomationStatusResult : ExternalResult
 
     /// <summary>Whether the external host can host forms: <see cref="Forms.IFormHost.IsAvailable"/>.</summary>
     public bool IsFormHostAvailable { get; init; }
+
+    /// <summary>
+    /// Whether the external host creates the forms a Visual Basic 6.0 designer wrote: <see cref="Forms.IFormHost.HostsVisualBasic6Forms"/>.
+    /// </summary>
+    public bool HostsVisualBasic6Forms { get; init; }
+
+    /// <summary>
+    /// Whether the external host shows the program's dialogs beside its forms (<see cref="ExternalProtocol.FormMessageBox"/>,
+    /// <see cref="ExternalProtocol.FormInputBox"/>).
+    /// </summary>
+    public bool HasDialogs { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
@@ -255,6 +296,11 @@ public sealed record class AutomationClassNameResult : ExternalResult
 {
     /// <summary>The name a server gives the class of the object, qualified by its library; <see langword="null"/> when it gives none.</summary>
     public string? Name { get; init; }
+
+    /// <summary>
+    /// Whether the object is one that the form host of the external host made (<see cref="Automation.IAutomationServer.IsFormHostObject"/>).
+    /// </summary>
+    public bool IsFormHostObject { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationIsInstanceOf"/>.</summary>

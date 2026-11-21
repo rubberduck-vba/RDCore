@@ -17,6 +17,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics;
 using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -266,5 +267,102 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
         var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia);
 
         Assert.HasCount(1, deadRanges); // "ABC" Like "A*" is True - the #Else branch is dead
+    }
+
+    // where each line of the body of Foo is compiled: the platforms of the line's first character.
+    private static CompiledPlatforms?[] PlatformsOfLines(IRuntimeSession session, string source)
+    {
+        var parse = ParseSub(source);
+        var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia);
+        return [.. Enumerable.Range(0, source.Split("\r\n").Length).Select(line => platforms.At(new SourcePosition(line, 0)))];
+    }
+
+    [TestMethod]
+    public void EachBranch_IsCompiledOnThePlatformsWhosePredefinedConstantsMakeItLive_WhicheverPlatformTheSessionIs()
+    {
+        var lines = PlatformsOfLines(ComposeSession(),
+            "Sub Foo()\r\n#If Mac Then\r\nx = 1\r\n#ElseIf Win64 Then\r\nx = 2\r\n#ElseIf Win32 Then\r\nx = 3\r\n#Else\r\nx = 4\r\n#End If\r\nx = 5\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(CompiledPlatforms.MacOS, lines[2]);
+        Assert.AreEqual(CompiledPlatforms.Windows64, lines[4]);
+        Assert.AreEqual(CompiledPlatforms.Windows32, lines[6]);
+        Assert.AreEqual(CompiledPlatforms.Linux32 | CompiledPlatforms.Linux64, lines[8]);
+        Assert.AreEqual(CompiledPlatforms.All, lines[10], "after the block");
+    }
+
+    [TestMethod]
+    public void AConstantNoPlatformDecides_HasTheSessionsValue_OnEveryPlatform()
+    {
+        var lines = PlatformsOfLines(ComposeSession(new PrecompilerConstantSymbol("FEATURE", new VBIntegerValue(1))),
+            "Sub Foo()\r\n#If FEATURE And Linux Then\r\nx = 1\r\n#ElseIf FEATURE Then\r\nx = 2\r\n#End If\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(CompiledPlatforms.Linux32 | CompiledPlatforms.Linux64, lines[2]);
+        Assert.AreEqual(CompiledPlatforms.Windows32 | CompiledPlatforms.Windows64 | CompiledPlatforms.MacOS, lines[4]);
+    }
+
+    [TestMethod]
+    public void APredefinedConstantTheProjectDefines_HasTheProjectsValue_OnEveryPlatform()
+    {
+        var session = ComposeSession(new PrecompilerConstantSymbol("Win64", new VBIntegerValue(1)));
+        ProjectConditionalConstants.Set(session, ["WIN64"]);
+
+        var lines = PlatformsOfLines(session, "Sub Foo()\r\n#If Win64 Then\r\nx = 1\r\n#End If\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(CompiledPlatforms.All, lines[2]);
+    }
+
+    [TestMethod]
+    public void APredefinedConstantTheSessionDefinesAndTheProjectDoesNot_HasThePlatformsValue()
+    {
+        // the session's own constants are those of the one platform it runs on. Win64 is 1 on a 64-bit Mac too, as in Excel for Mac.
+        var lines = PlatformsOfLines(ComposeSession(new PrecompilerConstantSymbol("Win64", new VBIntegerValue(1))),
+            "Sub Foo()\r\n#If Win64 Then\r\nx = 1\r\n#End If\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(CompiledPlatforms.Windows64 | CompiledPlatforms.MacOS, lines[2]);
+    }
+
+    [TestMethod]
+    public void APredefinedConstantTheModuleDefines_HasTheModulesValue_OnEveryPlatform()
+    {
+        var lines = PlatformsOfLines(ComposeSession(), "#Const Mac = 1\r\nSub Foo()\r\n#If Mac Then\r\nx = 1\r\n#End If\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(CompiledPlatforms.All, lines[3]);
+    }
+
+    [TestMethod]
+    public void ABranchOfAChainWhoseConditionCannotBeEvaluated_HasNoPlatforms()
+    {
+        var lines = PlatformsOfLines(ComposeSession(), "Sub Foo()\r\n#If Win64 & \"a\" Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nx = 3\r\nEnd Sub\r\n");
+
+        Assert.IsNull(lines[2]);
+        Assert.IsNull(lines[4]);
+        Assert.AreEqual(CompiledPlatforms.All, lines[6], "after the block");
+    }
+
+    // MS-VBAL §3.4.1: a #Const of the module declares its constant wherever it is written; a constant of the session (the project's, the predefined
+    // ones) is defined too. Each name nothing defines is listed once, as the first read writes it.
+    [TestMethod]
+    public void TheUndefinedConstants_AreTheNamesNothingDefines_EachOnce()
+    {
+        var parse = ParseSub(
+            "Sub Foo()\r\n#If DEV And FEATURE Then\r\nx = 1\r\n#ElseIf Not dev Or LOCAL Then\r\nx = 2\r\n#End If\r\n#Const LOCAL = OTHER\r\nEnd Sub\r\n");
+
+        var undefined = PrecompilerLiveBranchEvaluator.UndefinedConstantsOf(
+            ComposeSession(new PrecompilerConstantSymbol("FEATURE", new VBIntegerValue(1))), parse.PrecompilerTrivia);
+
+        CollectionAssert.AreEqual(new[] { "DEV", "OTHER" }, undefined.ToArray());
+    }
+
+    [TestMethod]
+    public void AModuleWithNoDirective_ReadsNoUndefinedConstant()
+        => Assert.IsEmpty(
+            PrecompilerLiveBranchEvaluator.UndefinedConstantsOf(ComposeSession(), ParseSub("Sub Foo()\r\nx = 1\r\nEnd Sub\r\n").PrecompilerTrivia));
+
+    [TestMethod]
+    public void AModuleWithNoIfBlock_IsCompiledOnEveryPlatform()
+    {
+        var lines = PlatformsOfLines(ComposeSession(), "Sub Foo()\r\nx = 1\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(CompiledPlatforms.All, lines[1]);
     }
 }

@@ -12,6 +12,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Install;
+using RDCore.CLI.App.Mcp;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
@@ -38,6 +39,7 @@ using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 using RDCore.SDK.Platform.Components;
+using RDCore.Symbols;
 
 // expose internals to RDCore.Tests, RDCore.Benchmarks and the LSP handler container's dynamic proxies:
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -66,8 +68,13 @@ namespace RDCore.CLI;
 
 public class Program
 {
-    public static async Task<int> Main(string[] args)
+    // the process's main thread is served while rdc runs on another: on macOS, the RDForms windows of an external host run their loop on it.
+    public static int Main(string[] args) => ProcessMainThread.Serve(() => MainAsync(args));
+
+    private static async Task<int> MainAsync(string[] args)
     {
+        // in every mode, a form ported to RDForms declares what its .xaml does, as RDForms reads it: the bench and rdc build read its .rdform's form so.
+        RDCore.SDK.Workspace.Forms.FormDesigner.Register(RDCore.Forms.Xaml.FormXamlDocumentReader.Instance);
         var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
         // in every mode, the version of the platform rdc runs from is held until it exits: a deployment into the shared root does not remove it.
         using var lease = PlatformTree.Hold(PlatformEnvironment.Default.Root);
@@ -93,6 +100,12 @@ public class Program
             // which needs neither a workspace nor an LSP connection.
             if (args is [{ Length: > 0 } verb, ..] && !verb.StartsWith('-'))
             {
+                // rdc mcp brings the platform up as a client, and its standard output is the MCP session's from before anything is written.
+                if (string.Equals(verb, CommandNames.McpCommand, StringComparison.OrdinalIgnoreCase))
+                {
+                    McpStandardStreams.Claim();
+                }
+
                 using var commandHost = new RDCoreConsoleCommandHost();
                 try
                 {
@@ -156,6 +169,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
 
     protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
 
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => PlatformLibraries.With(symbols);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
@@ -217,6 +233,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton(provider => new ConfigCommand(provider.GetRequiredService<IPlatformSettings>(), appliesLive: true, provider.GetRequiredService<RubberduckIndenterSettingsReader>()))
             .AddSingleton<IReplCommand, ConfigReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
+            // a handler of an event that stops while no program runs breaks at the shell's prompt.
+            .AddSingleton<ReplSessionStops>()
             .AddSingleton<ReplShell>()
             // the shell owns the break keys - Ctrl+C is BREAK, not quit - so the default console
             // lifetime must not be listening for them too. EXIT is how a session ends.
@@ -357,6 +375,7 @@ internal class RDCoreConsoleClientApp(
     ILiveSettings liveSettings,
     IOptions<AppOptions> appOptions,
     ReplServerQuestions questions,
+    ReplSessionStops sessionStops,
     ILogger<RDCoreConsoleClientApp> logger)
     : RDCoreClientApp(options, connectionFactory, logger)
 {
@@ -390,6 +409,8 @@ internal class RDCoreConsoleClientApp(
             SessionMemoryAccess = new SessionMemoryAccess(true),
             // the shell answers the dialogs a program opens, at its console - unless it runs unattended (--unattended), and nobody is there to.
             SessionInteraction = new SessionInteraction(!appOptions.Value.Unattended),
+            // and breaks where a handler of an event of a form stops while no program runs, as VB6 breaks in it - unless nobody is there to look.
+            SessionStops = new SessionStops(!appOptions.Value.Unattended),
             Unattended = new Unattended(appOptions.Value.Unattended),
             // the shell reads the indenter settings its user had in Rubberduck (on Windows), and takes the ones the language server maps as its own.
             RubberduckIndenterSettings = new RubberduckIndenterSettings(true),
@@ -408,6 +429,7 @@ internal class RDCoreConsoleClientApp(
             .AddSingleton(liveSettings)
             .AddSingleton(new ReplUnattended(appOptions.Value.Unattended))
             .AddSingleton(questions)
+            .AddSingleton(sessionStops)
             .AddSingleton(new LiveSettingsNotifier(NotifyLiveSettingsChangedAsync));
 
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
@@ -422,6 +444,7 @@ internal class RDCoreConsoleClientApp(
             .WithHandler<ReplShowMessageRequestHandler>()
             .WithHandler<ReplShowMessageHandler>()
             .WithHandler<ReplInputBoxHandler>()
+            .WithHandler<ReplSessionStoppedHandler>()
             .WithHandler<RubberduckIndenterSettingsHandler>()
             .WithHandler<RubberduckIndenterSettingsApplyHandler>()
             .WithHandler<ListSettingValueHandler>();
@@ -482,6 +505,9 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
 
     protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
 
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => PlatformLibraries.With(symbols);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
@@ -498,9 +524,11 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, ImportProjectCommand>()
             .AddSingleton<ICliCommand, ExportLibraryCommand>()
             .AddSingleton<ICliCommand, BenchCommand>()
+            .AddSingleton<ICliCommand, BenchMsVbaCommand>()
             .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<ICliCommand, BuildCommand>()
             .AddSingleton<ICliCommand, RunCommand>()
+            .AddSingleton<ICliCommand, McpCommand>()
             .AddSingleton<ICliCommand, InstallCommand>()
             .AddSingleton<ICliCommand, SplashCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
@@ -565,6 +593,9 @@ internal sealed class RDCoreConsoleCommandApp(
 /// </summary>
 internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreConsoleEnvironmentHostApp>
 {
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => PlatformLibraries.With(symbols);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         base.ConfigureAdditionalExternalServices(services, configuration);
@@ -654,6 +685,9 @@ internal class RDCoreConsoleEnvironmentHostApp(
         sessionProvider.OutputStreamed = (lines, total) => _ = SendNotificationAsync(new HostOutputNotification { Lines = lines, Total = total }, CancellationToken.None);
         // and the dialogs it opens are asked of the language server, which asks its client if the client shows dialogs.
         sessionProvider.Interaction = new LanguageServerInteractionChannel(this);
+        // and a handler of an event that stops while no program runs is told of, and waits if the language server answers that a client takes the stop.
+        sessionProvider.SessionStopped = async stop => (await SendRequestAsync<HostDebugStoppedParams, HostDebugStoppedResult>(
+            new HostDebugStoppedParams { Stop = stop }, CancellationToken.None)).Taken;
         base.OnLanguageServerStarted(server);
     }
 
@@ -676,7 +710,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
         try
         {
             // a folder with no project file is the project it holds, as the language server makes it up.
-            var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
+            var workspace = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace;
+            var language = workspace.SupportedLanguage;
             var root = request.RootUri.GetFileSystemPath();
             ProjectFile project;
             try
@@ -691,7 +726,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
                 project = new ProjectFile(root, new RDCoreProject { Name = RDCoreProject.DefaultName });
             }
 
-            sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
+            // the constants of the command line are the project's, over those of its file.
+            sessionProvider.Compose(workspace.WithDefines(project.ProjectInfo), SymbolUri.Root(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }
         catch (Exception exception)

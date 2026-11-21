@@ -155,7 +155,40 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         if (Known is not null)
         {
             Known = null;
+            _knowsHoistsOnly = false;
             KnownOperands.Count(held: false);
+        }
+    }
+
+    // whether what the activation knows is only what Hoist knew, which Unhoist lets go of.
+    private bool _knowsHoistsOnly;
+
+    /// <summary>
+    /// Knows what a call among the arguments of a call the interpreter makes returned, made ahead of the rest of the argument it is written in
+    /// (<see cref="KnownOperands.Hoist"/>), until <see cref="Unhoist"/>.
+    /// </summary>
+    /// <param name="call">The call expression.</param>
+    /// <param name="value">What it returned.</param>
+    internal void Hoist(SyntaxNode call, VBTypedValue value)
+    {
+        if (Known is null)
+        {
+            Know(KnownOperands.None());
+            _knowsHoistsOnly = true;
+        }
+
+        Known!.Hoist(call, value);
+    }
+
+    /// <summary>
+    /// Lets go of what <see cref="Hoist"/> knew of <paramref name="call"/>.
+    /// </summary>
+    /// <param name="call">The call expression.</param>
+    internal void Unhoist(SyntaxNode call)
+    {
+        if (Known?.Unhoist(call) is true && _knowsHoistsOnly)
+        {
+            Forget();
         }
     }
 
@@ -996,8 +1029,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>
     /// The cell a variable that starts as <paramref name="value"/> is held in - a local's, a field's of an object: a variable of a scalar type holds its value
     /// as a payload, which an expression of it is evaluated on, in a cell made of the value as it is; a Variant that holds a scalar (or
-    /// nothing yet) holds it as a payload too, which its subtype is the type of; anything else is a fresh copy of the value
-    /// (<see cref="SymbolAddressTable.FreshBinding"/>).
+    /// nothing yet) holds it as a payload too, which its subtype is the type of, and a Variant that holds <c>Null</c>, a <c>String</c> or an error holds it in
+    /// a Variant's cell as the value it is; a <c>String</c> of variable length is held in a cell that knows its address (<see cref="TextCell"/>); anything
+    /// else is a fresh copy of the value (<see cref="SymbolAddressTable.FreshBinding"/>).
     /// </summary>
     internal static IBindingHandle CellFor(VBTypedValue value)
         => UnboxedEvaluation.IsEnabled && ScalarPayload.IsScalar(value.TypeInfo) && value is { IsIndeterminate: false, Handle: ValueBindingHandle boxed }
@@ -1006,10 +1040,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 : UnboxedEvaluation.IsEnabled && value is VBVariantValue { IsIndeterminate: false, TypedValue: var held } && IsImmutable(held)
                     && VariantCell.TryCreate(VBVariantType.TypeInfo, new VBRuntimeVariantValue(held.TypeInfo.VarType(), held), out var variant)
                     ? variant!
-                    : SymbolAddressTable.FreshBinding(value);
+                    : UnboxedEvaluation.IsEnabled && TextCell.Holds(value.TypeInfo) && value is { IsIndeterminate: false, Handle: ValueBindingHandle text }
+                        ? new TextCell(text.Value)
+                        : SymbolAddressTable.FreshBinding(value);
 
-    // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null.
-    private static bool IsImmutable(VBTypedValue value) => ScalarPayload.IsScalar(value.TypeInfo) || value is VBEmptyValue or VBNullValue;
+    // a value a Variant cell can share with what it was made of, which nothing changes in place: a scalar, Empty, Null, a String, an error (Missing among
+    // them). A Mid statement assigns the new String it makes; an object, an array or a record can be changed in place.
+    private static bool IsImmutable(VBTypedValue value)
+        => ScalarPayload.IsScalar(value.TypeInfo) || value is VBEmptyValue or VBNullValue or VBErrorValue || value is VBStringValue and not VBFixedStringValue;
 
     /// <summary>
     /// Declares the parameter <paramref name="symbol"/> on this frame, holding <paramref name="value"/> - the argument a call passes by value, already
@@ -1108,6 +1146,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     internal void PushCell(Symbol symbol, ScalarCell cell, int slot) => Hold(symbol, cell, cell.Type.DefaultValue.Size, slot);
 
     /// <summary>
+    /// Declares <paramref name="symbol"/>, a <c>String</c> of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds
+    /// it in, which the activation frees as its own. Its size is the one <see cref="Push(Symbol, VBTypedValue, int)"/> gives the String it holds.
+    /// </summary>
+    /// <param name="symbol">The parameter or the variable.</param>
+    /// <param name="cell">Its cell.</param>
+    /// <param name="slot">The number of its slot.</param>
+    internal void PushText(Symbol symbol, TextCell cell, int slot)
+        => Hold(symbol, cell, DeclaredValues.Of(((ITypedSymbol)symbol).ResolvedType!, cell.Value).Size, slot);
+
+    /// <summary>
     /// Declares <paramref name="symbol"/>, a parameter of an object, held in <paramref name="cell"/>: the cell of its reference, as <see cref="HoldArgument"/>
     /// gives it one: the cell an activation of a member of a class entered without a frame held its <c>Me</c> in, which the activation
     /// lets go of as its own.
@@ -1125,7 +1173,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     internal bool TryGetAddressedSlot(int slot, [NotNullWhen(true)] out IBindingHandle? handle)
     {
         handle = null;
-        return (uint)slot < (uint)_slots.Length && _slots[slot] is { IsFilled: true, Cell: null } held && Storage.TryRead(held.Address, out handle);
+        return (uint)slot < (uint)_slots.Length && _slots[slot] is { IsFilled: true, Cell: null } held && TryRead(held, out handle);
     }
 
     /// <summary>Whether slot <paramref name="slot"/> of the activation's layout holds a variable: a cell, or an address.</summary>
@@ -1148,7 +1196,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
             }
 
-            held = new Slot(true, default, cell, referencedType, size, isAlias);
+            held = new Slot(true, default, cell, referencedType, size, isAlias, IsReferenced: referencedType is not null);
             return cell;
         }
 
@@ -1241,7 +1289,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // caller's variable was given by a parameter of a call it made (ReleaseAll).
     private bool TryGiveAddress(Symbol symbol, IBindingHandle cell, int size, bool isAlias, out MemoryAddress address)
     {
-        if (cell is ScalarCell { Address: { } bound })
+        if (cell is IAddressedCell { Address: { } bound })
         {
             address = bound;
             if (isAlias)
@@ -1325,7 +1373,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         var retired = Occasionally.RetiredAddresses ??= [];
         if (TryGetOwnSlot(local, out var index))
         {
-            if (_slots[index] is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+            if (_slots[index] is { IsAlias: false, Cell: IAddressedCell { Address: { } given } })
             {
                 retired.Add(given);
             }
@@ -1333,7 +1381,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             _slots[index] = default;
         }
 
-        if (_cells is not null && _cells.Remove(local.SemanticId, out var held) && held is { IsAlias: false, Cell: ScalarCell { Address: { } address } })
+        if (_cells is not null && _cells.Remove(local.SemanticId, out var held) && held is { IsAlias: false, Cell: IAddressedCell { Address: { } address } })
         {
             retired.Add(address);
         }
@@ -1426,6 +1474,31 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return _occasional?.ByRefAliases is { } aliases && aliases.TryGetValue(symbol.SemanticId, out address);
     }
 
+    // the type of the place a ByRef parameter reads at the address of its variable (ISessionStorage.TryRead), since a field of a record can start where the
+    // record does: the variable's, which is the parameter's unless the parameter is a Variant given a variable of another type. A cell of the caller's given
+    // an address (TryGiveAddress) is bound there itself, and is of that type.
+    private VBType? ReadTypeOf(Symbol parameter)
+        => TryGetReferencedType(parameter, out var referenced) ? referenced : (parameter as ITypedSymbol)?.ResolvedType;
+
+    // the same, by the parameter's identity: the parameter of the activation's procedure that has it (a ByRef parameter is one); null when none has it.
+    private VBType? ReadTypeOf(SemanticId parameter)
+    {
+        if (_occasional?.ReferencedTypes is { } referencedTypes && referencedTypes.TryGetValue(parameter, out var referenced))
+        {
+            return referenced;
+        }
+
+        foreach (var declared in Procedure is { } procedure ? RuntimeProcedureInvoker.GetParameters(procedure) : [])
+        {
+            if (declared.SemanticId == parameter)
+            {
+                return declared.ResolvedType;
+            }
+        }
+
+        return null;
+    }
+
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
         => TryResolve(symbol, out var value) ? value : throw new KeyNotFoundException($"No runtime binding exists yet for '{symbol.Uri}'.");
@@ -1433,7 +1506,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <inheritdoc/>
     public bool TryResolve(Symbol symbol, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
         => TryGetAlias(symbol, out var aliased)
-            ? Storage.TryRead(aliased, out value)
+            ? Storage.TryRead(aliased, ReadTypeOf(symbol), out value)
             : TryGetCell(symbol, out value) || _addresses is not null && _addresses.TryRead(symbol, out value);
 
     /// <inheritdoc/>
@@ -1443,8 +1516,18 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // the slots of the activation, filled as they are read: each holds the cell of a variable that has no address, or the address of one
     // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
     // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address may (a POKE
-    // rebinds one that is not a cell), which is why it is read there every time rather than kept.
-    private readonly record struct Slot(bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? ReferencedType, int Size, bool IsAlias = false);
+    // rebinds one that is not a cell), which is why it is read there every time rather than kept. Type: that type (IsReferenced), and at an address the type
+    // of the place a ByRef parameter reads there (ReadTypeOf), which for a Variant reference parameter is the same; a cell is read as it is.
+    private readonly record struct Slot(
+        bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? Type, int Size, bool IsAlias = false, bool IsReferenced = false)
+    {
+        public VBType? ReferencedType => IsReferenced ? Type : null;
+
+        public VBType? ReadAs => Cell is null ? Type : null;
+    }
+
+    private bool TryRead(in Slot held, [NotNullWhen(true)] out IBindingHandle? handle)
+        => held.ReadAs is { } type ? Storage.TryRead(held.Address, type, out handle) : Storage.TryRead(held.Address, out handle);
 
     private FrameLayout? _layout;
     private Slot[] _slots = [];
@@ -1485,13 +1568,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         {
             // a cell is read as it is, without giving the variable an address it does not need.
             var referenced = TryGetReferencedType(variable, out var type) ? type : null;
-            if (!TryGetAlias(variable, out var address) && _cells is not null && _cells.TryGetValue(variable.SemanticId, out var cell))
+            var aliased = TryGetAlias(variable, out var address);
+            if (!aliased && _cells is not null && _cells.TryGetValue(variable.SemanticId, out var cell))
             {
-                held = new Slot(true, default, cell.Cell, referenced, cell.Size);
+                held = new Slot(true, default, cell.Cell, referenced, cell.Size, IsReferenced: referenced is not null);
             }
-            else if (TryGetAddress(variable, out address))
+            else if (aliased || TryGetAddress(variable, out address))
             {
-                held = new Slot(true, address, null, referenced, 0);
+                held = new Slot(true, address, null, aliased ? ReadTypeOf(variable) : referenced, 0, IsReferenced: referenced is not null);
             }
             else
             {
@@ -1506,7 +1590,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return true;
         }
 
-        return Storage.TryRead(held.Address, out handle);
+        return TryRead(held, out handle);
     }
 
     /// <inheritdoc/>
@@ -1520,12 +1604,15 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return false;
         }
 
-        // an element passed by reference: the parameter's address is bound to the element's own cell.
-        foreach (var address in _occasional?.ByRefAliases?.Values ?? Enumerable.Empty<MemoryAddress>())
+        // an element passed by reference, or a field of a record element: the parameter reads the element's own cell, or the field's.
+        if (_occasional?.ByRefAliases is { } aliases)
         {
-            if (Storage.TryRead(address, out var handle) && IsCellOf(array, handle))
+            foreach (var (parameter, address) in aliases)
             {
-                return true;
+                if (Storage.TryRead(address, ReadTypeOf(parameter), out var handle) && IsCellOf(array, handle))
+                {
+                    return true;
+                }
             }
         }
 
@@ -1544,11 +1631,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return false;
     }
 
+    // an element that is passed by reference was given its cell when it was passed: one that has no cell yet is not bound to anything.
     private static bool IsCellOf(VBArrayValue array, IBindingHandle handle)
     {
-        for (var index = 0; index < array.Length; index++)
+        foreach (var (_, cell) in array.MadeCells)
         {
-            if (ReferenceEquals(array.CellAt(index), handle))
+            if (ReferenceEquals(cell, handle))
             {
                 return true;
             }
@@ -1558,7 +1646,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // passing the element does (MS-VBA, observed in Excel).
         if (array.ItemType is VBUserDefinedType)
         {
-            for (var index = 0; index < array.Length; index++)
+            foreach (var (index, _) in array.MadeCells)
             {
                 if (array.ElementAt(index) is VBUserDefinedTypeValue record && IsFieldOf(record, handle))
                 {
@@ -1631,7 +1719,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // address is this activation's (TryGiveAddress).
         foreach (var slot in _slots)
         {
-            if (slot is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+            if (slot is { IsAlias: false, Cell: IAddressedCell { Address: { } given } })
             {
                 Storage.TryDeallocate(given);
             }
@@ -1641,7 +1729,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         {
             foreach (var (_, held) in cells)
             {
-                if (held is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+                if (held is { IsAlias: false, Cell: IAddressedCell { Address: { } given } })
                 {
                     Storage.TryDeallocate(given);
                 }

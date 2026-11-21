@@ -264,7 +264,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
             IBindingHandle? addressed = null;
             VBType? referenced = null;
-            while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+            while (argument is VBRuntimeReference reference && resolver.TryRead(reference, parameter.ResolvedType, out var cell))
             {
                 addressed ??= cell;
                 referenced ??= reference.DeclaredType;

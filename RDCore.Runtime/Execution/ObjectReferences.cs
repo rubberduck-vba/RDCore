@@ -142,19 +142,176 @@ internal static class ObjectReferences
 
     /// <summary>
     /// Lets go of the temporaries held since <paramref name="mark"/> (<see cref="ISessionObjects.TemporaryCount"/>, read before the statement that
-    /// made them): the statement is over.
+    /// made them): the statement is over. <strong>MS-VBA</strong> lets go of the objects first, then the <c>Variant</c>s that hold objects, each in the
+    /// order they are held in (observed in Excel): the order they were made in, as the calls that made them put it (<see cref="SettleCall"/>). An array
+    /// or a record that holds objects is let go of with the <c>Variant</c>s.
     /// </summary>
+    /// <param name="session">The session whose temporaries they are.</param>
+    /// <param name="mark">How many temporaries there were before the statement.</param>
     public static void ReleaseTemporaries(IRuntimeSession session, int mark)
     {
-        while (session.Objects.TemporaryCount > mark && session.Objects.PopTemporary() is { } cell)
+        var made = session.Objects.TemporaryCount - mark;
+        if (made <= 0)
         {
-            if (cell is ArgumentTemporary temporary)
+            return;
+        }
+
+        if (made == 1)
+        {
+            ReleaseTemporary(session, session.Objects.PopTemporary()!);
+            return;
+        }
+
+        var cells = System.Buffers.ArrayPool<IBindingHandle>.Shared.Rent(made);
+        try
+        {
+            for (var at = made - 1; at >= 0; at--)
             {
-                session.Storage.TryDeallocate(temporary.Address);
-                continue;
+                cells[at] = session.Objects.PopTemporary()!;
             }
 
-            Release(session, cell);
+            for (var at = 0; at < made; at++)
+            {
+                if (IsObject(cells[at]))
+                {
+                    ReleaseTemporary(session, cells[at]);
+                }
+            }
+
+            for (var at = 0; at < made; at++)
+            {
+                if (!IsObject(cells[at]))
+                {
+                    ReleaseTemporary(session, cells[at]);
+                }
+            }
+        }
+        finally
+        {
+            Array.Clear(cells, 0, made);
+            System.Buffers.ArrayPool<IBindingHandle>.Shared.Return(cells);
+        }
+    }
+
+    // an object temporary (an object a call returned, one New made), which is let go of before a Variant, an array or a record.
+    private static bool IsObject(IBindingHandle cell) => cell is ArgumentTemporary || cell.Value is VBRuntimeValue<VBRuntimeObjectId>;
+
+    private static void ReleaseTemporary(IRuntimeSession session, IBindingHandle cell)
+    {
+        if (cell is ArgumentTemporary temporary)
+        {
+            session.Storage.TryDeallocate(temporary.Address);
+            return;
+        }
+
+        Release(session, cell);
+    }
+
+    /// <summary>
+    /// Puts the temporaries a call's arguments and its target made, since <paramref name="start"/>, in the order <strong>MS-VBA</strong> lets go of them
+    /// when the statement is over (observed in Excel): what the call is given itself goes last, the arguments' in the order of the parameters, then the
+    /// target's; what was made and given to the calls and the members inside them before stays first, in the order it is held in. An argument that is no
+    /// call is evaluated after the calls, right to left (an object <c>New</c> made for it), so what it gives is made out of the order it is let go of in.
+    /// </summary>
+    /// <param name="session">The session whose temporaries they are.</param>
+    /// <param name="start">How many temporaries there were before the call's arguments were evaluated.</param>
+    /// <param name="pieces">What each argument, and the target, made, in the order they were evaluated in.</param>
+    public static void SettleCall(IRuntimeSession session, int start, ReadOnlySpan<TemporaryPiece> pieces)
+    {
+        var made = session.Objects.TemporaryCount - start;
+        if (made <= 1)
+        {
+            return;
+        }
+
+        var given = 0;
+        foreach (var piece in pieces)
+        {
+            given += piece.Given >= start ? 1 : 0;
+        }
+
+        if (given > 0)
+        {
+            Settle(session, start, made, pieces, given);
+        }
+    }
+
+    /// <summary>
+    /// Whether the temporary held last, since <paramref name="start"/>, is <paramref name="value"/>: what a call returned, or the object <c>New</c> made,
+    /// which an argument or a target evaluated to (<see cref="SettleCall"/>). A temporary that holds the object <paramref name="value"/> holds is
+    /// taken to be it.
+    /// </summary>
+    /// <param name="session">The session whose temporaries they are.</param>
+    /// <param name="start">How many temporaries there were before the value was evaluated.</param>
+    /// <param name="value">What was evaluated.</param>
+    internal static bool IsLastTemporary(IRuntimeSession session, int start, VBTypedValue? value)
+    {
+        if (session.Objects.TemporaryCount <= start || ObjectOf(value) is not { } instance)
+        {
+            return false;
+        }
+
+        var last = session.Objects.PopTemporary()!;
+        session.Objects.PushTemporary(last);
+        return last.Value switch
+        {
+            VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var held } => held.Equals(instance),
+            VBRuntimeVariantValue { WrappedValue: var wrapped } => ObjectOf(wrapped) is { } held && held.Equals(instance),
+            _ => false,
+        };
+
+        // the object an object, or a Variant, holds; an array or a record is no value an argument gives as the temporary it is.
+        static VBRuntimeObjectId? ObjectOf(VBTypedValue? value) => value switch
+        {
+            VBObjectValue { Value: var id } when !id.Equals(NothingId) => id,
+            VBVariantValue { TypedValue: var held } => ObjectOf(held),
+            _ => null,
+        };
+    }
+
+    private static void Settle(IRuntimeSession session, int start, int made, ReadOnlySpan<TemporaryPiece> pieces, int given)
+    {
+        var cells = System.Buffers.ArrayPool<IBindingHandle>.Shared.Rent(made);
+        var last = System.Buffers.ArrayPool<bool>.Shared.Rent(made);
+        try
+        {
+            for (var at = made - 1; at >= 0; at--)
+            {
+                cells[at] = session.Objects.PopTemporary()!;
+                last[at] = false;
+            }
+
+            // what the call is given, by parameter, then the target's; given to one owner, in the order it was evaluated in.
+            var owners = new (int Owner, int Evaluated, int At)[given];
+            var next = 0;
+            for (var i = 0; i < pieces.Length; i++)
+            {
+                if (pieces[i].Given - start is var at && at >= 0 && at < made)
+                {
+                    owners[next++] = (pieces[i].Owner, i, at);
+                    last[at] = true;
+                }
+            }
+
+            Array.Sort(owners, 0, next, Comparer<(int Owner, int Evaluated, int At)>.Default);
+            for (var at = 0; at < made; at++)
+            {
+                if (!last[at])
+                {
+                    session.Objects.PushTemporary(cells[at]);
+                }
+            }
+
+            for (var k = 0; k < next; k++)
+            {
+                session.Objects.PushTemporary(cells[owners[k].At]);
+            }
+        }
+        finally
+        {
+            Array.Clear(cells, 0, made);
+            System.Buffers.ArrayPool<IBindingHandle>.Shared.Return(cells);
+            System.Buffers.ArrayPool<bool>.Shared.Return(last);
         }
     }
 
@@ -243,6 +400,21 @@ internal static class ObjectReferences
         }
 
         Release(session, before);
+    }
+
+    /// <summary>
+    /// Records that <paramref name="cell"/>, a new cell that held nothing, holds <paramref name="instance"/>: what <see cref="Rebind"/> records of a cell
+    /// written with a reference to an object, which it holds directly.
+    /// </summary>
+    /// <param name="session">The session whose object it is.</param>
+    /// <param name="cell">The cell, which holds the reference itself (not a Variant or a box that holds it).</param>
+    /// <param name="instance">The object it refers to. For <c>Nothing</c>, no object is held and nothing is recorded.</param>
+    public static void HoldIn(IRuntimeSession session, IBindingHandle cell, VBRuntimeObjectId instance)
+    {
+        if (!instance.Equals(NothingId))
+        {
+            session.Objects.AddRef(instance, cell);
+        }
     }
 
     /// <summary>
@@ -336,10 +508,10 @@ internal static class ObjectReferences
         }
 
         // an element of a param array given a variable is the variable (MS-VBAL §5.3.1.5): what it holds is the variable's, which lets go of it, and not the
-        // array's - the activation that ends with the array does not.
-        for (var index = 0; index < array.Length; index++)
+        // array's - the activation that ends with the array does not. An element that has no cell yet holds its type's default value, which holds no object.
+        foreach (var (_, cell) in array.MadeCells)
         {
-            if (array.CellAt(index) is { } cell and not VariantReferenceBindingHandle && !HoldsNoObject(cell) && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
+            if (cell is not VariantReferenceBindingHandle && !HoldsNoObject(cell) && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
             {
                 Collect(cell, cell.Value, ref holds);
             }
@@ -440,3 +612,13 @@ internal static class ObjectReferences
         }
     }
 }
+
+/// <summary>
+/// The temporaries one argument of a call made, or its target (<see cref="ObjectReferences.SettleCall"/>): from <see cref="Start"/> to <see cref="End"/>,
+/// the one at <see cref="Given"/> what it evaluated to, which the call is given.
+/// </summary>
+/// <param name="Owner">The index of the parameter the argument is given to; <see cref="int.MaxValue"/> for the target.</param>
+/// <param name="Start">How many temporaries there were before it was evaluated.</param>
+/// <param name="End">How many temporaries there were after it was evaluated.</param>
+/// <param name="Given">The position of the temporary it evaluated to; -1 when it evaluated to none.</param>
+internal readonly record struct TemporaryPiece(int Owner, int Start, int End, int Given);

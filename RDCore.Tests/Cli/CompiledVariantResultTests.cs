@@ -190,7 +190,7 @@ public sealed class CompiledVariantResultTests
             "End Function"), "a;gone 1;after made;b;value;holder gone;read;42;c;", ("Discarded", 1, 0), ("Read", 1, 0));
 
     // two calls in one statement, each returning a Variant that holds an object only it holds: both objects live until the statement is over, after its
-    // assignment, and are let go of then, the last made first - none before the other call is made. Compiled code gives that statement to the interpreter;
+    // assignment, and are let go of then, the first made first - none before the other call is made. Compiled code gives that statement to the interpreter;
     // whichever engine runs it, the order is the same.
     [TestMethod]
     public async Task ObjectsTwoVariantResultsOfAStatementHold_AreLetGoOfWhenTheStatementIsOver()
@@ -214,7 +214,7 @@ public sealed class CompiledVariantResultTests
             "    Set N = New Noisy",
             "    N.Id = Id",
             "    Set Made = N",
-            "End Function"), "a;gone 2;gone 1;12;b;");
+            "End Function"), "a;gone 1;gone 2;12;b;");
 
     // a member of an object that returns a Variant, called by compiled code and assigned to a Variant, which compiled code then adds. The Set of the
     // object is a support call.

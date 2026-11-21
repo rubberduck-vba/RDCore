@@ -9,7 +9,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
@@ -41,10 +40,6 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
 {
     // MS-VBAL 6.1.2.3.1.14: "If the resulting data value is not in the inclusive range 0 to 65535, Error 5 is raised."
     private const int LargestErrorCode = 65535;
-
-    // MS-VBAL 6.1.2.3.1.15: "Otherwise, the data value is "Application-defined or object-defined error."" - the period ends the specification's
-    // sentence: MS-VBA's text is error 1004's, which has none (recorded in Excel: Error(42)).
-    private static string UnknownErrorText => VBRuntimeErrorInfo.VBRuntimeErrors[VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError];
 
     private static RuntimeSemanticsEvaluationResult<TValue> Fail<TValue>(VBRuntimeErrorId id, string verbose)
         where TValue : VBTypedValue
@@ -210,9 +205,9 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             return Fail<VBStringValue>(VBRuntimeErrorId.Overflow, $"{code} is not an error number.");
         }
 
-        var text = code == 0
-            ? string.Empty
-            : VBRuntimeErrorInfo.VBRuntimeErrors.TryGetValue((VBRuntimeErrorId)code, out var known) ? known : UnknownErrorText;
+        // MS-VBAL §6.1.2.3.1.15: "Otherwise, the data value is "Application-defined or object-defined error."" The period ends the specification's
+        // sentence. MS-VBA's text is error 1004's, which has none (observed in Excel: Error(42)). GetErrorString falls back to that text.
+        var text = code == 0 ? string.Empty : VBRuntimeErrorInfo.GetErrorString((VBRuntimeErrorId)code);
         return Succeed(new VBStringValue(text));
     }
 
@@ -257,9 +252,12 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             case VBNumericTypedValue numeric:
                 return Succeed(new VBVariantValue(((VBNumericType)numeric.TypeInfo).CreateValue(Round(numeric.AsDouble, floor))));
 
-            // "the returned value is the same as result of evaluating the expression: CDate(Int(CDbl(Number)))".
+            // "the returned value is the same as result of evaluating the expression: CDate(Int(CDbl(Number)))", whose CDate raises 6 for a serial that is
+            // not a Date's.
             case VBDateValue date:
-                return Succeed(new VBVariantValue(new VBDateValue(Round(date.SerialValue, floor))));
+                return DayOf(date.SerialValue, floor, out var day)
+                    ? Succeed(new VBVariantValue(new VBDateValue(day)))
+                    : Fail<VBVariantValue>(VBRuntimeErrorId.Overflow, $"{day} is not the serial of a Date.");
 
             // "the returned value is the result of the Int function applied to the result of Let-coercing Number to Double".
             case VBStringValue:
@@ -275,6 +273,49 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     }
 
     private static double Round(double value, bool floor) => floor ? Math.Floor(value) : Math.Truncate(value);
+
+    /// <summary>
+    /// A Double rounded down to the next whole number, as <see cref="Int"/> returns it (<strong>MS-VBAL §6.1.2.3.1.18</strong>): a Double.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>The greatest whole number less than or equal to it.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Int))]
+    public static double FloorOf(double number) => Round(number, floor: true);
+
+    /// <summary>
+    /// A Double with its fraction dropped, as <see cref="Fix"/> returns it (<strong>MS-VBAL §6.1.2.3.1.16</strong>): a Double.
+    /// </summary>
+    /// <param name="number">The number.</param>
+    /// <returns>Its whole part.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Fix))]
+    public static double TruncationOf(double number) => Round(number, floor: false);
+
+    // MS-VBAL §6.1.2.3.1.16 and §6.1.2.3.1.18: Fix or Int of a Date is CDate(Fix(CDbl(Number))) or CDate(Int(CDbl(Number))), its serial rounded; false where
+    // that is not a Date's serial, which CDate raises 6 for: Int of a time on the first day of the Date range goes below it.
+    private static bool DayOf(double serial, bool floor, out double day)
+    {
+        day = Round(serial, floor);
+        return VBDateType.IsValidSerial(day);
+    }
+
+    /// <summary>
+    /// A Date rounded down to a whole serial, as <see cref="Int"/> returns it (<strong>MS-VBAL §6.1.2.3.1.18</strong>): a Date.
+    /// </summary>
+    /// <param name="serial">The Date's serial.</param>
+    /// <param name="day">The serial of the Date returned: the greatest whole number less than or equal to <paramref name="serial"/>.</param>
+    /// <returns><see langword="false"/> when <paramref name="day"/> is not a Date's serial: <see cref="Int"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Int))]
+    public static bool TryFloorOfDate([StdLibDate] double serial, [StdLibDate] out double day) => DayOf(serial, floor: true, out day);
+
+    /// <summary>
+    /// A Date with the fraction of its serial dropped, as <see cref="Fix"/> returns it (<strong>MS-VBAL §6.1.2.3.1.16</strong>): a Date. The whole part of
+    /// a Date's serial is always a Date's serial.
+    /// </summary>
+    /// <param name="serial">The Date's serial.</param>
+    /// <returns>The serial of the Date returned: the whole part of <paramref name="serial"/>.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Fix))]
+    [return: StdLibDate]
+    public static double TruncationOfDate([StdLibDate] double serial) => Round(serial, floor: false);
 
     private static decimal Round(decimal value, bool floor) => floor ? Math.Floor(value) : Math.Truncate(value);
 
@@ -419,8 +460,51 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     private static string ErrorCodeText(VBErrorValue error)
         => ValueConversions.ToText(new VBLongValue(error.Value), CultureInfo.InvariantCulture).Value is VBStringValue code ? code.Value : string.Empty;
 
-    [GeneratedRegex(@"^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eEdD][+-]?[0-9]+)?", RegexOptions.CultureInvariant)]
-    private static partial Regex LeadingNumber();
+    // the length of the number text begins with, 0 for none: an optional sign, then digits with an optional decimal point after them or among them, or a
+    // decimal point and digits, then an exponent of e, E, d or D with an optional sign, read only when digits follow it. The digits are the ASCII ones.
+    private static int LeadingNumberLength(ReadOnlySpan<char> text)
+    {
+        var index = text is ['+' or '-', ..] ? 1 : 0;
+        var integral = index;
+        while (index < text.Length && char.IsAsciiDigit(text[index]))
+        {
+            index++;
+        }
+
+        var digits = index - integral;
+        if (index < text.Length && text[index] == '.')
+        {
+            var fraction = ++index;
+            while (index < text.Length && char.IsAsciiDigit(text[index]))
+            {
+                index++;
+            }
+
+            digits += index - fraction;
+        }
+
+        if (digits == 0)
+        {
+            return 0;
+        }
+
+        if (index < text.Length && text[index] is 'e' or 'E' or 'd' or 'D')
+        {
+            var exponent = index + 1 < text.Length && text[index + 1] is '+' or '-' ? index + 2 : index + 1;
+            var end = exponent;
+            while (end < text.Length && char.IsAsciiDigit(text[end]))
+            {
+                end++;
+            }
+
+            if (end > exponent)
+            {
+                index = end;
+            }
+        }
+
+        return index;
+    }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -429,37 +513,73 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     /// stripped from the argument" (<strong>MS-VBAL §6.1.2.3.1.21</strong>).
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBDoubleValue> Val(VBStringValue value)
+        => ValueOf(value.Value, out var number, out var overflow)
+            ? Succeed(new VBDoubleValue(number))
+            : Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, overflow!);
+
+    /// <summary>
+    /// <c>Val</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.3.1.21</strong>): the number it begins with, what <see cref="Val"/> returns
+    /// for it.
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="number">The number, 0 when the text begins with none.</param>
+    /// <returns><see langword="false"/> for a number that does not fit the type it is read as: <see cref="Val"/> raises error 6.</returns>
+    [StdLibIntrinsic(typeof(IStdConversionModule), nameof(Val))]
+    public static bool ValueOf(string? text, out double number) => ValueOf(text, out number, out _);
+
+    // the number, or false and what overflows.
+    private static bool ValueOf(string? value, out double number, out string? overflow)
     {
-        var text = new string([.. (value.Value ?? string.Empty).Where(c => c is not (' ' or '\t' or '\n' or '\r'))]);
+        // "Blanks, tabs, and linefeed characters are stripped from the argument": a text with none is read as it is.
+        var text = value ?? string.Empty;
+        if (text.AsSpan().IndexOfAny(" \t\n\r") >= 0)
+        {
+            text = new string([.. text.Where(c => c is not (' ' or '\t' or '\n' or '\r'))]);
+        }
+
+        (number, overflow) = (0, null);
 
         // "If Value is the 0 length String data value return the Double data value 0."
         if (text.Length == 0)
         {
-            return Succeed(new VBDoubleValue(0));
+            return true;
         }
 
         // "the function recognizes the radix prefixes &O (for octal) and &H (for hexadecimal)."
         if (text.Length >= 2 && text[0] == '&' && char.ToUpperInvariant(text[1]) is 'H' or 'O')
         {
-            return Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8) is { } prefixed
-                ? Succeed(new VBDoubleValue(prefixed))
-                : Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, $"'{text}' does not fit the integer it is read as.");
+            if (Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8) is not { } prefixed)
+            {
+                overflow = $"'{text}' does not fit the integer it is read as.";
+                return false;
+            }
+
+            number = prefixed;
+            return true;
         }
 
-        var match = LeadingNumber().Match(text);
-        if (!match.Success)
+        var length = LeadingNumberLength(text);
+        if (length == 0)
         {
-            return Succeed(new VBDoubleValue(0));
+            return true;
         }
 
-        var number = double.Parse(
-            match.Value.Replace('d', 'e').Replace('D', 'e'),
-            NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
-            CultureInfo.InvariantCulture);
-        return double.IsInfinity(number)
-            ? Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, $"'{match.Value}' is not a Double.")
-            : Succeed(new VBDoubleValue(number));
+        // the number read where it is in the text; one whose exponent is written with a d or a D is read as a copy written with an e.
+        var leading = text.AsSpan(0, length);
+        number = leading.IndexOfAny('d', 'D') < 0
+            ? double.Parse(leading, Numbers, CultureInfo.InvariantCulture)
+            : double.Parse(leading.ToString().Replace('d', 'e').Replace('D', 'e'), Numbers, CultureInfo.InvariantCulture);
+        if (double.IsInfinity(number))
+        {
+            (number, overflow) = (0, $"'{leading}' is not a Double.");
+            return false;
+        }
+
+        return true;
     }
+
+    // what a number Val reads is written with: a sign, a decimal point and an exponent.
+    private const NumberStyles Numbers = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent;
 
     // MS-VBA reads the digits of a radix number as the bits of an integer, typed by its width and by the type-declaration character after them, if any, much
     // as a radix literal is (MS-VBAL §3.3.2), and the Double is that integer's value (observed in Excel). More than 64 bits

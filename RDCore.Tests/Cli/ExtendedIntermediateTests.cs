@@ -135,7 +135,9 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim s As Single, e As Double ;; s = 16777216 ;; e = s + 1 + CDbl(0) ;; P e", "16777217|", DisplayName = "D26")]
     [DataRow("", "Dim s As Single, a(0 To 1) As Double ;; s = 16777216 ;; a(0) = s + 1 ;; P a(0)", "16777217|", DisplayName = "D29")]
     [DataRow("Private Type R ;; X As Double ;; End Type", "Dim s As Single, r1 As R ;; s = 16777216 ;; r1.X = s + 1 ;; P r1.X", "16777217|", DisplayName = "D30")]
-    [DataRow("", "Dim s As Single, l As Long ;; s = 16777216 ;; For l = 1 To s + 1 ;; Next ;; P l", "16777218|", DisplayName = "D31")]
+    // a loop ends one step past its limit, wherever it starts (MS-VBAL §5.4.2.3). The program observed in Excel starts at 1; D31 starts just below the
+    // limit, as 16 million passes of an empty loop take the boxed interpreter more than a minute on a busy machine. Its expected line is the one observed.
+    [DataRow("", "Dim s As Single, l As Long ;; s = 16777216 ;; For l = 16777210 To s + 1 ;; Next ;; P l", "16777218|", DisplayName = "D31")]
     [DataRow("", "Dim d As Double, n As Long ;; d = 1E+308 ;; For n = 1 To d * 10 / 1E+308 ;; Next ;; P Err.Number ;; P n", "0|11|", DisplayName = "D32")]
     [DataRow("", "Dim d As Double, t As Double, l As Long ;; d = 2.5 ;; t = 1 / 2 ^ 60 ;; l = Not (d + t) ;; P l", "-4|", DisplayName = "E02")]
     [DataRow("", "Dim d As Double ;; d = 1E+308 ;; P CBool(d * 10) ;; P Err.Number", "True|0|", DisplayName = "E03")]

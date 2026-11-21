@@ -144,6 +144,47 @@ public sealed class CompiledMemberFieldLetTests
             "    Sized = S.Size + Plain.Size",
             "End Function"), "Sized", supportCalls: 0, expected: "square 1 ; square 2 ; 22");
 
+    // one member access, of a variable that refers to one object, then another, in turn: each write and each read is of the object the variable refers to
+    // then, the variable found again for each.
+    [TestMethod]
+    public async Task OneAccess_OfObjectsInTurn_WritesAndReadsTheVariableOfEach()
+        => await AssertLetAsync(Program(
+            "Public Sub Main()",
+            "    Dim A As Point, B As Point",
+            "    Set A = New Point",
+            "    Set B = New Point",
+            "    Debug.Print InTurn(A, B, 6)",
+            "    Debug.Print A.X; B.X",
+            "End Sub",
+            "Private Function InTurn(ByVal A As Point, ByVal B As Point, ByVal N As Long) As Long",
+            "    Dim I As Long, P As Point",
+            "    For I = 1 To N",
+            "        If I Mod 2 = 1 Then Set P = A Else Set P = B",
+            "        P.X = P.X + I",
+            "    Next",
+            "    InTurn = A.X * 100 + B.X",
+            "End Function"), "InTurn", supportCalls: 0, expected: "912 ; 9  12");
+
+    // one member access, of a variable that refers in turn to an object of a class that implements the declared one and to one of the declared class: the
+    // first has its Property Let called each time, the second its variable written.
+    [TestMethod]
+    public async Task OneAccess_OfAnImplementingObjectAndADeclaredOneInTurn_CallsTheLetOrWritesTheVariable()
+        => await AssertLetAsync(Program(
+            "Public Sub Main()",
+            "    Dim S As IShape, Plain As IShape",
+            "    Set S = New Square",
+            "    Set Plain = New IShape",
+            "    Debug.Print Mixed(S, Plain)",
+            "End Sub",
+            "Private Function Mixed(ByVal S As IShape, ByVal Plain As IShape) As Long",
+            "    Dim I As Long, Q As IShape",
+            "    For I = 1 To 4",
+            "        If I Mod 2 = 1 Then Set Q = S Else Set Q = Plain",
+            "        Q.Size = I",
+            "    Next",
+            "    Mixed = S.Size * 10 + Plain.Size",
+            "End Function"), "Mixed", supportCalls: 0, expected: "square 1 ; square 3 ; 34");
+
     // an object variable declared As New holds no object until its member is used: the interpreter makes it, then writes the variable; one that holds Nothing
     // is error 91, at the statement.
     [TestMethod]
@@ -208,4 +249,35 @@ public sealed class CompiledMemberFieldLetTests
             "    Set Q = New Point",
             "    Swap = 7",
             "End Function"), Classes, "0  7");
+
+    // one variable referring to two objects in turn, then to a new object at each turn: each write and read is of the object the variable refers to then.
+    [TestMethod]
+    public async Task AVariableReferringToAnotherObject_WritesThatObjectsVariable()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Alternated(); Renewed()",
+            "End Sub",
+            "Private Function Alternated() As Long",
+            "    Dim A As Point, B As Point, P As Point, I As Long",
+            "    Set A = New Point",
+            "    Set B = New Point",
+            "    For I = 1 To 6",
+            "        If I Mod 2 = 0 Then",
+            "            Set P = A",
+            "        Else",
+            "            Set P = B",
+            "        End If",
+            "        P.X = P.X + I",
+            "    Next",
+            "    Alternated = A.X * 100 + B.X",
+            "End Function",
+            "Private Function Renewed() As Long",
+            "    Dim P As Point, I As Long, T As Long",
+            "    For I = 1 To 6",
+            "        Set P = New Point",
+            "        P.X = P.X + I",
+            "        T = T + P.X",
+            "    Next",
+            "    Renewed = T",
+            "End Function"), Classes, "1209  21");
 }

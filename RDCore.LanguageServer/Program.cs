@@ -17,6 +17,8 @@ using RDCore.SDK.Client;
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 // it relays the dialogs of the program that runs in the environment host to a client that answers them:
 [assembly: ProvidesCorePlatformClientCapability<SessionInteraction>]
+// and the stops of the handlers of events that run while no program runs to a client that takes them:
+[assembly: ProvidesCorePlatformClientCapability<SessionStops>]
 // and asks a client that reads them for the indenter settings its user had in Rubberduck, and to take the ones it maps:
 [assembly: ProvidesCorePlatformClientCapability<RubberduckIndenterSettings>]
 // and says what a refactoring asks, to a client that shows a dialog of its own before it is applied:
@@ -29,6 +31,9 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // a form ported to RDForms declares what its .xaml does, as RDForms reads it: the parse of its .rdform is given that form.
+        RDCore.SDK.Workspace.Forms.FormDesigner.Register(RDCore.Forms.Xaml.FormXamlDocumentReader.Instance);
+
         // the same platform, spoken to by a debugger client over standard input and output.
         if (RDCore.LanguageServer.Debugging.DebugAdapterEntry.IsRequested(args))
         {

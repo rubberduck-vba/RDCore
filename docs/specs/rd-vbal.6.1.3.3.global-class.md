@@ -16,3 +16,5 @@ The `Global` class is represented in the language core by the interface
 |---|---|---|
 |6.1.3.3.1.1|[Load](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c711e6b6-973d-480b-b5cb-cf3a49fe049a)||
 |6.1.3.3.1.2|[Unload](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c8116615-fea7-4aa2-84af-ae4b56a903fd)||
+|RD-VBA addition|`_LoadElement`|Hidden. `Load` of an element of a VB6 control array (`Load mnuRecent(3)`) calls it in place of `Load`, with the array and the index let-coerced to `Integer`: the element does not exist before it is loaded.|
+|RD-VBA addition|`_UnloadElement`|Hidden. `Unload` of an element of a VB6 control array, with the array and the index.|

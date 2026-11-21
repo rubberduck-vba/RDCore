@@ -1,6 +1,7 @@
 ﻿using RDCore.External.Automation;
 using RDCore.External.Native;
 using RDCore.External.Protocol;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using System.Collections.Concurrent;
 using System.Globalization;
 
@@ -43,6 +44,10 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     // have their tellings cross on the way (one's true sent after the other's false): each is sent outside the gate, as it was before there was one.
     private bool _running;
     private Incarnation? _told;
+
+    // the program's App.KeepSystemTheme, as it was last said, and the incarnation last told it, as for the hold.
+    private bool _keepSystemTheme;
+    private Incarnation? _themeTold;
 
     [ThreadStatic]
     private static long _handlingEvent;
@@ -130,6 +135,9 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     // as for the servers: an external host that cannot be started is not a machine with no forms, and the program that shows one is told it could not be started.
     bool Forms.IFormHost.IsAvailable => !_host.TryConnect(out var incarnation) || incarnation!.IsFormHostAvailable;
 
+    // nor a host of no Visual Basic 6.0 forms: the New of such a form's class goes on to the form's creation, which says the host could not be started.
+    bool Forms.IFormHost.HostsVisualBasic6Forms => !_host.TryConnect(out var incarnation) || incarnation!.HostsVisualBasic6Forms;
+
     /// <inheritdoc/>
     public object Create(Forms.FormDefinition form)
     {
@@ -137,15 +145,20 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         // told first whether a program runs, false as well as true, so that what Microsoft Forms posts as it creates the form waits as it would in a host told.
         var incarnation = Connect();
         TellHold(incarnation, onlyIfUntold: true);
+        // and the theme its windows are in, so that the form is made in it.
+        TellTheme(incarnation, onlyIfUntold: true);
         var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
         return ObjectOf(incarnation, created.Handle);
     }
 
     /// <inheritdoc/>
-    public void Show(object form, bool modal)
+    public void Show(object form, bool modal, object? owner = null)
     {
+        // the external host gives its form an owner only when it holds the owner: an owner from another incarnation of the host is not one of its forms.
         var remote = Live(form);
-        _ = Send<FormShowParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormShow, new FormShowParams { Target = remote.Handle, Modal = modal, HandlingEvent = _handlingEvent });
+        long? ownerHandle = owner is RemoteObject { Incarnation.IsLost: false } held && held.Incarnation == remote.Incarnation ? held.Handle : null;
+        _ = Send<FormShowParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormShow,
+            new FormShowParams { Target = remote.Handle, Modal = modal, Owner = ownerHandle, HandlingEvent = _handlingEvent });
     }
 
     /// <inheritdoc/>
@@ -236,6 +249,63 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         }
     }
 
+    // kept here, and told to the external host when it runs: one that does not is not started for it, and is told when a form starts it (Create). A
+    // telling that fails leaves that incarnation untold, and its next form tells it again.
+    bool Forms.IFormHost.KeepSystemTheme
+    {
+        get
+        {
+            lock (_holdGate)
+            {
+                return _keepSystemTheme;
+            }
+        }
+        set
+        {
+            lock (_holdGate)
+            {
+                _keepSystemTheme = value;
+            }
+
+            if (_host.Running is { } incarnation)
+            {
+                try
+                {
+                    TellTheme(incarnation, onlyIfUntold: false);
+                }
+                catch (AutomationException)
+                {
+                    lock (_holdGate)
+                    {
+                        _themeTold = null;
+                    }
+                }
+            }
+        }
+    }
+
+    // says to an incarnation the theme its windows are in; one that was told already is not told again when only the untold are.
+    private void TellTheme(Incarnation incarnation, bool onlyIfUntold)
+    {
+        bool keep;
+        lock (_holdGate)
+        {
+            if (onlyIfUntold && ReferenceEquals(_themeTold, incarnation))
+            {
+                return;
+            }
+
+            keep = _keepSystemTheme;
+        }
+
+        _ = Send<FormKeepSystemThemeParams, ExternalDoneResult>(
+            incarnation, ExternalProtocol.FormKeepSystemTheme, new FormKeepSystemThemeParams { KeepSystemTheme = keep, HandlingEvent = _handlingEvent });
+        lock (_holdGate)
+        {
+            _themeTold = incarnation;
+        }
+    }
+
     /// <inheritdoc/>
     public void DoEvents()
     {
@@ -315,7 +385,13 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     }
 
     /// <inheritdoc/>
-    public string? ClassNameOf(object target)
+    public string? ClassNameOf(object target) => ClassOf(target)?.Name;
+
+    /// <inheritdoc/>
+    public bool IsFormHostObject(object target) => ClassOf(target)?.IsFormHostObject is true;
+
+    // what the external host's server says of the class of an object; nothing for an object that is lost, or that it cannot say anything of.
+    private AutomationClassNameResult? ClassOf(object target)
     {
         if (target is not RemoteObject { Incarnation.IsLost: false } remote)
         {
@@ -325,7 +401,9 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         try
         {
             return Send<AutomationClassNameParams, AutomationClassNameResult>(
-                remote.Incarnation, ExternalProtocol.AutomationClassName, new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent }).Name;
+                remote.Incarnation,
+                ExternalProtocol.AutomationClassName,
+                new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
         }
         catch (AutomationException)
         {
@@ -448,6 +526,49 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         finally
         {
             _handlingEvent = outer;
+        }
+    }
+
+    // the number of the last dialog shown, which a close names it by.
+    private static long _lastDialog;
+
+    // whether the external host shows the program's dialogs beside its forms; one that cannot be started shows none.
+    internal bool HasDialogs => _host.TryConnect(out var incarnation) && incarnation!.HasDialogs;
+
+    // a MsgBox and an InputBox, shown by the external host and answered once closed, as a modal form is: an event raised meanwhile is handled here as any is.
+    internal VBMsgBoxResult ShowMessage(Interaction.MessageBoxRequest request, CancellationToken token)
+        => (VBMsgBoxResult)Dialog(token, (incarnation, number) => Send<FormMessageBoxParams, FormMessageBoxResult>(
+            incarnation, ExternalProtocol.FormMessageBox, FormMessageBoxParams.Of(request, number, _handlingEvent))).Result;
+
+    internal string? Prompt(Interaction.InputBoxRequest request, CancellationToken token)
+        => Dialog(token, (incarnation, number) => Send<FormInputBoxParams, FormInputBoxResult>(
+            incarnation, ExternalProtocol.FormInputBox, FormInputBoxParams.Of(request, number, _handlingEvent))).Value;
+
+    // a dialog shown until it is answered, or until the token is cancelled: the external host is then told to close it, and the run stops waiting.
+    private TResult Dialog<TResult>(CancellationToken token, Func<Incarnation, long, TResult> show)
+    {
+        token.ThrowIfCancellationRequested();
+        var incarnation = Connect();
+        var number = Interlocked.Increment(ref _lastDialog);
+        TResult answered;
+        using (token.Register(() => CloseDialog(incarnation, number)))
+        {
+            answered = show(incarnation, number);
+        }
+
+        token.ThrowIfCancellationRequested();
+        return answered;
+    }
+
+    private static void CloseDialog(Incarnation incarnation, long number)
+    {
+        try
+        {
+            _ = Send<FormCloseDialogParams, ExternalDoneResult>(incarnation, ExternalProtocol.FormCloseDialog, new FormCloseDialogParams { Dialog = number });
+        }
+        catch (AutomationException)
+        {
+            // an external host that stopped closed its dialogs with it.
         }
     }
 

@@ -7,6 +7,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
 using RDCore.Runtime.LanguageCore.Services;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Execution;
 
@@ -88,7 +89,7 @@ internal sealed class SymbolTable
     /// <summary>
     /// The scope tree of the symbols as they are now.
     /// </summary>
-    public ScopeTree ScopeTree => _scopeTree ??= ScopeTreeBuilder.Build(All());
+    public ScopeTree ScopeTree => _scopeTree ??= ProjectVisibility.ScopeTreeOf(All());
 
     /// <summary>
     /// Finds the module of this name, a standard module or a class module: the project's, or a library's when the project has none of the name.
@@ -98,21 +99,35 @@ internal sealed class SymbolTable
     /// module - is no concern of it. VBA names are not case sensitive, and neither is the lookup.
     /// </remarks>
     public bool TryGetModule(string name, [NotNullWhen(true)] out VBModuleSymbol? module)
-        => (_modules ??= IndexModules()).TryGetValue(name, out module);
+        => (_modules ??= IndexModules()).ByName.TryGetValue(name, out module);
 
-    // the modules by name, built when one is asked for after the table changed: a project's module before a library's of the same name.
-    private Dictionary<string, VBModuleSymbol> IndexModules()
+    /// <summary>
+    /// Finds the module at this address, of whichever project it is in: a referenced project's module of a name the project also has is found by its own.
+    /// </summary>
+    /// <remarks>
+    /// The address is compared whole, its fragment included, which holds the module's name: <see cref="Uri"/> equality ignores it.
+    /// </remarks>
+    public bool TryGetModule(Uri uri, [NotNullWhen(true)] out VBModuleSymbol? module)
+        => (_modules ??= IndexModules()).ByUri.TryGetValue(uri.AbsoluteUri, out module);
+
+    // the modules by name and by address, built when one is asked for after the table changed: by name, a project's module before a library's of the same
+    // name.
+    private ModuleIndex IndexModules()
     {
-        var modules = new Dictionary<string, VBModuleSymbol>(StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, VBModuleSymbol>(StringComparer.OrdinalIgnoreCase);
+        var byUri = new Dictionary<string, VBModuleSymbol>(StringComparer.Ordinal);
         foreach (var module in All().OfType<VBModuleSymbol>().OrderBy(module => module.GetProperty(SymbolProperties.Library) is null ? 0 : 1))
         {
-            modules.TryAdd(module.Name, module);
+            byName.TryAdd(module.Name, module);
+            byUri.TryAdd(module.Uri.AbsoluteUri, module);
         }
 
-        return modules;
+        return new ModuleIndex(byName, byUri);
     }
 
-    private Dictionary<string, VBModuleSymbol>? _modules;
+    private sealed record class ModuleIndex(Dictionary<string, VBModuleSymbol> ByName, Dictionary<string, VBModuleSymbol> ByUri);
+
+    private ModuleIndex? _modules;
 
     /// <summary>
     /// A copy of the table as it is now, which nothing that is done to this one reaches, and so is safe to read from another thread.
@@ -148,8 +163,23 @@ internal sealed class SymbolTable
     {
         _scopeTree = null;
         _modules = null;
-        return TableFor(scope).TryAdd(SymbolIdentity.Of(symbol), symbol);
+        var added = TableFor(scope).TryAdd(SymbolIdentity.Of(symbol), symbol);
+        if (added)
+        {
+            Version++;
+        }
+
+        return added;
     }
+
+    /// <summary>
+    /// The number of changes made to the table: a symbol added, removed, or defined again in place.
+    /// </summary>
+    /// <remarks>
+    /// While the number is unchanged, a lookup finds what it found when the number was read, so the result of a lookup can be kept against the number
+    /// (<see cref="ObjectInstance.ClassModule"/>). A copy (<see cref="Snapshot"/>) counts its own changes, starting from zero.
+    /// </remarks>
+    public int Version { get; private set; }
 
     /// <summary>
     /// Removes the declaration <paramref name="symbol"/> is from the tier its scope belongs to.
@@ -162,6 +192,7 @@ internal sealed class SymbolTable
         {
             _scopeTree = null;
             _modules = null;
+            Version++;
         }
 
         return removed;
@@ -181,6 +212,7 @@ internal sealed class SymbolTable
         TableFor(scope)[SymbolIdentity.Of(symbol)] = symbol;
         _scopeTree = null;
         _modules = null;
+        Version++;
     }
 
     // one bucket per RD-VBAL §2.3.1.2 heap tier; every scope maps onto exactly one.
@@ -230,6 +262,9 @@ internal sealed class SymbolTable
 
         public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name)
             => Resolver.ResolveProjectType(project, name);
+
+        public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name, Uri handle)
+            => Resolver.ResolveProjectType(project, name, handle);
 
         public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle)
             => Resolver.ResolveConditionalConstant(name, scope, handle);

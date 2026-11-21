@@ -118,27 +118,42 @@ internal sealed class FreeBlocksList
     }
 
     /// <summary>
-    /// Takes the smallest free block that satisfies <paramref name="size"/>, returning whatever is
-    /// left over to the free list.
+    /// Takes the smallest free block that satisfies <paramref name="size"/> on an <paramref name="alignment"/> boundary, returning whatever is
+    /// left over after it to the free list.
     /// </summary>
     /// <param name="size">The number of bytes wanted; must be positive.</param>
+    /// <param name="alignment">The boundary the block handed out starts on, a power of two.</param>
     /// <param name="block">The block handed out, exactly <paramref name="size"/> bytes long.</param>
+    /// <param name="padding">
+    /// The free bytes before <paramref name="block"/> that are skipped to align it: taken with it, so that they are freed with it and are never a free
+    /// block of their own between two that are allocated.
+    /// </param>
     /// <param name="segment">The segment it belongs to.</param>
     /// <returns><c>false</c> if no free block is big enough.</returns>
-    public bool TryTakeSmallestFit(int size, [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemoryBlock block, [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemorySegment? segment)
+    public bool TryTakeSmallestFit(
+        int size,
+        int alignment,
+        [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemoryBlock block,
+        out int padding,
+        [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemorySegment? segment)
     {
         var best = -1;
+        var bestPadding = 0;
         for (var i = 0; i < _blocks.Count; i++)
         {
-            if (_blocks[i].Block.Size >= size && (best < 0 || _blocks[i].Block.Size < _blocks[best].Block.Size))
+            var candidate = _blocks[i].Block;
+            var skipped = (int)(SessionMemory.AlignUp(candidate.Address.Value, alignment) - candidate.Address.Value);
+            if (candidate.Size - skipped >= size && (best < 0 || candidate.Size < _blocks[best].Block.Size))
             {
                 best = i;
+                bestPadding = skipped;
             }
         }
 
         if (best < 0)
         {
             block = default;
+            padding = 0;
             segment = null;
             return false;
         }
@@ -146,14 +161,15 @@ internal sealed class FreeBlocksList
         var found = _blocks[best];
         _blocks.RemoveAt(best);
 
-        block = new SessionMemoryBlock(found.Block.Address, size);
+        padding = bestPadding;
+        block = new SessionMemoryBlock(found.Block.Address + padding, size);
         segment = found.Segment;
 
-        if (found.Block.Size > size)
+        if (found.Block.Size > padding + size)
         {
             // the remainder goes back as a free block of its own, which a later free of its neighbour
             // merges back into a whole.
-            Add(new SessionMemoryBlock(found.Block.Address + size, found.Block.Size - size), found.Segment);
+            Add(new SessionMemoryBlock(block.Address + size, found.Block.Size - padding - size), found.Segment);
         }
 
         return true;

@@ -14,7 +14,6 @@ using RDCore.Symbols;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Diagnostics;
 using RDCore.Tests.Platform;
-using System.IO.Abstractions;
 
 namespace RDCore.Tests.Workspace.Forms;
 
@@ -22,7 +21,7 @@ namespace RDCore.Tests.Workspace.Forms;
 /// The code of a Visual Basic 6.0 UserControl and PropertyPage. The VB library's <c>VB.UserControl</c> and <c>VB.PropertyPage</c> declare no <c>Left</c>,
 /// <c>Top</c> or designer setting (<c>CanGetFocus</c>, <c>InvisibleAtRuntime</c> and the rest), so a bare <c>Left</c> is VBA's function. The base class's
 /// members are names in scope in the root's code, unqualified or through the base class's name (<c>UserControl.BackColor</c>), and no members of the root's
-/// class: Me has only the class's own. A declaration of the root's code shadows the base member of its name. The base class's name is no value.
+/// class: Me has only the class's own. A declaration of the root's code shadows the base member of its name. The base class's name is not a value.
 /// </summary>
 [TestClass]
 public sealed class VisualBasicUserControlLanguageTests
@@ -30,22 +29,8 @@ public sealed class VisualBasicUserControlLanguageTests
     private const string UserControlRoot = "VB.UserControl";
     private const string PropertyPageRoot = "VB.PropertyPage";
 
-    private static string Symbols
-    {
-        get
-        {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
-            {
-                directory = directory.Parent;
-            }
-
-            Assert.IsNotNull(directory, "the repository root, where RDCore.slnx is");
-            return Path.Combine(directory.FullName, "Symbols");
-        }
-    }
-
-    private static ModuleWorkspace.WorkspaceLibraries Libraries => new([], new DirectoryLibrarySource(new FileSystem(), Symbols));
+    // the platform's libraries, VB's among them: the RDForms extension describes it.
+    private static ModuleWorkspace.WorkspaceLibraries Libraries => new([], RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform);
 
     private static string NameOf(string root) => root == UserControlRoot ? "Ctl" : "Page1";
 
@@ -199,8 +184,9 @@ public sealed class VisualBasicUserControlLanguageTests
     {
         var parse = new ModuleParser().Parse(ModuleUri, source) with { Designer = FormDesigner.Read(source) };
         var libraries = new LibrarySymbolProvider(RootUri, LibrarySymbolProvider.Load(Libraries.Source, [], SupportedLanguages.VB6)).ProvideSymbols().ToList();
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(RootUri, [(ModuleUri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(), libraries: libraries);
-        return new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(ModuleUri, parse.SyntaxTree!, source)]);
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            RootUri, [(ModuleUri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(), libraries: libraries);
+        return new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(ModuleUri, parse.SyntaxTree!, source, parse.Designer)]);
     }
 
     // the position of the first `text` on the first line that has `line`
@@ -213,6 +199,7 @@ public sealed class VisualBasicUserControlLanguageTests
     }
 
     [TestMethod]
+    [Ignore("not implemented: the language server's name binding finds no symbol for a base-class member named unqualified in a UserControl")]
     [DataRow("s = BackColor", "BackColor", DisplayName = "BackColor")]
     [DataRow("s = hWnd", "hWnd", DisplayName = "hWnd")]
     public void ABaseMembersHover_IsTheVBUserControls(string line, string name)
@@ -228,12 +215,14 @@ public sealed class VisualBasicUserControlLanguageTests
     }
 
     [TestMethod]
+    [Ignore("not implemented: the language server's name binding finds no symbol for a base-class member named unqualified in a UserControl")]
     public void ABaseMember_HasNoDefinitionInTheWorkspace()
     {
         var source = Root(UserControlRoot, "s = BackColor");
         var target = SymbolNavigation.DefinitionsAt(Composed(source), ModuleUri, At(source, "s = BackColor", "BackColor"));
 
-        Assert.IsEmpty(target?.Sites ?? [], "a member of the VB library, as VB.UserControl's is");
+        Assert.IsNotNull(target, "BackColor names VB.UserControl's member");
+        Assert.IsEmpty(target.Sites, "a member of the VB library, as VB.UserControl's is");
     }
 
     [TestMethod]

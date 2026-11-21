@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
@@ -22,6 +23,7 @@ using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Server.Configuration;
@@ -51,8 +53,13 @@ internal interface ICompletionService
     /// Whether the client takes an item's edit as an insert range and a replace range (<strong>LSP 3.17</strong> <c>insertReplaceSupport</c>): each item is then
     /// given both, the replaced one to the end of the word the cursor is in (<see cref="CompletionCandidates.ListOf"/>).
     /// </param>
+    /// <param name="items">
+    /// What the client says of the completion items it takes (<strong>LSP 3.17</strong> <c>completionItem</c>): a client that takes snippets is offered the
+    /// keywords that start a block as the block (<see cref="CompletionSnippets"/>).
+    /// </param>
     /// <returns>The list; empty for a document the server does not hold, and where nothing is written - in a comment, in a string literal.</returns>
-    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null, bool insertReplace = false);
+    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null,
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null);
 
     /// <summary>
     /// The completion list at a position of a module a client supplies, which stands for the module of the workspace by its name.
@@ -128,7 +135,8 @@ internal sealed class CompletionService(
     IOptions<SdkAppOptions> options,
     ILogger<CompletionService> logger,
     IWorkspaceProjects workspaceProjects,
-    WorkspaceCompositionCache? compositions = null) : ICompletionService
+    WorkspaceCompositionCache? compositions = null,
+    IReferencedProjectService? referencedProjects = null) : ICompletionService
 {
     // the name the expression a member is accessed on is assigned to, in the line that stands for the one being typed: a name no module declares.
     private const string Probe = "RDCoreCompletionProbe";
@@ -142,7 +150,7 @@ internal sealed class CompletionService(
     private static readonly CompletionList Empty = new(isIncomplete: false);
 
     public async Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null,
-        bool insertReplace = false)
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null)
     {
         if (!documents.TryGetDocument(documentUri, out var document))
         {
@@ -156,7 +164,7 @@ internal sealed class CompletionService(
 
         var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
         return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position, token,
-            IsArgumentTrigger(triggerCharacter), insertReplace);
+            IsArgumentTrigger(triggerCharacter), insertReplace, items);
     }
 
     public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token, string? triggerCharacter = null)
@@ -279,7 +287,7 @@ internal sealed class CompletionService(
     // in (a program's lines are further down in its module).
     private async Task<CompletionList> CompleteAsync(
         Uri address, string moduleName, ModuleType kind, string source, int line, Position requested, CancellationToken token, bool argumentTrigger = false,
-        bool insertReplace = false)
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null)
     {
         var character = requested.Character;
         var lines = source.Split('\n');
@@ -297,6 +305,14 @@ internal sealed class CompletionService(
             return Empty;
         }
 
+        // a name in a directive's condition, or in a #Const's value, is a conditional-compilation constant (MS-VBAL 5.6.10): those of the module, of its
+        // project and the predefined ones are offered, and nothing else. No workspace is composed for it.
+        if (context.Kind == CompletionSiteKind.ConditionalConstant)
+        {
+            return CompletionCandidates.ListOf(context.Prefix, [], CompletionCandidates.ConditionalConstants(lines, ProjectConstantsOf(address)), requested,
+                insertReplace ? logical.After : null);
+        }
+
         // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first. A member is written in
         // an argument too, which an array is given to (UBound(r.Slots)).
         var call = context.Kind is CompletionSiteKind.Name or CompletionSiteKind.Member ? SignatureSite.Read(before) : null;
@@ -312,6 +328,12 @@ internal sealed class CompletionService(
         // where the line is - in which procedure, in which blocks - is read off the lines as they are, which need not parse.
         var placement = CompletionPlacement.Read(lines, line);
 
+        // a snippet is written with the line's own line end, and with its indentation for a client that does not add it: read before the line is taken out.
+        var lineEnd = lines[line].EndsWith('\r') ? "\r\n" : line + 1 < lines.Length ? "\n" : string.Empty;
+        var snippets = context.Kind == CompletionSiteKind.Name
+            ? CompletionSnippets.For(items, options.Value.Formatting.ToOptions(), lines[line].TrimEnd('\r'), lineEnd)
+            : null;
+
         // the line is taken out, and only what the list needs of it goes back in: what a member is accessed on - the one being completed, or the one whose
         // member is called.
         var qualifier = context.Kind == CompletionSiteKind.Member ? context.Qualifier : argument is { IsMemberAccess: true } ? argument.Qualifier : string.Empty;
@@ -326,7 +348,7 @@ internal sealed class CompletionService(
         var candidates = context.Kind switch
         {
             CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
-                new CompletionLanguage(kind.IsClass(), options.Value.Workspace.SupportedLanguage.HasBarePrint)),
+                new CompletionLanguage(kind.IsClass(), options.Value.Workspace.SupportedLanguage.HasBarePrint), snippets),
             CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
@@ -481,15 +503,35 @@ internal sealed class CompletionService(
         var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : SymbolUri.Root(root);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
-        // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
+        // a project's names are bound among what it references, libraries and projects of the workspace, as the host's analysis of it binds them.
         var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver,
             projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
+            libraries: referencedProjects?.LibrariesOf(workspaceRoot, root, token) ?? (primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null),
             documentHosts: isOwnProject ? null : DocumentHostsOf(root));
 
         return (composition, syntaxTree, workspaceRoot, moduleUri);
+    }
+
+    // the names of the conditional-compilation constants the .rdproj of the document's project defines, and the command line's for the primary project;
+    // a document of no project's has none.
+    private IEnumerable<string> ProjectConstantsOf(Uri address)
+    {
+        if (!address.IsFile || documents.WorkspaceRoot.Length == 0)
+        {
+            return [];
+        }
+
+        var root = documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
+        var project = workspaceProjects.Projects.FirstOrDefault(each => WorkspacePaths.Same(each.Root, root));
+        if (project is null)
+        {
+            return [];
+        }
+
+        var info = project.Project.ProjectInfo;
+        return (WorkspacePaths.Same(root, documents.WorkspaceRoot) ? options.Value.Workspace.WithDefines(info) : info).PrecompilerConstants.Keys;
     }
 
     // what host document each document module of a project is the code of, by the module's name: its code names the members of the host's class.
@@ -585,6 +627,13 @@ internal sealed class CompletionService(
         if (CompletionCandidates.NamespaceOf(composition.Resolver, origin, context.Qualifier, typeContext: false) is { } owner)
         {
             return CompletionCandidates.MembersOf(composition.ScopeTree, owner, origin);
+        }
+
+        // Debug is written only as the Debug.Print and Debug.Assert statements, never as a value the probe could be assigned: its members are its class's.
+        if (composition.Resolver.ResolveValue(context.Qualifier, SDK.Model.Symbols.Abstract.ScopeKind.Global, origin).Symbol is VBPredeclaredInstanceSymbol debug
+            && StandardLibrary.IsDebugObject(debug))
+        {
+            return CompletionCandidates.MembersOf(VBClassType.Of(debug.ClassModule));
         }
 
         var probe = module.Descendants().OfType<AssignmentStatementNode>().FirstOrDefault(node => node.SourceLocation.Range.Start.Line == line);

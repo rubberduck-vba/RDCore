@@ -217,16 +217,16 @@ public sealed class NodeRangeTests
     [TestMethod]
     public void AnAnnotation_IsATrivia_InsideItsCommentLine_AndItsArgumentsAreNotNodesOfTheModule()
     {
-        const string source = "'@Folder(\"Battleship.Model\") @PredeclaredId: why\r\nOption Explicit\r\n";
+        const string source = "'@Folder(\"NavalBattle.Model\") @PredeclaredId: why\r\nOption Explicit\r\n";
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.cls"), source);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
         var line = parse.Trivia.OfType<CommentTriviaNode>().Single();
         var annotations = parse.Trivia.OfType<AnnotationTriviaNode>().ToArray();
 
-        Assert.AreEqual("'@Folder(\"Battleship.Model\") @PredeclaredId: why", TextOf(source, line.SourceLocation.Range));
+        Assert.AreEqual("'@Folder(\"NavalBattle.Model\") @PredeclaredId: why", TextOf(source, line.SourceLocation.Range));
         CollectionAssert.AreEqual(new[] { "Folder", "PredeclaredId" }, annotations.Select(annotation => annotation.Name).ToArray());
-        CollectionAssert.AreEqual(new[] { "@Folder(\"Battleship.Model\")", "@PredeclaredId" }, annotations.Select(annotation => TextOf(source, annotation.SourceLocation.Range)).ToArray());
+        CollectionAssert.AreEqual(new[] { "@Folder(\"NavalBattle.Model\")", "@PredeclaredId" }, annotations.Select(annotation => TextOf(source, annotation.SourceLocation.Range)).ToArray());
         Assert.AreEqual(1, parse.SyntaxTree!.Children.Length, "only the Option Explicit directive is a node of the module");
     }
 

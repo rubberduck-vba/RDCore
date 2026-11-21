@@ -307,9 +307,88 @@ public sealed class CompiledByRefCallTests
         Assert.IsGreaterThanOrEqualTo(1L, walkedBack, "Increment is compiled, and handed to the interpreter");
     }
 
-    // Go passes Touch a value by reference twice, and its variable once, in each of count turns; Touch takes the address of its parameter, after the
-    // statements given, if any.
-    private static string Touching(string kept) => Program(
+    // P is given an element, or a field, by reference, and prints how far its parameter is from it (VarPtr), what it holds once P assigned the parameter, and
+    // the parameter once P assigned it: the parameter is bound where the element is, a second name for it (MS-VBAL §5.3.1.11), and MS-VBA gives the two one
+    // address.
+    private static string ElementPassed(string declarations, string setUp, string element, string type, string member, string first, string second)
+        => Program(
+            declarations,
+            "Public Sub Main()",
+            setUp,
+            $"    P {element}",
+            "End Sub",
+            $"Private Sub P(ByRef T As {type})",
+            $"    Debug.Print VarPtr(T) - VarPtr({element})",
+            $"    T{member} = {first}",
+            $"    Debug.Print {element}{member}",
+            $"    {element}{member} = {second}",
+            $"    Debug.Print T{member}",
+            "End Sub");
+
+    private const string Record = "Private Type Rec\r\n    X As Long\r\n    S As String\r\nEnd Type";
+
+    [TestMethod]
+    [DataRow("Private A(1 To 2) As String", "", "A(1)", "String", "", "\"t\"", "\"a\"", "0 ; t ; a", DisplayName = "a String element")]
+    [DataRow("Private A(1 To 2) As Long", "", "A(1)", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "a Long element")]
+    [DataRow("Private A(1 To 2) As Variant", "", "A(1)", "Variant", "", "\"t\"", "3", "0 ; t ; 3", DisplayName = "a Variant element")]
+    [DataRow(Record + "\r\nPrivate A(1 To 2) As Rec", "", "A(2)", "Rec", ".S", "\"t\"", "\"a\"", "0 ; t ; a", DisplayName = "a record element")]
+    [DataRow("Private A(1 To 2, 1 To 3) As Long", "", "A(2, 3)", "Long", "", "2", "3", "0 ; 2 ; 3", DisplayName = "an element of a 2D array")]
+    [DataRow("Private A() As String", "    ReDim A(0 To 4)", "A(3)", "String", "", "\"t\"", "\"a\"", "0 ; t ; a",
+        DisplayName = "an element of a dynamic array")]
+    [DataRow("Private V As Variant", "    V = Array(1, 2)", "V(1)", "Variant", "", "\"t\"", "3", "0 ; t ; 3",
+        DisplayName = "an element of an array a Variant holds")]
+    public async Task AnElementPassedByReference_IsBoundWhereTheElementIs(
+        string declarations, string setUp, string element, string type, string member, string first, string second, string expected)
+    {
+        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, member, first, second));
+
+        StringAssert.Contains(observed, $"| {expected} |");
+    }
+
+    private const string RecordArray = Record + "\r\nPrivate A(1 To 2) As Rec";
+    private const string RecordVariable = Record + "\r\nPrivate R As Rec";
+    private const string ArrayFieldRecord = "Private Type Holder\r\n    N As Long\r\n    Arr(1 To 3) As Long\r\nEnd Type\r\nPrivate R As Holder";
+    private const string RecordAddressFirst = "    Dim Q As LongPtr: Q = VarPtr(R)";
+
+    // R.I.X is where R.I and R are: the type of the parameter tells the three apart.
+    private const string NestedRecord = "Private Type Inner\r\n    X As Long\r\n    S As String\r\nEnd Type\r\n"
+        + "Private Type Outer\r\n    I As Inner\r\n    N As Long\r\nEnd Type\r\nPrivate R As Outer";
+    private const string RecordArray2D = Record + "\r\nPrivate A(1 To 2, 1 To 3) As Rec";
+
+    // a field of a record, and an element of a fixed-size array field of one, is where the record is: the record's address plus its offset (VarPtr), which
+    // the parameter is bound at. Main takes the record's address first, so that the field is where the record is whichever is asked for first.
+    [TestMethod]
+    [DataRow(RecordArray, "", "A(2).X", "Long", "2", "3", DisplayName = "the address of a field of a record element")]
+    [DataRow(ArrayFieldRecord, RecordAddressFirst, "R.Arr(2)", "Long", "2", "3", DisplayName = "the address of an element of a fixed-size array field")]
+    [DataRow(RecordVariable, RecordAddressFirst, "R.S", "String", "\"t\"", "\"a\"", DisplayName = "the address of a field of a record")]
+    [DataRow(NestedRecord, RecordAddressFirst, "R.I.X", "Long", "2", "3", DisplayName = "the address of the first field of a record field")]
+    [DataRow(RecordArray2D, "", "A(2, 3).S", "String", "\"t\"", "\"a\"", DisplayName = "the address of a field of a record element of a 2D array")]
+    public async Task AFieldPassedByReference_IsBoundWhereTheFieldIs(
+        string declarations, string setUp, string element, string type, string first, string second)
+    {
+        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, "", first, second));
+
+        StringAssert.Contains(observed, "| 0 ; ");
+    }
+
+    // the same places: what P writes through its parameter is in the place, and what is written to the place P reads through its parameter.
+    [TestMethod]
+    [DataRow(RecordArray, "", "A(2).X", "Long", "2", "3", "2 ; 3", DisplayName = "a field of a record element")]
+    [DataRow(ArrayFieldRecord, RecordAddressFirst, "R.Arr(2)", "Long", "2", "3", "2 ; 3", DisplayName = "an element of a fixed-size array field")]
+    [DataRow(RecordVariable, RecordAddressFirst, "R.S", "String", "\"t\"", "\"a\"", "t ; a", DisplayName = "a field of a record")]
+    [DataRow(NestedRecord, RecordAddressFirst, "R.I.X", "Long", "2", "3", "2 ; 3", DisplayName = "the first field of a record field")]
+    [DataRow(RecordArray2D, "", "A(2, 3).S", "String", "\"t\"", "\"a\"", "t ; a", DisplayName = "a field of a record element of a 2D array")]
+    public async Task AFieldPassedByReference_IsTheField(
+        string declarations, string setUp, string element, string type, string first, string second, string expected)
+    {
+        var (observed, _) = await AssertAlikeAsync(ElementPassed(declarations, setUp, element, type, "", first, second));
+
+        StringAssert.StartsWith(observed, "Completed |");
+        StringAssert.Contains(observed, $" ; {expected} |");
+    }
+
+    // Go passes Touch a value by reference twice, and its variable once, in each of count turns; Touch takes the address of its parameter.
+    private static string Touching() => Program(
         "Public Sub Main()",
         "    Debug.Print Go(100)",
         "End Sub",
@@ -323,31 +402,10 @@ public sealed class CompiledByRefCallTests
         "    Go = n",
         "End Function",
         "Private Sub Touch(ByRef x As Long)",
-        kept,
         "    Dim p As LongPtr",
         "    p = VarPtr(x)",
         "    x = x + 1",
         "End Sub");
-
-    // a value passed by reference to a callee the interpreter runs is a value, as the interpreter passes it: the callee's cell is its own, and is let go of
-    // with its frame, even after the callee took its address. What is still allocated once the program ended is what the interpreter leaves. Touch counts
-    // a For loop that never turns with its parameter: a loop counted with a variable held in a cell is not compiled, so the interpreter runs Touch.
-    [TestMethod]
-    public async Task AValuePassedByReference_ToAnInterpretedCallee_IsLetGoOfWithTheCallee()
-    {
-        var program = Touching("    For x = x To x - 1\r\n    Next");
-        CompiledExecutionTests.RequirePayloads();
-        var interpreted = await AllocatedAfterAsync(program, VBExecutionEngine.Interpreter);
-        var compiled = await AllocatedAfterAsync(program, VBExecutionEngine.Compiled);
-
-        StringAssert.Contains(compiled.Observed, "| 100 |");
-        Assert.AreEqual((false, "ForCounter x"), compiled.Touch, "Touch is not compiled, for its For loop");
-        Assert.AreEqual((interpreted.Observed, interpreted.Allocated), (compiled.Observed, compiled.Allocated));
-        if (!CompiledExecution.HandsOverAtRandom)
-        {
-            Assert.AreEqual(300L, compiled.Indirect, "Go is compiled, and calls Touch through the invoker");
-        }
-    }
 
     // a value passed by reference to a compiled callee that compiled code enters through its typed entry is a value too: the cell compiled code gives it is
     // the callee's own, and is let go of with the callee, even after the callee took its address. What is still allocated once the program ended is what
@@ -355,7 +413,7 @@ public sealed class CompiledByRefCallTests
     [TestMethod]
     public async Task AValuePassedByReference_ToACompiledCallee_IsLetGoOfWithTheCallee()
     {
-        var program = Touching(string.Empty);
+        var program = Touching();
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await AllocatedAfterAsync(program, VBExecutionEngine.Interpreter);
         var compiled = await AllocatedAfterAsync(program, VBExecutionEngine.Compiled);
@@ -386,7 +444,8 @@ public sealed class CompiledByRefCallTests
         return made;
     }
 
-    // compiled code passes its variable by reference to a callee it does not compile as the interpreter does: the cell, which the callee's parameter is.
+    // compiled code passes its variable by reference to a callee it calls through the invoker (a Variant, which its frame holds) as the interpreter does:
+    // the cell, which the callee's parameter is.
     [TestMethod]
     public async Task ACompiledCaller_PassesItsVariable_ToAnInterpretedCallee()
     {
@@ -402,7 +461,7 @@ public sealed class CompiledByRefCallTests
             "    Count = s",
             "End Function",
             "Private Sub Bump(ByRef x As Long)",
-            "    Dim t As String",
+            "    Dim t As Variant",
             "    t = \"x\"",
             "    x = x + Len(t)",
             "End Sub"), provider => BodyOf(provider, "Count").IndirectCalls);
@@ -412,38 +471,6 @@ public sealed class CompiledByRefCallTests
         {
             Assert.AreEqual(10L, indirect);
         }
-    }
-
-    // a For loop that counts with a variable it passes by reference is the interpreter's: compiled code counts in a local, which is no cell.
-    [TestMethod]
-    public async Task AForLoopCountingWithAVariablePassedByReference_IsNotCompiled()
-    {
-        CompiledExecutionTests.RequirePayloads();
-        IReadOnlyList<Ineligibility> reasons = [];
-        using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
-        await ModuleWorkspace.InspectAsync([], Program(
-            "Public Sub Main()",
-            "    Debug.Print Count()",
-            "End Sub",
-            "Private Function Count() As Long",
-            "    Dim i As Long, s As Long",
-            "    For i = 1 To 6",
-            "        Increment i",
-            "        s = s + 1",
-            "    Next",
-            "    Count = s",
-            "End Function",
-            "Private Sub Increment(ByRef x As Long)",
-            "    x = x + 1",
-            "End Sub"), (provider, run, _) =>
-        {
-            StringAssert.Contains(Observed(run), "| 3 |");
-            reasons = provider.Image.Compiler.Results.Single(result => result.Procedure.Name == "Count").Result.Reasons;
-            return Task.CompletedTask;
-        }, engine: VBExecutionEngine.Compiled);
-
-        var reason = Assert.ContainsSingle(reasons);
-        Assert.AreEqual((IneligibilityKind.ForCounter, "i"), (reason.Kind, reason.Detail));
     }
 
     // how the language server turns text into the statement the host runs: the one statement of a procedure written for the purpose.
@@ -640,5 +667,78 @@ public sealed class CompiledByRefCallTests
         Assert.AreEqual(interpreted, compiled);
         StringAssert.Contains(compiled, "x=2, n=2 | n=50");
         StringAssert.Contains(compiled, "| 60 |");
+    }
+
+    // the program waits below a compiled callee given a String by reference and one by value, and holding one of its own: the debugger sees each of them,
+    // the one by reference as the caller's variable, which what the debugger assigns the parameter writes.
+    private static async Task<string> WaitedBelowProbedAsync(VBExecutionEngine engine)
+    {
+        var observed = string.Empty;
+        using var running = CompiledExecution.Running(engine);
+        await ModuleWorkspace.InspectAsync([], Program(
+            "Public Sub Main()",
+            "    Debug.Print Go()",
+            "End Sub",
+            "Private Function Go() As String",
+            "    Dim s As String",
+            "    s = \"x-\"",
+            "    Probed s, \"y\"",
+            "    Go = s",
+            "End Function",
+            "Private Sub Probed(ByRef t As String, ByVal a As String)",
+            "    Dim l As String",
+            "    l = a & \"z\"",
+            "    Pause 0",
+            "    t = t & l",
+            "End Sub",
+            "Private Sub Pause(ByVal z As Long)",
+            "    Stop",
+            "End Sub"), async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var stack = provider.Execution.Stack().Frames;
+                string ValueIn(string procedure, string name)
+                    => provider.Execution.Variables(stack.Single(frame => frame.Procedure == procedure).Id, DebugVariableScope.Locals, 0).Variables
+                        .Single(variable => variable.Name == name).Value;
+
+                observed = $"t={ValueIn("Probed", "t")}, a={ValueIn("Probed", "a")}, l={ValueIn("Probed", "l")}, s={ValueIn("Go", "s")}";
+                var probed = stack.Single(frame => frame.Procedure == "Probed").Id;
+                var assigned = await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
+                    .Handle(new HostDebugExecuteParams { FrameId = probed, Json = PlatformJson.Serialize(Statement("t = \"w-\"")) }, CancellationToken.None)
+                    .WaitAsync(Patience);
+                Assert.IsTrue(assigned.Success, assigned.Error);
+                observed += $" | s={ValueIn("Go", "s")}";
+                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.HandsOverAtRandom)
+                {
+                    var go = BodyOf(provider, "Go");
+                    Assert.AreEqual((1L, 0L), (go.DirectCalls, go.IndirectCalls), "Go calls Probed through its typed entry");
+                }
+
+                observed += " | " + Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                    .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
+            }
+            finally
+            {
+                if (provider.Execution.State is not ProgramState.Idle)
+                {
+                    _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+                }
+            }
+        }, debug: true, engine: engine);
+        return observed;
+    }
+
+    [TestMethod]
+    public async Task AStringPassedByReference_IsTheCallersVariable_ToADebugger()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await WaitedBelowProbedAsync(VBExecutionEngine.Interpreter);
+        var compiled = await WaitedBelowProbedAsync(VBExecutionEngine.Compiled);
+
+        Assert.AreEqual(interpreted, compiled);
+        StringAssert.Contains(compiled, "t=\"x-\", a=\"y\", l=\"yz\", s=\"x-\" | s=\"w-\"");
+        StringAssert.Contains(compiled, "w-yz");
     }
 }

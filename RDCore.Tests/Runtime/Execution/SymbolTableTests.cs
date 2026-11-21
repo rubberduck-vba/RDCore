@@ -99,6 +99,27 @@ public sealed class SymbolTableTests
     }
 
     [TestMethod]
+    public void ItsVersion_Changes_WithEveryChangeMadeToIt_AndNotWithAChangeNotMade()
+    {
+        var table = new SymbolTable();
+        var module = Module("Module1");
+        var versions = new List<int> { table.Version };
+
+        Assert.IsTrue(table.TryAdd(module, module.ScopeKind));
+        versions.Add(table.Version);
+        Assert.IsFalse(table.TryAdd(module with { }, module.ScopeKind));
+        Assert.AreEqual(versions[^1], table.Version, "a definition the table did not take changes nothing");
+        table.Replace(module with { }, module.ScopeKind);
+        versions.Add(table.Version);
+        Assert.IsTrue(table.Remove(module, module.ScopeKind));
+        versions.Add(table.Version);
+        Assert.IsFalse(table.Remove(module, module.ScopeKind));
+        Assert.AreEqual(versions[^1], table.Version, "a declaration the table did not hold changes nothing");
+
+        Assert.HasCount(versions.Count, versions.Distinct());
+    }
+
+    [TestMethod]
     public void TwoTables_DoNotShareTheirDeclarations()
     {
         var first = new SymbolTable();

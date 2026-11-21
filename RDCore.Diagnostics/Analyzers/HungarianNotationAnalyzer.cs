@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -19,13 +20,15 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </para>
 /// <para>
 /// The names of the controls of a form (<c>txtName</c>, <c>cmdOK</c>) are not reported: the platform has no source range for a control. A name that
-/// begins with a control's prefix is reported wherever the module declares it.
+/// begins with a control's prefix is reported wherever the module declares it. The handler of a control's event (<c>txtName_Change</c>) is reported at
+/// the handler, and is changed by renaming the control: the finding offers no rename of its own. So is the handler of an event, and the implementation of
+/// an interface member, declared by a project of the workspace, which renaming the event or the member changes. Every finding offers to allow its name.
 /// </para>
 /// </remarks>
 /// <param name="options">The settings of the extension.</param>
-internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> options) : SyntaxTreeAnalyzer
+internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> options) : IModuleAnalyzer
 {
-    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.HungarianNotation.ToCode()];
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.HungarianNotation.ToCode()];
 
     /// <summary>
     /// The lowercase prefixes that state the type of what they begin the name of: those of Rubberduck's inspection, and <c>dic</c>, <c>rng</c>, <c>rs</c>,
@@ -39,22 +42,28 @@ internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> opt
     ];
 
     // the names are read when a module is analyzed: they are a live setting, which the client can change while the extension runs.
-    protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
+    public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         var allowed = new HashSet<string>(options.Value.HungarianNotation.AllowedNames ?? [], StringComparer.OrdinalIgnoreCase);
-        return Analyze(module, allowed);
+        return context.ParseResult.SyntaxTree is { } module ? Analyze(module, allowed, context.Semantics?.Declarations) : [];
     }
 
-    private static IEnumerable<AnalyzerFinding> Analyze(ModuleNode module, HashSet<string> allowed)
-        => DeclaredNames.In(module)
+    private static IEnumerable<AnalyzerFinding> Analyze(ModuleNode module, HashSet<string> allowed, IEnumerable<DeclarationFactDto>? declarations)
+        => DeclaredNames.In(module, declarations)
             .Where(declared => !allowed.Contains(declared.Name) && IsHungarian(declared.Name))
             .Select(declared => new AnalyzerFinding(
                 RDCoreDiagnosticId.HungarianNotation.ToCode(),
                 declared.Range,
                 DiagnosticSeverity.Information,
-                Say(RDCoreDiagnosticsResources.HungarianNotation_Message, declared.Name))
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.HungarianNotation_Message, declared.Name))
             {
-                Fixes = new DiagnosticFixes { Rename = new RenameFix { Suggestions = WithoutPrefix(declared.Name) is { } suggested ? [suggested] : [] } },
+                Fixes = new DiagnosticFixes
+                {
+                    Rename = declared.IsModule || declared.IsBound
+                        ? null
+                        : new RenameFix { Suggestions = WithoutPrefix(declared.Name) is { } suggested ? [suggested] : [] },
+                    Setting = AllowedNames.Allowing(nameof(DiagnosticsOptions.HungarianNotation), declared.Name),
+                },
             });
 
     /// <summary>

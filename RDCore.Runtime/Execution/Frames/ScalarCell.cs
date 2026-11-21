@@ -1,3 +1,4 @@
+using RDCore.Runtime.Compiled;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -23,7 +24,7 @@ namespace RDCore.Runtime.Execution.Frames;
 /// is written again: <see cref="TryRead"/> says so.
 /// </para>
 /// </remarks>
-internal sealed class ScalarCell : ICopyableBinding
+internal sealed class ScalarCell : ICopyableBinding, IAddressedCell
 {
     private IRuntimeValue? _boxed;
     private ScalarPayload _payload;
@@ -141,6 +142,15 @@ internal sealed class ScalarCell : ICopyableBinding
 /// <param name="Floating">The value of a floating-point type, or the serial of a <c>Date</c>.</param>
 internal readonly record struct ScalarPayload(VBType Type, long Integral, double Floating)
 {
+    /// <summary>
+    /// The kind of <see cref="Type"/> (<see cref="ScalarKinds.Of"/>): what an operation on payloads is chosen by. <see langword="null"/> of a type that is
+    /// not a scalar type, of which no payload is ever read.
+    /// </summary>
+    /// <remarks>
+    /// It is found when it is read, not kept: a payload is made far more often than its kind is read, and is copied by value.
+    /// </remarks>
+    public ScalarKind? Kind => ScalarKinds.Of(Type);
+
     /// <summary>What a <c>Currency</c> is scaled by, to be held in <see cref="Integral"/>.</summary>
     public const long CurrencyScale = 10000;
 
@@ -166,7 +176,13 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
     /// <summary>
     /// The payload as a <c>Variant</c> holds it: of the type <see cref="AliasOf"/> gives of its type, the type a <c>LongPtr</c> is an alias of.
     /// </summary>
-    public ScalarPayload HeldByAVariant() => this with { Type = AliasOf(Type) };
+    /// <remarks>
+    /// Only a payload of a <c>Long</c> or a <c>LongLong</c> kind can be of a <c>LongPtr</c>: any other is held as it is, and is not tested against either
+    /// <c>LongPtr</c> type, which is not sealed (<see cref="ScalarKinds.Of"/>).
+    /// </remarks>
+    public ScalarPayload HeldByAVariant() => Kind is ScalarKind.Long or ScalarKind.LongLong && Type is not (VBLongType or VBLongLongType)
+        ? this with { Type = AliasOf(Type) }
+        : this;
 
     /// <summary>Whether the value is held in <see cref="Integral"/>: one of the integer types, a <c>Boolean</c> or a <c>Currency</c>.</summary>
     public bool IsIntegral => Type is not (VBSingleType or VBDoubleType or VBDateType);

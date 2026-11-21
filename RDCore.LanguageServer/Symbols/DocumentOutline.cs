@@ -3,7 +3,6 @@ using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
@@ -106,7 +105,7 @@ internal static class DocumentOutline
     /// source text — and the selection range is the module-level <c>Attribute VB_Name</c> directive
     /// when the module declares one, falling back to a zero-width range at the start of that span.
     /// </summary>
-    private static (SourceRange Range, SourceRange SelectionRange) ModuleRangesOf(ModuleNode module)
+    internal static (SourceRange Range, SourceRange SelectionRange) ModuleRangesOf(ModuleNode module)
     {
         if (module.Children.IsDefaultOrEmpty)
         {
@@ -115,9 +114,7 @@ internal static class DocumentOutline
 
         var range = new SourceRange(module.Children[0].SourceLocation.Range.Start, module.Children[^1].SourceLocation.Range.End);
 
-        var nameAttribute = module.Children.OfType<AttributeDirectiveNode>()
-            .FirstOrDefault(attribute => attribute.Binding is null && string.Equals(attribute.Name, Tokens.VB_Name, StringComparison.OrdinalIgnoreCase));
-        var selectionRange = nameAttribute?.SourceLocation.Range ?? new SourceRange(range.Start, range.Start);
+        var selectionRange = module.GetDeclaredNameDirective()?.SourceLocation.Range ?? new SourceRange(range.Start, range.Start);
 
         return (range, selectionRange);
     }

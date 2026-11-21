@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 
@@ -46,6 +47,13 @@ internal sealed class WorkspaceFileSystemWatcher(
     public static IReadOnlyList<string> SourceExtensions { get; } = [.. SupportedLanguages.All
         .SelectMany(language => language.FileTypes)
         .Select(fileType => fileType.TrimStart('*', '.').ToLowerInvariant())
+        .Distinct()];
+
+    /// <summary>
+    /// The extensions of the binary files of designers (a form's .frx), without their dot: watched for the renames that replace them (StagedFiles).
+    /// </summary>
+    public static IReadOnlyList<string> CompanionExtensions { get; } = [.. FormDesigner.CompanionExtensions.Values
+        .Select(extension => extension.TrimStart('.').ToLowerInvariant())
         .Distinct()];
 
     private static StringComparison PathComparison => WorkspacePaths.Comparison;
@@ -162,7 +170,7 @@ internal sealed class WorkspaceFileSystemWatcher(
         await changes.ChangedAsync(said, _server!);
     }
 
-    // the workspace's project file, and a source file under the root that no dot folder holds.
+    // the workspace's project file, and a source file or a designer's binary file under the root that no dot folder holds.
     private bool IsWatched(string path)
     {
         var relative = fileSystem.Path.GetRelativePath(_root, path).Replace('\\', '/');
@@ -177,7 +185,7 @@ internal sealed class WorkspaceFileSystemWatcher(
         }
 
         return !relative.Split('/').Any(segment => segment.StartsWith('.'))
-            && SourceExtensions.Any(extension => relative.EndsWith("." + extension, StringComparison.OrdinalIgnoreCase));
+            && SourceExtensions.Concat(CompanionExtensions).Any(extension => relative.EndsWith("." + extension, StringComparison.OrdinalIgnoreCase));
     }
 
     public void Dispose()

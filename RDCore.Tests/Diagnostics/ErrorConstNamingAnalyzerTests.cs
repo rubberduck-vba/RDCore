@@ -111,6 +111,11 @@ public sealed class ErrorConstNamingAnalyzerTests
         StringAssert.Contains(findings[1].Message, "'local'");
     }
 
+    // Rubberduck's implicitly typed Const inspection reads constants only, and an Enum's members are none.
+    [TestMethod]
+    public void TheMembersOfAnEnum_AreNotReported()
+        => Assert.IsEmpty(Run(new ImplicitConstantTypeAnalyzer(), Module("Public Enum Colour\n    Red\n    Green = 2\nEnd Enum\nPrivate Enum Size\n    Small = 1\nEnd Enum")));
+
     #endregion
 
     #region RDC00408 an underscore in a member of the interface of a class
@@ -224,7 +229,7 @@ public sealed class ErrorConstNamingAnalyzerTests
         var designer = FormDesigner.Read(form)!;
         var payload = await ModuleWorkspace.SemanticsAsync(
             [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n", language: SupportedLanguages.VB6,
-            libraries: new ModuleWorkspace.WorkspaceLibraries([], new DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols)),
+            libraries: new ModuleWorkspace.WorkspaceLibraries([], ShippedLibrariesTests.Platform),
             forms: [("Form1", form, designer)]);
         var model = payload.Modules.Single(module => SymbolUri.ModuleNameOf(module.Module) == "Form1");
         Assert.IsTrue(model.Declarations.Any(declaration => declaration.Name == "_Default"), "the designer declares the VB Form's members on the form's class");

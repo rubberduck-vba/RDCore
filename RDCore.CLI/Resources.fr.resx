@@ -205,6 +205,9 @@
   <data name="ExportLibrary_Skipped" xml:space="preserve">
     <value>Non décrit : {0}.</value>
   </data>
+  <data name="ExportLibrary_Lost" xml:space="preserve">
+    <value>Le fichier remplacé indique des faits sur des membres que la bibliothèque ne déclare plus; ces faits sont perdus : {0}.</value>
+  </data>
   <data name="Command_Unknown" xml:space="preserve">
     <value>Commande inconnue.</value>
   </data>
@@ -272,7 +275,7 @@
     <value>Avec un espace de travail, l'interpréteur exécute les instructions dans son projet. Le programme numéroté, et les commandes qui s'en servent, sont pour l'interpréteur sans espace de travail.</value>
   </data>
   <data name="Repl_UndefinedLine" xml:space="preserve">
-    <value>ERREUR: LIGNE NON DÉFINIE</value>
+    <value>ERREUR : LIGNE NON DÉFINIE</value>
   </data>
   <data name="Repl_UndefinedModule" xml:space="preserve">
     <value>ERREUR : MODULE NON DÉFINI</value>
@@ -284,7 +287,7 @@
     <value>AUCUNE INSTRUCTION À {0}</value>
   </data>
   <data name="Repl_NotAvailable" xml:space="preserve">
-    <value>ERREUR: NON DISPONIBLE</value>
+    <value>ERREUR : NON DISPONIBLE</value>
   </data>
   <data name="Repl_NotAvailable_Verbose" xml:space="preserve">
     <value>Le serveur de langage ne fournit pas la capacité de plateforme « {0} ».</value>
@@ -305,7 +308,7 @@
     <value>Affiche la liste des commandes.</value>
   </data>
   <data name="Repl_Help_Blocks" xml:space="preserve">
-    <value>Une ligne numérotée dans un bloc ouvert (If, Select Case, une boucle, With) ouvre la ligne suivante sur son numéro plus 10, avec les fermetures en dessous. Tab prend le numéro ; une fois que le bloc a une instruction, Tab prend sa fermeture et valide la ligne.</value>
+    <value>Une ligne numérotée dans un bloc ouvert (If, Select Case, une boucle, With) ouvre la ligne suivante sur son numéro plus 10, avec les fermetures en dessous. Tab prend le numéro; une fois que le bloc a une instruction, Tab prend sa fermeture et valide la ligne.</value>
   </data>
   <data name="Repl_List_Summary" xml:space="preserve">
     <value>Affiche le programme, ou une plage de lignes (LIST 100-200).</value>
@@ -314,10 +317,10 @@
     <value>Efface le programme.</value>
   </data>
   <data name="Repl_Load_Summary" xml:space="preserve">
-    <value>Charge un programme depuis un fichier .rdc: LOAD &lt;nom&gt;</value>
+    <value>Charge un programme depuis un fichier .rdc : LOAD &lt;nom&gt;</value>
   </data>
   <data name="Repl_Save_Summary" xml:space="preserve">
-    <value>Enregistre le programme dans un fichier .rdc; dans le fichier d'origine sans nom: SAVE [&lt;nom&gt;]</value>
+    <value>Enregistre le programme dans un fichier .rdc; dans le fichier d'origine sans nom : SAVE [&lt;nom&gt;]</value>
   </data>
   <data name="Repl_BadFileName" xml:space="preserve">
     <value>BAD FILE NAME ERROR</value>
@@ -356,16 +359,16 @@
     <value>{0} DANS {1} À LA LIGNE {2}</value>
   </data>
   <data name="Repl_RuntimeError_Source" xml:space="preserve">
-    <value>SOURCE: {0}</value>
+    <value>SOURCE : {0}</value>
   </data>
   <data name="Repl_RuntimeError_StackTrace" xml:space="preserve">
-    <value>PILE D'APPELS:</value>
+    <value>PILE D'APPELS :</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
-    <value>ERREUR: NON IMPLÉMENTÉ</value>
+    <value>ERREUR : NON IMPLÉMENTÉ</value>
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
-    <value>ERREUR: PROCÉDURE NON DÉFINIE</value>
+    <value>ERREUR : PROCÉDURE NON DÉFINIE</value>
   </data>
   <data name="Repl_Analyze_NoFindings" xml:space="preserve">
     <value>RIEN À SIGNALER ({0} FOURNISSEUR(S))</value>
@@ -374,16 +377,16 @@
     <value>{0} DIAGNOSTIC(S)</value>
   </data>
   <data name="Repl_Memory_NotAllocated" xml:space="preserve">
-    <value>ERREUR: ADRESSE ILLÉGALE</value>
+    <value>ERREUR : ADRESSE ILLÉGALE</value>
   </data>
   <data name="Repl_Memory_BadArguments" xml:space="preserve">
-    <value>ERREUR: QUANTITÉ ILLÉGALE</value>
+    <value>ERREUR : QUANTITÉ ILLÉGALE</value>
   </data>
   <data name="Repl_Memory_Summary" xml:space="preserve">
     <value>Affiche un sommaire de l'utilisation de la mémoire de la session.</value>
   </data>
   <data name="Repl_Theme_Summary" xml:space="preserve">
-    <value>Modifie le thème (couleurs) de la console, ou affiche les thèmes disponibles: THEME LIST|&lt;nom&gt;</value>
+    <value>Modifie le thème (couleurs) de la console, ou affiche les thèmes disponibles : THEME LIST|&lt;nom&gt;</value>
   </data>
   <data name="Repl_Theme_ChooseHint" xml:space="preserve">
     <value>←/→ pour choisir, ENTRÉE pour appliquer, ÉCHAP pour garder le thème actuel</value>
@@ -462,6 +465,12 @@
   </data>
   <data name="Repl_Frame_InModuleLine" xml:space="preserve">
     <value>({0} à la ligne {1})</value>
+  </data>
+  <data name="Repl_Frame_FromGoSub" xml:space="preserve">
+    <value>depuis {0}</value>
+  </data>
+  <data name="Repl_Frame_InHandler" xml:space="preserve">
+    <value>dans {0}</value>
   </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>il n'y a pas de session d'exécution</value>
@@ -629,7 +638,7 @@
     <value>Si la console exécute les programmes sans surveillance (--unattended) : personne n'est là pour répondre à une boîte de dialogue, et un programme qui en ouvre une - MsgBox, InputBox, un formulaire affiché - échoue avec VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Si rdc run, et les programmes que rdc build construit, affichent MsgBox et InputBox comme les boîtes de dialogue de la machine là où elle en a (Windows), plutôt que de les demander à la console.</value>
+    <value>Si un programme exécuté par rdc run ou construit par rdc build affiche MsgBox et InputBox comme des boîtes de dialogue de Windows, plutôt que comme des boîtes de dialogue RDForms (une application RDForms) ou à la console (une application console). Seul Windows en a : sur tout autre système d'exploitation, ce paramètre ne change rien.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>Combien de lignes du programme sont listées au-dessus et au-dessous de la ligne où un programme s'est arrêté, après INTERRUPTION À LA LIGNE. 0 n'en liste aucune.</value>
@@ -861,5 +870,80 @@
   </data>
   <data name="Install_ProfileHasBlock" xml:space="preserve">
     <value>{0} n&apos;est pas encore dans le PATH de ce terminal : {1} l&apos;y ajoute dans un nouveau terminal.</value>
+  </data>
+  <data name="Mcp_Summary" xml:space="preserve">
+    <value>Sert les outils de RDCore à un assistant, comme serveur Model Context Protocol sur l'entrée et la sortie standard.</value>
+  </data>
+  <data name="Mcp_Usage" xml:space="preserve">
+    <value>Utilisation : rdc mcp --workspace &lt;chemin&gt;. L'espace de travail est un dossier, avec ou sans fichier .rdproj.</value>
+  </data>
+  <data name="Mcp_NoSuchWorkspace" xml:space="preserve">
+    <value>Le dossier d'espace de travail « {0} » n'existe pas.</value>
+  </data>
+  <data name="Mcp_Instructions" xml:space="preserve">
+    <value>Les outils lisent et vérifient le code VBA de l'espace de travail RDCore situé à {0}. Les chemins sont relatifs à ce dossier, ou absolus; les lignes et les colonnes comptent à partir de 1.</value>
+  </data>
+  <data name="BenchMsVba_Summary" xml:space="preserve">
+    <value>Exécute le corpus de bancs d&apos;essai et les cas d&apos;automatisation d&apos;Excel dans MS-VBA et dans RD-VBA, en tours alternés sur cette machine, et écrit les chiffres de référence (msvba.json). Requiert Windows et Excel.</value>
+  </data>
+  <data name="BenchMsVba_OutHelp" xml:space="preserve">
+    <value>Le fichier où les chiffres de référence sont écrits.</value>
+  </data>
+  <data name="BenchMsVba_RoundsHelp" xml:space="preserve">
+    <value>Le nombre de tours : chacun exécute le corpus une fois de chaque côté, MS-VBA d&apos;abord aux tours impairs et RD-VBA d&apos;abord aux tours pairs.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRoundsHelp" xml:space="preserve">
+    <value>Le nombre des premiers tours qui exécutent aussi les cas d&apos;automatisation d&apos;Excel, des deux côtés; 0 n&apos;en exécute aucun.</value>
+  </data>
+  <data name="BenchMsVba_RunsHelp" xml:space="preserve">
+    <value>Le nombre d&apos;exécutions de chaque cas du corpus par tour; l&apos;exécution la plus rapide de tous les tours est retenue.</value>
+  </data>
+  <data name="BenchMsVba_ExcelRunsHelp" xml:space="preserve">
+    <value>Le nombre d&apos;exécutions de chaque cas d&apos;automatisation d&apos;Excel par tour.</value>
+  </data>
+  <data name="BenchMsVba_BadCounts" xml:space="preserve">
+    <value>--rounds, --runs et --excel-runs doivent valoir au moins 1, et --excel-rounds entre 0 et --rounds.</value>
+  </data>
+  <data name="BenchMsVba_NeedsWindows" xml:space="preserve">
+    <value>rdc bench-msvba exécute MS-VBA dans Excel, et l&apos;automatisation d&apos;Excel requiert Windows : rien n&apos;a été exécuté.</value>
+  </data>
+  <data name="BenchMsVba_NoExcel" xml:space="preserve">
+    <value>Excel n&apos;est pas installé : il n&apos;y a aucun Excel.Application à démarrer.</value>
+  </data>
+  <data name="BenchMsVba_ProjectNotTrusted" xml:space="preserve">
+    <value>Excel ne laisse pas les programmes importer des modules dans un classeur. Activez « Accès approuvé au modèle d&apos;objet du projet VBA » (Options Excel, Centre de gestion de la confidentialité, Paramètres du Centre de gestion de la confidentialité, Paramètres des macros), puis relancez la commande.</value>
+  </data>
+  <data name="BenchMsVba_Dialog" xml:space="preserve">
+    <value>Excel a affiché une boîte de dialogue, et le tour a donc été arrêté : {0}</value>
+  </data>
+  <data name="BenchMsVba_NoAnswer" xml:space="preserve">
+    <value>Excel n&apos;a pas répondu en moins de {0} minutes, et le tour a donc été arrêté.</value>
+  </data>
+  <data name="BenchMsVba_OneProcess" xml:space="preserve">
+    <value>Les cas d&apos;automatisation d&apos;Excel ne se sont pas exécutés entre deux processus (harnais {0}, cible {1}) : aucun chiffre n&apos;a été retenu.</value>
+  </data>
+  <data name="BenchMsVba_NoCaseList" xml:space="preserve">
+    <value>rdc bench --list n&apos;a listé aucun cas : {0}</value>
+  </data>
+  <data name="BenchMsVba_Round" xml:space="preserve">
+    <value>Tour {0} sur {1}</value>
+  </data>
+  <data name="BenchMsVba_RoundWithExcel" xml:space="preserve">
+    <value>Tour {0} sur {1}, avec les cas d&apos;automatisation d&apos;Excel</value>
+  </data>
+  <data name="BenchMsVba_ProcessFailed" xml:space="preserve">
+    <value>rdc {0} s&apos;est terminé avec le code de sortie {1}.</value>
+  </data>
+  <data name="BenchMsVba_ProcessTimedOut" xml:space="preserve">
+    <value>rdc {0} ne s&apos;est pas terminé en moins de {1} minutes, et a été arrêté.</value>
+  </data>
+  <data name="BenchMsVba_Missing" xml:space="preserve">
+    <value>Aucun chiffre pour {0} du côté {1} : rien n&apos;a été écrit.</value>
+  </data>
+  <data name="BenchMsVba_ExcelLeftRunning" xml:space="preserve">
+    <value>Un Excel démarré pendant le tour de RD-VBA s&apos;exécute toujours (processus {0}); il n&apos;a pas été touché.</value>
+  </data>
+  <data name="BenchMsVba_Written" xml:space="preserve">
+    <value>{0} cas du corpus et {1} chiffres d&apos;automatisation d&apos;Excel écrits dans {2}.</value>
   </data>
 </root>

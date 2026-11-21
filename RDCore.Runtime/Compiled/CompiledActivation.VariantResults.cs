@@ -56,6 +56,51 @@ public sealed partial class CompiledActivation
     }
 
     /// <summary>
+    /// Assigns the function result variable, of the <c>Variant</c> type, what the Variant held in <paramref name="source"/> holds, when that is a
+    /// <c>String</c> or <c>Null</c>: a copy of it (MS-VBAL §5.3.1, §5.5.1.2.12), as the interpreter assigns it, in the frame's result cell, which holds it
+    /// until the function returns it. A value of a scalar type is assigned as a payload (<see cref="TryAssignResultVariant"/>).
+    /// </summary>
+    /// <param name="source">The cell of the Variant read; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <returns>
+    /// <see langword="false"/> when the interpreter runs the statement: the source holds anything else, or a value compiled code does not read
+    /// (<see cref="VariantOperations.CopyTextOrNull"/>); an analysis observes the evaluation; or the result held an object that letting go of would destroy,
+    /// whose <c>Terminate</c> is the interpreter's to run (MS-VBAL §5.3.1.10).
+    /// </returns>
+    public bool TryAssignResultTextOrNull(object? source)
+    {
+        if (!VariantOperations.TextOrNullOf(source, out var text, out var isNull) || FailsAccessAtRandom()
+            || _executor.Expressions is { Observation: not null } or { AssumesVariables: true }
+            || Frame is not { Procedure: ITypedSymbol { ResolvedType: SDK.Model.Types.VBVariantType } } frame
+            || Destroys(ObjectReferences.HeldIn(_session, frame.ResultCell)))
+        {
+            return false;
+        }
+
+        // the copy is the Variant's value as it is, which its let-coercion to the Variant type leaves as it is (MS-VBAL §5.5.1.2.12).
+        VBTypedValue value = isNull ? VBNullValue.Null : new VBStringValue(new ValueBindingHandle(new VBRuntimeValue<string>(text!)));
+        frame.ReturnValue = ObjectReferences.AssignResult(_session, frame.ResultCell, new VBVariantValue(value));
+        return true;
+    }
+
+    /// <summary>
+    /// The text the function result variable, of the <c>String</c> type, holds, read where the function names it in its own body (MS-VBAL §5.3.1): the
+    /// zero-length string of its type's default before it is first assigned, then the text it was last assigned.
+    /// </summary>
+    /// <param name="text">The text read; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns><see langword="false"/> when the interpreter reads it: the activation has no frame, or the frame holds no known text.</returns>
+    public bool TryReadResultText(out string? text)
+    {
+        text = null;
+        if (FailsAccessAtRandom() || Frame is not { ReturnValue: VBStringValue { IsIndeterminate: false, RuntimeValue: VBRuntimeValue<string> held } })
+        {
+            return false;
+        }
+
+        text = held.StoredValue;
+        return true;
+    }
+
+    /// <summary>
     /// The payload the function result variable, of the <c>Variant</c> type, holds, when it holds one: a known value of a scalar type. When it holds
     /// anything else - <c>Empty</c> before it is first assigned, <c>Null</c>, a <c>String</c>, an object, an array - the interpreter reads it.
     /// </summary>
@@ -148,9 +193,10 @@ public sealed partial class CompiledActivation
     }
 
     // what an activation a call entered directly returned (ReturnedDirectly): the frame's function result, or the payload the activation holds it as while it
-    // has no frame.
+    // has no frame, or the object its own result cell holds (OwnResult).
     private static VBTypedValue? ReturnedBy(CompiledActivation callee)
         => callee._frame is { } frame ? frame.ReturnValue
+            : callee._body.ResultIsObject ? callee.OwnResult()
             : callee.TryReadResult(out var payload) ? payload.Typed()
             : null;
 }

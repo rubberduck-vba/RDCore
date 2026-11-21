@@ -54,7 +54,7 @@ public interface IStdHiddenModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> Input(VBLongValue number, VBIntegerValue fileNumber);
 
     /// <inheritdoc cref="Input"/>
-    [StdLibMember("Input$")]
+    [StdLibMember("Input$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> InputString(VBLongValue number, VBIntegerValue fileNumber);
 
     /// <summary>
@@ -71,7 +71,7 @@ public interface IStdHiddenModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> InputB(VBLongValue number, VBIntegerValue fileNumber);
 
     /// <inheritdoc cref="InputB"/>
-    [StdLibMember("InputB$")]
+    [StdLibMember("InputB$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> InputBString(VBLongValue number, VBIntegerValue fileNumber);
 
     /// <summary>
