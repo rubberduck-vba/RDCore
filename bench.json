@@ -1,0 +1,1284 @@
+{
+  "commit": "985bdb578ef1191509816b8ccbb7c9b5796d5de4",
+  "run": "https://github.com/rubberduck-vba/RDCore/actions/runs/44908992099",
+  "runner": "windows-latest",
+  "runnerCpu": "AMD EPYC 7763 64-Core Processor · 4 logical processors · 32 MB L3",
+  "method": "3 alternated rounds, fastest run, the heap collected before each run",
+  "reference": {
+    "commit": "8a7107fe4ae6f40e7bf40498e4f755403018a9a5",
+    "date": "2026-11-20",
+    "excel": "16.0 build 20527 (64-bit)",
+    "os": "Windows 11 x64",
+    "cores": 12,
+    "method": "alternated rounds on one machine: 5 for the corpus, the first 3 with Excel automation (MS-VBA first in odd rounds, RD-VBA first in even rounds); 7 runs a case (5 for Excel automation), fastest run; corpus cases warmed up first: RD-VBA by untimed runs of each case first, at least 31, until the JIT compiles nothing for 250 ms, for 5 s at the most, MS-VBA by 2 untimed runs; MS-VBA runs the Excel automation cases from a second Excel instance, as RD-VBA runs them out of process, so both cross a process boundary"
+  },
+  "groups": [
+    {
+      "name": "Calls",
+      "cases": 9,
+      "best": {
+        "case": "Calls.BenchStandardLibraryCalls",
+        "ratio": 0.24
+      },
+      "median": 1.41,
+      "worst": {
+        "case": "Calls.BenchInterfaceMemberCalls",
+        "ratio": 2.23
+      },
+      "total": {
+        "cases": 9,
+        "rdvba": 247.921,
+        "msvba": 151.035,
+        "ratio": 1.64,
+        "runnerMergedAllocatedKB": 193870,
+        "runnerMergedCollections": {
+          "gen0": 10,
+          "gen1": 0,
+          "gen2": 0
+        }
+      }
+    },
+    {
+      "name": "Statements",
+      "cases": 7,
+      "best": {
+        "case": "Statements.BenchConditions",
+        "ratio": 0.26
+      },
+      "median": 0.65,
+      "worst": {
+        "case": "Statements.BenchRecordFieldAssignment",
+        "ratio": 3.06
+      },
+      "total": {
+        "cases": 7,
+        "rdvba": 10.457,
+        "msvba": 16.001,
+        "ratio": 0.65,
+        "runnerMergedAllocatedKB": 2281,
+        "runnerMergedCollections": {
+          "gen0": 0,
+          "gen1": 0,
+          "gen2": 0
+        }
+      }
+    },
+    {
+      "name": "Arrays",
+      "cases": 3,
+      "best": {
+        "case": "Arrays.BenchArrayFillAndSum",
+        "ratio": 1.58
+      },
+      "median": 1.65,
+      "worst": {
+        "case": "Arrays.BenchVariantArray2D",
+        "ratio": 2.37
+      },
+      "total": {
+        "cases": 3,
+        "rdvba": 7.988,
+        "msvba": 4.358,
+        "ratio": 1.83,
+        "runnerMergedAllocatedKB": 8036,
+        "runnerMergedCollections": {
+          "gen0": 0,
+          "gen1": 0,
+          "gen2": 0
+        }
+      }
+    },
+    {
+      "name": "Strings",
+      "cases": 5,
+      "best": {
+        "case": "Strings.BenchStringBuilding",
+        "ratio": 0.07
+      },
+      "median": 0.37,
+      "worst": {
+        "case": "Strings.BenchStringComparison",
+        "ratio": 0.5
+      },
+      "total": {
+        "cases": 5,
+        "rdvba": 40.168,
+        "msvba": 89.706,
+        "ratio": 0.45,
+        "runnerMergedAllocatedKB": 141067,
+        "runnerMergedCollections": {
+          "gen0": 8,
+          "gen1": 0,
+          "gen2": 0
+        }
+      }
+    },
+    {
+      "name": "Numeric",
+      "cases": 6,
+      "best": {
+        "case": "Numeric.BenchDoubleSum",
+        "ratio": 0.19
+      },
+      "median": 0.24,
+      "worst": {
+        "case": "Numeric.BenchCurrencyAndDate",
+        "ratio": 0.93
+      },
+      "total": {
+        "cases": 6,
+        "rdvba": 33.001,
+        "msvba": 80.689,
+        "ratio": 0.41,
+        "runnerMergedAllocatedKB": 78,
+        "runnerMergedCollections": {
+          "gen0": 0,
+          "gen1": 0,
+          "gen2": 0
+        }
+      }
+    },
+    {
+      "name": "Variables and parameters",
+      "cases": 6,
+      "best": {
+        "case": "Slots.BenchBooleanFlag",
+        "ratio": 0.31
+      },
+      "median": 0.65,
+      "worst": {
+        "case": "Slots.BenchWideActivations",
+        "ratio": 1.07
+      },
+      "total": {
+        "cases": 6,
+        "rdvba": 6.891,
+        "msvba": 8.088,
+        "ratio": 0.85,
+        "runnerMergedAllocatedKB": 68,
+        "runnerMergedCollections": {
+          "gen0": 0,
+          "gen1": 0,
+          "gen2": 0
+        }
+      }
+    },
+    {
+      "name": "Standard library",
+      "cases": 27,
+      "best": {
+        "case": "StdLib.BenchDateAdd",
+        "ratio": 0.04
+      },
+      "median": 0.69,
+      "worst": {
+        "case": "StdLib.BenchIsEmpty",
+        "ratio": 1.53
+      },
+      "total": {
+        "cases": 27,
+        "rdvba": 77.813,
+        "msvba": 207.236,
+        "ratio": 0.38,
+        "runnerMergedAllocatedKB": 54985,
+        "runnerMergedCollections": {
+          "gen0": 0,
+          "gen1": 0,
+          "gen2": 0
+        }
+      }
+    },
+    {
+      "name": "Excel automation",
+      "cases": 9,
+      "best": {
+        "case": "Excel.Block100000x10.Pass",
+        "ratio": 0.65
+      },
+      "median": 2.4,
+      "worst": {
+        "case": "Excel.Block1000x10.Read",
+        "ratio": 11.15
+      },
+      "total": {
+        "cases": 3,
+        "rdvba": 64670.713,
+        "msvba": 28546.151,
+        "ratio": 2.27
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "Arrays.BenchArrayFillAndSum",
+      "group": "Arrays",
+      "msvba": 0.665,
+      "rdvbaReference": 1.3,
+      "rdvba": 1.052,
+      "runnerMerged": 1.7,
+      "runnerReference": 2.1,
+      "ratio": 1.58,
+      "runnerMergedAllocatedKB": 2361,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Arrays.BenchVariantArray2D",
+      "group": "Arrays",
+      "msvba": 1.153,
+      "rdvbaReference": 2.8,
+      "rdvba": 2.736,
+      "runnerMerged": 4.3,
+      "runnerReference": 4.4,
+      "ratio": 2.37,
+      "runnerMergedAllocatedKB": 1897,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Arrays.BenchVariantHeldArray2D",
+      "group": "Arrays",
+      "msvba": 2.54,
+      "rdvbaReference": 4.2,
+      "rdvba": 4.2,
+      "runnerMerged": 6.5,
+      "runnerReference": 6.5,
+      "ratio": 1.65,
+      "runnerMergedAllocatedKB": 3778,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchByRefCalls",
+      "group": "Calls",
+      "msvba": 4.218,
+      "rdvbaReference": 5.6,
+      "rdvba": 5.173,
+      "runnerMerged": 10.9,
+      "runnerReference": 11.8,
+      "ratio": 1.23,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchClassMemberCalls",
+      "group": "Calls",
+      "msvba": 6.027,
+      "rdvbaReference": 11.9,
+      "rdvba": 12.953,
+      "runnerMerged": 24.6,
+      "runnerReference": 22.6,
+      "ratio": 2.15,
+      "runnerMergedAllocatedKB": 2357,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchDefaultInstanceCalls",
+      "group": "Calls",
+      "msvba": 9.767,
+      "rdvbaReference": 12.2,
+      "rdvba": 13.198,
+      "runnerMerged": 23.8,
+      "runnerReference": 22.0,
+      "ratio": 1.35,
+      "runnerMergedAllocatedKB": 2356,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchFactoryCalls",
+      "group": "Calls",
+      "msvba": 93.086,
+      "rdvbaReference": 241,
+      "rdvba": 156.676,
+      "runnerMerged": 302.3,
+      "runnerReference": 465.0,
+      "ratio": 1.68,
+      "runnerMergedAllocatedKB": 178920,
+      "runnerMergedCollections": {
+        "gen0": 10,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchInterfaceMemberCalls",
+      "group": "Calls",
+      "msvba": 5.954,
+      "rdvbaReference": 12.2,
+      "rdvba": 13.28,
+      "runnerMerged": 24.6,
+      "runnerReference": 22.6,
+      "ratio": 2.23,
+      "runnerMergedAllocatedKB": 2358,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchProcedureCalls",
+      "group": "Calls",
+      "msvba": 3.488,
+      "rdvbaReference": 5.3,
+      "rdvba": 4.827,
+      "runnerMerged": 10.2,
+      "runnerReference": 11.2,
+      "ratio": 1.38,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchRecursion",
+      "group": "Calls",
+      "msvba": 9.646,
+      "rdvbaReference": 15.8,
+      "rdvba": 13.571,
+      "runnerMerged": 28.0,
+      "runnerReference": 32.6,
+      "ratio": 1.41,
+      "runnerMergedAllocatedKB": 24,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchSiblingCalls",
+      "group": "Calls",
+      "msvba": 14.638,
+      "rdvbaReference": 24,
+      "rdvba": 27.217,
+      "runnerMerged": 53.3,
+      "runnerReference": 47.0,
+      "ratio": 1.86,
+      "runnerMergedAllocatedKB": 4704,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Calls.BenchStandardLibraryCalls",
+      "group": "Calls",
+      "msvba": 4.211,
+      "rdvbaReference": 1.3,
+      "rdvba": 1.026,
+      "runnerMerged": 1.5,
+      "runnerReference": 1.9,
+      "ratio": 0.24,
+      "runnerMergedAllocatedKB": 3127,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Numeric.BenchCurrencyAndDate",
+      "group": "Numeric",
+      "msvba": 15.361,
+      "rdvbaReference": 14.5,
+      "rdvba": 14.294,
+      "runnerMerged": 20.8,
+      "runnerReference": 21.1,
+      "ratio": 0.93,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Numeric.BenchDoubleSum",
+      "group": "Numeric",
+      "msvba": 14.329,
+      "rdvbaReference": 3,
+      "rdvba": 2.782,
+      "runnerMerged": 5.1,
+      "runnerReference": 5.5,
+      "ratio": 0.19,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Numeric.BenchLongArithmetic",
+      "group": "Numeric",
+      "msvba": 10.522,
+      "rdvbaReference": 3.2,
+      "rdvba": 2.977,
+      "runnerMerged": 4.0,
+      "runnerReference": 4.3,
+      "ratio": 0.28,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Numeric.BenchLongCounterDoubleSum",
+      "group": "Numeric",
+      "msvba": 12.231,
+      "rdvbaReference": 2.5,
+      "rdvba": 2.394,
+      "runnerMerged": 4.5,
+      "runnerReference": 4.7,
+      "ratio": 0.2,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Numeric.BenchVariantSum",
+      "group": "Numeric",
+      "msvba": 10.874,
+      "rdvbaReference": 10.3,
+      "rdvba": 7.169,
+      "runnerMerged": 15.8,
+      "runnerReference": 22.7,
+      "ratio": 0.66,
+      "runnerMergedAllocatedKB": 21,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Numeric.BenchVariantTypedMix",
+      "group": "Numeric",
+      "msvba": 17.372,
+      "rdvbaReference": 5.2,
+      "rdvba": 3.385,
+      "runnerMerged": 6.9,
+      "runnerReference": 10.6,
+      "ratio": 0.19,
+      "runnerMergedAllocatedKB": 13,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Slots.BenchBooleanFlag",
+      "group": "Variables and parameters",
+      "msvba": 0.918,
+      "rdvbaReference": 0.5,
+      "rdvba": 0.286,
+      "runnerMerged": 0.4,
+      "runnerReference": 0.7,
+      "ratio": 0.31,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Slots.BenchCurrencySum",
+      "group": "Variables and parameters",
+      "msvba": 0.342,
+      "rdvbaReference": 0.4,
+      "rdvba": 0.229,
+      "runnerMerged": 0.4,
+      "runnerReference": 0.7,
+      "ratio": 0.67,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Slots.BenchLocalVariableLoop",
+      "group": "Variables and parameters",
+      "msvba": 0.63,
+      "rdvbaReference": 0.4,
+      "rdvba": 0.267,
+      "runnerMerged": 0.4,
+      "runnerReference": 0.6,
+      "ratio": 0.42,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Slots.BenchModuleVariableLoop",
+      "group": "Variables and parameters",
+      "msvba": 0.626,
+      "rdvbaReference": 0.8,
+      "rdvba": 0.431,
+      "runnerMerged": 0.7,
+      "runnerReference": 1.3,
+      "ratio": 0.69,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Slots.BenchStaticVariableLoop",
+      "group": "Variables and parameters",
+      "msvba": 0.683,
+      "rdvbaReference": 0.8,
+      "rdvba": 0.431,
+      "runnerMerged": 0.7,
+      "runnerReference": 1.3,
+      "ratio": 0.63,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Slots.BenchWideActivations",
+      "group": "Variables and parameters",
+      "msvba": 4.889,
+      "rdvbaReference": 5.6,
+      "rdvba": 5.247,
+      "runnerMerged": 10.4,
+      "runnerReference": 11.1,
+      "ratio": 1.07,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Statements.BenchConditions",
+      "group": "Statements",
+      "msvba": 2.101,
+      "rdvbaReference": 0.7,
+      "rdvba": 0.544,
+      "runnerMerged": 0.7,
+      "runnerReference": 0.9,
+      "ratio": 0.26,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Statements.BenchMemberAssignment",
+      "group": "Statements",
+      "msvba": 1.8,
+      "rdvbaReference": 1.3,
+      "rdvba": 1.0,
+      "runnerMerged": 2.0,
+      "runnerReference": 2.6,
+      "ratio": 0.56,
+      "runnerMergedAllocatedKB": 13,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Statements.BenchMidStatement",
+      "group": "Statements",
+      "msvba": 0.796,
+      "rdvbaReference": 1,
+      "rdvba": 0.875,
+      "runnerMerged": 1.4,
+      "runnerReference": 1.6,
+      "ratio": 1.1,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Statements.BenchOnErrorResumeNext",
+      "group": "Statements",
+      "msvba": 8.611,
+      "rdvbaReference": 8.7,
+      "rdvba": 5.613,
+      "runnerMerged": 8.0,
+      "runnerReference": 12.4,
+      "ratio": 0.65,
+      "runnerMergedAllocatedKB": 2209,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Statements.BenchRecordFieldAssignment",
+      "group": "Statements",
+      "msvba": 0.278,
+      "rdvbaReference": 1.2,
+      "rdvba": 0.85,
+      "runnerMerged": 1.7,
+      "runnerReference": 2.4,
+      "ratio": 3.06,
+      "runnerMergedAllocatedKB": 13,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Statements.BenchSelectCase",
+      "group": "Statements",
+      "msvba": 1.438,
+      "rdvbaReference": 0.6,
+      "rdvba": 0.375,
+      "runnerMerged": 0.5,
+      "runnerReference": 0.8,
+      "ratio": 0.26,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Statements.BenchSetAssignment",
+      "group": "Statements",
+      "msvba": 0.977,
+      "rdvbaReference": 1.3,
+      "rdvba": 1.2,
+      "runnerMerged": 2.4,
+      "runnerReference": 2.6,
+      "ratio": 1.23,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchAbs",
+      "group": "Standard library",
+      "msvba": 0.588,
+      "rdvbaReference": 0.6,
+      "rdvba": 0.467,
+      "runnerMerged": 0.7,
+      "runnerReference": 0.9,
+      "ratio": 0.79,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchAsc",
+      "group": "Standard library",
+      "msvba": 1.415,
+      "rdvbaReference": 1.1,
+      "rdvba": 0.984,
+      "runnerMerged": 1.7,
+      "runnerReference": 1.9,
+      "ratio": 0.7,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchCDbl",
+      "group": "Standard library",
+      "msvba": 1.053,
+      "rdvbaReference": 0.8,
+      "rdvba": 0.667,
+      "runnerMerged": 1.0,
+      "runnerReference": 1.2,
+      "ratio": 0.63,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchChr",
+      "group": "Standard library",
+      "msvba": 3.005,
+      "rdvbaReference": 1.3,
+      "rdvba": 1.196,
+      "runnerMerged": 2.3,
+      "runnerReference": 2.5,
+      "ratio": 0.4,
+      "runnerMergedAllocatedKB": 2355,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchCLng",
+      "group": "Standard library",
+      "msvba": 0.449,
+      "rdvbaReference": 0.4,
+      "rdvba": 0.2,
+      "runnerMerged": 0.3,
+      "runnerReference": 0.6,
+      "ratio": 0.45,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchCStr",
+      "group": "Standard library",
+      "msvba": 3.379,
+      "rdvbaReference": 2,
+      "rdvba": 1.793,
+      "runnerMerged": 2.6,
+      "runnerReference": 2.9,
+      "ratio": 0.53,
+      "runnerMergedAllocatedKB": 5471,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchDateAdd",
+      "group": "Standard library",
+      "msvba": 46.826,
+      "rdvbaReference": 1.9,
+      "rdvba": 1.716,
+      "runnerMerged": 2.8,
+      "runnerReference": 3.1,
+      "ratio": 0.04,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchFormat",
+      "group": "Standard library",
+      "msvba": 48.301,
+      "rdvbaReference": 29.5,
+      "rdvba": 27.97,
+      "runnerMerged": 45.7,
+      "runnerReference": 48.2,
+      "ratio": 0.58,
+      "runnerMergedAllocatedKB": 14855,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchInStr",
+      "group": "Standard library",
+      "msvba": 1.434,
+      "rdvbaReference": 1.1,
+      "rdvba": 0.984,
+      "runnerMerged": 1.7,
+      "runnerReference": 1.9,
+      "ratio": 0.69,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchInt",
+      "group": "Standard library",
+      "msvba": 1.302,
+      "rdvbaReference": 0.4,
+      "rdvba": 0.2,
+      "runnerMerged": 0.3,
+      "runnerReference": 0.6,
+      "ratio": 0.15,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchIsEmpty",
+      "group": "Standard library",
+      "msvba": 0.833,
+      "rdvbaReference": 1.5,
+      "rdvba": 1.275,
+      "runnerMerged": 1.7,
+      "runnerReference": 2.0,
+      "ratio": 1.53,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchIsNumeric",
+      "group": "Standard library",
+      "msvba": 3.823,
+      "rdvbaReference": 3.6,
+      "rdvba": 3.417,
+      "runnerMerged": 5.6,
+      "runnerReference": 5.9,
+      "ratio": 0.89,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchLeft",
+      "group": "Standard library",
+      "msvba": 2.601,
+      "rdvbaReference": 2.5,
+      "rdvba": 2.132,
+      "runnerMerged": 2.9,
+      "runnerReference": 3.4,
+      "ratio": 0.82,
+      "runnerMergedAllocatedKB": 5480,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchLen",
+      "group": "Standard library",
+      "msvba": 0.392,
+      "rdvbaReference": 0.7,
+      "rdvba": 0.525,
+      "runnerMerged": 0.9,
+      "runnerReference": 1.2,
+      "ratio": 1.34,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchMidFunction",
+      "group": "Standard library",
+      "msvba": 3.382,
+      "rdvbaReference": 2.9,
+      "rdvba": 2.743,
+      "runnerMerged": 3.5,
+      "runnerReference": 3.7,
+      "ratio": 0.81,
+      "runnerMergedAllocatedKB": 5480,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchNow",
+      "group": "Standard library",
+      "msvba": 8.339,
+      "rdvbaReference": 5.3,
+      "rdvba": 5.076,
+      "runnerMerged": 6.8,
+      "runnerReference": 7.1,
+      "ratio": 0.61,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchReplace",
+      "group": "Standard library",
+      "msvba": 44.1,
+      "rdvbaReference": 3.4,
+      "rdvba": 3.117,
+      "runnerMerged": 4.4,
+      "runnerReference": 4.8,
+      "ratio": 0.07,
+      "runnerMergedAllocatedKB": 6261,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchRound",
+      "group": "Standard library",
+      "msvba": 3.775,
+      "rdvbaReference": 1.9,
+      "rdvba": 1.732,
+      "runnerMerged": 3.1,
+      "runnerReference": 3.4,
+      "ratio": 0.46,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchSqr",
+      "group": "Standard library",
+      "msvba": 2.774,
+      "rdvbaReference": 0.9,
+      "rdvba": 0.75,
+      "runnerMerged": 1.0,
+      "runnerReference": 1.2,
+      "ratio": 0.27,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchStrComp",
+      "group": "Standard library",
+      "msvba": 7.578,
+      "rdvbaReference": 6,
+      "rdvba": 5.835,
+      "runnerMerged": 10.6,
+      "runnerReference": 10.9,
+      "ratio": 0.77,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchTrim",
+      "group": "Standard library",
+      "msvba": 2.8,
+      "rdvbaReference": 3.3,
+      "rdvba": 3.052,
+      "runnerMerged": 3.7,
+      "runnerReference": 4.0,
+      "ratio": 1.09,
+      "runnerMergedAllocatedKB": 6261,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchTypeName",
+      "group": "Standard library",
+      "msvba": 3.066,
+      "rdvbaReference": 1.6,
+      "rdvba": 1.792,
+      "runnerMerged": 2.8,
+      "runnerReference": 2.5,
+      "ratio": 0.58,
+      "runnerMergedAllocatedKB": 2356,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchUBound",
+      "group": "Standard library",
+      "msvba": 0.449,
+      "rdvbaReference": 0.5,
+      "rdvba": 0.333,
+      "runnerMerged": 0.4,
+      "runnerReference": 0.6,
+      "ratio": 0.74,
+      "runnerMergedAllocatedKB": 16,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchUCase",
+      "group": "Standard library",
+      "msvba": 3.856,
+      "rdvbaReference": 3.3,
+      "rdvba": 3.106,
+      "runnerMerged": 4.8,
+      "runnerReference": 5.1,
+      "ratio": 0.81,
+      "runnerMergedAllocatedKB": 6261,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchVal",
+      "group": "Standard library",
+      "msvba": 5.678,
+      "rdvbaReference": 4.4,
+      "rdvba": 4.286,
+      "runnerMerged": 7.5,
+      "runnerReference": 7.7,
+      "ratio": 0.75,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchVarType",
+      "group": "Standard library",
+      "msvba": 0.858,
+      "rdvbaReference": 0.7,
+      "rdvba": 1.145,
+      "runnerMerged": 1.8,
+      "runnerReference": 1.1,
+      "ratio": 1.34,
+      "runnerMergedAllocatedKB": 12,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "StdLib.BenchYear",
+      "group": "Standard library",
+      "msvba": 5.18,
+      "rdvbaReference": 1.5,
+      "rdvba": 1.32,
+      "runnerMerged": 2.2,
+      "runnerReference": 2.5,
+      "ratio": 0.25,
+      "runnerMergedAllocatedKB": 11,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Strings.BenchStringArguments",
+      "group": "Strings",
+      "msvba": 78.197,
+      "rdvbaReference": 37.1,
+      "rdvba": 36.543,
+      "runnerMerged": 59.0,
+      "runnerReference": 59.9,
+      "ratio": 0.47,
+      "runnerMergedAllocatedKB": 135950,
+      "runnerMergedCollections": {
+        "gen0": 8,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Strings.BenchStringAssignment",
+      "group": "Strings",
+      "msvba": 2.372,
+      "rdvbaReference": 1,
+      "rdvba": 0.889,
+      "runnerMerged": 1.6,
+      "runnerReference": 1.8,
+      "ratio": 0.37,
+      "runnerMergedAllocatedKB": 2355,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Strings.BenchStringBuilding",
+      "group": "Strings",
+      "msvba": 3.938,
+      "rdvbaReference": 0.5,
+      "rdvba": 0.286,
+      "runnerMerged": 0.4,
+      "runnerReference": 0.7,
+      "ratio": 0.07,
+      "runnerMergedAllocatedKB": 363,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Strings.BenchStringComparison",
+      "group": "Strings",
+      "msvba": 4.529,
+      "rdvbaReference": 2.3,
+      "rdvba": 2.25,
+      "runnerMerged": 4.5,
+      "runnerReference": 4.6,
+      "ratio": 0.5,
+      "runnerMergedAllocatedKB": 2355,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Strings.BenchStringConcatenation",
+      "group": "Strings",
+      "msvba": 0.67,
+      "rdvbaReference": 0.4,
+      "rdvba": 0.2,
+      "runnerMerged": 0.3,
+      "runnerReference": 0.6,
+      "ratio": 0.3,
+      "runnerMergedAllocatedKB": 44,
+      "runnerMergedCollections": {
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0
+      }
+    },
+    {
+      "name": "Excel.Block1000x10.Read",
+      "group": "Excel automation",
+      "msvba": 4.007,
+      "rdvbaReference": 44.687,
+      "ratio": 11.15
+    },
+    {
+      "name": "Excel.Block1000x10.Pass",
+      "group": "Excel automation",
+      "msvba": 0.673,
+      "rdvbaReference": 3.073,
+      "ratio": 4.57
+    },
+    {
+      "name": "Excel.Block1000x10.Write",
+      "group": "Excel automation",
+      "msvba": 56.42,
+      "rdvbaReference": 105.637,
+      "ratio": 1.87
+    },
+    {
+      "name": "Excel.Block1000x10.Total",
+      "group": "Excel automation",
+      "msvba": 61.22,
+      "rdvbaReference": 167.74,
+      "ratio": 2.74
+    },
+    {
+      "name": "Excel.CellByCell1000x10.Total",
+      "group": "Excel automation",
+      "msvba": 22638.714,
+      "rdvbaReference": 54373.213,
+      "ratio": 2.4
+    },
+    {
+      "name": "Excel.Block100000x10.Read",
+      "group": "Excel automation",
+      "msvba": 262.968,
+      "rdvbaReference": 1940.987,
+      "ratio": 7.38
+    },
+    {
+      "name": "Excel.Block100000x10.Pass",
+      "group": "Excel automation",
+      "msvba": 68.058,
+      "rdvbaReference": 44.514,
+      "ratio": 0.65
+    },
+    {
+      "name": "Excel.Block100000x10.Write",
+      "group": "Excel automation",
+      "msvba": 5490.199,
+      "rdvbaReference": 8014.602,
+      "ratio": 1.46
+    },
+    {
+      "name": "Excel.Block100000x10.Total",
+      "group": "Excel automation",
+      "msvba": 5846.217,
+      "rdvbaReference": 10129.76,
+      "ratio": 1.73
+    }
+  ]
+}
