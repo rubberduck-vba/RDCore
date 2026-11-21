@@ -56,7 +56,7 @@ As in **MS-VBA** (recorded in Excel):
 
 |Argument|`VarPtr` gives|
 |---|---|
-|A variable - a local, a parameter, a `Static` local, a variable of a module bare or qualified, a field of the class in its own code by its bare name|Its address: never `0`, aligned to its size, and the same for as long as the variable exists, whatever is assigned to it (a `String`, a `Variant`, an `Object` set and set to `Nothing`).|
+|A variable (a local, a parameter, a `Static` local, a variable of a module bare or qualified, a field of the class in its own code by its bare name)|Its address: never `0`, on the boundary its type is aligned to ([alignment](rd-vbal.2.3.1.2.session-services.md#alignment)), and the same for as long as the variable exists, whatever is assigned to it (a `String`, a `Variant`, an `Object` set and set to `Nothing`).|
 |A `ByRef` parameter|The address of the variable it was given; a `ByVal` parameter has its own.|
 |The name of a `Function` or a `Property Get`, in its own code|The address of its result variable (**MS-VBAL §5.3.1**): one of its own, which no local has, the same for the whole call whatever is assigned to it. What is at it is what the call returns.|
 |A `Variant` `ByRef` parameter given a variable of another type|The address of a `VARIANT` of its own, the same for the whole call, which is not the variable's.|

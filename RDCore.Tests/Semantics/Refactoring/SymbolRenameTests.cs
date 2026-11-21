@@ -555,7 +555,6 @@ public sealed class SymbolRenameTests
 
     // a control's handler is named for the control, which the workspace's form declares, and for an event of the control's library.
     [TestMethod]
-    [Ignore("the rename of a form's control, in its designer and its code, is not implemented")]
     [DataRow("Ok", DisplayName = "at the part of its name that is the control's")]
     [DataRow("Click", DisplayName = "at the part of its name that is the library's event")]
     public void AHandlerOfAFormsControl_IsRenamedAsTheControl(string text)

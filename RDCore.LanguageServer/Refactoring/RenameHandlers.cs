@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Server.Services;
 
@@ -36,14 +37,14 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
 
     public override async Task<WorkspaceEdit?> Handle(RenameParams request, CancellationToken cancellationToken)
     {
-        var answer = await rename.RenameAsync(request.TextDocument.Uri.ToUri(), request.Position, request.NewName, cancellationToken);
+        var answer = await rename.RenameAsync(request.TextDocument.Uri.ToUri(), request.Position, request.NewName, cancellationToken, _client);
         var edit = answer.ValueOrRefusal();
         foreach (var question in answer.Questions ?? [])
         {
             // an edit that no user can confirm is not made: what a string names, and which member a late-bound access calls, are only known when the code runs.
             if (IsUnattended())
             {
-                edit = Without(edit, question.Annotation);
+                edit = edit.Without(question.Annotation);
                 continue;
             }
 
@@ -60,24 +61,20 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
             }, cancellationToken);
             if (chosen?.Title == question.Rename)
             {
-                edit = Confirmed(edit, question.Annotation);
+                edit = edit.Confirmed(question.Annotation);
             }
             else if (chosen?.Title != question.Leave)
             {
+                Discard();
                 return null;
             }
         }
 
         // a module is named by its VB_Name: a client that does not rename files keeps the file's name, and is sent the rest of the edit. The edit of a file
         // once it is renamed (a designer's text naming its renamed binary file) goes with the rename.
-        if (!TakesFileRenames(_client) && edit.DocumentChanges is { } documentChanges && documentChanges.Any(change => change.IsRenameFile))
+        if (!_client.TakesResourceOperation(ResourceOperationKind.Rename))
         {
-            var renamedTo = documentChanges.Where(change => change.IsRenameFile).Select(change => change.RenameFile!.NewUri.ToString()).ToHashSet(StringComparer.Ordinal);
-            edit = edit with
-            {
-                DocumentChanges = new Container<WorkspaceEditDocumentChange>(documentChanges.Where(change
-                    => !change.IsRenameFile && !(change.IsTextDocumentEdit && renamedTo.Contains(change.TextDocumentEdit!.TextDocument.Uri.ToString())))),
-            };
+            edit = edit.WithoutFileRenames();
         }
 
         // an edit the client can't apply is refused as any other rename is, with why: one it would apply none of would say nothing.
@@ -87,39 +84,18 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
         }
         catch (WorkspaceEditNotSupportedException refused)
         {
+            Discard();
             throw new RpcErrorException(RenameAnswer<WorkspaceEdit>.RequestFailedCode, error: null!, refused.Message);
         }
     }
 
-    private static bool TakesFileRenames(ClientCapabilities? client)
-        => client.TakesDocumentChanges()
-            && client?.Workspace?.WorkspaceEdit is { IsSupported: true, Value.ResourceOperations: { } kinds } && kinds.Contains(ResourceOperationKind.Rename);
+    // a rename the client is not sent puts no staged file in place: the files staged for it are deleted.
+    private void Discard() => (services.GetService(typeof(StagedFiles)) as StagedFiles)?.Discard();
 
     // whether the client said it runs with no user to ask (the platform handshake).
     private bool IsUnattended()
         => services.GetService(typeof(IPlatformClientCapabilitiesService)) is IPlatformClientCapabilitiesService expected
             && expected.Expects(capabilities => capabilities.Unattended);
-
-    // the edit as the user confirmed it: the edits of the annotation no longer need confirming, and are sent as the other edits are.
-    private static WorkspaceEdit Confirmed(WorkspaceEdit edit, ChangeAnnotationIdentifier confirmed) => edit with
-    {
-        ChangeAnnotations = edit.ChangeAnnotations?.ToDictionary(annotation => annotation.Key,
-            annotation => annotation.Key == confirmed ? annotation.Value with { NeedsConfirmation = false } : annotation.Value),
-    };
-
-    // the edit without the edits of the annotation, nor the annotation.
-    private static WorkspaceEdit Without(WorkspaceEdit edit, ChangeAnnotationIdentifier left) => edit with
-    {
-        DocumentChanges = edit.DocumentChanges is { } changes
-            ? new Container<WorkspaceEditDocumentChange>(changes.Select(change => change.IsTextDocumentEdit
-                ? new WorkspaceEditDocumentChange(change.TextDocumentEdit! with
-                {
-                    Edits = new TextEditContainer(change.TextDocumentEdit.Edits.Where(each => each is not AnnotatedTextEdit { AnnotationId: var id } || id != left)),
-                })
-                : change))
-            : null,
-        ChangeAnnotations = edit.ChangeAnnotations?.Where(annotation => annotation.Key != left).ToDictionary() is { Count: > 0 } kept ? kept : null,
-    };
 
     protected override RenameRegistrationOptions CreateRegistrationOptions(RenameCapability capability, ClientCapabilities clientCapabilities)
     {
@@ -134,10 +110,16 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
 /// </summary>
 internal sealed class PrepareRenameHandler(IRenameService rename) : PrepareRenameHandlerBase
 {
+    // what the client said it can do, as it initialized: a UserForm's control is renamed only for a client that puts its .frx back when the edit fails.
+    private ClientCapabilities? _client;
+
     public override async Task<RangeOrPlaceholderRange?> Handle(PrepareRenameParams request, CancellationToken cancellationToken)
-        => new((await rename.PrepareAsync(request.TextDocument.Uri.ToUri(), request.Position, cancellationToken)).ValueOrRefusal());
+        => new((await rename.PrepareAsync(request.TextDocument.Uri.ToUri(), request.Position, cancellationToken, _client)).ValueOrRefusal());
 
     // the prepare request is the rename request's own: it registers as the rename does.
     protected override RenameRegistrationOptions CreateRegistrationOptions(RenameCapability capability, ClientCapabilities clientCapabilities)
-        => new() { PrepareProvider = true };
+    {
+        _client = clientCapabilities;
+        return new() { PrepareProvider = true };
+    }
 }

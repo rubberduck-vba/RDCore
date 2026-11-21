@@ -6,7 +6,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// The default member of an object of a class of the workspace, called by an index expression on an object variable (<c>F(K)</c>,
 /// <strong>MS-VBAL §5.6.13</strong>): compiled code calls the member the class marks <c>VB_UserMemId = 0</c> on the object, as the interpreter calls it.
-/// An object of another class, reached through the class as an interface, is the interpreter's to call.
+/// On an object of a class that implements the declared class as an interface, it calls the member implementing the default member
+/// (<strong>MS-VBAL §5.3.1.9</strong>).
 /// </summary>
 [TestClass]
 public sealed class CompiledDefaultMemberCallTests
@@ -81,17 +82,11 @@ public sealed class CompiledDefaultMemberCallTests
         AssertNoneStepped(compiled, "Summed");
     }
 
-    // an object of a class that implements the declared class as an interface: compiled code gives the call to the interpreter, and the program runs the
-    // same either way.
+    // an object of a class that implements the declared class as an interface: the index expression references the default member of the declared class
+    // (MS-VBAL §5.6.13), and the object invokes the member implementing it, Squares_Value of Cubes, as MS-VBA calls it. Compiled code calls it too.
     [TestMethod]
-    public async Task TheDefaultMemberOfAnObjectOfAnotherClass_IsCalledByTheInterpreter()
+    public async Task TheDefaultMemberOfAnObjectOfAClassThatImplementsTheDeclaredClass_CallsItsImplementation()
     {
-        var classes = Classes().Append(("Cubes", ModuleWorkspace.ClassModule("Cubes",
-            "Option Explicit",
-            "Implements Squares",
-            "Private Function Squares_Value(ByVal N As Long) As Long",
-            "    Squares_Value = N * N * N",
-            "End Function"))).ToArray();
         var compiled = await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim S As Squares",
@@ -106,8 +101,26 @@ public sealed class CompiledDefaultMemberCallTests
             "        T = T + S(I)",
             "    Next",
             "    Summed = T",
-            "End Function"), classes: classes);
-        Assert.IsTrue(compiled.TryGetValue("Summed", out var result), "Summed was not called");
-        Assert.IsNotNull(result.Body, string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+            "End Function"), "Summed", recoveries: 0, classes: WithCubes(), expected: " 14  36 ");
+        Assert.IsEmpty(compiled.Stepped, string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
+
+    // a dictionary access is the index expression of its owner given the name as its argument (MS-VBAL §5.6.14): through the declared class too, the
+    // name let-coerced to the Long the member takes.
+    [TestMethod]
+    public async Task ADictionaryAccessOfAnObjectOfAClassThatImplementsTheDeclaredClass_CallsItsImplementation()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim S As Squares",
+            "    Set S = New Cubes",
+            "    Debug.Print S![2]",
+            "End Sub"), classes: WithCubes(), expected: " 8 ");
+
+    // the classes, and one that implements Squares as an interface, its Value the cube of its argument.
+    private static (string Name, string Source)[] WithCubes() => Classes().Append(("Cubes", ModuleWorkspace.ClassModule("Cubes",
+        "Option Explicit",
+        "Implements Squares",
+        "Private Function Squares_Value(ByVal N As Long) As Long",
+        "    Squares_Value = N * N * N",
+        "End Function"))).ToArray();
 }

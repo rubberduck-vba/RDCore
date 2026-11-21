@@ -203,7 +203,8 @@ public static class ExpressionStaticSemanticsEvaluator
         StaticEvaluationContext context, ExpressionNode expression, Symbol qualifier, MemberAccessExpressionNode memberAccess)
     {
         var memberName = memberAccess.Member.IdentifierName;
-        var resolved = context.Resolver.ResolveMember(qualifier, memberName, context.Scope.Uri);
+        // a member written with a type character is looked for as written first: VBA.Left$ is not VBA.Left.
+        var resolved = context.Resolver.ResolveMember(qualifier, memberAccess.Member, context.Scope.Uri);
 
         if (resolved.IsError)
         {

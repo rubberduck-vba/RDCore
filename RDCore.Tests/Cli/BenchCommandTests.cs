@@ -364,6 +364,22 @@ public sealed class BenchCommandTests
         Assert.HasCount(2, benchCase.Runs, "the first two calls are timed; the third raises");
     }
 
+    // the indentation of the shell's program is a bench of its own, which a filter selects by its name as it selects a case: a run of one case does not
+    // wait for it.
+    [TestMethod]
+    [DataRow("count", false, 1, DisplayName = "a filter naming one case")]
+    [DataRow(BenchRunner.IndentName, true, 0, DisplayName = "its name")]
+    [DataRow("indent", true, 0, DisplayName = "part of its name")]
+    [DataRow(null, true, 3, DisplayName = "no filter")]
+    public async Task TheIndent_IsRun_WhenTheFilterSelectsIt(string? filter, bool indented, int cases)
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: filter));
+
+        Assert.AreEqual(indented, report.Indent is not null);
+        Assert.HasCount(cases, report.Cases);
+    }
+
     // nothing of the project runs while a module of it does not load: a case of another module is refused with the problem, and not run.
     [TestMethod]
     public async Task AModuleThatDoesNotParse_IsAProblem_AndTheCasesOfTheOthersAreRefused()

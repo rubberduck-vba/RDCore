@@ -93,9 +93,21 @@ internal sealed class ExportLibraryCommand(IConsoleMessageWriter writer, IFileSy
 
             var export = new TypeLibraryExporter(!options.WithoutDescriptions).Export(loaded, exportedBy);
             var path = PathOf(output, loaded, identity);
-            fileSystem.File.WriteAllText(path, LibraryJson.Write(export.Description), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
-            Write(MessageKind.Success, string.Format(Resources.ExportLibrary_Written, loaded.Name, path), Counts(export.Description));
+            // the file it replaces, of this type library, states what a type library cannot: the members that are design-time only, and the members a hidden
+            // default member stands for. They are kept.
+            var replaced = fileSystem.File.Exists(path) ? LibraryJson.Read(fileSystem.File.ReadAllText(path)) : null;
+            var description = export.Description
+                .KeepingDesignTimeOnly(replaced, out var designTimeOnlyLost)
+                .KeepingWrittenAs(replaced, out var writtenAsLost);
+            fileSystem.File.WriteAllText(path, LibraryJson.Write(description), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+            Write(MessageKind.Success, string.Format(Resources.ExportLibrary_Written, loaded.Name, path), Counts(description));
+            var lost = designTimeOnlyLost.Concat(writtenAsLost).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+            if (lost.Count > 0)
+            {
+                Write(MessageKind.Warning, string.Format(Resources.ExportLibrary_Lost, Abbreviated(lost)));
+            }
             if (export.Skipped.Count > 0)
             {
                 Write(MessageKind.Warning, string.Format(Resources.ExportLibrary_Skipped, Abbreviated(export.Skipped)));

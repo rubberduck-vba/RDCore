@@ -178,6 +178,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplementationsShouldBePrivate_Interface_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Make &apos;{0}&apos; Private, which takes it off the default interface of the class.
+        /// </summary>
+        public static string ImplementationsShouldBePrivate_Fix {
+            get {
+                return ResourceManager.GetString("ImplementationsShouldBePrivate_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is implicitly passed ByRef: the procedure can change the caller&apos;s variable. Write ByRef if that is intended, and ByVal otherwise..
@@ -1385,6 +1394,33 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to No object of class &apos;{0}&apos; is an object of class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this Set runs with an object..
+        /// </summary>
+        public static string SetToAnIncompatibleClass_Message {
+            get {
+                return ResourceManager.GetString("SetToAnIncompatibleClass_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No object of class &apos;{0}&apos; is an object of the parameter&apos;s class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this call is made with an object..
+        /// </summary>
+        public static string ArgumentOfAnIncompatibleClass_Message {
+            get {
+                return ResourceManager.GetString("ArgumentOfAnIncompatibleClass_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The class &apos;{1}&apos; does not declare a member &apos;{0}&apos;: the member is looked up on the object when the code runs, and the access raises run-time error 438 if the object has none..
+        /// </summary>
+        public static string MemberNotOnDeclaredInterface_Message {
+            get {
+                return ResourceManager.GetString("MemberNotOnDeclaredInterface_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is given the object itself: MS-VBA passes an object Let-assigned to a property whose value is an object as a Set would, where MS-VBAL §5.5.1.1 makes the assignment a type mismatch. Assign it with Set..
         /// </summary>
         public static string ObjectLetToObjectProperty_Message {
@@ -1525,6 +1561,24 @@ namespace RDCore.Diagnostics.Model {
         public static string ParameterNotUsed_Message {
             get {
                 return ResourceManager.GetString("ParameterNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is used by no implementation of &apos;{1}&apos;..
+        /// </summary>
+        public static string ParameterNotUsed_Implementations_Message {
+            get {
+                return ResourceManager.GetString("ParameterNotUsed_Implementations_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is used by no handler of event &apos;{1}&apos;..
+        /// </summary>
+        public static string ParameterNotUsed_Handlers_Message {
+            get {
+                return ResourceManager.GetString("ParameterNotUsed_Handlers_Message", resourceCulture);
             }
         }
 

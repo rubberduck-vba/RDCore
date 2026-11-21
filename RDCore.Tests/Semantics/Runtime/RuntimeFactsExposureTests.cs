@@ -207,6 +207,19 @@ public sealed class RuntimeFactsExposureTests
         Assert.IsTrue(access.IsValueKnown, "a new object is known");
     }
 
+    // the block's object is what the parameter was read as: not known, and so no more Nothing than an access of the parameter outside the block.
+    [TestMethod]
+    [DataRow("ByVal c As Collection", DisplayName = "a class")]
+    [DataRow("ByVal c As Object", DisplayName = "an Object")]
+    [DataRow("ByVal c As Variant", DisplayName = "a Variant")]
+    public async Task AMemberOfAWithBlockOfAParameter_IsNotKnown_AndStatesNoError(string parameters)
+    {
+        var access = Access(await FactsOfAsync(parameters, "With c", "    .Add 1", "End With"));
+
+        Assert.IsFalse(access.IsValueKnown, "the parameter is not known");
+        Assert.IsNull(access.Error, $"the access states error {access.Error?.ErrorId}");
+    }
+
     [TestMethod]
     public async Task AMemberThatIsAssigned_IsAMemberAccess()
     {

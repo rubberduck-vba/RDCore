@@ -698,10 +698,16 @@ public sealed partial class CompiledActivation : ILightActivation
     // the last class's (Invoked).
     private VBTypeMemberSymbol? MemberOf(CompiledCallee called, IObjectInstance target)
     {
-        // the default member of an object of the class it is declared as: one of another class is the interpreter's to resolve.
+        // the default member of an object of the class it is declared as, and the member implementing it of an object of a class that implements that class
+        // as an interface (MS-VBAL §5.3.1.9), as the interpreter finds it (RuntimeExpressionEvaluator.TryResolveDefaultMember). One of any other class is the
+        // interpreter's to resolve.
         if (called.DefaultOf is { } declared)
         {
-            return ReferenceEquals(target.ClassModule, declared) ? called.Procedure : null;
+            var implementing = target.ClassModule;
+            return ReferenceEquals(implementing, declared) ? called.Procedure
+                : implementing.ImplementedInterfaces.Any(implemented => implemented.Uri.AbsoluteUri == declared.Uri.AbsoluteUri)
+                    ? implementing.FindImplementation(declared, called.Procedure)
+                    : null;
         }
 
         if (called.Site is null)
@@ -2067,6 +2073,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long InvokerActivationsMade => Interlocked.Read(ref _invokerActivationsMade);
 
     internal void CountInvokerActivationMade() => Interlocked.Increment(ref _invokerActivationsMade);
+
+    // the activation of the body each invoker last returned from a call it made of it, which its next call is made in (RuntimeProcedureInvoker.Run). Keyed
+    // weakly by the invoker, which the activation holds: an entry goes with its invoker once the run its pipeline was composed for is over, and every entry
+    // goes with the body when an edit replaces it.
+    internal ConditionalWeakTable<RuntimeProcedureInvoker, StrongBox<CompiledActivation?>> Spares { get; } = [];
 
     internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
 

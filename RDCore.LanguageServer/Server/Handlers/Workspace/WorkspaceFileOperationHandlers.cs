@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Server.Handlers.Workspace;
@@ -156,4 +157,25 @@ internal sealed class DidDeleteWorkspaceFilesHandler(
 
     protected override DidDeleteFileRegistrationOptions CreateRegistrationOptions(FileOperationsWorkspaceClientCapabilities capability, ClientCapabilities clientCapabilities)
         => new() { Filters = WorkspaceFileOperationFilters.All };
+}
+
+/// <summary>
+/// <c>workspace/willRenameFiles</c> of a staged file (<see cref="StagedFiles"/>): before the client puts it in place, the server deletes it when the file it
+/// replaces changed since it was staged, and the client's rename of it fails.
+/// </summary>
+/// <remarks>
+/// The request is read as <see cref="WillRenameWorkspaceFilesParams"/>, which OmniSharp does not register: the server says it handles it in its
+/// <c>initialize</c> result (<see cref="StagedFiles.WillRename"/>), for staged files only. It answers without an edit.
+/// </remarks>
+internal sealed class WillRenameStagedFilesHandler(StagedFiles staged) : IJsonRpcRequestHandler<WillRenameWorkspaceFilesParams, WorkspaceEdit?>
+{
+    public Task<WorkspaceEdit?> Handle(WillRenameWorkspaceFilesParams request, CancellationToken cancellationToken)
+    {
+        foreach (var file in request.Files.Select(file => DocumentUri.From(file.OldUri)).Where(file => StagedFiles.IsStaged(file.GetFileSystemPath())))
+        {
+            staged.Verify(file);
+        }
+
+        return Task.FromResult<WorkspaceEdit?>(null);
+    }
 }

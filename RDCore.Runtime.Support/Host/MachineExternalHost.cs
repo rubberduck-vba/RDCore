@@ -4,6 +4,7 @@ using RDCore.External.Automation;
 using RDCore.External.Forms;
 using RDCore.External.Forms.RDForms;
 using RDCore.External.Hosting;
+using RDCore.External.Interaction;
 using RDCore.External.Native;
 using RDCore.External.Windows.Automation;
 using RDCore.External.Windows.Forms;
@@ -42,23 +43,29 @@ public sealed class MachineExternalHost(string? logFileName, bool hostsRDForms =
     {
         if (!OperatingSystem.IsWindows())
         {
-            var (anywhere, forms) = Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, configuration, rdForms);
-            return new ExternalAutomationService(anywhere, forms);
+            var (anywhere, forms, dialogs) = Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, configuration, rdForms);
+            return new ExternalAutomationService(anywhere, forms, dialogs);
         }
 
         var apartment = new ComApartment();
-        var (automation, host) = Compose(new ComAutomationServer(apartment), new WindowsFormHost(apartment), configuration, rdForms);
-        return new ExternalAutomationService(automation, host);
+        var (automation, host, shown) = Compose(new ComAutomationServer(apartment), new WindowsFormHost(apartment), configuration, rdForms);
+        return new ExternalAutomationService(automation, host, shown);
     }
 
-    private static (IAutomationServer Automation, IFormHost Forms) Compose(IAutomationServer platform, IFormHost microsoftForms, IConfiguration configuration,
-        bool rdForms)
-        => rdForms ? ComposeRDForms(platform, microsoftForms, configuration) : (platform, microsoftForms);
+    // the dialogs are RDForms' when it hosts the forms, and none otherwise: the environment host shows its own then.
+    private static (IAutomationServer Automation, IFormHost Forms, IUserInteraction? Dialogs) Compose(
+        IAutomationServer platform, IFormHost microsoftForms, IConfiguration configuration, bool rdForms)
+        => rdForms ? ComposeRDForms(platform, microsoftForms, configuration) : (platform, microsoftForms, null);
 
     // the only method that names a type of RDForms' host: compiled only when it is called, so that a host whose folder holds no RDForms never loads it.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (IAutomationServer Automation, IFormHost Forms) ComposeRDForms(IAutomationServer platform, IFormHost microsoftForms, IConfiguration configuration)
-        => RDFormsHosting.Compose(platform, microsoftForms, configuration.GetSection("Configuration:Forms").Get<FormsOptions>() ?? new FormsOptions());
+    private static (IAutomationServer Automation, IFormHost Forms, IUserInteraction? Dialogs) ComposeRDForms(
+        IAutomationServer platform, IFormHost microsoftForms, IConfiguration configuration)
+    {
+        var (automation, forms) = RDFormsHosting.Compose(
+            platform, microsoftForms, configuration.GetSection("Configuration:Forms").Get<FormsOptions>() ?? new FormsOptions());
+        return (automation, forms, RDFormsHosting.DialogsOf(forms));
+    }
 
     protected override string? LogFileName => logFileName;
 }

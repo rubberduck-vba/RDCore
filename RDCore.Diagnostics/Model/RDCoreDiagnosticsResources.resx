@@ -372,6 +372,9 @@
   <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
     <value>'{0}' implements a member of an interface, and is Public: it exposes that member on the default interface of this class, where it does not belong. Make it Private.</value>
   </data>
+  <data name="ImplementationsShouldBePrivate_Fix" xml:space="preserve">
+    <value>Make '{0}' Private, which takes it off the default interface of the class</value>
+  </data>
   <data name="ImplementationsShouldBePrivate_EventHandler_Message" xml:space="preserve">
     <value>'{0}' handles an event, and is Public: it can be called from outside, which an event handler never should be. Make it Private.</value>
   </data>
@@ -528,6 +531,9 @@
   <data name="LetToAnObjectWithNoDefaultMember_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is of class &apos;{1}&apos;, which has no default member to assign the value to: run-time error 438 (91 when it is Nothing) every time this runs. Name the member the value is assigned to.</value>
   </data>
+  <data name="MemberNotOnDeclaredInterface_Message" xml:space="preserve">
+    <value>The class &apos;{1}&apos; does not declare a member &apos;{0}&apos;: the member is looked up on the object when the code runs, and the access raises run-time error 438 if the object has none.</value>
+  </data>
   <data name="LetThroughAVariantGet_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is a Property Get declared Variant, with no Property Let. MS-VBAL specifies error 451 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name.</value>
   </data>
@@ -590,6 +596,12 @@
   </data>
   <data name="ParameterNotUsed_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is never used.</value>
+  </data>
+  <data name="ParameterNotUsed_Implementations_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is used by no implementation of &apos;{1}&apos;.</value>
+  </data>
+  <data name="ParameterNotUsed_Handlers_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is used by no handler of event &apos;{1}&apos;.</value>
   </data>
   <data name="AssignedByValParameter_Message" xml:space="preserve">
     <value>Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change.</value>
@@ -767,5 +779,11 @@
   </data>
   <data name="SingleLineIfWithNoStatement_Message" xml:space="preserve">
     <value>Nothing follows the colon after Then: this line runs as an If with no statement, as in VB6, and the lines after it run whatever the condition. MS-VBAL §5.4.2.9 gives the line no reading.</value>
+  </data>
+  <data name="SetToAnIncompatibleClass_Message" xml:space="preserve">
+    <value>No object of class &apos;{0}&apos; is an object of class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this Set runs with an object.</value>
+  </data>
+  <data name="ArgumentOfAnIncompatibleClass_Message" xml:space="preserve">
+    <value>No object of class &apos;{0}&apos; is an object of the parameter&apos;s class &apos;{1}&apos; or of a class that implements it: run-time error 13 (Type mismatch) every time this call is made with an object.</value>
   </data>
 </root>

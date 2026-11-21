@@ -19,7 +19,7 @@ The static and runtime semantic layers read symbols through
 |`ResolveType`|Resolves a specified _identifier name_ in the _type binding context_, as seen from the scope that the symbol at a specified _handle_ `Uri` belongs to, to a `SymbolResolutionResult`.|
 |`ResolveQualifier`|Resolves a specified _identifier name_ as the _qualifier_ of a qualified type name (the `A` in `A.B`). It binds the project, or a procedural or class module, and never a user-defined type or an Enum type.|
 |`GetValue`|Gets the [IBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html) currently bound to a specified `Symbol`.|
-|`TryRead`|Gets the `IBindingHandle` held at a specified [MemoryAddress](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.MemoryAddress.html), if any.|
+|`TryRead`|Gets the `IBindingHandle` held at a specified [MemoryAddress](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.MemoryAddress.html), if any. Given a type, it gets the place of that type that starts at the address, which can be a field inside a record; given a `VBRuntimeReference` and the type of the parameter it is passed to, the variable the reference refers to ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).|
 |`TryGetAddress`|Resolves the address that a `ByRef` parameter binding aliases ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).|
 |`TryAllocate`|Allocates a `Static` local's own module-extent storage, in the session's module-level heap ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|
 
@@ -316,9 +316,12 @@ From the highest reference precedence to the lowest, the projects a name can be 
    ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)).
 3. The libraries that every project of its language has, though its `.rdproj` lists no reference to them
    ([SupportedLanguage.ImplicitReferences](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.SupportedLanguage.html)), in the order the language gives them.
-4. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
-   ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA` is left out, and so is a second reference to a library listed earlier.
-5. The libraries that are loaded only because another library depends on them, in the order they are loaded.
+4. `RDForms`, when a module of the project is a form ported to RDForms (a `.rdform` module), though its `.rdproj` lists no reference to it
+   (`SupportedLanguage.ImplicitReferencesOf`). A language that already has `RDForms` among its implicit references keeps it in its place.
+5. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
+   ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA`, by its name or by its type library's identifier, is left out,
+   and so is a second reference to a library listed earlier.
+6. The libraries that are loaded only because another library depends on them, in the order they are loaded.
 
 A VB6 project has two implicit references, in this order:
 
@@ -345,7 +348,7 @@ so that **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics
 `ScopeTreeSymbolResolver` consults the reference precedence within one tier of the lookup order above: the tier comes
 first, and the reference precedence decides only among the candidates of one tier. The symbols of a referenced library
 carry its reference precedence (`SymbolProperties.LibraryPriority`, from `ReferencedLibraries.Priorities`): the position
-of its reference among the language's implicit references followed by the references of the `.rdproj`, from `1`, with
+of its reference among the implicit references (the language's, then `RDForms`) followed by the references of the `.rdproj`, from `1`, with
 the references left out above not counted. A reference whose library fails to load keeps its number, so the libraries
 after it keep theirs. The libraries loaded only for another come after every listed one, in the order they are loaded.
 The lower number is the higher reference precedence. The symbols of the `VBA` library carry none, and come before

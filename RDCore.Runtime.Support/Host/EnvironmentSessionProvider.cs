@@ -346,7 +346,7 @@ public sealed class EnvironmentSessionProvider(
 
         // and the libraries the project references, by name: the same symbols the language server bound the workspace's names to.
         var source = librarySource ?? new DirectoryLibrarySource(fileSystem, string.Empty);
-        var referenced = LibrarySymbolProvider.Load(source, project.References, environment.Language);
+        var referenced = LibrarySymbolProvider.Load(source, project, environment.Language);
         foreach (var problem in referenced.Problems)
         {
             logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
@@ -357,7 +357,7 @@ public sealed class EnvironmentSessionProvider(
 
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else. The
         // project's build section names the procedure a run of the project starts with.
-        var session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language),
+        var session = RuntimeSessionComposer.Compose(environment, LibrarySymbolProvider.ReferencePriorities(project, environment.Language),
             [configuration, stdLib, libraries, modules], output, libraries: source, build: project.Build);
         // a predefined constant the project defines has the project's value on every platform a #If is evaluated for, and not that platform's.
         RDCore.Runtime.Semantics.Precompiler.ProjectConditionalConstants.Set(session, project.PrecompilerConstants.Select(constant => constant.Key));
@@ -518,13 +518,4 @@ public sealed class EnvironmentSessionProvider(
             ProgramSettings = MachinePlatform.ProgramSettings(_environment, settings),
         };
     }
-
-    // the .rdproj declares references in precedence order, the earliest highest (RD-VBAL §2.3.1.3, MS-VBAL §4.1); the list index is the rank. The standard
-    // library, which every project has and no .rdproj lists, is the first of them, and the language's implicit references come next, as LibrarySymbolProvider.Load
-    // ranks them; a second reference to a library already there is left out, as Load leaves it out.
-    private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references, SupportedLanguage language)
-        => [new ReferencePriorityInfo(StandardLibrary.LibraryName, 0),
-            .. language.ImplicitReferences.Concat(references.Where(reference => !reference.IsStandardLibrary).Select(reference => reference.Name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select((name, rank) => new ReferencePriorityInfo(name, rank + 1))];
 }

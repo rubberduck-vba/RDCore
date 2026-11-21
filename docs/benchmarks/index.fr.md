@@ -33,7 +33,7 @@ rdc bench
 | Option | Ce qu'elle fait |
 |---|---|
 | `--runs <n>`, `-r <n>` | Exécute chaque cas `n` fois (3 par défaut). |
-| `--filter <texte>`, `-f <texte>` | N'exécute que les cas dont le nom `Module.Procedure` contient le texte, par exemple `--filter Strings.` |
+| `--filter <texte>`, `-f <texte>` | N'exécute que les cas dont le nom `Module.Procedure` contient le texte, par exemple `--filter Strings.` La ligne `indent` (le shell qui indente un programme de 5 000 lignes, la plus rapide de 10 exécutions) s'exécute quand son nom, `Indent.Program`, contient le texte. |
 | `--list`, `-l` | Liste les cas sans les exécuter. |
 | `--engine <moteur>`, `-e <moteur>` | Exécute les cas avec `Compiled` ou `Interpreter`, au lieu du moteur d'exécution configuré. |
 | `--no-warm-up` | Chronomètre chaque cas dès sa première exécution. |

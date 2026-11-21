@@ -350,14 +350,19 @@ public sealed class CompiledByRefCallTests
     private const string ArrayFieldRecord = "Private Type Holder\r\n    N As Long\r\n    Arr(1 To 3) As Long\r\nEnd Type\r\nPrivate R As Holder";
     private const string RecordAddressFirst = "    Dim Q As LongPtr: Q = VarPtr(R)";
 
+    // R.I.X is where R.I and R are: the type of the parameter tells the three apart.
+    private const string NestedRecord = "Private Type Inner\r\n    X As Long\r\n    S As String\r\nEnd Type\r\n"
+        + "Private Type Outer\r\n    I As Inner\r\n    N As Long\r\nEnd Type\r\nPrivate R As Outer";
+    private const string RecordArray2D = Record + "\r\nPrivate A(1 To 2, 1 To 3) As Rec";
+
     // a field of a record, and an element of a fixed-size array field of one, is where the record is: the record's address plus its offset (VarPtr), which
-    // the parameter is not bound at. Main takes the record's address first, so that the field is where the record is whichever is asked for first.
+    // the parameter is bound at. Main takes the record's address first, so that the field is where the record is whichever is asked for first.
     [TestMethod]
-    [Ignore("a ByRef parameter given a place inside a record is bound at an address of its own: storage resolves no address inside a record to the "
-        + "place there. What is written through the parameter reaches the place; only VarPtr of the parameter is not the place's address")]
     [DataRow(RecordArray, "", "A(2).X", "Long", "2", "3", DisplayName = "the address of a field of a record element")]
     [DataRow(ArrayFieldRecord, RecordAddressFirst, "R.Arr(2)", "Long", "2", "3", DisplayName = "the address of an element of a fixed-size array field")]
     [DataRow(RecordVariable, RecordAddressFirst, "R.S", "String", "\"t\"", "\"a\"", DisplayName = "the address of a field of a record")]
+    [DataRow(NestedRecord, RecordAddressFirst, "R.I.X", "Long", "2", "3", DisplayName = "the address of the first field of a record field")]
+    [DataRow(RecordArray2D, "", "A(2, 3).S", "String", "\"t\"", "\"a\"", DisplayName = "the address of a field of a record element of a 2D array")]
     public async Task AFieldPassedByReference_IsBoundWhereTheFieldIs(
         string declarations, string setUp, string element, string type, string first, string second)
     {
@@ -371,6 +376,8 @@ public sealed class CompiledByRefCallTests
     [DataRow(RecordArray, "", "A(2).X", "Long", "2", "3", "2 ; 3", DisplayName = "a field of a record element")]
     [DataRow(ArrayFieldRecord, RecordAddressFirst, "R.Arr(2)", "Long", "2", "3", "2 ; 3", DisplayName = "an element of a fixed-size array field")]
     [DataRow(RecordVariable, RecordAddressFirst, "R.S", "String", "\"t\"", "\"a\"", "t ; a", DisplayName = "a field of a record")]
+    [DataRow(NestedRecord, RecordAddressFirst, "R.I.X", "Long", "2", "3", "2 ; 3", DisplayName = "the first field of a record field")]
+    [DataRow(RecordArray2D, "", "A(2, 3).S", "String", "\"t\"", "\"a\"", "t ; a", DisplayName = "a field of a record element of a 2D array")]
     public async Task AFieldPassedByReference_IsTheField(
         string declarations, string setUp, string element, string type, string first, string second, string expected)
     {
