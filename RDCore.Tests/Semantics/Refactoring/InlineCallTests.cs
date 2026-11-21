@@ -424,7 +424,7 @@ public class InlineCallTests
         StringAssert.Contains(module, "a = Doubled_result");
     }
 
-    // a function the expression form can't write: its body is more than the assignment of its result.
+    // a function the expression form cannot write: its body is more than the assignment of its result.
     private const string Stepwise = "Private Function Doubled(ByVal x As Long) As Long\r\n    Dim twice As Long\r\n    twice = x * 2\r\n    Doubled = twice\r\nEnd Function";
 
     private const string OneLiner = "Private Function Doubled(ByVal x As Long) As Long\r\n    Doubled = x * 2\r\nEnd Function";

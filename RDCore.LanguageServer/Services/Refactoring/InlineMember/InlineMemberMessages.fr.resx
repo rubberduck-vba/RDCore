@@ -77,7 +77,7 @@
     <value>« {0} » garde des valeurs d'un appel à l'autre : il est Static, ou déclare une variable locale Static.</value>
   </data>
   <data name="InlineMember_Recursive" xml:space="preserve">
-    <value>« {0} » s'appelle lui-même, par les procédures qu'il appelle.</value>
+    <value>« {0} » s'appelle lui-même, directement ou par les procédures qu'il appelle.</value>
   </data>
   <data name="InlineMember_GoSub" xml:space="preserve">
     <value>Le corps de « {0} » contient un GoSub ou un Return {1}. Convertissez d'abord le GoSub en procédure.</value>
@@ -104,7 +104,7 @@
     <value>Le paramètre ByRef « {0} » reçoit un élément ou un champ {1}, qu'aucune variable de l'appel ne représente.</value>
   </data>
   <data name="InlineMember_OtherProject" xml:space="preserve">
-    <value>L'appel est dans un autre projet que « {0} ».</value>
+    <value>L'appel est dans un autre projet que celui de « {0} ».</value>
   </data>
   <data name="InlineMember_PrivateToItsModule" xml:space="preserve">
     <value>« {0} » {1} est Private dans le module du membre, et l'appel est dans un autre module.</value>
@@ -137,7 +137,7 @@
     <value>Plusieurs variables locales de « {0} » peuvent contenir un objet à la fin du corps, et l'ordre d'exécution de leurs Class_Terminate n'est pas connu.</value>
   </data>
   <data name="InlineMember_NotVerified" xml:space="preserve">
-    <value>L'appel {1} incorporé ne fait pas ce que faisait l'appel : {0}</value>
+    <value>Incorporé, l'appel {1} ne ferait pas ce qu'il faisait : {0}</value>
   </data>
   <data name="InlineMember_Verification_DoesNotParse" xml:space="preserve">
     <value>le module modifié ne s'analyse pas.</value>

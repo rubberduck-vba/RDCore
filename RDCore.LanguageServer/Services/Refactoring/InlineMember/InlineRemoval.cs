@@ -53,7 +53,9 @@ internal enum InlineRemovalKind
 /// </summary>
 /// <param name="Kind">Whether, and why.</param>
 /// <param name="Module">The module of the member.</param>
-/// <param name="Edit">The edit of <paramref name="Module"/> that removes the member, with its attributes and the comments above it, when it is offered.</param>
+/// <param name="Edit">
+/// The edit of <paramref name="Module"/> that removes the member, with its attributes and the comments above it, when it is offered.
+/// </param>
 /// <param name="Location">Where the reference that keeps the member is, when one does.</param>
 internal sealed record class InlineRemoval(InlineRemovalKind Kind, Uri Module, RefactorTextEdit? Edit = null, SourceLocation? Location = null)
 {

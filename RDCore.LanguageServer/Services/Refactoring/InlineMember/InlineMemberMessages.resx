@@ -59,7 +59,7 @@
     <value>'{0}' is kept: a late-bound call {1} could reach it.</value>
   </data>
   <data name="InlineMember_UnknownAnswer" xml:space="preserve">
-    <value>The answer '{0}' is to no choice of Inline Member.</value>
+    <value>The answer '{0}' matches no choice of Inline Member.</value>
   </data>
   <data name="InlineMember_NothingInlined" xml:space="preserve">
     <value>No call of '{0}' is inlined.</value>
@@ -77,7 +77,7 @@
     <value>'{0}' keeps values from one call to the next: it is Static, or declares a Static local.</value>
   </data>
   <data name="InlineMember_Recursive" xml:space="preserve">
-    <value>'{0}' calls itself, through the procedures it calls.</value>
+    <value>'{0}' calls itself, directly or through the procedures it calls.</value>
   </data>
   <data name="InlineMember_GoSub" xml:space="preserve">
     <value>The body of '{0}' has a GoSub or a Return {1}. Convert the GoSub to a procedure first.</value>
@@ -89,7 +89,7 @@
     <value>'{0}' raises an event {1}, which only its own class can raise.</value>
   </data>
   <data name="InlineMember_UnsupportedConstruct" xml:space="preserve">
-    <value>'{0}' holds a value that cannot be reset or let go of at the call.</value>
+    <value>'{0}' holds a value that cannot be reset or released at the call.</value>
   </data>
   <data name="InlineMember_UnsupportedParameter" xml:space="preserve">
     <value>The parameter '{0}' cannot be given its argument at the call {1}.</value>
@@ -104,7 +104,7 @@
     <value>The ByRef parameter '{0}' is given an element or a field {1}, which no variable at the call stands for.</value>
   </data>
   <data name="InlineMember_OtherProject" xml:space="preserve">
-    <value>The call is in another project than '{0}'.</value>
+    <value>The call is in a project other than that of '{0}'.</value>
   </data>
   <data name="InlineMember_PrivateToItsModule" xml:space="preserve">
     <value>'{0}' {1} is Private to the module of the member, and the call is in another module.</value>
@@ -137,7 +137,7 @@
     <value>Several locals of '{0}' may hold an object when the body ends, and the order their Class_Terminate run in is not known.</value>
   </data>
   <data name="InlineMember_NotVerified" xml:space="preserve">
-    <value>The call {1} inlined is not what the call did: {0}</value>
+    <value>Inlined, the call {1} would not do what it did: {0}</value>
   </data>
   <data name="InlineMember_Verification_DoesNotParse" xml:space="preserve">
     <value>the edited module does not parse.</value>
