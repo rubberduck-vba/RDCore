@@ -32,8 +32,9 @@ namespace RDCore.Runtime.Execution.External.Fonts;
 /// a handler leaves unhandled is the assignment's, as it is the <c>RaiseEvent</c>'s of an event of the program's own.
 /// </para>
 /// <para>
-/// A font <c>Set</c> to a form's control is shared with it, as in VB6: the control reads back the program's font, a change through either is the other's,
-/// and the server that holds the font draws what it holds once it changed (<see cref="RDCore.External.Automation.IAutomationServer.SessionObjectChanged"/>).
+/// A font <c>Set</c> to a form's control is shared with it, as in VB6: the control reads back the program's font, a change through either is seen
+/// through the other, and the server that holds the font draws what it holds once it changed
+/// (<see cref="RDCore.External.Automation.IAutomationServer.SessionObjectChanged"/>).
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose fonts these are.</param>

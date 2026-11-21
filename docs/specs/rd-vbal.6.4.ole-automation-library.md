@@ -71,5 +71,5 @@ raises 481 for them.
 
 |Type or member|Role|
 |---|---|
-|`FontCallProvider`|Makes the fonts of `New StdFont` and runs their members, each a [`StdFontObject`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Stdole.StdFontObject.html).|
+|`FontCallProvider`|Makes the fonts of `New StdFont` and runs their members, each a [`StdFontObject`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Stdole.StdFontObject.html). After a change, tells the server that holds the font, if one does, what it holds now.|
 |`PictureCallProvider`|Runs `LoadPicture` and `SavePicture`, and the members of the pictures they make.|
