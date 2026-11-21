@@ -438,9 +438,15 @@ public sealed class RDFormsAutomationServer : IAutomationServer
             value = CodeUnits.FromCode(component, property, (double)value!, form.Unit);
         }
 
-        if (!component.TrySet(property, value))
+        // RDForms' rules for a running program's assignment decide it, a VB6 form's or an RDForms form's: what is refused, and what is dropped, such as a
+        // transparent Label's BackColor.
+        try
         {
-            throw new AutomationException(RDFormsValues.InvalidPropertyValue, "Invalid property value");
+            RunTime.Assign(component, property, value, form.IsVisualBasic);
+        }
+        catch (FormErrorException exception)
+        {
+            throw FormFailure(exception.Error);
         }
 
         return null;

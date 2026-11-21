@@ -20,13 +20,13 @@ public sealed class ByValArrayParameterTests
         => LoadErrorsAsync([Interface, ("Holder", ClassModule("Holder", ["Option Explicit", .. declarations]))], [], Program);
 
     [TestMethod]
-    [DataRow("Public Sub X(ByVal a() As Long)|End Sub", DisplayName = "A01 a Sub")]
-    [DataRow("Public Sub X(ByVal a() As Variant)|End Sub", DisplayName = "A03 of Variant")]
-    [DataRow("Public Sub X(ByVal a())|End Sub", DisplayName = "A04 with no As clause")]
-    [DataRow("Public Function X(ByVal a() As String) As Long|End Function", DisplayName = "A05 a Function")]
-    [DataRow("Public Sub X(Optional ByVal a() As Long)|End Sub", DisplayName = "A06 optional")]
-    [DataRow("Public Sub X(ByVal n As Long, ByVal a() As Long)|End Sub", DisplayName = "A07 after a ByVal scalar")]
-    [DataRow("Public Declare PtrSafe Sub X Lib \"kernel32\" Alias \"Sleep\" (ByVal a() As Long)", DisplayName = "A08 a Declare")]
+    [DataRow("Public Sub X(ByVal a() As Long)|End Sub", DisplayName = "a Sub")]
+    [DataRow("Public Sub X(ByVal a() As Variant)|End Sub", DisplayName = "of Variant")]
+    [DataRow("Public Sub X(ByVal a())|End Sub", DisplayName = "with no As clause")]
+    [DataRow("Public Function X(ByVal a() As String) As Long|End Function", DisplayName = "a Function")]
+    [DataRow("Public Sub X(Optional ByVal a() As Long)|End Sub", DisplayName = "optional")]
+    [DataRow("Public Sub X(ByVal n As Long, ByVal a() As Long)|End Sub", DisplayName = "after a ByVal scalar")]
+    [DataRow("Public Declare PtrSafe Sub X Lib \"kernel32\" Alias \"Sleep\" (ByVal a() As Long)", DisplayName = "a Declare")]
     public async Task AByValArrayParameterOfAStandardModule_MustBeByRef(string declarations)
     {
         var errors = await ErrorsOfModuleAsync(declarations.Split('|'));
@@ -36,18 +36,18 @@ public sealed class ByValArrayParameterTests
     }
 
     [TestMethod]
-    [DataRow("Public Event E(ByVal a() As Long)", DisplayName = "A09 an Event")]
-    [DataRow("Public Sub X(ByVal a() As Long)|End Sub", DisplayName = "A10 a method")]
-    [DataRow("Public Property Let P(ByVal a() As Long)|End Property", DisplayName = "A11 a Property Let's value")]
-    [DataRow("Public Property Let P(ByVal i As Long, ByVal a() As Long)|End Property", DisplayName = "A12 a Property Let's value, after an index")]
-    [DataRow("Implements IArr|Private Sub IArr_X(ByVal a() As Long)|End Sub", DisplayName = "A18 an implementation")]
+    [DataRow("Public Event E(ByVal a() As Long)", DisplayName = "an Event")]
+    [DataRow("Public Sub X(ByVal a() As Long)|End Sub", DisplayName = "a method")]
+    [DataRow("Public Property Let P(ByVal a() As Long)|End Property", DisplayName = "a Property Let's value")]
+    [DataRow("Public Property Let P(ByVal i As Long, ByVal a() As Long)|End Property", DisplayName = "a Property Let's value, after an index")]
+    [DataRow("Implements IArr|Private Sub IArr_X(ByVal a() As Long)|End Sub", DisplayName = "an implementation")]
     public async Task AByValArrayParameterOfAClassModule_MustBeByRef(string declarations)
         => StringAssert.Contains(string.Join(" / ", await ErrorsOfClassAsync(declarations.Split('|'))), "Array argument must be ByRef");
 
     // A16, B01: ParamArray comes first, and takes neither ByVal nor ByRef.
     [TestMethod]
-    [DataRow("Public Sub X(ByVal ParamArray a() As Variant)|End Sub", DisplayName = "A16 ByVal ParamArray")]
-    [DataRow("Public Sub X(ByRef ParamArray a() As Variant)|End Sub", DisplayName = "B01 ByRef ParamArray")]
+    [DataRow("Public Sub X(ByVal ParamArray a() As Variant)|End Sub", DisplayName = "ByVal ParamArray")]
+    [DataRow("Public Sub X(ByRef ParamArray a() As Variant)|End Sub", DisplayName = "ByRef ParamArray")]
     public async Task APassingModeWrittenBeforeParamArray_IsASyntaxError(string declarations)
     {
         var errors = await ErrorsOfModuleAsync(declarations.Split('|'));
@@ -57,10 +57,10 @@ public sealed class ByValArrayParameterTests
     }
 
     [TestMethod]
-    [DataRow("Public Sub X(ParamArray a() As Variant)|End Sub", DisplayName = "B04 a ParamArray")]
-    [DataRow("Public Sub X(ByRef a() As Long)|End Sub", DisplayName = "A13 ByRef")]
-    [DataRow("Public Sub X(a() As Long)|End Sub", DisplayName = "A14 implicitly ByRef")]
-    [DataRow("Public Sub X(ByVal v As Variant)|End Sub", DisplayName = "A15 a Variant, which may hold an array")]
+    [DataRow("Public Sub X(ParamArray a() As Variant)|End Sub", DisplayName = "a ParamArray")]
+    [DataRow("Public Sub X(ByRef a() As Long)|End Sub", DisplayName = "ByRef")]
+    [DataRow("Public Sub X(a() As Long)|End Sub", DisplayName = "implicitly ByRef")]
+    [DataRow("Public Sub X(ByVal v As Variant)|End Sub", DisplayName = "a Variant, which may hold an array")]
     public async Task AnArrayParameterThatIsByRef_IsValid(string declarations)
         => Assert.IsEmpty(await ErrorsOfModuleAsync(declarations.Split('|')));
 }

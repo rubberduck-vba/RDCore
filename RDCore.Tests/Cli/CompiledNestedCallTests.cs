@@ -277,23 +277,23 @@ public sealed class CompiledNestedCallTests
     // an operand of an integral type or of Currency, in an expression that passes it by reference to a call: read where it is written, before the call left
     // of it, after the call right of it. Compiled code reads it, and makes the call.
     [TestMethod]
-    [DataRow("Long", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "O01 read before the call")]
-    [DataRow("Long", "x = Bump(a) + a", 1, "| 4 ; 2 |", DisplayName = "O02 read after the call")]
-    [DataRow("Long", "x = a * 10 + Bump(a) * Bump(a)", 2, "| 16 ; 3 |", DisplayName = "O03 read before two calls")]
-    [DataRow("Integer", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "O04 an Integer")]
-    [DataRow("Long", "If a < Bump(a) Then x = 1 Else x = 2", 1, "| 1 ; 2 |", DisplayName = "O09 a condition")]
-    [DataRow("Long", "x = (a) + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "O11 in parentheses")]
-    [DataRow("Long", "x = a + 0 + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "O12 an operation of it")]
-    [DataRow("Long", "x = -a + Bump(a)", 1, "| 1 ; 2 |", DisplayName = "O13 negated")]
-    [DataRow("Byte", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "P01 a Byte")]
-    [DataRow("Currency", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "P04 a Currency")]
-    [DataRow("LongLong", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "P06 a LongLong")]
-    [DataRow("Long", "x = Bump(a) + a + Bump(a)", 2, "| 7 ; 3 |", DisplayName = "P21 read between two calls")]
+    [DataRow("Long", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "read before the call")]
+    [DataRow("Long", "x = Bump(a) + a", 1, "| 4 ; 2 |", DisplayName = "read after the call")]
+    [DataRow("Long", "x = a * 10 + Bump(a) * Bump(a)", 2, "| 16 ; 3 |", DisplayName = "read before two calls")]
+    [DataRow("Integer", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "an Integer")]
+    [DataRow("Long", "If a < Bump(a) Then x = 1 Else x = 2", 1, "| 1 ; 2 |", DisplayName = "a condition")]
+    [DataRow("Long", "x = (a) + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "in parentheses")]
+    [DataRow("Long", "x = a + 0 + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "an operation of it")]
+    [DataRow("Long", "x = -a + Bump(a)", 1, "| 1 ; 2 |", DisplayName = "negated")]
+    [DataRow("Byte", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "a Byte")]
+    [DataRow("Currency", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "a Currency")]
+    [DataRow("LongLong", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "a LongLong")]
+    [DataRow("Long", "x = Bump(a) + a + Bump(a)", 2, "| 7 ; 3 |", DisplayName = "read between two calls")]
     public async Task AnOperandOfAnIntegralTypeOrCurrency_PassedByReferenceBesideIt_IsReadWhereItIsWritten(string type, string statement, long calls, string printed)
         => StringAssert.Contains(await AssertAlikeAsync(Changing(type, statement), "Outer", calls), printed);
 
     [TestMethod]
-    [DataRow("x = a + Bump(a)", DisplayName = "P02 a Boolean")]
+    [DataRow("x = a + Bump(a)", DisplayName = "a Boolean")]
     public async Task ABooleanOperand_PassedByReferenceBesideIt_IsReadWhereItIsWritten(string statement)
         => StringAssert.Contains(await AssertAlikeAsync(Program(
             "Public Sub Main()",
@@ -314,12 +314,12 @@ public sealed class CompiledNestedCallTests
     // an operand of a floating-point type or a Date, in an expression that passes it by reference to a call: read when its operation is computed, after the
     // call. Compiled code leaves the statement to the interpreter.
     [TestMethod]
-    [DataRow("Double", "Double", "x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "O05 a Double")]
-    [DataRow("Single", "Single", "x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "P03 a Single")]
-    [DataRow("Date", "Double", "x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "P05 a Date")]
-    [DataRow("Double", "Double", "x = (a) + Bump(a)", "| 4 ; 2 |", DisplayName = "P14 in parentheses")]
-    [DataRow("Double", "Double", "If a < Bump(a) Then x = 1 Else x = 2", "| 2 ; 2 |", DisplayName = "P20 a condition")]
-    [DataRow("Double", "Double", "x = Sum2(a, Bump(a))", "| 22 ; 2 |", DisplayName = "P23 an argument beside the call")]
+    [DataRow("Double", "Double", "x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "a Double")]
+    [DataRow("Single", "Single", "x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "a Single")]
+    [DataRow("Date", "Double", "x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "a Date")]
+    [DataRow("Double", "Double", "x = (a) + Bump(a)", "| 4 ; 2 |", DisplayName = "in parentheses")]
+    [DataRow("Double", "Double", "If a < Bump(a) Then x = 1 Else x = 2", "| 2 ; 2 |", DisplayName = "a condition")]
+    [DataRow("Double", "Double", "x = Sum2(a, Bump(a))", "| 22 ; 2 |", DisplayName = "an argument beside the call")]
     public async Task AnOperandOfAFloatingPointTypeOrDate_PassedByReferenceBesideIt_IsReadWhenItsOperationIsComputed(string type, string result, string statement,
         string printed)
         => StringAssert.Contains(await AssertSteppedAlikeAsync(Changing(type, statement, result, "CDbl(a)"), "a"), printed);
@@ -327,28 +327,30 @@ public sealed class CompiledNestedCallTests
     // an operand compiled code does not read, in an expression that passes it by reference to a call: of a Variant, a String, a variable of the module, a
     // field of a record, an element of an array. Its type decides when it is read, whatever it is.
     [TestMethod]
-    [DataRow("Variant", "", "Dim a As Variant, x As Variant", "a = 1", "x = a + Bump(a)", "x ;; a", "| 4 ; 2 |", DisplayName = "O06 a Variant")]
+    [DataRow("Variant", "", "Dim a As Variant, x As Variant", "a = 1", "x = a + Bump(a)", "x ;; a", "| 4 ; 2 |", DisplayName = "a Variant")]
     [DataRow("Variant", "", "Dim a As Variant, x As Variant", "a = CLng(1)", "x = a + Bump(a)", "x ;; a ;; TypeName(a)", "| 4 ; 2 ; Long |",
-        DisplayName = "P08 a Variant holding a Long")]
-    [DataRow("Long", "", "Dim s As String, t As String", "s = \"a\"", "t = s & Ap(s)", "t ;; s", "| abab ; ab |", DisplayName = "O07 a String")]
-    [DataRow("Long", "", "Dim s As String, t As String", "s = \"a\"", "t = (s) & Ap(s)", "t ;; s", "| abab ; ab |", DisplayName = "P17 a String in parentheses")]
-    [DataRow("Long", "", "Dim s As String, t As String", "s = \"a\"", "t = s & \"\" & Ap(s)", "t ;; s", "| aab ; ab |", DisplayName = "P18 an operation of a String")]
+        DisplayName = "a Variant holding a Long")]
+    [DataRow("Long", "", "Dim s As String, t As String", "s = \"a\"", "t = s & Ap(s)", "t ;; s", "| abab ; ab |", DisplayName = "a String")]
+    [DataRow("Long", "", "Dim s As String, t As String", "s = \"a\"", "t = (s) & Ap(s)", "t ;; s", "| abab ; ab |", DisplayName = "a String in parentheses")]
+    [DataRow("Long", "", "Dim s As String, t As String", "s = \"a\"", "t = s & \"\" & Ap(s)", "t ;; s", "| aab ; ab |",
+        DisplayName = "an operation of a String")]
     [DataRow("Long", "", "Dim s As String * 3, t As String", "s = \"a\"", "t = s & Pre(s)", "\"[\" & t & \"]\"", "| [a  ba  ] |",
-        DisplayName = "P09 a fixed-length String")]
+        DisplayName = "a fixed-length String")]
     [DataRow("Long", "Private g As Long ;; Private Function SetG() As Long ;; g = g + 1 ;; SetG = 0 ;; End Function", "Dim x As Long", "g = 1",
-        "x = g + SetG()", "x ;; g", "| 1 ; 2 |", DisplayName = "O08 a Long of the module")]
+        "x = g + SetG()", "x ;; g", "| 1 ; 2 |", DisplayName = "a Long of the module")]
     [DataRow("Long", "Private gd As Double ;; Private Function SetD() As Double ;; gd = gd + 1 ;; SetD = 0 ;; End Function", "Dim x As Double", "gd = 1",
-        "x = gd + SetD()", "x ;; gd", "| 2 ; 2 |", DisplayName = "P07 a Double of the module")]
+        "x = gd + SetD()", "x ;; gd", "| 2 ; 2 |", DisplayName = "a Double of the module")]
     [DataRow("Long", "Private Type TPair ;; X As Long ;; Y As Long ;; End Type", "Dim r As TPair, x As Long", "r.X = 1", "x = r.X + Bump(r.X)", "x ;; r.X",
-        "| 3 ; 2 |", DisplayName = "P10 a Long field")]
-    [DataRow("Long", "", "Dim v(1 To 2) As Long, x As Long", "v(1) = 1", "x = v(1) + Bump(v(1))", "x ;; v(1)", "| 3 ; 2 |", DisplayName = "P12 a Long element")]
-    [DataRow("Double", "", "Dim v(1 To 2) As Double, x As Double", "v(1) = 1", "x = v(1) + Bump(v(1))", "x ;; v(1)", "| 4 ; 2 |", DisplayName = "P13 a Double element")]
+        "| 3 ; 2 |", DisplayName = "a Long field")]
+    [DataRow("Long", "", "Dim v(1 To 2) As Long, x As Long", "v(1) = 1", "x = v(1) + Bump(v(1))", "x ;; v(1)", "| 3 ; 2 |", DisplayName = "a Long element")]
+    [DataRow("Double", "", "Dim v(1 To 2) As Double, x As Double", "v(1) = 1", "x = v(1) + Bump(v(1))", "x ;; v(1)", "| 4 ; 2 |",
+        DisplayName = "a Double element")]
     [DataRow("Long", "", "Dim v(1 To 3) As Long, i As Long, x As Long", "v(1) = 10 : v(2) = 20 : v(3) = 30 : i = 1", "x = v(i) + Bump(i)", "x ;; i",
-        "| 12 ; 2 |", DisplayName = "Q10 a Long element, its index changed")]
+        "| 12 ; 2 |", DisplayName = "a Long element, its index changed")]
     [DataRow("Long", "", "Dim v(1 To 3) As Long, i As Long, x As Long", "v(1) = 10 : v(2) = 20 : v(3) = 30 : i = 1", "x = v(i) + Poke(v, i)", "x ;; i ;; v(1)",
-        "| 10 ; 2 ; 11 |", DisplayName = "Q11 a Long element, it and its index changed")]
+        "| 10 ; 2 ; 11 |", DisplayName = "a Long element, it and its index changed")]
     [DataRow("Double", "", "Dim v(1 To 3) As Double, i As Long, x As Double", "v(1) = 10 : v(2) = 20 : v(3) = 30 : i = 1", "x = v(i) + Poke(v, i)",
-        "x ;; i ;; v(1)", "| 20 ; 2 ; 11 |", DisplayName = "Q12 a Double element, it and its index changed")]
+        "x ;; i ;; v(1)", "| 20 ; 2 ; 11 |", DisplayName = "a Double element, it and its index changed")]
     public async Task AnOperandCompiledCodeDoesNotRead_PassedByReferenceBesideIt_IsReadAsItsTypeHasIt(string type, string head, string declared, string assigned,
         string statement, string printed, string expected)
         => StringAssert.Contains(await AssertInterpretedAlikeAsync(Ordering(type, head, declared, assigned, statement, printed)), expected);
@@ -356,11 +358,11 @@ public sealed class CompiledNestedCallTests
     // what MS-VBA computes of an operand after a call right of it, beside one it computes before.
     [TestMethod]
     [Ignore("measured in MS-VBA, rule not yet known; ticket")]
-    [DataRow("Double", "", "Dim a As Double, x As Double", "a = 1", "x = a + 0 + Bump(a)", "x ;; a", "| 4 ; 2 |", DisplayName = "P15 an operation of a Double")]
-    [DataRow("Double", "", "Dim a As Double, x As Double", "a = 1", "x = -a + Bump(a)", "x ;; a", "| 0 ; 2 |", DisplayName = "P16 a Double negated")]
-    [DataRow("Long", "", "Dim s As String, x As Double", "s = \"1\"", "x = -s + One(s)", "x ;; s", "| 0 ; 11 |", DisplayName = "P19 a String negated")]
+    [DataRow("Double", "", "Dim a As Double, x As Double", "a = 1", "x = a + 0 + Bump(a)", "x ;; a", "| 4 ; 2 |", DisplayName = "an operation of a Double")]
+    [DataRow("Double", "", "Dim a As Double, x As Double", "a = 1", "x = -a + Bump(a)", "x ;; a", "| 0 ; 2 |", DisplayName = "a Double negated")]
+    [DataRow("Long", "", "Dim s As String, x As Double", "s = \"1\"", "x = -s + One(s)", "x ;; s", "| 0 ; 11 |", DisplayName = "a String negated")]
     [DataRow("Double", "", "Dim a As Double, x As Double", "a = 1", "x = Bump(a) + a + Bump(a)", "x ;; a", "| 8 ; 3 |",
-        DisplayName = "P22 a Double read between two calls")]
+        DisplayName = "a Double read between two calls")]
     public async Task AnOperationOfAnOperand_PassedByReferenceBesideIt_IsComputedAsMSVBAComputesIt(string type, string head, string declared, string assigned,
         string statement, string printed, string expected)
         => StringAssert.Contains(await AssertInterpretedAlikeAsync(Ordering(type, head, declared, assigned, statement, printed)), expected);
@@ -375,9 +377,9 @@ public sealed class CompiledNestedCallTests
     // an argument that is not a variable, beside a call given that variable by reference right of it.
     [TestMethod]
     [Ignore("measured in MS-VBA: an argument that makes no call takes its value after the arguments that do; the order arguments are evaluated in is its own ticket")]
-    [DataRow("x = Sum2(a + 0, Bump(a))", DisplayName = "P24 an operation of it")]
-    [DataRow("x = Sum2((a), Bump(a))", DisplayName = "P25 in parentheses")]
-    [DataRow("x = Sum2(a * 1, Bump(a)) + 0", DisplayName = "Q08 an operation of it, in an operation")]
+    [DataRow("x = Sum2(a + 0, Bump(a))", DisplayName = "an operation of it")]
+    [DataRow("x = Sum2((a), Bump(a))", DisplayName = "in parentheses")]
+    [DataRow("x = Sum2(a * 1, Bump(a)) + 0", DisplayName = "an operation of it, in an operation")]
     public async Task AnArgumentReadingAVariable_BesideACallGivenItByReference_TakesItsValueAfterTheCall(string statement)
         => StringAssert.Contains(await AssertInterpretedAlikeAsync(Changing("Long", statement)), "| 22 ; 2 |");
 
@@ -392,8 +394,8 @@ public sealed class CompiledNestedCallTests
 
     // a variable given to a parameter passed by value, beside a call given it by reference: its value is the one it has when the call is made.
     [TestMethod]
-    [DataRow("x = Sum2(a, Bump(a))", DisplayName = "O10 left of the call")]
-    [DataRow("x = Sum2(Bump(a), a)", DisplayName = "P26 right of the call")]
+    [DataRow("x = Sum2(a, Bump(a))", DisplayName = "left of the call")]
+    [DataRow("x = Sum2(Bump(a), a)", DisplayName = "right of the call")]
     public async Task AVariableGivenByValue_BesideACallGivenItByReference_IsReadWhenTheCallIsMade(string statement)
         => StringAssert.Contains(await AssertSteppedAlikeAsync(Changing("Long", statement), "a"), "| 22 ; 2 |");
 

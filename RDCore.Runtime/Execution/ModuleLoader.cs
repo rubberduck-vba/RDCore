@@ -166,6 +166,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                     ? returned with { IsEmpty = lowering.InstructionList.Items.Length == 1 }
                     : null,
                 EmptiedControlReads = ForEachControlAnalysis.Of(model, lowering.InstructionList, automaticLocals),
+                JumpsIntoLoops = JumpIntoLoopAnalysis.Of(lowering.InstructionList),
             });
             procedures.Add(new(procedure.SemanticId, lowering.InstructionList));
             // a declaration that repeats another resolves to the symbol of the first, whose code is the one the session has: the repeat is an error of

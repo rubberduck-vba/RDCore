@@ -42,30 +42,30 @@ public sealed class RecordArgumentCompileErrorTests
     }
 
     [TestMethod]
-    [DataRow("Private Sub F(ByVal pt As TPair)\r\nEnd Sub", "F t1", DisplayName = "of a Sub, called (I10)")]
-    [DataRow("Private Sub F(ByVal pt As TPair)\r\nEnd Sub", "", DisplayName = "of a Sub, never called (C15)")]
-    [DataRow("Private Function F(ByVal pt As TPair) As Long\r\nEnd Function", "", DisplayName = "of a Function (C06)")]
-    [DataRow("Private Property Get Pg(ByVal t As TPair) As Long\r\nEnd Property", "", DisplayName = "of a Property Get (D05)")]
-    [DataRow("Private Property Let Pl(ByVal t As TPair)\r\nEnd Property", "", DisplayName = "the value of a Property Let (D06)")]
-    [DataRow("Private Property Let Pl(ByVal t As TPair, ByVal v As Long)\r\nEnd Property", "", DisplayName = "of a Property Let (D07)")]
-    [DataRow("Private Declare PtrSafe Sub Zero Lib \"kernel32\" Alias \"RtlZeroMemory\" (ByVal t As TPair, ByVal n As LongPtr)", "", DisplayName = "of a Declare Sub (E01)")]
-    [DataRow("Private Declare PtrSafe Function Zero Lib \"kernel32\" Alias \"RtlZeroMemory\" (ByVal t As TPair, ByVal n As LongPtr) As Long", "", DisplayName = "of a Declare Function (E07)")]
+    [DataRow("Private Sub F(ByVal pt As TPair)\r\nEnd Sub", "F t1", DisplayName = "of a Sub, called")]
+    [DataRow("Private Sub F(ByVal pt As TPair)\r\nEnd Sub", "", DisplayName = "of a Sub, never called")]
+    [DataRow("Private Function F(ByVal pt As TPair) As Long\r\nEnd Function", "", DisplayName = "of a Function")]
+    [DataRow("Private Property Get Pg(ByVal t As TPair) As Long\r\nEnd Property", "", DisplayName = "of a Property Get")]
+    [DataRow("Private Property Let Pl(ByVal t As TPair)\r\nEnd Property", "", DisplayName = "the value of a Property Let")]
+    [DataRow("Private Property Let Pl(ByVal t As TPair, ByVal v As Long)\r\nEnd Property", "", DisplayName = "of a Property Let")]
+    [DataRow("Private Declare PtrSafe Sub Zero Lib \"kernel32\" Alias \"RtlZeroMemory\" (ByVal t As TPair, ByVal n As LongPtr)", "", DisplayName = "of a Declare Sub")]
+    [DataRow("Private Declare PtrSafe Function Zero Lib \"kernel32\" Alias \"RtlZeroMemory\" (ByVal t As TPair, ByVal n As LongPtr) As Long", "", DisplayName = "of a Declare Function")]
     public Task ARecordParameter_DeclaredByVal_IsRefused(string procedure, string statement)
         => AssertCompileError(ByVal, procedure, statement);
 
     [TestMethod]
-    [DataRow("Private Sub G(ByVal v As Variant)\r\nEnd Sub", "G t1", DisplayName = "ByVal (I11)")]
-    [DataRow("Private Sub G(v As Variant)\r\nEnd Sub", "G t1", DisplayName = "ByRef (I12)")]
-    [DataRow("Private Sub G(a)\r\nEnd Sub", "G t1", DisplayName = "untyped (C09)")]
-    [DataRow("Private Sub G(ParamArray a() As Variant)\r\nEnd Sub", "G t1", DisplayName = "a ParamArray (C08)")]
-    [DataRow("", "Dim c As New Collection: c.Add t1", DisplayName = "a library's (C14)")]
-    [DataRow("", "Dim v As Variant: v = t1", DisplayName = "assigned (C07)")]
+    [DataRow("Private Sub G(ByVal v As Variant)\r\nEnd Sub", "G t1", DisplayName = "ByVal")]
+    [DataRow("Private Sub G(v As Variant)\r\nEnd Sub", "G t1", DisplayName = "ByRef")]
+    [DataRow("Private Sub G(a)\r\nEnd Sub", "G t1", DisplayName = "untyped")]
+    [DataRow("Private Sub G(ParamArray a() As Variant)\r\nEnd Sub", "G t1", DisplayName = "a ParamArray")]
+    [DataRow("", "Dim c As New Collection: c.Add t1", DisplayName = "a library's")]
+    [DataRow("", "Dim v As Variant: v = t1", DisplayName = "assigned")]
     [DataRow("Private Sub G(v As Variant)\r\nEnd Sub", "G v:=t1", DisplayName = "a named argument")]
-    [DataRow("", "Debug.Print TypeName(t1)", DisplayName = "to TypeName (D14)")]
-    [DataRow("", "Debug.Print VarType(t1)", DisplayName = "to VarType (E05)")]
-    [DataRow("", "Debug.Print IsEmpty(t1)", DisplayName = "to IsEmpty (E06)")]
-    [DataRow("Private Sub G(v As Variant)\r\nEnd Sub", "Dim ts(2) As TPair: G ts", DisplayName = "an array of records, to a parameter (D12)")]
-    [DataRow("", "Dim ts(2) As TPair, v As Variant: v = ts", DisplayName = "an array of records, assigned (D13)")]
+    [DataRow("", "Debug.Print TypeName(t1)", DisplayName = "to TypeName")]
+    [DataRow("", "Debug.Print VarType(t1)", DisplayName = "to VarType")]
+    [DataRow("", "Debug.Print IsEmpty(t1)", DisplayName = "to IsEmpty")]
+    [DataRow("Private Sub G(v As Variant)\r\nEnd Sub", "Dim ts(2) As TPair: G ts", DisplayName = "an array of records, to a parameter")]
+    [DataRow("", "Dim ts(2) As TPair, v As Variant: v = ts", DisplayName = "an array of records, assigned")]
     public Task ARecordGivenToAVariant_IsRefused(string procedure, string statement)
         => AssertCompileError(ToVariant, procedure, statement);
 
@@ -79,8 +79,8 @@ public sealed class RecordArgumentCompileErrorTests
     }
 
     [TestMethod]
-    [DataRow("F (t1)", DisplayName = "F (t1) (I13)")]
-    [DataRow("Call F((t1))", DisplayName = "Call F((t1)) (C10)")]
+    [DataRow("F (t1)", DisplayName = "F (t1)")]
+    [DataRow("Call F((t1))", DisplayName = "Call F((t1))")]
     public Task ARecordGivenInParentheses_IsAValue_AndNoVariableToPass(string statement)
         => AssertCompileError(VariableRequired, "Private Sub F(pt As TPair)\r\n    pt.X = pt.X + 1\r\nEnd Sub", statement);
 
@@ -90,7 +90,7 @@ public sealed class RecordArgumentCompileErrorTests
 
     [TestMethod]
     [DataRow("Len", DisplayName = "Len")]
-    [DataRow("LenB", DisplayName = "LenB (D17)")]
+    [DataRow("LenB", DisplayName = "LenB")]
     public async Task TheLengthOfARecord_IsNoVariantOfIt(string function)
     {
         var errors = await LoadErrorsAsync([], Modules, $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n    Dim t1 As TPair\r\n    Debug.Print {function}(t1)\r\nEnd Sub\r\n");
