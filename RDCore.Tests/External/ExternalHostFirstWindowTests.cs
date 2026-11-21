@@ -96,7 +96,8 @@ public sealed class ExternalHostFirstWindowTests
 
         if (window == FirstWindow.Dialog)
         {
-            var answer = new RemoteUserInteraction(servers, NoUserInteraction.Instance).ShowMessage(new MessageBoxRequest("Sure?", "T", VBMsgBoxStyle.VBOKOnly));
+            var answer = new RemoteUserInteraction(servers, NoUserInteraction.Instance)
+                .ShowMessage(new MessageBoxRequest("Sure?", "T", VBMsgBoxStyle.VBOKOnly));
             Assert.AreEqual(VBMsgBoxResult.VBOK, answer, "the external host showed the dialog");
         }
         else

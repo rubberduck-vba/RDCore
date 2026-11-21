@@ -151,10 +151,10 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         return ObjectOf(incarnation, created.Handle);
     }
 
-    // an incarnation not told yet - one the window starts, the session having got it ready in the background too late, or one that is up and was never told - is
-    // told, before it makes a window (a form, or a dialog, which can be its first), whether a program runs, false as well as true, so that what the window posts
-    // as it is made waits as it would in a host told; the theme its windows are in, so that the window is made in it; and the program's name, which the first
-    // window of the host names its application with.
+    // an incarnation not told yet - one the window starts, the session having got it ready in the background too late, or one that is up and was never
+    // told - is told, before it makes a window (a form, or a dialog, which can be its first), whether a program runs, false as well as true, so that what
+    // the window posts as it is made waits as it would in a host told; the theme its windows are in, so that the window is made in it; and the program's
+    // name, which the first window of the host names its application with.
     private void TellBeforeAWindow(Incarnation incarnation)
     {
         TellHold(incarnation, onlyIfUntold: true);
