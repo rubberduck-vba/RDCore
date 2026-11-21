@@ -101,6 +101,11 @@ public static class ExternalProtocol
     public const string FormKeepSystemTheme = "rdcore/external/forms/keepSystemTheme";
 
     /// <summary>
+    /// <c>rdcore/external/forms/applicationName</c>: the name of the program whose forms the windows show (<see cref="Forms.IFormHost.ApplicationName"/>).
+    /// </summary>
+    public const string FormApplicationName = "rdcore/external/forms/applicationName";
+
+    /// <summary>
     /// <c>rdcore/external/forms/messageBox</c>: shows a <c>MsgBox</c> beside the forms (<see cref="Interaction.IUserInteraction.ShowMessage"/>), answered once
     /// it is closed.
     /// </summary>

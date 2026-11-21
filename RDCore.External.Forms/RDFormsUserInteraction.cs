@@ -76,7 +76,7 @@ public sealed class RDFormsUserInteraction(RDFormsFormHost forms, IHelpViewer? h
             // windows that cannot be started, as on a machine with no display, show no dialog: the environment host shows its own.
             try
             {
-                RDFormsUI.Start(forms.Server.Platform);
+                RDFormsUI.Start(forms.Server.Platform, forms.ApplicationName);
             }
             catch (AutomationException failure)
             {

@@ -124,6 +124,17 @@ public sealed record class FormKeepSystemThemeParams : AutomationRequest
     public bool KeepSystemTheme { get; init; }
 }
 
+/// <summary>
+/// Request for <see cref="ExternalProtocol.FormApplicationName"/>.
+/// </summary>
+public sealed record class FormApplicationNameParams : AutomationRequest
+{
+    /// <summary>
+    /// The name of the program whose forms the windows show.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
+}
+
 /// <summary>Request for <see cref="ExternalProtocol.FormHide"/> and <see cref="ExternalProtocol.FormIsShown"/>.</summary>
 public sealed record class FormParams : AutomationRequest
 {
