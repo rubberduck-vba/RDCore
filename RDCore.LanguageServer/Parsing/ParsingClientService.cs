@@ -386,7 +386,7 @@ internal sealed class ParsingClientService(
 
     private FormDescriptor? DesignerOf(WorkspaceDocument document)
     {
-        var designer = FormDesigner.Read(document.Text, document.Companion, out var problem);
+        var designer = FormDesigner.Read(document.RelativePath, document.Text, document.Companion, out var problem);
         if (problem is not null)
         {
             logger.LogWarning("⚠️ The designer of {uri} cannot be read: {reason}", document.Id.Uri, problem.Message);
@@ -399,9 +399,9 @@ internal sealed class ParsingClientService(
     internal static string ModuleSourceOf(WorkspaceDocument document)
         => BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath()) ? BasicProgramText.ToModuleSource(document.Text) : document.Text;
 
-    // the module kind is the project's word for a document module, and a fact of the source (the VERSION header) otherwise - not of the file name - as the
-    // environment host reads it too (ModuleKinds.Of). It is not sent to the parser, which has no use for it.
-    internal static ModuleType ModuleTypeOf(WorkspaceDocument document) => ModuleKinds.Of(document.Super, document.Text);
+    // the module kind is the project's word for a document module, a class module for an RDForms form's .rdform, and a fact of the source (the VERSION
+    // header) otherwise, as the environment host reads it too (ModuleKinds.Of). It is not sent to the parser, which has no use for it.
+    internal static ModuleType ModuleTypeOf(WorkspaceDocument document) => ModuleKinds.Of(document.Super, document.Text, document.RelativePath);
 
     private void LogIfEnabled(LogLevel level, string message)
     {

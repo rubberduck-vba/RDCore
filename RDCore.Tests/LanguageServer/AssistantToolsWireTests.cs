@@ -192,7 +192,7 @@ public sealed class AssistantToolsWireTests
             .WithInput(toServer.Reader)
             .WithOutput(toClient.Writer)
             .AddHandler(new ToolsListHandler(catalog, capabilities))
-            .AddHandler(new ToolsCallHandler(catalog, capabilities))
+            .AddHandler(new ToolsCallHandler(catalog, capabilities, new RDCore.SDK.Server.IncomingDocumentChanges()))
             .AddHandler(new SemanticsDescribeHandler(semantics))
             .AddHandler(new SemanticsOutlineHandler(semantics)), timeout.Token);
         var connecting = LanguageClient.From(client => client

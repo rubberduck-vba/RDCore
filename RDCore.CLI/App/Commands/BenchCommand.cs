@@ -20,7 +20,7 @@ internal sealed class BenchCommandOptions
     [Option('r', "runs", Default = 3, HelpText = "How many times each case is run; the fastest and the median run are reported.")]
     public int Runs { get; set; } = 3;
 
-    [Option('f', "filter", HelpText = "Only the cases whose Module.Procedure name contains this text.")]
+    [Option('f', "filter", HelpText = "Only the cases whose Module.Procedure name contains this text; the indent row is Indent.Program.")]
     public string? Filter { get; set; }
 
     [Option('l', "list", HelpText = "Load and sweep the workspace, and list its cases without running them.")]
@@ -44,7 +44,8 @@ internal sealed class BenchCommandOptions
 /// another, and a case that raises an error says so instead. With no path, the corpus built into <c>rdc</c> is run: arithmetic loops over <c>Long</c>,
 /// <c>Double</c> and <c>Variant</c>, strings, arrays, and calls to procedures, objects and the standard library. The <c>indent</c> row is the shell's: a program of
 /// <see cref="BenchRunner.ProgramLines"/> numbered lines indented as the shell indents it before it lists it (<see cref="BenchRunner.IndentProgram"/>), the same
-/// whatever the workspace: the fastest of as many runs as the cases have (<c>--runs</c>).
+/// whatever the workspace: the fastest of <see cref="BenchRunner.IndentRuns"/> runs, whatever <c>--runs</c> says. A filter selects it by its name,
+/// <see cref="BenchRunner.IndentName"/>, as it selects a case.
 /// </remarks>
 /// <param name="writer">Writes the platform's messages: what went wrong.</param>
 /// <param name="fileSystem">The file system the workspace is on.</param>

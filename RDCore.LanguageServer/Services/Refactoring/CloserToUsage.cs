@@ -28,8 +28,8 @@ internal enum CloserToUsageRefusalKind
     NotAVariable,
 
     /// <summary>
-    /// The variable of a class module is <c>Public</c>, <c>Global</c> or <c>Friend</c>: it is a member of each object of the class, which other modules can
-    /// refer to. Also a variable the project does not declare.
+    /// A <c>Public</c> variable of a class module: a member of each object of the class, which other modules can refer to. Also a variable the project
+    /// does not declare.
     /// </summary>
     NotPrivate,
 

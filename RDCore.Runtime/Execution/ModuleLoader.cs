@@ -74,8 +74,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         }
 
         // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code. A
-        // UserForm and a Visual Basic 6.0 form each have a form host; another ActiveX designer's form has none.
-        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms or FormDesignerKind.VisualBasic6 } designer ? designer : null);
+        // UserForm, a Visual Basic 6.0 form and an RDForms form each have a form host; another ActiveX designer's form has none.
+        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms } or { HasVisualBasic6FormModel: true } ? parseResult.Designer : null);
 
         // composed before anything is lowered, because lowering needs its expression evaluator to decide
         // which #If branches are live. The invoker looks a body up at call time, so the image it holds is this same one.
@@ -105,7 +105,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
         // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
-        var drawsOnMe = parseResult.Designer is { Kind: FormDesignerKind.VisualBasic6 };
+        var drawsOnMe = parseResult.Designer is { HasVisualBasic6FormModel: true };
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
             DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements, DrawsOnMe: drawsOnMe);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();

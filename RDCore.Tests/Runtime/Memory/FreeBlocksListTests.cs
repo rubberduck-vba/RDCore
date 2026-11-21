@@ -106,7 +106,7 @@ public class FreeBlocksListTests
         sut.Add(Block(0, 32), segment);
         sut.Add(Block(64, 8), segment);
 
-        Assert.IsTrue(sut.TryTakeSmallestFit(8, out var block, out _));
+        Assert.IsTrue(sut.TryTakeSmallestFit(8, 1, out var block, out _, out _));
 
         Assert.AreEqual(new MemoryAddress(64), block.Address);
         Assert.AreEqual(8, block.Size);
@@ -119,7 +119,7 @@ public class FreeBlocksListTests
         var segment = Segment();
         sut.Add(Block(0, 16), segment);
 
-        Assert.IsTrue(sut.TryTakeSmallestFit(4, out var block, out _));
+        Assert.IsTrue(sut.TryTakeSmallestFit(4, 1, out var block, out _, out _));
 
         Assert.AreEqual(4, block.Size);
         Assert.AreEqual(1, sut.Count);
@@ -132,7 +132,7 @@ public class FreeBlocksListTests
         var sut = new FreeBlocksList();
         sut.Add(Block(0, 4), Segment());
 
-        Assert.IsFalse(sut.TryTakeSmallestFit(8, out _, out var segment));
+        Assert.IsFalse(sut.TryTakeSmallestFit(8, 1, out _, out _, out var segment));
         Assert.IsNull(segment);
         Assert.AreEqual(1, sut.Count);
     }
@@ -148,7 +148,7 @@ public class FreeBlocksListTests
         sut.Add(Block(64, 32), segment);
 
         Assert.AreEqual(32, sut.LargestBlockSize);
-        Assert.IsTrue(sut.TryTakeSmallestFit(32, out _, out _));
+        Assert.IsTrue(sut.TryTakeSmallestFit(32, 1, out _, out _, out _));
         Assert.AreEqual(4, sut.LargestBlockSize);
     }
 
@@ -164,8 +164,8 @@ public class FreeBlocksListTests
 
         for (var round = 0; round < 3; round++)
         {
-            Assert.IsTrue(sut.TryTakeSmallestFit(8, out var first, out _));
-            Assert.IsTrue(sut.TryTakeSmallestFit(8, out var second, out _));
+            Assert.IsTrue(sut.TryTakeSmallestFit(8, 1, out var first, out _, out _));
+            Assert.IsTrue(sut.TryTakeSmallestFit(8, 1, out var second, out _, out _));
 
             Assert.IsTrue(sut.Add(first, segment));
             Assert.IsTrue(sut.Add(second, segment));
@@ -174,5 +174,36 @@ public class FreeBlocksListTests
             Assert.AreEqual(1, sut.Count);
             Assert.AreEqual(16, sut.LargestBlockSize);
         }
+    }
+
+    [TestMethod]
+    public void TryTakeSmallestFit_OnABoundary_TakesTheBytesBeforeIt_AsItsPadding()
+    {
+        var sut = new FreeBlocksList();
+        var segment = Segment();
+        sut.Add(Block(2, 14), segment);
+
+        Assert.IsTrue(sut.TryTakeSmallestFit(4, 4, out var block, out var padding, out _));
+
+        Assert.AreEqual(new MemoryAddress(4), block.Address);
+        Assert.AreEqual(4, block.Size);
+        Assert.AreEqual(2, padding);
+        Assert.AreEqual(1, sut.Count, "the bytes after the block are free, and the two before it are its padding");
+        Assert.AreEqual(8, sut.LargestBlockSize);
+    }
+
+    [TestMethod]
+    public void TryTakeSmallestFit_OnABoundary_PassesOverABlockThatIsBigEnoughOnlyOffTheBoundary()
+    {
+        var sut = new FreeBlocksList();
+        var segment = Segment();
+        sut.Add(Block(1, 8), segment);
+        sut.Add(Block(32, 16), segment);
+
+        Assert.IsTrue(sut.TryTakeSmallestFit(8, 8, out var block, out var padding, out _));
+
+        Assert.AreEqual(new MemoryAddress(32), block.Address);
+        Assert.AreEqual(0, padding);
+        Assert.AreEqual(2, sut.Count);
     }
 }

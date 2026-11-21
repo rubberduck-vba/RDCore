@@ -12,6 +12,7 @@ namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.5.2.1
 // MS-VBAL §5.5.2.1 deliberately stops there: whether a source class implements or derives from the destination's class is a run-time question (§5.5.2.2.1, error 13), not a static one.
+// How the two classes relate is stated as a fact of the value (SetCoercionFacts), for an analyzer to judge.
 public record class SetCoercionStaticSemantics : StaticSemantics
 {
     private static readonly Lazy<SetCoercionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
@@ -23,6 +24,7 @@ public record class SetCoercionStaticSemantics : StaticSemantics
         var destinationType = operandDeclaredTypes[(int)InputIndex.CoercionDestinationType];
         if (!IsSetCoercionInvalid(source, destinationType))
         {
+            SetCoercionFacts.Record(context, expression, source, destinationType);
             return StaticSemanticsEvaluationResult.Success(destinationType);
         }
 

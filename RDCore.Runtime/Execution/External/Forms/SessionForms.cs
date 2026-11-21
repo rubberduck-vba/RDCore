@@ -78,7 +78,8 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// Records which of a program's forms a Visual Basic 6.0 designer wrote: their lifecycle is VB6's, and their handlers are <c>Form_</c>'s.
+    /// Records which of a program's forms keep Visual Basic 6.0's form model, a VB6 form's or an RDForms form's: their lifecycle is VB6's, and their handlers
+    /// are <c>Form_</c>'s.
     /// </summary>
     /// <param name="forms">What the designers of the program's forms declare, by the name of the form's module.</param>
     public void Declare(IReadOnlyDictionary<string, SDK.Workspace.Forms.FormDescriptor> forms)
@@ -87,7 +88,7 @@ internal sealed class SessionForms
         {
             foreach (var (name, designer) in forms)
             {
-                if (designer.Kind == SDK.Workspace.Forms.FormDesignerKind.VisualBasic6)
+                if (designer.HasVisualBasic6FormModel)
                 {
                     _ = _visualBasic6.Add(name);
                 }
@@ -96,7 +97,7 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// Whether a form's class is a Visual Basic 6.0 form's.
+    /// Whether a form's class keeps Visual Basic 6.0's form model: a VB6 form's, or an RDForms form's.
     /// </summary>
     /// <param name="form">The form's class.</param>
     public bool IsVisualBasic6(VBClassModuleSymbol form)

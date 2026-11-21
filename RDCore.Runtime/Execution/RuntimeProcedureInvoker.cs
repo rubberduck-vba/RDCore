@@ -20,6 +20,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
@@ -278,9 +279,11 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         var compiled = image.Compiler.Compile(Session, Executor.Expressions, procedure, body);
         if (compiled.Body is { } code)
         {
-            // the spare is taken while the activation runs, so a recursion makes its own.
-            var spare = _spares.GetValue(code, static _ => new Spare());
-            if (Interlocked.Exchange(ref spare.Activation, null) is not { } activation || !activation.Runs(code, body, this))
+            // the activation of the body that last returned from a call the invoker made of it, which this call is made in (CompiledBody.Spares): each call
+            // of a procedure the invoker runs (one with a String parameter or local, among others) would otherwise make one and let go of it. The spare is
+            // taken while the activation runs, so a recursion makes its own.
+            var spare = code.Spares.GetValue(this, static _ => new StrongBox<CompiledActivation?>());
+            if (Interlocked.Exchange(ref spare.Value, null) is not { } activation || !activation.Runs(code, body, this))
             {
                 activation = new CompiledActivation(Session, frame, body, Executor, context, code, this);
                 code.CountInvokerActivationMade();
@@ -297,7 +300,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             if (outcome.Kind is RuntimeExecutionOutcomeKind.ExitProcedure && activation.ReturnedInCompiledCode)
             {
                 activation.LetGoAfterCall();
-                Volatile.Write(ref spare.Activation, activation);
+                Volatile.Write(ref spare.Value, activation);
             }
 
             return outcome;
@@ -305,16 +308,6 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         // a test that expects every procedure it runs to be compiled fails the call of one that is not, rather than run it interpreted unnoticed.
         return CompiledExecution.IsStrict ? RuntimeExecutionOutcome.InternalError : Executor.Run(Session, frame, body, context);
-    }
-
-    // the activation of each compiled body that last returned from a call the invoker made of it, which the next call is made in (Run): each call of a
-    // procedure the invoker runs (one with a String parameter or local, among others) would otherwise make one and let go of it. A body an edit replaced
-    // goes with its spare.
-    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<CompiledBody, Spare> _spares = [];
-
-    private sealed class Spare
-    {
-        public CompiledActivation? Activation;
     }
 
     // MS-VBAL §5.3.1.10: the procedure extent variables cease to exist with the activation, and an object that was

@@ -69,6 +69,7 @@ internal static class ArgumentListStaticSemantics
                     return namedByRef;
                 }
 
+                RecordClassArgument(context, procedure, parameter, named.Value);
                 continue;
             }
 
@@ -98,6 +99,8 @@ internal static class ArgumentListStaticSemantics
                 {
                     return byRef;
                 }
+
+                RecordClassArgument(context, procedure, own[position], argument);
             }
 
             position++;
@@ -149,6 +152,22 @@ internal static class ArgumentListStaticSemantics
             : given is VBUserDefinedType && argument is VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp }
                 ? VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, argument.Location, record)
                 : null;
+    }
+
+    // MS-VBAL §5.3.1.11: an argument given to a parameter declared as a class is Set-assigned to it: ByVal, and ByRef where the argument is not a variable
+    // of the parameter's own declared type, which is passed by reference. The relation of the two classes is stated on the argument (SetCoercionFacts).
+    private static void RecordClassArgument(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
+    {
+        if (parameter.ResolvedType is not VBClassType destination || parameter is ParamArrayParameterSymbol
+            || procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
+            || context.Facts is not { } facts || !facts.TryGet(argument.Identity, out var fact) || fact.DeclaredType is not VBClassType source
+            || parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef
+                && fact.Classification == SDK.Semantics.ExpressionClassification.Variable && ParameterLists.SameType(destination, source))
+        {
+            return;
+        }
+
+        SetCoercionFacts.Record(context, argument, source, destination);
     }
 
     private static bool IsLength(VBTypeMemberSymbol procedure)

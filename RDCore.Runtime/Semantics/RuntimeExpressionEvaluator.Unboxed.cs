@@ -666,8 +666,7 @@ public sealed partial class RuntimeExpressionEvaluator
     /// <returns><see langword="false"/> when the operation is not done on payloads, as the operation of its token says.</returns>
     internal static bool TryOperateDeferred(VariantOperator @operator, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
     {
-        if (lhs.Kind is { } left && rhs.Kind is { } right
-            && ReferenceEquals(lhs.Type, ScalarKinds.TypeOf(left)) && ReferenceEquals(rhs.Type, ScalarKinds.TypeOf(right)))
+        if (ScalarKinds.OfShared(lhs.Type) is { } left && ScalarKinds.OfShared(rhs.Type) is { } right)
         {
             var plan = KindPlan.Of(@operator, left, right);
             return TryOperateBinary(@operator, plan.Destination, plan.DestinationKind, plan.Effective, plan.EffectiveKind, lhs, rhs, out result);

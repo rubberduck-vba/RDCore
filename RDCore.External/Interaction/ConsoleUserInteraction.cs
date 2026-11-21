@@ -73,20 +73,23 @@ public sealed class ConsoleUserInteraction(IConsoleKeys keys, TextWriter output,
     /// <inheritdoc/>
     public VBMsgBoxResult ShowMessage(MessageBoxRequest request, CancellationToken token = default)
     {
-        var labels = request.Choices.Select(LabelOf).ToArray();
-        var menu = new ConsoleMenu(labels, request.DefaultChoice, canDismiss: request.EscapeResult is not null);
+        var choices = VBMsgBoxButtons.ChoicesOf(request.Style);
+        var escape = VBMsgBoxButtons.EscapeResultOf(request.Style);
+        var labels = choices.Select(LabelOf).ToArray();
+        var menu = new ConsoleMenu(labels, VBMsgBoxButtons.DefaultChoiceOf(request.Style), canDismiss: escape is not null);
         var buttons = menu.Render();
-        var box = new ConsoleDialogBox(request.Title, GlyphOf(request.Icon), request.Prompt, ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true, ansi);
+        var box = new ConsoleDialogBox(request.Title, GlyphOf(VBMsgBoxButtons.IconOf(request.Style)), request.Prompt,
+            ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true, ansi);
         var (before, after) = box.Centring(buttons);
 
         if (!keys.IsInteractive)
         {
             box.Show(output, box.RowPrefix + before + buttons + after + box.RowSuffix);
-            return AnswerFromLine(request, menu);
+            return AnswerFromLine(request.Style, menu);
         }
 
         var chosen = box.Show(output, ansi, () => menu.Run(keys, output, box.RowPrefix + before, token, after + box.RowSuffix));
-        return chosen is { } index ? request.Choices[index] : request.EscapeResult!.Value;
+        return chosen is { } index ? choices[index] : escape!.Value;
     }
 
     /// <summary>
@@ -120,19 +123,21 @@ public sealed class ConsoleUserInteraction(IConsoleKeys keys, TextWriter output,
     }
 
     // a line of a script names a button by its text or its key; anything else is asked again, until the script runs out.
-    private VBMsgBoxResult AnswerFromLine(MessageBoxRequest request, ConsoleMenu menu)
+    private VBMsgBoxResult AnswerFromLine(VBMsgBoxStyle style, ConsoleMenu menu)
     {
+        var choices = VBMsgBoxButtons.ChoicesOf(style);
+        var byDefault = choices[VBMsgBoxButtons.DefaultChoiceOf(style)];
         while (true)
         {
             var line = keys.ReadLine(CancellationToken.None)?.Trim();
             if (line is null)
             {
-                return request.EscapeResult ?? request.Choices[request.DefaultChoice];
+                return VBMsgBoxButtons.EscapeResultOf(style) ?? byDefault;
             }
 
             if (line.Length == 0)
             {
-                return request.Choices[request.DefaultChoice];
+                return byDefault;
             }
 
             var index = Array.FindIndex(menu.Items.ToArray(), item =>
@@ -140,7 +145,7 @@ public sealed class ConsoleUserInteraction(IConsoleKeys keys, TextWriter output,
                 || line.Length == 1 && ConsoleMenu.KeyOf(item) == char.ToUpperInvariant(line[0]));
             if (index >= 0)
             {
-                return request.Choices[index];
+                return choices[index];
             }
         }
     }

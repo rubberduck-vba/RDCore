@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -74,6 +75,10 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, IRuntimeS
     /// <inheritdoc/>
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
         => inner.TryRead(address, out value);
+
+    /// <inheritdoc/>
+    public bool TryRead(MemoryAddress address, VBType? type, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
+        => inner.TryRead(address, type, out value);
 
     /// <inheritdoc/>
     public bool TryGetAddress(Symbol symbol, out MemoryAddress address)

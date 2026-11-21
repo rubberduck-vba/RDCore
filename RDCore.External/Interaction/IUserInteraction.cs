@@ -51,53 +51,35 @@ public sealed class DialogNotAnsweredException(RDCoreDiagnosticCode Code, string
 }
 
 /// <summary>
-/// A <c>MsgBox</c>: its message, its title, and the <c>VbMsgBoxStyle</c> the program asked for.
+/// A <c>MsgBox</c>: its message, its title, the <c>VbMsgBoxStyle</c> the program asked for, and the help topic it names (MS-VBAL §6.1.2.8.1.13). What the
+/// style says of the buttons, the icon, the default button and the answer of <kbd>Esc</kbd> is <see cref="VBMsgBoxButtons"/>'s to read.
 /// </summary>
 /// <param name="Prompt">The message.</param>
 /// <param name="Title">The title of the dialog.</param>
 /// <param name="Style">The buttons, the icon, the default button and the modality, summed.</param>
-public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgBoxStyle Style)
-{
-    /// <summary>
-    /// The set of buttons: <see cref="VBMsgBoxStyle.VBOKOnly"/> through <see cref="VBMsgBoxStyle.VBRetryCancel"/>. A value that names none of them is
-    /// <see cref="VBMsgBoxStyle.VBOKOnly"/>.
-    /// </summary>
-    public VBMsgBoxStyle Buttons => VBMsgBoxButtons.Of(Style);
-
-    /// <summary>
-    /// The icon: <see cref="VBMsgBoxStyle.VBCritical"/>, <see cref="VBMsgBoxStyle.VBQuestion"/>, <see cref="VBMsgBoxStyle.VBExclamation"/>,
-    /// <see cref="VBMsgBoxStyle.VBInformation"/>, or <c>0</c> for none.
-    /// </summary>
-    public VBMsgBoxStyle Icon => VBMsgBoxButtons.IconOf(Style);
-
-    /// <summary>
-    /// The buttons of the dialog, in the order they are shown, as the answer each of them gives.
-    /// </summary>
-    public IReadOnlyList<VBMsgBoxResult> Choices => VBMsgBoxButtons.ChoicesOf(Style);
-
-    /// <summary>
-    /// The index in <see cref="Choices"/> of the button that has the focus when the dialog opens: the one <c>vbDefaultButton1</c> through <c>vbDefaultButton4</c>
-    /// names, or the first when the dialog has no such button - as Windows has it.
-    /// </summary>
-    public int DefaultChoice => VBMsgBoxButtons.DefaultChoiceOf(Style);
-
-    /// <summary>
-    /// The answer of a dialog closed at window level - <kbd>Esc</kbd>, or its close button - without choosing a button: <see cref="VBMsgBoxResult.VBCancel"/> when
-    /// it has a <em>Cancel</em> button, <see cref="VBMsgBoxResult.VBOK"/> when <em>OK</em> is its only one, and <see langword="null"/> for a dialog that cannot be
-    /// closed that way (<see cref="VBMsgBoxStyle.VBYesNo"/>, <see cref="VBMsgBoxStyle.VBAbortRetryIgnore"/>), as Windows has it.
-    /// </summary>
-    public VBMsgBoxResult? EscapeResult => VBMsgBoxButtons.EscapeResultOf(Style);
-}
+/// <param name="HelpFile">The help file the dialog's help opens; <see langword="null"/> when the program names none.</param>
+/// <param name="Context">The topic of <paramref name="HelpFile"/> the dialog's help opens; <see langword="null"/> when the program names none.</param>
+public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgBoxStyle Style, string? HelpFile = null, int? Context = null);
 
 /// <summary>
-/// An <c>InputBox</c>: its message, its title, the text it starts with, and where it is.
+/// An <c>InputBox</c>: its message, its title, the text it starts with, where it is, and the help topic it names (MS-VBAL §6.1.2.8.1.12).
 /// </summary>
 /// <param name="Prompt">The message.</param>
 /// <param name="Title">The title of the dialog.</param>
 /// <param name="Default">The text the dialog starts with.</param>
 /// <param name="XPos">Where the left edge of the dialog is, in twips from the left of the screen; <see langword="null"/> to center it.</param>
 /// <param name="YPos">Where the top edge of the dialog is, in twips from the top of the screen; <see langword="null"/> to center it.</param>
-public sealed record class InputBoxRequest(string Prompt, string Title, string Default = "", int? XPos = null, int? YPos = null);
+/// <param name="HelpFile">The help file the dialog's help opens; <see langword="null"/> when the program names none.</param>
+/// <param name="Context">The topic of <paramref name="HelpFile"/> the dialog's help opens; <see langword="null"/> when the program names none.</param>
+public sealed record class InputBoxRequest(
+    string Prompt, string Title, string Default = "", int? XPos = null, int? YPos = null, string? HelpFile = null, int? Context = null)
+{
+    /// <summary>
+    /// Whether the dialog has help, which <kbd>F1</kbd> and a <em>Help</em> button open: an <c>InputBox</c> has it when the program names both its help file
+    /// and its topic (MS-VBAL §6.1.2.8.1.12).
+    /// </summary>
+    public bool HasHelp => HelpFile is not null && Context is not null;
+}
 
 /// <summary>
 /// The dialogs of a platform that has nobody to ask - a build machine, a service: each is answered as though it had been confirmed the moment it opened.
@@ -114,7 +96,8 @@ public sealed class NoUserInteraction : IUserInteraction
     private NoUserInteraction() { }
 
     /// <inheritdoc/>
-    public VBMsgBoxResult ShowMessage(MessageBoxRequest request, CancellationToken token = default) => request.Choices[request.DefaultChoice];
+    public VBMsgBoxResult ShowMessage(MessageBoxRequest request, CancellationToken token = default)
+        => VBMsgBoxButtons.ChoicesOf(request.Style)[VBMsgBoxButtons.DefaultChoiceOf(request.Style)];
 
     /// <inheritdoc/>
     public string? Prompt(InputBoxRequest request, CancellationToken token = default) => request.Default;

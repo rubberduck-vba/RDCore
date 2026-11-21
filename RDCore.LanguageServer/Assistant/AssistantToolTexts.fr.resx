@@ -216,4 +216,94 @@
   <data name="DeclaresNothing" xml:space="preserve">
     <value>Le module ne déclare rien.</value>
   </data>
+  <data name="ListFixes_Title" xml:space="preserve">
+    <value>Lister les correctifs</value>
+  </data>
+  <data name="ListFixes_Description" xml:space="preserve">
+    <value>Liste les correctifs d'un document : les correctifs rapides de ses diagnostics et, pour une plage, les refactorisations du code qui s'y trouve. Chaque correctif a un fixId que preview_fix et apply_fix prennent, tant que le document n'est pas modifié.</value>
+  </data>
+  <data name="ListFixes_Line" xml:space="preserve">
+    <value>La ligne où la plage commence, à partir de 1; omise pour tous les diagnostics du document.</value>
+  </data>
+  <data name="ListFixes_Column" xml:space="preserve">
+    <value>La colonne où la plage commence, à partir de 1; omise pour le début de la ligne.</value>
+  </data>
+  <data name="ListFixes_EndLine" xml:space="preserve">
+    <value>La ligne où la plage se termine, à partir de 1; omise pour une plage qui se termine sur la ligne où elle commence.</value>
+  </data>
+  <data name="ListFixes_EndColumn" xml:space="preserve">
+    <value>La colonne où la plage se termine, à partir de 1; omise pour une plage qui se termine où elle commence.</value>
+  </data>
+  <data name="NoFixes" xml:space="preserve">
+    <value>Aucun correctif.</value>
+  </data>
+  <data name="FixPreferred" xml:space="preserve">
+    <value>préféré</value>
+  </data>
+  <data name="FixRunByCommand" xml:space="preserve">
+    <value>s'exécute depuis un éditeur</value>
+  </data>
+  <data name="FixFixes" xml:space="preserve">
+    <value>corrige {0} à {1}</value>
+  </data>
+  <data name="PreviewFix_Title" xml:space="preserve">
+    <value>Prévisualiser un correctif</value>
+  </data>
+  <data name="PreviewFix_Description" xml:space="preserve">
+    <value>Montre ce que changerait un correctif listé par list_fixes, en diff unifié de chaque document, et les questions que pose sa modification. Ne change rien.</value>
+  </data>
+  <data name="Fix_FixId" xml:space="preserve">
+    <value>Le fixId du correctif, tel que list_fixes l'a donné.</value>
+  </data>
+  <data name="FixNotFound" xml:space="preserve">
+    <value>« {0} » n'est pas l'identifiant d'un correctif : listez les correctifs avec list_fixes.</value>
+  </data>
+  <data name="FixStale" xml:space="preserve">
+    <value>Le document a changé depuis que le correctif a été listé : listez les correctifs de nouveau.</value>
+  </data>
+  <data name="FixHasNoEdit" xml:space="preserve">
+    <value>Le correctif « {0} » n'est pas une modification : il s'exécute depuis un éditeur.</value>
+  </data>
+  <data name="FileRenamed" xml:space="preserve">
+    <value>{0} est renommé {1}.</value>
+  </data>
+  <data name="EditAsks" xml:space="preserve">
+    <value>La modification demande :</value>
+  </data>
+  <data name="ApplyFix_Title" xml:space="preserve">
+    <value>Appliquer un correctif</value>
+  </data>
+  <data name="ApplyFix_Description" xml:space="preserve">
+    <value>Applique un correctif listé par list_fixes. L'éditeur l'applique, et il peut y être annulé. Une modification qui pose des questions n'est pas appliquée par un appel sans accept : le résultat liste les questions, et l'outil est rappelé avec les réponses.</value>
+  </data>
+  <data name="Edit_Accept" xml:space="preserve">
+    <value>Les identifiants des questions de la modification auxquelles la réponse est oui, la réponse aux autres étant non; omis pour connaître d'abord les questions.</value>
+  </data>
+  <data name="Rename_Title" xml:space="preserve">
+    <value>Renommer un symbole</value>
+  </data>
+  <data name="Rename_Description" xml:space="preserve">
+    <value>Renomme le symbole dont le nom est à une position, partout où l'espace de travail y fait référence; le fichier d'un module est renommé avec lui. L'éditeur applique le renommage, et il peut y être annulé. Une modification qui pose des questions n'est pas appliquée par un appel sans accept : le résultat liste les questions, et l'outil est rappelé avec les réponses.</value>
+  </data>
+  <data name="Rename_NewName" xml:space="preserve">
+    <value>Le nom donné au symbole.</value>
+  </data>
+  <data name="RenameLabel" xml:space="preserve">
+    <value>Renommer en {0}</value>
+  </data>
+  <data name="EditApplied" xml:space="preserve">
+    <value>Appliqué.</value>
+  </data>
+  <data name="EditNotAppliedAsks" xml:space="preserve">
+    <value>Non appliqué : la modification pose d'abord des questions. Rappelez l'outil avec accept, les identifiants des questions auxquelles la réponse est oui ([] pour aucune).</value>
+  </data>
+  <data name="NothingToApply" xml:space="preserve">
+    <value>Rien n'est appliqué : selon les réponses aux questions, la modification ne change rien.</value>
+  </data>
+  <data name="ClientAppliesNoEdits" xml:space="preserve">
+    <value>Ce client n'applique aucune modification : prévisualisez le correctif avec preview_fix, et appliquez son diff.</value>
+  </data>
+  <data name="EditNotApplied" xml:space="preserve">
+    <value>L'éditeur n'a pas appliqué la modification : {0}</value>
+  </data>
 </root>

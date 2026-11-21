@@ -80,7 +80,7 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
             return fallback.ShowMessage(request, token);
         }
 
-        if (!request.Choices.Contains((VBMsgBoxResult)answer.Result))
+        if (!VBMsgBoxButtons.ChoicesOf(request.Style).Contains((VBMsgBoxResult)answer.Result))
         {
             throw Unanswered(VBRuntimeErrorId.UnusableDialogAnswer, string.Format(
                 Resources.VBRuntimeError_UnusableDialogAnswer_NoSuchButton, Resources.UnnamedClient, VBMsgBoxButtons.NameOf(request.Style), answer.Result));

@@ -190,6 +190,9 @@ internal sealed record class IntegralNode(string Token, PayloadNode Left, Payloa
 // PayloadOperations.Logical.
 internal sealed record class LogicalNode(LogicalOperator Operator, PayloadNode Left, PayloadNode Right, ScalarKind Kind) : PayloadNode(Kind);
 
+// PayloadOperations.Power, of two Doubles: a Double (MS-VBAL §5.6.9.3.7). A power it declines is the interpreter's, which raises the error.
+internal sealed record class PowerNode(PayloadNode Left, PayloadNode Right) : PayloadNode(ScalarKind.Double);
+
 // PayloadOperations.Compare, of two payloads of one kind: a Boolean.
 internal sealed record class CompareNode(ComparisonOperator Operator, PayloadNode Left, PayloadNode Right) : PayloadNode(ScalarKind.Boolean);
 
@@ -734,7 +737,8 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 
     /// <summary>
     /// The class an object is declared as, of a call of its default member that an index expression makes (MS-VBAL §5.6.13): <see cref="Procedure"/> is
-    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class only; an object of another class is the interpreter's.
+    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class, and the member implementing it on an object of a class
+    /// that implements that class as an interface (MS-VBAL §5.3.1.9); an object of any other class is the interpreter's.
     /// <see cref="Site"/> is then <see langword="null"/>.
     /// </summary>
     public SDK.Model.Symbols.VBClassModuleSymbol? DefaultOf { get; init; }

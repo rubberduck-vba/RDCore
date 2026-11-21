@@ -51,4 +51,13 @@
   <data name="FormBoundsOutOfRange" xml:space="preserve">
     <value>A form's window cannot be moved or sized to {0} points: no window's position or size is that large.</value>
   </data>
+  <data name="RDFormsCannotStart" xml:space="preserve">
+    <value>The RDForms windows cannot be started: {0}</value>
+  </data>
+  <data name="RDFormsWindowsAreHeadless" xml:space="preserve">
+    <value>The forms of this session are loaded with no screen to show them, as those of a program run unattended are, and a form cannot be shown on the desktop as well. Run the program in a new session.</value>
+  </data>
+  <data name="RDFormsWindowsAreOnTheDesktop" xml:space="preserve">
+    <value>The forms of this session are shown on the desktop, and a form cannot be loaded with no screen to show it as well. Run the program in a new session.</value>
+  </data>
 </root>

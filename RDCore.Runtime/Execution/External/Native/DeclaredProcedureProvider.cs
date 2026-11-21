@@ -147,7 +147,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         VBType? referenced = null;
         VBArrayElementLocation? element = null;
         RecordFieldBinding? field = null;
-        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference, parameter.ResolvedType, out var cell))
         {
             variable = cell;
             referenced ??= reference.DeclaredType;

@@ -5,8 +5,9 @@ using System.Diagnostics;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The RDForms windows of a process that cannot be started, on a Linux desktop with no display: every form the program loads after the first fails as the
-/// first did, for the reason the first did. The windows are the process's once, so the program runs in an <c>rdc</c> of its own.
+/// The RDForms windows of a process that cannot be started, on a Linux desktop with no display: the form is one the platform cannot create (429), every form
+/// the program loads after the first fails as the first did, and <c>rdc</c> exits as it does after any program. The windows are the process's once, so the
+/// program runs in an <c>rdc</c> of its own.
 /// </summary>
 [TestClass]
 [TestCategory("External host")]
@@ -83,10 +84,11 @@ public sealed class RDFormsFailedStartTests
 
             var first = printed.Single(line => line.StartsWith("first: ", StringComparison.Ordinal))["first: ".Length..];
             var again = printed.Single(line => line.StartsWith("again: ", StringComparison.Ordinal))["again: ".Length..];
-            // why the desktop's windows fail is the machine's (XOpenDisplay where X11 is installed, the X11 library itself where it is not): the second
-            // start fails for that same reason, and not because the first one failed.
-            StringAssert.Contains(first, "The RDForms windows cannot be started: ", context);
+            // a form whose windows cannot be started is one the platform cannot create, as where no form host is: 429, which a program falls back on. The
+            // second fails as the first did, and the program, which handled both, ends, and rdc with it.
+            Assert.AreEqual("429 ActiveX component can't create object", first, context);
             Assert.AreEqual(first, again, context);
+            Assert.AreEqual(0, rdc.ExitCode, context);
         }
         finally
         {

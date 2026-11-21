@@ -45,10 +45,14 @@ internal static class MemberFacts
         return fact with { DefaultMember = DefaultMemberOf(context.Resolver, classType, member) };
     }
 
-    // the default member of a class: what it is, the accessors of a property, and the arguments a call of it must be given.
+    // the default member of a class: what it is, the accessors of a property, the arguments a call of it must be given, and the members a library's hidden
+    // one stands for, which the library states (Excel's Range._Default is Item given arguments, Value given none).
     public static DefaultMemberFact DefaultMemberOf(ISymbolResolver resolver, VBClassType classType, VBTypeMemberSymbol member)
         => new(member.Name, ClassificationOf(member),
-            member is IVBPropertyMemberSymbol ? Of(MembersOf(resolver, classType.Symbol, member.Name)) : PropertyAccessors.None, RequiredParametersOf(member));
+            member is IVBPropertyMemberSymbol ? Of(MembersOf(resolver, classType.Symbol, member.Name)) : PropertyAccessors.None, RequiredParametersOf(member))
+        {
+            WrittenAs = member.GetProperty(SymbolProperties.WrittenAs),
+        };
 
     // a member of an object is its class's, by its name; a name is what its module declares of it.
     private static Symbol[] AccessorsOf(StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode expression, VBTypeMemberSymbol property)

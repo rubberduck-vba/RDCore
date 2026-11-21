@@ -100,7 +100,7 @@ internal sealed class SemanticsDescriptionService(
             Uri = documentUri,
             Name = declared.Name,
             ModuleType = declared.Type,
-            HasDesigner = FormDesigner.Read(document.Text, document.Companion) is not null,
+            HasDesigner = FormDesigner.Read(document.RelativePath, document.Text, document.Companion) is not null,
             Language = semantics?.Language,
             OptionExplicit = semantics?.OptionExplicit,
             Entries = isProgram ? [.. entries.Select(InProgramText)] : entries,

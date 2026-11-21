@@ -229,7 +229,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         IRuntimeValue argument, ParameterInfo parameter, VBParameterSymbol? symbol, IRuntimeSymbolResolver resolver, out object? marshalled)
     {
         marshalled = null;
-        if (argument is not VBRuntimeReference reference || symbol is null || !resolver.TryRead(reference.Value, out var handle))
+        if (argument is not VBRuntimeReference reference || symbol is null || !resolver.TryRead(reference, symbol.ResolvedType, out var handle))
         {
             return false;
         }

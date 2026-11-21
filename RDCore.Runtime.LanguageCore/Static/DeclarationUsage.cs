@@ -265,6 +265,8 @@ public static class DeclarationUsage
         models = [.. models.Select(model => followed.TryGetValue(model.Module.AbsoluteUri, out var byRef)
             ? model with { Declarations = [.. model.Declarations.Select(fact => Followed(fact, byRef))] }
             : model)];
+        // every module of the project is there: what the members bound to an interface member or an event refer to is said of its parameters.
+        models = BoundParameters.Stated(models, projectModules, membersOf, isLibrary);
         inProject = [.. models.Where(model => modules.Contains(model.Module.AbsoluteUri))];
 
         var unanalyzed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -323,10 +325,12 @@ public static class DeclarationUsage
             && model.Document is not { HostClassUri: null };
 
     // the Public procedures, properties, variables and constants of a program's modules (a procedure or a property with no access modifier is Public,
-    // MS-VBAL §5.3.1.1), that only the program's own code can call: none plays a role (the entry point, a handler, an implementation), whose caller is not
-    // an expression. A member of a class can also be reached where the code runs: as the default member or the enumerator of its object (VB_UserMemId 0 and
-    // -4, MS-VBAL §5.6.2.2, §5.4.2.4), through an access bound late that names it, or by CallByName (LateBoundNames). Those are not counted: no member of a
-    // class is, when the program calls CallByName, or when the late accesses of a module are not known.
+    // MS-VBAL §5.3.1.1), that only the program's own code can call. The implementation of an interface member and the handler of an event are counted too:
+    // the interface and the event call them through no expression of theirs, so what is counted is the code that calls them by their own name. The entry
+    // point and a handler with no event to handle are not. A member of a class can also be reached where the code runs: as the default member or the
+    // enumerator of its object (VB_UserMemId 0 and -4, MS-VBAL §5.6.2.2, §5.4.2.4), through an access bound late that names it, or by CallByName
+    // (LateBoundNames). Those are not counted: no member of a class is, when the program calls CallByName, or when the late accesses of a module are not
+    // known.
     private static HashSet<SemanticId> PublicMembersOfAProgram(
         List<VBModuleSymbol> project, List<ModuleSemanticModel> models, IReadOnlyDictionary<string, LateBoundNames>? lateBound,
         Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf)
@@ -335,7 +339,7 @@ public static class DeclarationUsage
         var classMembersAreCounted = late.All(names => names is { CallsByName: false });
         var namedLate = late.OfType<LateBoundNames>().SelectMany(names => names.Members).Select(Normalized).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var roles = models.SelectMany(model => model.Declarations)
-            .Where(fact => fact.Role is not DeclarationRole.None)
+            .Where(fact => fact.Role is not (DeclarationRole.None or DeclarationRole.InterfaceImplementation or DeclarationRole.EventHandler))
             .Select(fact => fact.Symbol)
             .ToHashSet();
 
