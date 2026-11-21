@@ -24,10 +24,10 @@ public sealed class ObjPtrTests
 
     [TestMethod]
     [DataRow("P ObjPtr(Nothing) ;; Dim c As New Collection ;; P (ObjPtr(c) <> 0) ;; P (ObjPtr(c) = ObjPtr(c))", "0|True|True|",
-        DisplayName = "O01 Nothing is 0, an object the same every time")]
+        DisplayName = "Nothing is 0, an object the same every time")]
     [DataRow("Dim t As Thing, i As IThing, o As Object, u As IUnknown ;; Set t = New Thing ;; Set i = t ;; Set o = t ;; Set u = t ;; P (ObjPtr(t) = ObjPtr(o)) ;; P (ObjPtr(t) = ObjPtr(i)) ;; P (ObjPtr(t) = ObjPtr(u)) ;; P (ObjPtr(i) = ObjPtr(u))",
-        "True|False|False|False|", DisplayName = "O02 one interface for the class and Object, another for each interface")]
-    [DataRow("Dim t As Thing, v As Variant ;; Set t = New Thing ;; Set v = t ;; P (ObjPtr(v) = ObjPtr(t))", "True|", DisplayName = "O06 a Variant holding an object")]
+        "True|False|False|False|", DisplayName = "one interface for the class and Object, another for each interface")]
+    [DataRow("Dim t As Thing, v As Variant ;; Set t = New Thing ;; Set v = t ;; P (ObjPtr(v) = ObjPtr(t))", "True|", DisplayName = "a Variant holding an object")]
     [DataRow("Dim t As Thing, t2 As Thing ;; Set t = New Thing ;; Set t2 = New Thing ;; P (ObjPtr(t) <> ObjPtr(t2)) ;; Set t2 = t ;; P (ObjPtr(t) = ObjPtr(t2))", "True|True|",
         DisplayName = "two objects, two addresses; one object, one")]
     [DataRow("P (ObjPtr(New Collection) <> 0) ;; P TypeName(ObjPtr(New Collection))", "True|LongLong|", DisplayName = "an object that is no variable's, a LongPtr")]

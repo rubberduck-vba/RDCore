@@ -29,12 +29,12 @@ public sealed class AddressOfTests
 
     [TestMethod]
     [DataRow("P (FnPtr(AddressOf SomeSub) <> 0) ;; P (FnPtr(AddressOf SomeSub) = FnPtr(AddressOf SomeSub)) ;; P (FnPtr(AddressOf SomeSub) <> FnPtr(AddressOf OtherSub)) ;; P TypeName(FnPtr(AddressOf SomeSub))",
-        "True|True|True|LongLong|", DisplayName = "A01 not 0, the same every time, another for another procedure, a LongPtr")]
-    [DataRow("P (FnPtr(AddressOf Mem.SomeSub) = FnPtr(AddressOf SomeSub))", "True|", DisplayName = "A06 bare or qualified by its module")]
-    [DataRow("P Held(AddressOf SomeSub)", "LongLong True|", DisplayName = "A04 to a Variant")]
-    [DataRow("P (Mine() <> 0) ;; P (Mine() = Mine())", "True|True|", DisplayName = "A07 a Private procedure, in its own module")]
+        "True|True|True|LongLong|", DisplayName = "not 0, the same every time, another for another procedure, a LongPtr")]
+    [DataRow("P (FnPtr(AddressOf Mem.SomeSub) = FnPtr(AddressOf SomeSub))", "True|", DisplayName = "bare or qualified by its module")]
+    [DataRow("P Held(AddressOf SomeSub)", "LongLong True|", DisplayName = "to a Variant")]
+    [DataRow("P (Mine() <> 0) ;; P (Mine() = Mine())", "True|True|", DisplayName = "a Private procedure, in its own module")]
     [DataRow("P (FnPtr(AddressOf SomeFunction) <> FnPtr(AddressOf SomeProperty))", "True|", DisplayName = "a Function and a Property Get")]
-    [DataRow("Dim f As LongPtr ;; f = FnPtr(AddressOf SomeSub) ;; P (f = FnPtr(AddressOf SomeSub))", "True|", DisplayName = "A09 held in a variable")]
+    [DataRow("Dim f As LongPtr ;; f = FnPtr(AddressOf SomeSub) ;; P (f = FnPtr(AddressOf SomeSub))", "True|", DisplayName = "held in a variable")]
     public async Task AddressOf_IsTheAddressOfAProcedure(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 

@@ -30,7 +30,7 @@ public sealed class SetThroughACallAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("H", DisplayName = "s28 B25 a function of a class")]
+    [DataRow("H", DisplayName = "a function of a class")]
     [DataRow("Créer", DisplayName = "a function named with an accented letter, named as its code names it")]
     public async Task ASetOfACallOfAClassWhoseDefaultMemberHasNoPropertySet_IsError438(string function)
     {
@@ -43,9 +43,10 @@ public sealed class SetThroughACallAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("Function One() As Settable ;; Set One = New Settable ;; End Function", "Set One = New Collection", DisplayName = "s31 D01 its default member has a Property Set")]
+    [DataRow("Function One() As Settable ;; Set One = New Settable ;; End Function", "Set One = New Collection",
+        DisplayName = "its default member has a Property Set")]
     [DataRow("Function G() As Variant ;; End Function", "Set G = New Collection", DisplayName = "a Variant: what it returns is only known when it runs")]
-    [DataRow("Function O() As Object ;; End Function", "Set O = New Collection", DisplayName = "an Object: so is what it returns (s31 D07)")]
+    [DataRow("Function O() As Object ;; End Function", "Set O = New Collection", DisplayName = "an Object: so is what it returns")]
     [DataRow("Private mItems As Collection ;; Property Get Items() As Collection ;; Set Items = mItems ;; End Property ;; Property Set Items(ByVal c As Collection) ;; Set mItems = c ;; End Property", "Set Items = New Collection", DisplayName = "a property that has a Property Set")]
     [DataRow("Function H() As Collection ;; Set H = New Collection ;; End Function", "Dim c As Collection ;; Set c = H", DisplayName = "a call that is no target")]
     public async Task ASetThatCanSucceed_IsNotReported(string declarations, string statement)

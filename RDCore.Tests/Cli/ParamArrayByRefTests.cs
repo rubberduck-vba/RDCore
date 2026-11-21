@@ -36,27 +36,27 @@ public sealed class ParamArrayByRefTests
     }
 
     [TestMethod]
-    [DataRow(Bump, "Dim n As Variant ;; n = 1 ;; Bump n ;; P n", "2|", DisplayName = "P01 a Variant variable")]
-    [DataRow(Bump, "Dim n As Long ;; n = 1 ;; Bump n ;; P n ;; P TypeName(n)", "2|Long|", DisplayName = "P02 a Long variable stays a Long")]
+    [DataRow(Bump, "Dim n As Variant ;; n = 1 ;; Bump n ;; P n", "2|", DisplayName = "a Variant variable")]
+    [DataRow(Bump, "Dim n As Long ;; n = 1 ;; Bump n ;; P n ;; P TypeName(n)", "2|Long|", DisplayName = "a Long variable stays a Long")]
     [DataRow("Private Sub Bump(ParamArray a() As Variant) ;;     a(1) = a(1) + 1 ;; End Sub", "Dim x(2) As Long ;; x(1) = 5 ;; Bump 0, x(1) ;; P x(1)", "6|",
-        DisplayName = "P05 an element of an array")]
+        DisplayName = "an element of an array")]
     [DataRow(Bump + " ;; Private Sub Outer(ParamArray b() As Variant) ;;     Bump b(0) ;; End Sub", "Dim n As Variant ;; n = 1 ;; Outer n ;; P n", "2|",
-        DisplayName = "P12 an element of a param array, passed on")]
+        DisplayName = "an element of a param array, passed on")]
     public async Task AVariableGivenToAParamArray_IsTheVariable(string procedures, string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(procedures, body));
 
     [TestMethod]
-    [DataRow(Bump, "Dim n As Variant ;; n = 1 ;; Bump (n) ;; P n", "1|", DisplayName = "P03 in parentheses")]
-    [DataRow(Bump, "Dim n As Variant ;; n = 1 ;; Bump n + 0 ;; P n", "1|", DisplayName = "P04 an expression")]
+    [DataRow(Bump, "Dim n As Variant ;; n = 1 ;; Bump (n) ;; P n", "1|", DisplayName = "in parentheses")]
+    [DataRow(Bump, "Dim n As Variant ;; n = 1 ;; Bump n + 0 ;; P n", "1|", DisplayName = "an expression")]
     public async Task AValueGivenToAParamArray_IsACopy(string procedures, string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(procedures, body));
 
     private const string Stash = "Private Sub Stash(ParamArray a() As Variant) ;;     a(0) = {0} ;; End Sub";
 
     [TestMethod]
-    [DataRow("\"abc\"", "Dim n As Long ;; n = 1 ;; Stash n ;; P Err.Number ;; P n", "13|1|", DisplayName = "P06 what a Long cannot hold is a type mismatch")]
-    [DataRow("\"7\"", "Dim n As Long ;; n = 1 ;; Stash n ;; P Err.Number ;; P n ;; P TypeName(n)", "0|7|Long|", DisplayName = "P07 let-coerced to a Long")]
-    [DataRow("3.5", "Dim s As String ;; s = \"x\" ;; Stash s ;; P s ;; P TypeName(s)", "3.5|String|", DisplayName = "P08 let-coerced to a String")]
+    [DataRow("\"abc\"", "Dim n As Long ;; n = 1 ;; Stash n ;; P Err.Number ;; P n", "13|1|", DisplayName = "what a Long cannot hold is a type mismatch")]
+    [DataRow("\"7\"", "Dim n As Long ;; n = 1 ;; Stash n ;; P Err.Number ;; P n ;; P TypeName(n)", "0|7|Long|", DisplayName = "let-coerced to a Long")]
+    [DataRow("3.5", "Dim s As String ;; s = \"x\" ;; Stash s ;; P s ;; P TypeName(s)", "3.5|String|", DisplayName = "let-coerced to a String")]
     public async Task WhatIsAssignedToTheElement_IsLetCoercedToTheVariablesDeclaredType(string value, string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(string.Format(Stash, value), body));
 

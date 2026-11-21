@@ -142,7 +142,7 @@ public sealed class ErrorBreakTests
             "    Debug.Print \"after\"",
             "End Sub",
             "Private Sub Helper()",
-            "    Dim i As Long",
+            "    Dim i",
             "    GoTo Skip",
             "    For i = 1 To 2",
             "Skip:",

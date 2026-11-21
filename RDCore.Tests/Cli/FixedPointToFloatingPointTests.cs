@@ -38,24 +38,24 @@ public sealed class FixedPointToFloatingPointTests
 
     // the Double nearest each Decimal is the one next to the expected Double; a Let to a Double and a Variant passed ByVal As Double make the same one.
     [TestMethod]
-    [DataRow("0.000708160857053799161669089", "3F47347BDC554EE4", DisplayName = "D01")]
-    [DataRow("10.05816778433631985469989", "40241DC82AF6CF81", DisplayName = "D03")]
-    [DataRow("327655774543766665.222526", "43923044C3892593", DisplayName = "D06")]
-    [DataRow("48524.1786737239221237754", "40E7B185B7B1F51C", DisplayName = "D10")]
+    [DataRow("0.000708160857053799161669089", "3F47347BDC554EE4", DisplayName = "a fraction under 0.001")]
+    [DataRow("10.05816778433631985469989", "40241DC82AF6CF81", DisplayName = "a number near 10")]
+    [DataRow("327655774543766665.222526", "43923044C3892593", DisplayName = "a number of 18 whole digits")]
+    [DataRow("48524.1786737239221237754", "40E7B185B7B1F51C", DisplayName = "a number near 48524")]
     public async Task ADecimalMadeADouble_IsRoundedTwice(string value, string bits)
         => Assert.AreEqual($"{bits}|{bits}|{bits}|", await Run($"x = CDec(\"{value}\") ;; v = CDec(\"{value}\") ;; P H8(CDbl(CDec(\"{value}\"))) ;; P H8(x) ;; P H8(v)"));
 
     [TestMethod]
-    [DataRow("1.000000059604644775390626", "3F800000", DisplayName = "S01")]
-    [DataRow("16777217.000000000000000001", "4B800000", DisplayName = "S05")]
-    [DataRow("-1.000000059604644775390626", "BF800000", DisplayName = "S07")]
+    [DataRow("1.000000059604644775390626", "3F800000", DisplayName = "just over 1")]
+    [DataRow("16777217.000000000000000001", "4B800000", DisplayName = "just over 16777217")]
+    [DataRow("-1.000000059604644775390626", "BF800000", DisplayName = "just under -1")]
     public async Task ADecimalMadeASingle_IsTheSingleOfItsDouble(string value, string bits)
         => Assert.AreEqual($"{bits}|{bits}|", await Run($"f = CDec(\"{value}\") ;; P H4(CSng(CDec(\"{value}\"))) ;; P H4(f)"));
 
     [TestMethod]
-    [DataRow("75299393168858.7426", "42D11F00653976B0", DisplayName = "C01")]
-    [DataRow("507673376957223.0605", "42FCDB9EB4BA3271", DisplayName = "C03")]
-    [DataRow("-922337203685477.5808", "C30A36E2EB1C432D", DisplayName = "E08")]
+    [DataRow("75299393168858.7426", "42D11F00653976B0", DisplayName = "a number of 14 whole digits")]
+    [DataRow("507673376957223.0605", "42FCDB9EB4BA3271", DisplayName = "a number of 15 whole digits")]
+    [DataRow("-922337203685477.5808", "C30A36E2EB1C432D", DisplayName = "the least Currency")]
     public async Task ACurrencyMadeADouble_IsTheNearest(string value, string bits)
         => Assert.AreEqual($"{bits}|{bits}|{bits}|", await Run($"x = CCur(\"{value}\") ;; v = CCur(\"{value}\") ;; P H8(CDbl(CCur(\"{value}\"))) ;; P H8(x) ;; P H8(v)"));
 
@@ -71,16 +71,17 @@ public sealed class FixedPointToFloatingPointTests
 
     // a Decimal with decimal places is the whole number of its Double, rounded; one without them, and a Currency, are rounded as they are.
     [TestMethod]
-    [DataRow("P CLng(CDec(\"2.50000000000000000000000001\")) ;; P CLng(CDec(\"3.49999999999999999999999999\"))", "2|3|", DisplayName = "E09, E13")]
+    [DataRow("P CLng(CDec(\"2.50000000000000000000000001\")) ;; P CLng(CDec(\"3.49999999999999999999999999\"))",
+        "2|3|", DisplayName = "CLng, just over 2.5 and just under 3.5")]
     [DataRow("P CInt(CDec(\"2.50000000000000000000000001\")) ;; P CByte(CDec(\"2.50000000000000000000000001\")) ;; P CLngLng(CDec(\"2.50000000000000000000000001\"))",
-        "2|2|2|", DisplayName = "E13")]
+        "2|2|2|", DisplayName = "CInt, CByte and CLngLng, just over 2.5")]
     [DataRow("P CLngLng(CDec(\"1234567890123456789\")) ;; P CLngLng(CDec(\"1234567890123456789.4\")) ;; P CLngLng(CDec(\"-1234567890123456789.4\"))",
-        "1234567890123456789|1234567890123457024|-1234567890123457024|", DisplayName = "E14")]
+        "1234567890123456789|1234567890123457024|-1234567890123457024|", DisplayName = "CLngLng, past what a Double holds exactly")]
     [DataRow("P CLngLng(CCur(\"900719925474099.4999\")) ;; P CLngLng(CCur(\"900719925474098.5001\")) ;; P CLng(CCur(\"2.5\"))",
-        "900719925474099|900719925474099|2|", DisplayName = "E15")]
+        "900719925474099|900719925474099|2|", DisplayName = "a Currency, rounded as it is")]
     [DataRow("P Not CDec(\"2.50000000000000000000000001\") ;; P CDec(\"2.50000000000000000000000001\") And 7 ;; P CDec(\"3.49999999999999999999999999\") Or 0",
-        "-3|2|3|", DisplayName = "E16")]
-    [DataRow("P CLng(CDec(\"2147483647.49999999999999999\")) ;; P Err.Number", "2147483647|0|", DisplayName = "E17")]
+        "-3|2|3|", DisplayName = "Not, And and Or")]
+    [DataRow("P CLng(CDec(\"2147483647.49999999999999999\")) ;; P Err.Number", "2147483647|0|", DisplayName = "CLng, near the greatest Long")]
     public async Task ADecimalMadeAWholeNumber_IsItsDoubleRounded(string body, string printed)
         => Assert.AreEqual(printed, await Run(body));
 

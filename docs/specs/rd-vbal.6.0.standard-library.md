@@ -29,6 +29,7 @@ The following standard-library topics are described with their module or class:
 |An omitted `Compare`, which is the calling module's `Option Compare`|[**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)|
 |The VBScript RegExp 5.5 class modules|[**RD-VBAL §6.2** VBScript Regular Expressions](rd-vbal.6.2.vbscript-regexp.md)|
 |Visual Basic 6.0's `App` object|[**RD-VBAL §6.3** Visual Basic 6.0 App Object](rd-vbal.6.3.vb-app-object.md)|
+|The OLE Automation library's `StdFont` and `StdPicture`, and `LoadPicture`|[**RD-VBAL §6.4** OLE Automation Library](rd-vbal.6.4.ole-automation-library.md)|
 
 
 ## Standard-Library Calls
