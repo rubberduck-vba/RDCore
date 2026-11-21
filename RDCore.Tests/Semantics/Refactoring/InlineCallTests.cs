@@ -38,7 +38,9 @@ public class InlineCallTests
         string module, IReadOnlyList<(string Name, string Source)> classes, string main = "Public Sub Main()\r\nRun 3\r\nEnd Sub\r\n",
         IReadOnlyList<(string Name, string Source)>? modules = null)
     {
-        var program = (module.Length == 0 ? "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n" : module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Program\"", StringComparison.Ordinal))
+        var program = (module.Length == 0
+                ? "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n"
+                : module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Program\"", StringComparison.Ordinal))
             + $"\r\n{main}";
         string? output = null;
         try
@@ -106,7 +108,8 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Ignore Noisy()",
-            "Private Function Noisy() As Long\r\n    Debug.Print \"evaluated\"\r\n    Noisy = 1\r\nEnd Function\r\n\r\nPrivate Sub Ignore(ByVal x As Long)\r\n    Debug.Print \"body\"\r\nEnd Sub",
+            "Private Function Noisy() As Long\r\n    Debug.Print \"evaluated\"\r\n    Noisy = 1\r\nEnd Function\r\n\r\n" +
+                "Private Sub Ignore(ByVal x As Long)\r\n    Debug.Print \"body\"\r\nEnd Sub",
             "Ignore Noisy()");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(before, "evaluated | body");
@@ -129,7 +132,8 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim i As Long\r\nFor i = 0 To n\r\n    Guarded i\r\nNext",
-            "Private Sub Guarded(ByVal x As Long)\r\n    If x = 1 Then\r\n        Debug.Print \"one\"\r\n        Exit Sub\r\n    End If\r\n    Debug.Print x\r\nEnd Sub",
+            "Private Sub Guarded(ByVal x As Long)\r\n    If x = 1 Then\r\n        Debug.Print \"one\"\r\n        Exit Sub\r\n" +
+                "    End If\r\n    Debug.Print x\r\nEnd Sub",
             "Guarded i");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "Else");
@@ -140,8 +144,10 @@ public class InlineCallTests
     public async Task AnExit_AnywhereElse_GoesToALabelAfterTheBody()
     {
         var (before, after, module) = await BeforeAndAfterAsync(
-            "Dim i As Long\r\nFor i = 0 To n\r\n    Debug.Print FirstOver(i)\r\nNext\r\nDim found As Long\r\nfound = FirstOver(n)\r\nDebug.Print found",
-            "Private Function FirstOver(ByVal limit As Long) As Long\r\n    Dim i As Long\r\n    For i = 1 To 10\r\n        If i * i > limit Then\r\n            FirstOver = i\r\n            Exit Function\r\n        End If\r\n    Next\r\n    FirstOver = -1\r\nEnd Function",
+            "Dim i As Long\r\nFor i = 0 To n\r\n    Debug.Print FirstOver(i)\r\nNext\r\n" +
+                "Dim found As Long\r\nfound = FirstOver(n)\r\nDebug.Print found",
+            "Private Function FirstOver(ByVal limit As Long) As Long\r\n    Dim i As Long\r\n    For i = 1 To 10\r\n        If i * i > limit Then\r\n" +
+                "            FirstOver = i\r\n            Exit Function\r\n        End If\r\n    Next\r\n    FirstOver = -1\r\nEnd Function",
             "FirstOver(n)");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "GoTo FirstOver_exit");
@@ -163,7 +169,8 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim i As Long\r\nAgain:\r\nFor i = 1 To n\r\n    Retry i\r\nNext",
-            "Private Sub Retry(ByVal x As Long)\r\n    Dim tries As Long\r\nAgain:\r\n    tries = tries + 1\r\n    If tries < x Then GoTo Again\r\n    Debug.Print tries\r\nEnd Sub",
+            "Private Sub Retry(ByVal x As Long)\r\n    Dim tries As Long\r\nAgain:\r\n    tries = tries + 1\r\n" +
+                "    If tries < x Then GoTo Again\r\n    Debug.Print tries\r\nEnd Sub",
             "Retry i");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "Again2:");
@@ -175,7 +182,8 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim i As Long\r\nFor i = 0 To n\r\n    Picked i\r\nNext\r\nOne:",
-            "Private Sub Picked(ByVal x As Long)\r\n    On x GoTo One, Two\r\n    Debug.Print \"neither\"\r\n    Exit Sub\r\nOne:\r\n    Debug.Print \"one\"\r\n    Exit Sub\r\nTwo:\r\n    Debug.Print \"two\"\r\nEnd Sub",
+            "Private Sub Picked(ByVal x As Long)\r\n    On x GoTo One, Two\r\n    Debug.Print \"neither\"\r\n    Exit Sub\r\n" +
+                "One:\r\n    Debug.Print \"one\"\r\n    Exit Sub\r\nTwo:\r\n    Debug.Print \"two\"\r\nEnd Sub",
             "Picked i");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "On x GoTo One2, Two");
@@ -186,7 +194,8 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim i As Long\r\nFor i = 0 To n\r\n    Numbered i\r\nNext",
-            "Private Sub Numbered(ByVal x As Long)\r\n10 Debug.Print x\r\n20 If x = 1 Then 40\r\n30 Debug.Print \"not one\"\r\n40 Debug.Print \"done\"\r\nEnd Sub",
+            "Private Sub Numbered(ByVal x As Long)\r\n10 Debug.Print x\r\n20 If x = 1 Then 40\r\n" +
+                "30 Debug.Print \"not one\"\r\n40 Debug.Print \"done\"\r\nEnd Sub",
             "Numbered i");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "If x = 1 Then GoTo Numbered_40");
@@ -200,7 +209,8 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim i As Long\r\nFor i = 1 To n\r\n    Greet\r\nNext",
-            "Private Sub Greet(Optional ByVal times As Long = 2, Optional ByVal extra As Long)\r\n    Debug.Print times + extra\r\n    extra = extra + 1\r\nEnd Sub",
+            "Private Sub Greet(Optional ByVal times As Long = 2, Optional ByVal extra As Long)\r\n" +
+                "    Debug.Print times + extra\r\n    extra = extra + 1\r\nEnd Sub",
             "Greet");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "times = 2");
@@ -234,7 +244,8 @@ public class InlineCallTests
     {
         var (before, after, module) = await BeforeAndAfterAsync(
             "Dim t As Long\r\nt = Total(1, n, 3)\r\nDebug.Print t",
-            "Private Function Total(ParamArray values() As Variant) As Long\r\n    Dim i As Long\r\n    For i = LBound(values) To UBound(values)\r\n        Total = Total + values(i)\r\n    Next\r\n    Debug.Print LBound(values), UBound(values)\r\nEnd Function",
+            "Private Function Total(ParamArray values() As Variant) As Long\r\n    Dim i As Long\r\n    For i = LBound(values) To UBound(values)\r\n" +
+                "        Total = Total + values(i)\r\n    Next\r\n    Debug.Print LBound(values), UBound(values)\r\nEnd Function",
             "Total(1, n, 3)");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "ReDim values(0 To 2)");
@@ -252,11 +263,15 @@ public class InlineCallTests
         StringAssert.Contains(module, "items = Array()");
     }
 
-    // a listener of the class Source, which is the edited class module: Main runs Go, which runs Source's Run 3, and the handler writes its ByRef argument.
-    private const string Listener = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Listener\"\r\nOption Explicit\r\nPrivate WithEvents s As Source\r\nPublic Sub Go()\r\n    Set s = New Source\r\n    s.Run 3\r\nEnd Sub\r\nPrivate Sub s_Changed(x As Long)\r\n    Debug.Print \"changed \" & x\r\n    x = x + 100\r\nEnd Sub\r\n";
+    // a listener of the class Source, which is the edited class module: Main runs Go, which runs Source's Run 3, and the handler writes its ByRef
+    // argument.
+    private const string Listener = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Listener\"\r\nOption Explicit\r\n" +
+        "Private WithEvents s As Source\r\nPublic Sub Go()\r\n    Set s = New Source\r\n    s.Run 3\r\nEnd Sub\r\n" +
+        "Private Sub s_Changed(x As Long)\r\n    Debug.Print \"changed \" & x\r\n    x = x + 100\r\nEnd Sub\r\n";
 
     private static Task<string> RunAsSourceAsync(string module)
-        => RunAsync(string.Empty, [("Source", module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Source\"", StringComparison.Ordinal)), ("Listener", Listener)],
+        => RunAsync(string.Empty,
+            [("Source", module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Source\"", StringComparison.Ordinal)), ("Listener", Listener)],
             "Public Sub Main()\r\nDim l As New Listener\r\nl.Go\r\nEnd Sub\r\n");
 
     [TestMethod]
@@ -285,7 +300,8 @@ public class InlineCallTests
     [TestMethod]
     public void ARaiseEvent_CalledFromAnotherModule_IsRefused()
     {
-        var source = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Source\"\r\nOption Explicit\r\nPublic Event Changed(ByVal x As Long)\r\nPublic Sub Notify(ByVal x As Long)\r\n    RaiseEvent Changed(x)\r\nEnd Sub\r\n";
+        var source = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Source\"\r\nOption Explicit\r\n" +
+            "Public Event Changed(ByVal x As Long)\r\nPublic Sub Notify(ByVal x As Long)\r\n    RaiseEvent Changed(x)\r\nEnd Sub\r\n";
         var (_, _, refusal) = Inlined("Dim s As New Source\r\ns.Notify n", string.Empty, "Notify n", classes: [("Source", source)]);
         Assert.AreEqual(InlineRefusalKind.RaisesAnEvent, refusal?.Kind);
     }
@@ -302,7 +318,8 @@ public class InlineCallTests
         StringAssert.Contains(module, "Set o = Nothing");
     }
 
-    private const string Tracker = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Tracker\"\r\nOption Explicit\r\nPrivate Sub Class_Terminate()\r\n    Debug.Print \"terminated\"\r\nEnd Sub\r\n";
+    private const string Tracker = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Tracker\"\r\nOption Explicit\r\n" +
+        "Private Sub Class_Terminate()\r\n    Debug.Print \"terminated\"\r\nEnd Sub\r\n";
 
     [TestMethod]
     public async Task AVariant_GivenAnArrayOfObjects_IsLetGoOfWhereTheCallEnded()
@@ -335,7 +352,8 @@ public class InlineCallTests
     public async Task AnObjectLocal_HeldWhenAnErrorLeavesTheBody_IsRefused_ForItWasLetGoOfBeforeTheHandlerRan()
     {
         const string body = "On Error GoTo Handler\r\nTrack n - 3\r\nExit Sub\r\nHandler:\r\nDebug.Print \"handled\"";
-        const string declarations = "Private Sub Track(ByVal x As Long)\r\n    Dim o As Tracker\r\n    Set o = New Tracker\r\n    Debug.Print 1 / x\r\nEnd Sub";
+        const string declarations = "Private Sub Track(ByVal x As Long)\r\n    Dim o As Tracker\r\n" +
+            "    Set o = New Tracker\r\n    Debug.Print 1 / x\r\nEnd Sub";
         var (before, _, refusal) = Inlined(body, declarations, "Track n - 3", [("Tracker", Tracker)]);
 
         Assert.AreEqual(InlineRefusalKind.HeldThroughAnError, refusal?.Kind);
@@ -354,11 +372,14 @@ public class InlineCallTests
     }
 
     [TestMethod]
-    [DataRow("On Error Resume Next\r\nShown n - 3\r\nDebug.Print \"done\"", (int)InlineRefusalKind.CallerResumesNext, DisplayName = "under On Error Resume Next")]
-    [DataRow("On Error GoTo Handler\r\nShown n - 3\r\nExit Sub\r\nHandler:\r\nResume Next", (int)InlineRefusalKind.CallerHandlerResumes, DisplayName = "a handler that resumes")]
+    [DataRow("On Error Resume Next\r\nShown n - 3\r\nDebug.Print \"done\"", (int)InlineRefusalKind.CallerResumesNext,
+        DisplayName = "under On Error Resume Next")]
+    [DataRow("On Error GoTo Handler\r\nShown n - 3\r\nExit Sub\r\nHandler:\r\nResume Next", (int)InlineRefusalKind.CallerHandlerResumes,
+        DisplayName = "a handler that resumes")]
     public void ACallWhoseErrorTheCallerResumesFrom_IsRefused(string body, int kind)
     {
-        var (_, _, refusal) = Inlined(body, "Private Sub Shown(ByVal x As Long)\r\n    Debug.Print 10 / x\r\n    Debug.Print \"rest\"\r\nEnd Sub", "Shown n - 3");
+        var (_, _, refusal) = Inlined(
+            body, "Private Sub Shown(ByVal x As Long)\r\n    Debug.Print 10 / x\r\n    Debug.Print \"rest\"\r\nEnd Sub", "Shown n - 3");
         Assert.AreEqual((InlineRefusalKind)kind, refusal?.Kind);
     }
 
@@ -391,23 +412,38 @@ public class InlineCallTests
     }
 
     [TestMethod]
-    [DataRow("Private Sub Again(ByVal x As Long)\r\n    If x > 0 Then Again x - 1\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Recursive, DisplayName = "recursive")]
-    [DataRow("Private Sub Again(ByVal x As Long)\r\n    If x > 0 Then Other x - 1\r\nEnd Sub\r\nPrivate Sub Other(ByVal x As Long)\r\n    Again x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Recursive, DisplayName = "recursive through another")]
-    [DataRow("Private Static Sub Again(ByVal x As Long)\r\n    Debug.Print x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Static, DisplayName = "Static procedure")]
-    [DataRow("Private Sub Again(ByVal x As Long)\r\n    Static count As Long\r\n    count = count + x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Static, DisplayName = "Static local")]
-    [DataRow("Private Sub Again(ByVal x As Long)\r\n    On Error Resume Next\r\n    Debug.Print 1 / x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.ErrorHandling, DisplayName = "On Error")]
-    [DataRow("Private Sub Again(Optional ByVal x As Variant)\r\n    Debug.Print x\r\nEnd Sub", "Again\r\n", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "an omitted Optional Variant read")]
-    [DataRow("Private Sub Again(ParamArray x())\r\n    x(0) = Empty\r\nEnd Sub", "Again n", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "a ParamArray written")]
-    [DataRow("Private Sub Again(ByVal x As Long, Optional ByVal y As Variant)\r\n    y = x\r\n    Debug.Print IsMissing(y)\r\nEnd Sub", "Again n, 1", (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "IsMissing of a parameter written")]
-    [DataRow("Private Sub Again(ByRef x As Long)\r\n    x = 1\r\nEnd Sub\r\nPrivate Sub Caller()\r\n    Dim values(1 To 2) As Long\r\n    Again values(1)\r\nEnd Sub", "Again values(1)", (int)InlineRefusalKind.ByRefElement, DisplayName = "ByRef element")]
-    [DataRow("Private Sub Again(ByVal x As Long)\r\n    field = field + x\r\nEnd Sub\r\nPrivate Sub Caller()\r\n    Dim field As Long\r\n    Again field\r\nEnd Sub", "Again field", (int)InlineRefusalKind.Captured, DisplayName = "a module field a caller local captures")]
+    [DataRow("Private Sub Again(ByVal x As Long)\r\n    If x > 0 Then Again x - 1\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Recursive,
+        DisplayName = "recursive")]
+    [DataRow("Private Sub Again(ByVal x As Long)\r\n    If x > 0 Then Other x - 1\r\nEnd Sub\r\n" +
+        "Private Sub Other(ByVal x As Long)\r\n    Again x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Recursive,
+        DisplayName = "recursive through another")]
+    [DataRow("Private Static Sub Again(ByVal x As Long)\r\n    Debug.Print x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Static,
+        DisplayName = "Static procedure")]
+    [DataRow("Private Sub Again(ByVal x As Long)\r\n    Static count As Long\r\n    count = count + x\r\nEnd Sub", "Again n", (int)InlineRefusalKind.Static,
+        DisplayName = "Static local")]
+    [DataRow("Private Sub Again(ByVal x As Long)\r\n    On Error Resume Next\r\n    Debug.Print 1 / x\r\nEnd Sub", "Again n",
+        (int)InlineRefusalKind.ErrorHandling, DisplayName = "On Error")]
+    [DataRow("Private Sub Again(Optional ByVal x As Variant)\r\n    Debug.Print x\r\nEnd Sub", "Again\r\n", (int)InlineRefusalKind.UnsupportedParameter,
+        DisplayName = "an omitted Optional Variant read")]
+    [DataRow("Private Sub Again(ParamArray x())\r\n    x(0) = Empty\r\nEnd Sub", "Again n", (int)InlineRefusalKind.UnsupportedParameter,
+        DisplayName = "a ParamArray written")]
+    [DataRow("Private Sub Again(ByVal x As Long, Optional ByVal y As Variant)\r\n    y = x\r\n    Debug.Print IsMissing(y)\r\nEnd Sub", "Again n, 1",
+        (int)InlineRefusalKind.UnsupportedParameter, DisplayName = "IsMissing of a parameter written")]
+    [DataRow("Private Sub Again(ByRef x As Long)\r\n    x = 1\r\nEnd Sub\r\n" +
+        "Private Sub Caller()\r\n    Dim values(1 To 2) As Long\r\n    Again values(1)\r\nEnd Sub", "Again values(1)", (int)InlineRefusalKind.ByRefElement,
+        DisplayName = "ByRef element")]
+    [DataRow("Private Sub Again(ByVal x As Long)\r\n    field = field + x\r\nEnd Sub\r\n" +
+        "Private Sub Caller()\r\n    Dim field As Long\r\n    Again field\r\nEnd Sub", "Again field", (int)InlineRefusalKind.Captured,
+        DisplayName = "a module field a caller local captures")]
     public void TheMember_IsRefused(string declarations, string call, int kind)
     {
         // the call is in Run, unless the declarations have their own caller.
         var body = declarations.Contains("Caller", StringComparison.Ordinal) ? "Debug.Print n" : call;
         var analyzed = FlowFixture.Analyze(body, end: $"End Sub\r\n\r\n{declarations}");
         var text = analyzed.Text;
-        var at = body == call ? text.IndexOf(call, text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal) : text.IndexOf(call, StringComparison.Ordinal);
+        var at = body == call
+            ? text.IndexOf(call, text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal)
+            : text.IndexOf(call, StringComparison.Ordinal);
         var (inlined, refusal) = InlineCall.At(analyzed.Context, analyzed.AnalysisOf, analyzed.ModuleAddress, TextLines.Of(text).PositionOf(at + 1));
         Assert.IsNull(inlined);
         Assert.AreEqual((InlineRefusalKind)kind, refusal?.Kind);
@@ -425,7 +461,8 @@ public class InlineCallTests
     }
 
     // a function the expression form cannot write: its body is more than the assignment of its result.
-    private const string Stepwise = "Private Function Doubled(ByVal x As Long) As Long\r\n    Dim twice As Long\r\n    twice = x * 2\r\n    Doubled = twice\r\nEnd Function";
+    private const string Stepwise = "Private Function Doubled(ByVal x As Long) As Long\r\n" +
+        "    Dim twice As Long\r\n    twice = x * 2\r\n    Doubled = twice\r\nEnd Function";
 
     private const string OneLiner = "Private Function Doubled(ByVal x As Long) As Long\r\n    Doubled = x * 2\r\nEnd Function";
 
@@ -459,7 +496,8 @@ public class InlineCallTests
     [TestMethod]
     [DataRow("Debug.Print Doubled(n) + 1", "Doubled(n)", false, "Debug.Print Doubled_result + 1", DisplayName = "a body of more than its result")]
     [DataRow("Debug.Print Doubled(G()) + 1", "Doubled(G())", true, "x = G()", DisplayName = "an argument that is a call")]
-    [DataRow("Dim i As Long\r\nFor i = 1 To Doubled(n)\r\n    Debug.Print i\r\nNext", "Doubled(n)", false, "For i = 1 To Doubled_result", DisplayName = "a For loop's end")]
+    [DataRow("Dim i As Long\r\nFor i = 1 To Doubled(n)\r\n    Debug.Print i\r\nNext", "Doubled(n)", false, "For i = 1 To Doubled_result",
+        DisplayName = "a For loop's end")]
     public async Task ACallInAnExpression_TheExpressionFormCantWrite_IsHoisted(string body, string call, bool oneLiner, string written)
     {
         var (before, after, module) = await BeforeAndAfterAsync(body, oneLiner ? OneLiner : Stepwise, call);
@@ -472,8 +510,10 @@ public class InlineCallTests
     [TestMethod]
     [DataRow("Debug.Print G() + Doubled(n)", Stepwise, "Doubled(n)", (int)InlineRefusalKind.EvaluationOrder, DisplayName = "another call in the statement")]
     [DataRow("Debug.Print field + Bumped(n)", Bumped, "Bumped(n)", (int)InlineRefusalKind.EvaluationOrder, DisplayName = "a module variable the body writes")]
-    [DataRow("Dim i As Long\r\nDo While Doubled(i) < 7\r\n    i = i + 1\r\nLoop", Stepwise, "Doubled(i)", (int)InlineRefusalKind.UnsupportedSite, DisplayName = "a loop's condition")]
-    [DataRow("If n = 0 Then\r\n    Debug.Print 0\r\nElseIf Doubled(n) > 4 Then\r\n    Debug.Print 1\r\nEnd If", Stepwise, "Doubled(n)", (int)InlineRefusalKind.UnsupportedSite, DisplayName = "an ElseIf condition")]
+    [DataRow("Dim i As Long\r\nDo While Doubled(i) < 7\r\n    i = i + 1\r\nLoop", Stepwise, "Doubled(i)", (int)InlineRefusalKind.UnsupportedSite,
+        DisplayName = "a loop's condition")]
+    [DataRow("If n = 0 Then\r\n    Debug.Print 0\r\nElseIf Doubled(n) > 4 Then\r\n    Debug.Print 1\r\nEnd If", Stepwise, "Doubled(n)",
+        (int)InlineRefusalKind.UnsupportedSite, DisplayName = "an ElseIf condition")]
     public void ACallInAnExpression_ThatCantBeHoisted_IsRefused(string body, string declarations, string call, int kind)
         => Assert.AreEqual((InlineRefusalKind)kind, Inlined(body, declarations, call).Refusal?.Kind);
 
@@ -505,7 +545,8 @@ public class InlineCallTests
     {
         var (_, _, refusal) = Inlined(
             "Dim items As Collection\r\nSet items = Filled(n)",
-            "Private Function Filled(ByVal count As Long) As Collection\r\n    Dim i As Long\r\n    Set Filled = New Collection\r\n    For i = 1 To count\r\n        Filled.Add i\r\n    Next\r\nEnd Function",
+            "Private Function Filled(ByVal count As Long) As Collection\r\n    Dim i As Long\r\n    Set Filled = New Collection\r\n" +
+                "    For i = 1 To count\r\n        Filled.Add i\r\n    Next\r\nEnd Function",
             "Filled(n)");
         Assert.AreEqual(InlineRefusalKind.HeldThroughAnError, refusal?.Kind);
     }
@@ -522,12 +563,14 @@ public class InlineCallTests
 
     [TestMethod]
     public void AFunction_AssignedToAnElement_IsNotInlined_InTheStatementForm()
-        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite, Inlined("Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)", Stepwise, "Doubled(n)").Refusal?.Kind);
+        => Assert.AreEqual(InlineRefusalKind.UnsupportedSite,
+            Inlined("Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)", Stepwise, "Doubled(n)").Refusal?.Kind);
 
     [TestMethod]
     public async Task AOneLiner_AssignedToAnElement_IsItsValue()
     {
-        var (before, after, module) = await BeforeAndAfterAsync("Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)\r\nDebug.Print values(1)", OneLiner, "Doubled(n)");
+        var (before, after, module) = await BeforeAndAfterAsync(
+            "Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)\r\nDebug.Print values(1)", OneLiner, "Doubled(n)");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "values(1) = (n * 2)");
     }

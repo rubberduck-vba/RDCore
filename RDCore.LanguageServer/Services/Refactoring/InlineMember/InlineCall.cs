@@ -87,7 +87,8 @@ internal static class InlineCall
     /// <param name="analysisOf">The analysis of a module of the workspace, by its address in <paramref name="context"/>.</param>
     /// <param name="module">The address of the module the call is in.</param>
     /// <param name="position">A position in the name of the called member.</param>
-    public static (InlinedCall? Inlined, InlineRefusal? Refusal) At(RenameContext context, Func<Uri, ExtractionModuleAnalysis?> analysisOf, Uri module, SourcePosition position)
+    public static (InlinedCall? Inlined, InlineRefusal? Refusal) At(
+        RenameContext context, Func<Uri, ExtractionModuleAnalysis?> analysisOf, Uri module, SourcePosition position)
     {
         if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } syntax
             || NameOccurrences.NameAt(syntax, position) is not { } name)
@@ -96,7 +97,8 @@ internal static class InlineCall
         }
 
         var occurrence = NameOccurrences.Find(context, name, [syntax]).Occurrences
-            .FirstOrDefault(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Member && each.Module.AbsoluteUri == module.AbsoluteUri && Contains(each.Range, position));
+            .FirstOrDefault(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Member && each.Module.AbsoluteUri == module.AbsoluteUri
+                && Contains(each.Range, position));
         if (occurrence.Binding is not { } binding || NameOccurrences.SymbolOf(context, binding) is not { } callee)
         {
             return (null, new(InlineRefusalKind.NotAProcedure, name));
@@ -105,7 +107,9 @@ internal static class InlineCall
         var kind = KindOf(callee);
         if (kind is null)
         {
-            return (null, new(callee is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? InlineRefusalKind.PropertyAssignment : InlineRefusalKind.NotAProcedure, callee.Name));
+            return (null, new(
+                callee is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? InlineRefusalKind.PropertyAssignment : InlineRefusalKind.NotAProcedure,
+                callee.Name));
         }
 
         var calleeModule = NameOccurrences.ModuleOf(callee.Uri);
@@ -196,7 +200,8 @@ internal static class InlineCall
 
     // a call whose callee is the name, unqualified: a call statement (Call F(a), F a), the whole value of an assignment (x = F(a), Set x = F, x = F), or a
     // call in any other expression of a statement (Debug.Print F(a) + 1), whose expression is Call.
-    private sealed record class Site(StatementNode Statement, ImmutableArray<ExpressionNode> Arguments, AssignmentStatementNode? Assignment, ExpressionNode? Call = null)
+    private sealed record class Site(
+        StatementNode Statement, ImmutableArray<ExpressionNode> Arguments, AssignmentStatementNode? Assignment, ExpressionNode? Call = null)
     {
         public bool IsInAnExpression => Call is not null && Assignment is null;
     }
@@ -209,8 +214,8 @@ internal static class InlineCall
         RenameContext context, RenameModule syntax, RenameModule source, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
     {
         if (callee is VBProcedureMemberSymbol
-            || site.Statement is DoLoopUntilStatementNode or DoLoopWhileStatementNode or DoUntilLoopStatementNode or DoWhileLoopStatementNode or WhileWendStatementNode
-                or ElseIfBlockStatementNode or CaseExpressionStatementNode)
+            || site.Statement is DoLoopUntilStatementNode or DoLoopWhileStatementNode or DoUntilLoopStatementNode or DoWhileLoopStatementNode
+                or WhileWendStatementNode or ElseIfBlockStatementNode or CaseExpressionStatementNode)
         {
             return new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation);
         }
@@ -219,7 +224,8 @@ internal static class InlineCall
         var bindings = NameOccurrences.BindingsOf(context, syntax);
         var bodyBindings = source == syntax ? bindings : NameOccurrences.BindingsOf(context, source);
         var own = procedure.Scope.Declarations.Select(symbol => symbol.SemanticId).Append(callee.SemanticId).ToHashSet();
-        var writes = procedure.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry && !own.Contains(definition.Variable))
+        var writes = procedure.Accesses.Definitions
+            .Where(definition => definition.Kind is not VariableDefinitionKind.Entry && !own.Contains(definition.Variable))
             .Select(definition => definition.Variable).ToHashSet();
         var calls = procedure.Declaration.Descendants().Any(node => node is CallStatementNode or MemberAccessExpressionNode
             || node is SimpleNameExpressionNode && bodyBindings((ExpressionNode)node) is { } bound
@@ -316,7 +322,8 @@ internal static class InlineCall
             ?? nodes.OfType<ExpressionNode>().FirstOrDefault(each => !members.Contains(each) && IsCallee(each));
         var statement = nodes.OfType<StatementNode>()
             .Where(each => each.SourceLocation.Range.Start <= name.Start && name.End <= each.SourceLocation.Range.End)
-            .MinBy(each => (each.SourceLocation.Range.End.Line - each.SourceLocation.Range.Start.Line, each.SourceLocation.Range.End.Character - each.SourceLocation.Range.Start.Character));
+            .MinBy(each => (each.SourceLocation.Range.End.Line - each.SourceLocation.Range.Start.Line,
+                each.SourceLocation.Range.End.Character - each.SourceLocation.Range.Start.Character));
         return expression is null || statement is null
             ? null
             : new(statement, expression is IndexExpressionNode index ? index.Arguments : [], null, expression);
@@ -404,7 +411,8 @@ internal static class InlineCall
             || module.Children.OfType<MemberDeclarationNode>()
                 .FirstOrDefault(member => member.SourceLocation.Range.Start <= range.Start && range.End <= member.SourceLocation.Range.End)
                 is not { } declaration
-            || analysis.Procedure(declaration.Name, declaration.MemberKind) is not { } caller || !caller.Instructions.TryGetOffset(statement.Identity, out var offset))
+            || analysis.Procedure(declaration.Name, declaration.MemberKind) is not { } caller
+            || !caller.Instructions.TryGetOffset(statement.Identity, out var offset))
         {
             return new(InlineRefusalKind.UnsupportedSite, callee.Name, statement.SourceLocation);
         }
@@ -418,7 +426,8 @@ internal static class InlineCall
 
         foreach (var handler in at.Select(state => state.CatchingHandler).OfType<int>().Distinct())
         {
-            if (caller.Instructions.Items.FirstOrDefault(item => item.Kind is InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel
+            if (caller.Instructions.Items.FirstOrDefault(item => item.Kind
+                    is InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel
                 && states.At(item.Offset).Any(state => state.Handler == handler && state.IsHandling)) is { } resume)
             {
                 return new(InlineRefusalKind.CallerHandlerResumes, callee.Name, resume.Location);
@@ -599,17 +608,22 @@ internal static class InlineCall
             var declaration = procedure.Declaration;
             var type = (callee as ITypedSymbol)?.ResolvedType;
             if (callee is VBProcedureMemberSymbol || site.Call is not { } called
-                || declaration.Children.OfType<StatementNode>().ToArray() is not [AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode target, Value: var value }]
+                || declaration.Children.OfType<StatementNode>().ToArray() is not [AssignmentStatementNode
+                    {
+                        Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode target, Value: var value
+                    }]
                 || declaration.Children.OfType<LineLabelNode>().Any() || _bodyBindings(target) != callee.SemanticId
                 || procedure.Scope.Declarations.Any(symbol => symbol is not VBParameterSymbol)
-                || type is not VBIntrinsicType || type is VBVariantType or VBObjectType || DeclaredTypeOf(value) is not { } valueType || !SameType(valueType, type))
+                || type is not VBIntrinsicType || type is VBVariantType or VBObjectType
+                || DeclaredTypeOf(value) is not { } valueType || !SameType(valueType, type))
             {
                 return null;
             }
 
             var parameters = ParametersOf(callee);
             var map = ArgumentMapping.Map(parameters, site.Arguments);
-            if (map.Error is not ArgumentMappingError.None || map.Mapped is not { } mapped || parameters.Any(parameter => parameter is ParamArrayParameterSymbol))
+            if (map.Error is not ArgumentMappingError.None || map.Mapped is not { } mapped
+                || parameters.Any(parameter => parameter is ParamArrayParameterSymbol))
             {
                 return null;
             }
@@ -619,7 +633,8 @@ internal static class InlineCall
             {
                 var parameter = procedure.Scope.Declarations.OfType<VBParameterSymbol>()
                     .First(symbol => symbol.Name.Equals(parameters[index].Name, StringComparison.OrdinalIgnoreCase));
-                if (mapped[index] is not { } argument || argument is MissingArgumentNode || IsMissingOf(parameter).Count > 0 || IsWrittenOtherwise(parameter, []))
+                if (mapped[index] is not { } argument || argument is MissingArgumentNode || IsMissingOf(parameter).Count > 0
+                    || IsWrittenOtherwise(parameter, []))
                 {
                     return null;
                 }
@@ -698,12 +713,14 @@ internal static class InlineCall
                 header++;
             }
 
-            return new SourceRange(new SourcePosition(header + 1, 0), new SourcePosition(declaration.EndRange?.Start.Line ?? declaration.SourceLocation.Range.End.Line, 0));
+            return new SourceRange(new SourcePosition(header + 1, 0),
+                new SourcePosition(declaration.EndRange?.Start.Line ?? declaration.SourceLocation.Range.End.Line, 0));
         }
 
         private SourceRange CallerRange()
             => NameOccurrences.Walk(syntax.Syntax).Select(each => each.Node).OfType<MemberDeclarationNode>()
-                .First(member => member.SourceLocation.Range.Start <= call.SourceLocation.Range.Start && call.SourceLocation.Range.End <= member.SourceLocation.Range.End)
+                .First(member => member.SourceLocation.Range.Start <= call.SourceLocation.Range.Start
+                    && call.SourceLocation.Range.End <= member.SourceLocation.Range.End)
                 .SourceLocation.Range;
 
         // each parameter bound to its argument, in parameter order (MS-VBAL §5.3.1.11).
@@ -716,7 +733,8 @@ internal static class InlineCall
                 return new(InlineRefusalKind.ArgumentsDoNotMap, callee.Name, call.SourceLocation);
             }
 
-            var written = procedure.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry).Select(definition => definition.Variable).ToHashSet();
+            var written = procedure.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry)
+                .Select(definition => definition.Variable).ToHashSet();
             for (var index = 0; index < parameters.Length; index++)
             {
                 var parameter = procedure.Scope.Declarations.OfType<VBParameterSymbol>()
@@ -751,7 +769,8 @@ internal static class InlineCall
                 var argumentText = text.Of(argument.SourceLocation.Range).Trim();
                 var type = (parameter as ITypedSymbol)?.ResolvedType;
                 var variable = VariableOf(argument);
-                if (BoundArgument.IsByRef(parameter) && variable is ITypedSymbol { ResolvedType: { } given } && (type is VBVariantType || SameType(given, type)))
+                if (BoundArgument.IsByRef(parameter) && variable is ITypedSymbol { ResolvedType: { } given }
+                    && (type is VBVariantType || SameType(given, type)))
                 {
                     // the argument's variable keeps its own IsMissing answer: a caller's Optional Variant passed along is missing when it is.
                     _replacements[parameter.SemanticId] = argumentText;
@@ -771,7 +790,8 @@ internal static class InlineCall
                 // what is given is not missing (MS-VBAL §6.1.2.7.1.6): a Variant argument that could be is refused below.
                 Fold(missing, "False");
                 var isObject = type is VBClassType or VBObjectType;
-                if (!IsWrittenOtherwise(parameter, missing) && !IsReadOtherwise(parameter, missing) && (argument is LiteralExpressionNode || variable is not null))
+                if (!IsWrittenOtherwise(parameter, missing) && !IsReadOtherwise(parameter, missing)
+                    && (argument is LiteralExpressionNode || variable is not null))
                 {
                     continue;
                 }
@@ -854,7 +874,8 @@ internal static class InlineCall
         // a ParamArray is a new Variant array with a lower bound of 0 that holds the arguments it collects (MS-VBAL §5.3.1.11), built element by element:
         // Array() follows Option Base. Its elements are the caller's variables, which a copy cannot write: a body that writes the array, or a variable it
         // collects, is refused. It is missing when it collects nothing.
-        private InlineRefusal? ParamArray(VBParameterSymbol parameter, System.Collections.Immutable.ImmutableArray<ExpressionNode> elements, List<IndexExpressionNode> missing, HashSet<SemanticId> written)
+        private InlineRefusal? ParamArray(VBParameterSymbol parameter, System.Collections.Immutable.ImmutableArray<ExpressionNode> elements,
+            List<IndexExpressionNode> missing, HashSet<SemanticId> written)
         {
             if (IsWrittenOtherwise(parameter, missing))
             {
@@ -893,7 +914,8 @@ internal static class InlineCall
                     return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, element.SourceLocation);
                 }
 
-                _before.Add($"{(type is VBClassType or VBObjectType ? "Set " : string.Empty)}{local}({index}) = {text.Of(element.SourceLocation.Range).Trim()}");
+                _before.Add(
+                    $"{(type is VBClassType or VBObjectType ? "Set " : string.Empty)}{local}({index}) = {text.Of(element.SourceLocation.Range).Trim()}");
             }
 
             return null;
@@ -913,7 +935,8 @@ internal static class InlineCall
 
         // whether the body may write a parameter other than where it gives it to IsMissing, whose argument is a reference that IsMissing does not write.
         private bool IsWrittenOtherwise(VBParameterSymbol parameter, List<IndexExpressionNode> missing)
-            => procedure.Accesses.Definitions.Any(definition => definition.Variable == parameter.SemanticId && definition.Kind is not VariableDefinitionKind.Entry
+            => procedure.Accesses.Definitions.Any(definition => definition.Variable == parameter.SemanticId
+                && definition.Kind is not VariableDefinitionKind.Entry
                 && (definition.Expression is not { } expression || !missing.Any(each => Within(expression.SourceLocation.Range, each.SourceLocation.Range))));
 
         private void Fold(List<IndexExpressionNode> missing, string answer) => _folds.AddRange(missing.Select(each => (each.SourceLocation.Range, answer)));
@@ -1048,7 +1071,8 @@ internal static class InlineCall
                 return [];
             }
 
-            return [.. procedure.Accesses.Definitions.Where(definition => definition.Variable == variable && GivesAnObject(definition)).Select(definition => definition.Offset).Distinct()];
+            return [.. procedure.Accesses.Definitions.Where(definition => definition.Variable == variable && GivesAnObject(definition))
+                .Select(definition => definition.Offset).Distinct()];
         }
 
         private bool GivesAnObject(VariableDefinition definition)
@@ -1201,11 +1225,13 @@ internal static class InlineCall
             foreach (var group in _replacements.GroupBy(each => NameOf(each.Key)))
             {
                 foreach (var occurrence in NameOccurrences.Find(context, group.Key, [source]).Occurrences
-                    .Where(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Declaration && Within(each.Range, body) && each.Binding is { } bound && _replacements.ContainsKey(bound)))
+                    .Where(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Declaration && Within(each.Range, body)
+                        && each.Binding is { } bound && _replacements.ContainsKey(bound)))
                 {
                     var replacement = _replacements[occurrence.Binding!.Value];
                     var declared = sourceText.Of(occurrence.Range);
-                    edits.Add((occurrence.Range, occurrence.Kind is OccurrenceKind.Declaration ? replacement + declared[NameLength(declared)..] : replacement));
+                    edits.Add((occurrence.Range,
+                        occurrence.Kind is OccurrenceKind.Declaration ? replacement + declared[NameLength(declared)..] : replacement));
                 }
             }
 
@@ -1235,7 +1261,8 @@ internal static class InlineCall
             var closing = new List<string>();
             string? label = null;
             var statements = procedure.Declaration.Children.OfType<StatementNode>().ToArray();
-            foreach (var exit in procedure.Instructions.Items.Where(instruction => instruction.Kind is InstructionKind.ExitProcedure).Select(instruction => instruction.Node!))
+            foreach (var exit in procedure.Instructions.Items.Where(instruction => instruction.Kind is InstructionKind.ExitProcedure)
+                .Select(instruction => instruction.Node!))
             {
                 if (exit == statements.LastOrDefault())
                 {
@@ -1243,8 +1270,10 @@ internal static class InlineCall
                     continue;
                 }
 
-                if (statements.OfType<IfBlockStatementNode>().FirstOrDefault(each => each.ElseIfBlocks.IsEmpty && each.ElseBlock is null && each.Body.Children.LastOrDefault() == exit) is { } guard
-                    && procedure.Instructions.Items.Count(instruction => instruction.Kind is InstructionKind.ExitProcedure && Within(instruction.Node!.SourceLocation.Range, guard.SourceLocation.Range)) == 1)
+                if (statements.OfType<IfBlockStatementNode>()
+                        .FirstOrDefault(each => each.ElseIfBlocks.IsEmpty && each.ElseBlock is null && each.Body.Children.LastOrDefault() == exit) is { } guard
+                    && procedure.Instructions.Items.Count(instruction => instruction.Kind is InstructionKind.ExitProcedure
+                        && Within(instruction.Node!.SourceLocation.Range, guard.SourceLocation.Range)) == 1)
                 {
                     edits.Add(Removal(exit.SourceLocation.Range));
                     if (guard != statements[^1])
@@ -1287,7 +1316,8 @@ internal static class InlineCall
             var instructions = procedure.Instructions;
             var targets = instructions.Items.Where(item => item.Kind is InstructionKind.Jump).Select(item => item.Target)
                 .Concat(instructions.Items.Where(item => item.Kind is InstructionKind.JumpTable).SelectMany(item => item.Targets)).OfType<int>().ToHashSet();
-            var labels = procedure.Declaration.Descendants().OfType<LineLabelNode>().Where(label => instructions.TryGetLabelOffset(label.Name, out _)).ToArray();
+            var labels = procedure.Declaration.Descendants().OfType<LineLabelNode>()
+                .Where(label => instructions.TryGetLabelOffset(label.Name, out _)).ToArray();
             var named = new Dictionary<int, string>();
             foreach (var label in labels.Where(label => label is not LineNumberNode).Concat(labels.Where(label => label is LineNumberNode)))
             {

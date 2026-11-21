@@ -180,7 +180,8 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
         var locate = RenameWorkspace.Locator(part);
         var answered = answers.FirstOrDefault(answer => answer.Id == SitesChoice)?.Items ?? [];
         var chosen = target.Sites.Where(site => site.Inlined is not null
-            && answered.FirstOrDefault(item => item.Id == site.Id)?.Answers.FirstOrDefault(answer => answer.Id == InlineChoice)?.Value is not "false").ToList();
+            && answered.FirstOrDefault(item => item.Id == site.Id)?.Answers
+                .FirstOrDefault(answer => answer.Id == InlineChoice)?.Value is not "false").ToList();
         if (chosen.Count == 0)
         {
             return new(null, target.Sites.FirstOrDefault(site => site.Refusal is not null && !target.IsAll)?.Refusal!.ToMessage(locate)

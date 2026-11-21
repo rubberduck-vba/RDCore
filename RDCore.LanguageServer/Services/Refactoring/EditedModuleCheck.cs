@@ -57,7 +57,8 @@ internal static class EditedModuleCheck
     /// <param name="edited">The procedures the edit changes or adds, as it leaves them.</param>
     /// <returns>What is wrong; <see langword="null"/> when nothing is.</returns>
     public static EditedModuleProblem? Of(
-        ExtractionModuleAnalysis before, IReadOnlyList<ExtractionProcedureAnalysis> originals, ExtractionModuleAnalysis after, IReadOnlyList<ExtractionProcedureAnalysis> edited)
+        ExtractionModuleAnalysis before, IReadOnlyList<ExtractionProcedureAnalysis> originals,
+        ExtractionModuleAnalysis after, IReadOnlyList<ExtractionProcedureAnalysis> edited)
     {
         // a variable declared by being named is one a procedure had, whichever procedure now names it.
         var implicitBefore = originals.SelectMany(ImplicitNamesOf).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -67,9 +68,11 @@ internal static class EditedModuleCheck
         }
 
         // an error is new when there are more of its kind than there were: the edit moves where every error is.
-        var errorsBefore = before.DeclarationErrors.Concat(originals.SelectMany(procedure => procedure.Model.CompileErrors)).CountBy(error => error.ErrorId).ToDictionary();
+        var errorsBefore = before.DeclarationErrors.Concat(originals.SelectMany(procedure => procedure.Model.CompileErrors))
+            .CountBy(error => error.ErrorId).ToDictionary();
         var errorsAfter = after.DeclarationErrors.Concat(edited.SelectMany(procedure => procedure.Model.CompileErrors)).ToArray();
-        if (errorsAfter.CountBy(error => error.ErrorId).FirstOrDefault(count => count.Value > errorsBefore.GetValueOrDefault(count.Key)) is { Key: var newError, Value: > 0 })
+        if (errorsAfter.CountBy(error => error.ErrorId)
+            .FirstOrDefault(count => count.Value > errorsBefore.GetValueOrDefault(count.Key)) is { Key: var newError, Value: > 0 })
         {
             return new(EditedModuleProblemKind.NewCompileError, errorsAfter.First(error => error.ErrorId == newError).Description);
         }

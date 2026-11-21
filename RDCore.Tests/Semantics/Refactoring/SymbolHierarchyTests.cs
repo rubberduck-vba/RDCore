@@ -104,9 +104,11 @@ public sealed class SymbolHierarchyTests
     }
 
     private static HierarchyItem Calls(RenameContext context, string line, string text, string module = "Module1")
-        => SymbolHierarchy.PrepareCalls(context, ModuleUri(module), At(context, module, line, text)) ?? throw new AssertFailedException($"'{text}' is no procedure");
+        => SymbolHierarchy.PrepareCalls(context, ModuleUri(module), At(context, module, line, text))
+            ?? throw new AssertFailedException($"'{text}' is no procedure");
 
-    private static string[] Names(IReadOnlyList<HierarchyCall> calls) => [.. calls.Select(call => $"{call.Item.Module.Fragment.TrimStart('#')}.{call.Item.Symbol.Name}")];
+    private static string[] Names(IReadOnlyList<HierarchyCall> calls)
+        => [.. calls.Select(call => $"{call.Item.Module.Fragment.TrimStart('#')}.{call.Item.Symbol.Name}")];
 
     [TestMethod]
     public void AProcedureThatCallsItself_IsItsOwnCallee_AndItsOwnCaller()
@@ -141,8 +143,10 @@ public sealed class SymbolHierarchyTests
     {
         var context = Workspace();
 
-        CollectionAssert.AreEqual(new[] { "Module2.Pong" }, Names(SymbolHierarchy.OutgoingCalls(context, Calls(context, "Public Sub Ping", "Ping", "Module2"))));
-        CollectionAssert.AreEqual(new[] { "Module2.Ping" }, Names(SymbolHierarchy.OutgoingCalls(context, Calls(context, "Public Sub Pong", "Pong", "Module2"))));
+        CollectionAssert.AreEqual(new[] { "Module2.Pong" },
+            Names(SymbolHierarchy.OutgoingCalls(context, Calls(context, "Public Sub Ping", "Ping", "Module2"))));
+        CollectionAssert.AreEqual(new[] { "Module2.Ping" },
+            Names(SymbolHierarchy.OutgoingCalls(context, Calls(context, "Public Sub Pong", "Pong", "Module2"))));
     }
 
     [TestMethod]
