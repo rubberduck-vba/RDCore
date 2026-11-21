@@ -105,7 +105,7 @@ public sealed class ExternalHostTests
         _ = server.Invoke(dictionary, "Add", AutomationInvocation.Method, ["key", 1], [false, false], CultureInfo.InvariantCulture);
 
         var first = host.Connect();
-        using (var process = Process.GetProcessById(first.Connection.ProcessId))
+        using (var process = Process.GetProcessById(first.Process.ProcessId))
         {
             process.Kill();
         }

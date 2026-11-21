@@ -34,12 +34,13 @@ internal static class ExternalHosts
         var options = Options.Create(new SdkAppOptions { Server = { CaptureChildOutput = true } });
         return new ExternalHost(
             () => canStart()
-                ? new ChildConnection(
-                    new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, ChildOutput.Instance),
-                    new RDCorePlatformDefaultTransportLayer(options),
-                    NullLogger<ChildConnection>.Instance)
+                ? new ExternalHostProcess(
+                    new ChildConnection(
+                        new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, ChildOutput.Instance),
+                        new RDCorePlatformDefaultTransportLayer(options),
+                        NullLogger<ChildConnection>.Instance),
+                    ExternalHost.DefaultExecutable)
                 : throw new InvalidOperationException("The external host is not to be started yet."),
-            ExternalHost.DefaultExecutable,
             NullLogger<ExternalHost>.Instance);
     }
 
