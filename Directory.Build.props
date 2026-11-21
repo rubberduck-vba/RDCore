@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- the single version source for every project; a release tag must equal v<VersionPrefix>[-suffix], the suffix passed as -p:VersionSuffix. -->
-    <VersionPrefix>0.2.0</VersionPrefix>
+0.2.1
     <!-- the RDCore.SDK package every project builds on (the RDCore.SDK.Protocol assembly is inside it): one version for all of them. -->
     <RDCoreSdkVersion>0.1.16-alpha</RDCoreSdkVersion>
     <!-- the RDCore.Forms package the RDForms form host builds on (the RDCore.Forms and RDCore.Forms.Avalonia assemblies are inside it), and the Avalonia it is
