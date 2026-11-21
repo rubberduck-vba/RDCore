@@ -224,7 +224,7 @@ internal sealed class Incarnation(int number, IExternalHostProcess process)
     public int Number { get; } = number;
 
     /// <summary>
-    /// The process: what started it, and stops it.
+    /// The process of this incarnation, through which it was started and is stopped.
     /// </summary>
     public IExternalHostProcess Process { get; } = process;
 
