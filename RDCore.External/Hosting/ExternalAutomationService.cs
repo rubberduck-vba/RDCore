@@ -76,6 +76,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormInputBoxParams, FormInputBoxResult>(ExternalProtocol.FormInputBox, InputBox);
         channel.Handle<FormCloseDialogParams, ExternalDoneResult>(ExternalProtocol.FormCloseDialog, CloseDialog);
         channel.Handle<FormKeepSystemThemeParams, ExternalDoneResult>(ExternalProtocol.FormKeepSystemTheme, KeepSystemTheme);
+        channel.Handle<FormApplicationNameParams, ExternalDoneResult>(ExternalProtocol.FormApplicationName, ApplicationName);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
         InvokeOnClient = call => channel.CallAsync<SessionInvokeParams, SessionInvokeResult>(ExternalProtocol.SessionInvoke, call);
         ReleaseOnClient = released => channel.CallAsync<SessionReleaseParams, ExternalDoneResult>(ExternalProtocol.SessionRelease, released);
@@ -288,6 +289,16 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     public ExternalDoneResult KeepSystemTheme(FormKeepSystemThemeParams request) => Answer(request.HandlingEvent, () =>
     {
         _forms.KeepSystemTheme = request.KeepSystemTheme;
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormApplicationName"/>.
+    /// </summary>
+    /// <param name="request">The request, which names the program whose forms the windows show.</param>
+    public ExternalDoneResult ApplicationName(FormApplicationNameParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.ApplicationName = request.Name;
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 

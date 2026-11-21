@@ -24,7 +24,7 @@ A `.rdproj` holds no version information, so `App` gives what a new Visual Basic
 
 |Member|Value|
 |---|---|
-|`Title`|The project's name, until the program assigns another.|
+|`Title`|The project's name, until the program assigns another. It names the application of the windows of the program's RDForms and Visual Basic 6.0 forms where the platform shows one, such as in the application menu of macOS; a blank `Title` names it `RDForms`.|
 |`Major`, `Minor`, `Revision`|`1`, `0`, `0`.|
 |`Comments`, `CompanyName`, `FileDescription`, `LegalCopyright`, `LegalTrademarks`, `ProductName`|`""`.|
 |`StartMode`|`vbSModeStandalone` (`0`). RD-VBA builds no ActiveX component.|

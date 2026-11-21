@@ -80,8 +80,9 @@ internal static class RDFormsUI
     }
 
     // starts the UI thread on the platform asked for, once per process: the first start says which, and a later one that asks for the other cannot have it.
-    // A start after one that failed fails as it did, on either platform.
-    public static void Start(RDFormsPlatform platform)
+    // The first start names the application too, with the name of the program it starts for (RDForms' own when it is blank), before the platform is set
+    // up, as macOS names its application menu as it sets up. A start after one that failed fails as it did, on either platform.
+    public static void Start(RDFormsPlatform platform, string applicationName)
     {
         lock (Gate)
         {
@@ -109,7 +110,7 @@ internal static class RDFormsUI
             {
                 started = RDFormsUIThread.Start(RDFormsUIThread.PlacementOf(platform, OperatingSystem.IsMacOS()), ProcessMainThread.Current, () =>
                 {
-                    BuilderFor(platform).SetupWithoutStarting();
+                    BuilderFor(platform, applicationName).SetupWithoutStarting();
                     var own = Dispatcher.UIThread;
                     return own.CheckAccess() ? own : throw new InvalidOperationException("Avalonia's UI thread was set up on another thread of this process.");
                 }, (own, token) => own.MainLoop(token));
@@ -131,23 +132,35 @@ internal static class RDFormsUI
 
     // starts the UI thread for a program run unattended, which shows no window: the windows the process has, whichever they are, or headless ones, which need
     // no screen, when it has none yet.
-    public static void StartUnattended()
+    public static void StartUnattended(string applicationName)
     {
         lock (Gate)
         {
             if (_dispatcher is null)
             {
-                Start(RDFormsPlatform.Headless);
+                Start(RDFormsPlatform.Headless, applicationName);
             }
         }
     }
 
-    // RDForms' own application, which its controls' look is made for, on the platform asked for.
-    private static AppBuilder BuilderFor(RDFormsPlatform platform) => platform switch
+    // the name of the application of the windows: the program's, or RDForms' own when the program's is blank. Read and renamed on the UI thread; a rename
+    // shows where the platform reads the name again.
+    public static string ApplicationName
     {
-        RDFormsPlatform.Headless => RDFormsApplication.Configure().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }),
-        _ => RDFormsApplication.Configure().UsePlatformDetect(),
-    };
+        get => Application.Current?.Name ?? string.Empty;
+        set => Application.Current!.Name = string.IsNullOrWhiteSpace(value) ? RDFormsApplication.DefaultName : value;
+    }
+
+    // RDForms' own application, which its controls' look is made for, named for the program, on the platform asked for.
+    private static AppBuilder BuilderFor(RDFormsPlatform platform, string applicationName)
+    {
+        var named = RDFormsApplication.Configure(applicationName);
+        return platform switch
+        {
+            RDFormsPlatform.Headless => named.UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }),
+            _ => named.UsePlatformDetect(),
+        };
+    }
 
     // makes a call of `program` on the UI thread, and answers what it returned: the program is the one the call is made of, whose forms' events are the
     // answer to it. What fails there fails the call, as a server's failure does.

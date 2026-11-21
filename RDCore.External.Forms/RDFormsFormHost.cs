@@ -29,6 +29,9 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
     // the program's App.KeepSystemTheme, which each window is given as it is made. Written on the UI thread once it is started.
     private volatile bool _keepSystemTheme;
 
+    // the program's App.Title, which the windows' application is named with. Written on the UI thread once it is started.
+    private volatile string _applicationName = string.Empty;
+
     /// <summary>
     /// The server the forms are objects of.
     /// </summary>
@@ -71,6 +74,28 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         }
     }
 
+    // before the UI thread is started there is no application to name, and it is not started for this: its first start names it. Once it is, the
+    // application is renamed on that thread.
+    /// <inheritdoc/>
+    public string ApplicationName
+    {
+        get => _applicationName;
+        set
+        {
+            if (!RDFormsUI.IsStarted)
+            {
+                _applicationName = value;
+                return;
+            }
+
+            RDFormsUI.Run(Server.Program, () =>
+            {
+                _applicationName = value;
+                RDFormsUI.ApplicationName = value;
+            });
+        }
+    }
+
     /// <inheritdoc/>
     public object Create(FormDefinition form)
     {
@@ -82,11 +107,11 @@ public sealed class RDFormsFormHost(RDFormsAutomationServer server) : IFormHost
         var root = RootOf(form);
         if (form.Unattended)
         {
-            RDFormsUI.StartUnattended();
+            RDFormsUI.StartUnattended(_applicationName);
         }
         else
         {
-            RDFormsUI.Start(Server.Platform);
+            RDFormsUI.Start(Server.Platform, _applicationName);
         }
 
         return RDFormsUI.Run(Server.Program, () =>

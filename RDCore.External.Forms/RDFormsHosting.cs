@@ -139,6 +139,19 @@ public static class RDFormsHosting
             }
         }
 
+        // RDForms' windows are an application the platform names; a UserForm's are the Microsoft Forms host's own.
+        public string ApplicationName
+        {
+            get => visualBasic?.ApplicationName ?? string.Empty;
+            set
+            {
+                if (visualBasic is not null)
+                {
+                    visualBasic.ApplicationName = value;
+                }
+            }
+        }
+
         // RDForms renders an RDForms form, and a VB6 form in place.
         public object Create(FormDefinition form) => form.Kind is FormDesignerKind.VisualBasic6 or FormDesignerKind.RDForms
             ? ((IFormHost?)visualBasic ?? UnavailableFormHost.Instance).Create(form)

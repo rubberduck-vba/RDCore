@@ -40,7 +40,7 @@ public sealed class RDFormsUserInteractionTests
     // that thread, which every window's events are raised on.
     private static Opened WhenOpen<TDialog>(string prompt, Action<TDialog> answer) where TDialog : Window
     {
-        RDFormsUI.Start(RDFormsPlatform.Headless);
+        RDFormsUI.Start(RDFormsPlatform.Headless, string.Empty);
         return new Opened(RDFormsUI.Run(TheTest, () => Window.WindowOpenedEvent.AddClassHandler<TDialog>((dialog, _) =>
         {
             if (PromptOf(dialog) == prompt)
