@@ -407,6 +407,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
 
         var outcome = code.Run(light);
+
+        // a call that failed or was stopped while holding objects without a frame ends in its frame, which says what is let go of (EndsTheProgram).
+        if (light.HeldFrame is null && outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure && light.HoldsObjects)
+        {
+            stack.MaterializeLights();
+        }
+
         VBTypedValue result = VBVoidValue.Void;
         if (light.HeldFrame is { } frame)
         {
@@ -424,12 +431,15 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
         else
         {
+            // what its objects hold is let go of first, while it is on the stack, as a frame's end lets go of it: a Class_Terminate that runs then gives it
+            // its frame, with which it is taken off the stack.
+            var returned = light.EndWithoutFrame();
             if (procedure is VBReturningMemberSymbol returning)
             {
-                result = light.TryReadReturned(out var payload) ? payload.Typed() : returning.ResolvedType.DefaultValue;
+                result = returned ?? returning.ResolvedType.DefaultValue;
             }
 
-            outcome = PopCompiledActivation(outcome, light: true);
+            outcome = PopCompiledActivation(outcome, light: light.HeldFrame is null);
         }
 
         return outcome.Kind switch

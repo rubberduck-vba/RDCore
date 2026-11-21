@@ -52,4 +52,43 @@ public sealed class CalleeObjectVariableTests
             "End Function"), classes: Classes,
             expected: "terminated 10 ; in kept 1 ; terminated 11 ; after kept 1 ; made 100 ; terminated 100 ; after made 1 ; "
                 + "terminated 20 ; in kept 2 ; terminated 21 ; after kept 2 ; made 200 ; terminated 200 ; after made 2");
+
+    // two functions that call each other, each holding an object of its own and returning one, called by the program's entry point, which holds objects too:
+    // each object only a variable holds is destroyed when its activation returns, the one each returns outlives it, and the one the entry point still holds
+    // when the program ends is destroyed as the entry point returns, after its last statement.
+    [TestMethod]
+    public async Task TheObjectsOfFunctionsThatCallEachOther_AreDestroyedAsEachReturns_AndTheOneTheyReturnOutlivesThem()
+        => _ = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim T As Thing, Last As Thing",
+            "    Set T = Even(3)",
+            "    Debug.Print \"got \" & T.Value",
+            "    Set T = Nothing",
+            "    Set Last = New Thing",
+            "    Last.Value = 9",
+            "    Debug.Print \"end\"",
+            "End Sub",
+            "Private Function Even(ByVal N As Long) As Thing",
+            "    Dim Mine As Thing",
+            "    Set Mine = New Thing",
+            "    Mine.Value = N",
+            "    If N = 0 Then",
+            "        Set Even = Mine",
+            "    Else",
+            "        Set Even = Odd(N - 1)",
+            "    End If",
+            "    Debug.Print \"even \" & N",
+            "End Function",
+            "Private Function Odd(ByVal N As Long) As Thing",
+            "    Dim Mine As Thing",
+            "    Set Mine = New Thing",
+            "    Mine.Value = N",
+            "    If N = 0 Then",
+            "        Set Odd = Mine",
+            "    Else",
+            "        Set Odd = Even(N - 1)",
+            "    End If",
+            "    Debug.Print \"odd \" & N",
+            "End Function"), classes: Classes,
+            expected: "odd 0 ; even 1 ; terminated 1 ; odd 2 ; terminated 2 ; even 3 ; terminated 3 ; got 0 ; terminated 0 ; end ; terminated 9");
 }

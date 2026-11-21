@@ -342,12 +342,6 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     internal CallStackFrame? HeldFrame => _frame;
 
-    /// <summary>
-    /// Whether the activation's function result variable holds a payload, and the payload it holds.
-    /// </summary>
-    /// <param name="payload">What the function result variable holds, when it holds a payload.</param>
-    internal bool TryReadReturned(out ScalarPayload payload) => TryReadResult(out payload);
-
     // the frame given the String numbered number, when it has none in its slot: a parameter passed by reference given its caller's variable is a second name
     // for it (PushAlias), as a scalar's is; any other is the activation's own (PushText).
     private void HoldText(CallStackFrame frame, int number)
