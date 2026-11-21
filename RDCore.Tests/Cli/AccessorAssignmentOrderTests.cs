@@ -93,6 +93,8 @@ public sealed class AccessorAssignmentOrderTests
         DisplayName = "an element of an array a Variant holds, given an expression")]
     [DataRow("Dim V As Variant, I As Long ;; V = Array(0, 0, 0) ;; I = 1 ;; V(I) = BumpI(I) * 10 ;; P V(1) & \",\" & V(2)", "0,20|",
         DisplayName = "an element of an array a Variant holds, its subscript changed by the value")]
+    [DataRow("Dim V As Variant, I As Long ;; V = Array(0, 0, 0, 0) ;; I = 1 ;; V(BumpI(I)) = BumpI(I) * 10 ;; P V(2) & \",\" & V(3)", "30,0|",
+        DisplayName = "an element of an array a Variant holds, a subscript and a value that change the same variable")]
     [DataRow("Dim V As Variant ;; ReDim V(1 To 3) ;; V(Ix(\"i\", 1)) = Vl(\"v\", 5) ;; P Trail", "i v |",
         DisplayName = "an element of a Variant redimensioned as an array")]
     public async Task AnIndexedTargetThatIsACall_IsCalledWithTheValueAsItsLastArgument(string body, string expected)

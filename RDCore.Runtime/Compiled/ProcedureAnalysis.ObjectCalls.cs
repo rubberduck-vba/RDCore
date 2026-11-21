@@ -44,13 +44,15 @@ internal sealed partial class ProcedureAnalysis
     /// Whether <paramref name="step"/> calls a function or a <c>Property Get</c> that returns an object (<see cref="ObjectCallNode"/>), or a function that
     /// returns a String or a Variant given to the standard library (<see cref="CallValueNode"/>), or makes an object (<see cref="NewNode"/>): the statement
     /// is begun before its first call, and ended once it is over (<see cref="CompiledActivation.BeginStatement"/>,
-    /// <see cref="CompiledActivation.EndStatement"/>).
+    /// <see cref="CompiledActivation.EndStatement"/>). A call that returns a String, of a member of what a call returns (<c>Make("m").Hello</c>), is one: the
+    /// object the call returns is held until the statement is over.
     /// </summary>
     /// <param name="step">The step.</param>
     internal static bool CallsForAnObject(CompiledStep step)
         => step is CallStep { ReceiverCall: not null } or SetStep { SourceCall: not null } or SetStep { SourceNew: not null }
             or WithStep { SourceCall: not null } or WithStep { SourceNew: not null }
         || PayloadsOf(step).SelectMany(Within).Any(node => ReceiverCallsOf(node).Any())
+        || TextCallsOf(step).Any(call => call.ReceiverCall is not null)
         || ValueCallsOf(step).Any();
 
     // the calls that return an object a member is called on, or read of, the outermost first: each one's receiver is the next.
