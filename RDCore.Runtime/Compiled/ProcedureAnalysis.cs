@@ -501,7 +501,7 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // what is not a scalar the frame holds: a ParamArray, an object, a String, a Variant, an array, a record; and Me.
+            // what else is not a scalar the frame holds: a ParamArray, a fixed-length String, an array, a record TryHoldRecord leaves to it.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) is not { } kind || _layout.ParameterSlots[i] < 0)
             {
                 NeedsFrame = true;

@@ -15,8 +15,9 @@ Any `Sub`, `Function` or `Property` procedure can be compiled, in a standard mod
 passed `ByVal` or `ByRef`, its scalar variables, and the result of a function that returns a scalar. The scalars are `Byte`, `Integer`, `Long`, `LongLong`,
 `Boolean`, `Currency`, `Single`, `Double` and `Date`. An enumeration is a `Long` (MS-VBAL §5.2.3.4): a variable, a parameter, a field or a function
 result declared as one is held as a `Long`. Compiled code also holds the references of the procedure's object parameters and variables, and of the
-result of a function that returns an object (see Objects, below). Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a
-`ParamArray`, a `String`, a `Variant`, an array and a record.
+result of a function that returns an object (see Objects, below), and the text of its `String` parameters and variables (see Strings, below).
+Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`, a fixed-length `String`, a `Variant`, an array and
+a record.
 
 A `LongPtr` is a scalar too. It is the integer type it is an alias of (MS-VBAL §2.2): a `LongLong` in a 64-bit environment and a `Long` in a 32-bit
 one. The session's environment decides it, whatever the process RDCore runs in, so in a 32-bit environment a `LongPtr` past the range of a `Long`
@@ -75,9 +76,10 @@ A `Variant` result assigned to a variable of a scalar type (`N = F()`) is the in
 
 ### Strings
 
-Compiled code reads and writes a `String` parameter or variable where its frame keeps it, too, unless it is a fixed-length `String`, which pads or truncates
-what it is assigned. A `Let` of a literal, of another `String` variable, or of `String`s joined by `&` (or by `+`, of two `String`s) assigns the text it is
-(MS-VBAL §5.6.9.4, §5.6.5), and two such `String`s are compared under the module's `Option Compare` (MS-VBAL §5.6.9.5), as the interpreter compares them.
+Compiled code reads and writes the text of a `String` parameter or variable in the cell that holds it: the activation's own, or its frame's once it has
+one. A fixed-length `String`, which pads or truncates what it is assigned, stays in its frame. A `Let` of a literal, of another `String` variable,
+or of `String`s joined by `&` (or by `+`, of two `String`s) assigns the text it is (MS-VBAL §5.6.9.4, §5.6.5), and two such `String`s are
+compared under the module's `Option Compare` (MS-VBAL §5.6.9.5), as the interpreter compares them.
 A `String` constant is the text it holds (MS-VBAL §5.2.3.2). `vbNullString` reads as the zero-length string, and a copy of it is still `vbNullString`.
 Compiled code also reads, as such `String`s, `Err.Description` and `Err.Source` (MS-VBAL §6.1.3.2.2.1, §6.1.3.2.2.6), where the session keeps the
 error, and a `String` public variable of an object (see Objects, below). A `String` that ends with a lone byte (`ChrB(65)`) is the interpreter's to join
@@ -603,7 +605,7 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
   and a `Variant` written as one fails when it holds an object.
 - `ObjectOperations`: the reference an object variable holds, read where it is kept, and `Is` of two of them or of one and `Nothing`. A
   variable whose reference compiled code cannot read fails.
-- `StringOperations`: the text a `String` variable holds, read where its frame keeps it, two texts joined, a whole number written as text, and a text
+- `StringOperations`: the text a `String` variable holds, read where it is kept, two texts joined, a whole number written as text, and a text
   written as a `Let` assigns it. A `String` that ends with a lone byte fails its read. Compiled code compares two texts with the interpreter's own
   comparison of the module's mode.
 
@@ -657,7 +659,7 @@ The rest of the activation runs in the interpreter instead when any of these hol
 |`PayloadOperations`|The operations compiled code and the interpreter share.|
 |`VariantOperations`|What compiled code does with a `Variant`: reads and writes it in the frame, and runs its operations through the interpreter's own code.|
 |`ObjectOperations`|What compiled code does with an object variable: reads the reference it holds, and compares references with `Is`.|
-|`StringOperations`|What compiled code does with a `String`: reads and writes its text in the frame, joins two texts, and writes a whole number as text.|
+|`StringOperations`|What compiled code does with a `String`: reads and writes its text where it is kept, joins two texts, and writes a whole number as text.|
 |`Extended`|The floating-point arithmetic of compiled code: in `Double` where the result is exact, and in the 80-bit format otherwise. The interpreter computes the same operations with `ExtendedIntermediates`.|
 
 The IL calls only members of `RDCore.Runtime.Compiled`, and a test checks it.
