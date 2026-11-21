@@ -607,8 +607,7 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
             // the program's calls to the outside world are made by an external host of this one, which is rdc.exe again, in external mode:
             // whatever the outside world does to that process, this one - and the session it owns - is still there.
             .AddSingleton(provider => new ExternalHost(
-                provider.GetRequiredService<IChildConnectionFactory>().Create,
-                ExternalHost.DefaultExecutable,
+                () => new ExternalHostProcess(provider.GetRequiredService<IChildConnectionFactory>().Create(), ExternalHost.DefaultExecutable),
                 provider.GetRequiredService<ILogger<ExternalHost>>()))
             // the dialogs and the desktop are the machine's, and are not reached through the external host: nothing about showing a message box can take a
             // process down. Whether the client answers the dialogs instead is the session's to say (EnvironmentSessionProvider).

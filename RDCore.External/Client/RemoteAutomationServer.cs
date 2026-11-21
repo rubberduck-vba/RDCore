@@ -549,6 +549,8 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     {
         token.ThrowIfCancellationRequested();
         var incarnation = Connect();
+        // a dialog can be the first window of an incarnation, which is told the theme first, as a form's is (Create).
+        TellTheme(incarnation, onlyIfUntold: true);
         var number = Interlocked.Increment(ref _lastDialog);
         TResult answered;
         using (token.Register(() => CloseDialog(incarnation, number)))
