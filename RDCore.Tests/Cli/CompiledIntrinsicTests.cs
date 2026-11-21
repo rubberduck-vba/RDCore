@@ -630,4 +630,64 @@ public sealed class CompiledIntrinsicTests
             "        Read = Read * 100 - (T - D > -1) - (T - D < 1) * 2 - (H >= 0) * 4 - (H < 1) * 8 - (Int(D) = D) * 16 - (V > T - 1) * 32",
             "    Next",
             "End Function"), [("Read", 0)]);
+
+    // MS-VBAL §6.1.2.11.1.8: Format and Format$ of a Double, a Long and a Date, by user-defined formats of one and of three sections and by named ones, in
+    // the session's regional settings. A zero-length format writes the value as its Let-coercion to String does: the interpreter's, given the statement.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    public async Task FormatOfANumberOrADate_IsItsTypedForm(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Written(3)",
+            "End Sub",
+            "Private Function Written(ByVal N As Long) As String",
+            "    Dim I As Long, D As Double, L As Long, T As Date, R As String",
+            "    T = #3/9/2024 14:05:07#",
+            "    For I = 1 To N",
+            "        D = I * 1234.5678 - 2000",
+            "        L = I * 7",
+            "        R = R & Format$(D, \"0.00\") & \"|\" & Format(D, \"#,##0.0;(#,##0.0);zero\") & \"|\"",
+            "        R = R & Format$(L, \"000\") & \"|\" & Format(L, \"Percent\") & \"|\" & Format$(T + I, \"yyyy-mm-dd hh:nn:ss\") & \"|\"",
+            "        R = R & Format(T, \"dddd d mmmm\") & \"|\" & Format$(D, \"General Number\") & \";\"",
+            "    Next",
+            "    R = R & Format$(D, \"\")",
+            "    Written = R",
+            "End Function"), [("Written", 1)], lcid);
+
+    // MS-VBAL §6.1.2.4.1.1: DateAdd of a Date by each interval, a Number that is not whole rounded half to even, its parts read back by their typed forms.
+    // An interval that is none, and a date made out of the range of dates, raise 5: the interpreter's, given the statement, which Resume Next goes on after.
+    [TestMethod]
+    [DataRow(1033, DisplayName = "en-US")]
+    [DataRow(1036, DisplayName = "fr-FR")]
+    public async Task DateAddOfADate_IsItsTypedForm(int lcid)
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Added(3)",
+            "End Sub",
+            "Private Function Added(ByVal N As Long) As Double",
+            "    Dim I As Long, T As Date, R As Date, S As Double",
+            "    T = #1/31/2000 23:59:30#",
+            "    For I = 1 To N",
+            "        R = DateAdd(\"d\", 1, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"m\", I, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"yyyy\", -I, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"q\", 1, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"ww\", 2, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"h\", I * 5, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"n\", 1.5, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"s\", 2.5, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"D\", I, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"y\", I, T): S = S + Stamp(R)",
+            "        R = DateAdd(\"w\", I, T): S = S + Stamp(R)",
+            "    Next",
+            "    On Error Resume Next",
+            "    T = DateAdd(\"x\", 1, T)",
+            "    S = S + Err.Number",
+            "    T = DateAdd(\"yyyy\", 9000, T)",
+            "    Added = S + Err.Number * 1000",
+            "End Function",
+            "Private Function Stamp(ByVal R As Date) As Double",
+            "    Stamp = Year(R) * 10000# + Month(R) * 100 + Day(R) + Hour(R) / 100 + Minute(R) / 10000 + Second(R) / 1000000",
+            "End Function"), [("Added", 2), ("Stamp", 0)], lcid);
 }

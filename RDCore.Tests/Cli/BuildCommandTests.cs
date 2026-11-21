@@ -1078,14 +1078,14 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // a machine with no dialogs of its own asks at the console, whatever the settings ask for, for an RDForms application too: RDForms has no dialogs.
+    // a machine with no dialogs of its own asks a console application's at the console, whatever the settings ask for.
     [TestMethod]
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    public async Task Run_OfAnRDFormsApplication_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
+    public async Task Run_OfAConsoleApplication_AsksItsDialogsAtTheConsole_WhenTheSettingsAskForNativeDialogsTheMachineHasNot()
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
 
-        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, new AppOptions { NativeDialogs = true }, Root);
+        var run = await RunAsync(ConsoleApplication(Files(("Program.bas", AsksAndAsksAgain))), keys, new AppOptions { NativeDialogs = true }, Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         Assert.IsTrue(run.Output.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
@@ -1094,17 +1094,41 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
-    // the program keeps what its project and the settings said of the machine's own dialogs when it was built: an RDForms application's are the machine's,
-    // and a console application's only when the settings asked for them.
+    // the grid of who answers a program's dialogs: by its kind, whether the settings ask for the machine's own (native), and whether the machine is Windows,
+    // which alone has them. RDForms' dialogs, or the console's for a console application, unless native asks for Windows' on Windows.
+    private const string RDFormsApplication = "RDForms application";
+    private const string ConsoleApp = "console application";
+
+    private static DialogSource Expected(string kind, bool native, bool windows)
+        => native && windows ? DialogSource.Machine : kind == ConsoleApp ? DialogSource.Console : DialogSource.Forms;
+
     [TestMethod]
-    [DataRow(true, false, false, DisplayName = "a console application")]
-    [DataRow(true, true, true, DisplayName = "a console application whose settings ask for them")]
-    [DataRow(false, false, true, DisplayName = "an RDForms application")]
-    public async Task TheBuiltProgram_ShowsNativeDialogs_AsItsProjectAndTheSettingsSay(bool console, bool native, bool expected)
+    [DataRow(RDFormsApplication, false, true, DisplayName = "an RDForms application on Windows")]
+    [DataRow(RDFormsApplication, false, false, DisplayName = "an RDForms application elsewhere")]
+    [DataRow(RDFormsApplication, true, true, DisplayName = "an RDForms application whose settings ask for native dialogs, on Windows")]
+    [DataRow(RDFormsApplication, true, false, DisplayName = "an RDForms application whose settings ask for native dialogs, elsewhere")]
+    [DataRow(ConsoleApp, false, true, DisplayName = "a console application on Windows")]
+    [DataRow(ConsoleApp, false, false, DisplayName = "a console application elsewhere")]
+    [DataRow(ConsoleApp, true, true, DisplayName = "a console application whose settings ask for native dialogs, on Windows")]
+    [DataRow(ConsoleApp, true, false, DisplayName = "a console application whose settings ask for native dialogs, elsewhere")]
+    public void TheDialogsOfAProgramRdcRuns_AreChosenByItsKind_TheSettings_AndTheMachine(string kind, bool native, bool windows)
+    {
+        var build = new ProjectBuild { OutputType = kind == ConsoleApp ? ProjectOutputType.ConsoleApplication : ProjectOutputType.Application };
+
+        Assert.AreEqual(Expected(kind, native, windows), ProgramDialogs.SourceOf(build, native, windows));
+    }
+
+    // the program keeps what its project and the settings said when it was built, and its dialogs are chosen from them where it runs, as rdc run chooses.
+    [TestMethod]
+    [DataRow(RDFormsApplication, false, DisplayName = "an RDForms application")]
+    [DataRow(RDFormsApplication, true, DisplayName = "an RDForms application whose settings ask for native dialogs")]
+    [DataRow(ConsoleApp, false, DisplayName = "a console application")]
+    [DataRow(ConsoleApp, true, DisplayName = "a console application whose settings ask for native dialogs")]
+    public async Task TheDialogsOfABuiltProgram_AreChosenAsRdcRunChoosesThem(string kind, bool native)
     {
         CompiledExecutionTests.RequirePayloads();
         var fileSystem = Files(("Program.bas", AsksAndAsksAgain));
-        if (console)
+        if (kind == ConsoleApp)
         {
             ConsoleApplication(fileSystem);
         }
@@ -1117,8 +1141,14 @@ public sealed class BuildCommandTests
         try
         {
             var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
+            var image = BuiltProgram.ImageOf(assembly);
 
-            Assert.AreEqual(expected, BuiltProgram.ImageOf(assembly).NativeDialogs);
+            Assert.AreEqual(native, image.NativeDialogs, "the settings are kept");
+            Assert.AreEqual(kind == ConsoleApp, ProgramDialogs.IsConsole(image.Project.Build), "the project's build section is kept");
+            Assert.AreEqual(Expected(kind, native, windows: true), ProgramDialogs.SourceOf(image.Project.Build, image.NativeDialogs, windows: true),
+                "on Windows");
+            Assert.AreEqual(Expected(kind, native, windows: false), ProgramDialogs.SourceOf(image.Project.Build, image.NativeDialogs, windows: false),
+                "elsewhere");
         }
         finally
         {
@@ -1126,7 +1156,7 @@ public sealed class BuildCommandTests
         }
     }
 
-    // the machine's own dialogs are Windows', shown only when the settings ask for them; a machine that has none asks at the console.
+    // the machine's own dialogs are Windows', shown only when the settings ask for them.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void TheMachinesOwnDialogs_AreShownOnWindowsWhenAskedFor()
@@ -1145,23 +1175,16 @@ public sealed class BuildCommandTests
 
     // the project says what its user interface is: a console application's is its console, and any other program is an RDForms application.
     [TestMethod]
-    [DataRow(ProjectOutputType.ConsoleApplication, false, true, false, DisplayName = "a console application")]
-    [DataRow(ProjectOutputType.ConsoleApplication, true, true, true, DisplayName = "a console application whose settings ask for them")]
-    [DataRow(ProjectOutputType.Application, false, false, true, DisplayName = "an RDForms application")]
-    public void TheMachinesOwnDialogs_AreWanted_ByAnRDFormsApplication_OrWhenTheSettingsAskForThem(
-        ProjectOutputType output, bool native, bool console, bool wanted)
-    {
-        var section = new ProjectBuild { OutputType = output };
-
-        Assert.AreEqual(console, ProgramDialogs.IsConsole(section));
-        Assert.AreEqual(wanted, ProgramDialogs.WantsNative(section, native));
-    }
+    [DataRow(ProjectOutputType.ConsoleApplication, true, DisplayName = "a console application")]
+    [DataRow(ProjectOutputType.Application, false, DisplayName = "an RDForms application")]
+    public void AProjectsBuildSection_SaysWhetherItIsAConsoleApplication(ProjectOutputType output, bool console)
+        => Assert.AreEqual(console, ProgramDialogs.IsConsole(new ProjectBuild { OutputType = output }));
 
     [TestMethod]
     public void AProjectWithNoBuildSection_IsAnRDFormsApplication()
     {
         Assert.IsFalse(ProgramDialogs.IsConsole(null));
-        Assert.IsTrue(ProgramDialogs.WantsNative(null, native: false));
+        Assert.AreEqual(DialogSource.Forms, ProgramDialogs.SourceOf(null, native: false, windows: true));
     }
 
     // a program rdc builds of a console application asks its dialogs as rdc run does: at the console, on every operating system.

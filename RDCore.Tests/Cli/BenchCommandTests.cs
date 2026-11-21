@@ -277,6 +277,109 @@ public sealed class BenchCommandTests
         StringAssert.Contains(failed.Error, "5");
     }
 
+    // ---- the warm-up ----
+
+    private static readonly string Counted = Module("Counted",
+        "Private Calls As Long",
+        "Public Sub BenchFailsOnItsThirdCall()",
+        "    Calls = Calls + 1",
+        "    If Calls = 3 Then Err.Raise 6",
+        "End Sub");
+
+    [TestMethod]
+    public async Task TheWarmUp_RunsEachCaseUntimed_BeforeItsTimedRuns_AndTheirCostsAreNotTheCases()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.FromDays(1));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 3, Filter: "callsanobject", WarmUp: warmUp));
+
+        var benchCase = report.Cases.Single();
+        Assert.IsNull(benchCase.Error, benchCase.Error);
+        Assert.AreEqual(2, benchCase.WarmUpRuns);
+        Assert.HasCount(3, benchCase.Runs, "the timed runs are as many as asked");
+        Assert.HasCount(3, benchCase.Costs!, "a cost for each timed run, none for a warm-up run");
+    }
+
+    [TestMethod]
+    public async Task TheWarmUp_IsRunsOfTheProgram_SoTheTimedRunsComeAfterThem()
+    {
+        var fileSystem = Files(("Counted.bas", Counted));
+        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.FromDays(1));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 3, WarmUp: warmUp));
+
+        // the third call is the first timed run: it raises, and no run is kept.
+        var benchCase = report.Cases.Single();
+        Assert.AreEqual(2, benchCase.WarmUpRuns);
+        Assert.IsEmpty(benchCase.Runs);
+        StringAssert.Contains(benchCase.Error, "6");
+    }
+
+    [TestMethod]
+    public async Task ACaseThatRaisesAnErrorInItsWarmUp_SaysWhich_AndIsNotTimed()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var warmUp = new BenchWarmUp(2, TimeSpan.Zero, TimeSpan.FromDays(1));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 3, Filter: "fails", WarmUp: warmUp));
+
+        var failed = report.Cases.Single();
+        Assert.AreEqual(1, failed.WarmUpRuns);
+        Assert.IsEmpty(failed.Runs);
+        StringAssert.Contains(failed.Error, "5");
+    }
+
+    [TestMethod]
+    public async Task TheWarmUp_EndsAtItsLimit_AfterItsFirstRun_HoweverFewRunsItMade()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var warmUp = new BenchWarmUp(1000, TimeSpan.Zero, TimeSpan.Zero);
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count", WarmUp: warmUp));
+
+        var benchCase = report.Cases.Single();
+        Assert.AreEqual(1, benchCase.WarmUpRuns);
+        Assert.HasCount(1, benchCase.Runs);
+    }
+
+    [TestMethod]
+    public async Task TheWarmUp_EndsAtItsLimit_WhateverTheJitDoes()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        // never quiet enough: only the limit ends it.
+        var warmUp = new BenchWarmUp(1, TimeSpan.FromDays(1), TimeSpan.FromMilliseconds(50));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count", WarmUp: warmUp));
+
+        var benchCase = report.Cases.Single();
+        Assert.IsNull(benchCase.Error, benchCase.Error);
+        Assert.IsGreaterThanOrEqualTo(1, benchCase.WarmUpRuns);
+        Assert.HasCount(1, benchCase.Runs);
+    }
+
+    [TestMethod]
+    public async Task WithoutAWarmUp_TheFirstRunIsTimed()
+    {
+        var fileSystem = Files(("Counted.bas", Counted));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 3));
+
+        var benchCase = report.Cases.Single();
+        Assert.AreEqual(0, benchCase.WarmUpRuns);
+        Assert.HasCount(2, benchCase.Runs, "the first two calls are timed; the third raises");
+    }
+
+    // the indentation of the shell's program is a bench of its own, which a filter selects by its name as it selects a case: a run of one case does not
+    // wait for it.
+    [TestMethod]
+    [DataRow("count", false, 1, DisplayName = "a filter naming one case")]
+    [DataRow(BenchRunner.IndentName, true, 0, DisplayName = "its name")]
+    [DataRow("indent", true, 0, DisplayName = "part of its name")]
+    [DataRow(null, true, 3, DisplayName = "no filter")]
+    public async Task TheIndent_IsRun_WhenTheFilterSelectsIt(string? filter, bool indented, int cases)
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: filter));
+
+        Assert.AreEqual(indented, report.Indent is not null);
+        Assert.HasCount(cases, report.Cases);
+    }
+
     // nothing of the project runs while a module of it does not load: a case of another module is refused with the problem, and not run.
     [TestMethod]
     public async Task AModuleThatDoesNotParse_IsAProblem_AndTheCasesOfTheOthersAreRefused()
@@ -340,6 +443,27 @@ public sealed class BenchCommandTests
         var line = text.Split(Environment.NewLine).Single(candidate => candidate.StartsWith("Cases.BenchCount", StringComparison.Ordinal));
         // the shape the bench job reads (.github/scripts/bench-figures.ps1): runs, fastest, median, then what the fastest run allocated and its collections
         StringAssert.Matches(line, new System.Text.RegularExpressions.Regex(@"^Cases\.BenchCount\s+2\s+[\d.]+ ms\s+[\d.]+ ms\s+\d+ KB\s+\d+/\d+/\d+$"));
+
+        // the cases are warmed up by default, and the report says how
+        var warmUp = text.Split(Environment.NewLine).Single(candidate => candidate.StartsWith("warm-up", StringComparison.Ordinal));
+        StringAssert.EndsWith(warmUp, $" runs: {BenchWarmUp.UntilTheJitIsQuiet.Describe()}");
+    }
+
+    [TestMethod]
+    public async Task NoWarmUp_TimesEachCaseFromItsFirstRun_AndTheReportSaysSo()
+    {
+        var fileSystem = Files(("Counted.bas", Counted));
+        var (command, output, _) = Command(fileSystem);
+
+        // the case raises on its third call: with no warm-up, its first two runs are timed and the third fails.
+        var exit = await command.ExecuteAsync([Root, "--runs", "3", "--no-warm-up"], CancellationToken.None);
+
+        Assert.AreEqual(1, exit);
+        var lines = output.ToString().Split(Environment.NewLine);
+        StringAssert.Matches(lines.Single(candidate => candidate.StartsWith("warm-up", StringComparison.Ordinal)),
+            new System.Text.RegularExpressions.Regex(@"^warm-up\s+none$"));
+        StringAssert.Matches(lines.Single(candidate => candidate.StartsWith("Counted.BenchFailsOnItsThirdCall", StringComparison.Ordinal)),
+            new System.Text.RegularExpressions.Regex(@"^Counted\.BenchFailsOnItsThirdCall\s+2\s+VBA00006 "));
     }
 
     [TestMethod]
@@ -440,12 +564,7 @@ public sealed class BenchCommandTests
 
         var lines = output.ToString().Split(Environment.NewLine);
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchCount ", StringComparison.Ordinal)), "compiled");
-        // a loop that counts with a variable passed by reference to a callee, which holds it in a cell, is the interpreter's: the procedure is the
-        // interpreter's whole, and the report says why, and where. A call statement compiled code does not make is a support call the interpreter runs,
-        // as the Raise is.
-        var interpreted = lines.Single(line => line.Contains("Cases.CountsInACell ", StringComparison.Ordinal));
-        StringAssert.StartsWith(interpreted, "interpreted");
-        StringAssert.Contains(interpreted, ": I (line ");
+        // a call statement compiled code does not make is a support call the interpreter runs, as the Raise is.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal)), "compiled");
 
         // a member of an object is called by compiled code, and so is the Set that gives the variable an object made with New: the interpreter runs nothing

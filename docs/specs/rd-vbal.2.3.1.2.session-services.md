@@ -205,8 +205,8 @@ The order in which names are looked up in these heaps is specified in
 ## Memory addressing
 
 `ISessionMemoryAllocator` reserves address space, never values: blocks carved from segments of 4 KiB (2 KiB in a 32-bit
-environment) that begin at `0x10000`, a block that is freed being reused for a later one that fits. The width of a pointer
-is the environment's (`IRuntimeEnvironmentProfile.Is64Bit`): 8 bytes, or 4.
+environment) that begin at `0x10000`, each block on its boundary ([alignment](#alignment)), a block that is freed being
+reused for a later one that fits. The width of a pointer is the environment's (`IRuntimeEnvironmentProfile.Is64Bit`): 8 bytes, or 4.
 
 The _memory map_ (`MemoryAddress` → `IBindingHandle`) is held by the session storage (`SessionStorage`, below):
 it binds the `IBindingHandle` of a value to the
@@ -265,10 +265,11 @@ runs it.
 
 |What|Its address|
 |---|---|
-|A variable: a module's, a `Static` local, a field of an object in its own code|Its own, given when it is defined, the same for as long as it exists.|
+|A variable of a module, a `Static` local of a procedure of a standard module|Its own, given when it is defined, the same for as long as it exists.|
+|A field of an object in its own code, a `Static` local of a member of a class|Its own, given the first time it is asked for, the same for as long as the object lives.|
 |A local, a parameter `ByVal`|Its own, given the first time it is asked for: for the whole activation, whatever is assigned to it.|
 |A parameter `ByRef`|The address of the variable it was given.|
-|An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)).|
+|An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)), or one of them is passed `ByRef`.|
 |A field of a record|The record's address, plus the field's offset; a fixed-size array field's elements are in the record.|
 |The result variable of a `Function` or a `Property Get`, in its own code|Its own, for the activation.|
 |What is no variable (a literal, an expression, a fixed-length `String` given to `VarPtr`)|A temporary's, until the statement is over.|
@@ -276,6 +277,28 @@ runs it.
 |An object|An interface of it, one for each it is asked for through ([`ObjPtr`](rd-vbal.6.1.2.13.hidden-module.md#objptr)).|
 |A dynamic array|Its `SAFEARRAY` ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#safearray)).|
 |A procedure of a standard module|Its own ([`AddressOf`](rd-vbal.5.6.16.constrained-expressions.md#56168-addressof-expressions)).|
+
+### Alignment
+
+A block starts on the largest power of two its size is a multiple of, up to 8 bytes, so a variable is on the boundary its type is aligned to, as in
+**MS-VBA** (recorded in Excel, 64-bit). The bytes skipped to reach the boundary are the block's, allocated and freed with it: the variables of a module are
+side by side in declaration order, each on its boundary, as the fields of a record are.
+
+|Declared after a `Byte` on an 8-byte boundary, in a 64-bit environment|Starts|
+|---|---|
+|A `Byte`, a record of three `Byte`s|1 byte after it|
+|An `Integer`, a `Boolean`|2 bytes after it|
+|A `Long`, a `Single`|4 bytes after it|
+|A `Double`, a `Currency`, a `Date`, a `LongLong`, a `LongPtr`, a `String`, an object, a `Variant`, a record with a `Double` field|8 bytes after it|
+
+**RD-VBA differs from MS-VBA:**
+
+- A module's first variable is on its own boundary; **MS-VBA**'s is on 8 bytes.
+- A local is on its own boundary, in the order its address is first asked for; **MS-VBA** gives each local 8 bytes, in declaration order.
+- A record is on the boundary its size gives, which can be wider than its widest field's: a record of two `Long`s is on 8 bytes, **MS-VBA**'s on 4,
+  and a record of two `Byte`s on 2 bytes, **MS-VBA**'s on 1.
+- The elements of an array and the characters of a `String` start on their own boundary; **MS-VBA** puts the elements on a 16-byte boundary, and the
+  characters 8 bytes past one.
 
 ### What the bytes are
 
@@ -293,7 +316,7 @@ runs it.
 
 |Block|Made|Freed|
 |---|---|---|
-|An array's elements|The first time the address of an element is asked for.|When the array is gone - `ReDim`'d, assigned another, a local of an activation that returned - the next time a block is made.|
+|An array's elements|The first time the address of an element is asked for, or an element is passed `ByRef`.|Once the array is gone (`ReDim`'d, assigned another, or a local of an activation that returned), when a block is made and there are twice as many blocks as were left the last time gone ones were freed (at least 16), or when a block has no room.|
 |A `BSTR`|The first time the address of the characters is asked for, or the bytes of the `String`.|When a `String` is assigned to what holds it, or what holds it is freed; not when a pointer `POKE`d over it lets go of it.|
 |An interface|The first time its address is asked for.|When the object is destroyed.|
 |A `SAFEARRAY`|The first time its address is asked for.|A dynamic array's when it holds no array (`Erase`), a `Variant`'s when it holds another; not when a pointer `POKE`d over it lets go of it.|

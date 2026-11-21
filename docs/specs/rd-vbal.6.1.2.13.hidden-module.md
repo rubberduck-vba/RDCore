@@ -56,7 +56,7 @@ As in **MS-VBA** (recorded in Excel):
 
 |Argument|`VarPtr` gives|
 |---|---|
-|A variable - a local, a parameter, a `Static` local, a variable of a module bare or qualified, a field of the class in its own code by its bare name|Its address: never `0`, aligned to its size, and the same for as long as the variable exists, whatever is assigned to it (a `String`, a `Variant`, an `Object` set and set to `Nothing`).|
+|A variable (a local, a parameter, a `Static` local, a variable of a module bare or qualified, a field of the class in its own code by its bare name)|Its address: never `0`, on the boundary its type is aligned to ([alignment](rd-vbal.2.3.1.2.session-services.md#alignment)), and the same for as long as the variable exists, whatever is assigned to it (a `String`, a `Variant`, an `Object` set and set to `Nothing`).|
 |A `ByRef` parameter|The address of the variable it was given; a `ByVal` parameter has its own.|
 |The name of a `Function` or a `Property Get`, in its own code|The address of its result variable (**MS-VBAL §5.3.1**): one of its own, which no local has, the same for the whole call whatever is assigned to it. What is at it is what the call returns.|
 |A `Variant` `ByRef` parameter given a variable of another type|The address of a `VARIANT` of its own, the same for the whole call, which is not the variable's.|
@@ -68,6 +68,9 @@ As in **MS-VBA** (recorded in Excel):
 |An array|Compile error [`VBC09310`](../diagnostics/vbc09310.md) _Type mismatch_, as it is for a `Declare`'s `As Any`; an element of it is valid.|
 
 > [!NOTE]
+> **Not implemented.** A field named through a `With` block (`VarPtr(.X)` in `With r`) gives an address of its own, not the field's in the record.
+> A procedure given the field by reference writes the field itself.
+
 The bytes at an element's or a record's address are what it holds, laid out as **MS-VBA** lays them out: a number, a `Boolean`, a `Date` and a
 fixed-length `String` are their bytes, a variable-length `String` the address of its characters ([StrPtr](#strptr)), an object the address of its interface
 ([ObjPtr](#objptr)), a `Variant` its `VARIANT` ([below](#variant)), and a record its fields' at their offsets, padding zeroed. A `POKE` there writes the element

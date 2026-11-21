@@ -176,6 +176,31 @@ public sealed class ObsoleteSyntaxAnalyzerTests
     }
 
     [TestMethod]
+    public async Task ATypeHintOnAReferenceOutsideAProcedure_ToADeclarationOfTheModule_IsObsolete()
+    {
+        var module = Module(
+            "Private Const A% = 2\nPrivate Const B = A% * 2\nPrivate Items(A%) As Long\nPublic Sub Work()\n    Debug.Print B, Items(0)\nEnd Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], module);
+        var findings = Run(new ObsoleteTypeHintAnalyzer(), module, payload.Modules.Single());
+
+        CollectionAssert.AreEqual(new[] { 1, 2, 3 }, Lines(findings), "A% declared, in B's value, in the bounds of Items, once each");
+        Assert.AreEqual(new SourceRange(new SourcePosition(2, 18), new SourcePosition(2, 20)), findings[1].Range);
+        Assert.AreEqual(new SourceRange(new SourcePosition(3, 14), new SourcePosition(3, 16)), findings[2].Range);
+        Assert.IsNotNull(findings[1].Fixes?.Edits, "the reference loses its character");
+    }
+
+    [TestMethod]
+    public async Task ATypeHintOnAReferenceOutsideAProcedure_ToADeclarationOfAnotherModule_IsObsolete()
+    {
+        var module = Module("Private Const C = Globals.N% + 1\nPrivate Const D = N% + 1\nPublic Sub Work()\n    Debug.Print C, D\nEnd Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], module, modules: [("Globals", ModuleWorkspace.StandardModule("Globals", "Public Const N% = 3"))]);
+        var findings = Run(new ObsoleteTypeHintAnalyzer(), module, payload.Modules.Single(semantics => semantics.Module.Fragment.TrimStart('#') == "Program"));
+
+        CollectionAssert.AreEqual(new[] { 1, 2 }, Lines(findings));
+    }
+
+    [TestMethod]
     public void WithNoFactsFromTheHost_OnlyTheDeclarationsAreReported()
     {
         var findings = Run(new ObsoleteTypeHintAnalyzer(), Module(Hinted));

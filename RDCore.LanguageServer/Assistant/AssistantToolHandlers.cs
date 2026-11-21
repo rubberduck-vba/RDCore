@@ -2,6 +2,7 @@ using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Assistant;
 using RDCore.SDK.Server.Services;
 using System.Globalization;
@@ -24,12 +25,15 @@ internal sealed class ToolsListHandler(AssistantToolCatalog catalog, IPlatformCl
 /// <summary>
 /// Serves <c>rdcore/tools/call</c>: calls a tool of the server's catalog.
 /// </summary>
-internal sealed class ToolsCallHandler(AssistantToolCatalog catalog, IPlatformClientCapabilitiesService clientCapabilities)
+internal sealed class ToolsCallHandler(AssistantToolCatalog catalog, IPlatformClientCapabilitiesService clientCapabilities, IncomingDocumentChanges incoming)
     : RDCoreRequestHandler<ToolCallRequest, ToolCallReply>
 {
     protected override async Task<ToolCallReply> HandleAsync(ToolCallRequest request, CancellationToken token)
     {
         AssistantToolGate.Check(clientCapabilities);
+
+        // a tool answers of the files as the client last said they are: an edit the client applied, and said it wrote, is read before the tool is called.
+        await incoming.WhenAllFileChangesReadAsync(token);
         return new ToolCallReply(await catalog.CallAsync(request, token));
     }
 }

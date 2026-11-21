@@ -63,11 +63,41 @@ internal sealed class LetThroughAVariantGetOrFunctionAnalyzer : IModuleAnalyzer
                 : RDCoreDiagnosticsResources.LetThroughAVariantGet_Message);
 }
 
-// a finding at the expression of each Let target that the facts say is assigned through a default member, named as the code writes it.
+/// <summary>
+/// <c>RDC11050</c>: a <c>Let</c> to a target declared as a class that has no default member (<c>p = 5</c>, <c>h.Plain = 5</c>), which MS-VBA compiles and
+/// which raises run-time error 438 whenever it runs.
+/// </summary>
+/// <remarks>
+/// <strong>MS-VBAL §5.4.3.8</strong> let-assigns the default property of the object the target holds, or that a <c>Property Get</c> or a function the target
+/// names returns, and raises 438 when its class has none; MS-VBA does the same, and 91 when the target holds <c>Nothing</c> (observed in Excel). A warning,
+/// because the statement fails every time it runs. The analyzer finds the <c>Let</c> in the syntax tree, and reads the target's <c>ExpressionFactDto</c>:
+/// a class, not an array, that has no <c>DefaultMember</c>, and no <c>Property Let</c> of its own (<c>Accessors</c>), bound to a member other than the
+/// procedure the statement is in.
+/// </remarks>
+internal sealed class LetToAnObjectWithNoDefaultMemberAnalyzer : IModuleAnalyzer
+{
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember.ToCode()];
+
+    public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
+        => LetThroughDefaultMember.Findings(context, target => target is SimpleNameExpressionNode or MemberAccessExpressionNode or InstanceExpressionNode or IndexExpressionNode ? target : null,
+            (procedure, fact) => fact is { Error: null, TypeKind: DeclaredTypeKind.Class, IsArray: false, DefaultMember: null }
+                && !fact.Accessors.HasFlag(PropertyAccessors.Let)
+                && fact.Binding?.AbsoluteUri != procedure.Procedure.AbsoluteUri,
+            RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, _ => RDCoreDiagnosticsResources.LetToAnObjectWithNoDefaultMember_Message,
+            // the Let of an object, which has no default member to take it, made a Set.
+            (statement, target, procedure) => SetAssignments.Fix(statement, target, procedure.Expressions
+                .FirstOrDefault(fact => fact.Location.Range == statement.Value.SourceLocation.Range)) is { } fix
+                    ? new DiagnosticFixes { Edits = [fix] }
+                    : null);
+}
+
+// a finding at the expression of each Let target that the facts say is assigned through a default member, named as the code writes it, with the declared type
+// of the target as a second argument of the message, and the fixes of its statement.
 internal static class LetThroughDefaultMember
 {
     public static IEnumerable<AnalyzerFinding> Findings(ModuleAnalysisContext context, Func<ExpressionNode, ExpressionNode?> judged,
-        Func<ProcedureSemanticsDto, ExpressionFactDto, bool> isAssignedThrough, RDCoreDiagnosticId id, Func<ExpressionFactDto, string> message)
+        Func<ProcedureSemanticsDto, ExpressionFactDto, bool> isAssignedThrough, RDCoreDiagnosticId id, Func<ExpressionFactDto, string> message,
+        Func<AssignmentStatementNode, ExpressionFactDto, ProcedureSemanticsDto, DiagnosticFixes?>? fixes = null)
     {
         if (context.ParseResult.SyntaxTree is not { } module || context.Semantics is not { } semantics)
         {
@@ -76,17 +106,23 @@ internal static class LetThroughDefaultMember
 
         var expressions = module.Descendants().OfType<AssignmentStatementNode>()
             .Where(assignment => assignment.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet)
-            .Select(assignment => judged(assignment.Target))
-            .OfType<ExpressionNode>()
-            .DistinctBy(expression => expression.Identity)
-            .ToDictionary(expression => expression.Identity);
+            .Select(assignment => (Expression: judged(assignment.Target), Statement: assignment))
+            .Where(judgedOne => judgedOne.Expression is not null)
+            .DistinctBy(judgedOne => judgedOne.Expression!.Identity)
+            .ToDictionary(judgedOne => judgedOne.Expression!.Identity);
         foreach (var procedure in semantics.Procedures)
         {
             foreach (var fact in procedure.Expressions.Where(fact => expressions.ContainsKey(fact.Node) && isAssignedThrough(procedure, fact)))
             {
-                if (NameOf(expressions[fact.Node]) is { } name)
+                var (expression, statement) = expressions[fact.Node];
+                if (NameOf(expression!) is { } name)
                 {
-                    yield return new AnalyzerFinding(id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name));
+                    yield return new AnalyzerFinding(
+                        id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning,
+                        AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty))
+                    {
+                        Fixes = fixes?.Invoke(statement, fact, procedure),
+                    };
                 }
             }
         }
@@ -97,6 +133,7 @@ internal static class LetThroughDefaultMember
         SimpleNameExpressionNode name => name.IdentifierName,
         MemberAccessExpressionNode access => access.Member.IdentifierName,
         InstanceExpressionNode => Tokens.Me,
+        IndexExpressionNode { Callee: var callee } => NameOf(callee),
         _ => null,
     };
 }

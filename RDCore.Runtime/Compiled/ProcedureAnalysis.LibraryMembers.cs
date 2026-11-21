@@ -43,7 +43,8 @@ internal sealed partial class ProcedureAnalysis
                     : null;
 
             case BoundIndex { Callee: BoundVariable variable, Index: var index }
-                when ObjectSlotOf(variable) is { } slot && variable.Variable is ITypedSymbol { ResolvedType: VBClassType { Symbol: var declared } }
+                when ObjectSlotOf(variable, receiver: true) is { } slot
+                    && variable.Variable is ITypedSymbol { ResolvedType: VBClassType { Symbol: var declared } }
                     && DefaultLibraryMemberOf(declared) is { } member && ArgumentsOf(member, index) is { } indexing:
                 return (member, indexing, slot, null, null);
 

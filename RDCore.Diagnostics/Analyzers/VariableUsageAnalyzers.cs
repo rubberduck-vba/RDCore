@@ -17,8 +17,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>RDC01011</c>: a variable whose value nothing reads: nothing refers to it, or only to assign it.
 /// </summary>
 /// <remarks>
-/// The host counts the references of a local and of a <c>Private</c> variable of the module (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>);
-/// another variable may be read by code the pass does not see, and is not reported. A <c>WithEvents</c> variable is read by the events it handles, and the
+/// The host counts the references of a local, of a <c>Private</c> variable of the module, and of a <c>Public</c> one that only the project's code can refer
+/// to: of an <c>Option Private Module</c> module, or of a program (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>). Another variable
+/// may be read by code the pass does not see, and is not reported. A <c>WithEvents</c> variable is read by the events it handles, and the
 /// control variable of a <c>For</c> loop by the loop. A variable nothing refers to comes with the fix that removes its declaration, unless a <c>ReDim</c> names
 /// it: without the declaration, the <c>ReDim</c> would declare an array of its own.
 /// </remarks>
@@ -72,7 +73,7 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
 /// variable is given what it holds otherwise than by an assignment (<c>As New</c>, its members), or is not known. A variable of a class or declared
 /// <c>As Object</c> is judged: it is <c>Nothing</c> until a <c>Set</c> assigns it. So is one of an <c>Enum</c>, a <c>Long</c> that is <c>0</c>
 /// (<strong>MS-VBAL §5.2.3.4</strong>). A fixed-size array is judged by its elements' type: an assignment of one of its elements is a write of the array. The
-/// host counts the references of a local and of a <c>Private</c> variable of the module.
+/// host counts the references of the variables that <see cref="VariableNotUsedAnalyzer"/> reads.
 /// </remarks>
 internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
 {

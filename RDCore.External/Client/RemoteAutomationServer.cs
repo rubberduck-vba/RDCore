@@ -1,6 +1,7 @@
 ﻿using RDCore.External.Automation;
 using RDCore.External.Native;
 using RDCore.External.Protocol;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using System.Collections.Concurrent;
 using System.Globalization;
 
@@ -525,6 +526,49 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         finally
         {
             _handlingEvent = outer;
+        }
+    }
+
+    // the number of the last dialog shown, which a close names it by.
+    private static long _lastDialog;
+
+    // whether the external host shows the program's dialogs beside its forms; one that cannot be started shows none.
+    internal bool HasDialogs => _host.TryConnect(out var incarnation) && incarnation!.HasDialogs;
+
+    // a MsgBox and an InputBox, shown by the external host and answered once closed, as a modal form is: an event raised meanwhile is handled here as any is.
+    internal VBMsgBoxResult ShowMessage(Interaction.MessageBoxRequest request, CancellationToken token)
+        => (VBMsgBoxResult)Dialog(token, (incarnation, number) => Send<FormMessageBoxParams, FormMessageBoxResult>(
+            incarnation, ExternalProtocol.FormMessageBox, FormMessageBoxParams.Of(request, number, _handlingEvent))).Result;
+
+    internal string? Prompt(Interaction.InputBoxRequest request, CancellationToken token)
+        => Dialog(token, (incarnation, number) => Send<FormInputBoxParams, FormInputBoxResult>(
+            incarnation, ExternalProtocol.FormInputBox, FormInputBoxParams.Of(request, number, _handlingEvent))).Value;
+
+    // a dialog shown until it is answered, or until the token is cancelled: the external host is then told to close it, and the run stops waiting.
+    private TResult Dialog<TResult>(CancellationToken token, Func<Incarnation, long, TResult> show)
+    {
+        token.ThrowIfCancellationRequested();
+        var incarnation = Connect();
+        var number = Interlocked.Increment(ref _lastDialog);
+        TResult answered;
+        using (token.Register(() => CloseDialog(incarnation, number)))
+        {
+            answered = show(incarnation, number);
+        }
+
+        token.ThrowIfCancellationRequested();
+        return answered;
+    }
+
+    private static void CloseDialog(Incarnation incarnation, long number)
+    {
+        try
+        {
+            _ = Send<FormCloseDialogParams, ExternalDoneResult>(incarnation, ExternalProtocol.FormCloseDialog, new FormCloseDialogParams { Dialog = number });
+        }
+        catch (AutomationException)
+        {
+            // an external host that stopped closed its dialogs with it.
         }
     }
 

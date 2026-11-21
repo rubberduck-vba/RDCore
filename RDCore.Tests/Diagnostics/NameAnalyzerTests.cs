@@ -6,6 +6,8 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
 using System.Text;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -75,6 +77,107 @@ public sealed class NameAnalyzerTests
             "Private Sub Source_Click()", "End Sub",
             "Public Sub IShape_Helper()", "End Sub",
             "Public Sub Source_Other()", "End Sub"));
+
+    // the RDC00405 fix of the one finding in the Implementer class: the class with the fix made, or null when none is offered. Main is the program's entry
+    // point, with the given lines. The header lines go before the class's code.
+    private static async Task<string?> MadePrivateAsync(string[] implementer, string[]? main = null, ProjectBuild? build = null, string[]? header = null)
+    {
+        var source = ModuleWorkspace.ClassModule("Implementer", [.. header ?? [], "Implements IShape", "Private WithEvents Source As Button", .. implementer]);
+        var program = ModuleWorkspace.StandardModule("Program", ["Public Sub Main()", .. main ?? [], "End Sub"]);
+        var payload = await ModuleWorkspace.SemanticsAsync([Shape, Button, ("Implementer", source)], program, build: build);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Implementer");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Implementer.cls"));
+
+        var context = new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), model);
+        var finding = Assert.ContainsSingle(new ImplementationsShouldBePrivateAnalyzer().Analyze(context));
+        if (finding.Fixes?.Edits.SingleOrDefault() is not { } fix)
+        {
+            return null;
+        }
+
+        StringAssert.Contains(fix.Title, "Private");
+        return fix.Edits.ApplyTo(source);
+    }
+
+    [TestMethod]
+    [DataRow("Public Sub IShape_Draw()", "Private Sub IShape_Draw()", DisplayName = "Public")]
+    [DataRow("Sub IShape_Draw()", "Private Sub IShape_Draw()", DisplayName = "no access stated")]
+    [DataRow("Public Static Sub IShape_Draw()", "Private Static Sub IShape_Draw()", DisplayName = "Public Static")]
+    [DataRow("Static Sub IShape_Draw()", "Private Static Sub IShape_Draw()", DisplayName = "Static, no access stated")]
+    [DataRow("Public Sub Source_Click()", "Private Sub Source_Click()", DisplayName = "an event handler")]
+    public async Task TheFix_MakesTheMemberPrivate(string declaration, string fixedDeclaration)
+    {
+        var made = await MadePrivateAsync([declaration, "End Sub"]);
+
+        Assert.IsNotNull(made, "the fix is offered");
+        StringAssert.Contains(made, $"\r\n{fixedDeclaration}\r\n");
+    }
+
+    [TestMethod]
+    public async Task TheFix_MakesEveryAccessorOfAPropertyPrivate()
+    {
+        var sized = ModuleWorkspace.ClassModule("ISized",
+            "Public Property Get Size() As Long", "End Property", "Public Property Let Size(ByVal value As Long)", "End Property");
+        var source = ModuleWorkspace.ClassModule("Implementer", "Implements ISized",
+            "Public Property Get ISized_Size() As Long", "End Property", "Property Let ISized_Size(ByVal value As Long)", "End Property");
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([("ISized", sized), ("Implementer", source)], program);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Implementer");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Implementer.cls"));
+
+        var context = new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), model);
+        var finding = Assert.ContainsSingle(new ImplementationsShouldBePrivateAnalyzer().Analyze(context));
+
+        var made = finding.Fixes!.Edits.Single().Edits.ApplyTo(source);
+        StringAssert.Contains(made, "\r\nPrivate Property Get ISized_Size() As Long\r\n");
+        StringAssert.Contains(made, "\r\nPrivate Property Let ISized_Size(ByVal value As Long)\r\n");
+    }
+
+    // a call through the interface binds to the interface's member, RaiseEvent calls the handler, and a call of the class's own code stays in the module:
+    // none stops the fix, and with both members made Private the program compiles and prints what it printed.
+    [TestMethod]
+    public async Task AMemberCalledThroughTheInterface_ByRaiseEvent_OrByItsOwnModule_IsMadePrivate_AndRunsAsBefore()
+    {
+        (string, string) drawable = ("IDrawable", ModuleWorkspace.ClassModule("IDrawable", "Public Sub Draw()", "End Sub"));
+        (string, string) pad = ("Pad", ModuleWorkspace.ClassModule("Pad", "Public Event Tapped()", "Public Sub Tap()", "RaiseEvent Tapped", "End Sub"));
+        var canvas = ModuleWorkspace.ClassModule("Canvas",
+            "Implements IDrawable",
+            "Private WithEvents mPad As Pad",
+            "Public Sub IDrawable_Draw()", "Debug.Print \"drawn\"", "End Sub",
+            "Public Sub mPad_Tapped()", "Debug.Print \"tapped\"", "IDrawable_Draw", "End Sub",
+            "Private Sub Class_Initialize()", "Set mPad = New Pad", "End Sub",
+            "Public Sub Tap()", "mPad.Tap", "End Sub");
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Public Sub Main()", "Dim c As New Canvas", "Dim d As IDrawable", "Set d = c", "d.Draw", "c.Tap", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([drawable, pad, ("Canvas", canvas)], program);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Canvas");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Canvas.cls"));
+
+        var context = new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, canvas), model);
+        var findings = new ImplementationsShouldBePrivateAnalyzer().Analyze(context).ToArray();
+
+        CollectionAssert.AreEqual(new[] { "IDrawable_Draw", "mPad_Tapped" }, Names(findings));
+        var made = findings.SelectMany(finding => finding.Fixes?.Edits.Single().Edits ?? []).ApplyTo(canvas);
+        StringAssert.Contains(made, "\r\nPrivate Sub IDrawable_Draw()\r\n");
+        StringAssert.Contains(made, "\r\nPrivate Sub mPad_Tapped()\r\n");
+        Assert.IsEmpty(await ModuleWorkspace.LoadErrorsAsync([drawable, pad, ("Canvas", made)], program));
+        var before = await ModuleWorkspace.RunAsync([drawable, pad, ("Canvas", canvas)], program);
+        CollectionAssert.AreEqual(new[] { "drawn", "tapped", "drawn" }, before.Where(line => line.Length > 0).ToArray());
+        CollectionAssert.AreEqual(before, await ModuleWorkspace.RunAsync([drawable, pad, ("Canvas", made)], program));
+    }
+
+    [TestMethod]
+    [DataRow("Dim i As New Implementer", "i.IShape_Draw", DisplayName = "early-bound, by its own name")]
+    [DataRow("Dim o As Object", "Set o = New Implementer: o.IShape_Draw", DisplayName = "late-bound")]
+    [DataRow("Dim o As Object", "Set o = New Implementer: CallByName o, \"IShape\" & \"_Draw\", VbMethod", DisplayName = "CallByName")]
+    public async Task AMemberAnotherModuleMayCall_IsNotMadePrivate(string declaration, string call)
+        => Assert.IsNull(await MadePrivateAsync(["Public Sub IShape_Draw()", "End Sub"], [declaration, call]));
+
+    // a referencing project can call an exposed class's Public member by its own name: the host does not count its references.
+    [TestMethod]
+    public async Task AMemberOfALibrarysExposedClass_IsNotMadePrivate()
+        => Assert.IsNull(await MadePrivateAsync(["Public Sub IShape_Draw()", "End Sub"],
+            build: new ProjectBuild { OutputType = ProjectOutputType.Library }, header: ["Attribute VB_Exposed = True"]));
 
     [TestMethod]
     public void WithNoFactsFromTheHost_TheAnalyzerWillNotGuessFromAnUnderscore()
@@ -175,11 +278,13 @@ public sealed class NameAnalyzerTests
         "Public Function Run_2() As Long", "End Function",
     ];
 
-    // Rubberduck's meaningful name inspection skips what an event names (the parameters of a handler), and not a name for its underscore.
+    // Rubberduck's meaningful name inspection skips what an event names (the parameters of a handler), and not a name for its underscore. The interface and
+    // the events are the workspace's: the names of their implementations and handlers are judged, and these are meaningful.
     [TestMethod]
-    public async Task TheNamesOfAnImplementationOrAHandler_AreTheInterfaceOrTheEventToChoose_AndAnUnderscoreSaysNothing()
+    public async Task TheParametersOfAHandler_AreTheEventsToChoose_AndAnUnderscoreSaysNothing()
         => CollectionAssert.AreEqual(new[] { "Test_1", "Run_2" }, Names(await ChosenAsync(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Chosen)));
 
+    // the prefixes are lowercase: IShape and the implementations named for it are not Hungarian names.
     [TestMethod]
     public async Task TheNamesOfAnImplementationOrAHandler_AreNotHungarianEither()
         => CollectionAssert.AreEqual(
@@ -202,7 +307,7 @@ public sealed class NameAnalyzerTests
 
         Assert.AreEqual(name, Names([finding]).Single());
         Assert.AreEqual(0, finding.Range.Start.Line);
-        Assert.IsNull(finding.Fixes, "a module is renamed where the project names it");
+        Assert.IsNull(finding.Fixes?.Rename, "a module is renamed where the project names it");
     }
 
     [TestMethod]
@@ -302,7 +407,7 @@ public sealed class NameAnalyzerTests
         var finding = Run(new HungarianNotationAnalyzer(Options()), $"Attribute VB_Name = \"{name}\"\nPrivate customer As Long").Single();
 
         Assert.AreEqual(name, Names([finding]).Single());
-        Assert.IsNull(finding.Fixes, "a module is renamed where the project names it");
+        Assert.IsNull(finding.Fixes?.Rename, "a module is renamed where the project names it");
     }
 
     [TestMethod]
@@ -332,9 +437,56 @@ public sealed class NameAnalyzerTests
         var diagnostic = new DiagnosticFactory().FromAnalyzerFinding(finding);
         var sent = Newtonsoft.Json.JsonConvert.DeserializeObject<Diagnostic>(Newtonsoft.Json.JsonConvert.SerializeObject(diagnostic))!;
 
-        Assert.AreEqual("""{"rename":{"suggestions":["Name"]}}""", diagnostic.Data!.ToString(Newtonsoft.Json.Formatting.None));
+        Assert.AreEqual("""{"suggestions":["Name"]}""", diagnostic.Data!["rename"]!.ToString(Newtonsoft.Json.Formatting.None));
         CollectionAssert.AreEqual(new[] { "Name" }, DiagnosticFixes.Of(sent)?.Rename?.Suggestions.ToArray());
+        Assert.AreEqual("strName", DiagnosticFixes.Of(sent)?.Setting?.Value, "the name to allow travels too");
         Assert.IsNull(DiagnosticFixes.Of(new Diagnostic { Data = Newtonsoft.Json.Linq.JToken.FromObject(new ErrorDiagnosticMetadata(13, "")) }), "the metadata of an error is no fix");
+    }
+
+    // the settings of the extension with the item the fix adds, as the platform's settings carry them: its key, of dotted sections.
+    private static IOptions<DiagnosticsOptions> Allowing(SettingFix fix)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { [$"{fix.Key.Replace('.', ':')}:0"] = fix.Value })
+            .Build();
+        return Microsoft.Extensions.Options.Options.Create(configuration.GetSection(DiagnosticsOptions.Section).Get<DiagnosticsOptions>()!);
+    }
+
+    [TestMethod]
+    [DataRow("Private x As Long", DisplayName = "a variable")]
+    [DataRow("Attribute VB_Name = \"Mod1\"\nPrivate customer As Long", DisplayName = "a module, which has no rename")]
+    public void AMeaninglessName_IsOfferedToBeAllowed_AndOnceAllowedIsNotReported(string source)
+    {
+        var finding = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), source).First();
+        var fix = finding.Fixes?.Setting;
+
+        Assert.IsNotNull(fix, "the finding offers to allow its name");
+        Assert.AreEqual(Names([finding])[0], fix.Value);
+        Assert.IsFalse(Run(new UseMeaningfulIdentifierNamesAnalyzer(Allowing(fix)), source).Any(each => Names([each])[0] == fix.Value),
+            "allowed, it is not reported");
+    }
+
+    [TestMethod]
+    [DataRow("Private strName As String", DisplayName = "a variable")]
+    [DataRow("Attribute VB_Name = \"clsCustomer\"\nPrivate customer As Long", DisplayName = "a module, which has no rename")]
+    public void AHungarianName_IsOfferedToBeAllowed_AndOnceAllowedIsNotReported(string source)
+    {
+        var finding = Run(new HungarianNotationAnalyzer(Options()), source).First();
+        var fix = finding.Fixes?.Setting;
+
+        Assert.IsNotNull(fix, "the finding offers to allow its name");
+        Assert.AreEqual(Names([finding])[0], fix.Value);
+        Assert.IsFalse(Run(new HungarianNotationAnalyzer(Allowing(fix)), source).Any(each => Names([each])[0] == fix.Value),
+            "allowed, it is not reported");
+    }
+
+    [TestMethod]
+    public void AllowingAName_ForOneRule_DoesNotAllowItForTheOther()
+    {
+        var hungarian = Run(new HungarianNotationAnalyzer(Options()), "Private strX As String").Single().Fixes!.Setting!;
+
+        Assert.IsNotEmpty(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), "Private strX As String"), "the premise: strX is meaningless too");
+        Assert.IsNotEmpty(Run(new UseMeaningfulIdentifierNamesAnalyzer(Allowing(hungarian)), "Private strX As String"), "its own list is the other rule's");
     }
 
     #endregion
@@ -412,7 +564,6 @@ public sealed class NameAnalyzerTests
     }
 
     [TestMethod]
-    [Ignore("The parser does not fill LineLabelNode.NameRange: the finding falls back to the label's range, colon included.")]
     public void ALineLabel_IsReportedAtItsName_WithoutTheColon()
     {
         var finding = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Labels).Single();

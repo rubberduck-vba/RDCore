@@ -1,6 +1,7 @@
 ﻿using RDCore.External.Automation;
 using RDCore.External.Protocol;
 using RDCore.SDK.Platform.Channels;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using System.Collections.Concurrent;
 using System.Globalization;
 
@@ -25,9 +26,16 @@ namespace RDCore.External.Hosting;
 /// The form host of the platform, whose forms are objects of <paramref name="platform"/> like any other: they share its handles, and a member of a form is an
 /// <see cref="ExternalProtocol.AutomationInvoke"/> of one. A platform that hosts no forms is told so when one is asked for.
 /// </param>
-public sealed class ExternalAutomationService(IAutomationServer platform, Forms.IFormHost? forms = null)
+/// <param name="dialogs">
+/// The dialogs shown beside the forms (<see cref="ExternalProtocol.FormMessageBox"/>, <see cref="ExternalProtocol.FormInputBox"/>);
+/// <see langword="null"/> when the external host shows none, which <see cref="Status"/> says.
+/// </param>
+public sealed class ExternalAutomationService(IAutomationServer platform, Forms.IFormHost? forms = null, Interaction.IUserInteraction? dialogs = null)
 {
     private readonly Forms.IFormHost _forms = forms ?? Forms.UnavailableFormHost.Instance;
+
+    // the dialogs open, by the number the environment host gave each: what closes one when the program that waits for it is stopped.
+    private readonly ConcurrentDictionary<long, CancellationTokenSource> _dialogs = new();
 
     private readonly ExternalHandles _handles = new();
     private readonly ConcurrentDictionary<long, EventWait> _events = new();
@@ -64,6 +72,9 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormLeave, LeaveForm);
         channel.Handle<FormHoldParams, ExternalDoneResult>(ExternalProtocol.FormHold, HoldForms);
         channel.Handle<FormDoEventsParams, ExternalDoneResult>(ExternalProtocol.FormDoEvents, DoEvents);
+        channel.Handle<FormMessageBoxParams, FormMessageBoxResult>(ExternalProtocol.FormMessageBox, MessageBox);
+        channel.Handle<FormInputBoxParams, FormInputBoxResult>(ExternalProtocol.FormInputBox, InputBox);
+        channel.Handle<FormCloseDialogParams, ExternalDoneResult>(ExternalProtocol.FormCloseDialog, CloseDialog);
         channel.Handle<FormKeepSystemThemeParams, ExternalDoneResult>(ExternalProtocol.FormKeepSystemTheme, KeepSystemTheme);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
         InvokeOnClient = call => channel.CallAsync<SessionInvokeParams, SessionInvokeResult>(ExternalProtocol.SessionInvoke, call);
@@ -164,7 +175,72 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         IsAvailable = platform.IsAvailable,
         IsFormHostAvailable = _forms.IsAvailable,
         HostsVisualBasic6Forms = _forms.HostsVisualBasic6Forms,
+        HasDialogs = dialogs is not null,
     };
+
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormMessageBox"/>, once the dialog is closed: by one of its buttons, or by
+    /// <see cref="ExternalProtocol.FormCloseDialog"/>, which answers what its close button does.
+    /// </summary>
+    /// <param name="request">The message box.</param>
+    public FormMessageBoxResult MessageBox(FormMessageBoxParams request) => Answer(request.HandlingEvent, () =>
+    {
+        var shown = request.ToRequest();
+        var answer = Dialog(request.Dialog, token => Dialogs.ShowMessage(shown, token),
+            () => VBMsgBoxButtons.EscapeResultOf(shown.Style) ?? VBMsgBoxButtons.ChoicesOf(shown.Style)[VBMsgBoxButtons.DefaultChoiceOf(shown.Style)]);
+        return new FormMessageBoxResult { Result = (int)answer };
+    }, Failed<FormMessageBoxResult>);
+
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormInputBox"/>, once the dialog is closed: confirmed, cancelled, or closed by
+    /// <see cref="ExternalProtocol.FormCloseDialog"/>, which cancels it.
+    /// </summary>
+    /// <param name="request">The input box.</param>
+    public FormInputBoxResult InputBox(FormInputBoxParams request) => Answer(request.HandlingEvent, () =>
+    {
+        var shown = request.ToRequest();
+        return new FormInputBoxResult { Value = Dialog(request.Dialog, token => Dialogs.Prompt(shown, token), () => null) };
+    }, Failed<FormInputBoxResult>);
+
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormCloseDialog"/>: the dialog is closed, if it is still open.
+    /// </summary>
+    /// <param name="request">The dialog.</param>
+    public ExternalDoneResult CloseDialog(FormCloseDialogParams request)
+    {
+        // a close can overtake the request that shows the dialog, which is then closed as soon as it opens; one that comes as the dialog closes finds it gone.
+        try
+        {
+            _dialogs.GetOrAdd(request.Dialog, _ => new CancellationTokenSource()).Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        return new ExternalDoneResult();
+    }
+
+    private Interaction.IUserInteraction Dialogs
+        => dialogs ?? throw new AutomationException(ExternalProtocol.NoDialogs, "The external host shows no dialogs.");
+
+    // shows a dialog, numbered as the environment host numbered it until it is closed; one closed because its program stopped answers what closed answers.
+    private T Dialog<T>(long number, Func<CancellationToken, T> show, Func<T> closed)
+    {
+        var open = _dialogs.GetOrAdd(number, _ => new CancellationTokenSource());
+        try
+        {
+            return open.IsCancellationRequested ? closed() : show(open.Token);
+        }
+        catch (OperationCanceledException) when (open.IsCancellationRequested)
+        {
+            return closed();
+        }
+        finally
+        {
+            _ = _dialogs.TryRemove(number, out _);
+            open.Dispose();
+        }
+    }
 
     /// <summary>Answers <see cref="ExternalProtocol.FormCreate"/>.</summary>
     public AutomationObjectResult CreateForm(FormCreateParams request)

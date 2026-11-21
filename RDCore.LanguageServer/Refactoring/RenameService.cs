@@ -15,7 +15,11 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using RDCore.SDK.Forms;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.SDK.Model.Symbols;
@@ -45,8 +49,12 @@ internal interface IRenameService
     /// <param name="documentUri">The document.</param>
     /// <param name="position">A position in the name, in the text of the document.</param>
     /// <param name="token">A token that cancels the request.</param>
+    /// <param name="client">
+    /// What the client said it can do, as it initialized: a UserForm's control is renamed only for a client that takes the replacement of the form's .frx
+    /// (<see cref="WorkspaceEditExtensions.TakesFileReplacement"/>). None when it is not known, which is a client that does not.
+    /// </param>
     /// <returns>The name, or why it is not renamed.</returns>
-    Task<RenameAnswer<PlaceholderRange>> PrepareAsync(Uri documentUri, Position position, CancellationToken token);
+    Task<RenameAnswer<PlaceholderRange>> PrepareAsync(Uri documentUri, Position position, CancellationToken token, ClientCapabilities? client = null);
 
     /// <summary>
     /// The edits that rename the symbol named at a position of a document.
@@ -55,8 +63,13 @@ internal interface IRenameService
     /// <param name="position">A position in the name, in the text of the document.</param>
     /// <param name="newName">The new name.</param>
     /// <param name="token">A token that cancels the request.</param>
-    /// <returns>The edits, of every document whose text changes, or why there are none.</returns>
-    Task<RenameAnswer<WorkspaceEdit>> RenameAsync(Uri documentUri, Position position, string newName, CancellationToken token);
+    /// <param name="client">What the client said it can do, as it initialized, as <see cref="PrepareAsync"/> reads it.</param>
+    /// <returns>
+    /// The edits, of every document whose text changes, or why there are none. A UserForm's control is renamed in the form's .frx too: the new file is
+    /// staged beside it (<see cref="StagedFiles"/>), and the edit puts it in place before it edits any text.
+    /// </returns>
+    Task<RenameAnswer<WorkspaceEdit>> RenameAsync(
+        Uri documentUri, Position position, string newName, CancellationToken token, ClientCapabilities? client = null);
 }
 
 /// <summary>
@@ -92,6 +105,16 @@ internal sealed record class RenameAnswer<T>(T? Value, string? Refusal, IReadOnl
 /// <param name="Leave">The answer that renames the symbol and leaves those edits out.</param>
 internal sealed record class RenameQuestion(ChangeAnnotationIdentifier Annotation, string Message, string Rename, string Leave);
 
+/// <summary>
+/// A lens above the name of a member a document declares, in the text of the document (<see cref="SymbolLenses.In(RenameContext, RenameModule)"/>).
+/// </summary>
+/// <param name="Range">The name of the member.</param>
+/// <param name="Kind">What the lens counts or says.</param>
+/// <param name="Implemented">
+/// Of an <see cref="SymbolLensKind.Implements"/> lens, the interface and the member the procedure implements, and where the member is declared.
+/// </param>
+internal sealed record class WorkspaceLens(LspRange Range, SymbolLensKind Kind, (string Interface, string Member, Location Declaration)? Implemented = null);
+
 /// <inheritdoc cref="IRenameService"/>
 /// <remarks>
 /// The workspace is composed from the parse of each document as the server holds it - the text the client last sent - with the libraries the project references,
@@ -105,17 +128,24 @@ internal sealed class RenameService(
     IOptions<SdkAppOptions> options,
     ILogger<RenameService> logger,
     IWorkspaceProjects workspaceProjects,
-    WorkspaceCompositionCache? compositions = null) : IRenameService
+    WorkspaceCompositionCache? compositions = null,
+    StagedFiles? stagedFiles = null) : IRenameService
 {
     // the workspace as it was composed last, for as long as no document changed: a prepared rename, the rename and the code actions of a line are of one.
     private readonly WorkspaceCompositionCache _compositions = compositions ?? new();
 
-    public async Task<RenameAnswer<PlaceholderRange>> PrepareAsync(Uri documentUri, Position position, CancellationToken token)
-        => await ComposeAsync(token) is { } workspace ? workspace.Prepare(documentUri, position) : RenameWorkspace.NoName<PlaceholderRange>();
+    public async Task<RenameAnswer<PlaceholderRange>> PrepareAsync(
+        Uri documentUri, Position position, CancellationToken token, ClientCapabilities? client = null)
+        => await ComposeAsync(token) is { } workspace
+            ? workspace.Prepare(documentUri, position, client.TakesFileReplacement())
+            : RenameWorkspace.NoName<PlaceholderRange>();
 
-    public async Task<RenameAnswer<WorkspaceEdit>> RenameAsync(Uri documentUri, Position position, string newName, CancellationToken token)
+    public async Task<RenameAnswer<WorkspaceEdit>> RenameAsync(Uri documentUri, Position position, string newName, CancellationToken token,
+        ClientCapabilities? client = null)
     {
-        var answer = await ComposeAsync(token) is { } workspace ? workspace.Rename(documentUri, position, newName) : RenameWorkspace.NoName<WorkspaceEdit>();
+        var answer = await ComposeAsync(token) is { } workspace
+            ? workspace.Rename(documentUri, position, newName, client.TakesFileReplacement())
+            : RenameWorkspace.NoName<WorkspaceEdit>();
         if (answer.Value is { } edit && logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("✏️ Renamed to '{newName}': {count} name(s) in {documents} document(s).",
@@ -139,7 +169,10 @@ internal sealed class RenameService(
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }
 
-        return new RenameWorkspace(parts) { IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf };
+        return new RenameWorkspace(parts)
+        {
+            IsOpen = documents.IsOpen, ProjectFileEdit = ProjectFileEditOf, Stage = stagedFiles is null ? null : stagedFiles.Stage,
+        };
     }
 
     // the edit that renames the workspace's project of a name in its project file, where the text writes the name; none when the file cannot be read, or
@@ -255,6 +288,12 @@ internal sealed class RenameWorkspace
     // the edit that renames the workspace's project of a name in its project file, given the project and its new name; none by default.
     internal Func<string, string, TextDocumentEdit?> ProjectFileEdit { get; init; } = static (_, _) => null;
 
+    // writes a file's new content beside it, given the file, what it was made of and the content, for the edit to put in its place; none for a workspace
+    // that writes no file, which renames no UserForm control.
+    internal StageFile? Stage { get; init; }
+
+    internal delegate StagedFile? StageFile(DocumentUri target, ReadOnlySpan<byte> original, ReadOnlySpan<byte> content);
+
     // the project a module of a document is in, which its names resolve in.
     private ProjectPart PartOf(DocumentModule module) => _parts.First(part => part.Modules.Any(candidate => ReferenceEquals(candidate, module)));
 
@@ -264,7 +303,7 @@ internal sealed class RenameWorkspace
     internal static RenameAnswer<T> NoName<T>() where T : class => new(null, new RenameRefusal(RenameRefusalKind.NoName, string.Empty).ToMessage());
 
     /// <summary>What a rename at a position of a document would rename.</summary>
-    public RenameAnswer<PlaceholderRange> Prepare(Uri documentUri, Position position)
+    public RenameAnswer<PlaceholderRange> Prepare(Uri documentUri, Position position, bool replacesFiles = false)
     {
         if (ModuleOf(documentUri) is not { } module)
         {
@@ -272,14 +311,23 @@ internal sealed class RenameWorkspace
         }
 
         var part = PartOf(module);
-        var preparation = SymbolRename.Prepare(part.Context, module.Module, module.ToModulePosition(position));
+        var preparation = Prepared(part, module, position, replacesFiles);
         return preparation.Target is { } target
             ? new(new PlaceholderRange { Range = module.ToTextRange(target.Range), Placeholder = target.Name }, null)
             : new(null, Say(part, preparation.Refusal!));
     }
 
+    // what a rename at a position renames: a UserForm's control only for a client that puts its .frx back when the edit fails.
+    private static RenamePreparation Prepared(ProjectPart part, DocumentModule module, Position position, bool replacesFiles)
+    {
+        var preparation = SymbolRename.Prepare(part.Context, module.Module, module.ToModulePosition(position));
+        return preparation.Target is { } target && !replacesFiles && SymbolRename.IsUserFormControl(part.Context, target)
+            ? new(null, new RenameRefusal(RenameRefusalKind.FileChangeNotUndoable, target.Name))
+            : preparation;
+    }
+
     /// <summary>The edits that rename the symbol named at a position of a document to <paramref name="newName"/>.</summary>
-    public RenameAnswer<WorkspaceEdit> Rename(Uri documentUri, Position position, string newName)
+    public RenameAnswer<WorkspaceEdit> Rename(Uri documentUri, Position position, string newName, bool replacesFiles = false)
     {
         if (ModuleOf(documentUri) is not { } module)
         {
@@ -287,7 +335,7 @@ internal sealed class RenameWorkspace
         }
 
         var part = PartOf(module);
-        var preparation = SymbolRename.Prepare(part.Context, module.Module, module.ToModulePosition(position));
+        var preparation = Prepared(part, module, position, replacesFiles);
         if (preparation.Target is not { } target)
         {
             return new(null, Say(part, preparation.Refusal!));
@@ -299,7 +347,22 @@ internal sealed class RenameWorkspace
             return new(null, Say(part, plan.Refusal!));
         }
 
-        var changes = DocumentChangesOf(part, plan.Edits);
+        // a UserForm's control is named in its form's .frx, which the edit replaces before it edits any text: the file is set aside, the new one staged beside
+        // it is put in its place, and the file set aside is deleted once every other change is made (StagedFile). No step renames a file over another, so a
+        // client that undoes a failed edit puts the .frx back.
+        StagedFile? frx = null;
+        if (plan.Control is { } control)
+        {
+            var (staged, refusal) = ReplacedFrxOf(part, control.Form, control.Name, newName);
+            if (staged is null)
+            {
+                return new(null, Say(part, refusal!));
+            }
+
+            frx = staged;
+        }
+
+        var changes = frx is null ? DocumentChangesOf(part, plan.Edits) : frx.Installing().Concat(DocumentChangesOf(part, plan.Edits));
 
         // the user confirms what a string says, and which member a late-bound access calls: a client that takes change annotations asks them; one that does
         // not is asked for, before it is sent the edit.
@@ -368,6 +431,11 @@ internal sealed class RenameWorkspace
             changes = changes.Append(new WorkspaceEditDocumentChange(projectFile));
         }
 
+        if (frx is not null)
+        {
+            changes = changes.Append(frx.Removing());
+        }
+
         var workspaceEdit = new WorkspaceEdit
         {
             DocumentChanges = new Container<WorkspaceEditDocumentChange>(changes),
@@ -396,6 +464,32 @@ internal sealed class RenameWorkspace
             NewUri = Sibling(module.Document.Id.Uri, newName + Path.GetExtension(path)),
             Options = new RenameFileOptions { Overwrite = false, IgnoreIfExists = true },
         };
+    }
+
+    // the form's .frx with the control renamed in it (MSFormsWriter), staged beside it; or why it is not: a workspace that writes no file, a .frx the form
+    // does not name beside it or the server could not read, one that changed since it was read, or one the writer does not rename the control in.
+    private (StagedFile? Staged, RenameRefusal? Refusal) ReplacedFrxOf(ProjectPart part, Uri form, string name, string newName)
+    {
+        var module = part.Modules.First(candidate => candidate.Module.AbsoluteUri == form.AbsoluteUri);
+        var reference = CompanionNamedBy(module.Source);
+        if (Stage is not { } stage || reference is null || Path.GetFileName(reference.FileName) != reference.FileName || module.Document.Companion.IsEmpty)
+        {
+            return (null, new(RenameRefusalKind.UserFormControl, name));
+        }
+
+        byte[] renamed;
+        try
+        {
+            renamed = MSFormsWriter.RenameControl(module.Document.Companion.Span, name, newName);
+        }
+        catch (Exception refused) when (refused is ArgumentException or NotSupportedException or MSFormsFormatException)
+        {
+            return (null, new(RenameRefusalKind.UserFormControlNotWritten, name, refused.Message));
+        }
+
+        return stage(Sibling(module.Document.Id.Uri, reference.FileName), module.Document.Companion.Span, renamed) is { } staged
+            ? (staged, null)
+            : (null, new(RenameRefusalKind.UserFormControl, name));
     }
 
     // the binary file of a designer's file (a form's .frx, a user control's .ctx), when the designer's text names it as the file of the same name
@@ -652,10 +746,11 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The members a document declares whose references a client shows (<see cref="SymbolLenses.In"/>): each name, in the text of the document.
+    /// The lenses of the members a document declares (<see cref="SymbolLenses.In(RenameContext, RenameModule)"/>): each at the member's name, in the text of
+    /// the document.
     /// </summary>
-    /// <returns>Each member; none in a program of the platform's BASIC, whose procedure is the one its lines are the body of.</returns>
-    public IReadOnlyList<(string Name, LspRange Range)> Lenses(Uri documentUri)
+    /// <returns>Each lens; none in a program of the platform's BASIC, whose procedure is the one its lines are the body of.</returns>
+    public IReadOnlyList<WorkspaceLens> Lenses(Uri documentUri)
     {
         if (ModuleOf(documentUri) is not { } module
             || BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
@@ -664,26 +759,51 @@ internal sealed class RenameWorkspace
             return [];
         }
 
-        return [.. SymbolLenses.In(source).Select(lens => (lens.Name, module.ToTextRange(lens.NameRange)))];
+        var lenses = new List<WorkspaceLens>();
+        foreach (var lens in SymbolLenses.In(PartOf(module).Context, source))
+        {
+            if (lens.Implemented is { } implemented)
+            {
+                // a member of an interface no document of the workspace holds has nowhere to go to.
+                if (LocationsOf([implemented.Declaration]) is [var declaration])
+                {
+                    lenses.Add(new WorkspaceLens(module.ToTextRange(lens.NameRange), lens.Kind, (implemented.Interface, implemented.Member, declaration)));
+                }
+
+                continue;
+            }
+
+            lenses.Add(new WorkspaceLens(module.ToTextRange(lens.NameRange), lens.Kind));
+        }
+
+        return lenses;
     }
 
     /// <summary>
-    /// The names that refer to the member whose name is written at a position of a document (<see cref="SymbolLenses.ReferencesOf"/>), its declarations not
-    /// included: each name, in the text of its document.
+    /// The names that use the member whose name is written at a position of a document (<see cref="SymbolLenses.ReferencesOf"/>), its declarations not
+    /// included, nor the result a Function or a Property Get assigns or reads in its own body: each name, in the text of its document.
     /// </summary>
     public IReadOnlyList<Location> LensReferences(Uri documentUri, Position position)
-    {
-        if (ModuleOf(documentUri) is not { } module)
-        {
-            return [];
-        }
+        => ModuleOf(documentUri) is { } module
+            ? LocationsOf(SymbolLenses.ReferencesOf(PartOf(module).Context, module.Module, module.ToModulePosition(position)))
+            : [];
 
-        var part = PartOf(module);
-        return [.. SymbolLenses.ReferencesOf(part.Context, module.Module, module.ToModulePosition(position))
-            .Select(site => (Site: site, Document: part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+    /// <summary>
+    /// The procedures that implement the member whose name is written at a position of a document (<see cref="SymbolLenses.ImplementationsOf"/>), as Go to
+    /// Implementation finds them: each name, in the text of its document.
+    /// </summary>
+    public IReadOnlyList<Location> LensImplementations(Uri documentUri, Position position)
+        => ModuleOf(documentUri) is { } module
+            ? LocationsOf(SymbolLenses.ImplementationsOf(PartOf(module).Context, module.Module, module.ToModulePosition(position)))
+            : [];
+
+    // each site at its name, in the text of its document; none of a document no project of the workspace holds.
+    private IReadOnlyList<Location> LocationsOf(IEnumerable<SymbolSite> sites)
+        => [.. sites
+            .Select(site => (Site: site,
+                Document: PartOf(site.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
             .Where(found => found.Document is not null)
             .Select(found => new Location { Uri = found.Document!.Document.Id.Uri, Range = found.Document.ToTextRange(found.Site.SelectionRange) })];
-    }
 
     /// <summary>
     /// The names in a document that refer to the symbol named at a position of it (<strong>LSP 3.17</strong> §Document Highlights Request): what a rename of

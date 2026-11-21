@@ -74,8 +74,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         }
 
         // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code. A
-        // UserForm and a Visual Basic 6.0 form each have a form host; another ActiveX designer's form has none.
-        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms or FormDesignerKind.VisualBasic6 } designer ? designer : null);
+        // UserForm, a Visual Basic 6.0 form and an RDForms form each have a form host; another ActiveX designer's form has none.
+        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms } or { HasVisualBasic6FormModel: true } ? parseResult.Designer : null);
 
         // composed before anything is lowered, because lowering needs its expression evaluator to decide
         // which #If branches are live. The invoker looks a body up at call time, so the image it holds is this same one.
@@ -105,7 +105,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
         // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
-        var drawsOnMe = parseResult.Designer is { Kind: FormDesignerKind.VisualBasic6 };
+        var drawsOnMe = parseResult.Designer is { HasVisualBasic6FormModel: true };
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
             DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements, DrawsOnMe: drawsOnMe);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
@@ -156,8 +156,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                 ? new HashSet<SemanticId>()
                 : scope.Declarations.OfType<VBLocalVariableSymbol>().Where(local => local is { IsStatic: false } and not VBParameterSymbol)
                     .Select(local => local.SemanticId).ToHashSet();
+            var (initialValueReads, unreadAssignments) = VariableFlowAnalysis.Of(model, lowering.InstructionList, session.Symbols.Scopes, automaticLocals);
             procedureModels.Add(model with
             {
+                InitialValueReads = initialValueReads,
+                UnreadAssignments = unreadAssignments,
                 // a body that has no statement has its End statement all the same.
                 ReturnValue = ReturnValueAnalysis.Of(declaration, model, lowering.InstructionList) is { } returned
                     ? returned with { IsEmpty = lowering.InstructionList.Items.Length == 1 }
@@ -184,6 +187,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // a module is valid when what it declares is, as well as every procedure of it. The types it declares are asked to be names that resolve: its code is
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
+            .AddRange(ModuleNameStaticSemantics.Check(syntaxTree, module.Name))
+            .AddRange(ModuleNameStaticSemantics.CheckReferences(syntaxTree, module, session.Symbols.Scopes.Global))
             .AddRange(headerErrors)
             .AddRange(constantErrors)
             .AddRange(sizeErrors)
@@ -194,6 +199,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         var declared = DeclarationUsage.DeclaredBy(members).ToList();
         var document = module is VBClassModuleSymbol documentClass ? DocumentModuleFact.Of(documentClass, session.Symbols.Resolver) : null;
         var excludedBranchNames = ExcludedBranchNames.Of(written, deadRanges);
+        var byRefArguments = DeclarationUsage.ArgumentsOf(declared, procedureModels, arguments);
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {
             // a language that has no such directive has no fact to state about it.
@@ -201,7 +207,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             Declarations = DeclarationUsage.Of(
                 declared, procedureModels,
                 module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), arguments, declarationFacts, excludedBranchNames,
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), byRefArguments, declarationFacts,
+                excludedBranchNames,
                 symbol => StatementsCompiledOn(written, symbol.Name, platforms), namesInUnanalyzedCode: unanalyzedNames),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
@@ -211,13 +218,15 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             UndefinedConditionalConstants = PrecompilerLiveBranchEvaluator.UndefinedConstantsOf(session, parseResult.PrecompilerTrivia),
             ProjectConditionalConstants = ProjectConditionalConstants.FactsOf(session),
             Win64OnlySetOnWindows = session.Environment.Win64OnlySetOnWindows,
+            Expressions = (declarationFacts ?? ModuleDeclarationFacts.None).Expressions,
         };
 
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
-        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails);
-        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms);
+        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails, syntaxTree, module.Uri);
+        image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms,
+            LateBoundNames.Of(syntaxTree, moduleModel.Procedures), unanalyzedNames, byRefArguments);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
@@ -272,10 +281,13 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                     handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
                     break;
 
-                // a record is given again the fields it starts with, when one of them is a fixed-size array: nothing has run that assigned it.
+                // a record whose fixed-size array field is still without its elements is given the fields it starts with: nothing has run that
+                // assigned it. It is allocated again, for its elements are in it (VBUserDefinedTypeLayout): the storage it was given had none in that
+                // field. A record that has them, its module loaded again at an edit, keeps its values and its address.
                 case VBUserDefinedType record when HasFixedSizeArrayField(session.Symbols.Resolver, record, [])
+                    && type.CreateValue(handle!) is VBUserDefinedTypeValue current && LacksElements(current)
                     && defaults.DefaultValueOf(member) is VBUserDefinedTypeValue sized:
-                    handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
+                    _ = session.Symbols.Resolver.TryAllocate(member, sized, out _);
                     break;
             }
         }
@@ -302,6 +314,16 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             VBUserDefinedType nested => HasFixedSizeArrayField(resolver, nested, seen),
             _ => false,
         });
+
+    // whether a fixed-size array field of the record, or of a record field of it, is without its elements.
+    private static bool LacksElements(VBUserDefinedTypeValue record)
+        => record.TypeInfo is VBUserDefinedType declared
+            && declared.Fields().Select((field, at) => (field.ResolvedType, Held: record.StoredFieldAt(at))).Any(field => field switch
+            {
+                (VBFixedSizeArrayType, not VBArrayValue { IsInitialized: true }) => true,
+                (_, VBUserDefinedTypeValue nested) => LacksElements(nested),
+                _ => false,
+            });
 
     // the first header of a declaration that is in no dead branch and declares a procedure the session defines, with the body; none when there is none.
     private static (MemberDeclarationNode? Declaration, VBTypeMemberSymbol? Procedure) LiveHeaderOf(

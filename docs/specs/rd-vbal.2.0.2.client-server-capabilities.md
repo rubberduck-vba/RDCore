@@ -430,12 +430,16 @@ A procedure bound to what it implements or handles (**MS-VBAL §5.3.1.8**, **§5
 |The member of a class that other classes implement (`Draw`)|The procedures that implement it (`IShape_Draw` to `IShape_Paint`).|
 |An event (`Spun`)|The `RaiseEvent` statements of its class, and its handlers in every class, each bound to it by a `WithEvents` variable of its class (`source_Spun` to `source_Turned`).|
 |A `WithEvents` variable (`source`)|The handlers of its events, those of a library's class included (`source_Spun` to `watched_Spun`). A procedure named for an event its class does not have (`source_Turned`) keeps its name.|
+|A control of a Visual Basic 6.0 form (`Ok`)|Its name on the `Begin` line of its designer block, on each element's for a control array (`Begin VB.CommandButton Ok` to `Begin VB.CommandButton Accept`, [`FormDesigner.ControlNameRangesOf`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.Forms.FormDesigner.html)), and the handlers of its events (`Ok_Click` to `Accept_Click`).|
+|A control of a VBA UserForm (`Ok`)|Its name in its site in the form's `.frx` (`MSFormsWriter.RenameControl`), and the handlers of its events (`Ok_Click` to `Accept_Click`).|
 
-A rename can start at either part of such a procedure's name: before the underscore, it renames the interface or the variable; after it, the member or the event. A procedure renamed with it must not take the name of another member of its class.
+A rename can start at either part of such a procedure's name: before the underscore, it renames the interface, the variable or the control; after it, the member or the event. When the workspace declares only one of the two, a rename at either part renames that one: `watched_Changed`, for an event of a library's class, renames the variable `watched`, and a rename of a control's handler (`Ok_Click`) is a rename of the control. A procedure renamed with it must not take the name of another member of its class.
 
 The module's file is renamed with it when the file has the module's name (`Helpers.bas`), after its text is edited (**LSP 3.17** `RenameFile`), and only when no file of the new name exists there already. A client that does not rename files (`workspace.workspaceEdit.resourceOperations`) is sent the rest of the edit. The module is named by its `VB_Name` attribute, so its file keeps its old name. A client that renames the file says so (`workspace/didRenameFiles`), and the server writes the project file.
 
 A designer's binary file (`.frx` of a `.frm`, `.ctx` of a `.ctl`, `.dsx`, `.pgx`, `.dox`) is renamed with it when the designer's text names it as the file of the same name (`OleObjectBlob = "Dialog.frx":0000`). Once both files are renamed, the renamed text names the new binary file. Neither file is renamed over a file that exists: the client refuses the edit, so the text never names a file it was not renamed to. A client that does not rename files is sent neither rename, and the text keeps the old name.
+
+A workspace edit cannot write a binary file, so the server writes the renamed `.frx` of a UserForm beside it (`StagedFiles`), and the edit replaces the file before it edits any text. It renames the `.frx` aside, renames the new file into its place, edits the text, and deletes the old `.frx` last. No step renames a file over another, so a client that undoes a failed edit (`workspace.workspaceEdit.failureHandling` `undo` or `transactional`) puts the `.frx` back. When the `.frx` changes after the new file was written (`workspace/didChangeWatchedFiles`, or `workspace/willRenameFiles` as the client is about to put the new file in place), the server deletes the new file, the edit's rename of it fails, and the client undoes the edit. A new file that no edit put in place is deleted when the server next reads the form.
 
 A project of the workspace is renamed where its name qualifies a module or a member (`Billing.Tools.Go`, **MS-VBAL §5.6.12**), and in its project file, where the file writes its `Name` ([`ProjectFile.NameRangeIn`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectFile.html)). A project file the server cannot read is left as it is, and the project keeps its old name there. A referenced library is not renamed.
 
@@ -467,10 +471,17 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The symbol is a module, and the new name is one MS-VBAL §4.2 does not allow: longer than 31 characters, or the name of another module, a `Public` type or a project|Two modules, or a module and a type, would have one name.|
 |The symbol is a document module|Its document names it, and would not be renamed with it.|
 |The symbol is the workspace's project, and the new name is that of one of its modules, of a project it references, or of a `Public` `Type` or `Enum` of the project or of one it references|A qualifier with the new name would mean the module or the other project. No `Public` `Type` or `Enum` is named as a project (**MS-VBAL §5.2.3.3**, **§5.2.3.4**).|
-|The symbol is a form's control|Its designer names it, and would not be renamed with it.|
-|The symbol is a procedure bound to an event it handles (of its own class or form, `Class_Initialize`, `UserForm_Click`, of its document's host, or of a control) or to an interface member it implements|Renamed whole, it would be bound to neither. Its source, or the event or member it is bound to, is renamed instead. A procedure that is only named like one (`Form_Foo` in a class that is not a form) is renamed like any other.|
+|The symbol is a control of a VBA UserForm, and the client does not rename and delete files, or does not undo a failed edit|The rename replaces the form's `.frx`. A failed edit would leave the code with the new name and the `.frx` with the old one.|
+|The symbol is a control of a VBA UserForm whose `.frx` the server could not read as it is on disk: the form names none, the file is missing or cannot be read, or it changed since the server read it|Its name is kept in the form's `.frx`.|
+|The symbol is a control of a VBA UserForm that the `.frx` does not let the server rename: the `.frx` has no control of that name, or the new name does not fit (the control's site would hold more than 65,535 bytes, the file would need more FAT sectors than its header lists, or the `.frx` holds data after the form)|The message gives the reason.|
+|The symbol is a control whose name a string property of its form, or of another of its controls, holds as its whole value (`DataSource = "Text1"`)|The property may name the control ([`FormDesigner.PropertiesNaming`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.Forms.FormDesigner.html)), and what renaming the control does to it is not known.|
+|The symbol is a control of a form that neither Visual Basic 6.0 nor Microsoft Forms designed|Its designer names it, and would not be renamed with it.|
+|The symbol is a procedure bound to an event it handles or to an interface member it implements, and the workspace declares neither part of its name (`Class_Initialize`, `UserForm_Click`, a handler of its document's host, an implementation of a library's class)|Renamed whole, it would be bound to neither. A procedure that is only named like one (`Form_Foo` in a class that is not a form) is renamed like any other.|
 |The symbol is a procedure of a document module whose host is not known, or whose host's class the project does not resolve|What the host calls it for is not known, and the rename could make that call fail.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
+
+> [!NOTE]
+> **Not implemented.** Renaming a control whose name a property of its form holds, in that property.
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
 
@@ -518,6 +529,8 @@ symbol named at the position (`SymbolNavigation.ReferencesAt`): the names a rena
 symbol would rename (table above), and, for a class, a module, a `Type` or an `Enum`, the names of the type in `As` clauses and after `New`. The names its
 declarations declare are references when the client asks for them (`context.includeDeclaration`), and so are the attributes of a member
 (`Attribute Foo.VB_Description`). A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to it, and is not a reference.
+The result a `Function` or a `Property Get` assigns or reads in its own body (`Compute = n`) is a reference too: of the function, or of the
+`Property Get`.
 
 Each procedure of a property is referred to by the names that call it (**MS-VBAL §5.3.1.7**), although a rename renames all of them:
 
@@ -690,22 +703,26 @@ When the module has other `Public` fields, Encapsulate Field also asks which of 
 The range is on the declaration of a variable or on a use of it. The declaration moves to a line of its own before the statement that first uses the variable, indented as that statement is, in the innermost block that holds every use of it. A use in the condition of an `If` or the bounds of a loop keeps it before that statement. A declaration is not executed ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)), so a variable of a procedure is the same wherever it is declared before its first use.
 
 - A variable of a procedure keeps its keyword, `Dim` or `Static`.
-- A `Private` variable of a module that a single procedure uses moves into that procedure. Its choice (`keyword`, an `Option`) is `static`, the default, or `dim`.
+- A variable of a module that a single procedure uses moves into that procedure: a `Private` one of its module, and a `Public` or `Global` one of
+  a standard module, which a procedure of another module of the project can use. The uses are the names bound to the variable in every module of
+  the project; a use qualified with the name of its module (`Globals.gCount`) loses the qualifier. Its choice (`keyword`, an `Option`) is
+  `static`, the default, or `dim`.
 
 |A variable of a module, declared|Changes|Code|
 |---|---|---|
-|`Static`, in a standard module|Nothing: it keeps its value between calls.|None.|
-|`Static`, in a class module|Its extent: a variable of the class has object extent, a `Static` variable module extent (**MS-VBAL §2.3**, **§5.4.3.1**).|`moveCloserToUsage.moduleExtent`|
+|`Static`|Nothing: it keeps its value between calls. In a class module, each object keeps its own, as it does of the variable of the class ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|None.|
+|`Static`, a variable of a standard module, in a member of a class module|Its extent: the variable had one value for the program, and the local has one for each object of the class.|`moveCloserToUsage.oneForEachObject`|
 |`Dim`|Its value between calls: it is initialized at each call, unless the procedure is `Static`.|`moveCloserToUsage.notKept`|
 
 `rdcore/refactor/prepare` says the change of each keyword, and `rdcore/refactor/apply` requires the change of the keyword answered.
 
 |Refused|Code|
 |---|---|
-|A variable of a module that is `Public`, `Global` or `Friend`|`moveCloserToUsage.notPrivate`|
+|A variable of a class module that is `Public`, `Global` or `Friend`: a member of each object of the class|`moveCloserToUsage.notPrivate`|
 |A variable declared `WithEvents`|`moveCloserToUsage.withEvents`|
 |A variable that nothing uses|`moveCloserToUsage.notUsed`|
-|A variable of a module used by more than one procedure|`moveCloserToUsage.severalProcedures`|
+|A variable of a module used by more than one procedure, of its module or of others|`moveCloserToUsage.severalProcedures`|
+|A variable of a module whose procedure names, unqualified, something else of its name, which the local would hide|`moveCloserToUsage.hidesAName`|
 |A declaration, or a first use, in a branch of an `#If` block|`moveCloserToUsage.conditional`|
 |A variable of a procedure declared before its first use with nothing but declarations between them|`moveCloserToUsage.alreadyClose`|
 |A declaration that is the only one of a statement sharing its line with another statement|`moveCloserToUsage.sharesItsLine`|
@@ -730,13 +747,20 @@ It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project'
 
 The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares (`SymbolLenses`): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
 
-A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name, its declarations not included: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it. A property that nothing assigns shows `0 references` above its `Property Let`. The result a function or a `Property Get` assigns or reads in its own body is no reference; a recursive call is.
+A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name (`SymbolNavigation.UsersAt`), except its declarations and the result a function or a `Property Get` assigns or reads in its own body: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it. A property that nothing assigns shows `0 references` above its `Property Let`, and a function that only assigns its result shows `0 references`. A recursive call counts, with or without `Call`, and as the member of a member access (`Me.Compute`, `.Compute` in a `With` block).
 
 |Resolved lens|Is|
 |---|---|
 |`command.title`|The count, in the language of the user interface: `0 references`, `1 reference`, `3 references` (`0 référence`, `1 référence`, `3 références`).|
-|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
+|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references, even when there is one or none.|
 |`command.arguments`|The URI of the document, the position of the name, and the references (`Location[]`): the arguments of VS Code's `editor.action.showReferences`.|
+
+A member of a class that other classes implement (**MS-VBAL §5.2.4.2**) has a second lens at its name, which counts the procedures that implement it, as `textDocument/implementation` finds them. Each procedure that implements a member of an interface has a lens that names that member (`implements IShape.Area`), answered with its command. A lens that leads to a single place takes the user there instead of listing it: the `implements` lens of a procedure, and the count lens of a member that one procedure implements (`1 implementation`).
+
+|Lens|`command.command`|`command.arguments`|
+|---|---|---|
+|Two or more implementations, or none|`rdcore.showReferences`|The URI of the document, the position of the name, and the implementations (`Location[]`).|
+|One implementation, or the member a procedure implements|`rdcore.goToLocation` ([`RefactoringCommands.GoToLocation`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)): the client opens the document and selects the range.|The URI of the document and the range (`Range`).|
 
 ### `textDocument/typeDefinition` and `textDocument/implementation`
 

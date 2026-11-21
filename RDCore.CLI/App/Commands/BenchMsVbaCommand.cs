@@ -258,7 +258,7 @@ internal sealed class BenchMsVbaCommand(IConsoleMessageWriter writer, IFileSyste
 
         var stamp = new ReferenceStamp(Commit(), (clock ?? TimeProvider.System).GetLocalNow().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             figures.Excel ?? string.Empty, OperatingSystemName(), Environment.ProcessorCount,
-            ReferenceData.Method(options.Rounds, options.ExcelRounds, options.Runs, options.ExcelRuns));
+            ReferenceData.Method(options.Rounds, options.ExcelRounds, options.Runs, options.ExcelRuns, BenchWarmUp.UntilTheJitIsQuiet));
         var json = ReferenceData.ToJson(stamp,
             cases.Select(name => KeyValuePair.Create(name, new ReferenceFigure(figures.MsVbaCases[name], figures.RdVbaCases[name]))),
             figures.MsVbaExcel.Keys.Select(name => KeyValuePair.Create(name, new ReferenceFigure(figures.MsVbaExcel[name], figures.RdVbaExcel[name]))));

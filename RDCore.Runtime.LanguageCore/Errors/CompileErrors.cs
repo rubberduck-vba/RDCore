@@ -184,5 +184,7 @@ public static class CompileErrors
         [VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant] = Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant,
         [VBCompileErrorId.NoHostApplicationToEvaluateExpression] = Exceptions.VBCompileError_NoHostApplicationToEvaluateExpression,
         [VBCompileErrorId.OnlyValidInObjectModule] = Exceptions.VBCompileError_OnlyValidInObjectModule,
+        [VBCompileErrorId.NotALegalObjectName] = Exceptions.VBCompileError_NotALegalObjectName,
+        [VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary] = Exceptions.VBCompileError_NameConflictsWithModuleProjectOrLibrary,
     };
 }

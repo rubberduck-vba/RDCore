@@ -3,6 +3,9 @@ using Avalonia.Headless;
 using Avalonia.Threading;
 using RDCore.External.Automation;
 using RDCore.Forms.Avalonia;
+using RDCore.Forms.Avalonia.Rendering;
+using RDCore.SDK.Platform;
+using System.Globalization;
 
 namespace RDCore.External.Forms.RDForms;
 
@@ -22,11 +25,16 @@ public enum RDFormsPlatform
     Headless,
 }
 
-// the one Avalonia application of the process, on a thread of its own: Avalonia allows one UI thread to a process, and the thread that sets it up is that thread.
-// Every call on an RDForms object is made there, inline when it is made there already, as the calls an event's handlers make are.
+// the one Avalonia application of the process, on its UI thread: Avalonia allows one UI thread to a process, and the thread that sets it up is that thread.
+// It is a thread of its own, or the process's main thread on macOS (RDFormsUIThread). Every call on an RDForms object is made there, inline when it is made
+// there already, as the calls an event's handlers make are.
 internal static class RDFormsUI
 {
     private const int Failed = unchecked((int)0x80004005);
+
+    // windows that cannot be started are a form the platform cannot create, as on a platform with no form host: REGDB_E_CLASSNOTREG, which the call that
+    // creates the form (New, or the program's first use of it) reports as 429.
+    private const int CannotStart = unchecked((int)0x80040154);
 
     private static readonly object Gate = new();
     private static Dispatcher? _dispatcher;
@@ -36,8 +44,10 @@ internal static class RDFormsUI
     // (AppBuilder.Setup marks it made before it begins), so one that failed cannot be made again, whatever changed since. Touched under Gate.
     private static string? _failure;
 
-    // how many calls of the program the UI thread is making: an event raised while it makes one is the answer to that call. Touched on the UI thread only.
-    private static int _calls;
+    // the programs whose calls the UI thread is making, the innermost last. An event a form raises while the thread makes a call of the form's own program
+    // is the answer to that call; an event of another program's form is not, since that program is waiting on no call. Every program of the process shares
+    // the thread. Touched on the UI thread only.
+    private static readonly List<RDFormsProgram> Callers = [];
 
     // how many form hosts hold the windows' messages because a program of theirs runs. While one does, the UI thread makes the programs' calls and dispatches
     // nothing else, as a VB6 program's own thread does: what a window posts, such as the focus SetFocus moves, waits until the program waits for it (DoEvents, a
@@ -52,8 +62,8 @@ internal static class RDFormsUI
     private static bool _inHold;
     private static bool _holdAfterCall;
 
-    // whether the UI thread is making a call of the program, which is what makes an event it raises synchronous.
-    public static bool IsInCall => _calls > 0;
+    // whether the UI thread is making a call of `program`, which is what makes an event of that program's forms synchronous.
+    public static bool IsInCallOf(RDFormsProgram program) => Callers.Contains(program);
 
     public static Dispatcher Dispatcher => _dispatcher ?? throw new InvalidOperationException("The RDForms UI thread is not started.");
 
@@ -77,65 +87,37 @@ internal static class RDFormsUI
         {
             if (_failure is not null)
             {
-                throw new AutomationException(Failed, _failure);
+                throw new AutomationException(CannotStart, string.Format(CultureInfo.CurrentCulture, ExternalMessages.RDFormsCannotStart, _failure));
             }
 
             if (_dispatcher is not null)
             {
+                // Avalonia sets up one windowing platform per process, for good, so the windows cannot switch. No entry point mixes the two: a process
+                // runs its programs all unattended or all attended (--unattended, or the client's Unattended capability), and has one external host.
                 if (platform != _platform)
                 {
-                    throw new AutomationException(Failed, $"The RDForms windows of this process are {_platform}, and cannot be {platform} as well.");
+                    throw new AutomationException(Failed, _platform == RDFormsPlatform.Headless
+                        ? ExternalMessages.RDFormsWindowsAreHeadless
+                        : ExternalMessages.RDFormsWindowsAreOnTheDesktop);
                 }
 
                 return;
             }
 
-            Exception? failure = null;
-            Dispatcher? started = null;
-            using var ready = new ManualResetEventSlim();
-            var thread = new Thread(() =>
+            Dispatcher started;
+            try
             {
-                Dispatcher own;
-                try
+                started = RDFormsUIThread.Start(RDFormsUIThread.PlacementOf(platform, OperatingSystem.IsMacOS()), ProcessMainThread.Current, () =>
                 {
                     BuilderFor(platform).SetupWithoutStarting();
-                    own = Dispatcher.UIThread;
-                    if (!own.CheckAccess())
-                    {
-                        throw new InvalidOperationException("Avalonia's UI thread was set up on another thread of this process.");
-                    }
-
-                    started = own;
-                }
-                catch (Exception exception)
-                {
-                    failure = exception;
-                    return;
-                }
-                finally
-                {
-                    ready.Set();
-                }
-
-                own.MainLoop(CancellationToken.None);
-            })
-            {
-                IsBackground = true,
-                Name = "RDForms UI",
-            };
-
-            if (OperatingSystem.IsWindows())
-            {
-                // the desktop's drag and drop, clipboard and accessibility need a single-threaded apartment on Windows.
-                thread.SetApartmentState(ApartmentState.STA);
+                    var own = Dispatcher.UIThread;
+                    return own.CheckAccess() ? own : throw new InvalidOperationException("Avalonia's UI thread was set up on another thread of this process.");
+                }, (own, token) => own.MainLoop(token));
             }
-
-            thread.Start();
-            ready.Wait();
-            if (failure is not null)
+            catch (Exception failure)
             {
-                _failure = $"The RDForms windows cannot be started: {failure.Message}";
-                throw new AutomationException(Failed, _failure);
+                _failure = failure.Message;
+                throw new AutomationException(CannotStart, string.Format(CultureInfo.CurrentCulture, ExternalMessages.RDFormsCannotStart, _failure));
             }
 
             _platform = platform;
@@ -167,16 +149,17 @@ internal static class RDFormsUI
         _ => RDFormsApplication.Configure().UsePlatformDetect(),
     };
 
-    // makes a call of the program on the UI thread, and answers what it returned. What fails there fails the call, as a server's failure does.
-    public static T Run<T>(Func<T> call)
+    // makes a call of `program` on the UI thread, and answers what it returned: the program is the one the call is made of, whose forms' events are the
+    // answer to it. What fails there fails the call, as a server's failure does.
+    public static T Run<T>(RDFormsProgram program, Func<T> call)
     {
         var dispatcher = Dispatcher;
         if (dispatcher.CheckAccess())
         {
-            return Make(call);
+            return Make(program, call);
         }
 
-        var operation = dispatcher.InvokeAsync(() => Make(call), DispatcherPriority.Send);
+        var operation = dispatcher.InvokeAsync(() => Make(program, call), DispatcherPriority.Send);
         if (_holding)
         {
             _ = Arrived.Release();
@@ -188,15 +171,15 @@ internal static class RDFormsUI
 #pragma warning restore VSTHRD002
     }
 
-    public static void Run(Action call) => Run(() =>
+    public static void Run(RDFormsProgram program, Action call) => Run(program, () =>
     {
         call();
         return true;
     });
 
-    private static T Make<T>(Func<T> call)
+    private static T Make<T>(RDFormsProgram program, Func<T> call)
     {
-        _calls++;
+        Callers.Add(program);
         try
         {
             return call();
@@ -207,8 +190,8 @@ internal static class RDFormsUI
         }
         finally
         {
-            _calls--;
-            if (_calls == 0 && _holdAfterCall)
+            Callers.RemoveAt(Callers.Count - 1);
+            if (Callers.Count == 0 && _holdAfterCall)
             {
                 _holdAfterCall = false;
                 Dispatcher.Post(HoldMessages, DispatcherPriority.Send);
@@ -255,7 +238,7 @@ internal static class RDFormsUI
             return;
         }
 
-        if (_calls > 0)
+        if (Callers.Count > 0)
         {
             _holdAfterCall = true;
             return;

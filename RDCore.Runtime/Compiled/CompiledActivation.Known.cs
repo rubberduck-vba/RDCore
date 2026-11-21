@@ -49,15 +49,37 @@ public sealed partial class CompiledActivation
     /// Takes what the call just made returned, of a function or a <c>Property Get</c> that returns an object (<see cref="CompiledCallee.ReturnsObject"/>):
     /// the statement's temporaries hold it until the statement is over, as they hold what a call the interpreter makes returns (MS-VBAL §5.3.1.10).
     /// </summary>
+    /// <param name="site">The number of the call among the body's calls for an object, whose cell is <paramref name="cell"/>.</param>
     /// <param name="cell">A cell that refers to the object, as an object variable's does, which compiled code reads a member of the object through; the
-    /// reference is the temporary's, and not counted again.</param>
+    /// reference is the temporary's, and not counted again. Each site has a cell of its own in the activation, which the site's next call is given again:
+    /// what reads it reads its value, and holds it only while the statement runs.</param>
     /// <returns>The object, as the call returned it, which the interpreter is given when the statement is handed to it (<see cref="KnowObject"/>).</returns>
-    public object? TakeReturnedObject(out object? cell)
+    public object? TakeReturnedObject(int site, out object? cell)
     {
         var returned = _returnedObject;
         _returnedObject = null;
-        cell = returned is null ? null : new ValueBindingHandle(returned.RuntimeValue);
+        cell = returned is null ? null : ReturnedCell(site, returned.RuntimeValue);
         return returned;
+    }
+
+    // the cells of the body's calls for an object, by site (TakeReturnedObject): made as each site is first reached, and kept with the activation.
+    private ValueBindingHandle?[]? _returnedCells;
+
+    private ValueBindingHandle ReturnedCell(int site, IRuntimeValue value)
+    {
+        if (_returnedCells is not { } cells || site >= cells.Length)
+        {
+            Array.Resize(ref _returnedCells, site + 1);
+            cells = _returnedCells;
+        }
+
+        if (cells[site] is { } cell)
+        {
+            cell.Store(value, isKnown: true);
+            return cell;
+        }
+
+        return cells[site] = new ValueBindingHandle(value);
     }
 
     // what the last call of a function or a Property Get that returns a String returned (CompiledCallee.ReturnsText).

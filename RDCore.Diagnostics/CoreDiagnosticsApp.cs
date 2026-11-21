@@ -44,6 +44,7 @@ internal class CoreDiagnosticsApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DiagnoseDocumentHandler>();
+        builder.WithHandler<DiagnoseProjectHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -56,6 +57,7 @@ internal class CoreDiagnosticsApp(
 
         // every analyzer the extension has, which the handler calls for each document it diagnoses.
         services.AddSingleton<IModuleAnalyzer, OptionExplicitAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UndeclaredVariableAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteCallStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NotAllPathsReturnValueAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IsMissingAlwaysFalseAnalyzer>();
@@ -65,6 +67,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ProcedureCanBeWrittenAsFunctionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SelfAssignedDeclarationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, FunctionReturnValueDiscardedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, FunctionReturnValueAlwaysDiscardedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitNarrowingConversionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BitwiseSemanticsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AmbiguousConcatenationAnalyzer>();
@@ -106,12 +109,17 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, RedundantByRefModifierAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantModuleOptionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BooleanAssignedInIfElseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnreachableCaseAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, StopStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotAssignedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ParameterNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AssignedByValParameterAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnassignedVariableUsageAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, AssignmentNotUsedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ParameterCanBeByValAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ConstantNotUsedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ProcedureNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LineLabelNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, WriteOnlyPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NegativeLineNumberAnalyzer>();
@@ -119,6 +127,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, OnErrorGoToMinusOneAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnrestoredOnErrorResumeNextAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitConstantTypeAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, VariantStringFunctionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnderscoreInPublicClassMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedByRefAnalyzer>();
@@ -130,6 +139,9 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, DeclarationNameDivergenceAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetToADefaultMemberWithNoPropertyLetAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LetThroughAVariantGetOrFunctionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, LetToAnObjectWithNoDefaultMemberAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, SetToAnIncompatibleClassAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ArgumentOfAnIncompatibleClassAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectLetToVariantPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
@@ -151,6 +163,8 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, IndexedRecursiveDefaultMemberAccessAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RecursiveBangNotationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousLetAssignmentAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnresolvedLateBoundMemberAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, MemberNotOnDeclaredInterfaceAnalyzer>();
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();
@@ -158,6 +172,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, EncapsulatePublicFieldAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SuspiciousPredeclaredInstanceAccessAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplementedInterfaceMemberAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, MoveFieldCloserToUsageAnalyzer>();
 
         // what RD-VBA does not host: the code of a host's document, which is analyzed and does not run.
         services.AddSingleton<IModuleAnalyzer, HostedDocumentCodeAnalyzer>();
@@ -177,6 +192,9 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, EmptyCodeBlockAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyProcedureAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyModuleAnalyzer>();
+
+        // every project analyzer, which the project handler calls for each project of the workspace.
+        services.AddSingleton<IProjectAnalyzer, DefaultProjectNameAnalyzer>();
     }
 
     protected override void Dispose(bool disposing)

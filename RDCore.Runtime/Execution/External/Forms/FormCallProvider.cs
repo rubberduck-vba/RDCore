@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -288,7 +289,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         try
         {
             _ = outside.Automation.Invoke(handle, unload ? FormControlArrayMembers.Unload : FormControlArrayMembers.Load, AutomationInvocation.Method,
-                [Dereferenced(index, resolver).BoxedValue], [false], session.Environment.Culture);
+                [Dereferenced(index, VBLongType.TypeInfo, resolver).BoxedValue], [false], session.Environment.Culture);
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
         catch (AutomationException failure)
@@ -307,7 +308,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     // none.
     private static VBRuntimeObjectId? ObjectArgument(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
     {
-        argument = Dereferenced(argument, resolver);
+        argument = Dereferenced(argument, VBObjectType.TypeInfo, resolver);
         if (argument is VBRuntimeVariantValue { WrappedValue: var held })
         {
             if (held is not VBObjectValue)
@@ -321,10 +322,10 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBObjectValue { } value && !value.IsNothing() ? value.Value : null;
     }
 
-    // the value an argument is: the variable's, for one passed by reference.
-    private static IRuntimeValue Dereferenced(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
+    // the value an argument is: the variable's, of the type it is read as, for one passed by reference.
+    private static IRuntimeValue Dereferenced(IRuntimeValue argument, VBType type, IRuntimeSymbolResolver resolver)
     {
-        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference, type, out var cell))
         {
             argument = cell.Value;
         }
@@ -345,8 +346,9 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 new AutomationException(ClassNotRegistered, Exceptions.FormHost_VisualBasic6FormUnavailable_Verbose), site, $"New {classModule.Name}", creating: true))
             : null;
 
-    // a Visual Basic 6.0 form is a class that is not registered (429) where the form host does not host one, as a UserForm is where Microsoft Forms is not.
-    private bool CanBeHosted(FormDescriptor designer) => designer.Kind != FormDesignerKind.VisualBasic6 || outside.Forms.HostsVisualBasic6Forms;
+    // a Visual Basic 6.0 form, or an RDForms form, is a class that is not registered (429) where the form host does not host one, as a UserForm is where
+    // Microsoft Forms is not: the host of the one is the host of the other.
+    private bool CanBeHosted(FormDescriptor designer) => !designer.HasVisualBasic6FormModel || outside.Forms.HostsVisualBasic6Forms;
 
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
     private object? FormOf(VBRuntimeObjectId identity, string form, ExternalCallRequest request)
@@ -382,7 +384,8 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return created;
     }
 
-    private bool IsVisualBasic6(string form) => forms.TryGetValue(form, out var designer) && designer.Kind == SDK.Workspace.Forms.FormDesignerKind.VisualBasic6;
+    // a VB6 form, or an RDForms form, which keeps VB6's form model.
+    private bool IsVisualBasic6(string form) => forms.TryGetValue(form, out var designer) && designer.HasVisualBasic6FormModel;
 
     // the session's Forms collection, of the standard library's class that has no name in VB6 (IStdFormsClass).
     private RuntimeSemanticsEvaluationResult FormsCollection()
@@ -530,14 +533,14 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         return Hosted(() => outside.Forms.Hide(hosted));
     }
 
-    // Show [Modal]: modal when it says vbModal, and as the designer's ShowModal says when it says nothing: a UserForm's is True unless its designer says otherwise,
-    // and a Visual Basic 6.0 form has none, and is shown modeless (vbModeless). A modal form is waited for, and the program gives its turn up while it does: what the
-    // form raises meanwhile is the answer to the call.
+    // Show [Modal]: modal when it says vbModal, and as the designer's ShowModal says when it says nothing: a UserForm's is True unless its designer says
+    // otherwise, and a Visual Basic 6.0 form, or an RDForms form, has none, and is shown modeless (vbModeless). A modal form is waited for, and the
+    // program gives its turn up while it does: what the form raises meanwhile is the answer to the call.
     private RuntimeSemanticsEvaluationResult Show(object hosted, ExternalCallRequest request, string form)
     {
         var modal = request.Arguments.Length > 1 && VariantOf(request.Arguments[1]) is { } argument and not VBMissingValue
             ? Convert.ToInt32(argument.RuntimeValue.BoxedValue, System.Globalization.CultureInfo.InvariantCulture) != 0
-            : !forms.TryGetValue(form, out var designer) || (designer.ShowModal ?? designer.Kind != SDK.Workspace.Forms.FormDesignerKind.VisualBasic6);
+            : !forms.TryGetValue(form, out var designer) || (designer.ShowModal ?? !designer.HasVisualBasic6FormModel);
 
         using (session.Turn.Yield())
         {

@@ -524,7 +524,10 @@ internal sealed class WorkspaceReloadService(
         await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
 
         // the projects may reference one another differently now (RDC31001).
-        projectFileDiagnostics?.Publish();
+        if (projectFileDiagnostics is not null)
+        {
+            await projectFileDiagnostics.PublishAsync(stopping);
+        }
 
         // a program that waits may not have what the batch changed: it is said, before the batch is done.
         if (editStatus is not null)

@@ -34,8 +34,8 @@ public enum IneligibilityKind
     AssignmentTarget,
 
     /// <summary>
-    /// A <c>For</c> loop that counts with what is not a variable of the procedure, with a <c>Boolean</c>, or with a variable held in a cell - a parameter
-    /// passed by reference, a variable the procedure passes by reference.
+    /// A <c>For</c> loop that counts with what is not a variable of the procedure, with a <c>Boolean</c>, with a field (held in a cell the interpreter and
+    /// other procedures see), or with a <c>Variant</c>, whose statement the interpreter runs.
     /// </summary>
     ForCounter,
 
@@ -69,7 +69,10 @@ public enum IneligibilityKind
     /// <summary>A literal that is no scalar - a <c>String</c>, <c>Nothing</c>, <c>Null</c>, <c>Empty</c>: compiled code holds only scalars.</summary>
     Literal,
 
-    /// <summary>An operator compiled code does not do: <c>^</c>, <c>&amp;</c>, <c>Like</c>, <c>Is</c>; or an operation of no scalar type. Its detail is the operator.</summary>
+    /// <summary>
+    /// An operator compiled code does not do, such as <c>Like</c> or a <c>^</c> of a <c>Variant</c>; or an operation of no scalar type. Its detail is the
+    /// operator.
+    /// </summary>
     Operator,
 
     /// <summary>A <c>GoTo</c>, a line that is jumped to: compiled code jumps only where its loops and branches go.</summary>
@@ -189,6 +192,9 @@ internal sealed record class IntegralNode(string Token, PayloadNode Left, Payloa
 
 // PayloadOperations.Logical.
 internal sealed record class LogicalNode(LogicalOperator Operator, PayloadNode Left, PayloadNode Right, ScalarKind Kind) : PayloadNode(Kind);
+
+// PayloadOperations.Power, of two Doubles: a Double (MS-VBAL §5.6.9.3.7). A power it declines is the interpreter's, which raises the error.
+internal sealed record class PowerNode(PayloadNode Left, PayloadNode Right) : PayloadNode(ScalarKind.Double);
 
 // PayloadOperations.Compare, of two payloads of one kind: a Boolean.
 internal sealed record class CompareNode(ComparisonOperator Operator, PayloadNode Left, PayloadNode Right) : PayloadNode(ScalarKind.Boolean);
@@ -364,8 +370,9 @@ internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNo
 // Kind is not read.
 internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(default(ScalarKind));
 
-// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11): the variable's address, which
-// the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11), which the parameter is a second
+// name for: the variable's cell, for a call made directly (CompiledActivation.TakeTextReference), or its address, as the interpreter gives it. Only an
+// argument of a call; its Kind is not read.
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
@@ -623,7 +630,8 @@ internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTy
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
 /// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), for an object, whose argument is the object or the variable's address
 /// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>), for an optional <c>Variant</c> the call leaves out
-/// (<see cref="OmittedArgumentNode"/>), and for a <c>Variant</c> given the address of a variable (<see cref="VariantReferenceNode"/>).
+/// (<see cref="OmittedArgumentNode"/>), and for a <c>Variant</c> given the address of a variable (<see cref="VariantReferenceNode"/>) or the cell of a
+/// variable of a scalar type (<see cref="ReferenceNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -672,16 +680,60 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public bool ReturnsValue { get; init; }
 
     /// <summary>
-    /// For each parameter, whether it is a <c>Variant</c> passed by reference, given the address of a <c>Variant</c> variable of the activation
-    /// (<see cref="VariantReferenceNode"/>), whose <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
+    /// For each parameter, whether it is a <c>Variant</c> passed by reference, given a variable of the activation: the address of a <c>Variant</c> or a
+    /// <c>String</c> (<see cref="VariantReferenceNode"/>), or the cell of a variable of a scalar type (<see cref="ReferenceNode"/>), whose
+    /// <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
     /// </summary>
     public IReadOnlyList<bool> VariantReferences { get; init; } = [];
+
+    /// <summary>
+    /// For each parameter, the slot of the callee's layout a <c>String</c> parameter of variable length is held in, whose <see cref="Parameters"/> kind is
+    /// <see langword="null"/> (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>); -1 for any other. Empty when the call has no
+    /// <c>String</c> parameter. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeText"/>,
+    /// <see cref="CompiledActivation.TakeTextReference"/>). A call of a member of an object is made through its binding, which is given the argument
+    /// (<see cref="CompiledActivation.SetText"/>, <see cref="CompiledActivation.SetTextReference"/>): the slot is the one of the member it was bound to.
+    /// </summary>
+    public IReadOnlyList<int> TextSlots { get; init; } = [];
+
+    /// <summary>
+    /// For each parameter, the slot of the callee's layout an object parameter is held in, whose <see cref="Parameters"/> kind is <see langword="null"/>
+    /// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>); -1 for any other. Empty when the call has no object parameter, or is of a
+    /// member of an object. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeObject"/>,
+    /// <see cref="CompiledActivation.TakeObjectReference"/>).
+    /// </summary>
+    public IReadOnlyList<int> ObjectSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether every parameter is a scalar, a <c>String</c> of variable length or an object given in a slot of the callee's layout: what a call made
+    /// through the callee's typed entry gives.
+    /// </summary>
+    public bool GivesWhatTheEntryTakes
+    {
+        get
+        {
+            for (var i = 0; i < Parameters.Count; i++)
+            {
+                if (Parameters[i] is null && (i >= TextSlots.Count || TextSlots[i] < 0) && (i >= ObjectSlots.Count || ObjectSlots[i] < 0))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
 
     /// <summary>
     /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.
     /// Empty when the call has no object parameter.
     /// </summary>
     public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
+
+    /// <summary>
+    /// The order the arguments are evaluated in, as the interpreter evaluates them (<see cref="LanguageCore.Binding.ArgumentOrder"/>): the calls first, left
+    /// to right, then the others, right to left. An argument that is no call is evaluated whole with the calls when no call is made after it.
+    /// </summary>
+    public LanguageCore.Binding.ArgumentOrder Order { get; init; }
 
     /// <summary>
     /// For each parameter, whether the call leaves out its argument (MS-VBAL §5.3.1.11): a scalar parameter is then given the default
@@ -698,7 +750,8 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 
     /// <summary>
     /// The class an object is declared as, of a call of its default member that an index expression makes (MS-VBAL §5.6.13): <see cref="Procedure"/> is
-    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class only; an object of another class is the interpreter's.
+    /// the member of that class marked <c>VB_UserMemId = 0</c>, invoked on an object of that class, and the member implementing it on an object of a class
+    /// that implements that class as an interface (MS-VBAL §5.3.1.9); an object of any other class is the interpreter's.
     /// <see cref="Site"/> is then <see langword="null"/>.
     /// </summary>
     public SDK.Model.Symbols.VBClassModuleSymbol? DefaultOf { get; init; }
@@ -761,22 +814,20 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 }
 
 /// <summary>
-/// The cells of the fields of an object a body found (<see cref="CompiledBody.ObjectFields"/>), by the number compiled code knows each
-/// field by: each found as it is first asked for, and looked for again while it is none (the object holds the field in no cell of its type). The cells keep the
-/// object's identity, which no other object is ever given, and hold no reference to it: a body keeps no object alive once nothing else does. A live object keeps the cell
-/// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body
-/// again, with none found.
+/// Where each field of <c>Me</c> a body reaches is in the fields an object holds (<see cref="CompiledBody.ObjectFieldIndices"/>): its index in
+/// <see cref="SDK.Runtime.Abstract.Execution.IObjectInstance.Fields"/>, by the number compiled code knows the field by, or -1 for a field no such list
+/// holds (a <c>Static</c> local of a member). Every object of a class laid out at a version of the symbol table holds the same list.
 /// </summary>
-/// <param name="Object">The object's identity.</param>
-/// <param name="Cells">The cells, by number.</param>
-internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, object?[] Cells)
+/// <param name="Fields">The list the indices are in.</param>
+/// <param name="Indices">The indices, by number.</param>
+internal sealed record class FieldIndices(IReadOnlyList<SDK.Model.Symbols.Abstract.Symbol> Fields, int[] Indices)
 {
 }
 
 /// <summary>
 /// The cells of the variables of the session a body found (<see cref="CompiledBody.SessionFields"/>), by the number compiled code knows
-/// each field by, as <see cref="FieldCells"/> are an object's. The storage is known by a weak reference: a body is shared by every session composed over the
-/// same scopes, and keeps none of them alive.
+/// each field by: each found as it is first asked for, and looked for again while it is none (the session holds the variable in no cell of its type). The
+/// storage is known by a weak reference: a body is shared by every session composed over the same scopes, and keeps none of them alive.
 /// </summary>
 /// <param name="Storage">The storage they were found in.</param>
 /// <param name="Generation">What the storage bound when they were found: a cell is the variable's for as long as that has not changed.</param>

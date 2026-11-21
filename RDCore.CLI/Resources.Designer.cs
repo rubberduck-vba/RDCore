@@ -394,6 +394,15 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The file this replaces states facts of members the library no longer declares; those facts are lost: {0}..
+        /// </summary>
+        public static string ExportLibrary_Lost {
+            get {
+                return ResourceManager.GetString("ExportLibrary_Lost", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This machine has no type library &apos;{0}&apos;. A library is given as a file, as the identifier the machine gave it, or by its name. A file that holds more than one library is given with the number of the library&apos;s resource, as a .vbp references it (MSVBVM60.DLL\3)..
         /// </summary>
         public static string ExportLibrary_NotFound {
@@ -401,7 +410,7 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("ExportLibrary_NotFound", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Not described: {0}..
         /// </summary>

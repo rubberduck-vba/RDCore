@@ -227,9 +227,8 @@ public sealed class CompiledArrayTests
             "    Emptied = Emptied * 100 + UBound(V)",
             "End Function"), "Emptied", recoveries: 3);
 
-    // an array passed by reference whole - to a callee compiled code runs, which writes its elements, and to one the interpreter runs, whose loop counts
-    // with a parameter passed by reference - and an element passed by reference, which the interpreter passes: what each callee writes is in the caller's
-    // array after it.
+    // an array passed by reference whole - to a callee that writes its elements, and to one whose loop counts with a parameter passed by reference - and
+    // an element passed by reference, which the interpreter passes: what each callee writes is in the caller's array, and in its counter, after it.
     [TestMethod]
     public async Task AnArrayOrAnElementPassedByReference_IsWrittenByTheCallee()
     {
@@ -244,7 +243,7 @@ public sealed class CompiledArrayTests
             "    For I = 1 To 8",
             "        Passed = Passed * 2 + V(I)",
             "    Next",
-            "    FillInterpreted V, J",
+            "    FillByCounter V, J",
             "    Passed = Passed + J",
             "    For I = 1 To 8",
             "        Bump V(I)",
@@ -257,7 +256,7 @@ public sealed class CompiledArrayTests
             "        A(I) = A(I) + I * 3",
             "    Next",
             "End Sub",
-            "Private Sub FillInterpreted(A() As Long, I As Long)",
+            "Private Sub FillByCounter(A() As Long, I As Long)",
             "    For I = LBound(A) To UBound(A)",
             "        A(I) = A(I) * 2 + 1",
             "    Next",
@@ -267,7 +266,6 @@ public sealed class CompiledArrayTests
             "End Sub"));
         Assert.IsNotNull(compiled["Passed"].Body, "Passed");
         Assert.IsNotNull(compiled["Fill"].Body, "Fill");
-        Assert.IsNull(compiled["FillInterpreted"].Body, "FillInterpreted");
         Assert.IsNotNull(compiled["Bump"].Body, "Bump");
         Assert.AreEqual(0, compiled["Fill"].Body!.Recoveries, "Fill's recoveries");
     }

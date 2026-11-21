@@ -20,6 +20,8 @@ using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Symbols;
 using System.Diagnostics;
+using System.Globalization;
+using System.Runtime;
 using System.IO.Abstractions;
 using RDCore.SDK.Platform.Components;
 
@@ -32,7 +34,38 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="Filter">Only the cases whose <c>Module.Procedure</c> name contains this, without regard to case; every case when <see langword="null"/>.</param>
 /// <param name="ListOnly">Whether the workspace is loaded and swept, and its cases listed, without running any of them.</param>
 /// <param name="Engine">What runs the cases; the engine the environment says when <see langword="null"/>.</param>
-internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, bool ListOnly = false, VBExecutionEngine? Engine = null);
+/// <param name="WarmUp">How each case is warmed up before its timed runs; not at all when <see langword="null"/>.</param>
+internal sealed record class BenchOptions(
+    int Runs = 3, string? Filter = null, bool ListOnly = false, VBExecutionEngine? Engine = null, BenchWarmUp? WarmUp = null);
+
+/// <summary>
+/// How a case is warmed up before its timed runs: untimed runs, at least <paramref name="Runs"/> of them, until the JIT has compiled nothing for
+/// <paramref name="Quiet"/>. The warm-up ends once <paramref name="Limit"/> has passed, after one run at least, whatever the JIT does.
+/// </summary>
+/// <remarks>
+/// Tiered compilation recompiles a method at its optimized tier, with dynamic PGO, in the background, once it has been called 30 times and the JIT has been
+/// idle for a while: a method called once a run is recompiled after 30 runs. Until then a run can take several times as long as the runs after it, for a
+/// number of runs that differs from one process to the next. After it, the JIT goes on recompiling a few methods now and then; a short quiet spell ends the
+/// warm-up.
+/// </remarks>
+/// <param name="Runs">The fewest warm-up runs.</param>
+/// <param name="Quiet">How long the JIT compiles nothing before the warm-up ends.</param>
+/// <param name="Limit">How long the warm-up of a case lasts at the most, whatever the JIT does and however few runs it made, after its first run.</param>
+internal sealed record class BenchWarmUp(int Runs, TimeSpan Quiet, TimeSpan Limit)
+{
+    /// <summary>
+    /// The warm-up of <c>rdc bench</c>: at least 31 runs, past the 30 calls that tier a method up, until the JIT has compiled nothing for 250 ms, for 5 seconds
+    /// at the most.
+    /// </summary>
+    public static BenchWarmUp UntilTheJitIsQuiet { get; } = new(31, TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// What the report says of the warm-up, in English whatever the culture: the text is data the bench job and the reference file keep.
+    /// </summary>
+    public string Describe() => string.Create(CultureInfo.InvariantCulture,
+        $"untimed runs of each case first, at least {Runs}, until the JIT compiles nothing for {Quiet.TotalMilliseconds:0} ms, "
+        + $"for {Limit.TotalSeconds:0} s at the most");
+}
 
 /// <summary>
 /// What a run of a benchmark case allocated, and the garbage collections made while it ran.
@@ -50,7 +83,9 @@ internal readonly record struct BenchRunCost(long Bytes, int Gen0, int Gen1, int
 /// <param name="Runs">How long each run took.</param>
 /// <param name="Error">What stopped the case, when something did; no run that follows it is made.</param>
 /// <param name="Costs">What each run allocated and the collections made while it ran, in the order of <paramref name="Runs"/>.</param>
-internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs, string? Error = null, IReadOnlyList<BenchRunCost>? Costs = null)
+/// <param name="WarmUpRuns">The untimed runs made before <paramref name="Runs"/> (<see cref="BenchOptions.WarmUp"/>).</param>
+internal sealed record class BenchCase(
+    string Name, IReadOnlyList<TimeSpan> Runs, string? Error = null, IReadOnlyList<BenchRunCost>? Costs = null, int WarmUpRuns = 0)
 {
     /// <summary>The fastest run, which is the least disturbed by anything else the machine did.</summary>
     public TimeSpan? Min => Runs.Count == 0 ? null : Runs.Min();
@@ -93,12 +128,13 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// <param name="Load">Loading the code of every module: lowered, and analyzed statically.</param>
 /// <param name="Sweep">From the first module loaded until the facts of every module are evaluated: the analysis sweep, which runs in the background as modules load.</param>
 /// <param name="Compile">Compiling the procedures the cases called to IL, when the engine is <see cref="VBExecutionEngine.Compiled"/>: each the first time it was
-/// called, which is in the first run of its case.</param>
+/// called, which is in the first run of its case, a warm-up run when there is one.</param>
 /// <param name="Cases">The cases, in the order the modules declare them.</param>
 /// <param name="Problems">What kept a module from being parsed or loaded. While there is any, no case is run: each is refused with it.</param>
 /// <param name="Indent">
 /// Indenting the shell's program of <see cref="BenchRunner.ProgramLines"/> lines as the shell does (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>), the
-/// fastest of the runs (<see cref="BenchOptions.Runs"/>, <c>--runs</c>): the same program whatever the workspace; none when the cases are only listed.
+/// fastest of <see cref="BenchRunner.IndentRuns"/> runs: the same program whatever the workspace; none when the cases are only listed, or when the filter does
+/// not select <see cref="BenchRunner.IndentName"/>.
 /// </param>
 /// <param name="DirectCalls">How many calls compiled code made of compiled procedures through their typed entries, over every run of every case.</param>
 /// <param name="IndirectCalls">How many calls compiled code made through the invoker, over every run of every case.</param>
@@ -152,6 +188,16 @@ internal sealed class BenchRunner(
     /// <summary>The lines of the shell's program whose indentation is timed: as many as a long paste at the prompt.</summary>
     public const int ProgramLines = 5000;
 
+    /// <summary>
+    /// The name the indentation of the shell's program goes by: a filter selects it as it selects a case.
+    /// </summary>
+    public const string IndentName = "Indent.Program";
+
+    /// <summary>
+    /// How many times the shell's program is indented, whatever <c>--runs</c> says: the fastest run is reported.
+    /// </summary>
+    public const int IndentRuns = 10;
+
     /// <summary>The environment the session is composed for: what runs the cases, and how they are built.</summary>
     public IRuntimeEnvironmentProfile Environment => environment;
 
@@ -188,10 +234,11 @@ internal sealed class BenchRunner(
             }
 
             progress?.Invoke(name);
-            cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
+            cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, options.WarmUp, token));
         }
 
-        var indent = options.ListOnly ? (TimeSpan?)null : IndentProgram(options.Runs);
+        // a bench of its own, run when the filter selects it: a run of one case does not wait for it, and it is run IndentRuns times whatever --runs says.
+        var indent = options.ListOnly || !Selected(IndentName, options.Filter) ? (TimeSpan?)null : IndentProgram(IndentRuns);
 
         // how compiled code made its calls: what says which way a case that calls ran.
         var (direct, indirect) = provider.Image.CompiledCalls;
@@ -374,7 +421,7 @@ internal sealed class BenchRunner(
         // they are bound in the environment the session was composed for: the profile's language and pointer width, which need not be the runner's.
         stopwatch.Restart();
         var composed = provider.Session.Environment;
-        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, composed.Language);
+        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project, composed.Language);
         var scope = composed.Language.ImplicitDeclarationScope;
 
         // each project the project references is bound as its own analysis binds it: its modules, the libraries it references, and its own name. It gives the
@@ -383,7 +430,7 @@ internal sealed class BenchRunner(
         {
             var projectRoot = each.Workspace.RootUri;
             var modules = Parsed(each.Workspace, projectRoot, problems, $"{each.Name}.", parsed: null);
-            var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project.References, composed.Language);
+            var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project, composed.Language);
             var projectResolver = WorkspaceSymbolResolver.Compose(
                 projectRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit), each.Name,
                 scope, [.. new LibrarySymbolProvider(projectRoot, ownLibraries, composed.Is64Bit).ProvideSymbols()], HostsOf(each.Workspace));
@@ -458,7 +505,7 @@ internal sealed class BenchRunner(
         {
             var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
             {
-                Designer = FormDesigner.Read(module.Source, module.Companion, out var designerProblem),
+                Designer = FormDesigner.Read(module.RelativePath, module.Source, module.Companion, out var designerProblem),
             };
             if ((module.CompanionProblem ?? designerProblem) is { } problem)
             {
@@ -524,16 +571,48 @@ internal sealed class BenchRunner(
         }
     }
 
-    private async Task<BenchCase> RunCaseAsync(EnvironmentSessionProvider provider, string name, VBTypeMemberSymbol entryPoint, int runs, CancellationToken token)
+    private async Task<BenchCase> RunCaseAsync(
+        EnvironmentSessionProvider provider, string name, VBTypeMemberSymbol entryPoint, int runs, BenchWarmUp? warmUp, CancellationToken token)
     {
+        // a pipeline per run, as the host composes one per request: its cancellation is the run's. A timed run's is composed before its heap is collected
+        // and its stopwatch starts, so neither the time it takes nor what it allocates is the run's.
+        RuntimeExecutionPipeline Compose()
+            => RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errorDetails, token, outside: provider.Outside);
+        Task<ExecuteResult> RunAsync(RuntimeExecutionPipeline pipeline) => provider.Execution.RunAsync(pipeline, entryPoint, debug: false, token);
+
+        var warmUpRuns = 0;
+        if (warmUp is not null)
+        {
+            // untimed, and what they allocate and collect is not the case's.
+            var elapsed = Stopwatch.StartNew();
+            var quiet = Stopwatch.StartNew();
+            var compiled = JitInfo.GetCompiledMethodCount(currentThread: false);
+            // a case slow enough to reach the limit first has run its loops long enough for the JIT to have replaced them.
+            while (warmUpRuns == 0 || (elapsed.Elapsed < warmUp.Limit && (warmUpRuns < warmUp.Runs || quiet.Elapsed < warmUp.Quiet)))
+            {
+                token.ThrowIfCancellationRequested();
+                var result = await RunAsync(Compose());
+                warmUpRuns++;
+                if (result.Outcome is not ExecutionOutcome.Completed)
+                {
+                    return new BenchCase(name, [], Failure(result), [], warmUpRuns);
+                }
+
+                // the JIT's background thread counts: a method recompiled at a higher tier is compiled again.
+                if (JitInfo.GetCompiledMethodCount(currentThread: false) is var now && now != compiled)
+                {
+                    compiled = now;
+                    quiet.Restart();
+                }
+            }
+        }
+
         var times = new List<TimeSpan>(runs);
         var costs = new List<BenchRunCost>(runs);
         for (var run = 0; run < runs; run++)
         {
             token.ThrowIfCancellationRequested();
-
-            // a pipeline per run, as the host composes one per request: its cancellation is the run's.
-            var pipeline = RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errorDetails, token, outside: provider.Outside);
+            var pipeline = Compose();
 
             // every run starts from a collected heap, so a collection inside it depends on what the run allocates and keeps, not on the runs and
             // cases before it.
@@ -544,21 +623,23 @@ internal sealed class BenchRunner(
             var bytes = GC.GetTotalAllocatedBytes(precise: true);
             int gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2);
             var stopwatch = Stopwatch.StartNew();
-            var result = await provider.Execution.RunAsync(pipeline, entryPoint, debug: false, token);
+            var result = await RunAsync(pipeline);
             stopwatch.Stop();
             var cost = new BenchRunCost(GC.GetTotalAllocatedBytes(precise: true) - bytes,
                 GC.CollectionCount(0) - gen0, GC.CollectionCount(1) - gen1, GC.CollectionCount(2) - gen2);
 
             if (result.Outcome is not ExecutionOutcome.Completed)
             {
-                var error = result.Outcome is ExecutionOutcome.RuntimeError ? $"{result.ErrorCode} {result.ErrorMessage}" : $"{result.Outcome} {result.ErrorMessage}".Trim();
-                return new BenchCase(name, times, error, costs);
+                return new BenchCase(name, times, Failure(result), costs, warmUpRuns);
             }
 
             times.Add(stopwatch.Elapsed);
             costs.Add(cost);
         }
 
-        return new BenchCase(name, times, Costs: costs);
+        return new BenchCase(name, times, Costs: costs, WarmUpRuns: warmUpRuns);
     }
+
+    private static string Failure(ExecuteResult result)
+        => result.Outcome is ExecutionOutcome.RuntimeError ? $"{result.ErrorCode} {result.ErrorMessage}" : $"{result.Outcome} {result.ErrorMessage}".Trim();
 }

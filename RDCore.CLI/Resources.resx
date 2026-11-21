@@ -205,6 +205,9 @@
   <data name="ExportLibrary_Skipped" xml:space="preserve">
     <value>Not described: {0}.</value>
   </data>
+  <data name="ExportLibrary_Lost" xml:space="preserve">
+    <value>The file this replaces states facts of members the library no longer declares; those facts are lost: {0}.</value>
+  </data>
   <data name="Command_Unknown" xml:space="preserve">
     <value>Unknown command.</value>
   </data>
@@ -642,7 +645,7 @@
     <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Whether a console application, run by rdc run or built by rdc build, shows MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console. Any other program shows the machine's own dialogs where it has them.</value>
+    <value>Whether a program run by rdc run or built by rdc build shows MsgBox and InputBox as Windows dialog boxes, rather than as RDForms dialogs (an RDForms application) or at the console (a console application). Only Windows has them: on any other operating system, this setting changes nothing.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>

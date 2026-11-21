@@ -33,9 +33,14 @@ rdc bench
 | Option | What it does |
 |---|---|
 | `--runs <n>`, `-r <n>` | Runs each case `n` times (3 by default). |
-| `--filter <text>`, `-f <text>` | Runs only the cases whose `Module.Procedure` name contains the text, such as `--filter Strings.` |
+| `--filter <text>`, `-f <text>` | Runs only the cases whose `Module.Procedure` name contains the text, such as `--filter Strings.` The `indent` row (the shell indenting a program of 5,000 lines, the fastest of 10 runs) runs when its name, `Indent.Program`, contains the text. |
 | `--list`, `-l` | Lists the cases without running them. |
 | `--engine <engine>`, `-e <engine>` | Runs the cases with `Compiled` or `Interpreter`, instead of the configured execution engine. |
+| `--no-warm-up` | Times each case from its first run. |
+
+Before its timed runs, each case is run untimed until .NET has finished optimizing the code it calls: at least 31 times, then until the JIT compiler
+has compiled nothing for 250 ms, for 5 seconds at the most. Until then a run can take several times as long as the runs after it. The report's
+`warm-up` line gives how many untimed runs were made over all the cases, or `none` with `--no-warm-up`.
 
 For each case, the report gives its fastest and its median run, what its fastest run allocated, and the garbage collections of each generation made
 while it ran. Before the cases, it gives how long the corpus took to parse, load and analyze.
@@ -56,8 +61,9 @@ rdc bench-msvba
 ```
 
 It runs the corpus and the Excel automation cases in MS-VBA, in a hidden Excel, and in RD-VBA, in alternated rounds: MS-VBA first in odd rounds,
-RD-VBA first in even rounds. It keeps the fastest run of each case on each side, over all the rounds, and writes the figures to `msvba.json`.
-Nothing is written unless every case has a figure on both sides.
+RD-VBA first in even rounds. RD-VBA warms each case of the corpus up as `rdc bench` does; MS-VBA runs it twice untimed first, since it compiles a
+procedure once, the first time it is called. The command keeps the fastest run of each case on each side, over all the rounds, and writes the
+figures to `msvba.json`. Nothing is written unless every case has a figure on both sides.
 
 | Option | What it does |
 |---|---|

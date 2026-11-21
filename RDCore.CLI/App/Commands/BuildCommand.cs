@@ -105,7 +105,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         builder.DefineEntryPoint(typeof(BuiltProgram).GetMethod(nameof(BuiltProgram.Run))!);
         var image = new BuiltProgramImage(workspace.Project, workspace.RootUri, BuiltEnvironment.Of(built.Environment), entryPoint.Module,
             entryPoint.Procedure.Name, built.Definitions, [.. workspace.Modules.Select(module => new BuiltModule(module.RelativePath, module.Name, module.Type))],
-            NativeDialogs: ProgramDialogs.WantsNative(workspace.Project.Build, settings?.Value.NativeDialogs ?? false));
+            NativeDialogs: settings?.Value.NativeDialogs ?? false);
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));
 
         using var assembly = new MemoryStream();
@@ -113,7 +113,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         builder.Save(assembly, pdb, $"{name}.pdb");
         var folder = options.Output ?? fileSystem.Path.Combine(workspace.Root, "bin", options.Configuration.ToString(), runtime);
         var (executable, lacking) = Output.Write(folder, name, assembly.ToArray(), pdb.ToArray(), (hosts ?? (rid => AppHost.Find(rid)))(runtime), runtime,
-            built.Libraries, hostsForms: built.Provider.Image.Forms.Values.Any(form => form.Kind == FormDesignerKind.VisualBasic6));
+            built.Libraries, hostsForms: built.Provider.Image.Forms.Values.Any(form => form.HasVisualBasic6FormModel));
 
         if (executable is null)
         {

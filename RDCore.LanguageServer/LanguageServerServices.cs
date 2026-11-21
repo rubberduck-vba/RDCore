@@ -72,6 +72,8 @@ internal static class LanguageServerServices
             // the workspace as it was composed last, which completion, signature help and rename reuse for as long as no module changed.
             .AddSingleton(_ => new RDCore.Symbols.WorkspaceCompositionCache())
             .AddSingleton<ICompletionService, CompletionService>()
+            // the files a rename stages beside the files it replaces (a UserForm's .frx), deleted with the server.
+            .AddSingleton(sp => new RDCore.SDK.Server.StagedFiles(sp.GetRequiredService<IFileSystem>()))
             .AddSingleton<IRenameService, RenameService>()
             .AddSingleton<RDCore.LanguageServer.Symbols.ISemanticsDescriptionService, RDCore.LanguageServer.Symbols.SemanticsDescriptionService>()
             // the tools an assistant calls (rdcore/tools/*): each reads what the handler of the same LSP request reads.
@@ -83,7 +85,8 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.DefinitionTool>()
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.DescribeAtTool>()
             .AddSingleton<RDCore.SDK.Server.Assistant.IAssistantTool, RDCore.LanguageServer.Assistant.OutlineTool>()
-            .AddSingleton(provider => new RDCore.SDK.Server.Assistant.AssistantToolCatalog(provider.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>()))
+            // the catalog is the server's (CoreLanguageServerApp.ConfigureServices): the tools that fix code ask for the code actions, which are of the
+            // server's container.
             .AddSingleton<RDCore.LanguageServer.Refactoring.IExtractMethodService, RDCore.LanguageServer.Refactoring.ExtractMethodService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveMemberService, RDCore.LanguageServer.Refactoring.MoveMemberService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IEncapsulateFieldService, RDCore.LanguageServer.Refactoring.EncapsulateFieldService>()
@@ -96,6 +99,7 @@ internal static class LanguageServerServices
                 provider.GetRequiredService<IOptions<SdkAppOptions>>(), provider.GetRequiredService<ILiveSettings>(), provider.GetRequiredService<IWorkspaceRefresh>(),
                 () => provider.GetRequiredService<IWorkspaceDocumentService>().WorkspaceRoot, provider.GetService<IWorkspaceSettings>()))
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
+            .AddSingleton<IProjectDiagnosticsProviders, ProjectDiagnosticsProviders>()
             .AddSingleton<IProjectFileDiagnostics, ProjectFileDiagnostics>()
             .AddSingleton<IWorkspaceRefresh>(_ => new WorkspaceRefresh(WorkspaceRefresh.Burst))
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()

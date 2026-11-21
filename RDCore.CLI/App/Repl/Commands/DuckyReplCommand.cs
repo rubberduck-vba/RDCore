@@ -1,4 +1,3 @@
-using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.External.Interaction;
@@ -109,9 +108,9 @@ internal sealed class DuckyReplCommand(ConsoleUserInteraction interaction) : IRe
         {
             await ApplyAsync(context, document, edit, action.Title, token);
         }
-        else if (action.Command is { Name: RefactoringCommands.Rename } rename && PositionOf(rename) is { } position)
+        else if (action.Command is { Name: RefactoringCommands.Rename } rename && rename.TryReadRename(out var renamed, out _))
         {
-            await RenameAsync(context, document, position, token);
+            await RenameAsync(context, document, renamed.Position.ToLsp(), token);
         }
         else
         {
@@ -203,12 +202,6 @@ internal sealed class DuckyReplCommand(ConsoleUserInteraction interaction) : IRe
 
     // the line of the text an action is about: its diagnostic's, or the position its command names.
     private static int? LineOf(CodeAction action)
-        => action.Diagnostics?.FirstOrDefault()?.Range.Start.Line ?? (action.Command is { } command ? PositionOf(command)?.Line : null);
-
-    // the position the rename command names: its second argument.
-    private static Position? PositionOf(Command command)
-        => command.Arguments is { Count: >= 2 } arguments && arguments[1] is JObject position
-            && position.Value<int?>("line") is { } line && position.Value<int?>("character") is { } character
-            ? new Position(line, character)
-            : null;
+        => action.Diagnostics?.FirstOrDefault()?.Range.Start.Line
+            ?? (action.Command is { Name: RefactoringCommands.Rename } command && command.TryReadRename(out var rename, out _) ? rename.Position.Line : null);
 }

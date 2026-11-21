@@ -249,6 +249,17 @@ internal sealed partial class ProcedureAnalysis
         return null;
     }
 
+    // the name of the Variant of the activation a Let assigns an element of the array of (`V(F(1)) = G(5)`), when a subscript calls and so does the value:
+    // the interpreter assigns it as a call of an accessor of what the Variant holds, the calls of the subscripts made before the value, then the value
+    // evaluated, then the rest of the subscripts read (RuntimeExpressionEvaluator.WithAccessorArgumentsFirst), where the element of an array declared as
+    // one is found after the value (MS-VBAL §5.4.3.8). Compiled code evaluates the value before the subscripts of either when the value calls.
+    private string? CallsAsAVariantAccessor(AssignmentStatementNode assignment)
+        => assignment.Target is IndexExpressionNode { Callee: SimpleNameExpressionNode name }
+            && Bind(assignment.Target) is BoundIndex { Callee: BoundVariable held } index
+            && VariantSlotOf(held) is not null && index.Arguments.Any(Calls) && Calls(Bind(assignment.Value))
+                ? name.IdentifierName
+                : null;
+
     private bool IsObjectElement(BoundNode node) => ElementOf(node) is { } index && ArrayOf(index.Callee) is { Class: ElementClass.Object };
 
     // an object held where compiled code finds its cell each time it reads it: an element of an array of objects, or an object field of a record.

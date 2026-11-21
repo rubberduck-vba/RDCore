@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
@@ -18,6 +19,12 @@ public static class MemberRoles
     public static IReadOnlyDictionary<SemanticId, DeclarationRole> Of(
         VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer, DocumentModuleFact? document = null)
         => BindingsOf(module, resolver, designer, document).ToDictionary(binding => binding.Key, binding => binding.Value.Role);
+
+    // the procedure a run of the project starts with (DeclarationRole.EntryPoint, ProgramEntryPoint.InSession): the one the session's build section names, or
+    // the Sub Main of the one standard module that declares one, as the session defined them. None for a library, or when no standard module declares it, or
+    // more than one does.
+    public static SemanticId? EntryPointOf(IRuntimeSession session, IEnumerable<VBModuleSymbol> project)
+        => ProgramEntryPoint.InSession(session, project) is { IsFound: true } found ? found.Procedure!.SemanticId : null;
 
     // what each handler and implementation of a class is bound to: its source and the event or interface member, by the symbols that declare them. A member
     // that is named like one and is bound to nothing has no entry.
@@ -45,7 +52,7 @@ public static class MemberRoles
         {
             foreach (var handled in host.Members.OfType<VBEventMemberSymbol>().Where(declared => document.HostEvents.Contains(declared.Name)))
             {
-                Mark(module, $"{documentPrefix}{handled.Name}", DeclarationRole.EventHandler, host, handled, bindings);
+                Mark(module, $"{documentPrefix}{handled.Name}", DeclarationRole.EventHandler, host, handled, host, bindings);
             }
         }
 
@@ -60,7 +67,7 @@ public static class MemberRoles
 
             foreach (var member in ImplementsSemantics.InterfaceMembersOf(implemented))
             {
-                Mark(module, $"{implemented.Name}_{member.Name}", DeclarationRole.InterfaceImplementation, implemented, member, bindings);
+                Mark(module, $"{implemented.Name}_{member.Name}", DeclarationRole.InterfaceImplementation, implemented, member, implemented, bindings);
             }
         }
 
@@ -88,11 +95,11 @@ public static class MemberRoles
                 if (isControl)
                 {
                     var required = array is not null ? WithIndex(handled) : handled.Parameters;
-                    MarkHandlers(ClassModuleEventSemantics.HandlersOf(module, variable, handled), required, variable, handled, bindings);
+                    MarkHandlers(ClassModuleEventSemantics.HandlersOf(module, variable, handled), required, variable, handled, source, bindings);
                     continue;
                 }
 
-                Mark(module, $"{variable.Name}_{handled.Name}", DeclarationRole.EventHandler, variable, handled, bindings);
+                Mark(module, $"{variable.Name}_{handled.Name}", DeclarationRole.EventHandler, variable, handled, source, bindings);
             }
         }
 
@@ -106,7 +113,8 @@ public static class MemberRoles
                 foreach (var handled in form.Events)
                 {
                     MarkHandlers(module.Members.Where(member => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol
-                        && string.Equals(member.Name, $"{prefix}_{handled.Name}", StringComparison.OrdinalIgnoreCase)), handled.Parameters, form, handled, bindings);
+                        && string.Equals(member.Name, $"{prefix}_{handled.Name}", StringComparison.OrdinalIgnoreCase)),
+                        handled.Parameters, form, handled, form, bindings);
                 }
             }
         }
@@ -116,15 +124,28 @@ public static class MemberRoles
 
     // a handler that does not match its event is bound to its source, and to no event.
     private static void MarkHandlers(IEnumerable<VBTypeMemberSymbol> candidates, ImmutableArray<VBParameterSymbol> required, Symbol source, Symbol handled,
-        Dictionary<SemanticId, DeclarationBinding> bindings)
+        Symbol declaring, Dictionary<SemanticId, DeclarationBinding> bindings)
     {
         foreach (var candidate in candidates)
         {
             bindings.TryAdd(candidate.SemanticId, ClassModuleEventSemantics.Matches(candidate, required)
-                ? new(candidate.SemanticId, DeclarationRole.EventHandler, source.SemanticId, handled.SemanticId)
-                : new(candidate.SemanticId, DeclarationRole.UnmatchedEventHandler, source.SemanticId, null));
+                ? Described(new(candidate.SemanticId, DeclarationRole.EventHandler, source.SemanticId, handled.SemanticId), source, declaring)
+                : new(candidate.SemanticId, DeclarationRole.UnmatchedEventHandler, source.SemanticId, null)
+                {
+                    IsSourceAControl = source.GetProperty(SymbolProperties.DesignerControl),
+                });
         }
     }
+
+    // the library the class that declares the event or the interface member is of, as SymbolProperties tags it (none for the session's own project), and
+    // whether the source is a control the form's designer declares.
+    private static DeclarationBinding Described(DeclarationBinding binding, Symbol source, Symbol declaring)
+        => binding with
+        {
+            BoundLibrary = declaring.GetProperty(SymbolProperties.Library),
+            IsBoundInSourceProject = declaring.GetProperty(SymbolProperties.OfSourceProject),
+            IsSourceAControl = source.GetProperty(SymbolProperties.DesignerControl),
+        };
 
     /// <summary>
     /// The parameters of the handler of an event of a Visual Basic 6.0 control array: the controls of the array share one handler of each event, which is told
@@ -137,13 +158,13 @@ public static class MemberRoles
 
     // a property's Let and Set are subroutine symbols, and its Get a returning one, as a function's is: each accessor is marked, the Get that stands for the
     // property included.
-    private static void Mark(VBClassModuleSymbol module, string name, DeclarationRole role, Symbol source, Symbol bound,
+    private static void Mark(VBClassModuleSymbol module, string name, DeclarationRole role, Symbol source, Symbol bound, Symbol declaring,
         Dictionary<SemanticId, DeclarationBinding> bindings)
     {
         foreach (var candidate in module.Members.Where(member =>
             member is VBProcedureMemberSymbol or VBReturningMemberSymbol && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
-            bindings.TryAdd(candidate.SemanticId, new(candidate.SemanticId, role, source.SemanticId, bound.SemanticId));
+            bindings.TryAdd(candidate.SemanticId, Described(new(candidate.SemanticId, role, source.SemanticId, bound.SemanticId), source, declaring));
         }
     }
 }

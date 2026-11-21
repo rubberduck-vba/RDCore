@@ -14,7 +14,8 @@ namespace RDCore.Runtime.Compiled;
 
 // what compiled code does of a call of the default member of an object of a class of the workspace, which an index expression makes (MS-VBAL §5.6.13):
 // `F(K)` of an object variable of the activation, `this.State(K)` of an object field of one of its records. The call is made as the call of a member by
-// its name is (MemberCallOf), on an object of the class the object is declared as; one of another class is the interpreter's (CompiledCallee.DefaultOf).
+// its name is (MemberCallOf), on an object of the class the object is declared as, or on one of a class that implements it as an interface, whose member
+// implementing it is called; one of any other class is the interpreter's (CompiledCallee.DefaultOf).
 internal sealed partial class ProcedureAnalysis
 {
     // the default member an index expression calls, the class the object is declared as, the arguments bound for the member's parameters, and the object
@@ -26,7 +27,8 @@ internal sealed partial class ProcedureAnalysis
         switch (node)
         {
             case BoundIndex { Callee: BoundVariable variable, Index: var index }
-                when ObjectSlotOf(variable) is { } slot && variable.Variable is ITypedSymbol { ResolvedType: VBClassType { Symbol: var declared } }
+                when ObjectSlotOf(variable, receiver: true) is { } slot
+                    && variable.Variable is ITypedSymbol { ResolvedType: VBClassType { Symbol: var declared } }
                     && DefaultMemberOf(declared) is ({ } member, { } resolved) && DefaultArgumentsOf(member, index) is { } arguments:
                 return (member, resolved, arguments, slot, null);
 

@@ -1183,6 +1183,42 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Not a legal object name.
+        /// </summary>
+        internal static string VBCompileError_NotALegalObjectName {
+            get {
+                return ResourceManager.GetString("VBCompileError_NotALegalObjectName", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a keyword of the language, which no module can be named: give the module another name..
+        /// </summary>
+        internal static string VBCompileError_NotALegalObjectName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NotALegalObjectName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Name conflicts with existing module, project, or object library.
+        /// </summary>
+        internal static string VBCompileError_NameConflictsWithModuleProjectOrLibrary {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameConflictsWithModuleProjectOrLibrary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a library or a project that the project references: give the module another name..
+        /// </summary>
+        internal static string VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
         /// </summary>
         internal static string VBCompileError_NameIsAProject_Verbose {

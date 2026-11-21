@@ -15,7 +15,10 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// The rules are those of Rubberduck's <em>meaningful names</em> inspection. A name that breaks one and that is approved is listed in
 /// <see cref="DiagnosticsOptions.MeaningfulNames"/>: the counter of a loop is <c>i</c>, and not worth a diagnostic everywhere it is written. The names this applies to are
-/// those the module chooses (<see cref="DeclaredNames"/>). The first rule a name breaks is the one reported.
+/// those the module chooses (<see cref="DeclaredNames"/>): the handler of an event of the workspace or of a form's control, and the implementation of a
+/// member of an interface of the workspace, are among them, at the handler or the implementation. Such a name is changed by renaming the event, the control
+/// or the interface member, and the finding offers no rename of its own. Every finding offers to allow its name. The first rule a name breaks is the one
+/// reported.
 /// </remarks>
 /// <param name="options">The settings of the extension.</param>
 internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsOptions> options) : IModuleAnalyzer
@@ -45,8 +48,13 @@ internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsO
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(entry.message!, entry.declared.Name))
             {
-                // only the user can say what the name means; a module is renamed where the project names it, and not by a rename of its name.
-                Fixes = entry.declared.IsModule ? null : new DiagnosticFixes { Rename = new RenameFix() },
+                // only the user can say what the name means; a module is renamed where the project names it, and a handler or an implementation with the
+                // event, the control or the interface member it is bound to, and neither by a rename of its name. Any name can be allowed.
+                Fixes = new DiagnosticFixes
+                {
+                    Rename = entry.declared.IsModule || entry.declared.IsBound ? null : new RenameFix(),
+                    Setting = AllowedNames.Allowing(nameof(DiagnosticsOptions.MeaningfulNames), entry.declared.Name),
+                },
             });
 
     private static string? MessageFor(string name)
