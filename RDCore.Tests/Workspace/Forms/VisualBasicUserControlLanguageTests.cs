@@ -97,7 +97,6 @@ public sealed class VisualBasicUserControlLanguageTests
         => await AssertNoErrorAsync(root, "s = Left(\"ab\", 1)");
 
     [TestMethod]
-    [Ignore("not implemented: a function named with no argument list is not checked for its required arguments: `Debug.Print Left` is no error")]
     [DataRow(UserControlRoot, DisplayName = "a UserControl")]
     [DataRow(PropertyPageRoot, DisplayName = "a PropertyPage")]
     public async Task ABareLeft_IsVBAsLeft_WithoutItsArguments(string root)
@@ -206,7 +205,6 @@ public sealed class VisualBasicUserControlLanguageTests
     }
 
     [TestMethod]
-    [Ignore("not implemented: the language server's name binding finds no symbol for a base-class member named unqualified in a UserControl")]
     [DataRow("s = BackColor", "BackColor", DisplayName = "BackColor")]
     [DataRow("s = hWnd", "hWnd", DisplayName = "hWnd")]
     public void ABaseMembersHover_IsTheVBUserControls(string line, string name)
@@ -222,7 +220,6 @@ public sealed class VisualBasicUserControlLanguageTests
     }
 
     [TestMethod]
-    [Ignore("not implemented: the language server's name binding finds no symbol for a base-class member named unqualified in a UserControl")]
     public void ABaseMember_HasNoDefinitionInTheWorkspace()
     {
         var source = Root(UserControlRoot, "s = BackColor");
