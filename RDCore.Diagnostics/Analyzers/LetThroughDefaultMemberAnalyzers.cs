@@ -118,7 +118,8 @@ internal static class LetThroughDefaultMember
                 if (NameOf(expression!) is { } name)
                 {
                     yield return new AnalyzerFinding(
-                        id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty))
+                        id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning,
+                        AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty))
                     {
                         Fixes = fixes?.Invoke(statement, fact, procedure),
                     };
