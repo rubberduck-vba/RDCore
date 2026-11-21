@@ -59,7 +59,7 @@ public sealed class BoundNameAnalyzerTests
             await FindingsAsync(new UseMeaningfulIdentifierNamesAnalyzer(Defaults), "Implements IA", "Private Sub IA_B1()", "End Sub"));
 
         Assert.AreEqual("IA_B1", Names([finding])[0]);
-        Assert.IsNull(finding.Fixes);
+        Assert.IsNull(finding.Fixes?.Rename);
     }
 
     [TestMethod]

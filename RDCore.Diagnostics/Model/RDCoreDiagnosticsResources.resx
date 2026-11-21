@@ -393,6 +393,9 @@
   <data name="HungarianNotation_Message" xml:space="preserve">
     <value>'{0}' begins with a prefix that states its type. The type is declared: the name should say what the thing is, not what it is made of.</value>
   </data>
+  <data name="AllowName_Fix" xml:space="preserve">
+    <value>Allow the name '{0}'</value>
+  </data>
   <data name="MisleadingByRefParameter_Message" xml:space="preserve">
     <value>ByRef has no effect on '{0}', the value parameter of a property Let or Set: it is always passed ByVal.</value>
   </data>
