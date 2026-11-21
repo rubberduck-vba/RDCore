@@ -46,8 +46,8 @@ internal enum NewNameValidity
 internal sealed record class NameConflict(string Other, Uri? Module, SourcePosition Position);
 
 /// <summary>
-/// The rules every refactoring that declares a name holds it to: a VBA identifier of at most 255 characters that is not reserved (MS-VBAL §3.3.5), and one that
-/// nothing written in a module would mean instead of what it means now.
+/// The rules every refactoring that declares a name holds it to: a VBA identifier of at most 255 characters that is not reserved (MS-VBAL §3.3.5), and one
+/// that nothing written in a module would mean instead of what it means now.
 /// </summary>
 internal static class NewNames
 {

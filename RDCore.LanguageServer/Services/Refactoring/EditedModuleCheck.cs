@@ -35,8 +35,8 @@ internal enum EditedModuleProblemKind
 internal sealed record class EditedModuleProblem(EditedModuleProblemKind Kind, string? Detail);
 
 /// <summary>
-/// The checks every refactoring makes of a module its edit would leave, before the edit is offered: it parses, its names bind as they did, and it has no compile
-/// error it did not have. What each refactoring checks of what its edit does is its own.
+/// The checks every refactoring makes of a module its edit would leave, before the edit is offered: it parses, its names bind as they did, and it has no
+/// compile error it did not have. What each refactoring checks of what its edit does is its own.
 /// </summary>
 internal static class EditedModuleCheck
 {

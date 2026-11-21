@@ -202,9 +202,9 @@ internal static class InlineCall
     }
 
     // the body of a call in a larger statement runs before the statement, once: where the call's expression is evaluated once each time the statement runs,
-    // and when nothing else the statement evaluates has an effect, or reads what the body can write, so that it can't tell the body ran first (MS-VBAL leaves
-    // the order of an operator's operands open). A loop's condition is evaluated at each turn, an ElseIf's only when the conditions before it are False, a Case clause's until one
-    // matches (MS-VBAL §5.4.2.2, §5.4.2.6, §5.4.2.8, §5.4.2.10).
+    // and when nothing else the statement evaluates has an effect, or reads what the body can write, so that it cannot tell the body ran first (MS-VBAL
+    // leaves the order of an operator's operands open). A loop's condition is evaluated at each turn, an ElseIf's only when the conditions before it are
+    // False, a Case clause's until one matches (MS-VBAL §5.4.2.2, §5.4.2.6, §5.4.2.8, §5.4.2.10).
     private static InlineRefusal? HoistingRefusalOf(
         RenameContext context, RenameModule syntax, RenameModule source, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
     {
@@ -918,8 +918,8 @@ internal static class InlineCall
 
         private void Fold(List<IndexExpressionNode> missing, string answer) => _folds.AddRange(missing.Select(each => (each.SourceLocation.Range, answer)));
 
-        // a function's result variable, a distinct variable of each call initialized to its type's default (MS-VBAL §5.3.1): a local of the caller, reset before
-        // the body, which the caller's assignment is then given. A call statement of a function discards it.
+        // a function's result variable, a distinct variable of each call initialized to its type's default (MS-VBAL §5.3.1): a local of the caller, reset
+        // before the body, which the caller's assignment is then given. A call statement of a function discards it.
         private InlineRefusal? Result()
         {
             if (callee is VBProcedureMemberSymbol)
@@ -1227,9 +1227,9 @@ internal static class InlineCall
             return written.TrimEnd('\r', '\n').Split('\n').Select(line => line.TrimEnd('\r').TrimStart()).Concat(closing);
         }
 
-        // each Exit Sub, Function or Property (MS-VBAL §5.4.2.17-19) leaves the inlined body for what follows it: dropped when it is the body's last statement;
-        // the end of a top-level block If when it is the last statement of an If that has no other branch, the rest of the body then going in an Else of
-        // that If; a GoTo a label after the body anywhere else. The lines written after the body: the End If of each such If, then the label.
+        // each Exit Sub, Function or Property (MS-VBAL §5.4.2.17-19) leaves the inlined body for what follows it: dropped when it is the body's last
+        // statement; the end of a top-level block If when it is the last statement of an If that has no other branch, the rest of the body then going in
+        // an Else of that If; a GoTo a label after the body anywhere else. The lines written after the body: the End If of each such If, then the label.
         private List<string> Exits(List<(SourceRange Range, string NewText)> edits)
         {
             var closing = new List<string>();
@@ -1315,7 +1315,7 @@ internal static class InlineCall
                 switch (item.Node)
                 {
                     case GoToStatementNode jump when item.Kind is InstructionKind.Jump && item.Target is { } offset && named.TryGetValue(offset, out var name):
-                        // `If x Then 10` goes to line 10 with a line number alone, which a label can't be written as.
+                        // `If x Then 10` goes to line 10 with a line number alone, which a label cannot be written as.
                         edits.Add(jump.LabelExpression.SourceLocation.Range == jump.SourceLocation.Range
                             ? (jump.SourceLocation.Range, $"GoTo {name}")
                             : (jump.LabelExpression.SourceLocation.Range, name));
