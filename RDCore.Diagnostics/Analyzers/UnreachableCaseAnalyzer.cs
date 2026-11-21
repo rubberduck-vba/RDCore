@@ -104,7 +104,9 @@ internal sealed class UnreachableCaseAnalyzer : IModuleAnalyzer
     {
         if (domain.IsBoolean)
         {
-            return clause is CaseValueRangeClauseNode { Value: var value } && BooleanOf(value, facts) is { } truth ? new Clause(ValueSet.Of(truth, truth)) : null;
+            return clause is CaseValueRangeClauseNode { Value: var value } && BooleanOf(value, facts) is { } truth
+                ? new Clause(ValueSet.Of(truth, truth))
+                : null;
         }
 
         var (min, max) = domain.All.Bounds;
@@ -134,8 +136,8 @@ internal sealed class UnreachableCaseAnalyzer : IModuleAnalyzer
     // a literal or a constant of an integral type, negated or not, that the selector's type holds: compared with the selector as it is.
     private static Int128? IntegralOf(ExpressionNode expression, Domain domain, ILookup<SourceRange, ExpressionFactDto> facts)
     {
-        var value = expression is VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp or OperatorSymbolNames.UnaryArithmeticNegationOp, Operand: var operand }
-            ? -IntegralOf(operand, facts)
+        var value = expression is VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp or OperatorSymbolNames.UnaryArithmeticNegationOp } negation
+            ? -IntegralOf(negation.Operand, facts)
             : IntegralOf(expression, facts);
         var (min, max) = domain.All.Bounds;
         return value is { } known && known >= min && known <= max ? known : null;
@@ -155,7 +157,8 @@ internal sealed class UnreachableCaseAnalyzer : IModuleAnalyzer
     private static Int128? BooleanOf(ExpressionNode expression, ILookup<SourceRange, ExpressionFactDto> facts)
         => ValueOf(expression, facts) is VBBooleanValue { IsIndeterminate: false } value ? value.Value.StoredValue : null;
 
-    private static VBTypedValue? ValueOf(ExpressionNode expression, ILookup<SourceRange, ExpressionFactDto> facts) => expression is LiteralExpressionNode literal
+    private static VBTypedValue? ValueOf(ExpressionNode expression, ILookup<SourceRange, ExpressionFactDto> facts)
+        => expression is LiteralExpressionNode literal
         ? literal.StaticValue
         : facts[expression.SourceLocation.Range].FirstOrDefault()?.ConstantValue;
 
