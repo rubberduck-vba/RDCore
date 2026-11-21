@@ -66,7 +66,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> Chr(VBLongValue charCode);
 
     /// <inheritdoc cref="Chr"/>
-    [StdLibMember("Chr$")]
+    [StdLibMember("Chr$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> ChrString(VBLongValue charCode);
 
     /// <summary>
@@ -77,7 +77,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> ChrB(VBLongValue charCode);
 
     /// <inheritdoc cref="ChrB"/>
-    [StdLibMember("ChrB$")]
+    [StdLibMember("ChrB$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> ChrBString(VBLongValue charCode);
 
     /// <summary>
@@ -88,7 +88,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> ChrW(VBLongValue charCode);
 
     /// <inheritdoc cref="ChrW"/>
-    [StdLibMember("ChrW$")]
+    [StdLibMember("ChrW$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> ChrWString(VBLongValue charCode);
 
     /// <summary>
@@ -123,7 +123,7 @@ public interface IStdStringsModule
         VBFirstWeekOfYear firstWeekOfYear = VBFirstWeekOfYear.VBFirstJan1);
 
     /// <inheritdoc cref="Format"/>
-    [StdLibMember("Format$")]
+    [StdLibMember("Format$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> FormatString(
         VBVariantValue expression, VBVariantValue? format = default,
         VBDayOfWeek firstDayOfWeek = VBDayOfWeek.VBSunday,
@@ -247,7 +247,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> LCase(VBVariantValue @string);
 
     /// <inheritdoc cref="LCase"/>
-    [StdLibMember("LCase$")]
+    [StdLibMember("LCase$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> LCaseString([StdLibValue] VBVariantValue @string);
 
     /// <summary>
@@ -262,11 +262,11 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> LeftB(VBVariantValue @string, VBLongValue length);
 
     /// <inheritdoc cref="Left"/>
-    [StdLibMember("Left$")]
+    [StdLibMember("Left$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> LeftString([StdLibValue] VBVariantValue @string, VBLongValue length);
 
     /// <inheritdoc cref="LeftB"/>
-    [StdLibMember("LeftB$")]
+    [StdLibMember("LeftB$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> LeftBString([StdLibValue] VBVariantValue @string, VBLongValue length);
 
     /// <summary>
@@ -289,7 +289,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> LTrim(VBVariantValue @string);
 
     /// <inheritdoc cref="LTrim"/>
-    [StdLibMember("LTrim$")]
+    [StdLibMember("LTrim$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> LTrimString([StdLibValue] VBVariantValue @string);
 
     /// <summary>
@@ -300,7 +300,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> RTrim(VBVariantValue @string);
 
     /// <inheritdoc cref="RTrim"/>
-    [StdLibMember("RTrim$")]
+    [StdLibMember("RTrim$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> RTrimString([StdLibValue] VBVariantValue @string);
 
     /// <summary>
@@ -311,7 +311,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> Trim(VBVariantValue @string);
 
     /// <inheritdoc cref="Trim"/>
-    [StdLibMember("Trim$")]
+    [StdLibMember("Trim$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> TrimString([StdLibValue] VBVariantValue @string);
 
     /// <summary>
@@ -327,11 +327,11 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> MidB(VBVariantValue @string, VBLongValue start, VBVariantValue? length = default);
 
     /// <inheritdoc cref="Mid"/>
-    [StdLibMember("Mid$")]
+    [StdLibMember("Mid$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> MidString([StdLibValue] VBVariantValue @string, VBLongValue start, VBVariantValue? length = default);
 
     /// <inheritdoc cref="MidB"/>
-    [StdLibMember("MidB$")]
+    [StdLibMember("MidB$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> MidBString([StdLibValue] VBVariantValue @string, VBLongValue start, VBVariantValue? length = default);
 
     /// <summary>
@@ -373,11 +373,11 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> RightB(VBVariantValue @string, VBLongValue length);
 
     /// <inheritdoc cref="Right"/>
-    [StdLibMember("Right$")]
+    [StdLibMember("Right$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> RightString([StdLibValue] VBVariantValue @string, VBLongValue length);
 
     /// <inheritdoc cref="RightB"/>
-    [StdLibMember("RightB$")]
+    [StdLibMember("RightB$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> RightBString([StdLibValue] VBVariantValue @string, VBLongValue length);
 
     /// <summary>
@@ -388,7 +388,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> Space(VBLongValue number);
 
     /// <inheritdoc cref="Space"/>
-    [StdLibMember("Space$")]
+    [StdLibMember("Space$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> SpaceString(VBLongValue number);
 
     /// <summary>
@@ -443,7 +443,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> Repeat(VBLongValue number, VBVariantValue character);
 
     /// <inheritdoc cref="Repeat"/>
-    [StdLibMember("String$")]
+    [StdLibMember("String$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> RepeatString(VBLongValue number, VBVariantValue character);
 
     /// <summary>
@@ -461,7 +461,7 @@ public interface IStdStringsModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> UCase(VBVariantValue @string);
 
     /// <inheritdoc cref="UCase"/>
-    [StdLibMember("UCase$")]
+    [StdLibMember("UCase$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> UCaseString([StdLibValue] VBVariantValue @string);
 
     /// <summary>

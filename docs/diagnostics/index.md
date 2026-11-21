@@ -261,6 +261,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00115](rdc00115.md)|Implicit result local|A function that reads its own return value, as the local variable it implicitly is|
 |[RDC00116](rdc00116.md)|Implicit For step|A For loop that states no Step, under the convention that writes Step 1|
 |[RDC00117](rdc00117.md)|Implicit constant type|A constant with no As clause and no type character|
+|[RDC00118](rdc00118.md)|Variant form of a String function|`Left` and the like, which return a Variant where their `$` form returns a String|
 |[RDC00119](rdc00119.md)|Implicit default member access|An object of a known class used as a value, or assigned one without `Set`, through a default member the code does not name|
 |[RDC00120](rdc00120.md)|Implicit unbound default member access|An `Object` used as a value, or assigned one without `Set`: its default member is known only at run time|
 |[RDC00121](rdc00121.md)|Indexed default member access|An argument list given to an object of a known class, which its default member takes|

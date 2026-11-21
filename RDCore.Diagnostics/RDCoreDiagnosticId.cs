@@ -38,6 +38,7 @@ public enum RDCoreDiagnosticId
     ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
     ImplicitForStep = 116, // a For loop with no Step, under the convention that writes Step 1
     ImplicitConstantType = 117, // a Const with no As and no type character: its type is the one the reader works out from its value
+    VariantStringFunction = 118, // [RD2:UntypedFunctionUsageInspection] Left(s, 1) returns a Variant: Left$ is the same function returning a String
     ImplicitDefaultMemberAccess = 119, // an object of a known class used as a value, or assigned one without Set: its default member, not named
     ImplicitUnboundDefaultMemberAccess = 120, // an Object used as a value, or assigned one without Set: its default member is known only at run time
     IndexedDefaultMemberAccess = 121, // an argument list given to an object of a known class: its default member takes it, not named

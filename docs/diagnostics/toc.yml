@@ -428,6 +428,8 @@
   href: rdc00116.md
 - name: "RDC00117: Implicit constant type"
   href: rdc00117.md
+- name: "RDC00118: Variant form of a String function"
+  href: rdc00118.md
 - name: "RDC00119: Implicit default member access"
   href: rdc00119.md
 - name: "RDC00120: Implicit unbound default member access"

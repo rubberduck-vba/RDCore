@@ -1896,6 +1896,22 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; returns a Variant: &apos;{1}&apos; is the same function, and returns a String..
+        /// </summary>
+        public static string VariantStringFunction_Message {
+            get {
+                return ResourceManager.GetString("VariantStringFunction_Message", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Use &apos;{0}&apos;.
+        /// </summary>
+        public static string VariantStringFunction_Fix {
+            get {
+                return ResourceManager.GetString("VariantStringFunction_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; has an underscore in its name: no class can implement this one..
         /// </summary>
         public static string UnderscoreInPublicClassMember_Message {
