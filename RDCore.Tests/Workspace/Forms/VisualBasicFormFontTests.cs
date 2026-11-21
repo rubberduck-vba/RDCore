@@ -138,7 +138,6 @@ public sealed class VisualBasicFormFontTests
             "Debug.Print f.Name & \" \" & f.Size & \" \" & f.Weight & \" \" & f.Charset");
 
     [TestMethod]
-    [Ignore("not implemented: TypeName of a StdFont, which VB6 names Font")]
     public Task TypeName_OfAControlsFont_IsFont()
         => AssertPrintsAsync(["Font"], "Debug.Print TypeName(Form7.Label1.Font)");
 }
