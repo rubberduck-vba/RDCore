@@ -265,7 +265,8 @@ runs it.
 
 |What|Its address|
 |---|---|
-|A variable: a module's, a `Static` local, a field of an object in its own code|Its own, given when it is defined, the same for as long as it exists.|
+|A variable of a module, a `Static` local of a procedure of a standard module|Its own, given when it is defined, the same for as long as it exists.|
+|A field of an object in its own code, a `Static` local of a member of a class|Its own, given the first time it is asked for, the same for as long as the object lives.|
 |A local, a parameter `ByVal`|Its own, given the first time it is asked for: for the whole activation, whatever is assigned to it.|
 |A parameter `ByRef`|The address of the variable it was given.|
 |An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)), or one of them is passed `ByRef`.|
