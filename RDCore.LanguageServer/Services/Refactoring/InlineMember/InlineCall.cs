@@ -4,6 +4,7 @@ using RDCore.Runtime.LanguageCore.Flow;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -30,7 +31,29 @@ namespace RDCore.LanguageServer.Services.Refactoring.InlineMember;
 /// <param name="Module">The module the call is in.</param>
 /// <param name="Callee">The member.</param>
 /// <param name="Edits">The edits of <paramref name="Module"/>, unindented: the lines they write are indented by the module's formatting.</param>
-internal sealed record class InlinedCall(Uri Module, Symbol Callee, IReadOnlyList<RefactorTextEdit> Edits);
+/// <param name="Form">How the call is written.</param>
+internal sealed record class InlinedCall(Uri Module, Symbol Callee, IReadOnlyList<RefactorTextEdit> Edits, InlineForm Form = InlineForm.Statement);
+
+/// <summary>
+/// How an inlined call is written.
+/// </summary>
+internal enum InlineForm
+{
+    /// <summary>
+    /// The body replaces the call statement, or the assignment of the function's result.
+    /// </summary>
+    Statement,
+
+    /// <summary>
+    /// The body is written before the statement the call is in, and its result where the call was.
+    /// </summary>
+    Hoisted,
+
+    /// <summary>
+    /// The call is replaced by its value, in parentheses: the body is one assignment of the result.
+    /// </summary>
+    Expression,
+}
 
 /// <summary>
 /// Inlines one call of a procedure: the call statement is replaced by the procedure's body, its parameters bound to the call's arguments, its locals declared
@@ -72,37 +95,41 @@ internal static class InlineCall
             return (null, new(InlineRefusalKind.NotAProcedure, name));
         }
 
-        var kind = callee switch
-        {
-            VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol => (MemberKind?)null,
-            VBFunctionMemberSymbol => MemberKind.Function,
-            VBPropertyGetMemberSymbol => MemberKind.PropertyGet,
-            VBProcedureMemberSymbol => MemberKind.Procedure,
-            _ => null,
-        };
+        var kind = KindOf(callee);
         if (kind is null)
         {
             return (null, new(callee is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? InlineRefusalKind.PropertyAssignment : InlineRefusalKind.NotAProcedure, callee.Name));
         }
 
         var calleeModule = NameOccurrences.ModuleOf(callee.Uri);
-        // a RaiseEvent raises an event of the class it is written in (MS-VBAL §5.4.2.20): an unqualified call in that class runs the member for the same
-        // object, and the inlined RaiseEvent raises the same event of it.
-        if (calleeModule.AbsoluteUri != module.AbsoluteUri)
+        var isOtherModule = calleeModule.AbsoluteUri != module.AbsoluteUri;
+        if (isOtherModule)
         {
+            // a RaiseEvent raises an event of the class it is written in (MS-VBAL §5.4.2.20): an unqualified call in that class runs the member for the same
+            // object, and the inlined RaiseEvent raises the same event of it.
             var raises = analysisOf(calleeModule)?.Procedure(callee.Name, kind.Value)?.Declaration.Descendants()
                 .OfType<KeywordStatementNode>().FirstOrDefault(node => node.Token == Tokens.RaiseEvent);
-            return (null, raises is not null
-                ? new(InlineRefusalKind.RaisesAnEvent, callee.Name, raises.SourceLocation)
-                : new(InlineRefusalKind.OtherModule, callee.Name));
+            if (raises is not null)
+            {
+                return (null, new(InlineRefusalKind.RaisesAnEvent, callee.Name, raises.SourceLocation));
+            }
+
+            // the body's names are the names of its project: another project sees only what that one exposes, under the names it references it by.
+            if (ProjectVisibility.ProjectOf(context.ScopeTree.ScopeFor(calleeModule))?.AbsoluteUri
+                != ProjectVisibility.ProjectOf(context.ScopeTree.ScopeFor(module))?.AbsoluteUri)
+            {
+                return (null, new(InlineRefusalKind.OtherProject, callee.Name));
+            }
         }
 
-        if (SiteAt(syntax.Syntax, occurrence.Range) is not { } site)
+        // a call of a member of the class it is written in, on Me, is the call of the member for the same object (MS-VBAL §5.3.1).
+        if (SiteAt(syntax.Syntax, occurrence.Range, onMe: !isOtherModule) is not { } site)
         {
             return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, new SourceLocation(module, occurrence.Range)));
         }
 
-        if (analysisOf(calleeModule) is not { } analysis || analysis.Procedure(callee.Name, kind.Value) is not { } procedure)
+        if (analysisOf(calleeModule) is not { } analysis || analysis.Procedure(callee.Name, kind.Value) is not { } procedure
+            || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == calleeModule.AbsoluteUri) is not { } source)
         {
             return (null, new(InlineRefusalKind.NotAProcedure, callee.Name));
         }
@@ -113,8 +140,13 @@ internal static class InlineCall
             return (null, refused);
         }
 
+        if (isOtherModule && OptionsRefusalOf(context, callee, procedure, analysis, analysisOf(module), site) is { } options)
+        {
+            return (null, options);
+        }
+
         // the expression form is the call's value where the call is: the statement that raised an error is the same one.
-        var writer = new Writer(context, syntax, text, callee, procedure, site);
+        var writer = new Writer(context, syntax, text, source, isOtherModule ? TextLines.Of(source.Source) : text, callee, procedure, site);
         if (site.Call is not null && writer.WriteExpression() is { } expression)
         {
             return expression;
@@ -126,18 +158,32 @@ internal static class InlineCall
             return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation));
         }
 
-        if (site.IsInAnExpression && HoistingRefusalOf(context, syntax, callee, procedure, site) is { } unhoisted)
+        if (site.IsInAnExpression && HoistingRefusalOf(context, syntax, source, callee, procedure, site) is { } unhoisted)
         {
             return (null, unhoisted);
         }
 
-        if (CallerRefusalOf(analysis, callee, procedure, syntax.Syntax, site.Statement) is { } changes)
+        // the error handling of the procedure the call is in, which is of the caller's module.
+        if (CallerRefusalOf(isOtherModule ? analysisOf(module) : analysis, callee, procedure, syntax.Syntax, site.Statement) is { } changes)
         {
             return (null, changes);
         }
 
         return writer.Write();
     }
+
+    /// <summary>
+    /// The kind of the member's declaration when it is one that is inlined: a <c>Sub</c>, a <c>Function</c> or a <c>Property Get</c>.
+    /// </summary>
+    /// <param name="callee">The member.</param>
+    public static MemberKind? KindOf(Symbol callee) => callee switch
+    {
+        VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol => null,
+        VBFunctionMemberSymbol => MemberKind.Function,
+        VBPropertyGetMemberSymbol => MemberKind.PropertyGet,
+        VBProcedureMemberSymbol => MemberKind.Procedure,
+        _ => null,
+    };
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
 
@@ -152,7 +198,8 @@ internal static class InlineCall
     // and when nothing else the statement evaluates has an effect, or reads what the body can write, so that it can't tell the body ran first (MS-VBAL leaves
     // the order of an operator's operands open). A loop's condition is evaluated at each turn, an ElseIf's only when the conditions before it are False, a Case clause's until one
     // matches (MS-VBAL §5.4.2.2, §5.4.2.6, §5.4.2.8, §5.4.2.10).
-    private static InlineRefusal? HoistingRefusalOf(RenameContext context, RenameModule syntax, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
+    private static InlineRefusal? HoistingRefusalOf(
+        RenameContext context, RenameModule syntax, RenameModule source, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
     {
         if (callee is VBProcedureMemberSymbol
             || site.Statement is DoLoopUntilStatementNode or DoLoopWhileStatementNode or DoUntilLoopStatementNode or DoWhileLoopStatementNode or WhileWendStatementNode
@@ -163,11 +210,13 @@ internal static class InlineCall
 
         // what the body can write of the caller's: the module's variables it writes, and any it calls something that may.
         var bindings = NameOccurrences.BindingsOf(context, syntax);
+        var bodyBindings = source == syntax ? bindings : NameOccurrences.BindingsOf(context, source);
         var own = procedure.Scope.Declarations.Select(symbol => symbol.SemanticId).Append(callee.SemanticId).ToHashSet();
         var writes = procedure.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry && !own.Contains(definition.Variable))
             .Select(definition => definition.Variable).ToHashSet();
         var calls = procedure.Declaration.Descendants().Any(node => node is CallStatementNode or MemberAccessExpressionNode
-            || node is SimpleNameExpressionNode && bindings((ExpressionNode)node) is { } bound && NameOccurrences.SymbolOf(context, bound) is VBProcedureMemberSymbol or VBReturningMemberSymbol
+            || node is SimpleNameExpressionNode && bodyBindings((ExpressionNode)node) is { } bound
+                && NameOccurrences.SymbolOf(context, bound) is VBProcedureMemberSymbol or VBReturningMemberSymbol
                 and not (VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol or VBConstantMemberSymbol));
 
         foreach (var node in OtherOperands(site.Statement, site.Call!))
@@ -223,21 +272,29 @@ internal static class InlineCall
         }
     }
 
-    private static Site? SiteAt(ModuleNode module, SourceRange name)
+    private static Site? SiteAt(ModuleNode module, SourceRange name, bool onMe)
     {
+        // the callee written as its name, or as a member of Me.
+        bool IsCallee(ExpressionNode? expression) => expression switch
+        {
+            SimpleNameExpressionNode simple => simple.SourceLocation.Range == name,
+            MemberAccessExpressionNode { Owner: InstanceExpressionNode, Member: var member } => onMe && member.SourceLocation.Range == name,
+            _ => false,
+        };
+
         var nodes = NameOccurrences.Walk(module).Select(each => each.Node).ToArray();
         foreach (var node in nodes)
         {
             switch (node)
             {
-                case CallStatementNode { Callee: SimpleNameExpressionNode callee } call when callee.SourceLocation.Range == name:
+                case CallStatementNode call when IsCallee(call.Callee):
                     return new(call, call.Arguments, null);
                 case AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet or AssignmentKind.Set } assignment:
                     switch (assignment.Value)
                     {
-                        case SimpleNameExpressionNode value when value.SourceLocation.Range == name:
+                        case var value when IsCallee(value):
                             return new(assignment, [], assignment, value);
-                        case IndexExpressionNode { Callee: SimpleNameExpressionNode callee } value when callee.SourceLocation.Range == name:
+                        case IndexExpressionNode value when IsCallee(value.Callee):
                             return new(assignment, value.Arguments, assignment, value);
                     }
 
@@ -246,8 +303,10 @@ internal static class InlineCall
         }
 
         // the innermost statement the call is in: a block statement's own expressions are its, and not its body's.
-        var expression = nodes.OfType<IndexExpressionNode>().FirstOrDefault(each => each.Callee is SimpleNameExpressionNode callee && callee.SourceLocation.Range == name)
-            ?? (ExpressionNode?)nodes.OfType<SimpleNameExpressionNode>().FirstOrDefault(each => each.SourceLocation.Range == name);
+        // a name that is a member of another object than Me is not the callee's call.
+        var members = nodes.OfType<MemberAccessExpressionNode>().Select(access => (SyntaxNode)access.Member).ToHashSet(ReferenceEqualityComparer.Instance);
+        var expression = nodes.OfType<IndexExpressionNode>().FirstOrDefault(each => IsCallee(each.Callee))
+            ?? nodes.OfType<ExpressionNode>().FirstOrDefault(each => !members.Contains(each) && IsCallee(each));
         var statement = nodes.OfType<StatementNode>()
             .Where(each => each.SourceLocation.Range.Start <= name.Start && name.End <= each.SourceLocation.Range.End)
             .MinBy(each => (each.SourceLocation.Range.End.Line - each.SourceLocation.Range.Start.Line, each.SourceLocation.Range.End.Character - each.SourceLocation.Range.Start.Character));
@@ -325,7 +384,8 @@ internal static class InlineCall
     // an error the body raises is the caller's to handle (MS-VBAL §5.4.4): with the call as the statement that raised, and inlined, with the body's statement
     // that did. Under On Error Resume Next the rest of the body then runs, where it was skipped; a handler's Resume runs that statement again, or goes on
     // inside the body, where it ran the call again or went on after it.
-    private static InlineRefusal? CallerRefusalOf(ExtractionModuleAnalysis analysis, Symbol callee, ExtractionProcedureAnalysis procedure, ModuleNode module, StatementNode statement)
+    private static InlineRefusal? CallerRefusalOf(
+        ExtractionModuleAnalysis? analysis, Symbol callee, ExtractionProcedureAnalysis procedure, ModuleNode module, StatementNode statement)
     {
         if (!Enumerable.Range(0, procedure.Instructions.Items.Length).Any(procedure.Graph.CanRaise))
         {
@@ -333,7 +393,10 @@ internal static class InlineCall
         }
 
         var range = statement.SourceLocation.Range;
-        if (module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.SourceLocation.Range.Start <= range.Start && range.End <= member.SourceLocation.Range.End) is not { } declaration
+        if (analysis is null
+            || module.Children.OfType<MemberDeclarationNode>()
+                .FirstOrDefault(member => member.SourceLocation.Range.Start <= range.Start && range.End <= member.SourceLocation.Range.End)
+                is not { } declaration
             || analysis.Procedure(declaration.Name, declaration.MemberKind) is not { } caller || !caller.Instructions.TryGetOffset(statement.Identity, out var offset))
         {
             return new(InlineRefusalKind.UnsupportedSite, callee.Name, statement.SourceLocation);
@@ -358,6 +421,53 @@ internal static class InlineCall
         return null;
     }
 
+    // the body inlined into another module means what it says under that module's options and #Const values: refused where the same text would mean something
+    // else. Option Compare decides how its strings compare (MS-VBAL §5.2.1.1); Option Base, the lower bound of an array it declares without one and of what
+    // Array gives (§5.2.1.2); a #Const, which branch of its #If blocks runs (§3.4.1).
+    private static InlineRefusal? OptionsRefusalOf(
+        RenameContext context, Symbol callee, ExtractionProcedureAnalysis procedure, ExtractionModuleAnalysis analysis, ExtractionModuleAnalysis? caller,
+        Site site)
+    {
+        if (caller is null)
+        {
+            return new(InlineRefusalKind.UnsupportedSite, callee.Name, site.Statement.SourceLocation);
+        }
+
+        var own = context.ScopeTree.ScopeFor(analysis.Module).EnclosingModuleDirectives() ?? ModuleDirectives.None;
+        var theirs = context.ScopeTree.ScopeFor(caller.Module).EnclosingModuleDirectives() ?? ModuleDirectives.None;
+        if (own.Compare != theirs.Compare)
+        {
+            return new(InlineRefusalKind.OptionCompare, callee.Name, site.Statement.SourceLocation);
+        }
+
+        var body = procedure.Declaration.Descendants().ToArray();
+        if (own.Base != theirs.Base
+            && body.Any(node => node is ArrayBoundsNode bounds && !bounds.Bounds.IsDefaultOrEmpty && bounds.Bounds.Any(bound => bound.LowerBound is null)
+                || node is RedimDimensionNode { LowerBound: null }
+                || node is SimpleNameExpressionNode name && name.IdentifierName.Equals("Array", StringComparison.OrdinalIgnoreCase)))
+        {
+            return new(InlineRefusalKind.OptionBase, callee.Name, site.Statement.SourceLocation);
+        }
+
+        var range = procedure.Declaration.SourceLocation.Range;
+        if (analysis.Directives.Blocks.Any(block => range.Start <= block.Range.Start && block.Range.Start <= range.End)
+            && !ConstantsOf(analysis).SequenceEqual(ConstantsOf(caller), StringComparer.OrdinalIgnoreCase))
+        {
+            return new(InlineRefusalKind.ConditionalConstants, callee.Name, site.Statement.SourceLocation);
+        }
+
+        return null;
+    }
+
+    // the #Const directives of a module (MS-VBAL §3.4.1), each as it is written, its spaces aside.
+    private static IEnumerable<string> ConstantsOf(ExtractionModuleAnalysis analysis)
+    {
+        var text = TextLines.Of(analysis.Text);
+        return analysis.Parse.PrecompilerTrivia.SelectMany(trivia => trivia.Descendants().Prepend(trivia)).OfType<PrecompilerConstantDeclarationNode>()
+            .Select(constant => string.Concat(text.Of(constant.SourceLocation.Range).Where(character => !char.IsWhiteSpace(character))))
+            .Order(StringComparer.OrdinalIgnoreCase);
+    }
+
     private static System.Collections.Immutable.ImmutableArray<VBParameterSymbol> ParametersOf(Symbol member) => ParameterLists.WithoutMe(member switch
     {
         VBProcedureMemberSymbol procedure => procedure.Parameters,
@@ -365,13 +475,16 @@ internal static class InlineCall
         _ => [],
     });
 
-    // writes the inlined body at the call.
+    // writes the inlined body at the call: syntax and text are the caller's module, source and sourceText the callee's, the same module or another one.
     private sealed class Writer(
-        RenameContext context, RenameModule syntax, TextLines text, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
+        RenameContext context, RenameModule syntax, TextLines text, RenameModule source, TextLines sourceText, Symbol callee,
+        ExtractionProcedureAnalysis procedure, Site site)
     {
         private readonly StatementNode call = site.Statement;
         private readonly Func<ExpressionNode, SemanticId?> _bindings = NameOccurrences.BindingsOf(context, syntax);
+        private readonly Func<ExpressionNode, SemanticId?> _bodyBindings = NameOccurrences.BindingsOf(context, source);
         private readonly LexicalScope _callerScope = NameOccurrences.ScopeOf(context, syntax, site.Statement.SourceLocation.Range.Start);
+        private readonly List<(SourceRange Range, string NewText)> _qualified = [];
         private readonly List<string> _result = [];
         private readonly HashSet<string> _taken = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<SemanticId, string> _replacements = [];
@@ -385,12 +498,13 @@ internal static class InlineCall
             // the names the caller writes, and those the body writes that are not its own parameters and locals, which it takes along.
             var body = BodyRange();
             var own = procedure.Scope.Declarations.Select(symbol => symbol.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var used in NameOccurrences.NamesIn(syntax, body).Where(used => !own.Contains(used)).Concat(NameOccurrences.NamesIn(syntax, CallerRange())))
+            var names = NameOccurrences.NamesIn(source, body).Where(used => !own.Contains(used)).Concat(NameOccurrences.NamesIn(syntax, CallerRange()));
+            foreach (var used in names)
             {
                 _taken.Add(used);
             }
 
-            if ((Arguments() ?? Result() ?? Locals() ?? Captured()) is { } refused)
+            if ((Arguments() ?? Result() ?? Locals() ?? Captured() ?? Qualified()) is { } refused)
             {
                 return (null, refused);
             }
@@ -409,7 +523,7 @@ internal static class InlineCall
                 [
                     new RefactorTextEdit { Range = new SourceRange(line, line), NewText = hoisted },
                     new RefactorTextEdit { Range = site.Call!.SourceLocation.Range, NewText = _replacements[callee.SemanticId] },
-                ]), null);
+                ], InlineForm.Hoisted), null);
             }
 
             var inlined = string.Join(text.NewLine, [.. _before, .. BodyLines(body), .. _after, .. _result]);
@@ -438,7 +552,7 @@ internal static class InlineCall
             var type = (callee as ITypedSymbol)?.ResolvedType;
             if (callee is VBProcedureMemberSymbol || site.Call is not { } called
                 || declaration.Children.OfType<StatementNode>().ToArray() is not [AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode target, Value: var value }]
-                || declaration.Children.OfType<LineLabelNode>().Any() || _bindings(target) != callee.SemanticId
+                || declaration.Children.OfType<LineLabelNode>().Any() || _bodyBindings(target) != callee.SemanticId
                 || procedure.Scope.Declarations.Any(symbol => symbol is not VBParameterSymbol)
                 || type is not VBIntrinsicType || type is VBVariantType or VBObjectType || DeclaredTypeOf(value) is not { } valueType || !SameType(valueType, type))
             {
@@ -483,22 +597,25 @@ internal static class InlineCall
             }
 
             // the function's own name in the expression is its result, which the expression form has none of.
-            if (names.Any(name => _bindings(name) == callee.SemanticId) || Captured() is not null)
+            if (names.Any(name => _bodyBindings(name) == callee.SemanticId) || Captured() is not null || Qualified() is not null)
             {
                 return null;
             }
 
-            var edits = names.Where(name => _bindings(name) is { } bound && _replacements.ContainsKey(bound))
-                .Select(name => (Range: name.SourceLocation.Range, NewText: _replacements[_bindings(name)!.Value])).OrderByDescending(edit => edit.Range.Start);
-            var written = text.Of(value.SourceLocation.Range).Trim();
-            var start = text.Offset(value.SourceLocation.Range.Start) + (text.Of(value.SourceLocation.Range).Length - text.Of(value.SourceLocation.Range).TrimStart().Length);
+            var edits = names.Where(name => _bodyBindings(name) is { } bound && _replacements.ContainsKey(bound))
+                .Select(name => (Range: name.SourceLocation.Range, NewText: _replacements[_bodyBindings(name)!.Value]))
+                .Concat(_qualified.Where(each => Within(each.Range, value.SourceLocation.Range))).OrderByDescending(edit => edit.Range.Start);
+            var written = sourceText.Of(value.SourceLocation.Range).Trim();
+            var start = sourceText.Offset(value.SourceLocation.Range.Start)
+                + (sourceText.Of(value.SourceLocation.Range).Length - sourceText.Of(value.SourceLocation.Range).TrimStart().Length);
             foreach (var (range, newText) in edits)
             {
-                var from = text.Offset(range.Start) - start;
-                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.Offset(range.End) - start));
+                var from = sourceText.Offset(range.Start) - start;
+                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(sourceText.Offset(range.End) - start));
             }
 
-            return (new InlinedCall(syntax.Module, callee, [new RefactorTextEdit { Range = called.SourceLocation.Range, NewText = $"({written})" }]), null);
+            var edit = new RefactorTextEdit { Range = called.SourceLocation.Range, NewText = $"({written})" };
+            return (new InlinedCall(syntax.Module, callee, [edit], InlineForm.Expression), null);
         }
 
         // a decimal literal written as a literal of a numeric type, by its type character, when its value is one of that type (MS-VBAL §3.3.2).
@@ -527,7 +644,8 @@ internal static class InlineCall
         {
             var declaration = procedure.Declaration;
             var header = declaration.ParameterListRange?.End.Line ?? declaration.NameRange?.End.Line ?? declaration.SourceLocation.Range.Start.Line;
-            while (text.Of(new SourceRange(new SourcePosition(header, 0), new SourcePosition(header + 1, 0))).TrimEnd('\r', '\n').EndsWith(" _", StringComparison.Ordinal))
+            while (sourceText.Of(new SourceRange(new SourcePosition(header, 0), new SourcePosition(header + 1, 0)))
+                .TrimEnd('\r', '\n').EndsWith(" _", StringComparison.Ordinal))
             {
                 header++;
             }
@@ -663,13 +781,16 @@ internal static class InlineCall
             _before.Add($"Dim {local} As {NameOfType(type)}");
             if (parameter.DefaultValue is { } value)
             {
-                // the default is a constant expression of the member's module, which a local of the caller with a name it uses would shadow.
-                if (NameOccurrences.NamesIn(syntax, value.SourceLocation.Range).Any(name => _callerScope.Declarations.Any(declared => declared.Name.Equals(name, StringComparison.OrdinalIgnoreCase))))
+                // the default is a constant expression of the member's module, which a local of the caller with a name it uses would shadow, and whose names
+                // another module may not see.
+                if (NameOccurrences.NamesIn(source, value.SourceLocation.Range)
+                        .Any(name => _callerScope.Declarations.Any(declared => declared.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                    || source != syntax && NameOccurrences.NamesIn(source, value.SourceLocation.Range).Any())
                 {
                     return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, value.SourceLocation);
                 }
 
-                _before.Add($"{(type is VBClassType or VBObjectType ? "Set " : string.Empty)}{local} = {text.Of(value.SourceLocation.Range).Trim()}");
+                _before.Add($"{(type is VBClassType or VBObjectType ? "Set " : string.Empty)}{local} = {sourceText.Of(value.SourceLocation.Range).Trim()}");
                 return Release(parameter, type, local, OfObjects(parameter.SemanticId));
             }
 
@@ -733,8 +854,8 @@ internal static class InlineCall
         // the calls of the library's IsMissing of a parameter in the body (MS-VBAL §6.1.2.7.1.6), found by what they are bound to.
         private List<IndexExpressionNode> IsMissingOf(VBParameterSymbol parameter)
             => [.. procedure.Declaration.Descendants().OfType<IndexExpressionNode>()
-                .Where(each => each.Arguments is [SimpleNameExpressionNode argument] && _bindings(argument) == parameter.SemanticId
-                    && _bindings(each.Callee) is { } bound && NameOccurrences.SymbolOf(context, bound) is { } function && NewNames.IsOfALibrary(function)
+                .Where(each => each.Arguments is [SimpleNameExpressionNode argument] && _bodyBindings(argument) == parameter.SemanticId
+                    && _bodyBindings(each.Callee) is { } bound && NameOccurrences.SymbolOf(context, bound) is { } function && NewNames.IsOfALibrary(function)
                     && string.Equals(SymbolUri.QualifiedNameOf(function.Uri), "Information.IsMissing", StringComparison.OrdinalIgnoreCase))];
 
         // whether the body reads a parameter other than to ask IsMissing of it.
@@ -952,7 +1073,7 @@ internal static class InlineCall
             var callers = _callerScope.Declarations.ToLookup(declared => declared.Name, StringComparer.OrdinalIgnoreCase);
             foreach (var name in procedure.Declaration.Descendants().OfType<SimpleNameExpressionNode>())
             {
-                if (_bindings(name) is not { } bound || _replacements.ContainsKey(bound) || bound == callee.SemanticId
+                if (_bodyBindings(name) is not { } bound || _replacements.ContainsKey(bound) || bound == callee.SemanticId
                     || _folds.Any(fold => Within(name.SourceLocation.Range, fold.Range)))
                 {
                     continue;
@@ -967,6 +1088,61 @@ internal static class InlineCall
             return null;
         }
 
+        // a name of the body, written in another module, binds there to what the scopes of the call find first under it (MS-VBAL §5.6.10): what it binds
+        // to in the body is kept, as it is or qualified with its standard module's name when it is Public; a Private declaration of the member's module is
+        // not seen there (MS-VBAL §5.3.1.1): refused, as is a name that no qualification gets to the same declaration.
+        private InlineRefusal? Qualified()
+        {
+            _qualified.Clear();
+            if (source == syntax)
+            {
+                return null;
+            }
+
+            var members = procedure.Declaration.Descendants().OfType<MemberAccessExpressionNode>().Select(access => (SyntaxNode)access.Member)
+                .ToHashSet(ReferenceEqualityComparer.Instance);
+            var project = _callerScope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Project);
+            foreach (var name in procedure.Declaration.Descendants().OfType<SimpleNameExpressionNode>())
+            {
+                if (members.Contains(name) || _bodyBindings(name) is not { } bound || _replacements.ContainsKey(bound) || bound == callee.SemanticId
+                    || _folds.Any(fold => Within(name.SourceLocation.Range, fold.Range)) || NameOccurrences.SymbolOf(context, bound) is not { } symbol)
+                {
+                    continue;
+                }
+
+                // a library's declaration is found past the workspace's scopes, when none of them declares the name.
+                var found = FoundAt(name.IdentifierName);
+                if (found is [var only] && only.SemanticId == bound || found.Length == 0 && NewNames.IsOfALibrary(symbol))
+                {
+                    continue;
+                }
+
+                var declaringModule = NameOccurrences.ModuleOf(bound.Uri);
+                var isPublic = project?.DeclaredAs(name.IdentifierName).Any(declared => declared.SemanticId == bound) ?? false;
+                if (!isPublic)
+                {
+                    return declaringModule.AbsoluteUri == NameOccurrences.ModuleOf(callee.Uri).AbsoluteUri
+                        ? new(InlineRefusalKind.PrivateToItsModule, name.IdentifierName, name.SourceLocation)
+                        : new(InlineRefusalKind.Captured, name.IdentifierName, name.SourceLocation);
+                }
+
+                // a standard module's Public declaration is named through its module (MS-VBAL §5.6.10), whose name must mean the module at the call.
+                if (NameOccurrences.SymbolOf(context, new SemanticId(declaringModule)) is not VBStandardModuleSymbol module
+                    || FoundAt(module.Name) is { Length: > 0 } byName && !(byName is [var one] && one.SemanticId == module.SemanticId))
+                {
+                    return new(InlineRefusalKind.Captured, name.IdentifierName, name.SourceLocation);
+                }
+
+                _qualified.Add((name.SourceLocation.Range, $"{module.Name}.{sourceText.Of(name.SourceLocation.Range).Trim()}"));
+            }
+
+            return null;
+        }
+
+        // what the scopes of the call find first under the name: the declarations of the innermost scope that has any.
+        private Symbol[] FoundAt(string name)
+            => _callerScope.SelfAndAncestors().Select(scope => scope.DeclaredAs(name).ToArray()).FirstOrDefault(found => found.Length > 0) ?? [];
+
         // the lines of the body, its names bound to the parameters and locals written as the call site names them, its labels renamed and its exits
         // rewritten; then the lines that close what the exits opened.
         private IEnumerable<string> BodyLines(SourceRange body)
@@ -974,11 +1150,11 @@ internal static class InlineCall
             var edits = new List<(SourceRange Range, string NewText)>();
             foreach (var group in _replacements.GroupBy(each => NameOf(each.Key)))
             {
-                foreach (var occurrence in NameOccurrences.Find(context, group.Key, [syntax]).Occurrences
+                foreach (var occurrence in NameOccurrences.Find(context, group.Key, [source]).Occurrences
                     .Where(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Declaration && Within(each.Range, body) && each.Binding is { } bound && _replacements.ContainsKey(bound)))
                 {
                     var replacement = _replacements[occurrence.Binding!.Value];
-                    var declared = text.Of(occurrence.Range);
+                    var declared = sourceText.Of(occurrence.Range);
                     edits.Add((occurrence.Range, occurrence.Kind is OccurrenceKind.Declaration ? replacement + declared[NameLength(declared)..] : replacement));
                 }
             }
@@ -986,15 +1162,16 @@ internal static class InlineCall
             Labels(edits);
             var closing = Exits(edits);
             edits.AddRange(_folds);
-            var written = text.Of(body);
-            var start = text.Offset(body.Start);
+            edits.AddRange(_qualified);
+            var written = sourceText.Of(body);
+            var start = sourceText.Offset(body.Start);
             // an edit inside another one (a parameter's name in a folded IsMissing) goes with it.
             foreach (var (range, newText) in edits.DistinctBy(edit => edit.Range)
                 .Where(edit => !edits.Any(other => other.Range != edit.Range && Within(edit.Range, other.Range)))
                 .OrderByDescending(edit => edit.Range.Start))
             {
-                var from = text.Offset(range.Start) - start;
-                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.Offset(range.End) - start));
+                var from = sourceText.Offset(range.Start) - start;
+                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(sourceText.Offset(range.End) - start));
             }
 
             return written.TrimEnd('\r', '\n').Split('\n').Select(line => line.TrimEnd('\r').TrimStart()).Concat(closing);
@@ -1022,7 +1199,7 @@ internal static class InlineCall
                     edits.Add(Removal(exit.SourceLocation.Range));
                     if (guard != statements[^1])
                     {
-                        edits.Add((LineOf(new SourceRange(guard.SourceLocation.Range.End, guard.SourceLocation.Range.End)), "Else" + text.NewLine));
+                        edits.Add((LineOf(new SourceRange(guard.SourceLocation.Range.End, guard.SourceLocation.Range.End)), "Else" + sourceText.NewLine));
                         closing.Insert(0, "End If");
                     }
 
@@ -1047,7 +1224,7 @@ internal static class InlineCall
         private (SourceRange Range, string NewText) Removal(SourceRange range)
         {
             var line = LineOf(range);
-            var rest = string.Concat(text.Of(new SourceRange(line.Start, range.Start)), text.Of(new SourceRange(range.End, line.End)));
+            var rest = string.Concat(sourceText.Of(new SourceRange(line.Start, range.Start)), sourceText.Of(new SourceRange(range.End, line.End)));
             return (rest.Trim().Length == 0 ? line : range, string.Empty);
         }
 

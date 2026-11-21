@@ -3,6 +3,7 @@ using RDCore.LanguageServer.Services.Refactoring.InlineMember;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Semantics.Flow;
+using System.Globalization;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -11,9 +12,11 @@ public class InlineCallTests
 {
     // the call written in Run's body as `call`, inlined: its module's text after the edits, or why it is not inlined. The declarations follow Run.
     private static (string Before, string? After, InlineRefusal? Refusal) Inlined(
-        string body, string declarations, string call, IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, string moduleLevel = "")
+        string body, string declarations, string call, IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false,
+        string moduleLevel = "", IReadOnlyList<(string Name, string Source)>? modules = null)
     {
-        var analyzed = FlowFixture.Analyze(body, end: $"End Sub\r\n\r\n{declarations}", declarations: moduleLevel, classes: classes, classModule: classModule);
+        var analyzed = FlowFixture.Analyze(
+            body, end: $"End Sub\r\n\r\n{declarations}", declarations: moduleLevel, classes: classes, classModule: classModule, modules: modules);
         var offset = analyzed.Text.IndexOf(call, analyzed.Text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.IsTrue(offset >= 0, $"no {call} in Run");
         var position = TextLines.Of(analyzed.Text).PositionOf(offset + 1);
@@ -23,14 +26,17 @@ public class InlineCallTests
 
     // the program run with the module before and after the call is inlined: Main calls Run 3.
     private static async Task<(string Before, string After, string Module)> BeforeAndAfterAsync(
-        string body, string declarations, string call, IReadOnlyList<(string Name, string Source)>? classes = null)
+        string body, string declarations, string call, IReadOnlyList<(string Name, string Source)>? classes = null, string moduleLevel = "",
+        IReadOnlyList<(string Name, string Source)>? modules = null)
     {
-        var (before, after, refusal) = Inlined(body, declarations, call, classes);
+        var (before, after, refusal) = Inlined(body, declarations, call, classes, moduleLevel: moduleLevel, modules: modules);
         Assert.IsNull(refusal, $"refused: {refusal}");
-        return (await RunAsync(before, classes ?? []), await RunAsync(after!, classes ?? []), after!);
+        return (await RunAsync(before, classes ?? [], modules: modules), await RunAsync(after!, classes ?? [], modules: modules), after!);
     }
 
-    private static async Task<string> RunAsync(string module, IReadOnlyList<(string Name, string Source)> classes, string main = "Public Sub Main()\r\nRun 3\r\nEnd Sub\r\n")
+    private static async Task<string> RunAsync(
+        string module, IReadOnlyList<(string Name, string Source)> classes, string main = "Public Sub Main()\r\nRun 3\r\nEnd Sub\r\n",
+        IReadOnlyList<(string Name, string Source)>? modules = null)
     {
         var program = (module.Length == 0 ? "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n" : module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Program\"", StringComparison.Ordinal))
             + $"\r\n{main}";
@@ -41,7 +47,7 @@ public class InlineCallTests
             {
                 output = $"{result.Outcome} {result.ErrorNumber}: {string.Join(" | ", result.Output.Select(line => line.Trim()))}";
                 return Task.CompletedTask;
-            });
+            }, modules: modules);
         }
         catch (AssertFailedException failed)
         {
@@ -524,5 +530,110 @@ public class InlineCallTests
         var (before, after, module) = await BeforeAndAfterAsync("Dim values(1 To 2) As Long\r\nvalues(1) = Doubled(n)\r\nDebug.Print values(1)", OneLiner, "Doubled(n)");
         Assert.AreEqual(before, after, module);
         StringAssert.Contains(module, "values(1) = (n * 2)");
+    }
+
+    [TestMethod]
+    public void EveryRefusal_IsWrittenInEnglishAndInFrench()
+    {
+        foreach (var kind in Enum.GetValues<InlineRefusalKind>())
+        {
+            var english = new InlineRefusal(kind, "F").ToMessage(culture: CultureInfo.InvariantCulture);
+            var french = new InlineRefusal(kind, "F").ToMessage(culture: CultureInfo.GetCultureInfo("fr-CA"));
+            Assert.AreNotEqual($"InlineMember_{kind}", english, $"{kind} has no text");
+            Assert.AreNotEqual(english, french, $"{kind} has no French text");
+        }
+    }
+
+    // a standard module Helpers beside Main.
+    private static (string Name, string Source) Helpers(params string[] lines)
+        => ("Helpers", ModuleWorkspace.StandardModule("Helpers", ["Option Explicit", .. lines]));
+
+    [TestMethod]
+    public async Task APublicProcedureOfAnotherModule_IsInlined_ItsNamesAsTheyAre()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync("Shout n", string.Empty, "Shout n",
+            modules: [Helpers(
+                "Public Total As Long", "Public Sub Shout(ByVal x As Long)", "    Total = Total + x", "    Debug.Print x * 2; Total", "End Sub")]);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Total = Total + x");
+        Assert.IsFalse(module.Contains("Helpers.Total", StringComparison.Ordinal), module);
+    }
+
+    [TestMethod]
+    public async Task APublicVariableOfTheMembersModule_ThatTheCallersModuleDeclaresToo_IsQualified()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync("Counter = 100\r\nTick\r\nDebug.Print Counter", string.Empty, "Tick",
+            moduleLevel: "Private Counter As Long",
+            modules: [Helpers("Public Counter As Long", "Public Sub Tick()", "    Counter = Counter + 1", "    Debug.Print Counter", "End Sub")]);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(before, "1 | 100");
+        StringAssert.Contains(module, "Helpers.Counter = Helpers.Counter + 1");
+    }
+
+    [TestMethod]
+    public void APrivateDeclarationOfTheMembersModule_IsRefused_InAnotherModule()
+    {
+        var (_, _, refusal) = Inlined("Tick", string.Empty, "Tick",
+            modules: [Helpers("Private Counter As Long", "Public Sub Tick()", "    Counter = Counter + 1", "End Sub")]);
+        Assert.AreEqual(InlineRefusalKind.PrivateToItsModule, refusal?.Kind);
+        Assert.AreEqual("Counter", refusal?.Detail);
+    }
+
+    [TestMethod]
+    public void AMemberOfAModuleWithAnotherOptionCompare_IsRefused()
+    {
+        var (_, _, refusal) = Inlined("Same \"a\"", string.Empty, "Same \"a\"",
+            modules: [Helpers("Option Compare Text", "Public Sub Same(ByVal text As String)", "    Debug.Print text = \"A\"", "End Sub")]);
+        Assert.AreEqual(InlineRefusalKind.OptionCompare, refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void AnArrayWithoutALowerBound_UnderAnotherOptionBase_IsRefused()
+    {
+        var (_, _, refusal) = Inlined("Fill", string.Empty, "Fill",
+            modules: [Helpers("Option Base 1", "Public Sub Fill()", "    Dim values(3) As Long", "    Debug.Print LBound(values)", "End Sub")]);
+        Assert.AreEqual(InlineRefusalKind.OptionBase, refusal?.Kind);
+    }
+
+    [TestMethod]
+    public async Task ABodyWithoutArrays_UnderAnotherOptionBase_IsInlined()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync("Hello", string.Empty, "Hello",
+            modules: [Helpers("Option Base 1", "Public Sub Hello()", "    Debug.Print \"hello\"", "End Sub")]);
+        Assert.AreEqual(before, after, module);
+    }
+
+    private static readonly string[] Logger =
+    [
+        "#Const Verbose = True", "Public Sub Log(ByVal x As Long)",
+        "#If Verbose Then", "    Debug.Print \"verbose\"; x", "#Else", "    Debug.Print x", "#End If",
+        "End Sub",
+    ];
+
+    [TestMethod]
+    public void AnIfBlock_UnderOtherConstants_IsRefused()
+        => Assert.AreEqual(InlineRefusalKind.ConditionalConstants, Inlined("Log n", string.Empty, "Log n", modules: [Helpers(Logger)]).Refusal?.Kind);
+
+    [TestMethod]
+    public async Task AnIfBlock_UnderTheSameConstants_IsInlined()
+    {
+        var (before, after, module) =
+            await BeforeAndAfterAsync("Log n", string.Empty, "Log n", moduleLevel: "#Const Verbose = True", modules: [Helpers(Logger)]);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(before, "verbose");
+    }
+
+    [TestMethod]
+    public async Task ACallOnMe_InTheMembersOwnClass_IsInlined()
+    {
+        var (before, after, refusal) = Inlined(
+            "Dim a As Long\r\na = n\r\nMe.Notify a\r\nDebug.Print a",
+            "Public Sub Notify(ByVal x As Long)\r\n    RaiseEvent Changed(x)\r\n    Debug.Print x\r\nEnd Sub",
+            "Notify a", classModule: true, moduleLevel: "Public Event Changed(x As Long)");
+        Assert.IsNull(refusal, $"refused: {refusal}");
+        Assert.IsFalse(after!.Contains("Me.Notify", StringComparison.Ordinal), after);
+        var ran = await RunAsSourceAsync(before);
+        StringAssert.Contains(ran, "changed 3 | 103 | 3");
+        Assert.AreEqual(ran, await RunAsSourceAsync(after), after);
     }
 }

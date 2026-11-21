@@ -1,4 +1,6 @@
 ﻿using RDCore.SDK.Model.Source;
+using System.Globalization;
+using System.Resources;
 
 namespace RDCore.LanguageServer.Services.Refactoring.InlineMember;
 
@@ -80,9 +82,33 @@ internal enum InlineRefusalKind
     ByRefElement,
 
     /// <summary>
-    /// The call is in another module than the member: the names of its body would have to be qualified there.
+    /// The call is in another project than the member, which sees only what the member's project exposes, under the name it references it by.
     /// </summary>
-    OtherModule,
+    OtherProject,
+
+    /// <summary>
+    /// A name of the body refers to a <c>Private</c> declaration of the member's module, and the call is in another module, which does not see it
+    /// (MS-VBAL §5.3.1.1).
+    /// </summary>
+    PrivateToItsModule,
+
+    /// <summary>
+    /// The call is in another module than the member, whose <c>Option Compare</c> differs: the body's string comparisons would compare otherwise
+    /// (MS-VBAL §5.2.1.1).
+    /// </summary>
+    OptionCompare,
+
+    /// <summary>
+    /// The call is in another module than the member, whose <c>Option Base</c> differs, and the body declares an array without a lower bound or calls
+    /// <c>Array</c>: its lower bound would differ (MS-VBAL §5.2.1.2).
+    /// </summary>
+    OptionBase,
+
+    /// <summary>
+    /// The call is in another module than the member, whose <c>#Const</c> directives differ, and the body has an <c>#If</c> block: another of its branches
+    /// could be the one that runs (MS-VBAL §3.4.1).
+    /// </summary>
+    ConditionalConstants,
 
     /// <summary>
     /// A local of the member may hold an object when an error leaves the body. The callee's activation let go of it before the caller's handler ran, and so
@@ -97,8 +123,8 @@ internal enum InlineRefusalKind
     CallerResumesNext,
 
     /// <summary>
-    /// A name of the body refers to something of the module or the project, and a parameter or a local of the caller has that name: written into the caller,
-    /// it would refer to the caller's (MS-VBAL §5.6.10).
+    /// A name of the body refers to something of the module or the project, and a parameter, a local or a declaration of the caller's module has that name,
+    /// which no qualification gets past: written into the caller, it would refer to the caller's (MS-VBAL §5.6.10).
     /// </summary>
     Captured,
 
@@ -133,4 +159,33 @@ internal enum InlineRefusalKind
 /// <param name="Kind">Why.</param>
 /// <param name="Detail">What it is about: the statement, the parameter, the name; <see langword="null"/> when there is nothing to name.</param>
 /// <param name="Location">Where, in the module of the member or of the call; <see langword="null"/> for the member as a whole.</param>
-internal sealed record class InlineRefusal(InlineRefusalKind Kind, string? Detail = null, SourceLocation? Location = null);
+internal sealed record class InlineRefusal(InlineRefusalKind Kind, string? Detail = null, SourceLocation? Location = null)
+{
+    private static readonly ResourceManager Messages =
+        new("RDCore.LanguageServer.Services.Refactoring.InlineMember.InlineMemberMessages", typeof(InlineRefusal).Assembly);
+
+    /// <summary>
+    /// What the refusal says, in the language of the reader.
+    /// </summary>
+    /// <param name="locate">How a position is named to the reader; by default, the name of the module and the line and the column, from 1.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
+        => Format($"InlineMember_{Kind}", culture, Detail,
+            Location is { } location ? $"({(locate ?? DefaultLocation)(location.Uri, location.Range.Start)})" : string.Empty);
+
+    /// <summary>
+    /// A text of Inline Member's, in the language of the reader, with its arguments.
+    /// </summary>
+    /// <param name="key">The text's name.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    /// <param name="arguments">What the text names.</param>
+    public static string Format(string key, CultureInfo? culture, params object?[] arguments)
+    {
+        culture ??= CultureInfo.CurrentUICulture;
+        return string.Format(culture, Messages.GetString(key, culture) ?? key, arguments)
+            .Replace("  ", " ", StringComparison.Ordinal).Replace(" .", ".", StringComparison.Ordinal);
+    }
+
+    private static string DefaultLocation(Uri module, SourcePosition position)
+        => $"{module.Fragment.TrimStart('#')} {position.Line + 1}:{position.Character + 1}";
+}
