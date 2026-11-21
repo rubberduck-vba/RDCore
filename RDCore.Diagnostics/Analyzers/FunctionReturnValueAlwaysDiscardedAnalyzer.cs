@@ -14,7 +14,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// a <c>Friend</c> one, a <c>Public</c> one of a program, whose run starts at its entry point, and a <c>Private</c> one, which only its module calls.
 /// Another <c>Public</c> function can be called by another project or by the host that runs the project. A <c>Private</c> one is not counted when a string
 /// of the project writes its name, when its module calls <c>CallByName</c> with a name that is not a string literal, or when it implements a member of
-/// an interface. A function no code calls is not found here.
+/// an interface. A function that no code calls, or that only calls itself, is left to <see cref="ProcedureNotUsedAnalyzer"/>.
 /// </remarks>
 internal sealed class FunctionReturnValueAlwaysDiscardedAnalyzer : IModuleAnalyzer
 {
@@ -23,7 +23,8 @@ internal sealed class FunctionReturnValueAlwaysDiscardedAnalyzer : IModuleAnalyz
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration is { Kind: DeclarationKind.Procedure, Role: DeclarationRole.None }
-                && declaration.ReferencedFrom is { Length: > 0 } sites && sites.All(site => site.DiscardsResult))
+                && declaration.ReferencedFrom is { Length: > 0 } sites && sites.All(site => site.DiscardsResult)
+                && sites.Any(site => !ProcedureNotUsedAnalyzer.IsInItsOwnCode(site, declaration.Symbol)))
             .OrderBy(declaration => declaration.Location.Range.Start)
             .Select(declaration => new AnalyzerFinding(
                 RDCoreDiagnosticId.FunctionReturnValueAlwaysDiscarded.ToCode(),
