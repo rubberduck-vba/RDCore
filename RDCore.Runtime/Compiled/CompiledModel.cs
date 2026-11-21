@@ -692,15 +692,24 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public IReadOnlyList<int> TextSlots { get; init; } = [];
 
     /// <summary>
-    /// Whether every parameter is a scalar or a <c>String</c> of variable length: what a call made through the callee's typed entry gives.
+    /// For each parameter, the slot of the callee's layout an object parameter is held in, whose <see cref="Parameters"/> kind is <see langword="null"/>
+    /// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>); -1 for any other. Empty when the call has no object parameter, or is of a
+    /// member of an object. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeObject"/>,
+    /// <see cref="CompiledActivation.TakeObjectReference"/>).
     /// </summary>
-    public bool GivesScalarsAndTexts
+    public IReadOnlyList<int> ObjectSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether every parameter is a scalar, a <c>String</c> of variable length or an object given in a slot of the callee's layout: what a call made
+    /// through the callee's typed entry gives.
+    /// </summary>
+    public bool GivesWhatTheEntryTakes
     {
         get
         {
             for (var i = 0; i < Parameters.Count; i++)
             {
-                if (Parameters[i] is null && (i >= TextSlots.Count || TextSlots[i] < 0))
+                if (Parameters[i] is null && (i >= TextSlots.Count || TextSlots[i] < 0) && (i >= ObjectSlots.Count || ObjectSlots[i] < 0))
                 {
                     return false;
                 }

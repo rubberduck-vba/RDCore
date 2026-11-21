@@ -49,9 +49,15 @@ namespace RDCore.Runtime.Compiled;
 /// <para>
 /// Any other instruction compiled code does not do, the interpreter runs alone the same way, with the reason recorded
 /// (<see cref="Stepped"/>): a statement, a condition, a <c>GoTo</c>, a <c>For</c> that is not compiled code's. So does a procedure of a class, whose
-/// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
-/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's, but for a Variant's (below). A body none of whose instructions that do
-/// something are compiled code's is kept in the interpreter.
+/// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - a <c>Variant</c>, an array, a record, a <c>Static</c>, an object
+/// variable declared <c>As New</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's, but for a Variant's (below).
+/// A body none of whose instructions that do something are compiled code's is kept in the interpreter.
+/// </para>
+/// <para>
+/// An object parameter or variable, and the result of a function that returns an object, are held in a cell, which compiled code reads the reference in
+/// and <c>Set</c>s (<see cref="ObjectSlots"/>, <see cref="ResultIsObject"/>): the frame's, or, in an activation without a frame, the activation's own,
+/// which its frame is given once it has one. The activation lets go of what they hold when it returns, in the order its frame would (MS-VBAL §5.3.1.10). A
+/// parameter passed by reference given an object variable is the variable's cell (MS-VBAL §5.3.1.11).
 /// </para>
 /// <para>
 /// The interpreter steps a block whose state the frame holds too: a <c>With</c> and its <c>End With</c>, and each statement in it
@@ -138,10 +144,18 @@ internal sealed partial class ProcedureAnalysis
     private readonly SortedSet<int> _variantSlots = [];
 
     /// <summary>
-    /// The slots of the object parameters and variables, in order: each is held in the cell its frame holds it in, which compiled code
-    /// reads the reference it holds from, for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
+    /// The slots of the object parameters and variables, and of <c>Me</c>, in order: each is held in a cell, which compiled code reads the reference it
+    /// holds from and <c>Set</c>s: the one its frame holds it in, or, in an activation without a frame, the activation's (<see cref="HeldObjectSlots"/>).
     /// </summary>
     public IReadOnlyList<int> ObjectSlots => [.. _objectSlots];
+
+    /// <summary>
+    /// The slots of the object parameters and variables, but <c>Me</c>, in order: an activation without a frame holds each in a cell of its own, which its
+    /// frame is given once it has one (<c>CompiledActivation.ObjectCellOf</c>), and lets go of what each holds when it returns, as the frame would.
+    /// </summary>
+    public IReadOnlyList<int> HeldObjectSlots => [.. _heldObjectSlots];
+
+    private readonly SortedSet<int> _heldObjectSlots = [];
 
     private readonly SortedSet<int> _objectSlots = [];
 
@@ -219,6 +233,13 @@ internal sealed partial class ProcedureAnalysis
     /// interpreter assigns it (<see cref="TextResultLetStep"/>), and reads the text it holds (<see cref="TextResultNode"/>).
     /// </summary>
     public bool ResultIsText { get; private set; }
+
+    /// <summary>
+    /// Whether the function result variable is an object, held in a cell as an object variable is: its frame's (<c>CallStackFrame.ResultCell</c>), or,
+    /// in an activation without a frame, the activation's, which its frame is given once it has one. A <c>Set</c> of it is compiled code's
+    /// (<see cref="SetStep.Result"/>).
+    /// </summary>
+    public bool ResultIsObject { get; private set; }
 
     /// <summary>The <c>For</c> loops, numbered.</summary>
     public IReadOnlyList<CompiledForLoop> Loops => _loops;
@@ -398,9 +419,10 @@ internal sealed partial class ProcedureAnalysis
     public IReadOnlyList<Ineligibility> Stepped => _stepped;
 
     /// <summary>
-    /// Whether the activation holds what compiled code does not - <c>Me</c>, an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
-    /// <c>Static</c> - in its frame, from its first instruction: the body is not called directly, without one, and the instructions that read or write any of
-    /// it are the interpreter's.
+    /// Whether the activation holds what compiled code does not - <c>Me</c>, a <c>Variant</c>, an array, a record, a <c>Static</c>, an object variable
+    /// declared <c>As New</c>, the result of a function that returns a <c>String</c> or a <c>Variant</c> - in its frame, from its first instruction: the
+    /// body is not called directly, without one, and the instructions that read or write any of it are the interpreter's. An object parameter, variable or
+    /// result is held without a frame (<see cref="HeldObjectSlots"/>, <see cref="ResultIsObject"/>).
     /// </summary>
     public bool NeedsFrame { get; private set; }
 
@@ -456,11 +478,12 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // an object is held in the cell its frame holds it in, whose reference compiled code reads.
+            // an object is held in a cell compiled code reads and Sets: its frame's, or its activation's, which a call made directly gives the object, or
+            // the cell of the caller's variable passed by reference (CompiledActivation.TakeObject, TakeObjectReference).
             if (parameter is not ParamArrayParameterSymbol && IsObjectType(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
             {
-                NeedsFrame = true;
                 _ = _objectSlots.Add(_layout.ParameterSlots[i]);
+                _ = _heldObjectSlots.Add(_layout.ParameterSlots[i]);
                 _slotSymbols[_layout.ParameterSlots[i]] = parameter;
                 continue;
             }
@@ -511,9 +534,12 @@ internal sealed partial class ProcedureAnalysis
                     _ = _variantSlots.Add(_layout.LocalSlots[i]);
                     _slotSymbols[_layout.LocalSlots[i]] = variable;
                     continue;
+                // an object variable is held in a cell compiled code reads and Sets: its frame's, or its activation's. One declared As New is made on
+                // its first use (MS-VBAL §5.2.3.1.4), which the interpreter does, in the frame.
                 case VBLocalVariableSymbol { IsStatic: false } variable when IsObjectType(variable.ResolvedType) && _layout.LocalSlots[i] >= 0:
-                    NeedsFrame = true;
+                    NeedsFrame |= variable.GetProperty(SymbolProperties.AutoInstantiated);
                     _ = _objectSlots.Add(_layout.LocalSlots[i]);
+                    _ = _heldObjectSlots.Add(_layout.LocalSlots[i]);
                     _slotSymbols[_layout.LocalSlots[i]] = variable;
                     continue;
                 case VBLocalVariableSymbol { IsStatic: false } variable when TryHoldRecord(variable.ResolvedType, _layout.LocalSlots[i], variable):
@@ -530,12 +556,14 @@ internal sealed partial class ProcedureAnalysis
             }
         }
 
-        // a function result that is no scalar is the frame's too, and so is what assigns it.
+        // a function result that is no scalar is the frame's too, and so is what assigns it; but an object, held in a cell as an object variable is: its
+        // frame's, or its activation's.
         if (_procedure is VBReturningMemberSymbol returning)
         {
             if (ScalarKinds.Of(returning.ResolvedType) is not { } result)
             {
-                NeedsFrame = true;
+                ResultIsObject = IsObjectType(returning.ResolvedType);
+                NeedsFrame |= !ResultIsObject;
                 ResultIsVariant = returning.ResolvedType is VBVariantType;
                 ResultIsText = IsText(returning.ResolvedType);
             }
@@ -1020,6 +1048,7 @@ internal sealed partial class ProcedureAnalysis
         bool[]? omitted = null;
         bool[]? variants = null;
         int[]? texts = null;
+        int[]? objectSlots = null;
         for (var i = 0; i < parameters.Length; i++)
         {
             // a Variant passed by reference, given a Variant or a String variable or parameter of the activation: its address, which the parameter is a
@@ -1076,14 +1105,26 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // an object, given the object a variable holds, Me or Nothing, or the address of an object variable of the activation. A call given an object is
-            // never made through a direct entry: the invoker or the member's binding gives the object to the parameter, as the interpreter gives it
-            // (CompiledActivation.SetObject), and counts it for as long as the callee runs.
+            // an object, given the object a variable holds, Me or Nothing, or the address of an object variable of the activation: Set-coerced to the
+            // parameter's type as the interpreter gives it (CompiledActivation.SetObject), and counted by the parameter for as long as the callee runs. A
+            // procedure of a standard module called directly is given it in the slot of its layout that holds the parameter (CompiledCallee.ObjectSlots);
+            // the invoker or a member's binding gives it otherwise.
             if (parameters[i] is not ParamArrayParameterSymbol && IsObjectType(parameters[i].ResolvedType))
             {
                 if (ObjectArgumentOf(arguments[i]) is not { } passed)
                 {
                     return null;
+                }
+
+                if (site is null && defaultOf is null && receiver is null)
+                {
+                    if (objectSlots is null)
+                    {
+                        objectSlots = new int[parameters.Length];
+                        Array.Fill(objectSlots, -1);
+                    }
+
+                    objectSlots[i] = FrameLayout.For(procedure).ParameterSlots[i];
                 }
 
                 (objects ??= new ObjectParameter?[parameters.Length])[i] = new ObjectParameter(arguments[i].Expression, parameters[i].ResolvedType);
@@ -1163,6 +1204,7 @@ internal sealed partial class ProcedureAnalysis
             Omitted = omitted ?? [],
             VariantReferences = variants ?? [],
             TextSlots = texts ?? [],
+            ObjectSlots = objectSlots ?? [],
         });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }

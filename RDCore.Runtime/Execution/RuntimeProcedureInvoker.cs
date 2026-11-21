@@ -681,18 +681,24 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     /// <summary>
-    /// The end of an activation <see cref="PushMemberActivation"/> made, as <see cref="Activate"/> ends one: <c>Me</c> and the objects its locals held let go
-    /// of (MS-VBAL §5.3.1.10), unless the program was stopped in it, and then as <see cref="PopCompiledActivation"/> ends it.
+    /// The end of an activation <see cref="PushMemberActivation"/> made, or of one compiled code made of a procedure and gave a frame, as
+    /// <see cref="Activate"/> ends one: <c>Me</c> and the objects its parameters and locals held let go of (MS-VBAL §5.3.1.10), unless the program was
+    /// stopped in it, and then as <see cref="PopCompiledActivation"/> ends it.
     /// </summary>
     /// <param name="frame">The activation's frame.</param>
-    /// <param name="member">The member the activation is of.</param>
+    /// <param name="member">The member or the procedure the activation is of.</param>
     /// <param name="outcome">How the member's code ended.</param>
+    /// <param name="arguments">
+    /// The arguments as the call gave them, which say which parameters passed by reference are their caller's variable, and let go of nothing;
+    /// <see langword="null"/> when none is.
+    /// </param>
     /// <returns>The activation's outcome, as its caller is to see it.</returns>
-    internal RuntimeExecutionOutcome PopMemberActivation(CallStackFrame frame, VBTypeMemberSymbol member, RuntimeExecutionOutcome outcome)
+    internal RuntimeExecutionOutcome PopMemberActivation(CallStackFrame frame, VBTypeMemberSymbol member, RuntimeExecutionOutcome outcome,
+        IRuntimeValue[]? arguments = null)
     {
         if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break) && !EndsTheProgram(outcome))
         {
-            ReleaseLocals(frame, GetLocals(member), GetParameters(member), arguments: null);
+            ReleaseLocals(frame, GetLocals(member), GetParameters(member), arguments);
         }
 
         return PopCompiledActivation(outcome);
