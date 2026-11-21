@@ -16,10 +16,10 @@ namespace RDCore.Tests.Runtime.Execution;
 
 /// <summary>
 /// Characterization matrix for <see cref="ObjectInstance"/> — the activation record of one live
-/// object, owning the storage for every instance field its class module declares. Mirrors
+/// object, holding every instance field its class module declares. Mirrors
 /// <c>RDCore.Tests.Runtime.Execution.Frames.CallStackFrameTests</c>: an instance field is
-/// <see cref="ObjectInstance.Push"/>ed and reserves storage through the same
-/// <see cref="ISessionStorage"/> module/global symbols and call-stack frames use.
+/// <see cref="ObjectInstance.Push"/>ed, and is given an address in the same
+/// <see cref="ISessionStorage"/> module/global symbols and call-stack frames use when one is asked for.
 /// </summary>
 [TestClass]
 [TestCategory("RDCore.Runtime.Execution.ObjectInstance")]
@@ -113,14 +113,36 @@ public sealed class ObjectInstanceTests
         var classModule = ClassModule();
         var sut = Sut(classModule, out var storage);
         var field = Field(classModule.Uri, "State");
-        var value = new VBLongValue(5);
-        sut.Push(field, value);
+        sut.Push(field, new VBLongValue(5));
+        Assert.IsTrue(sut.TryGetAddress(field, out var address));
+        Assert.IsTrue(storage.TryRead(address, out _), "the field is bound at its address");
 
         sut.ReleaseAll();
 
         Assert.IsFalse(sut.TryResolve(field, out _));
         // the address is genuinely free again in the underlying storage, not just unlinked here.
-        Assert.IsTrue(storage.TryAllocate(value.Size, value.Handle, out _));
+        Assert.IsFalse(storage.TryRead(address, out _));
+    }
+
+    // a Long is held as a payload cell, which knows the address it is bound at; a Variant holding a String is not.
+    [TestMethod]
+    [DataRow(false, DisplayName = "a Long")]
+    [DataRow(true, DisplayName = "a Variant")]
+    public void TryGetAddress_IsTheSameAddressEachTime_WhereTheFieldsBindingIs(bool variant)
+    {
+        var classModule = ClassModule();
+        var sut = Sut(classModule, out var storage);
+        var field = Field(classModule.Uri, "State");
+        sut.Push(field, variant ? new VBVariantValue(new VBStringValue("x")) : new VBLongValue(5));
+        var before = sut.GetValue(field);
+
+        Assert.IsTrue(sut.TryGetAddress(field, out var first));
+        Assert.IsTrue(sut.TryGetAddress(field, out var second));
+
+        Assert.AreEqual(first, second);
+        Assert.IsTrue(storage.TryRead(first, out var bound));
+        Assert.AreSame(before, bound, "the field is bound at its address as the binding it was before it had one");
+        Assert.AreSame(before, sut.GetValue(field));
     }
 
     [TestMethod]
@@ -154,7 +176,7 @@ public sealed class ObjectInstanceTests
         var created = ClassModule();
         table.TryAdd(created, created.ScopeKind);
         var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
-        var sut = new ObjectInstance(new VBRuntimeObjectId(), created, storage, table);
+        var sut = new ObjectInstance(new VBRuntimeObjectId(), created, storage, table, ObjectLayout.Empty);
         Assert.AreSame(created, sut.ClassModule, "the class is read, and kept, before the table changes");
 
         var edited = created with { };

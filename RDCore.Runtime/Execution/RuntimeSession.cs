@@ -1120,10 +1120,12 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public IObjectInstance CreateInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule)
     {
-        var instance = new ObjectInstance(objectId, classModule, storage, table);
-        foreach (var field in InstanceFieldsOf(classModule))
+        var layout = LayoutOf(classModule);
+        var instance = new ObjectInstance(objectId, classModule, storage, table, layout);
+        var fields = layout.Fields;
+        for (var i = 0; i < fields.Length; i++)
         {
-            instance.Push(field, DefaultValueOf(field));
+            instance.Hold(i, DefaultValueOf(fields[i]));
         }
 
         _instances[objectId] = instance;
@@ -1148,7 +1150,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         foreach (var instance in _instances.Values)
         {
             var held = instance.Fields.Concat(instance.StaticLocals).Select(field => field.SemanticId).ToHashSet();
-            foreach (var field in InstanceFieldsOf(instance.ClassModule).Where(field => !held.Contains(field.SemanticId)))
+            foreach (var field in LayoutOf(instance.ClassModule).Fields.Where(field => !held.Contains(field.SemanticId)))
             {
                 instance.Push(field, DefaultValueOf(field));
                 given++;
@@ -1158,25 +1160,25 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         return given;
     }
 
-    // the instance fields a class declares, as the session has them now: found among every instance field of the session, once for each version of the table
-    // (SymbolTable.Version), which a field defined or removed changes. Each object of the class is given the same ones until then.
-    private Symbol[] InstanceFieldsOf(VBClassModuleSymbol classModule)
+    // the instance fields a class declares, as the session has them now, numbered (ObjectLayout): found among every instance field of the session, once for
+    // each version of the table (SymbolTable.Version), which a field defined or removed changes. Each object of the class is laid out the same until then.
+    private ObjectLayout LayoutOf(VBClassModuleSymbol classModule)
     {
         var key = classModule.Uri.AbsoluteUri;
-        if (_instanceFields.TryGetValue(key, out var known) && known.Version == table.Version)
+        if (_layouts.TryGetValue(key, out var known) && known.Version == table.Version)
         {
-            return known.Fields;
+            return known.Layout;
         }
 
-        var fields = table.InstanceSymbols.Where(field =>
+        var layout = new ObjectLayout([.. table.InstanceSymbols.Where(field =>
             field.ParentUri.AbsoluteUri == key
             && field.Kind is SymbolKindExt.Field or SymbolKindExt.Variable
-            && field is ITypedSymbol { ResolvedType: var _ }).ToArray();
-        _instanceFields[key] = (table.Version, fields);
-        return fields;
+            && field is ITypedSymbol { ResolvedType: var _ })]);
+        _layouts[key] = (table.Version, layout);
+        return layout;
     }
 
-    private readonly Dictionary<string, (int Version, Symbol[] Fields)> _instanceFields = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (int Version, ObjectLayout Layout)> _layouts = new(StringComparer.Ordinal);
 
     public bool TryGetInstance(VBRuntimeObjectId objectId, [NotNullWhen(true)][MaybeNullWhen(false)] out IObjectInstance? instance)
     {
