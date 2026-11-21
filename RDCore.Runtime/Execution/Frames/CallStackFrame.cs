@@ -192,12 +192,6 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
     }
 
-    /// <summary>
-    /// How many of the temporaries of the statement the activation runs are let go of in the order the calls that made them say
-    /// (<see cref="ObjectReferences.SettleCall"/>), and how many times that count was set: the temporaries a call claims are those made after it.
-    /// </summary>
-    internal (int Count, int Times) SettledTemporaries { get; set; }
-
     private bool _moved;
 
     /// <summary>

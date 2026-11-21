@@ -140,7 +140,7 @@ public sealed partial class RuntimeExpressionEvaluator
                 || evaluation is Evaluation.Rest && !IsReference(node) && (ArgumentOrder.ContainsCall(node) || ArgumentOrder.NewIn(node).Any())
                 || evaluation is Evaluation.Rest && targetCalls && node is not BoundLiteral && (!IsReference(node) || byValue && IsScalarVariable(node)))
             {
-                return calls.Know(this, session, node, context);
+                return calls.Know(this, session, node, context, whole: true);
             }
 
             if (calls.KnowCallsIn(this, session, context, node) is { } callFailed)
@@ -291,7 +291,7 @@ public sealed partial class RuntimeExpressionEvaluator
         private IRuntimeSession _session = null!;
         private CallStackFrame? _caller;
         private int _start;
-        private (int Owner, int Start, int Times) _open;
+        private (int Owner, int Start, int Given) _open;
 
         public static ArgumentCalls Begin(IRuntimeSession session)
         {
@@ -301,7 +301,7 @@ public sealed partial class RuntimeExpressionEvaluator
             calls._session = session;
             calls._caller = session.CallStack.Current as CallStackFrame;
             calls._start = session.Objects.TemporaryCount;
-            calls._open = (-1, 0, 0);
+            calls._open = (-1, 0, -1);
             return calls;
         }
 
@@ -312,12 +312,23 @@ public sealed partial class RuntimeExpressionEvaluator
         public void Open(int owner)
         {
             Close();
-            _open = (owner, _session.Objects.TemporaryCount, _caller?.SettledTemporaries.Times ?? 0);
+            _open = (owner, _session.Objects.TemporaryCount, -1);
         }
 
-        // evaluates the node, and knows what it evaluated to until the call is bound; what was known of it already is not evaluated again.
+        // the argument open, or the target, evaluated to value: when that is the temporary made last, the call is given it itself, and it is let go of
+        // after what was made, and given, before it (ObjectReferences.SettleCall).
+        public void Gives(VBTypedValue? value)
+        {
+            if (_open.Owner >= 0 && ObjectReferences.IsLastTemporary(_session, _open.Start, value))
+            {
+                _open.Given = _session.Objects.TemporaryCount - 1;
+            }
+        }
+
+        // evaluates the node, and knows what it evaluated to until the call is bound; what was known of it already is not evaluated again. A whole
+        // argument gives the call what it evaluated to.
         public RuntimeSemanticsEvaluationResult? Know(RuntimeExpressionEvaluator evaluator, IRuntimeSession session, BoundNode node,
-            RuntimeEvaluationContext context)
+            RuntimeEvaluationContext context, bool whole = false)
         {
             if (_caller is not { } caller || caller.Known is { } known && (known.TryGet(node.Expression, out _) || known.TryGetObject(node.Expression, out _)))
             {
@@ -332,6 +343,11 @@ public sealed partial class RuntimeExpressionEvaluator
 
             if (result.Result is { } value)
             {
+                if (whole)
+                {
+                    Gives(value);
+                }
+
                 caller.Hoist(node.Expression, DataValues.Copy(value));
                 _hoisted.Add(node.Expression);
             }
@@ -373,7 +389,7 @@ public sealed partial class RuntimeExpressionEvaluator
         public void Settle()
         {
             Close();
-            ObjectReferences.SettleCall(_session, _caller, _start, CollectionsMarshal.AsSpan(_pieces));
+            ObjectReferences.SettleCall(_session, _start, CollectionsMarshal.AsSpan(_pieces));
             _pieces.Clear();
         }
 
@@ -398,10 +414,8 @@ public sealed partial class RuntimeExpressionEvaluator
                 return;
             }
 
-            var end = _session.Objects.TemporaryCount;
-            var settled = _caller is { SettledTemporaries: var made } && made.Times != _open.Times ? Math.Clamp(made.Count, _open.Start, end) : _open.Start;
-            _pieces.Add(new TemporaryPiece(_open.Owner, _open.Start, settled, end));
-            _open = (-1, 0, 0);
+            _pieces.Add(new TemporaryPiece(_open.Owner, _open.Start, _session.Objects.TemporaryCount, _open.Given));
+            _open = (-1, 0, -1);
         }
     }
 }

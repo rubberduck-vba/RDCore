@@ -213,8 +213,7 @@ public sealed class CompiledObjectCallSetTests
             "End Function"), "Combined", calls: 6, expected: "; 7 ;");
 
     // the objects a call's arguments and its target hold, what calls inside them returned, are let go of when the statement is over in the order of the
-    // parameters, then the target's, as MS-VBA lets go of them: in the order they were made in, where compiled code lets go of the last made first,
-    // so the interpreter runs the statement.
+    // parameters, then the target's, as MS-VBA lets go of them: more than one of them holds objects, so the interpreter runs the statement.
     [TestMethod]
     [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", "gone 2 ; gone 3 ; gone 1 ; 7 ;",
         DisplayName = "the target and two arguments")]
