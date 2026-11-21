@@ -8,7 +8,7 @@ namespace RDCore.Tests.Cli;
 /// RD-VBAL §5.4.2.3: a jump into the body of a <c>For</c> loop whose <c>For</c> statement never ran. MS-VBAL §5.4.2.3 has its <c>Next</c> raise
 /// error 92; MS-VBA raises it only for a counter declared <c>Variant</c>, and for a <c>For Each</c>. A <c>Next</c> of any other counter steps it on
 /// the loop a <c>For</c> that was never given its operands has: a 0 end, and a step of 0, or of 1 for a loop that writes no <c>Step</c> and counts
-/// an <c>Integer</c>, a <c>Long</c> or a <c>LongLong</c>. MS-VBA, recorded in Excel. Each program runs in the interpreter and in compiled code alike.
+/// an <c>Integer</c>, a <c>Long</c> or a <c>LongLong</c>. MS-VBA, observed in Excel. Each program runs in the interpreter and in compiled code alike.
 /// </summary>
 [TestClass]
 public sealed class ForLoopNotInitializedTests

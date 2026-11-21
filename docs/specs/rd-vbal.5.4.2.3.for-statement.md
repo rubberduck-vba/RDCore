@@ -71,8 +71,8 @@ steps the counter (6), and a counter that holds no number (13). An overflow leav
 that closes two loops (`Next j, i`) raises the outer loop's overflow there too. The position the error reports, the line
 a program waits at when it waits at the error, and `Erl` are all the `Next`'s, whether `Erl` counts document lines or
 line-number labels. Error 92, of a `Next` of a `Variant` counter whose loop was never opened, is located at the `Next`
-too. An error of the
-`start-value`, the `end-value` or the `step-increment` is the `For` statement's, and is located there.
+too. An error of the `start-value`, the `end-value` or the `step-increment` is the `For` statement's, and is located
+there.
 
 ### The type a loop counts in
 

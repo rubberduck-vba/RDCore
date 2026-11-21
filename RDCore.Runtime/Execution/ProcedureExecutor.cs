@@ -1259,7 +1259,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
     // MS-VBAL §5.4.2.3 has a Next whose For never ran raise error 92. MS-VBA raises it only for a counter declared Variant: a Next of any other counter
     // steps it on the loop state of a For that was never given its operands, as a For whose operands raised an error leaves it (RD-VBAL §5.4.2.3; MS-VBA,
-    // recorded in Excel).
+    // observed in Excel).
     private RuntimeExecutionOutcome? NeverOpened(IRuntimeSession session, RuntimeEvaluationContext context, InstructionList list, Instruction instruction,
         CallStackFrame activation, out ForLoopState state)
     {
