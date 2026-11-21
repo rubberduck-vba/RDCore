@@ -2246,7 +2246,8 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>
     /// How many times an activation of the body had the interpreter run one instruction and went on compiled: an error its handler
-    /// caught, a <c>Resume</c>, an <c>On...GoTo</c> (<see cref="CompiledActivation.Recover"/>).
+    /// caught, a <c>Resume</c>, an <c>On...GoTo</c> (<see cref="CompiledActivation.Recover"/>). An error its <c>On Error Resume Next</c> was given where
+    /// compiled code is counts too (<see cref="CompiledActivation.TryResumeNext"/>).
     /// </summary>
     public long Recoveries => Interlocked.Read(ref _recovered);
 
